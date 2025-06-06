@@ -1,0 +1,48 @@
+apiEndpoints:
+  users:
+    host: localhost
+    paths:
+      - /user
+  documents:
+    host: localhost
+    paths:
+      - /documents
+  
+serviceEndpoints:
+  user-service:
+    url: ${USER_SERVICE_URL}
+  document-service:
+    url: ${DOCUMENT_SERVICE_URL}
+
+policies:
+  - jwt
+  - proxy
+  - cors
+  - rate-limit
+  - key-auth
+  - expression
+  - log
+
+pipelines:
+  user-pipeline:
+    apiEndpoints:
+      - users
+    policies:
+      - proxy:
+          - action:
+              serviceEndpoint: user-service
+              changeOrigin: true
+
+  document-pipeline:
+    apiEndpoints:
+      - documents
+    policies:
+      - jwt:
+          - action:
+              secretOrPublicKey: 'secret'
+              checkCredentials: true
+              credentialsRequired: true
+      - proxy:
+          - action:
+              serviceEndpoint: document-service
+              changeOrigin: true
