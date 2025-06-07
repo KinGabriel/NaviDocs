@@ -1,9 +1,11 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Header from './components/header';
+import './assets/css/global.css'
+import Login from './pages/login';
+
 function App() {
   return(
     <>
-  <Header />
+      <Login />
     </>
   )
 }
