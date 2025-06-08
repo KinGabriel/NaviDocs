@@ -17,3 +17,15 @@
    npm install tailwindcss @tailwindcss/vite
    ```
 
+
+## Run the react frontend
+1. Navigate to the frontend directory:
+   ```sh
+   cd frontend
+   ```
+
+2. Run:
+   ```sh
+   npm run dev
+   ```
+

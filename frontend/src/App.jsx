@@ -5,7 +5,11 @@ import Login from './pages/login';
 function App() {
   return(
     <>
-      <Login />
+    <Router>
+      <Routes>
+        <Route path="/" element={<Login />} />
+      </Routes>
+    </Router>
     </>
   )
 }

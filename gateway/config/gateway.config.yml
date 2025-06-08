@@ -1,3 +1,5 @@
+http:
+  port: 8000
 apiEndpoints:
   users:
     host: localhost
@@ -47,7 +49,7 @@ pipelines:
     policies:
       - jwt:
           - action:
-              secretOrPublicKey: 'secret'
+              secretOrPublicKey: ${JWT_SECRET}
               checkCredentials: true
               credentialsRequired: true
       - proxy:

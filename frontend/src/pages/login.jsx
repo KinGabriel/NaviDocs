@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import sluLogo from '../assets/images/slulogo.png';
 import naviLogo from '../assets/images/navilogo.png';
@@ -11,6 +12,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,11 +24,31 @@ export default function Login() {
       return;
     }
     try {
-      const response = await axios.post('http://localhost:8001/api/users/login', {
+      const response = await axios.post('http://localhost:8000/api/users/login', {
         email,
         password,
       });
       localStorage.setItem('token', response.data.token);
+      const userRole = response.data.user.role.name;
+      switch (userRole) {
+      case 'Admin':
+        navigate('/admin/dashboard');
+        break;
+      case 'Faculty':
+        navigate('/faculty/dashboard');
+        break;
+      case 'Dean':
+        navigate('/dean/dashboard');
+        break;
+      case 'Secretary':
+        navigate('/secretary/dashboard');
+        break;
+      case 'Document Controller':
+        navigate('/document-controller/dashboard');
+        break;
+      default:
+        setError("Unknown role");
+    }
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
     } finally {
