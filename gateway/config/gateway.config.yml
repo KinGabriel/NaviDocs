@@ -2,11 +2,16 @@ apiEndpoints:
   users:
     host: localhost
     paths:
-      - /user
+      - /api/users/login
+  users-protected:
+    host: localhost
+    paths:
+      - /api/users/profile
+      - /api/users/update
   documents:
     host: localhost
     paths:
-      - /documents
+      - /api/documents
   
 serviceEndpoints:
   user-service:
@@ -28,6 +33,23 @@ pipelines:
     apiEndpoints:
       - users
     policies:
+      - cors:
+          - action:
+              origin: "*"
+      - proxy:
+          - action:
+              serviceEndpoint: user-service
+              changeOrigin: true
+
+  user-protected-pipeline:
+    apiEndpoints:
+      - users-protected
+    policies:
+      - jwt:
+          - action:
+              secretOrPublicKey: 'secret'
+              checkCredentials: true
+              credentialsRequired: true
       - proxy:
           - action:
               serviceEndpoint: user-service
