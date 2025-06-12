@@ -1,20 +1,24 @@
 http:
   port: 8000
+
 apiEndpoints:
   users:
     host: localhost
     paths:
       - /api/users/login
+
   users-protected:
     host: localhost
     paths:
       - /api/users/profile
       - /api/users/update
+      - /api/admin/get-users
+
   documents:
     host: localhost
     paths:
       - /api/documents
-  
+
 serviceEndpoints:
   user-service:
     url: ${USER_SERVICE_URL}
@@ -26,9 +30,6 @@ policies:
   - proxy
   - cors
   - rate-limit
-  - key-auth
-  - expression
-  - log
 
 pipelines:
   user-pipeline:
@@ -37,7 +38,10 @@ pipelines:
     policies:
       - cors:
           - action:
-              origin: "*"
+              origin: "http://localhost:5173"
+              methods: "GET,POST,OPTIONS"
+              credentials: true
+              allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
       - proxy:
           - action:
               serviceEndpoint: user-service
@@ -47,11 +51,19 @@ pipelines:
     apiEndpoints:
       - users-protected
     policies:
+      - cors:
+          - action:
+              origin: "http://localhost:5173"
+              methods: "GET,POST,PUT,DELETE,OPTIONS"
+              credentials: true
+              allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
       - jwt:
           - action:
               secretOrPublicKey: ${JWT_SECRET}
               checkCredentials: true
               credentialsRequired: true
+              checkCredentialExistence: false # to change
+
       - proxy:
           - action:
               serviceEndpoint: user-service
@@ -61,9 +73,15 @@ pipelines:
     apiEndpoints:
       - documents
     policies:
+      - cors:
+          - action:
+              origin: "http://localhost:5173"
+              methods: "GET,POST,PUT,DELETE,OPTIONS"
+              credentials: true
+              allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
       - jwt:
           - action:
-              secretOrPublicKey: 'secret'
+              secretOrPublicKey: ${JWT_SECRET}
               checkCredentials: true
               credentialsRequired: true
       - proxy:

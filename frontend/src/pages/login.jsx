@@ -81,7 +81,7 @@ export default function Login() {
             />
             <input
               type="text"
-              placeholder="Username"
+              placeholder="Email"
               className="w-full pl-12 pr-4 py-4 text-lg rounded-lg border border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
