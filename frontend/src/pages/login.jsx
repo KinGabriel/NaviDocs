@@ -6,7 +6,6 @@ import naviLogo from '../assets/images/navilogo.png';
 import userIcon from '../assets/images/user_icon.png';
 import passwordIcon from '../assets/images/password_icon.png';
 
-
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +28,7 @@ export default function Login() {
         password,
       });
       localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
       const userRole = response.data.user.role.name;
       switch (userRole) {
       case 'Admin':
