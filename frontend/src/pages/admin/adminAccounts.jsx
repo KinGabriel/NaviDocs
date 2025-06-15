@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import Sidebar from '../layout/sidebar';
-import Header from '../layout/header';
-import SearchBar from '../components/searchbar';
-import Table from '../components/table';
+import Sidebar from '../../layout/sidebar';
+import Header from '../../layout/header';
+import SearchBar from '../../components/searchbar';
+import Table from '../../components/table';
+import Dropdown from '../../components/dropdown';
 
 const columns = [
   {
@@ -48,6 +49,10 @@ export default function AdminAccounts() {
   const [users, setUsers] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 8;
+  const [roleFilter, setRoleFilter] = useState("All Roles");
+  const sortOptions = ["Sort By", "Name (A-Z)", "Name (Z-A)"];
+  const [sortBy, setSortBy] = useState(sortOptions[0]);
+  const [search, setSearch] = useState(""); 
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -58,7 +63,6 @@ export default function AdminAccounts() {
             Authorization: `Bearer ${token}`,
           },
         });
-        console.log(res.data);
         setUsers(res.data || []);
       } catch (err) {
         setUsers([]);
@@ -67,10 +71,40 @@ export default function AdminAccounts() {
     fetchUsers();
   }, []);
 
-  const totalPages = Math.ceil(users.length / usersPerPage);
+  // roles for the filter dropdown
+  const roles = ["All Roles", ...Array.from(new Set(users.map(u => u.role?.name).filter(Boolean)))];
+
+  // filter users by selected role
+  const filteredUsers = roleFilter === "All Roles"
+    ? users
+    : users.filter(u => u.role?.name === roleFilter);
+
+  // filter users by search query
+  const searchedUsers = search
+    ? filteredUsers.filter(u =>
+        (`${u.firstname} ${u.lastname}`.toLowerCase().includes(search.toLowerCase()) ||
+         u.email?.toLowerCase().includes(search.toLowerCase()) ||
+         u.role?.school?.toLowerCase().includes(search.toLowerCase()) ||
+         u.role?.department?.toLowerCase().includes(search.toLowerCase()) ||
+         u.role?.name?.toLowerCase().includes(search.toLowerCase()))
+      )
+    : filteredUsers;
+
+  // sort users by name
+  const sortedUsers = sortBy === "Sort By"
+    ? searchedUsers
+    : [...searchedUsers].sort((a, b) => {
+        const nameA = `${a.firstname} ${a.lastname}`.toLowerCase();
+        const nameB = `${b.firstname} ${b.lastname}`.toLowerCase();
+        if (sortBy === "Name (A-Z)") return nameA.localeCompare(nameB);
+        if (sortBy === "Name (Z-A)") return nameB.localeCompare(nameA);
+        return 0;
+      });
+
+  const totalPages = Math.ceil(sortedUsers.length / usersPerPage);
   const startIdx = (currentPage - 1) * usersPerPage;
   const endIdx = startIdx + usersPerPage;
-  const currentUsers = users.slice(startIdx, endIdx);
+  const currentUsers = sortedUsers.slice(startIdx, endIdx);
 
   const handlePrev = () => setCurrentPage((p) => Math.max(1, p - 1));
   const handleNext = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
@@ -104,16 +138,23 @@ export default function AdminAccounts() {
 
             {/* Filter, Sort, Search */}
             <div className="flex items-center gap-2 mb-4">
-              <button className="bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm">Filter by</button>
-              <button className="bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm flex items-center gap-1">
-                Sort by
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
+              {/* Filter by Role */}
+              <Dropdown
+                value={roleFilter}
+                onChange={value => { setRoleFilter(value); setCurrentPage(1); }}
+                options={roles}
+                width='w-52'
+              />
+              {/* Sort by Name */}
+              <Dropdown
+                value={sortBy}
+                onChange={setSortBy}
+                options={sortOptions}
+                width='w-36'
+              />
               <div className="flex-1 flex justify-end">
                 <div className="w-64">
-                  <SearchBar />
+                  <SearchBar value={search} onChange={e => setSearch(e.target.value)} />
                 </div>
               </div>
             </div>

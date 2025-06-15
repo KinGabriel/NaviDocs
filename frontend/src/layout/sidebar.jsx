@@ -7,14 +7,11 @@ export default function Sidebar({ user }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // route map for the current role
-  const roleRoutes = MENU_ROUTES[roleValue] || {};
-
   // active menu item based on the current path
   let activeLabel = null;
   if (menu) {
     for (const item of menu) {
-      if (roleRoutes[item.label] && location.pathname.startsWith(roleRoutes[item.label])) {
+      if (item.route && location.pathname.startsWith(item.route)) {
         activeLabel = item.label;
         break;
       }
@@ -22,7 +19,7 @@ export default function Sidebar({ user }) {
     // fallback
     if (!activeLabel) {
       for (const item of menu) {
-        if (roleRoutes[item.label] === location.pathname) {
+        if (item.route === location.pathname) {
           activeLabel = item.label;
           break;
         }
@@ -58,8 +55,7 @@ export default function Sidebar({ user }) {
                 label={item.label}
                 active={activeLabel === item.label}
                 onClick={() => {
-                  const route = roleRoutes[item.label];
-                  if (route) navigate(route);
+                  if (item.route) navigate(item.route);
                 }}
               />
             ))
@@ -104,6 +100,7 @@ const MENU_CONFIG = {
           <rect x="3" y="14" width="7" height="7" rx="1.5" />
         </svg>
       ),
+      route: "/admin/dashboard"
     },
     {
       label: "User Accounts",
@@ -112,6 +109,7 @@ const MENU_CONFIG = {
           <path d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 10-8 0 4 4 0 008 0z" />
         </svg>
       ),
+      route: "/admin/accounts"
     },
     {
       label: "Create User",
@@ -121,6 +119,7 @@ const MENU_CONFIG = {
           <path d="M16 16v2m0 0v2m0-2h2m-2 0h-2" />
         </svg>
       ),
+      route: "/admin/create-user"
     },
     {
       label: "Account Settings",
@@ -129,6 +128,7 @@ const MENU_CONFIG = {
           <path d="M12 15v2m0 4a4 4 0 100-8 4 4 0 000 8zm6.364-6.364l1.414-1.414m-1.414 1.414A9 9 0 003.636 6.636m1.414 1.414L6.364 6.364" />
         </svg>
       ),
+      route: "/admin/settings"
     },
   ],
   Faculty: [
@@ -142,6 +142,7 @@ const MENU_CONFIG = {
           <rect x="3" y="14" width="7" height="7" rx="1.5" />
         </svg>
       ),
+      route: "/faculty/dashboard"
     },
     {
       label: "Documents",
@@ -153,6 +154,7 @@ const MENU_CONFIG = {
           <line x1="9" y1="15" x2="13" y2="15" />
         </svg>
       ),
+      route: "/faculty/documents"
     },
     {
       label: "Account Settings",
@@ -161,22 +163,9 @@ const MENU_CONFIG = {
           <path d="M12 15v2m0 4a4 4 0 100-8 4 4 0 000 8zm6.364-6.364l1.414-1.414m-1.414 1.414A9 9 0 003.636 6.636m1.414 1.414L6.364 6.364" />
         </svg>
       ),
+      route: "/faculty/settings"
     },
-  ],
-
+  ]
 };
 
-const MENU_ROUTES = {
-  Admin: {
-    "Dashboard": "/admin/dashboard",
-    "User Accounts": "/admin/accounts",
-    "Create User": "/admin/create-user",
-    "Account Settings": "/admin/settings"
-  },
-  Faculty: {
-    "Dashboard": "/faculty/dashboard",
-    "Documents": "/faculty/documents",
-    "Account Settings": "/faculty/settings"
-  }
 
-};

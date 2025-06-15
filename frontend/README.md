@@ -14,6 +14,7 @@
 3. Install additional packages:
    ```sh
    npm install react-router-dom@7
+   npm install @headlessui/react
    npm install tailwindcss @tailwindcss/vite
    ```
 

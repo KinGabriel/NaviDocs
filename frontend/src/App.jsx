@@ -1,8 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './assets/css/global.css'
 import Login from './pages/login';
-import AdminDashboard from './pages/adminDashboard';
-import AdminAccounts from './pages/adminAccounts';
+import AdminDashboard from './pages/admin/adminDashboard';
+import AdminAccounts from './pages/admin/adminAccounts';
 
 function App() {
   return(
