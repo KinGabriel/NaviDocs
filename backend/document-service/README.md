@@ -1,9 +1,9 @@
 
 # User-service Setup
 
-1. Navigate to the user-service directory:
+1. Navigate to the document-service directory:
    ```sh
-   cd backend/user-service
+   cd backend/document-service
    ```
 
 2. Install dependencies:
