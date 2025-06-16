@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import useUser from '../../hooks/useUser';
 import Sidebar from '../../layout/sidebar';
 import Header from '../../layout/header';
 import SearchBar from '../../components/searchbar';
@@ -46,7 +47,7 @@ const columns = [
 ];
 
 export default function AdminAccounts() {
-  const user = JSON.parse(localStorage.getItem('user'));
+  const user = useUser();
   const [users, setUsers] = useState([]);
   const usersPerPage = 8;
   const [roleFilter, setRoleFilter] = useState("All Roles");
@@ -100,7 +101,7 @@ export default function AdminAccounts() {
         if (sortBy === "Name (Z-A)") return nameB.localeCompare(nameA);
         return 0;
       });
-      
+
   //handle pagination
   const totalPages = Math.ceil(sortedUsers.length / usersPerPage);
   const {
