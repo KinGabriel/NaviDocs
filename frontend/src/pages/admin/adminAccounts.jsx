@@ -5,6 +5,7 @@ import Header from '../../layout/header';
 import SearchBar from '../../components/searchbar';
 import Table from '../../components/table';
 import Dropdown from '../../components/dropdown';
+import usePagination from '../../hooks/usePagination';
 
 const columns = [
   {
@@ -47,7 +48,6 @@ const columns = [
 export default function AdminAccounts() {
   const user = JSON.parse(localStorage.getItem('user'));
   const [users, setUsers] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 8;
   const [roleFilter, setRoleFilter] = useState("All Roles");
   const sortOptions = ["Sort By", "Name (A-Z)", "Name (Z-A)"];
@@ -100,31 +100,21 @@ export default function AdminAccounts() {
         if (sortBy === "Name (Z-A)") return nameB.localeCompare(nameA);
         return 0;
       });
-
+      
+  //handle pagination
   const totalPages = Math.ceil(sortedUsers.length / usersPerPage);
+  const {
+    currentPage,
+    setCurrentPage,
+    handlePrev,
+    handleNext,
+    handlePage,
+    getPageNumbers,
+  } = usePagination(totalPages);
+
   const startIdx = (currentPage - 1) * usersPerPage;
   const endIdx = startIdx + usersPerPage;
   const currentUsers = sortedUsers.slice(startIdx, endIdx);
-
-  const handlePrev = () => setCurrentPage((p) => Math.max(1, p - 1));
-  const handleNext = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
-  const handlePage = (n) => setCurrentPage(n);
-
-  const getPageNumbers = () => {
-    const pages = [];
-    if (totalPages <= 6) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      if (currentPage <= 3) {
-        pages.push(1, 2, 3, 4, "...", totalPages - 1, totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1, 2, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-      } else {
-        pages.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages);
-      }
-    }
-    return pages;
-  };
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
