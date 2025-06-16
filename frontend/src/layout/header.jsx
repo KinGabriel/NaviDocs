@@ -1,7 +1,7 @@
 import '../assets/css/global.css'
 import SearchBar from '../components/searchbar';
 import naviLogo from '../assets/images/navilogo.png';
-import notifIcon from '../assets/images/notif_icon.png';
+import notifIcon from '../assets/images/notif_icon.svg';
 
 export default function Header({ user }) {
   return (
@@ -12,13 +12,8 @@ export default function Header({ user }) {
       <header className="bg-white px-6 py-3 flex items-center justify-between shadow-sm">
         {/* Logo and Title */}
         <div className="flex items-center gap-3">
-          <img src={naviLogo} alt="Logo" className="h-12 w-12" />
+          <img src={naviLogo} alt="Logo" className="h-10 w-15" />
           <span className="text-[13px] font-semibold text-gray-700 tracking-wide">NAVIDOCS</span>
-        </div>
-
-        {/* Search bar */}
-        <div className="flex-1 max-w-sm mx-8">
-          <SearchBar />
         </div>
 
         {/* Notification & User Info */}

@@ -133,7 +133,7 @@ export default function AdminAccounts() {
         <Sidebar user={user} active="User Accounts" />
         <div className="flex-1 flex flex-col bg-white shadow pt-8 pb-4 px-8 mx-6 mt-8 rounded-xl">
           <div className="flex-1 p-10">
-            <h2 className="text-3xl font-extrabold mb-2 tracking-wide">NAVIDOCS USERS</h2>
+            <h2 className="text-3xl font-semibold mb-2 tracking-wide">NAVIDOCS USERS</h2>
             <div className="w-24 h-1 bg-yellow-400 mb-6 rounded" />
 
             {/* Filter, Sort, Search */}
