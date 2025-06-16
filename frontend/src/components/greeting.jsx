@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function Greeting({ name }) {
   return (
-    <div className="px-1 pt-6">
+    <div className="px-1 pt-2">
       <h2 className="text-4xl font-bold text-[#003DA5]">
         Welcome back, {name}!
       </h2>
