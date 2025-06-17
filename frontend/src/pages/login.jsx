@@ -67,8 +67,8 @@ export default function Login() {
       {/* Right side  */}
       <div className="w-1/2 flex flex-col justify-center items-center bg-white ">
         <img src={sluLogo} alt="School Logo" className="w-30 mb-6" />
-        <h2 className="text-7xl font-bold text-yellow-400 mb-4">Welcome!</h2>
-        <p className="mb-8 text-lg text-gray-500">Please enter your details</p>
+        <h2 className="text-6xl font-bold text-yellow-400 mb-4">Welcome!</h2>
+        <p className="mb-8 text-l text-gray-500">Please enter your details</p>
         <form className="w-[40rem] max-w-full" onSubmit={handleSubmit}>
           {error && (
             <div className="mb-4 text-red-500 text-center font-semibold">{error}</div>
@@ -103,9 +103,14 @@ export default function Login() {
               required
             />
           </div>
+          <div className="text-right mb-4">
+            <a href="#" className="text-base text-gray-400 hover:underline">
+              Forgot Password?
+            </a>
+          </div>
             <button
             type="submit"
-            className="w-full py-4 rounded-lg bg-gradient-to-r from-blue-700 to-blue-400 text-white font-bold text-xl mb-3 shadow-lg
+            className="w-full py-4 mt-10 rounded-lg bg-gradient-to-r from-blue-700 to-blue-400 text-white font-bold text-xl mb-3 shadow-lg
                         transition-all duration-200 ease-in-out active:scale-95 active:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isLoading}
             >
@@ -119,11 +124,7 @@ export default function Login() {
             </div>
             ) : "Login"}
             </button>
-          <div className="text-center">
-            <a href="#" className="text-base text-gray-400 hover:underline">
-              Forgot Password
-            </a>
-          </div>
+    
         </form>
       </div>
     </div>
