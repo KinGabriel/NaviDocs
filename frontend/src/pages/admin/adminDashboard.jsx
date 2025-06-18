@@ -5,9 +5,12 @@ import Sidebar from '../../layout/sidebar';
 import Greeting from '../../components/greeting';
 import StatCard from '../../components/statcard';
 import Table from '../../components/table';
+import Loader from '../../components/loader';
 
 export default function AdminDashboard() {
   const user = useUser();
+
+   const isLoading = false; // simulating loading state, replace with actual loading logic
 
   // for visualization only (TO CHANGE)
   const stats = [
@@ -92,11 +95,13 @@ export default function AdminDashboard() {
             </button>
           </div>
         </div>
-
-        <div className="-mt-2">
-          <Table columns={columns} data={data} />
-        </div>
-        
+          <div className="-mt-2">
+            {isLoading ? (
+              <Loader message="Loading..." />
+            ) : (
+              <Table columns={columns} data={data} />
+            )}
+          </div>
         </main>
       </div>
       </div>
