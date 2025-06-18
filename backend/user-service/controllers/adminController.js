@@ -52,3 +52,32 @@ export const createUser = async (req, res) => {
 
   
 };
+/**
+ * @desc Get dashboard information
+ * @route GET /api/admin/dashboard-info
+ * @access Public
+ */
+export const getDashboardInfo = async (req, res) => {
+  try {
+    const total = await User.countDocuments();
+    const dean = await User.countDocuments({ "role.name": "Dean" });
+    const deptHead = await User.countDocuments({ "role.name": "Department Head"});
+    const faculty = await User.countDocuments({ "role.name": "Faculty" });
+
+    //  5 most recently created users
+    const recentUsers = await User.find({})
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select("email role.department role.school role.name createdAt");
+
+    res.status(200).json({
+      total,
+      dean,
+      deptHead,
+      faculty,
+      recentUsers
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

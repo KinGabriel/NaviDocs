@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import useUser from '../../hooks/useUser';
 import Header from '../../layout/header'; 
 import Sidebar from '../../layout/sidebar'; 
@@ -8,58 +9,61 @@ import Table from '../../components/table';
 
 export default function AdminDashboard() {
   const user = useUser();
+  const [dashboardInfo, setDashboardInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // for visualization only (TO CHANGE)
+  useEffect(() => {
+    const fetchDashboardInfo = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get("http://localhost:8000/api/admin/dashboard-info", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setDashboardInfo(res.data);
+      } catch (err) {
+        setDashboardInfo(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardInfo();
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+ if (!dashboardInfo) return <div>Failed to load dashboard info.</div>;
+
+  // Stats to display on the dashboard
   const stats = [
-    { title: 'School Dean', value: 4 },
-    { title: 'Department Head', value: 6 },
-    { title: 'Faculty Members', value: 206 },
-    { title: 'Total Users', value: '12,546' },
+    { title: 'School Dean', value: dashboardInfo.dean },
+    { title: 'Department Head', value: dashboardInfo.deptHead },
+    { title: 'Faculty Members', value: dashboardInfo.faculty },
+    { title: 'Total Users', value: dashboardInfo.total },
   ];
 
-  const columns = [
-    { key: 'name', label: 'Name' },
-    { key: 'schoolemail', label: 'School Email' },
-    { key: 'department', label: 'Department' },
-    { key: 'school', label: 'School' },
-    { key: 'role', label: 'Role' },
-  ];
 
-  const data = [
+
+  // Define columns for recent users
+  const recentUserColumns = [
+    { key: "email", label: "Email" },
     {
-      name: 'John Doe',
-      schoolemail: 'john.doe@slu.edu.ph',
-      department: 'Computer Science',
-      school: 'School of Computing and Information Sciences',
-      role: 'Dean',
+      key: "department",
+      label: "Department",
+      render: (row) => row.role?.department || "N/A",
     },
     {
-      name: 'Jane Smith',
-      schoolemail: 'jane.smith@slu.edu.ph',
-      department: 'Information Technology',
-      school: 'School of Computing and Information Sciences',
-      role: 'Faculty',
+      key: "school",
+      label: "School",
+      render: (row) => row.role?.school || "N/A",
     },
     {
-      name: 'Michael Reyes',
-      schoolemail: 'michael.reyes@slu.edu.ph',
-      department: 'Engineering',
-      school: 'School of Engineering and Architecture',
-      role: 'Department Head',
+      key: "role",
+      label: "Role",
+      render: (row) => row.role?.name || "N/A",
     },
     {
-      name: 'Angela Tan',
-      schoolemail: 'angela.tan@slu.edu.ph',
-      department: 'Business Administration',
-      school: 'School of Business Management',
-      role: 'Faculty',
-    },
-    {
-      name: 'Carlos Mendoza',
-      schoolemail: 'carlos.mendoza@slu.edu.ph',
-      department: 'Education',
-      school: 'School of Teacher Education and Liberal Arts',
-      role: 'Dean',
+      key: "createdAt",
+      label: "Created At",
+      render: (row) => new Date(row.createdAt).toLocaleString(),
     },
   ];
 
@@ -92,11 +96,11 @@ export default function AdminDashboard() {
             </button>
           </div>
         </div>
-
+      {!loading && dashboardInfo && (
         <div className="-mt-2">
-          <Table columns={columns} data={data} />
+          <Table columns={recentUserColumns} data={dashboardInfo.recentUsers} />
         </div>
-        
+      )}
         </main>
       </div>
       </div>

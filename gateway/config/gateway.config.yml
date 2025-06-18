@@ -13,6 +13,7 @@ apiEndpoints:
       - /api/users/profile
       - /api/users/update
       - /api/admin/get-users
+      - /api/admin/dashboard-info
 
   documents:
     host: localhost
