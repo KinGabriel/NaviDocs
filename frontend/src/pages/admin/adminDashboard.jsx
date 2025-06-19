@@ -30,8 +30,26 @@ export default function AdminDashboard() {
     fetchDashboardInfo();
   }, []);
 
-  if (loading) return <div>Loading...</div>;
- if (!dashboardInfo) return <div>Failed to load dashboard info.</div>;
+    // loading animation
+  if (loading) return <Loader message="Loading..." />;
+
+  // error state
+  if (!dashboardInfo) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-100">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
+          <div className="flex flex-1 items-center justify-center">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold text-red-600 mb-2">Unable to load dashboard</h2>
+              <p className="text-gray-500">Please check your connection or try again later.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Stats to display on the dashboard
   const stats = [
@@ -40,7 +58,6 @@ export default function AdminDashboard() {
     { title: 'Faculty Members', value: dashboardInfo.faculty },
     { title: 'Total Users', value: dashboardInfo.total },
   ];
-
 
 
   // Define columns for recent users
