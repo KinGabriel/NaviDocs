@@ -6,6 +6,7 @@ import Sidebar from '../../layout/sidebar';
 import Greeting from '../../components/greeting';
 import StatCard from '../../components/statcard';
 import Table from '../../components/table';
+import Loader from '../../components/loader';
 
 export default function AdminDashboard() {
   const user = useUser();
