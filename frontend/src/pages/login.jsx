@@ -5,6 +5,7 @@ import sluLogo from '../assets/images/slulogo.png';
 import naviLogo from '../assets/images/navilogo.png';
 import userIcon from '../assets/images/user_icon.png';
 import passwordIcon from '../assets/images/password_icon.png';
+import PasswordInput from '../components/passwordinput.jsx';
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -89,20 +90,17 @@ export default function Login() {
             />
           </div>
           <div className="mb-6 relative">
-            <img
-              src={passwordIcon}
-              alt="Password Icon"
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 w-7 h-7"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              className="w-full pl-12 pr-4 py-4 text-lg rounded-lg border border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+          <img
+            src={passwordIcon}
+            alt="Password Icon"
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 w-7 h-7"
+          />
+          {/* password input - if the users wants to check their pw */   }
+          <PasswordInput
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
           <div className="text-right mb-4">
             <a href="#" className="text-base text-gray-400 hover:underline">
               Forgot Password?
@@ -124,7 +122,6 @@ export default function Login() {
             </div>
             ) : "Login"}
             </button>
-    
         </form>
       </div>
     </div>
