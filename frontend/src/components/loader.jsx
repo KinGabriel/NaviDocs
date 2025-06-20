@@ -1,20 +1,10 @@
 // when data is still loading
+
 export default function Loader({ message = "Loading..." }) {
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="flex flex-col items-center text-gray-600 animate-pulse">
-       <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">
-       <circle cx="12" cy="2" r="0" fill="#003DA5"><animate attributeName="r" begin="0" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
-       <circle cx="12" cy="2" r="0" fill="#003DA5" transform="rotate(45 12 12)"><animate attributeName="r" begin="0.125s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
-       <circle cx="12" cy="2" r="0" fill="#003DA5" transform="rotate(90 12 12)"><animate attributeName="r" begin="0.25s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
-       <circle cx="12" cy="2" r="0" fill="#003DA5" transform="rotate(135 12 12)"><animate attributeName="r" begin="0.375s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
-       <circle cx="12" cy="2" r="0" fill="#003DA5" transform="rotate(180 12 12)"><animate attributeName="r" begin="0.5s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
-       <circle cx="12" cy="2" r="0" fill="#003DA5" transform="rotate(225 12 12)"><animate attributeName="r" begin="0.625s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
-       <circle cx="12" cy="2" r="0" fill="#003DA5" transform="rotate(270 12 12)"><animate attributeName="r" begin="0.75s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
-       <circle cx="12" cy="2" r="0" fill="#003DA5" transform="rotate(315 12 12)"><animate attributeName="r" begin="0.875s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
-       </svg>
-        <p className="text-base text-xl font-semibold mt-8">{message}</p>
-      </div>
+    <div className="flex flex-col items-center justify-center text-gray-600 space-y-4 py-10">
+      <div className="w-10 h-10 border-4 border-blue-300 border-t-[#003DA5] rounded-full animate-spin"></div>
+      <p className="text-base text-xl font-semibold mt-3">{message}</p>
     </div>
   );
 }

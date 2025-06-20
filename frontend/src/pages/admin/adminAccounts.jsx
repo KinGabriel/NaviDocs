@@ -118,39 +118,42 @@ export default function AdminAccounts() {
   const endIdx = startIdx + usersPerPage;
   const currentUsers = sortedUsers.slice(startIdx, endIdx);
 
-  // loading animation
+     // loading animation
   if (loading) {
-    return (
-       <div className="min-h-screen bg-gray-200 flex flex-col">
-          <Header user={user} />
-          <div className="flex flex-1">
-            <Sidebar user={user} />
-           <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-              <div className="text-center">
-                <Loader message="Loading..." />
-              </div>
-            </div>
-          </div>
-        </div>
-    );
-  }
+   return (
+     <div className="min-h-screen bg-gray-200 flex flex-col">
+       <Header user={user} />
+       <div className="flex flex-1">
+         <Sidebar user={user} />
+         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+           <div className="flex-1 flex items-center justify-center">
+             <Loader message="Loading..." />
+           </div>
+         </div>
+       </div>
+     </div>
+   );
+ }
+
     // error state
     if (!users) {
-      return (
-        <div className="min-h-screen bg-gray-200 flex flex-col">
-          <Header user={user} />
-          <div className="flex flex-1">
-            <Sidebar user={user} />
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
           <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-              <div className="text-center">
+            <div className="flex-1 flex items-center justify-center text-center">
+              <div>
                 <h2 className="text-xl font-semibold text-red-600 mb-2">Unable to load dashboard</h2>
                 <p className="text-gray-500">Please check your connection or try again later.</p>
               </div>
             </div>
           </div>
         </div>
-      );
-    }
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
