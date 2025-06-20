@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { loginAPI } from "../api/authAPI";
 import sluLogo from '../assets/images/slulogo.png';
 import naviLogo from '../assets/images/navilogo.png';
 import userIcon from '../assets/images/user_icon.png';
@@ -24,13 +24,10 @@ export default function Login() {
       return;
     }
     try {
-      const response = await axios.post('http://localhost:8000/api/users/login', {
-        email,
-        password,
-      });
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      const userRole = response.data.user.role.name;
+      const data = await loginAPI(email, password);
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      const userRole = data.user.role.name;
       switch (userRole) {
       case 'Admin':
         navigate('/admin/dashboard');
@@ -51,7 +48,7 @@ export default function Login() {
         setError("Unknown role");
     }
     } catch (err) {
-      setError(err.response?.data?.message || "Login failed");
+      setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }

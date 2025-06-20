@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { fetchUsersAccountsAPI } from "../../api/adminAPI";
 import useUser from '../../hooks/useUser';
 import Sidebar from '../../layout/sidebar';
 import Header from '../../layout/header';
@@ -7,6 +7,7 @@ import SearchBar from '../../components/searchbar';
 import Table from '../../components/table';
 import Dropdown from '../../components/dropdown';
 import usePagination from '../../hooks/usePagination';
+import Loader from '../../components/loader';
 
 const columns = [
   {
@@ -54,19 +55,19 @@ export default function AdminAccounts() {
   const sortOptions = ["Sort By", "Name (A-Z)", "Name (Z-A)"];
   const [sortBy, setSortBy] = useState(sortOptions[0]);
   const [search, setSearch] = useState(""); 
+  const [loading, setLoading] = useState(true);
 
+ 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get('http://localhost:8000/api/admin/get-users', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        setUsers(res.data || []);
+        const data = await fetchUsersAccountsAPI();
+        setUsers(data);
       } catch (err) {
         setUsers([]);
+        setAccountsInfo(null)
+      } finally {
+        setLoading(false);
       }
     };
     fetchUsers();
@@ -117,12 +118,46 @@ export default function AdminAccounts() {
   const endIdx = startIdx + usersPerPage;
   const currentUsers = sortedUsers.slice(startIdx, endIdx);
 
+  // loading animation
+  if (loading) {
+    return (
+       <div className="min-h-screen bg-gray-200 flex flex-col">
+          <Header user={user} />
+          <div className="flex flex-1">
+            <Sidebar user={user} />
+           <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+              <div className="text-center">
+                <Loader message="Loading..." />
+              </div>
+            </div>
+          </div>
+        </div>
+    );
+  }
+    // error state
+    if (!users) {
+      return (
+        <div className="min-h-screen bg-gray-200 flex flex-col">
+          <Header user={user} />
+          <div className="flex flex-1">
+            <Sidebar user={user} />
+          <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-red-600 mb-2">Unable to load dashboard</h2>
+                <p className="text-gray-500">Please check your connection or try again later.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="User Accounts" />
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+       <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           <div className="flex-1 p-10">
             <h2 className="text-3xl font-semibold mb-2 tracking-wide">NAVIDOCS USERS</h2>
             <div className="w-24 h-1 bg-yellow-400 mb-6 rounded" />

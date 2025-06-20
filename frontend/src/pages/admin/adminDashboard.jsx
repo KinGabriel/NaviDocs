@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { fetchDashboardInfoAPI } from "../../api/adminAPI";
 import useUser from '../../hooks/useUser';
 import Header from '../../layout/header'; 
 import Sidebar from '../../layout/sidebar'; 
@@ -16,11 +16,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchDashboardInfo = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get("http://localhost:8000/api/admin/dashboard-info", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setDashboardInfo(res.data);
+        const data = await fetchDashboardInfoAPI();
+        setDashboardInfo(data);
       } catch (err) {
         setDashboardInfo(null);
       } finally {
@@ -31,16 +28,31 @@ export default function AdminDashboard() {
   }, []);
 
     // loading animation
-  if (loading) return <Loader message="Loading..." />;
+  if (loading) {
+
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
+         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+            <div className="text-center">
+              <Loader message="Loading..." />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // error state
   if (!dashboardInfo) {
     return (
-      <div className="min-h-screen flex flex-col bg-gray-100">
+      <div className="min-h-screen bg-gray-200 flex flex-col">
         <Header user={user} />
         <div className="flex flex-1">
           <Sidebar user={user} />
-          <div className="flex flex-1 items-center justify-center">
+          <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
             <div className="text-center">
               <h2 className="text-xl font-semibold text-red-600 mb-2">Unable to load dashboard</h2>
               <p className="text-gray-500">Please check your connection or try again later.</p>
@@ -91,7 +103,7 @@ export default function AdminDashboard() {
       {/* sidebar & content area */}
       <div className="flex flex-1">
         <Sidebar user={user} />
-         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
         <main className="p-8 flex-1 overflow-y-auto">
           <Greeting name={user?.name || 'Admin'} />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
@@ -114,11 +126,10 @@ export default function AdminDashboard() {
             </button>
           </div>
         </div>
-      {!loading && dashboardInfo && (
-        <div className="-mt-2">
-          <Table columns={recentUserColumns} data={dashboardInfo.recentUsers} />
-        </div>
-      )}
+            <div className="-mt-2">
+              <Table columns={recentUserColumns} data={dashboardInfo.recentUsers} />
+            </div>
+  
         </main>
       </div>
       </div>
