@@ -157,7 +157,38 @@ const MENU_CONFIG = {
       ),
       route: "/faculty/settings"
     },
-  ]
+  ],
+  "Document Controller": [
+    {
+      label: "Dashboard",
+      icon: (
+        <svg className="h-5 w-5 text-blue-700" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" fill="none" />
+        </svg>
+      ),
+      route: "/document-controller/dashboard"
+    },
+    {
+      label: "Documents",
+      icon: (   
+        <svg className="h-5 w-5 text-blue-700" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <rect x="6" y="3" width="12" height="18" rx="2" stroke="currentColor" fill="none" />
+          <line x1="9" y1="7" x2="15" y2="7" stroke="currentColor" />
+        </svg>
+      ),
+      route: "/document-controller/documents"
+    },
+    { 
+      label: "Templates",
+      icon: (
+        <svg className="h-5 w-5 text-blue-700" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <rect x="3" y="3" width="18" height="18" rx="2" />  
+          <line x1="3" y1="9" x2="21" y2="9" />
+        </svg>
+      ),  
+      route: "/document-controller/templates"
+    },
+  ],
 };
 
 
