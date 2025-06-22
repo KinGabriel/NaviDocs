@@ -5,7 +5,7 @@ import AdminDashboard from './pages/admin/adminDashboard';
 import AdminAccounts from './pages/admin/adminAccounts';
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
-import ProtectedRoute from  './guards/protectedroute '
+import ProtectedRoute from './guards/protectedroute';
 
 function App() {
   return(
@@ -44,7 +44,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {/* Add more routes here */}
       </Routes>
     </Router>
   )
