@@ -5,19 +5,48 @@ import AdminDashboard from './pages/admin/adminDashboard';
 import AdminAccounts from './pages/admin/adminAccounts';
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
+import ProtectedRoute from  './guards/protectedroute '
+
 function App() {
   return(
-    <>
     <Router>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/accounts" element={<AdminAccounts />} />
-        <Route path="/document-controller/dashboard" element={<DocumentControllerDashboard />} />
-        <Route path="/document-controller/templates" element={<DocumentControllerTemplates/> } />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/accounts"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <AdminAccounts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/document-controller/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Document Controller"]}>
+              <DocumentControllerDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/document-controller/templates"
+          element={
+            <ProtectedRoute allowedRoles={["Document Controller"]}>
+              <DocumentControllerTemplates />
+            </ProtectedRoute>
+          }
+        />
+        {/* Add more routes here */}
       </Routes>
     </Router>
-    </>
   )
 }
 
