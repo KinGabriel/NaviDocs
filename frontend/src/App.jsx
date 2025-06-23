@@ -3,6 +3,7 @@ import './assets/css/global.css'
 import Login from './pages/login';
 import AdminDashboard from './pages/admin/adminDashboard';
 import AdminAccounts from './pages/admin/adminAccounts';
+import CreateUser from './pages/admin/create-user';
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
 import ProtectedRoute from './guards/protectedroute';
@@ -25,6 +26,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Admin"]}>
               <AdminAccounts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/create-user"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <CreateUser />
             </ProtectedRoute>
           }
         />
