@@ -133,52 +133,61 @@ export default function CreateUser() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (errors.firstname || errors.lastname || errors.email) {
-      setModalMessage("Please correct the errors before submitting.");
+  // ✅ Check for validation errors first
+  if (errors.firstname || errors.lastname || errors.email) {
+    setModalMessage("Please correct the errors before submitting.");
+    setIsSuccess(false);
+    return;
+  }
+
+  // ✅ Check if role.name is empty
+  if (!formData.role.name) {
+    setModalMessage("Please select a role.");
+    setIsSuccess(false);
+    return;
+  }
+
+  setLoading(true);
+  setModalMessage(null);
+
+  const data = new FormData();
+  data.append('firstname', formData.firstname);
+  data.append('lastname', formData.lastname);
+  data.append('email', formData.email);
+  data.append('school', formData.school);
+  data.append('department', formData.role.department);
+  data.append('role.name', formData.role.name);
+  data.append('role.school', formData.role.school);
+  data.append('role.department', formData.role.department);
+  if (image) data.append('profile_picture', image);
+
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch('http://localhost:8001/api/admin/create-user', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: data
+    });
+    const result = await res.json();
+    setLoading(false);
+
+    if (res.ok) {
+      setIsSuccess(true);
+      setModalMessage('User created successfully');
+      handleClear();
+    } else {
       setIsSuccess(false);
-      return;
+      setModalMessage(result.message || 'Failed to create user');
     }
+  } catch (err) {
+    setLoading(false);
+    setIsSuccess(false);
+    setModalMessage('Error: ' + err.message);
+  }
+};
 
-    setLoading(true);
-    setModalMessage(null);
-
-    const data = new FormData();
-    data.append('firstname', formData.firstname);
-    data.append('lastname', formData.lastname);
-    data.append('email', formData.email);
-    data.append('school', formData.school);
-    data.append('department', formData.role.department);
-    data.append('role.name', formData.role.name);
-    data.append('role.school', formData.role.school);
-    data.append('role.department', formData.role.department);
-    if (image) data.append('profile_picture', image);
-
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8001/api/admin/create-user', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: data
-      });
-      const result = await res.json();
-      setLoading(false);
-
-      if (res.ok) {
-        setIsSuccess(true);
-        setModalMessage('User created successfully');
-        handleClear();
-      } else {
-        setIsSuccess(false);
-        setModalMessage(result.message || 'Failed to create user');
-      }
-    } catch (err) {
-      setLoading(false);
-      setIsSuccess(false);
-      setModalMessage('Error: ' + err.message);
-    }
-  };
 
   const showSchool = ["Faculty", "Dean", "Secretary", "Document Controller", "Department Head"].includes(formData.role.name);
   const showDepartment = ["Faculty", "Document Controller", "Department Head"].includes(formData.role.name);
