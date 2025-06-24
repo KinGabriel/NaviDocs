@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import Header from '../../layout/header';
 import Sidebar from '../../layout/sidebar';
 import useUser from '../../hooks/useUser';
+import Dropdown2 from "../../components/dropdown2";
+import defaultProfile from '../../assets/images/profile_picture.png';
+import Loader from '../../components/loader';
 
 const ROLE_OPTIONS = [
   "Admin",
@@ -11,7 +14,7 @@ const ROLE_OPTIONS = [
   "Secretary",
   "Document Controller"
 ];
-// schools of SLU
+
 const SCHOOL_OPTIONS = [
   { value: "SAS", label: "School of Advanced Studies (SAS)" },
   { value: "SAMCIS", label: "School of Accountancy, Management, Computing and Information Studies (SAMCIS)" },
@@ -21,8 +24,7 @@ const SCHOOL_OPTIONS = [
   { value: "SOHNABS", label: "School of Nursing, Allied Health, and Biological Sciences (SOHNABS)" },
   { value: "STELA", label: "School of Teacher Education and Liberal Arts (STELA)" }
 ];
-//  department options based on school selection
-// NOTE: To be updated with actual departments
+
 const DEPARTMENT_OPTIONS = {
   SAS: ["Department of Social Sciences", "Department of Natural Sciences"],
   SAMCIS: ["Department of Accountancy", "Department of Management", "Department of Computing and Information Studies"],
@@ -47,16 +49,70 @@ export default function CreateUser() {
       department: ''
     }
   });
+
+  const [errors, setErrors] = useState({
+    firstname: '',
+    lastname: '',
+    email: ''
+  });
+
   const [image, setImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [modalMessage, setModalMessage] = useState(null);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const formatName = (name) => {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name === "school") {
-      setFormData({ ...formData, [name]: value, department: "" });
+  const { name, value } = e.target;
+  let newValue = value;
+
+  if (name === 'firstname' || name === 'lastname') {
+    // allow only letters and spaces
+    newValue = newValue.replace(/[^a-zA-Z\s]/g, '');
+
+    // capitalize each word as they type
+    newValue = newValue
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+
+    if (!newValue.trim()) {
+      setErrors(prev => ({ ...prev, [name]: `${name === 'firstname' ? 'First' : 'Last'} name is required.` }));
     } else {
-      setFormData({ ...formData, [name]: value });
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
-  };
+  }
+
+  if (name === 'email') {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|mil|biz|info|io|co|ph)$/i;
+
+  if (!emailRegex.test(newValue)) {
+    setErrors(prev => ({ ...prev, email: 'Please enter a valid email (e.g. name@example.com).' }));
+  } else {
+    setErrors(prev => ({ ...prev, email: '' }));
+  }
+}
+
+
+  setFormData({ ...formData, [name]: newValue });
+};
+
+
+  const handleBlur = (e) => {
+  const { name, value } = e.target;
+  if ((name === 'firstname' || name === 'lastname') && value.trim()) {
+    const formatted = formatName(value);
+    setFormData(prev => ({ ...prev, [name]: formatted }));
+  }
+};
+
 
   const handleImageChange = (e) => {
     setImage(e.target.files[0]);
@@ -68,52 +124,64 @@ export default function CreateUser() {
       lastname: '',
       email: '',
       school: '',
-      role: {
-        name: '',
-        school: '',
-        department: ''
-      }
+      department: '',
+      role: { name: '', school: '', department: '' }
     });
+    setErrors({ firstname: '', lastname: '', email: '' });
     setImage(null);
+    setModalMessage(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const data = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      data.append(key, value);
-    });
 
-    if (image) {
-      data.append('profile_picture', image);
+    if (errors.firstname || errors.lastname || errors.email) {
+      setModalMessage("Please correct the errors before submitting.");
+      setIsSuccess(false);
+      return;
     }
-    console.log('Form Data:', formData);
-    console.log('Image:', image);
+
+    setLoading(true);
+    setModalMessage(null);
+
+    const data = new FormData();
+    data.append('firstname', formData.firstname);
+    data.append('lastname', formData.lastname);
+    data.append('email', formData.email);
+    data.append('school', formData.school);
+    data.append('department', formData.role.department);
+    data.append('role.name', formData.role.name);
+    data.append('role.school', formData.role.school);
+    data.append('role.department', formData.role.department);
+    if (image) data.append('profile_picture', image);
+
     try {
       const token = localStorage.getItem('token');
       const res = await fetch('http://localhost:8001/api/admin/create-user', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: data
       });
       const result = await res.json();
+      setLoading(false);
 
       if (res.ok) {
-        // add modal
-        alert('User created successfully');
+        setIsSuccess(true);
+        setModalMessage('User created successfully');
         handleClear();
       } else {
-        alert(result.message || 'Failed to create user');
+        setIsSuccess(false);
+        setModalMessage(result.message || 'Failed to create user');
       }
     } catch (err) {
-      alert('Error: ' + err.message);
+      setLoading(false);
+      setIsSuccess(false);
+      setModalMessage('Error: ' + err.message);
     }
   };
 
-  const showSchool = ["Faculty", "Dean", "Secretary", "Document Controller", "Department Head"].includes(formData.role);
-  const showDepartment = ["Faculty", "Document Controller", "Department Head"].includes(formData.role);
+  const showSchool = ["Faculty", "Dean", "Secretary", "Document Controller", "Department Head"].includes(formData.role.name);
+  const showDepartment = ["Faculty", "Document Controller", "Department Head"].includes(formData.role.name);
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -125,141 +193,129 @@ export default function CreateUser() {
             <h2 className="text-3xl font-bold text-black uppercase mb-4">Create New User</h2>
             <div className="w-20 h-1 bg-yellow-500 mb-8"></div>
 
-            <div className="flex flex-col lg:flex-row items-start gap-10">
-              {/* Avatar Section */}
-              <div className="flex justify-center w-full lg:w-1/3">
-                <div className="w-48 h-48 bg-gray-200 rounded-full flex items-center justify-center relative group">
-                  <label htmlFor="profile_picture" className="w-full h-full flex items-center justify-center cursor-pointer">
-                    {image ? (
-                      <img
-                        src={URL.createObjectURL(image)}
-                        alt="Preview"
-                        className="w-48 h-48 object-cover rounded-full"
-                      />
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A12.083 12.083 0 0112 15c2.137 0 4.138.56 5.879 1.54M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    )}
-                    <input
-                      id="profile_picture"
-                      name="profile_picture"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="hidden"
-                    />
-                   
-                  </label>
-                </div>
+            {modalMessage && (
+              <div className={`p-4 mb-6 text-sm font-medium rounded-lg ${isSuccess ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'}`}>
+                {modalMessage}
               </div>
+            )}
 
-              {/* Form Section */}
-              <form onSubmit={handleSubmit} className="w-full lg:w-2/3 space-y-8" encType="multipart/form-data">
-                {/* Personal Information */}
-                <div>
-                  <h3 className="text-blue-900 font-bold text-lg mb-2">Personal Information:</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="firstname" className="block font-medium text-sm">First Name</label>
-                      <input id="firstname" name="firstname" type="text" value={formData.firstname} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" />
-                    </div>
-                    <div>
-                      <label htmlFor="lastname" className="block font-medium text-sm">Last Name</label>
-                      <input id="lastname" name="lastname" type="text" value={formData.lastname} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" />
-                    </div>
-                    <div>
-                      <label htmlFor="email" className="block font-medium text-sm">Email</label>
-                      <input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" />
-                    </div>
+            {loading ? (
+              <Loader message="Submitting..." />
+            ) : (
+              <div className="flex flex-col lg:flex-row items-start gap-10">
+                <div className="flex justify-center w-full lg:w-1/3">
+                  <div className="w-48 h-48 bg-gray-200 rounded-full flex items-center justify-center relative group">
+                    <label htmlFor="profile_picture" className="w-full h-full flex items-center justify-center cursor-pointer">
+                      {image ? (
+                        <img src={URL.createObjectURL(image)} alt="Preview" className="w-48 h-48 object-cover rounded-full" />
+                      ) : (
+                        <img src={defaultProfile} alt="Default Profile" className="h-48 w-48 object-cover rounded-full" />
+                      )}
+                      <input id="profile_picture" name="profile_picture" type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                    </label>
+                  </div>
+                </div>
 
-                   
-                    {/* School Dropdown */}
-                    {showSchool && (
-                      <div className="relative">
-                        <label htmlFor="school" className="block font-medium text-sm mb-1">School</label>
-                        <select
-                          id="school"
-                          name="school"
+                <form onSubmit={handleSubmit} className="w-full lg:w-2/3 space-y-8" encType="multipart/form-data">
+                  <div>
+                    <h3 className="text-blue-900 font-bold text-lg mb-2">Personal Information:</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block font-medium text-sm">First Name</label>
+                        <input
+                          name="firstname"
+                          type="text"
+                          value={formData.firstname}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          required
+                          className="w-full p-2 border border-gray-300 rounded"
+                        />
+                        {errors.firstname && <p className="text-red-500 text-sm mt-1">{errors.firstname}</p>}
+                      </div>
+                      <div>
+                        <label className="block font-medium text-sm">Last Name</label>
+                        <input
+                          name="lastname"
+                          type="text"
+                          value={formData.lastname}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          required
+                          className="w-full p-2 border border-gray-300 rounded"
+                        />
+                        {errors.lastname && <p className="text-red-500 text-sm mt-1">{errors.lastname}</p>}
+                      </div>
+                      <div>
+                        <label className="block font-medium text-sm">Email</label>
+                        <input
+                          name="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          required
+                          className="w-full p-2 border border-gray-300 rounded"
+                        />
+                        {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+                      </div>
+                      {showSchool && (
+                        <Dropdown2
+                          label="School"
                           value={formData.role.school}
-                          onChange={handleChange}
-                          className="w-full p-2 pr-10 border border-gray-300 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Select School</option>
-                          {SCHOOL_OPTIONS.map(school => (
-                            <option key={school.value} value={school.value}>{school.label}</option>
-                          ))}
-                        </select>
-                        <div className="pointer-events-none absolute top-9 right-3 text-gray-500">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Department & Role */}
-                <div>
-                  <h3 className="text-blue-900 font-bold text-lg mb-2">Department & Role:</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {/* Department Dropdown */}
-                    {showDepartment && (
-                      <div className="relative">
-                        <label htmlFor="department" className="block font-medium text-sm mb-1">Department</label>
-                        <select
-                          id="department"
-                          name="department"
-                          value={formData.role.department}
-                          onChange={handleChange}
-                          className="w-full p-2 pr-10 border border-gray-300 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                         // disabled={!formData.school}
-                        >
-                          <option value="">Select Department</option>
-                          {(DEPARTMENT_OPTIONS[formData.school] || []).map(dep => (
-                            <option key={dep} value={dep}>{dep}</option>
-                          ))}
-                        </select>
-                        <div className="pointer-events-none absolute top-9 right-3 text-gray-500">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </div>
-                    )}
-                    {/* Role Dropdown */}
-                    <div className="relative">
-                      <label htmlFor="role" className="block font-medium text-sm mb-1">Role</label>
-                      <select
-                        id="role"
-                        name="role"
-                        value={formData.role.name}
-                        onChange={handleChange}
-                        className="w-full p-2 pr-10 border border-gray-300 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      >
-                        <option value="">Select Role</option>
-                        {ROLE_OPTIONS.map(role => (
-                          <option key={role} value={role}>{role}</option>
-                        ))}
-                      </select>
-                      <div className="pointer-events-none absolute top-9 right-3 text-gray-500">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
+                          onChange={(val) =>
+                            setFormData(prev => ({
+                              ...prev,
+                              role: { ...prev.role, school: val },
+                              school: val,
+                              department: ''
+                            }))
+                          }
+                          options={SCHOOL_OPTIONS}
+                          placeholder="Select School"
+                        />
+                      )}
                     </div>
                   </div>
-                </div>
 
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-4">
-                  <button type="button" onClick={handleClear} className="px-6 py-2 bg-gray-400 text-white rounded hover:bg-gray-500">Clear</button>
-                  <button type="submit" className="px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800">Add User</button>
-                </div>
-              </form>
-            </div>
+                  <div>
+                    <h3 className="text-blue-900 font-bold text-lg mb-2">Department & Role:</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {showDepartment && (
+                        <Dropdown2
+                          label="Department"
+                          value={formData.role.department}
+                          onChange={(val) =>
+                            setFormData(prev => ({
+                              ...prev,
+                              role: { ...prev.role, department: val }
+                            }))
+                          }
+                          options={DEPARTMENT_OPTIONS[formData.school] || []}
+                          placeholder="Select Department"
+                        />
+                      )}
+                      <Dropdown2
+                        label="Role"
+                        value={formData.role.name}
+                        onChange={(val) =>
+                          setFormData(prev => ({
+                            ...prev,
+                            role: { ...prev.role, name: val }
+                          }))
+                        }
+                        options={ROLE_OPTIONS}
+                        placeholder="Select Role"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-4">
+                    <button type="button" onClick={handleClear} className="px-6 py-2 bg-gray-400 text-white rounded hover:bg-gray-500">Clear</button>
+                    <button type="submit" className="px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800">Add User</button>
+                  </div>
+                </form>
+              </div>
+            )}
           </div>
         </main>
       </div>
