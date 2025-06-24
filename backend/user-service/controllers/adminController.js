@@ -23,7 +23,20 @@ export const getUsers = async (req, res) => {
  */
 export const createUser = async (req, res) => {
   try {
-    const { email, password, firstname, lastname, profile_picture, role } = req.body;
+    let { email,  firstname, lastname, role, school, department } = req.body;
+
+    // Parse role if it's a JSON string
+    if (typeof role === "string") {
+      try {
+        role = JSON.parse(role);
+      } catch {
+        role = { 
+          name: role,
+          school: school || null,
+          department: department || null
+         };
+      }
+    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -31,17 +44,25 @@ export const createUser = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const hashedPassword = await bcrypt.hash('123456', 10); // fix password generator
+
+    // Handle uploaded file
+    let profile_picture = null;
+    if (req.file) {
+      profile_picture = `/uploads/${req.file.filename}`;
+    }
 
     // Create user
     const user = new User({
       email,
-      password: hashedPassword,
+      password: hashedPassword, 
       firstname,
       lastname,
-      profile_picture: profile_picture || null,
-      role
+      profile_picture,
+      role,
+      school,
+      department
     });
 
     await user.save();

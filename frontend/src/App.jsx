@@ -3,7 +3,7 @@ import './assets/css/global.css'
 import Login from './pages/login';
 import AdminDashboard from './pages/admin/adminDashboard';
 import AdminAccounts from './pages/admin/adminAccounts';
-import CreateUser from './pages/admin/create-user';
+import CreateUser from './pages/admin/adminCreateUser';
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
 import ProtectedRoute from './guards/protectedroute';

@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema({
     name: {
     type: String,
     required: true,
-    enum: ["Dean", "Faculty", "Document Controller","Admin", "Secretary"]
+    enum: ["Dean", "Faculty", "Document Controller","Admin", "Secretary","Department Head"]
   },
   school: String,       
   department: String   
