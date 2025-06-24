@@ -1,8 +1,8 @@
 import { Listbox } from '@headlessui/react';
 
-export default function Dropdown2({ label, value, onChange, options, placeholder = "Select an option", width = "w-full" }) {
+export default function Dropdown2({ label, value, onChange, options, placeholder = "Select an option" }) {
   return (
-    <div className={`relative ${width}`}>
+    <div className="relative w-full max-w-sm">
       <label className="block font-medium text-sm mb-1">{label}</label>
       <Listbox value={value} onChange={onChange}>
         <div className="relative">
