@@ -12,7 +12,7 @@ export default function Dropdown2({ label, value, onChange, options, placeholder
               <path d="M19 9l-7 7-7-7" />
             </svg>
           </Listbox.Button>
-          <Listbox.Options className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+          <Listbox.Options className="absolute z-10 mt-1 w-64 bg-white border border-gray-300 rounded shadow-lg max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
             {options.map((option) => (
               <Listbox.Option
                 key={typeof option === "string" ? option : option.value}
