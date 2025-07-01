@@ -62,57 +62,58 @@ export default function CreateUser() {
   const [isSuccess, setIsSuccess] = useState(false);
 
   const formatName = (name) => {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-};
-
-  const handleChange = (e) => {
-  const { name, value } = e.target;
-  let newValue = value;
-
-  if (name === 'firstname' || name === 'lastname') {
-    // allow only letters and spaces
-    newValue = newValue.replace(/[^a-zA-Z\s]/g, '');
-
-    // capitalize each word as they type
-    newValue = newValue
+    return name
       .split(' ')
+      .filter(Boolean)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
+  };
 
-    if (!newValue.trim()) {
-      setErrors(prev => ({ ...prev, [name]: `${name === 'firstname' ? 'First' : 'Last'} name is required.` }));
-    } else {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    let newValue = value;
+
+    if (name === 'firstname' || name === 'lastname') {
+      newValue = newValue.replace(/^\s+/, '');
+      newValue = newValue.replace(/[^a-zA-Z\s]/g, '');
+      newValue = newValue.replace(/\s{2,}/g, ' ');
+
+      newValue = newValue
+        .split(' ')
+        .map(word =>
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        )
+        .join(' ');
+
+      if (!newValue.trim()) {
+        setErrors(prev => ({ ...prev, [name]: `${name === 'firstname' ? 'First' : 'Last'} name is required.` }));
+      } else {
+        setErrors(prev => ({ ...prev, [name]: '' }));
+      }
     }
-  }
 
-  if (name === 'email') {
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|mil|biz|info|io|co|ph)$/i;
+    if (name === 'email') {
+      newValue = newValue.replace(/\s+/g, '');
 
-  if (!emailRegex.test(newValue)) {
-    setErrors(prev => ({ ...prev, email: 'Please enter a valid email (e.g. name@example.com).' }));
-  } else {
-    setErrors(prev => ({ ...prev, email: '' }));
-  }
-}
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|mil|biz|info|io|co|ph)$/i;
 
+      if (!emailRegex.test(newValue)) {
+        setErrors(prev => ({ ...prev, email: 'Please enter a valid email (e.g. name@example.com).' }));
+      } else {
+        setErrors(prev => ({ ...prev, email: '' }));
+      }
+    }
 
-  setFormData({ ...formData, [name]: newValue });
-};
-
+    setFormData(prev => ({ ...prev, [name]: newValue }));
+  };
 
   const handleBlur = (e) => {
-  const { name, value } = e.target;
-  if ((name === 'firstname' || name === 'lastname') && value.trim()) {
-    const formatted = formatName(value);
-    setFormData(prev => ({ ...prev, [name]: formatted }));
-  }
-};
-
+    const { name, value } = e.target;
+    if ((name === 'firstname' || name === 'lastname') && value.trim()) {
+      const formatted = formatName(value);
+      setFormData(prev => ({ ...prev, [name]: formatted }));
+    }
+  };
 
   const handleImageChange = (e) => {
     setImage(e.target.files[0]);
@@ -133,61 +134,58 @@ export default function CreateUser() {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // ✅ Check for validation errors first
-  if (errors.firstname || errors.lastname || errors.email) {
-    setModalMessage("Please correct the errors before submitting.");
-    setIsSuccess(false);
-    return;
-  }
-
-  // ✅ Check if role.name is empty
-  if (!formData.role.name) {
-    setModalMessage("Please select a role.");
-    setIsSuccess(false);
-    return;
-  }
-
-  setLoading(true);
-  setModalMessage(null);
-
-  const data = new FormData();
-  data.append('firstname', formData.firstname);
-  data.append('lastname', formData.lastname);
-  data.append('email', formData.email);
-  data.append('school', formData.school);
-  data.append('department', formData.role.department);
-  data.append('role.name', formData.role.name);
-  data.append('role.school', formData.role.school);
-  data.append('role.department', formData.role.department);
-  if (image) data.append('profile_picture', image);
-
-  try {
-    const token = localStorage.getItem('token');
-    const res = await fetch('http://localhost:8001/api/admin/create-user', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: data
-    });
-    const result = await res.json();
-    setLoading(false);
-
-    if (res.ok) {
-      setIsSuccess(true);
-      setModalMessage('User created successfully');
-      handleClear();
-    } else {
+    if (errors.firstname || errors.lastname || errors.email) {
+      setModalMessage("Please correct the errors before submitting.");
       setIsSuccess(false);
-      setModalMessage(result.message || 'Failed to create user');
+      return;
     }
-  } catch (err) {
-    setLoading(false);
-    setIsSuccess(false);
-    setModalMessage('Error: ' + err.message);
-  }
-};
 
+    if (!formData.role.name) {
+      setModalMessage("Please select a role.");
+      setIsSuccess(false);
+      return;
+    }
+
+    setLoading(true);
+    setModalMessage(null);
+
+    const data = new FormData();
+    data.append('firstname', formData.firstname);
+    data.append('lastname', formData.lastname);
+    data.append('email', formData.email);
+    data.append('school', formData.school);
+    data.append('department', formData.role.department);
+    data.append('role.name', formData.role.name);
+    data.append('role.school', formData.role.school);
+    data.append('role.department', formData.role.department);
+    if (image) data.append('profile_picture', image);
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:8001/api/admin/create-user', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: data
+      });
+      const result = await res.json();
+      setLoading(false);
+
+      if (res.ok) {
+        setIsSuccess(true);
+        setModalMessage('User created successfully');
+        handleClear();
+      } else {
+        setIsSuccess(false);
+        setModalMessage(result.message || 'Failed to create user');
+      }
+    } catch (err) {
+      setLoading(false);
+      setIsSuccess(false);
+      setModalMessage('Error: ' + err.message);
+    }
+  };
 
   const showSchool = ["Faculty", "Dean", "Secretary", "Document Controller", "Department Head"].includes(formData.role.name);
   const showDepartment = ["Faculty", "Document Controller", "Department Head"].includes(formData.role.name);
@@ -201,7 +199,6 @@ export default function CreateUser() {
           <div className="bg-white rounded-xl shadow-lg p-10">
             <h2 className="text-3xl font-bold text-black uppercase mb-4">Create New User</h2>
             <div className="w-20 h-1 bg-yellow-500 mb-8"></div>
-
             {modalMessage && (
               <div className={`p-4 mb-6 text-sm font-medium rounded-lg ${isSuccess ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'}`}>
                 {modalMessage}
@@ -262,9 +259,17 @@ export default function CreateUser() {
                           type="email"
                           value={formData.email}
                           onChange={handleChange}
+                          onKeyDown={(e) => {
+                            if (e.key === ' ') e.preventDefault();
+                          }}
+                          onPaste={(e) => {
+                            const pasted = e.clipboardData.getData('text');
+                            if (/\s/.test(pasted)) e.preventDefault();
+                          }}
                           required
                           className="w-full p-2 border border-gray-300 rounded"
                         />
+
                         {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
                       </div>
                       {showSchool && (
@@ -281,6 +286,7 @@ export default function CreateUser() {
                           }
                           options={SCHOOL_OPTIONS}
                           placeholder="Select School"
+
                         />
                       )}
                     </div>
@@ -301,6 +307,7 @@ export default function CreateUser() {
                           }
                           options={DEPARTMENT_OPTIONS[formData.school] || []}
                           placeholder="Select Department"
+
                         />
                       )}
                       <Dropdown2
@@ -314,6 +321,7 @@ export default function CreateUser() {
                         }
                         options={ROLE_OPTIONS}
                         placeholder="Select Role"
+
                       />
                     </div>
                   </div>

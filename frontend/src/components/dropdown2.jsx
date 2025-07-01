@@ -1,8 +1,8 @@
 import { Listbox } from '@headlessui/react';
 
-export default function Dropdown2({ label, value, onChange, options, placeholder = "Select an option", width = "w-full" }) {
+export default function Dropdown2({ label, value, onChange, options, placeholder = "Select an option" }) {
   return (
-    <div className={`relative ${width}`}>
+    <div className="relative w-full max-w-sm">
       <label className="block font-medium text-sm mb-1">{label}</label>
       <Listbox value={value} onChange={onChange}>
         <div className="relative">
@@ -12,7 +12,7 @@ export default function Dropdown2({ label, value, onChange, options, placeholder
               <path d="M19 9l-7 7-7-7" />
             </svg>
           </Listbox.Button>
-          <Listbox.Options className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+          <Listbox.Options className="absolute z-10 mt-1 w-64 bg-white border border-gray-300 rounded shadow-lg max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
             {options.map((option) => (
               <Listbox.Option
                 key={typeof option === "string" ? option : option.value}
