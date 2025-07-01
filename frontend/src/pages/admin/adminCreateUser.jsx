@@ -215,7 +215,7 @@ export default function CreateUser() {
                       {image ? (
                         <img src={URL.createObjectURL(image)} alt="Preview" className="w-48 h-48 object-cover rounded-full" />
                       ) : (
-                        <img src={defaultProfile} alt="Default Profile" className="h-48 w-48 object-cover rounded-full" />
+                        <img src={defaultProfile} alt="Default Profile" className="h-30 w-30 object-cover" />
                       )}
                       <input id="profile_picture" name="profile_picture" type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
                     </label>
