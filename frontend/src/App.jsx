@@ -6,6 +6,7 @@ import AdminAccounts from './pages/admin/adminAccounts';
 import CreateUser from './pages/admin/adminCreateUser';
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
+import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
 
 function App() {
@@ -50,6 +51,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Document Controller"]}>
               <DocumentControllerTemplates />
+            </ProtectedRoute>
+          }
+          />
+        <Route
+          path="/document-controller/create-template"
+          element={
+            <ProtectedRoute allowedRoles={["Document Controller"]}>
+              <DocumentControllerCreateTemplate />
             </ProtectedRoute>
           }
         />
