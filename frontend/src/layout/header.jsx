@@ -1,3 +1,4 @@
+// This is the header component for the application, which includes a logo, title, notifications, and user profile information.
 import '../assets/css/global.css'
 import SearchBar from '../components/searchbar';
 import naviLogo from '../assets/images/navilogo.png';

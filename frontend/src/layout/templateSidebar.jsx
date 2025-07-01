@@ -6,7 +6,7 @@ export default function TemplateSidebar({ tabs, activeTab, setActiveTab }) {
           key={tab.key}
           onClick={() => setActiveTab(tab.key)}
          className={`flex flex-col items-center w-full py-4 transition
-         ${activeTab === tab.key ? "bg-white shadow font-bold  " : ""}
+         ${activeTab === tab.key ? "bg-[#CCDFFF] shadow font-bold  " : ""}
          }
          `}
         >
