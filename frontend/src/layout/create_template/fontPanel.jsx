@@ -186,7 +186,7 @@ export default function FontPanel({ fontSettings, onFontSettingsChange, selected
               Aa
             </button>
             {showCapOptions && (
-              <div className="absolute z-10 mt-1 w-27 bg-white shadow border rounded">
+              <div className="absolute z-10 mt-1 w-27 bg-white shadow border rounded border-[#D9D9D9]">
                 <button onClick={() => { toggleFormatting('titlecase'); setShowCapOptions(false); }} className="block w-full text-sm text-left px-1 py-1 hover:bg-gray-100">Title Case</button>
                 <button onClick={() => { toggleFormatting('uppercase'); setShowCapOptions(false); }} className="block w-full text- sm text-left px-1 py-1 hover:bg-gray-100">UPPERCASE</button>
                 <button onClick={() => { toggleFormatting('lowercase'); setShowCapOptions(false); }} className="block w-full text-sm text-left px-1 py-1 hover:bg-gray-100">lowercase</button>

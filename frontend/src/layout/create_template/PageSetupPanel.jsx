@@ -47,8 +47,8 @@ export default function PageSetupPanel({
       <div className="font-bold text-xl mb-6">Page Setup</div>
 
       {/* Orientation */}
-      <div className="mb-4">
-        <label className="font-semibold text-sm mb-1 block">Orientation</label>
+      <div className="mb-7">
+        <label className="font-semibold text-sm mb-2 block">Orientation</label>
         <div className="flex gap-6">
           <label className="flex items-center gap-1">
             <input
@@ -86,13 +86,13 @@ export default function PageSetupPanel({
       </div>
 
       {/* Margins */}
-      <div className="mb-6">
+      <div className="mt-6">
         <label className="font-semibold text-sm mb-1 block">Margin (inches)</label>
         <div className="flex gap-2 mb-1">
-          <span className="w-1/4 text-xs text-gray-700 text-center">Top</span>
-          <span className="w-1/4 text-xs text-gray-700 text-center">Bottom</span>
-          <span className="w-1/4 text-xs text-gray-700 text-center">Left</span>
-          <span className="w-1/4 text-xs text-gray-700 text-center">Right</span>
+          <span className="w-1/4 text-xs text-gray-700 text-left">Top</span>
+          <span className="w-1/4 text-xs text-gray-700 text-left">Bottom</span>
+          <span className="w-1/4 text-xs text-gray-700 text-left">Left</span>
+          <span className="w-1/4 text-xs text-gray-700 text-left">Right</span>
         </div>
         <div className="flex gap-2">
           {["top", "bottom", "left", "right"].map(side => (
@@ -110,7 +110,7 @@ export default function PageSetupPanel({
       </div>
 
       {/* Buttons */}
-      <div className="flex items-center gap-6 mt-6">
+      <div className="flex justify-end items-center gap-6 mt-20">
         <button
           className="text-[#063c8d] font-semibold hover:underline"
           type="button"
