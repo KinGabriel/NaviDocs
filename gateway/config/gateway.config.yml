@@ -27,6 +27,8 @@ serviceEndpoints:
     url: ${USER_SERVICE_URL}
   document-service:
     url: ${DOCUMENT_SERVICE_URL}
+  template-service:
+    url: ${TEMPLATE_SERVICE_URL}
 
 policies:
   - jwt
@@ -86,11 +88,32 @@ pipelines:
           - action:
               secretOrPublicKey: ${JWT_SECRET}
               checkCredentials: true
-              credentialsRequired: true
+              credentialsRequired: truecheckCredentialExistence: false # to change
       - proxy:
           - action:
               serviceEndpoint: document-service
               changeOrigin: true
+
+  template-pipeline:
+    apiEndpoints:
+      - templates
+    policies:
+      - cors:
+          - action:
+              origin: "http://localhost:5173"
+              methods: "GET,POST,PUT,DELETE,OPTIONS"
+              credentials: true
+              allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+      - jwt:
+          - action:
+              secretOrPublicKey: ${JWT_SECRET}
+              checkCredentials: true
+              credentialsRequired: true
+              checkCredentialExistence: false # to change
+      - proxy:
+          - action:
+              serviceEndpoint: template-service
+              changeOrigin: true  
 
 
 
