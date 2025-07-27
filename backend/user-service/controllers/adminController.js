@@ -1,6 +1,8 @@
 import User from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import axios from "axios";
+import { generatePassword } from "../utils/passwordGenerator.js";
 
 /**
  * @desc Register a new user
@@ -15,16 +17,15 @@ export const getUsers = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 }
-
 /**
  * @desc Register a new user
- * @route POST /api/admin/crete-user
+ * @route POST /api/admin/create-user
  * @access Public
  */
 export const createUser = async (req, res) => {
   try {
-    let { email,  firstname, lastname, role, school, department } = req.body;
-
+    let { email, firstname, lastname, role, school, department } = req.body;
+console.log("Received data:", { email, firstname, lastname, role, school, department });
     // Parse role if it's a JSON string
     if (typeof role === "string") {
       try {
@@ -37,6 +38,7 @@ export const createUser = async (req, res) => {
          };
       }
     }
+    console.log("Parsed role:", role);
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -44,8 +46,9 @@ export const createUser = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
-
-    const hashedPassword = await bcrypt.hash('123456', 10); // fix password generator
+    // Generate secure password
+    const generatedPassword = generatePassword(12, true);
+    const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
     // Handle uploaded file
     let profile_picture = null;
@@ -60,18 +63,65 @@ export const createUser = async (req, res) => {
       firstname,
       lastname,
       profile_picture,
-      role,
-      school,
-      department
+   role: {
+        name: role.name,
+        school: role.school || null,
+        department: role.department || null
+      }
     });
 
     await user.save();
-    res.status(201).json({ message: "User created successfully" });
+
+    // Send welcome email via Email Service
+    try {
+      await axios.post(`${process.env.EMAIL_SERVICE_URL}/api/email/send-welcome`, {
+        email,
+        firstname,
+        lastname,
+        password: generatedPassword,
+   role: {
+        name: role.name,
+        school: role.school || null,
+        department: role.department || null
+      }
+      });
+      
+      console.log(`User created and welcome email sent to ${email}`);
+      
+      res.status(201).json({ 
+        message: "User created successfully and welcome email sent",
+        user: {
+          id: user._id,
+          email: user.email,
+          firstname: user.firstname,
+          lastname: user.lastname,
+          role: {
+        name: role.name , 
+
+      }
+        }
+      });
+
+    } catch (emailError) {
+      console.error('User created but email failed:', emailError.message);
+      
+      res.status(201).json({ 
+        message: "User created successfully, but welcome email failed",
+        warning: "Please manually provide login credentials to the user",
+        user: {
+          id: user._id,
+          email: user.email,
+          firstname: user.firstname,
+          lastname: user.lastname,
+          role: user.role
+        }
+      });
+    }
+
   } catch (error) {
+    console.error('Error creating user:', error);
     res.status(500).json({ message: error.message });
   }
-
-  
 };
 /**
  * @desc Get dashboard information

@@ -88,7 +88,7 @@ pipelines:
           - action:
               secretOrPublicKey: ${JWT_SECRET}
               checkCredentials: true
-              credentialsRequired: truecheckCredentialExistence: false # to change
+              credentialsRequired: false # to change
       - proxy:
           - action:
               serviceEndpoint: document-service

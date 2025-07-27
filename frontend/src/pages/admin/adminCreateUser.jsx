@@ -157,9 +157,7 @@ export default function CreateUser() {
     data.append('email', formData.email);
     data.append('school', formData.school);
     data.append('department', formData.role.department);
-    data.append('role.name', formData.role.name);
-    data.append('role.school', formData.role.school);
-    data.append('role.department', formData.role.department);
+    data.append('role', JSON.stringify(formData.role));
     if (image) data.append('profile_picture', image);
 
     try {

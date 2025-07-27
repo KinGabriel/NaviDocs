@@ -2,7 +2,7 @@ import express from "express";
 import { createUser, getUsers, getDashboardInfo } from "../controllers/adminController.js";
 import { authenticateJWT } from "../middleware/authenticationMiddleware.js"; 
 import { authorizeAdmin } from "../middleware/authorizationMiddleware.js";
-import { upload } from "../middleware/uploadMiddleware.js"; // <-- Add this
+import { upload } from "../middleware/uploadMiddleware.js"; 
 
 const router = express.Router();
 
