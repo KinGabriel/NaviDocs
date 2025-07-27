@@ -2,12 +2,13 @@ import User from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import axios from "axios";
+import FormData from "form-data";
 import { generatePassword } from "../utils/passwordGenerator.js";
 
 /**
- * @desc Register a new user
+ * @desc Get all users
  * @route GET /api/admin/get-users
- * @access Public
+ * @access Private (Admin only)
  */ 
 export const getUsers = async (req, res) => {
   try {
@@ -16,11 +17,12 @@ export const getUsers = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-}
+};
+
 /**
- * @desc Register a new user
+ * @desc Create a new user with File Service integration
  * @route POST /api/admin/create-user
- * @access Public
+ * @access Private (Admin only)
  */
 export const createUser = async (req, res) => {
   try {
@@ -35,7 +37,7 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
           name: role,
           school: school || null,
           department: department || null
-         };
+        };
       }
     }
     console.log("Parsed role:", role);
@@ -50,20 +52,49 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
     const generatedPassword = generatePassword(12, true);
     const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
-    // Handle uploaded file
+    // Handle profile picture upload via File Service
     let profile_picture = null;
     if (req.file) {
-      profile_picture = `/uploads/${req.file.filename}`;
+      try {
+        console.log("Uploading profile picture to File Service...");
+        
+        // Create FormData for File Service
+        const formData = new FormData();
+        formData.append('profile_picture', req.file.buffer, {
+          filename: req.file.originalname,
+          contentType: req.file.mimetype
+        });
+        formData.append('userId', email.split('@')[0]); // Use email prefix as user ID
+        
+        // Upload to File Service
+        const fileResponse = await axios.post(
+          `${process.env.FILE_SERVICE_URL}/api/files/upload/profile`,
+          formData,
+          {
+            headers: {
+              ...formData.getHeaders(),
+            },
+            timeout: 15000
+          }
+        );
+
+        profile_picture = fileResponse.data.filePath;
+        console.log("Profile picture uploaded:", profile_picture);
+        
+      } catch (fileError) {
+        console.error("File upload failed:", fileError.message);
+        console.log("Continuing user creation without profile picture");
+      }
     }
 
-    // Create user
+    // Create user object
     const user = new User({
       email,
       password: hashedPassword, 
       firstname,
       lastname,
       profile_picture,
-   role: {
+      role: {
         name: role.name,
         school: role.school || null,
         department: role.department || null
@@ -72,6 +103,7 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
 
     await user.save();
 
+
     // Send welcome email via Email Service
     try {
       await axios.post(`${process.env.EMAIL_SERVICE_URL}/api/email/send-welcome`, {
@@ -79,14 +111,14 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
         firstname,
         lastname,
         password: generatedPassword,
-   role: {
-        name: role.name,
-        school: role.school || null,
-        department: role.department || null
-      }
+        role: {
+          name: role.name,
+          school: role.school || null,
+          department: role.department || null
+        }
       });
       
-      console.log(`User created and welcome email sent to ${email}`);
+
       
       res.status(201).json({ 
         message: "User created successfully and welcome email sent",
@@ -95,10 +127,12 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
           email: user.email,
           firstname: user.firstname,
           lastname: user.lastname,
+          profile_picture: user.profile_picture,
           role: {
-        name: role.name , 
-
-      }
+            name: role.name,
+            school: role.school,
+            department: role.department
+          }
         }
       });
 
@@ -113,6 +147,7 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
           email: user.email,
           firstname: user.firstname,
           lastname: user.lastname,
+          profile_picture: user.profile_picture,
           role: user.role
         }
       });
@@ -126,7 +161,7 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
 /**
  * @desc Get dashboard information
  * @route GET /api/admin/dashboard-info
- * @access Public
+ * @access Private (Admin only)
  */
 export const getDashboardInfo = async (req, res) => {
   try {
@@ -135,11 +170,12 @@ export const getDashboardInfo = async (req, res) => {
     const deptHead = await User.countDocuments({ "role.name": "Department Head"});
     const faculty = await User.countDocuments({ "role.name": "Faculty" });
 
-    //  5 most recently created users
+    // Get 5 most recently created users
     const recentUsers = await User.find({})
       .sort({ createdAt: -1 })
       .limit(5)
-      .select("email role.department role.school role.name createdAt");
+      .select("email firstname lastname profile_picture role.department role.school role.name createdAt");
+    console.log("Dashboard info retrieved successfully");
 
     res.status(200).json({
       total,
@@ -149,6 +185,7 @@ export const getDashboardInfo = async (req, res) => {
       recentUsers
     });
   } catch (error) {
+    console.error('Error fetching dashboard info:', error);
     res.status(500).json({ message: error.message });
   }
 };

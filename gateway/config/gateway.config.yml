@@ -21,6 +21,12 @@ apiEndpoints:
     host: localhost
     paths:
       - /api/documents
+  
+  files:
+    host: localhost
+    paths:
+      - /api/files/*
+      - /uploads/*
 
 
 serviceEndpoints:
@@ -30,6 +36,8 @@ serviceEndpoints:
     url: ${DOCUMENT_SERVICE_URL}
   template-service:
     url: ${TEMPLATE_SERVICE_URL}
+  file-service:
+    url: ${FILE_SERVICE_URL}
 
 policies:
   - jwt
@@ -115,6 +123,21 @@ pipelines:
           - action:
               serviceEndpoint: template-service
               changeOrigin: true  
+
+  file-pipeline:
+      apiEndpoints:
+        - files
+      policies:
+        - cors:
+            - action:
+                origin: "http://localhost:5173"
+                methods: "GET,POST,PUT,DELETE,OPTIONS"
+                credentials: false
+                allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+        - proxy:
+            - action:
+                serviceEndpoint: file-service
+                changeOrigin: true
 
 
 

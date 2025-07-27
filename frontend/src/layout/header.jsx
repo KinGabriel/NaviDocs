@@ -44,7 +44,7 @@ export default function Header({ user }) {
           {user && (
             <div className="bg-gray-100 rounded-lg px-3 py-2 flex items-center gap-3" style={{ height: '48px' }}>
               <img
-                src={user.profile_picture ? `http://localhost:8001${user.profile_picture}` : '/default-avatar.png'}
+                src={user.profile_picture ? `http://localhost:8000${user.profile_picture}` : '/default-avatar.png'}
                 alt="Profile"
                 className="h-10 w-10 rounded-full border border-gray-300"
               />
