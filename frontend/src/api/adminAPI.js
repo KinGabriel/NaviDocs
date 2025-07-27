@@ -35,4 +35,22 @@ export const fetchUsersAccountsAPI = async () => {
     throw new Error(error.response?.data?.message || "Failed to fetch user accounts.");
   }
 };
+/**
+ * Creates a new user account via the API.
+ * @param {Object} userData - The user data to create the account.
+ * @returns {Promise<Object>} - Resolves to the created user account data.
+ * @throws {Error} - Throws an error if the request fails or token is missing.
+ */
+export const createUserAccountAPI = async (userData) => {
+  const token = localStorage.getItem('token');
+  if (!token) throw new Error("No authentication token found.");
+  try {
+    const res = await axios.post("http://localhost:8000/api/admin/create-user", userData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Failed to create user account.");
+  }
+}
 
