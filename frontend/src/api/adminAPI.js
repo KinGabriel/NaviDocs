@@ -43,6 +43,7 @@ export const fetchUsersAccountsAPI = async () => {
  */
 export const createUserAccountAPI = async (userData) => {
   const token = localStorage.getItem('token');
+  console.log("Creating user with data:", userData);
   if (!token) throw new Error("No authentication token found.");
   try {
     const res = await axios.post("http://localhost:8000/api/admin/create-user", userData, {

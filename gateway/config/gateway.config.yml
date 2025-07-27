@@ -15,6 +15,7 @@ apiEndpoints:
       - /api/users/update
       - /api/admin/get-users
       - /api/admin/dashboard-info
+      - /api/admin/create-user
 
   documents:
     host: localhost

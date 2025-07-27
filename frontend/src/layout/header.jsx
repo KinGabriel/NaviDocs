@@ -1,10 +1,26 @@
 // This is the header component for the application, which includes a logo, title, notifications, and user profile information.
+import { useNavigate } from 'react-router-dom';
 import '../assets/css/global.css'
-import SearchBar from '../components/searchbar';
 import naviLogo from '../assets/images/navilogo.png';
 import notifIcon from '../assets/images/notif_icon.svg';
 
 export default function Header({ user }) {
+  const navigate = useNavigate();
+
+  /**
+   * @function handleLogout
+   * @description Handles user logout by clearing authentication data and redirecting to login page
+   */
+  const handleLogout = () => {
+    // Clear authentication data from localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    // Redirect to login page
+    navigate('/');
+  
+  };
+
   return (
     <>
     {  /* Top Blue Header */}
@@ -36,7 +52,12 @@ export default function Header({ user }) {
                 <p className="text-sm font-semibold text-gray-700 leading-none">
                   {(user.firstname || '') + ' ' + (user.lastname || '')}
                 </p>
-                <button className="text-xs text-gray-500 hover:underline">Log out</button>
+                <button 
+                  onClick={handleLogout}
+                  className="text-xs text-gray-500 hover:text-red-600 hover:underline transition-colors duration-200"
+                >
+                  Log out
+                </button>
               </div>
             </div>
           )}

@@ -5,6 +5,7 @@ import useUser from '../../hooks/useUser';
 import Dropdown2 from "../../components/dropdown2";
 import defaultProfile from '../../assets/images/profile_picture.png';
 import Loader from '../../components/loader';
+import { createUserAccountAPI } from '../../api/adminAPI'; 
 
 const ROLE_OPTIONS = [
   "Admin",
@@ -35,13 +36,6 @@ const DEPARTMENT_OPTIONS = {
   STELA: ["Department of Teacher Education", "Department of Liberal Arts"]
 };
 
-/**
- * @component CreateUser
- * @description Main component for creating new users in the admin panel.
- * Renders a form with personal information, role selection, and profile picture upload.
- * Handles form validation, submission, and displays success/error messages.
- * @returns {JSX.Element} The complete user creation page with header, sidebar, and form
- */
 export default function CreateUser() {
   const user = useUser();
   const [formData, setFormData] = useState({
@@ -68,13 +62,6 @@ export default function CreateUser() {
   const [modalMessage, setModalMessage] = useState(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  /**
-   * @function formatName
-   * @description Formats a name string by capitalizing the first letter of each word
-   * and converting the rest to lowercase. Handles multiple spaces and filters empty strings.
-   * @param {string} name - The name string to format
-   * @returns {string} The formatted name with proper capitalization
-   */
   const formatName = (name) => {
     return name
       .split(' ')
@@ -83,13 +70,6 @@ export default function CreateUser() {
       .join(' ');
   };
 
-  /**
-   * @function handleChange
-   * @description Handles input field changes with real-time validation and formatting.
-   * Applies specific rules for firstname/lastname (alphabetic only, proper capitalization)
-   * and email (no spaces, valid email format validation).
-   * @param {React.ChangeEvent<HTMLInputElement>} e - The input change event
-   */
   const handleChange = (e) => {
     const { name, value } = e.target;
     let newValue = value;
@@ -128,12 +108,6 @@ export default function CreateUser() {
     setFormData(prev => ({ ...prev, [name]: newValue }));
   };
 
-  /**
-   * @function handleBlur
-   * @description Handles the blur event on firstname and lastname fields.
-   * Applies final formatting to ensure proper name capitalization when user leaves the field.
-   * @param {React.FocusEvent<HTMLInputElement>} e - The input blur event
-   */
   const handleBlur = (e) => {
     const { name, value } = e.target;
     if ((name === 'firstname' || name === 'lastname') && value.trim()) {
@@ -142,21 +116,10 @@ export default function CreateUser() {
     }
   };
 
-  /**
-   * @function handleImageChange
-   * @description Handles profile picture file selection.
-   * Updates the image state with the selected file for preview and form submission.
-   * @param {React.ChangeEvent<HTMLInputElement>} e - The file input change event
-   */
   const handleImageChange = (e) => {
     setImage(e.target.files[0]);
   };
 
-  /**
-   * @function handleClear
-   * @description Resets all form fields, errors, and image selection to their initial state.
-   * Provides a clean slate for entering new user information.
-   */
   const handleClear = () => {
     setFormData({
       firstname: '',
@@ -171,13 +134,6 @@ export default function CreateUser() {
     setModalMessage(null);
   };
 
-  /**
-   * @function handleSubmit
-   * @description Handles form submission for creating a new user.
-   * Validates form data, creates FormData object with all user information,
-   * sends POST request to backend API, and handles success/error responses.
-   * @param {React.FormEvent<HTMLFormElement>} e - The form submission event
-   */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -205,32 +161,23 @@ export default function CreateUser() {
     data.append('role', JSON.stringify(formData.role));
     if (image) data.append('profile_picture', image);
 
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8001/api/admin/create-user', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: data
-      });
-      const result = await res.json();
+   try {
+      // Use the API function instead of direct fetch
+      const result = await createUserAccountAPI(data);
+      
       setLoading(false);
-
-      if (res.ok) {
-        setIsSuccess(true);
-        setModalMessage('User created successfully');
-        handleClear();
-      } else {
-        setIsSuccess(false);
-        setModalMessage(result.message || 'Failed to create user');
-      }
-    } catch (err) {
+      setIsSuccess(true);
+      setModalMessage(result.message || 'User created successfully');
+      handleClear();
+      
+    } catch (error) {
       setLoading(false);
       setIsSuccess(false);
-      setModalMessage('Error: ' + err.message);
+      setModalMessage(error.message || 'Failed to create user');
+      console.error('Create user error:', error);
     }
   };
 
-  // Determine which fields to show based on selected role
   const showSchool = ["Faculty", "Dean", "Secretary", "Document Controller", "Department Head"].includes(formData.role.name);
   const showDepartment = ["Faculty", "Document Controller", "Department Head"].includes(formData.role.name);
 
