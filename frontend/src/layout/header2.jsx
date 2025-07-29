@@ -1,5 +1,6 @@
 // header for creating templates in document controller
 import naviLogo from '../assets/images/navilogo.png';
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 export default function Header2({ title, setTitle, user }) {
   return (
     <div>
@@ -64,7 +65,7 @@ export default function Header2({ title, setTitle, user }) {
           {/* profile picture*/}
           <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
             <img
-              src={user && user.profile_picture ? `http://localhost:8000${user.profile_picture}` : '/default-avatar.png'}
+              src={user && user.profile_picture ? `${API_URL}${user.profile_picture}` : '/default-avatar.png'}
               alt="Profile"
               className="w-full h-full object-cover"
             />

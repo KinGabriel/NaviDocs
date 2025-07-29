@@ -1,5 +1,5 @@
 import axios from "axios";
-
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 /**
  * Fetches admin dashboard information from the API.
  * @returns {Promise<Object>} - Resolves to the dashboard information.
@@ -9,7 +9,7 @@ export const fetchDashboardInfoAPI = async () => {
   const token = localStorage.getItem('token');
   if (!token) throw new Error("No authentication token found.");
   try {
-    const res = await axios.get("http://localhost:8000/api/admin/dashboard-info", {
+    const res = await axios.get(`${API_URL}/api/admin/dashboard-info`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     return res.data;
@@ -27,7 +27,7 @@ export const fetchUsersAccountsAPI = async () => {
   const token = localStorage.getItem('token');
   if (!token) throw new Error("No authentication token found.");
   try {
-    const res = await axios.get("http://localhost:8000/api/admin/get-users", {
+    const res = await axios.get(`${API_URL}/api/admin/get-users`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     return res.data;
@@ -46,7 +46,7 @@ export const createUserAccountAPI = async (userData) => {
   console.log("Creating user with data:", userData);
   if (!token) throw new Error("No authentication token found.");
   try {
-    const res = await axios.post("http://localhost:8000/api/admin/create-user", userData, {
+    const res = await axios.post(`${API_URL}/api/admin/create-user`, userData, {
       headers: { Authorization: `Bearer ${token}` }
     });
     return res.data;

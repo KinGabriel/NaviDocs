@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+   "scripts": {
+      "start": "node index.js",
+      "dev": "nodemon index.js"
+   },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -16,6 +17,7 @@
     "express": "^5.1.0",
     "fs-extra": "^11.3.0",
     "multer": "^2.0.2",
+    "nodaemon": "^0.0.5",
     "path": "^0.12.7",
     "sharp": "^0.34.3"
   },

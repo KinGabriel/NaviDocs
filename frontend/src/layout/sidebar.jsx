@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export default function Sidebar({ user }) {
   const roleValue = user?.role?.name || user?.role;
@@ -31,7 +31,7 @@ export default function Sidebar({ user }) {
     <div className="bg-white shadow pt-8 pb-4 px-8 w-80 flex flex-col items-center min-h-[70vh] relative mx-6 mt-8 rounded-xl">
       {/* Profile Picture */}
       <img
-        src={user?.profile_picture ? `http://localhost:8000${user.profile_picture}` : '/default-avatar.png'} 
+        src={user?.profile_picture ? `${API_URL}${user.profile_picture}` : '/default-avatar.png'}
         alt="Profile"
         className="h-28 w-28 rounded-full object-cover border-4 border-gray-100 mb-4"
         onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.jpg'; }}
