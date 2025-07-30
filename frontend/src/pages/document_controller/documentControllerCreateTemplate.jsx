@@ -2,10 +2,11 @@ import { useRef, useState, useLayoutEffect } from "react";
 import useUser from '../../hooks/useUser';
 import Header from "../../layout/header2";
 import FontPanel from "../../layout/create_template/FontPanel";
-import PageSetupPanel from "../../layout/create_template/PageSetupPanel";
+import PageSetupPanel from "../../layout/create_template/pagesetupPanel";
 import LayoutPanel from "../../layout/create_template/layoutPanel";
 import TextEditor from "../../layout/create_template/textEditor";
 import Sidebar from "../../layout/TemplateSidebar";
+import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
 
 const TABS = [
   { key: "font", label: "Fonts", icon: 
@@ -246,8 +247,12 @@ export default function CreateTemplate() {
           )}
           {activeTab === "layout" && (
           <LayoutPanel />
-        )}  
+        )} 
+          {activeTab === "heading&footers" && (
+            <HeaderFooterPanel />
+          )}
         </div>
+
         {/* Document Editor */}
         <div className="flex-1 flex flex-col items-center overflow-y-scroll bg-gray-50 p-8">
           <div className="space-y-8">
