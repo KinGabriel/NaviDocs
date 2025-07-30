@@ -1,5 +1,5 @@
 
-# User-service Setup
+# Document-service Setup
 
 1. Navigate to the document-service directory:
    ```sh
@@ -13,4 +13,16 @@
 
 # Run the module
     ```sh
-   node index.js
+   node index.js 
+   ```
+# Or in Development Mode 
+   ```sh
+   npm run dev
+   ```
+
+
+
+
+   
+
+

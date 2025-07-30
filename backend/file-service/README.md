@@ -13,6 +13,11 @@
 
 # Run the module
     ```sh
-   node index.js
+   node index.js 
+   ```
+# Or in Development Mode 
+   ```sh
+   npm run dev
+   ```
 
 
