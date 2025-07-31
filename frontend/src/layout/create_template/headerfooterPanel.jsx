@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 export default function HeaderFooterPanel() {
+
   const [tab, setTab] = useState('header');
   const [headerContent, setHeaderContent] = useState({
     fullName: false,
@@ -37,7 +38,7 @@ export default function HeaderFooterPanel() {
     const data = section === 'header' ? headerContent : footerContent;
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 space-x-3 p-5">
         <div className="grid grid-cols-2 gap-4">
           {section === 'header' ? (
             <>
@@ -89,7 +90,7 @@ export default function HeaderFooterPanel() {
 
         {/* alignment */}
         <div>
-          <h3 className="block text-sm font-medium mb-1">Alignment</h3>
+          <h3 className="block text-sm font-semibold mb-1">Alignment</h3>
           <div className="grid grid-cols-2 gap-4">
             {['left', 'right', 'center', 'justified'].map((align) => (
               <div key={align} className="flex flex-col items-center">
@@ -138,12 +139,10 @@ export default function HeaderFooterPanel() {
 
  {/*section for header and footer options*/}
   return (
-    <div p-4 space-y-6>
-      <h2 className="text-xl font-bold text-black">Header & Footer</h2>
-
+    <div p-9 space-y-6>
       <div className="flex space-x-4 border-b">
         <button
-          className={`px-4 py-2 ${
+          className={`px-6 py-2 ${
             tab === 'header'
               ? 'border-b-2 border-[#063c8d] font-semibold text-[#063c8d]'
               : 'text-gray-500'
@@ -153,7 +152,7 @@ export default function HeaderFooterPanel() {
           Header
         </button>
         <button
-          className={`px-4 py-2 ${
+          className={`px-6 py-2 ${
             tab === 'footer'
               ? 'border-b-2 border-[#063c8d] font-semibold text-[#063c8d]'
               : 'text-gray-500'
