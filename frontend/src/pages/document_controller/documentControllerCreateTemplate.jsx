@@ -7,6 +7,7 @@ import LayoutPanel from "../../layout/create_template/layoutPanel";
 import TextEditor from "../../layout/create_template/textEditor";
 import Sidebar from "../../layout/TemplateSidebar";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
+import InsertPanel from "../../layout/create_template/insertPanel";
 
 const TABS = [
   { key: "font", label: "Fonts", icon: 
@@ -262,9 +263,12 @@ export default function CreateTemplate() {
           )}
           {activeTab === "layout" && (
           <LayoutPanel />
-        )} 
+          )} 
           {activeTab === "header&footers" && (
             <HeaderFooterPanel />
+          )}
+          {activeTab === "insert" && (
+            <InsertPanel />
           )}
         </div>
 
