@@ -1,4 +1,4 @@
-import { useRef, useState, useLayoutEffect } from "react";
+import { useRef, useState, useLayoutEffect, useCallback } from "react";
 import useUser from '../../hooks/useUser';
 import Header from "../../layout/header2";
 import FontPanel from "../../layout/create_template/FontPanel";
@@ -195,6 +195,21 @@ export default function CreateTemplate() {
   const pageRef = useRef(null);
   const [pages, setPages] = useState(['<p></p>']); 
 
+  // Handle creation of new page when content overflows
+  const handleCreateNewPage = useCallback((currentPageIndex, overflowContent) => {
+    console.log('Creating new page after page', currentPageIndex, 'with content:', overflowContent.substring(0, 100) + '...');
+    
+    setPages(prevPages => {
+      const newPages = [...prevPages];
+      // Insert new page after the current page with the overflow content
+      const contentForNewPage = overflowContent && overflowContent.trim() !== '' ? overflowContent : '<p></p>';
+      newPages.splice(currentPageIndex + 1, 0, contentForNewPage);
+      
+      console.log('Pages after overflow creation:', newPages.length, 'New page content:', contentForNewPage.substring(0, 50) + '...');
+      return newPages;
+    });
+  }, []);
+
   useLayoutEffect(() => {
     if (!pageRef.current) return;
     const pageHeightPx = pageRef.current.offsetHeight;
@@ -286,6 +301,12 @@ export default function CreateTemplate() {
                   pageIndex={idx}
                   onTextSelection={handleTextSelection}
                   onEditorReady={handleEditorRegister}
+                  onCreateNewPage={handleCreateNewPage}
+                  pageConfig={{
+                    paperSize,
+                    orientation,
+                    margins
+                  }}
                   onChange={newContent => {
                     const newPages = [...pages];
                     newPages[idx] = newContent;

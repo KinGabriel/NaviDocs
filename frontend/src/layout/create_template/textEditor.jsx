@@ -5,9 +5,128 @@ import TextStyle from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
 import FontFamily from '@tiptap/extension-font-family'
 import Placeholder from '@tiptap/extension-placeholder'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
-export default function TextEditor({ content, onChange, fontSettings, pageIndex, onTextSelection, onEditorReady }) {
+export default function TextEditor({ 
+  content, 
+  onChange, 
+  fontSettings, 
+  pageIndex, 
+  onTextSelection, 
+  onEditorReady, 
+  onCreateNewPage,
+  pageConfig // { paperSize, orientation, margins }
+}) {
+  const overflowCheckRef = useRef(false);
+
+  // Calculate available content height based on page config
+  const getAvailableContentHeight = () => {
+    if (!pageConfig) return null;
+
+    const paperDimensions = {
+      Letter: { width: 816, height: 1056 },
+      A4: { width: 794, height: 1123 },
+      Legal: { width: 816, height: 1344 },
+    };
+
+    const baseSize = paperDimensions[pageConfig.paperSize] || paperDimensions["Letter"];
+    const docSize = pageConfig.orientation === "Landscape"
+      ? { width: baseSize.height, height: baseSize.width }
+      : baseSize;
+
+    // Calculate available height minus margins (margins are in inches, convert to pixels)
+    const marginTopPx = (pageConfig.margins?.top || 1) * 96;
+    const marginBottomPx = (pageConfig.margins?.bottom || 1) * 96;
+    
+    return docSize.height - marginTopPx - marginBottomPx;
+  };
+
+  // Check if content overflows the page
+  const checkForOverflow = (editor, html) => {
+    if (overflowCheckRef.current || !editor || !pageConfig) return;
+
+    const editorElement = editor.view.dom;
+    if (!editorElement) return;
+
+    const availableHeight = getAvailableContentHeight();
+    if (!availableHeight) return;
+
+    const contentHeight = editorElement.scrollHeight;
+    
+    console.log('Checking overflow - Content height:', contentHeight, 'Available height:', availableHeight);
+    
+    if (contentHeight > availableHeight) {
+      overflowCheckRef.current = true;
+      console.log('Content overflow detected, creating new page...');
+      
+      // Split content that overflows to next page
+      splitContentToNextPage(editor, html, availableHeight);
+    }
+  };
+
+  // Split overflowing content to next page
+  const splitContentToNextPage = (editor, html, availableHeight) => {
+    try {
+      // Create a temporary div to measure content
+      const tempDiv = document.createElement('div');
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.visibility = 'hidden';
+      tempDiv.style.width = editor.view.dom.offsetWidth + 'px';
+      tempDiv.style.fontSize = editor.view.dom.style.fontSize || '16px';
+      tempDiv.style.fontFamily = editor.view.dom.style.fontFamily || 'Times New Roman, serif';
+      tempDiv.style.lineHeight = '1.6';
+      tempDiv.className = editor.view.dom.className;
+      document.body.appendChild(tempDiv);
+
+      // Parse HTML content into individual elements
+      tempDiv.innerHTML = html;
+      const elements = Array.from(tempDiv.children);
+      
+      let currentPageContent = '';
+      let nextPageContent = '';
+      let overflowStarted = false;
+      
+      for (let i = 0; i < elements.length; i++) {
+        const element = elements[i];
+        const testContent = currentPageContent + element.outerHTML;
+        
+        // Test if adding this element would exceed page height
+        tempDiv.innerHTML = testContent;
+        
+        if (tempDiv.offsetHeight > availableHeight && !overflowStarted) {
+          overflowStarted = true;
+          // This element and all following elements go to next page
+          nextPageContent = elements.slice(i).map(el => el.outerHTML).join('');
+          break;
+        } else if (!overflowStarted) {
+          currentPageContent = testContent;
+        }
+      }
+      
+      document.body.removeChild(tempDiv);
+      
+      // Update current page with content that fits
+      const currentContent = currentPageContent || '<p></p>';
+      const nextContent = nextPageContent || '<p></p>';
+      
+      console.log('Split content - Current:', currentContent.substring(0, 100) + '...');
+      console.log('Split content - Next:', nextContent.substring(0, 100) + '...');
+      
+      // Update current editor content
+      onChange(currentContent);
+      
+      // Create new page with overflow content
+      setTimeout(() => {
+        onCreateNewPage(pageIndex, nextContent);
+        overflowCheckRef.current = false;
+      }, 100);
+      
+    } catch (error) {
+      console.error('Error splitting content:', error);
+      overflowCheckRef.current = false;
+    }
+  };
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -32,13 +151,12 @@ export default function TextEditor({ content, onChange, fontSettings, pageIndex,
       const html = editor.getHTML()
       onChange(html)
       
-      // Additional trigger for immediate overflow detection
-      setTimeout(() => {
-        const editorElement = editor.view.dom;
-        if (editorElement) {
-          console.log('Editor content updated, height:', editorElement.scrollHeight);
-        }
-      }, 10);
+      // Check for overflow and create new page if needed
+      if (onCreateNewPage && pageConfig && !overflowCheckRef.current) {
+        setTimeout(() => {
+          checkForOverflow(editor, html);
+        }, 50);
+      }
     },
     onSelectionUpdate: ({ editor }) => {
       const { from, to } = editor.state.selection
@@ -80,7 +198,7 @@ export default function TextEditor({ content, onChange, fontSettings, pageIndex,
   // Register editor when it's created and re-register on changes
   useEffect(() => {
     if (editor && onEditorReady) {
-      console.log('Re-registering editor for page:', pageIndex); 
+     // console.log('Re-registering editor for page:', pageIndex); 
       onEditorReady(pageIndex || 0, editor)
     }
   }, [editor, pageIndex, onEditorReady])
