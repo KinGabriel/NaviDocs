@@ -2,7 +2,7 @@ import { useRef, useState, useLayoutEffect, useCallback } from "react";
 import useUser from '../../hooks/useUser';
 import Header from "../../layout/header2";
 import FontPanel from "../../layout/create_template/FontPanel";
-import PageSetupPanel from "../../layout/create_template/pagesetupPanel";
+import PageSetupPanel from "../../layout/create_template/PageSetupPanel";
 import LayoutPanel from "../../layout/create_template/layoutPanel";
 import TextEditor from "../../layout/create_template/textEditor";
 import Sidebar from "../../layout/TemplateSidebar";
