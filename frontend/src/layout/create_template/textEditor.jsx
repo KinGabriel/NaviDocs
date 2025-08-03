@@ -5,6 +5,13 @@ import TextStyle from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
 import FontFamily from '@tiptap/extension-font-family'
 import Placeholder from '@tiptap/extension-placeholder'
+
+// Imports for table extensions
+import { Table } from '@tiptap/extension-table'
+import { TableRow } from '@tiptap/extension-table-row'
+import { TableHeader } from '@tiptap/extension-table-header'
+import { TableCell } from '@tiptap/extension-table-cell'
+import { Image } from '@tiptap/extension-image'
 import { useEffect, useRef } from 'react'
 
 export default function TextEditor({ 
@@ -144,6 +151,18 @@ export default function TextEditor({
       }),
       Placeholder.configure({
         placeholder: 'Start typing your document...',
+      }),
+      // Table extensions
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      // Imaage extension
+      Image.configure({
+        inline: true,
+        allowBase64: true,
       }),
     ],
     content: content,
