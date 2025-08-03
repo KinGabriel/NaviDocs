@@ -34,13 +34,14 @@ export default function DocumentControllerTemplates() {
       const draftDocumentCode = `FM-${templateFormData.school_identifier}`;
       const templateData = {
         document_code: draftDocumentCode,
+        isDraft: true, 
         revision_no: 0,
         effectivity: null,
         page_no: 1,
         title: templateFormData.title.trim(),
         document_size: templateFormData.document_size,
-        school_identifier: templateFormData.school_identifier,
-        sequential_number: null,
+        // school_identifier: templateFormData.school_identifier,
+        // sequential_number: null,
         margin: {
           top: 1,
           bottom: 1,
