@@ -2,12 +2,13 @@ import { useRef, useState, useLayoutEffect, useCallback } from "react";
 import useUser from '../../hooks/useUser';
 import Header from "../../layout/header2";
 import FontPanel from "../../layout/create_template/FontPanel";
-import PageSetupPanel from "../../layout/create_template/PageSetupPanel";
+import PageSetupPanel from "../../layout/create_template/pagesetupPanel";
 import LayoutPanel from "../../layout/create_template/layoutPanel";
 import TextEditor from "../../layout/create_template/textEditor";
 import Sidebar from "../../layout/TemplateSidebar";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
+import '../../assets/css/global.css';
 
 const TABS = [
   { key: "font", label: "Fonts", icon: 
@@ -79,7 +80,8 @@ export default function CreateTemplate() {
   const [paperSize, setPaperSize] = useState("Letter");
   const [orientation, setOrientation] = useState(DEFAULT_ORIENTATION);
   const [margins, setMargins] = useState(DEFAULT_MARGINS);
-  
+
+ 
   // Store editor instances for each page
   const [editorInstances, setEditorInstances] = useState({});
   const [activeEditorIndex, setActiveEditorIndex] = useState(0);
@@ -104,19 +106,59 @@ export default function CreateTemplate() {
     isSuperscript: false
   });
 
-  // Get the active editor instance
-  const getActiveEditor = () => {
-    const editor = editorInstances[activeEditorIndex] || null;
-    return editor;
-  };
+ // Get the active editor instance 
+const getActiveEditor = () => {
+  console.log('Getting active editor for index:', activeEditorIndex);
+  console.log('Available editors:', Object.keys(editorInstances));
+  console.log('Editor instances:', editorInstances);
+  
+  const editor = editorInstances[activeEditorIndex];
+  
+  if (!editor) {
+    console.warn('No editor found for index:', activeEditorIndex);
+    // Try to get any available editor as fallback
+    const availableEditors = Object.values(editorInstances).filter(Boolean);
+    if (availableEditors.length > 0) {
+      console.log('Using fallback editor');
+      return availableEditors[0];
+    }
+  }
+  
+  console.log('Returning editor:', !!editor);
+  return editor;
+};
 
-  // Handle editor registration
-  const handleEditorRegister = (pageIndex, editor) => {
-    setEditorInstances(prev => ({
+//  handleEditorRegister function
+const handleEditorRegister = (pageIndex, editor) => {
+  console.log('Registering editor for page:', pageIndex, !!editor);
+  setEditorInstances(prev => {
+    const updated = {
       ...prev,
       [pageIndex]: editor
-    }));
-  };
+    };
+    console.log('Updated editor instances:', Object.keys(updated));
+    return updated;
+  });
+  
+  // If this is the first editor or the active page, set it as active
+  if (pageIndex === 0 || pageIndex === activeEditorIndex) {
+    setActiveEditorIndex(pageIndex);
+  }
+};
+
+// enhancer for click handler for pages
+const handlePageClick = (pageIndex) => {
+  console.log('Page clicked, setting active editor index:', pageIndex);
+  setActiveEditorIndex(pageIndex);
+  
+  // Focus the editor after a brief delay
+  setTimeout(() => {
+    const editor = editorInstances[pageIndex];
+    if (editor) {
+      editor.commands.focus();
+    }
+  }, 100);
+};
 
   // Handle text selection
   const handleTextSelection = (pageIndex, start, end, text) => {
@@ -267,58 +309,58 @@ export default function CreateTemplate() {
           {activeTab === "header&footers" && (
             <HeaderFooterPanel />
           )}
-          {activeTab === "insert" && (
-            <InsertPanel />
-          )}
-        </div>
+       {activeTab === "insert" && (
+        <InsertPanel 
+          editor={getActiveEditor()} 
+          key={`insert-panel-${activeEditorIndex}`} 
+        />
+        )}
+         </div>
 
         {/* Document Editor */}
         <div className="flex-1 flex flex-col items-center overflow-y-scroll bg-gray-50 p-8">
           <div className="space-y-8">
-            {pages.map((pageContent, idx) => (
-              <div
-                key={idx}
-                ref={idx === 0 ? pageRef : null}
-                className="bg-white shadow-2xl border border-gray-200 transition-all duration-300 hover:shadow-3xl relative group"
-                style={{
-                  width: docSize.width,
-                  height: docSize.height,
-                  paddingTop: (margins.top || 1) * 96,
-                  paddingBottom: (margins.bottom || 1) * 96,
-                  paddingLeft: (margins.left || 1) * 96,
-                  paddingRight: (margins.right || 1) * 96,
-                  overflow: "hidden",
-                }}
-                onClick={() => {
-                  console.log('Page clicked, setting active editor index:', idx);
-                  setActiveEditorIndex(idx);
-                }}
-              >
-                {/* Page number indicator */}
+           {pages.map((pageContent, idx) => (
+            <div
+              key={idx}
+              ref={idx === 0 ? pageRef : null}
+              className="bg-white shadow-2xl border border-gray-200 transition-all duration-300 hover:shadow-3xl relative group"
+              style={{
+                width: docSize.width,
+                height: docSize.height,
+                paddingTop: (margins.top || 1) * 96,
+                paddingBottom: (margins.bottom || 1) * 96,
+                paddingLeft: (margins.left || 1) * 96,
+                paddingRight: (margins.right || 1) * 96,
+                overflow: "hidden",
+              }}
+              onClick={() => handlePageClick(idx)} 
+            >
+             {/* Page number indicator */}
                 <div className="absolute -top-6 right-0 text-xs text-gray-400 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  Page {idx + 1}
-                </div>
-                
-                <TextEditor
-                  content={pageContent}
-                  fontSettings={defaultFontSettings}
-                  pageIndex={idx}
-                  onTextSelection={handleTextSelection}
-                  onEditorReady={handleEditorRegister}
-                  onCreateNewPage={handleCreateNewPage}
-                  pageConfig={{
-                    paperSize,
-                    orientation,
-                    margins
-                  }}
-                  onChange={newContent => {
-                    const newPages = [...pages];
-                    newPages[idx] = newContent;
-                    setContent(newPages.join('')); 
-                  }}
-                />
+                Page {idx + 1} {idx === activeEditorIndex ? '(Active)' : ''}
               </div>
-            ))}
+              
+              <TextEditor
+                content={pageContent}
+                fontSettings={defaultFontSettings}
+                pageIndex={idx}
+                onTextSelection={handleTextSelection}
+                onEditorReady={handleEditorRegister}
+                onCreateNewPage={handleCreateNewPage}
+                pageConfig={{
+                  paperSize,
+                  orientation,
+                  margins
+                }}
+                onChange={newContent => {
+                  const newPages = [...pages];
+                  newPages[idx] = newContent;
+                  setContent(newPages.join('')); 
+                }}
+              />
+            </div>
+          ))}
           </div>
         </div>
       </div>
