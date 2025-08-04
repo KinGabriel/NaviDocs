@@ -5,18 +5,15 @@ import TextStyle from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
 import FontFamily from '@tiptap/extension-font-family'
 import Placeholder from '@tiptap/extension-placeholder'
-<<<<<<< HEAD
 
-// Imports for table extensions
+// Table extensions
 import { Table } from '@tiptap/extension-table'
 import { TableRow } from '@tiptap/extension-table-row'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { TableCell } from '@tiptap/extension-table-cell'
+// Image extension
 import { Image } from '@tiptap/extension-image'
-import { useEffect, useRef } from 'react'
-=======
-import { useEffect, useRef, useCallback, useMemo } from 'react'
->>>>>>> 90c6aec23f29927ab312bb7e39139bdead4df25a
+import { useEffect, useRef, useMemo, useCallback } from 'react'
 
 // Paper size dimensions in pixels (96 DPI)
 const PAPER_DIMENSIONS = {
@@ -38,7 +35,7 @@ const DEFAULT_MARGIN = 1
 const PAGE_CREATION_DELAY = 10 // Milliseconds to wait before creating new page
 
 /**
- * TextEditor Component - A rich text editor with page overflow handling
+ * TextEditor Component - A rich text editor with page overflow handling, tables, and images
  * 
  * @param {string} content - HTML content for the editor
  * @param {function} onChange - Callback when content changes
@@ -268,15 +265,14 @@ export default function TextEditor({
     const availableHeight = getAvailableContentHeight()
     if (!availableHeight) return false
 
-    // Measure content height
-    const tempDiv = createMeasurementDiv(editor)
-    tempDiv.innerHTML = html
-    const contentHeight = tempDiv.offsetHeight
-    document.body.removeChild(tempDiv)
+    // scroll height for more accurate measurement
+    const contentHeight = editorElement.scrollHeight
+
+    console.log('Checking overflow - Content height:', contentHeight, 'Available height:', availableHeight)
 
     // Return true if content exceeds available height
-    return contentHeight >= availableHeight
-  }, [pageConfig, getAvailableContentHeight, createMeasurementDiv])
+    return contentHeight > availableHeight
+  }, [pageConfig, getAvailableContentHeight])
 
   /**
    * Configure TipTap editor extensions
@@ -289,6 +285,18 @@ export default function TextEditor({
     Color.configure({ types: ['textStyle'] }),                    // Text color support
     FontFamily.configure({ types: ['textStyle'] }),               // Font family support
     Placeholder.configure({ placeholder: 'Start typing your document...' }), // Placeholder text
+    // Table extensions
+    Table.configure({
+      resizable: true,
+    }),
+    TableRow,
+    TableHeader,
+    TableCell,
+    // Image extension
+    Image.configure({
+      inline: true,
+      allowBase64: true,
+    }),
   ], [])
 
   /**
@@ -322,12 +330,17 @@ export default function TextEditor({
 
     // Check for overflow and create new page if needed
     if (onCreateNewPage && pageConfig && !overflowCheckRef.current) {
-      const wouldOverflow = checkForOverflow(editor, html)
-      
-      if (wouldOverflow) {
-        const availableHeight = getAvailableContentHeight()
-        splitContentToNextPage(editor, html, availableHeight)
-      }
+      setTimeout(() => {
+        const wouldOverflow = checkForOverflow(editor, html)
+        
+        if (wouldOverflow) {
+          overflowCheckRef.current = true
+          console.log('Content overflow detected, creating new page...')
+          
+          const availableHeight = getAvailableContentHeight()
+          splitContentToNextPage(editor, html, availableHeight)
+        }
+      }, 50)
     }
   }, [onChange, onCreateNewPage, pageConfig, checkForOverflow, getAvailableContentHeight, splitContentToNextPage])
 
@@ -336,6 +349,7 @@ export default function TextEditor({
    * @param {object} param - Editor create event
    */
   const handleEditorCreate = useCallback(({ editor }) => {
+    console.log('Editor created for page:', pageIndex, editor)
     if (onEditorReady) onEditorReady(pageIndex, editor)
   }, [onEditorReady, pageIndex])
 
@@ -343,85 +357,17 @@ export default function TextEditor({
    * Initialize TipTap editor with configuration
    */
   const editor = useEditor({
-<<<<<<< HEAD
-    extensions: [
-      StarterKit,
-      Underline,
-      TextStyle.configure({
-        HTMLAttributes: {
-          class: 'text-style-mark',
-        },
-      }),
-      Color.configure({
-        types: ['textStyle'],
-      }),
-      FontFamily.configure({
-        types: ['textStyle'],
-      }),
-      Placeholder.configure({
-        placeholder: 'Start typing your document...',
-      }),
-      // Table extensions
-      Table.configure({
-        resizable: true,
-      }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      // Imaage extension
-      Image.configure({
-        inline: true,
-        allowBase64: true,
-      }),
-    ],
-    content: content,
-    onUpdate: ({ editor }) => {
-      const html = editor.getHTML()
-      onChange(html)
-      
-      // Check for overflow and create new page if needed
-      if (onCreateNewPage && pageConfig && !overflowCheckRef.current) {
-        setTimeout(() => {
-          checkForOverflow(editor, html);
-        }, 50);
-      }
-    },
-    onSelectionUpdate: ({ editor }) => {
-      const { from, to } = editor.state.selection
-      const selectedText = editor.state.doc.textBetween(from, to, '')
-      
-      if (onTextSelection) {
-        onTextSelection(pageIndex || 0, from, to, selectedText)
-      }
-    },
-    onTransaction: ({ editor }) => {
-      const { from, to } = editor.state.selection
-      const selectedText = editor.state.doc.textBetween(from, to, '')
-      
-      if (onTextSelection) {
-        onTextSelection(pageIndex || 0, from, to, selectedText)
-      }
-    },
-    onCreate: ({ editor }) => {
-      console.log('Editor created for page:', pageIndex, editor); 
-      if (onEditorReady) {
-        onEditorReady(pageIndex || 0, editor)
-      }
-    },
-=======
     extensions: editorExtensions,
     content,
     onUpdate: handleUpdate,
     onSelectionUpdate: ({ editor }) => handleTextSelection(editor),
     onTransaction: ({ editor }) => handleTextSelection(editor),
     onCreate: handleEditorCreate,
->>>>>>> 90c6aec23f29927ab312bb7e39139bdead4df25a
     editorProps: {
       attributes: {
         class: 'w-full h-full outline-none resize-none bg-transparent overflow-hidden leading-relaxed font-normal prose prose-sm max-w-none focus:outline-none',
         spellcheck: 'true',
       },
-      handleKeyDown: () => false // Let TipTap handle all key events
     },
   })
 
@@ -451,8 +397,11 @@ export default function TextEditor({
    * Separate effect to handle editor registration
    */
   useEffect(() => {
-    if (editor && onEditorReady) onEditorReady(pageIndex, editor)
-  }, [editor, pageIndex])
+    if (editor && onEditorReady) {
+       console.log('Re-registering editor for page:', pageIndex)
+      onEditorReady(pageIndex, editor)
+    }
+  }, [editor, pageIndex, onEditorReady])
 
   /**
    * Apply font settings to editor DOM element
@@ -465,23 +414,16 @@ export default function TextEditor({
     if (!editorElement) return
     
     // Apply font settings as inline styles
-    const styles = {
-      fontSize: `${fontSettings.fontSize}px`,
-      fontFamily: fontSettings.fontFamily,
-      color: fontSettings.fontColor,
-      lineHeight: DEFAULT_FONT_SETTINGS.lineHeight,
-    }
-    Object.assign(editorElement.style, styles)
+    editorElement.style.fontSize = `${fontSettings.fontSize}px`
+    editorElement.style.fontFamily = fontSettings.fontFamily
+    editorElement.style.color = fontSettings.fontColor
+    editorElement.style.lineHeight = DEFAULT_FONT_SETTINGS.lineHeight
   }, [editor, fontSettings])
 
-  // Show loading state while editor initializes
   if (!editor) {
     return (
       <div className="w-full h-full flex items-center justify-center text-gray-400">
-        <div className="flex flex-col items-center space-y-2">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400"></div>
-          <span className="text-sm">Loading editor...</span>
-        </div>
+        Loading editor...
       </div>
     )
   }
