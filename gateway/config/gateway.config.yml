@@ -20,13 +20,19 @@ apiEndpoints:
   documents:
     host: ${HOST}
     paths:
-      - /api/documents
+      - /api/documents/*
   
   files:
     host: ${HOST}
     paths:
       - /api/files/*
       - /uploads/*
+
+  templates:
+    host: ${HOST}
+    paths:
+      - /api/templates/*
+
 
 
 serviceEndpoints:
