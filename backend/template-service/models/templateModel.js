@@ -5,10 +5,6 @@ const templateSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  isDraft: {
-    type: Boolean,
-    default: true
-  },
   revision_no: {
     type: Number,
     default: 0

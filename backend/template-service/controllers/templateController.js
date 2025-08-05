@@ -1,4 +1,5 @@
 import Template from "../models/templateModel.js";
+import { validSchools, schoolMap, getSchoolCode, generateDocumentCode, getStatusQuery, getComputedStatus } from "../utils/templateUtils.js";
 
 /**
  * @desc Create a new template
@@ -8,63 +9,63 @@ import Template from "../models/templateModel.js";
 export const createTemplate = async (req, res) => {
   try {
     const templateData = req.body;
-    // Validate required fields
+
     if (!templateData.title || templateData.title.trim() === '') {
-    templateData.title = 'Untitled Template';
-    }
-    // To be fixed later which adds user validation from the user-service
-    if (!templateData.created_by) {
-    return res.status(400).json({ 
-        success: false,
-        message: 'created_by is required' 
-    });
+      templateData.title = 'Untitled Template';
     }
 
-    // Check if document_code + revision_no combination already exists
-    const existingTemplate = await Template.findOne({ 
-      document_code: templateData.document_code,
-      revision_no: templateData.revision_no || 0
-    });
-    
-    if (existingTemplate) {
-      return res.status(400).json({ 
+    if (!templateData.created_by) {
+      return res.status(400).json({
         success: false,
-        message: `Template ${templateData.document_code} revision ${templateData.revision_no || 0} already exists` 
+        message: 'created_by is required'
       });
     }
 
-    // Extract school_identifier from document_code if not provided
-    let schoolIdentifier = null;
-    if (templateData.document_code) {
-      const parts = templateData.document_code.split('-');
-      if (parts.length >= 2) {
-        schoolIdentifier = parts[1]; // FM-VAA -> VAA
-      }
+    const schoolIdentifier = templateData.school_identifier;
+    if (!schoolIdentifier) {
+      return res.status(400).json({
+        success: false,
+        message: 'School identifier is required to generate document code'
+      });
     }
 
-    // Create the template using ALL data from frontend
+    if (!validSchools.includes(schoolIdentifier)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid school identifier. Must be one of: ${validSchools.join(', ')}`
+      });
+    }
+
+    // Find existing templates for document code generation
+    const existingTemplates = await Template.find({
+      document_code: { $regex: `^FM-${schoolIdentifier}-\\d+$` }
+    }).sort({ document_code: -1 });
+
+    const generatedDocumentCode = generateDocumentCode(existingTemplates, schoolIdentifier);
+
+    const existingTemplate = await Template.findOne({
+      document_code: generatedDocumentCode,
+      revision_no: templateData.revision_no || 0
+    });
+
+    if (existingTemplate) {
+      return res.status(400).json({
+        success: false,
+        message: `Template ${generatedDocumentCode} revision ${templateData.revision_no || 0} already exists`
+      });
+    }
+
     const template = new Template({
       ...templateData,
-      school_identifier: schoolIdentifier
+      document_code: generatedDocumentCode,
     });
+
+    delete template.school_identifier;
 
     await template.save();
 
-    // Emit socket event for real-time updates
-    /** 
-    if (req.io) {
-      req.io.emit('template_created', {
-        template: template,
-        creator: {
-          id: templateData.created_by,
-          timestamp: new Date()
-        }
-      });
-    }
-    */
+    console.log('Template created successfully:', `${template.document_code} Rev ${template.revision_no} - "${template.title}"`);
 
-    console.log('Template created successfully:', `${template.document_code} Rev ${template.revision_no}`);
-    
     res.status(201).json({
       success: true,
       message: 'Template created successfully',
@@ -78,8 +79,8 @@ export const createTemplate = async (req, res) => {
         message: 'Template with this document code and revision already exists'
       });
     }
-    
-    console.error(' Error creating template:', error);
+
+    console.error('Error creating template:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to create template',
@@ -96,35 +97,20 @@ export const createTemplate = async (req, res) => {
 export const getTemplates = async (req, res) => {
   try {
     const { school, status, search, limit = 50, page = 1 } = req.query;
-    
-    // Build query object
     let query = {};
-    
-    // Filter by school if provided
+
+    // School filtering
     if (school && school !== 'All') {
-      const schoolMap = {
-        'University Wide': 'VAA',
-        'SAMCIS': 'SMI', 
-        'STELA': 'STL'
-      };
-      const schoolCode = schoolMap[school] || school;
-      query.document_code = { $regex: `FM-${schoolCode}`, $options: 'i' };
+      const schoolCode = getSchoolCode(school);
+      query.document_code = { $regex: `^FM-${schoolCode}-\\d+$`, $options: 'i' };
     }
-    
-    // Filter by status
-    if (status) {
-      if (status === 'draft') {
-        query['status.draft'] = true;
-      } else if (status === 'published') {
-        query['status.published'] = true;
-      } else if (status === 'pending') {
-        query['status.pending_approval'] = true;
-      } else if (status === 'approved') {
-        query['status.approved'] = true;
-      }
+
+    // Status filtering (use utility)
+    if (status && status !== 'All') {
+      Object.assign(query, getStatusQuery(status));
     }
-    
-    // Search functionality
+
+    // Search
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
@@ -132,24 +118,28 @@ export const getTemplates = async (req, res) => {
       ];
     }
 
-    // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Execute query WITHOUT population (microservices!)
+
+    // Fetch templates with pagination
     const templates = await Template.find(query)
       .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip(skip);
+      .skip(skip)
+      .limit(parseInt(limit));
 
-    // Get total count for pagination
+    // Add computed_status in Node.js
+    const templatesWithStatus = templates.map(t => ({
+      ...t.toObject(),
+      computed_status: getComputedStatus(t.status)
+    }));
+
     const total = await Template.countDocuments(query);
 
-    // Return structured response
     res.status(200).json({
       success: true,
       message: 'Templates retrieved successfully',
       data: {
-        templates: templates,
+        templates: templatesWithStatus,
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(total / parseInt(limit)),
@@ -167,11 +157,10 @@ export const getTemplates = async (req, res) => {
     });
 
   } catch (error) {
-    console.error(' Error fetching templates:', error);
+    console.error('Error fetching templates:', error);
     res.status(500).json({
       success: false,
       message: "Error fetching templates",
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };

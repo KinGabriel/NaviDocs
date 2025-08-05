@@ -14,14 +14,29 @@ export default function DocumentControllerTemplates() {
   const [templates, setTemplates] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  //  status filtering state
+  const [selectedSchool, setSelectedSchool] = useState('All');
+  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [sortOrder, setSortOrder] = useState('A-Z');
+  
   const navigate = useNavigate(); 
 
   // School identifiers for filtering, sorting, and modal
   const schoolIdentifiers = {
-    'University Wide' : 'VAA',
-    'SAMCIS': 'SMI',
+    'University Wide': 'VAA',
+    'SAMCIS': 'SMI', 
     'STELA': 'STL',
   };
+
+  // Status options for filtering
+  const statusOptions = [
+    'All',
+    'Draft',
+    'Pending Approval', 
+    'Approved',
+    'Published'
+  ];
 
   const handleCreateTemplate = () => {
     setShowCreateModal(true);
@@ -29,28 +44,30 @@ export default function DocumentControllerTemplates() {
 
   const handleModalSubmit = async (templateFormData) => {
     setLoading(true);
+    
+    if (!user || (!user._id && !user.id)) {
+      alert('User not logged in or user ID missing');
+      setLoading(false);
+      return;
+    }
+    
     try {
-      // For draft templates, use the FM-XXX format but without sequential number
-      const draftDocumentCode = `FM-${templateFormData.school_identifier}`;
       const templateData = {
-        document_code: draftDocumentCode,
-        isDraft: true, 
+        school_identifier: templateFormData.school_identifier,
         revision_no: 0,
         effectivity: null,
         page_no: 1,
         title: templateFormData.title.trim(),
         document_size: templateFormData.document_size,
-        // school_identifier: templateFormData.school_identifier,
-        // sequential_number: null,
         margin: {
           top: 1,
           bottom: 1,
           left: 1,
           right: 1
         },
-        created_by: user._id,
+        created_by: user._id || user.id,
         created_at: new Date(),
-        header: [], // TipTap JSON format
+        header: [],
         content: {
           type: 'doc',
           content: [
@@ -65,17 +82,8 @@ export default function DocumentControllerTemplates() {
             }
           ]
         },
-        footer: [], // TipTap JSON format
-        status: {
-          approved: false,
-          published: false,
-          draft: true,
-          pending_approval: false,
-          approved_by: null,
-          approved_at: null,
-          published_at: null,
-          submitted_for_approval_at: null
-        },
+        footer: [],
+
         approval_workflow: {
           required_approvers: [],
           current_step: 0,
@@ -84,8 +92,7 @@ export default function DocumentControllerTemplates() {
         assigned: []
       };
 
-      // Call backend API to create draft template
-      const response = await fetch('/api/templates/create-template', {
+      const response = await fetch('http://localhost:8002/api/templates/create-template', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,51 +101,152 @@ export default function DocumentControllerTemplates() {
         body: JSON.stringify(templateData),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create template');
+      const responseText = await response.text();
+      
+      if (!responseText) {
+        throw new Error('Empty response from server');
       }
 
-      const result = await response.json();
-      console.log('Draft template created:', result);
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        throw new Error(`Invalid JSON response: ${responseText}`);
+      }
 
-      // Close modal
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to create template');
+      }
+
+      console.log(' Template created:', result);
       setShowCreateModal(false);
-      // Navigate to editor with the new template ID
+      
+      //  Refresh templates list after creation
+      fetchTemplates();
       navigate(`/document-controller/create-template?templateId=${result.template._id}`);
       
     } catch (error) {
-      console.error('Error creating template:', error);
+      console.error(' Full error details:', error);
       alert(`Failed to create template: ${error.message}`);
     } finally {
-
       setLoading(false);
     }
   };
 
-  // Fetch templates on component mount
-  useEffect(() => {
-    const fetchTemplates = async () => {
-      if (!user) return;
+  //  Get templates
+  const fetchTemplates = async () => {
+    if (!user) return;
 
-      try {
-        const response = await fetch('/api/templates', {
-          headers: {
-            'Authorization': `Bearer ${user.token}`,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setTemplates(data.templates || []);
-        }
-      } catch (error) {
-        console.error('Error fetching templates:', error);
+    setLoading(true);
+    try {
+      //  query parameters for filtering
+      const params = new URLSearchParams();
+      
+      if (selectedSchool !== 'All') {
+        params.append('school', selectedSchool);
       }
-    };
+      
+      if (selectedStatus !== 'All') {
+        // Map frontend status names to backend values
+        const statusMap = {
+          'Draft': 'draft',
+          'Pending Approval': 'pending',
+          'Approved': 'approved',
+          'Published': 'published'
+        };
+        params.append('status', statusMap[selectedStatus]);
+      }
+      
+      if (search.trim()) {
+        params.append('search', search.trim());
+      }
 
+      const queryString = params.toString();
+      const url = `http://localhost:8002/api/templates${queryString ? `?${queryString}` : ''}`;
+      
+      console.log(' Fetching templates with URL:', url);
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(' Templates fetched:', result);
+        
+        let templatesArray = [];
+        if (result.success && result.data?.templates) {
+          templatesArray = result.data.templates;
+        } else if (result.templates) {
+          templatesArray = result.templates;
+        } else if (Array.isArray(result)) {
+          templatesArray = result;
+        }
+        
+        //  Apply client-side sorting
+        if (sortOrder === 'A-Z') {
+          templatesArray.sort((a, b) => a.title.localeCompare(b.title));
+        } else if (sortOrder === 'Z-A') {
+          templatesArray.sort((a, b) => b.title.localeCompare(a.title));
+        }
+        
+        console.log(' Processed templates:', templatesArray);
+        setTemplates(templatesArray);
+      } else {
+        console.error('Failed to fetch templates:', response.status);
+        setTemplates([]);
+      }
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+      setTemplates([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch templates when filters change
+  useEffect(() => {
     fetchTemplates();
-  }, [user]);
+  }, [user, selectedSchool, selectedStatus, search]);
+
+  //  Re-sort when sort order changes
+  useEffect(() => {
+    if (templates.length > 0) {
+      const sortedTemplates = [...templates];
+      if (sortOrder === 'A-Z') {
+        sortedTemplates.sort((a, b) => a.title.localeCompare(b.title));
+      } else if (sortOrder === 'Z-A') {
+        sortedTemplates.sort((a, b) => b.title.localeCompare(a.title));
+      }
+      setTemplates(sortedTemplates);
+    }
+  }, [sortOrder]);
+
+  //  Helper function to get template status display
+  const getTemplateStatus = (template) => {
+    if (template.computed_status) {
+      return template.computed_status;
+    }
+    
+    // Fallback computation if computed_status is not available
+    if (template.status?.published) return 'published';
+    if (template.status?.pending_approval) return 'pending';
+    if (template.status?.approved) return 'approved';
+    return 'draft';
+  };
+
+  // Helper function to get status badge color
+  const getStatusBadgeColor = (status) => {
+    switch (status) {
+      case 'draft': return 'bg-gray-100 text-gray-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'published': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -151,27 +259,35 @@ export default function DocumentControllerTemplates() {
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
             <div className="flex items-center gap-2 mb-4">
+              {/* School Filter */}
               <Dropdown
                 options={["All", ...Object.keys(schoolIdentifiers)]}
-                value="All"
-                onChange={() => {}}
+                value={selectedSchool}
+                onChange={setSelectedSchool}
                 width="w-50"
               />
 
+     
+              {/* Sort Order */}
               <Dropdown
                 options={["A-Z", "Z-A"]}
-                value="A-Z"
-                onChange={() => {}}
+                value={sortOrder}
+                onChange={setSortOrder}
                 width="w-36"
               />
 
+              {/* Search Bar */}
               <div className="flex-1 flex justify-start m-2">
                 <div className="w-64">
-                  <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
+                  <SearchBar 
+                    value={search} 
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search templates..."
+                  />
                 </div>
               </div>
 
-              {/* create template btn */}
+              {/* Create Template Button */}
               <div className="flex-1 flex justify-end">
                 <button 
                   onClick={handleCreateTemplate}
@@ -185,20 +301,70 @@ export default function DocumentControllerTemplates() {
               </div>      
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {templates.map((template, i) => (
-                <TemplateCard 
-                  key={template._id || i} 
-                  template={template}
-                  onSelect={() => navigate(`/document-controller/create-template?templateId=${template._id}`)}
-                />
-              ))}
+            {/*  Status Toggle Buttons  */}
+            <div className="flex gap-1 mb-4">
+              {statusOptions.map((status) => {
+                const getStatusStyle = (status, isSelected) => {
+                  const baseStyle = "px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 border";
+                  
+                  if (isSelected) {
+                    return `${baseStyle} bg-blue-600 text-white border-blue-600 shadow-sm`;
+                  } else {
+                    return `${baseStyle} bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:border-gray-400`;
+                  }
+                };
+
+                return (
+                  <button
+                    key={status}
+                    onClick={() => setSelectedStatus(status)}
+                    className={getStatusStyle(status, selectedStatus === status)}
+                  >
+                    {status}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Templates Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {loading ? (
+                <div className="col-span-full text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-2 text-gray-600">Loading templates...</p>
+                </div>
+              ) : templates.length === 0 ? (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-gray-600">No templates found</p>
+                  {(selectedSchool !== 'All' || selectedStatus !== 'All' || search) && (
+                    <p className="text-sm text-gray-500 mt-1">Try adjusting your filters</p>
+                  )}
+                </div>
+              ) : (
+                templates.map((template, i) => (
+                  <TemplateCard 
+                    key={template._id || i}
+                    template={template}
+                    onSelect={() => navigate(`/document-controller/create-template?templateId=${template._id}`)}
+                  />
+                ))
+              )}
+            </div>
+
+            {/*  Results Summary */}
+            {templates.length > 0 && (
+              <div className="mt-4 text-sm text-gray-600 text-center">
+                Showing {templates.length} template{templates.length !== 1 ? 's' : ''}
+                {selectedSchool !== 'All' && ` for ${selectedSchool}`}
+                {selectedStatus !== 'All' && ` with status: ${selectedStatus}`}
+                {search && ` matching "${search}"`}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Create Template Modal Component */}
+      {/* Create Template Modal */}
       <CreateTemplateModal
         showModal={showCreateModal}
         onClose={() => setShowCreateModal(false)}
