@@ -7,12 +7,12 @@ import FontFamily from '@tiptap/extension-font-family'
 import Placeholder from '@tiptap/extension-placeholder'
 
 // Table extensions
-import { Table } from '@tiptap/extension-table'
-import { TableRow } from '@tiptap/extension-table-row'
-import { TableHeader } from '@tiptap/extension-table-header'
-import { TableCell } from '@tiptap/extension-table-cell'
+import Table from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableHeader from '@tiptap/extension-table-header'
+import TableCell from '@tiptap/extension-table-cell'
 // Image extension
-import { Image } from '@tiptap/extension-image'
+import Image from '@tiptap/extension-image'
 import { useEffect, useRef, useMemo, useCallback } from 'react'
 
 // Paper size dimensions in pixels (96 DPI)
