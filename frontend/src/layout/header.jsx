@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import '../assets/css/global.css'
 import naviLogo from '../assets/images/navilogo.png';
 import notifIcon from '../assets/images/notif_icon.svg';
+import { logoutAPI } from '../api/authAPI.js';
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 export default function Header({ user }) {
   const navigate = useNavigate();
@@ -11,14 +12,10 @@ export default function Header({ user }) {
    * @function handleLogout
    * @description Handles user logout by clearing authentication data and redirecting to login page
    */
-  const handleLogout = () => {
-    // Clear authentication data from localStorage
-    localStorage.removeItem('token');
+  const handleLogout = async () => {
+    await logoutAPI();
     localStorage.removeItem('user');
-    
-    // Redirect to login page
     navigate('/');
-  
   };
 
   return (

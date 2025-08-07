@@ -2,13 +2,15 @@ http:
   port: ${PORT}
 
 apiEndpoints:
-  users:
+  auth:
     host: ${HOST}
     paths:
-      - /api/users/login
+      - /api/auth/login
+      - /api/auth/logout
 
 
-  users-protected:
+
+  users:
     host: localhost
     paths:
       - /api/users/profile
@@ -36,6 +38,8 @@ apiEndpoints:
 
 
 serviceEndpoints:
+  auth-service:
+    url: ${AUTH_SERVICE_URL}
   user-service:
     url: ${USER_SERVICE_URL}
   document-service:
@@ -52,9 +56,9 @@ policies:
   - rate-limit
 
 pipelines:
-  user-pipeline:
+  auth-pipeline:
     apiEndpoints:
-      - users
+      - auth
     policies:
       - cors:
           - action:
@@ -64,12 +68,12 @@ pipelines:
               allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
       - proxy:
           - action:
-              serviceEndpoint: user-service
+              serviceEndpoint: auth-service
               changeOrigin: true
 
-  user-protected-pipeline:
+  user-pipeline:
     apiEndpoints:
-      - users-protected
+      - users
     policies:
       - cors:
           - action:
@@ -77,8 +81,6 @@ pipelines:
               methods: "GET,POST,PUT,DELETE,OPTIONS"
               credentials: true
               allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-    
-
       - proxy:
           - action:
               serviceEndpoint: user-service

@@ -1,11 +1,11 @@
-import User from "../models/userModel.js";
+import User from "../models/authModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 
 /**
  * @desc Login user
- * @route POST /api/users/login
+ * @route POST /api/auth/login
  * @access Public
  */
 export const loginUser = async (req, res) => {
@@ -57,3 +57,17 @@ export const loginUser = async (req, res) => {
   }
 };
 
+/**
+ * @desc Logout user
+ * @route POST /api/auth/logout
+ * @access Public
+ */
+export const logoutUser = (req, res) => {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'None',
+    path: '/',
+  });
+  res.json({ message: "Logged out successfully" });
+};

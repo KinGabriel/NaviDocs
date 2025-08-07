@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { dbConnection } from "./config/db.js";
-import adminRoutes from "./routes/adminRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 dotenv.config();
@@ -25,11 +25,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-
-// admin functionality
-app.use("/api/admin", adminRoutes);
+// all auth functionality
+app.use("/api/auth", authRoutes);
 
 dbConnection();
-app.listen(PORT, () => console.log(`User Service running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Auth Service running on port ${PORT}`));
 
 
