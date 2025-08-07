@@ -169,7 +169,7 @@ export const getDashboardInfo = async (req, res) => {
     const dean = await User.countDocuments({ "role.name": "Dean" });
     const deptHead = await User.countDocuments({ "role.name": "Department Head"});
     const faculty = await User.countDocuments({ "role.name": "Faculty" });
-
+console.log('Backend sees cookies:', req.headers.cookie);
     // Get 5 most recently created users
     const recentUsers = await User.find({})
       .sort({ createdAt: -1 })

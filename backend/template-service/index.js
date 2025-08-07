@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { dbConnection } from "./config/db.js";
 import templateRoutes from "./routes/templateRoutes.js";
 
@@ -9,8 +10,14 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 8002;
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL, // your frontend URL
+  credentials: true                // allow cookies
+}));
+
 app.use(express.json());
+app.use(cookieParser());
+
 // Templates routes
 app.use("/api/templates", templateRoutes);
 

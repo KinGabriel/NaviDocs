@@ -77,12 +77,7 @@ pipelines:
               methods: "GET,POST,PUT,DELETE,OPTIONS"
               credentials: true
               allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-      - jwt:
-          - action:
-              secretOrPublicKey: ${JWT_SECRET}
-              checkCredentials: true
-              credentialsRequired: true
-              checkCredentialExistence: false # to change
+    
 
       - proxy:
           - action:
@@ -99,11 +94,7 @@ pipelines:
               methods: "GET,POST,PUT,DELETE,OPTIONS"
               credentials: true
               allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-      - jwt:
-          - action:
-              secretOrPublicKey: ${JWT_SECRET}
-              checkCredentials: true
-              credentialsRequired: false # to change
+   
       - proxy:
           - action:
               serviceEndpoint: document-service
@@ -119,12 +110,7 @@ pipelines:
               methods: "GET,POST,PUT,DELETE,OPTIONS"
               credentials: true
               allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-      - jwt:
-          - action:
-              secretOrPublicKey: ${JWT_SECRET}
-              checkCredentials: true
-              credentialsRequired: true
-              checkCredentialExistence: false # to change
+    
       - proxy:
           - action:
               serviceEndpoint: template-service

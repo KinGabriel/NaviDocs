@@ -25,7 +25,7 @@ export default function Login() {
     }
     try {
       const data = await loginAPI(email, password);
-      localStorage.setItem('token', data.token);
+     // localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       const userRole = data.user.role.name;
       switch (userRole) {

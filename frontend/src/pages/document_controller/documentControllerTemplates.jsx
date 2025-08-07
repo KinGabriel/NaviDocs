@@ -8,6 +8,7 @@ import Dropdown from '../../components/dropdown';
 import TemplateCard from '../../components/templatecard';
 import CreateTemplateModal from '../../components/modals/createTemplateModal';
 import usePagination from '../../hooks/usePagination';
+import { fetchTemplatesAPI, createTemplateAPI } from '../../api/documentContollerAPI';
 
 export default function DocumentControllerTemplates() {
   const user = useUser();
@@ -95,41 +96,18 @@ export default function DocumentControllerTemplates() {
         assigned: []
       };
 
-      const response = await fetch('http://localhost:8002/api/templates/create-template', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`,
-        },
-        body: JSON.stringify(templateData),
-      });
+      const result = await createTemplateAPI(templateData, user);
 
-      const responseText = await response.text();
-      
-      if (!responseText) {
-        throw new Error('Empty response from server');
+      if (!result || !result.template) {
+        throw new Error(result?.message || 'Failed to create template');
       }
 
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (parseError) {
-        throw new Error(`Invalid JSON response: ${responseText}`);
-      }
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to create template');
-      }
-
-      console.log(' Template created:', result);
       setShowCreateModal(false);
-      
-      //  Refresh templates list after creation
       fetchTemplates();
       navigate(`/document-controller/create-template?templateId=${result.template._id}`);
       
     } catch (error) {
-      console.error(' Full error details:', error);
+      console.error('Full error details:', error);
       alert(`Failed to create template: ${error.message}`);
     } finally {
       setLoading(false);
@@ -144,55 +122,33 @@ export default function DocumentControllerTemplates() {
 
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-
-      if (selectedSchool !== 'All') params.append('school', selectedSchool);
-      if (selectedStatus !== 'All') {
-        const statusMap = {
-          'Draft': 'draft',
-          'Pending Approval': 'pending',
-          'Approved': 'approved',
-          'Published': 'published'
-        };
-        params.append('status', statusMap[selectedStatus]);
-      }
-      if (search.trim()) params.append('search', search.trim());
-
-      // Add pagination params
-      params.append('limit', PAGE_SIZE);
-      params.append('page', pagination.currentPage);
-
-      const queryString = params.toString();
-      const url = `http://localhost:8002/api/templates${queryString ? `?${queryString}` : ''}`;
-
-      const response = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${user.token}` },
+      const result = await fetchTemplatesAPI({
+        user,
+        selectedSchool,
+        selectedStatus,
+        search,
+        PAGE_SIZE,
+        currentPage: pagination.currentPage
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        let templatesArray = [];
-        if (result.success && result.data?.templates) {
-          templatesArray = result.data.templates;
-          setTotalPages(result.data.pagination.total_pages || 1); // <-- update total pages
-        } else if (result.templates) {
-          templatesArray = result.templates;
-          setTotalPages(1);
-        } else if (Array.isArray(result)) {
-          templatesArray = result;
-          setTotalPages(1);
-        }
-        // Sorting
-        if (sortOrder === 'A-Z') {
-          templatesArray.sort((a, b) => a.title.localeCompare(b.title));
-        } else if (sortOrder === 'Z-A') {
-          templatesArray.sort((a, b) => b.title.localeCompare(a.title));
-        }
-        setTemplates(templatesArray);
-      } else {
-        setTemplates([]);
+      let templatesArray = [];
+      if (result.success && result.data?.templates) {
+        templatesArray = result.data.templates;
+        setTotalPages(result.data.pagination.total_pages || 1); 
+      } else if (result.templates) {
+        templatesArray = result.templates;
+        setTotalPages(1);
+      } else if (Array.isArray(result)) {
+        templatesArray = result;
         setTotalPages(1);
       }
+      // Sorting
+      if (sortOrder === 'A-Z') {
+        templatesArray.sort((a, b) => a.title.localeCompare(b.title));
+      } else if (sortOrder === 'Z-A') {
+        templatesArray.sort((a, b) => b.title.localeCompare(a.title));
+      }
+      setTemplates(templatesArray);
     } catch (error) {
       setTemplates([]);
       setTotalPages(1);
@@ -238,7 +194,6 @@ export default function DocumentControllerTemplates() {
                 width="w-50"
               />
 
-     
               {/* Sort Order */}
               <Dropdown
                 options={["A-Z", "Z-A"]}
