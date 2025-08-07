@@ -8,6 +8,7 @@ import TextEditor from "../../layout/create_template/textEditor";
 import Sidebar from "../../layout/TemplateSidebar";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
+import DateFormatPanel from "../../layout/create_template/dateformatPanel";
 import '../../assets/css/global.css';
 
 const TABS = [
@@ -314,6 +315,9 @@ const handlePageClick = (pageIndex) => {
           editor={getActiveEditor()} 
           key={`insert-panel-${activeEditorIndex}`} 
         />
+        )}
+        {activeTab === "date" && (
+        <DateFormatPanel />
         )}
          </div>
 
