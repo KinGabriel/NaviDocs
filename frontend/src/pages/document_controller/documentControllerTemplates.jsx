@@ -7,6 +7,7 @@ import SearchBar from '../../components/searchbar';
 import Dropdown from '../../components/dropdown';
 import TemplateCard from '../../components/templatecard';
 import CreateTemplateModal from '../../components/modals/createTemplateModal';
+import usePagination from '../../hooks/usePagination';
 
 export default function DocumentControllerTemplates() {
   const user = useUser();
@@ -14,6 +15,8 @@ export default function DocumentControllerTemplates() {
   const [templates, setTemplates] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  const pagination = usePagination(totalPages, 1);
   
   //  status filtering state
   const [selectedSchool, setSelectedSchool] = useState('All');
@@ -133,21 +136,18 @@ export default function DocumentControllerTemplates() {
     }
   };
 
+  const PAGE_SIZE = 8; // Number of templates per page
+
   //  Get templates
   const fetchTemplates = async () => {
     if (!user) return;
 
     setLoading(true);
     try {
-      //  query parameters for filtering
       const params = new URLSearchParams();
-      
-      if (selectedSchool !== 'All') {
-        params.append('school', selectedSchool);
-      }
-      
+
+      if (selectedSchool !== 'All') params.append('school', selectedSchool);
       if (selectedStatus !== 'All') {
-        // Map frontend status names to backend values
         const statusMap = {
           'Draft': 'draft',
           'Pending Approval': 'pending',
@@ -156,51 +156,46 @@ export default function DocumentControllerTemplates() {
         };
         params.append('status', statusMap[selectedStatus]);
       }
-      
-      if (search.trim()) {
-        params.append('search', search.trim());
-      }
+      if (search.trim()) params.append('search', search.trim());
+
+      // Add pagination params
+      params.append('limit', PAGE_SIZE);
+      params.append('page', pagination.currentPage);
 
       const queryString = params.toString();
       const url = `http://localhost:8002/api/templates${queryString ? `?${queryString}` : ''}`;
-      
-      console.log(' Fetching templates with URL:', url);
 
       const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${user.token}`,
-        },
+        headers: { 'Authorization': `Bearer ${user.token}` },
       });
 
       if (response.ok) {
         const result = await response.json();
-        console.log(' Templates fetched:', result);
-        
         let templatesArray = [];
         if (result.success && result.data?.templates) {
           templatesArray = result.data.templates;
+          setTotalPages(result.data.pagination.total_pages || 1); // <-- update total pages
         } else if (result.templates) {
           templatesArray = result.templates;
+          setTotalPages(1);
         } else if (Array.isArray(result)) {
           templatesArray = result;
+          setTotalPages(1);
         }
-        
-        //  Apply client-side sorting
+        // Sorting
         if (sortOrder === 'A-Z') {
           templatesArray.sort((a, b) => a.title.localeCompare(b.title));
         } else if (sortOrder === 'Z-A') {
           templatesArray.sort((a, b) => b.title.localeCompare(a.title));
         }
-        
-        console.log(' Processed templates:', templatesArray);
         setTemplates(templatesArray);
       } else {
-        console.error('Failed to fetch templates:', response.status);
         setTemplates([]);
+        setTotalPages(1);
       }
     } catch (error) {
-      console.error('Error fetching templates:', error);
       setTemplates([]);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -209,7 +204,7 @@ export default function DocumentControllerTemplates() {
   // Fetch templates when filters change
   useEffect(() => {
     fetchTemplates();
-  }, [user, selectedSchool, selectedStatus, search]);
+  }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
   //  Re-sort when sort order changes
   useEffect(() => {
@@ -223,30 +218,6 @@ export default function DocumentControllerTemplates() {
       setTemplates(sortedTemplates);
     }
   }, [sortOrder]);
-
-  //  Helper function to get template status display
-  const getTemplateStatus = (template) => {
-    if (template.computed_status) {
-      return template.computed_status;
-    }
-    
-    // Fallback computation if computed_status is not available
-    if (template.status?.published) return 'published';
-    if (template.status?.pending_approval) return 'pending';
-    if (template.status?.approved) return 'approved';
-    return 'draft';
-  };
-
-  // Helper function to get status badge color
-  const getStatusBadgeColor = (status) => {
-    switch (status) {
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'published': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -354,12 +325,43 @@ export default function DocumentControllerTemplates() {
             {/*  Results Summary */}
             {templates.length > 0 && (
               <div className="mt-4 text-sm text-gray-600 text-center">
-                Showing {templates.length} template{templates.length !== 1 ? 's' : ''}
+                Showing {templates.length} of {totalPages * PAGE_SIZE} template{templates.length !== 1 ? 's' : ''}
                 {selectedSchool !== 'All' && ` for ${selectedSchool}`}
                 {selectedStatus !== 'All' && ` with status: ${selectedStatus}`}
                 {search && ` matching "${search}"`}
               </div>
             )}
+
+            {/* Pagination Controls */}
+            <div className="flex justify-center items-center mt-6 gap-2">
+              <button
+                onClick={pagination.handlePrev}
+                disabled={pagination.currentPage === 1}
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              >
+                Prev
+              </button>
+              {pagination.getPageNumbers().map((num, idx) =>
+                num === "..." ? (
+                  <span key={idx} className="px-2 text-gray-400">...</span>
+                ) : (
+                  <button
+                    key={num}
+                    onClick={() => pagination.handlePage(num)}
+                    className={`px-3 py-1 rounded border ${pagination.currentPage === num ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+                  >
+                    {num}
+                  </button>
+                )
+              )}
+              <button
+                onClick={pagination.handleNext}
+                disabled={pagination.currentPage === totalPages}
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       </div>
