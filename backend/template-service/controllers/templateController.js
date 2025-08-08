@@ -2,6 +2,42 @@ import Template from "../models/templateModel.js";
 import { validSchools, schoolMap, getSchoolCode, generateDocumentCode, getStatusQuery, getComputedStatus } from "../utils/templateUtils.js";
 
 /**
+ * @desc Get dashboard information for document controller
+ * @route POST /api/templates/dashboard-info
+ * @access Private (Document Controller)
+ */
+export const dashboardInfo = async (req, res) => {
+  try{
+    const countPublished = await Template.countDocuments({ 'status.published': true });
+    const countDraft = await Template.countDocuments({ 'status.draft': true });
+    const countPendingApproval = await Template.countDocuments({ 'status.pending_approval': true });
+    const getPublishedTemplates = await Template.find(
+    { 'status.published': true } 
+    )
+    .sort({ "status.published_at": -1 })
+    .limit(20)
+    .select("title document_code createdAt status.published revision_no effectivity created_by")
+    .lean();
+    res.status(200).json({
+      success: true,
+      data: {
+        countPublished,
+        countDraft,
+        countPendingApproval,
+        getPublishedTemplates
+      }
+    });
+  }catch(error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve dashboard information',
+    });   
+  }
+}
+
+
+
+/**
  * @desc Create a new template
  * @route POST /api/templates/create-template
  * @access Private (Document Controller)

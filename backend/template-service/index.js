@@ -11,8 +11,8 @@ const app = express();
 const PORT = process.env.PORT || 8002;
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL, // your frontend URL
-  credentials: true                // allow cookies
+  origin: process.env.FRONTEND_URL, 
+  credentials: true              
 }));
 
 app.use(express.json());

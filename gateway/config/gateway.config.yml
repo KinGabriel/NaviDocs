@@ -63,7 +63,7 @@ pipelines:
       - cors:
           - action:
               origin: ${FRONTEND_URL}
-              methods: "GET,POST,OPTIONS"
+              methods: "GET,PUT,OPTIONS"
               credentials: true
               allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
       - proxy:
