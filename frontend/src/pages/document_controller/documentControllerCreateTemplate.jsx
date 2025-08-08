@@ -1,4 +1,6 @@
-import { useRef, useState, useLayoutEffect, useCallback } from "react";
+import { useRef, useState, useLayoutEffect, useCallback, useEffect } from "react";
+import { useLocation } from 'react-router-dom';
+import { getTemplateByIdAPI, updateTemplateAPI } from '../../api/documentContollerAPI';
 import useUser from '../../hooks/useUser';
 import Header from "../../layout/header2";
 import FontPanel from "../../layout/create_template/FontPanel";
@@ -75,6 +77,9 @@ function paginateContentByHeight(content, pageHeightPx) {
 
 export default function CreateTemplate() {
   const user = useUser();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const templateId = searchParams.get('templateId');
   const [activeTab, setActiveTab] = useState("font");
   const [title, setTitle] = useState("Untitled Template");
   const [content, setContent] = useState("");
@@ -236,8 +241,143 @@ const handlePageClick = (pageIndex) => {
       ? { width: baseSize.height, height: baseSize.width }
       : baseSize;
 
+  // Compute available content height (subtract top/bottom margins in px)
+  const availableContentHeight = (docSize.height - (margins.top || 1) * 96 - (margins.bottom || 1) * 96);
+
   const pageRef = useRef(null);
-  const [pages, setPages] = useState(['<p></p>']); 
+  const [pages, setPages] = useState(['<p></p>']);
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [dirty, setDirty] = useState(false);
+  const autosaveTimerRef = useRef(null);
+  const AUTOSAVE_DELAY = 2000; // ms after last change
+
+  // Load existing template 
+  useEffect(() => {
+    if (!templateId) return;
+    let ignore = false;
+    (async () => {
+      try {
+        setLoadingTemplate(true);
+        const res = await getTemplateByIdAPI(templateId);
+        if (res.success && res.template && !ignore) {
+          setTitle(res.template.title || 'Untitled Template');
+          // Prioritize multi-page content if available
+          if (Array.isArray(res.template.pages_json) && res.template.pages_json.length > 0) {
+            setPages(res.template.pages_json.map(() => '<p></p>'));
+          } else {
+            setPages(['<p></p>']);
+          }
+          if (res.template.body) {
+            setContent(res.template.body);
+          }
+          if (res.template.document_size) setPaperSize(res.template.document_size);
+          if (res.template.margin) setMargins(res.template.margin);
+        }
+      } catch (e) {
+        console.error('Failed to load template', e);
+      } finally {
+        setLoadingTemplate(false);
+      }
+    })();
+    return () => { ignore = true; };
+  }, [templateId]);
+
+  const buildUpdatePayload = (submitForApproval = false) => {
+    // Collect JSON for each page editor
+    const pagesJSON = pages.map((_, idx) => {
+      const inst = editorInstances[idx];
+      if (inst) {
+        try {
+          return inst.getJSON();
+        } catch (e) { /* ignore */ }
+      }
+      return null;
+    }).filter(Boolean);
+    const payload = {
+      title,
+      document_size: paperSize,
+      margin: margins,
+      body: pages.join(''),
+      pages_json: pagesJSON,
+      status: submitForApproval ? { pending_approval: true } : undefined
+    };
+    if (!submitForApproval) delete payload.status;
+    return payload;
+  };
+  
+  const handleSaveDraft = async () => {
+    if (!templateId) return; // only saving existing
+    if (saving) return;
+    setSaving(true);
+    try {
+      const payload = buildUpdatePayload(false);
+      const res = await updateTemplateAPI(templateId, payload);
+      if (res.success) {
+        setLastSavedAt(new Date());
+  setDirty(false);
+      }
+    } catch (e) {
+      console.error('Save draft failed', e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSubmitForApproval = async () => {
+    if (!templateId) return;
+    if (saving) return;
+    setSaving(true);
+    try {
+      const payload = buildUpdatePayload(true);
+      const res = await updateTemplateAPI(templateId, payload);
+      if (res.success) {
+        setLastSavedAt(new Date());
+        setDirty(false);
+      }
+    } catch (e) {
+      console.error('Submit for approval failed', e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Mark dirty when title/pages/margins/paper size change
+  useEffect(() => {
+    if (loadingTemplate) return; // ignore initial load
+    // Any change after initial load marks dirty
+    setDirty(true);
+  }, [title, pages, paperSize, orientation, margins, loadingTemplate]);
+
+  // Debounced autosave effect
+  useEffect(() => {
+    if (!templateId) return; // only autosave existing
+    if (!dirty) return; // nothing to save
+    if (saving) return; // wait until current save finishes
+    // Clear existing timer
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+    autosaveTimerRef.current = setTimeout(() => {
+      handleSaveDraft();
+    }, AUTOSAVE_DELAY);
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    };
+  }, [dirty, saving, templateId]);
+
+  // Warn user about unsaved changes on page unload
+  useEffect(() => {
+    const beforeUnload = (e) => {
+      if (dirty && !saving) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => window.removeEventListener('beforeunload', beforeUnload);
+  }, [dirty, saving]);
 
   // Handle creation of new page when content overflows
   const handleCreateNewPage = useCallback((currentPageIndex, overflowContent) => {
@@ -263,7 +403,7 @@ const handlePageClick = (pageIndex) => {
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
-      <Header title={title} setTitle={setTitle} user={user} />
+  <Header title={title} setTitle={setTitle} user={user} onSaveDraft={handleSaveDraft} onSubmitForApproval={handleSubmitForApproval} saving={saving} lastSavedAt={lastSavedAt} dirty={dirty} />
       {/* Hidden measuring div */}
       <div
         id="measure-div"
@@ -324,45 +464,59 @@ const handlePageClick = (pageIndex) => {
         {/* Document Editor */}
         <div className="flex-1 flex flex-col items-center overflow-y-scroll bg-gray-50 p-8">
           <div className="space-y-8">
+           {loadingTemplate && (
+             <div className="text-center text-sm text-gray-500">Loading template...</div>
+           )}
            {pages.map((pageContent, idx) => (
-            <div
-              key={idx}
-              ref={idx === 0 ? pageRef : null}
-              className="bg-white shadow-2xl border border-gray-200 transition-all duration-300 hover:shadow-3xl relative group"
-              style={{
-                width: docSize.width,
-                height: docSize.height,
-                paddingTop: (margins.top || 1) * 96,
-                paddingBottom: (margins.bottom || 1) * 96,
-                paddingLeft: (margins.left || 1) * 96,
-                paddingRight: (margins.right || 1) * 96,
-                overflow: "hidden",
-              }}
-              onClick={() => handlePageClick(idx)} 
-            >
-             {/* Page number indicator */}
-                <div className="absolute -top-6 right-0 text-xs text-gray-400 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                Page {idx + 1} {idx === activeEditorIndex ? '(Active)' : ''}
+            <div key={idx} className="flex flex-col items-center">
+              <div
+                ref={idx === 0 ? pageRef : null}
+                className="bg-white shadow-2xl border border-gray-200 transition-all duration-300 hover:shadow-3xl relative group"
+                style={{
+                  width: docSize.width,
+                  height: docSize.height,
+                  paddingTop: (margins.top || 1) * 96,
+                  paddingBottom: (margins.bottom || 1) * 96,
+                  paddingLeft: (margins.left || 1) * 96,
+                  paddingRight: (margins.right || 1) * 96,
+                  overflow: "hidden",
+                }}
+                onClick={() => handlePageClick(idx)} 
+              >
+               {/* Page number indicator */}
+                  <div className="absolute -top-6 right-0 text-xs text-gray-400 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  Page {idx + 1} {idx === activeEditorIndex ? '(Active)' : ''}
+                </div>
+                
+                <TextEditor
+                  content={pageContent}
+                  fontSettings={defaultFontSettings}
+                  pageIndex={idx}
+                  onTextSelection={handleTextSelection}
+                  onEditorReady={handleEditorRegister}
+                  onCreateNewPage={handleCreateNewPage}
+                  pageConfig={{
+                    paperSize,
+                    orientation,
+                    margins
+                  }}
+                  pageAvailableHeight={availableContentHeight}
+                  onChange={newContent => {
+                      const newPages = [...pages];
+                      newPages[idx] = newContent;
+                      setPages(newPages);
+                      setContent(newPages.join(''));
+                    }}
+                />
               </div>
-              
-              <TextEditor
-                content={pageContent}
-                fontSettings={defaultFontSettings}
-                pageIndex={idx}
-                onTextSelection={handleTextSelection}
-                onEditorReady={handleEditorRegister}
-                onCreateNewPage={handleCreateNewPage}
-                pageConfig={{
-                  paperSize,
-                  orientation,
-                  margins
-                }}
-                onChange={newContent => {
-                  const newPages = [...pages];
-                  newPages[idx] = newContent;
-                  setContent(newPages.join('')); 
-                }}
-              />
+              {idx < pages.length - 1 && (
+                <div className="w-full flex items-center justify-center select-none" aria-hidden="true">
+                  <div className="relative w-[calc(100%+4rem)] my-6">
+                    <div className="border-t border-dashed border-gray-300" />
+                    <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-gray-50 text-[10px] tracking-wide text-gray-500 px-2 uppercase">Page Break</span>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
           </div>

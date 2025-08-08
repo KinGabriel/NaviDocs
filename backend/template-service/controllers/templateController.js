@@ -44,7 +44,7 @@ export const dashboardInfo = async (req, res) => {
  */
 export const createTemplate = async (req, res) => {
   try {
-    const templateData = req.body;
+  const templateData = { ...req.body };
 
     if (!templateData.title || templateData.title.trim() === '') {
       templateData.title = 'Untitled Template';
@@ -91,12 +91,28 @@ export const createTemplate = async (req, res) => {
       });
     }
 
+    // Accept only pages_json (array of page JSONs) and body (HTML)
+    if (!Array.isArray(templateData.pages_json)) {
+      templateData.pages_json = [
+        {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: '' }] }
+          ]
+        }
+      ];
+    }
+    if (!templateData.body) {
+      templateData.body = '';
+    }
+
     const template = new Template({
       ...templateData,
-      document_code: generatedDocumentCode,
+      document_code: generatedDocumentCode
     });
 
-    delete template.school_identifier;
+    // Remove transient / client-only fields
+    delete template.school_identifier; // not stored separately
 
     await template.save();
 
@@ -163,7 +179,7 @@ export const getTemplates = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Add computed_status in Node.js
+    // Add computed_status 
     const templatesWithStatus = templates.map(t => ({
       ...t.toObject(),
       computed_status: getComputedStatus(t.status)
@@ -236,7 +252,7 @@ export const getTemplateById = async (req, res) => {
 /**
  * @desc Update template
  * @route PUT /api/templates/:id
- * @access Private (Creator or Admin)
+ * @access Private (Creator )
  */
 export const updateTemplate = async (req, res) => {
   try {
@@ -257,10 +273,28 @@ export const updateTemplate = async (req, res) => {
       });
     }
 
-    // Update template
+    const updatePayload = { ...req.body };
+    // Accept only pages_json and body
+    if (!Array.isArray(updatePayload.pages_json)) {
+      updatePayload.pages_json = [
+        {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: '' }] }
+          ]
+        }
+      ];
+    }
+    if (!updatePayload.body) {
+      updatePayload.body = '';
+    }
+    if (updatePayload.document_code) {
+      delete updatePayload.document_code;
+    }
+
     const updatedTemplate = await Template.findByIdAndUpdate(
       req.params.id,
-      { $set: req.body },
+      { $set: updatePayload },
       { new: true, runValidators: true }
     );
 

@@ -54,7 +54,8 @@ export default function TextEditor({
   onTextSelection, 
   onEditorReady, 
   onCreateNewPage,
-  pageConfig
+  pageConfig,
+  pageAvailableHeight // optional explicit available height from parent for more precise measurement
 }) {
   // Ref to prevent multiple overflow checks running simultaneously
   const overflowCheckRef = useRef(false)
@@ -133,7 +134,7 @@ export default function TextEditor({
       let currentPageContent = ''
       const effectiveLimit = availableHeight
 
-      // Try to fit elements one by one
+      // fit elements one by one (preempt aware)
       for (let i = 0; i < elements.length; i++) {
         const element = elements[i]
         const testContent = currentPageContent + element.outerHTML
@@ -221,7 +222,7 @@ export default function TextEditor({
       }
 
       // Split content between current and next page
-      const currentContent = elements.slice(0, lastFittingIndex + 1).map(el => el.outerHTML).join('')
+  const currentContent = elements.slice(0, lastFittingIndex + 1).map(el => el.outerHTML).join('')
       const nextPageContent = lastFittingIndex < elements.length - 1
         ? elements.slice(lastFittingIndex + 1).map(el => el.outerHTML).join('')
         : ''
@@ -262,17 +263,40 @@ export default function TextEditor({
     const editorElement = editor.view.dom
     if (!editorElement) return false
 
-    const availableHeight = getAvailableContentHeight()
+    // Prefer explicit provided height (more accurate) else compute
+    const availableHeight = pageAvailableHeight || getAvailableContentHeight()
     if (!availableHeight) return false
 
-    // scroll height for more accurate measurement
-    const contentHeight = editorElement.scrollHeight
+    // Base scroll height (rendered current content)
+    let contentHeight = editorElement.scrollHeight
+    // Get computed line height (fallback to 24px)
+    let computedLineHeight = 24
+    try {
+      const style = window.getComputedStyle(editorElement)
+      const lh = parseFloat(style.lineHeight)
+      if (!isNaN(lh)) computedLineHeight = lh
+    } catch (_) {}
 
-    console.log('Checking overflow - Content height:', contentHeight, 'Available height:', availableHeight)
+    // Fallback precise measurement if initial check says no overflow
+    if (contentHeight <= availableHeight) {
+      try {
+        const tempDiv = createMeasurementDiv(editor)
+        tempDiv.innerHTML = html
+        contentHeight = tempDiv.offsetHeight
+        document.body.removeChild(tempDiv)
+      } catch (e) {
+        // ignore measurement errors
+      }
+    }
 
-    // Return true if content exceeds available height
-    return contentHeight > availableHeight
-  }, [pageConfig, getAvailableContentHeight])
+  // Predict next line height addition to preempt break before user sees wrapping
+  const willNextLineOverflow = (contentHeight + computedLineHeight) > availableHeight
+  const isOverflow = contentHeight > availableHeight || willNextLineOverflow
+    if (isOverflow) {
+      console.log('Overflow detected. Content height:', contentHeight, 'Available:', availableHeight)
+    }
+    return isOverflow
+  }, [pageConfig, getAvailableContentHeight, createMeasurementDiv, pageAvailableHeight])
 
   /**
    * Configure TipTap editor extensions

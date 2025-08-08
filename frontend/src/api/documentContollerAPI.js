@@ -57,3 +57,28 @@ export const createTemplateAPI = async (templateData) => {
   });
   return res.data;
 };
+
+/**
+ * Retrieves a template by its ID.
+ * @param {string} templateId - The template ID.
+ * @returns {Promise<Object>} - The template payload.
+ */
+export const getTemplateByIdAPI = async (templateId) => {
+  const res = await axios.get(`${API_URL}/api/templates/${templateId}`, {
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+/**
+ * Updates an existing template.
+ * @param {string} templateId - ID of the template.
+ * @param {Object} updateData - Data to update.
+ * @returns {Promise<Object>} - Updated template response.
+ */
+export const updateTemplateAPI = async (templateId, updateData) => {
+  const res = await axios.put(`${API_URL}/api/templates/${templateId}`, updateData, {
+    withCredentials: true,
+  });
+  return res.data;
+};

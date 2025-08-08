@@ -2,7 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import naviLogo from '../assets/images/navilogo.png';
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
-export default function Header2({ title, setTitle, user }) {
+export default function Header2({ title, setTitle, user, onSubmitForApproval, saving, lastSavedAt, dirty }) {
   const navigate = useNavigate();
   return (
     <div>
@@ -38,6 +38,17 @@ export default function Header2({ title, setTitle, user }) {
 
         {/* Action buttons */}
         <div className="flex items-center gap-3">
+           <div className="flex flex-col items-start">
+            {lastSavedAt && (
+              <span className="text-[10px] text-gray-500 leading-tight">Saved {lastSavedAt.toLocaleTimeString()}</span>
+            )}
+            {dirty && !saving && (
+              <span className="text-[10px] text-amber-600 leading-tight">Unsaved changes</span>
+            )}
+            {saving && (
+              <span className="text-[10px] text-blue-600 leading-tight">Saving...</span>
+            )}
+          </div>
           {/* history btn */}
           <button 
             className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded"
@@ -45,14 +56,17 @@ export default function Header2({ title, setTitle, user }) {
           >
           <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="#7D7D7D" d="M12 21q-3.45 0-6.012-2.287T3.05 13H5.1q.35 2.6 2.313 4.3T12 19q2.925 0 4.963-2.037T19 12t-2.037-4.962T12 5q-1.725 0-3.225.8T6.25 8H9v2H3V4h2v2.35q1.275-1.6 3.113-2.475T12 3q1.875 0 3.513.713t2.85 1.924t1.925 2.85T21 12t-.712 3.513t-1.925 2.85t-2.85 1.925T12 21m2.8-4.8L11 12.4V7h2v4.6l3.2 3.2z"/></svg>
           </button>
-          
+        
           {/* publish btn */}
-          <button className="bg-[#063c8d] text-white rounded px-4 py-2 text-sm font-semibold hover:bg-[#052c6d] flex items-center gap-2">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-            Publish
-          </button>
+          {onSubmitForApproval && (
+            <button disabled={saving} onClick={onSubmitForApproval} className="bg-[#063c8d] text-white rounded px-4 py-2 text-sm font-semibold hover:bg-[#052c6d] flex items-center gap-2 disabled:opacity-50">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              Submit for Approval
+            </button>
+          )}
+         
           
           {/* share btn */}
           <div className="relative">

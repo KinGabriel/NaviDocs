@@ -42,23 +42,30 @@ const templateSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: []
   },
-  content: {
-    type: mongoose.Schema.Types.Mixed,
+
+  pages_json: {
+    type: [mongoose.Schema.Types.Mixed],
     required: true,
-    default: {
-      type: 'doc',
-      content: [
-        {
-          type: 'paragraph',
-          content: [
-            {
-              type: 'text',
-              text: 'Start typing your template content...'
-            }
-          ]
-        }
-      ]
-    }
+    default: [
+      {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: 'Start typing your template content...'
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  body: {
+    type: String,
+    default: ''
   },
   footer: {
     type: mongoose.Schema.Types.Mixed,
