@@ -1,97 +1,149 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 
 export default function DateFormatPanel() {
-  const [formatType, setFormatType] = useState("numeric");
-  const [numericFormat, setNumericFormat] = useState("MM/DD/YYYY");
-  const [leadingZero, setLeadingZero] = useState(true);
+  const [selectedFormat, setSelectedFormat] = useState('numeric');
+  const [numericFormat, setNumericFormat] = useState('MM/DD/YYYY');
+  const [useLeadingZeros, setUseLeadingZeros] = useState(true);
 
-  const sampleDate = new Date(2026, 0, 12); 
+  const [writtenMonth, setWrittenMonth] = useState('August');
+  const [writtenDay, setWrittenDay] = useState('8');
+  const [writtenYear, setWrittenYear] = useState('2025');
 
-  const formatDatePreview = () => {
-    let day = sampleDate.getDate();
-    let month = sampleDate.getMonth() + 1;
-    let year = sampleDate.getFullYear();
+  const numericOptions = ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD'];
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const days = Array.from({ length: 31 }, (_, i) =>
+    useLeadingZeros && i + 1 < 10 ? `0${i + 1}` : `${i + 1}`
+  );
+  const years = ['2020','2021','2022','2023','2024', '2025', '2026', '2027'];
 
-    if (leadingZero) {
-      day = day.toString().padStart(2, "0");
-      month = month.toString().padStart(2, "0");
-    }
+  const previewNumeric = () => {
+    const day = useLeadingZeros ? '08' : '8';
+    const month = useLeadingZeros ? '08' : '8';
+    const year = '2025';
 
     switch (numericFormat) {
-      case "MM/DD/YYYY":
+      case 'MM/DD/YYYY':
         return `${month}/${day}/${year}`;
-      case "DD/MM/YYYY":
+      case 'DD/MM/YYYY':
         return `${day}/${month}/${year}`;
-      case "YYYY-MM-DD":
+      case 'YYYY-MM-DD':
         return `${year}-${month}-${day}`;
       default:
-        return `${month}/${day}/${year}`;
+        return '';
     }
   };
 
+  const previewWritten = () => {
+    return `${writtenMonth} ${writtenDay}, ${writtenYear}`;
+  };
+
   return (
-    <div className="flex">
-      <main className="flex-1 p-8">
-        <h2 className="text-xl font-semibold mb-6">Select Date Format</h2>
+    <div className="max-w-xl mx-auto ml-3 mr-3">
+      <h2 className="text-xl font-semibold mb-4">Select Date Format</h2>
 
-        {/* Select Format Type */}
-        <div className="mb-6">
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={formatType === "numeric"}
-                onChange={() => setFormatType("numeric")}
-                className="accent-blue-600"
-              />
-              Numeric
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={formatType === "written"}
-                onChange={() => setFormatType("written")}
-                className="accent-blue-600"
-              />
-              Written
-            </label>
-          </div>
-        </div>
+      {/* Selection of Date Format */}
+      <div className="flex gap-6 mb-6">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="radio"
+            name="format"
+            checked={selectedFormat === 'numeric'}
+            onChange={() => setSelectedFormat('numeric')}
+          />
+          <span>Numeric</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="radio"
+            name="format"
+            checked={selectedFormat === 'written'}
+            onChange={() => setSelectedFormat('written')}
+          />
+          <span>Written</span>
+        </label>
+      </div>
 
-        {/* Numeric Date Format */}
-        {formatType === "numeric" && (
-          <div className="bg-white rounded-xl p-6 shadow-sm border">
-            <h3 className="text-md font-medium mb-2">Numeric Date Format</h3>
+      {/* Numeric Format */}
+      {selectedFormat === 'numeric' && (
+        <>
+          <div className="mb-4">
+            <label className="block font-medium mb-2">Numeric Date Format</label>
             <select
+              className="w-full border rounded px-4 py-2"
               value={numericFormat}
               onChange={(e) => setNumericFormat(e.target.value)}
-              className="border px-4 py-2 rounded-lg w-full mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
-              <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-              <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-              <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+              {numericOptions.map((format) => (
+                <option key={format} value={format}>{format}</option>
+              ))}
             </select>
-
-            {/* Checkbox */}
-            <label className="flex items-center gap-2 mb-4">
-              <input
-                type="checkbox"
-                checked={leadingZero}
-                onChange={() => setLeadingZero(!leadingZero)}
-                className="accent-blue-600"
-              />
-              Use leading zeros for day/month
-            </label>
-
-            <div className="mt-4">
-              <span className="text-sm text-gray-600">Preview:</span>
-              <div className="mt-1 px-4 py-2  inline-block font-mono">
-                {formatDatePreview()}
-              </div>
-            </div>
           </div>
-        )}
-      </main>
+
+          <label className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              checked={useLeadingZeros}
+              onChange={(e) => setUseLeadingZeros(e.target.checked)}
+            />
+            <span>Use leading zeros for day/month</span>
+          </label>
+
+          <p className="text-sm text-gray-600">
+            <strong>Preview:</strong> {previewNumeric()}
+          </p>
+        </>
+      )}
+
+      {/* Written Format */}
+      {selectedFormat === 'written' && (
+        <>
+          <div className="grid grid-cols-3 gap-4 mb-4 w-80">
+            <select
+              className="border rounded px-2 py-2 "
+              value={writtenMonth}
+              onChange={(e) => setWrittenMonth(e.target.value)}
+            >
+              {months.map((month) => (
+                <option key={month} value={month}>{month}</option>
+              ))}
+            </select>
+            <select
+              className="border rounded px-2 py-2"
+              value={writtenDay}
+              onChange={(e) => setWrittenDay(e.target.value)}
+            >
+              {days.map((day) => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+            <select
+              className="border rounded px-2 py-2"
+              value={writtenYear}
+              onChange={(e) => setWrittenYear(e.target.value)}
+            >
+              {years.map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </div>
+          <p className="text-sm text-gray-600">
+            <strong>Preview:</strong> {previewWritten()}
+          </p>
+        </>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-4 mt-6 pt-4">
+        <button className="text-[#063c8d] font-semibold hover:underline">
+          Cancel
+        </button>
+        <button className="bg-[#063c8d] text-white rounded-full px-8 py-2 font-semibold hover:bg-[#052c6d] transition">
+          Apply
+        </button>
+      </div>
     </div>
   );
 }

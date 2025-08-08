@@ -109,7 +109,7 @@ export default function PageSetupPanel({
         </div>
       </div>
 
-      {/* Buttons */}
+      {/* Action Buttons */}
       <div className="flex justify-end items-center gap-6 mt-20">
         <button
           className="text-[#063c8d] font-semibold hover:underline"
