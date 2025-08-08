@@ -1,14 +1,16 @@
 // header for creating templates in document controller
+import { useNavigate } from 'react-router-dom';
 import naviLogo from '../assets/images/navilogo.png';
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 export default function Header2({ title, setTitle, user }) {
+  const navigate = useNavigate();
   return (
     <div>
       <div className="h-4 bg-[#063c8d] w-full" /> 
       <div className="flex items-center justify-between bg-[#f3f3f3] px-8 py-3 border-b border-gray-200">
         <div className="flex items-center gap-8">
           {/* Logo */}
-          <img src={naviLogo} alt="Logo" className="w-15 h-10" />
+          <img src={naviLogo} alt="Logo" className="w-15 h-10" onClick={() => navigate('/document-controller/templates')} />
           {/* Title with edit icon */}
           <div className="flex items-center ">
             <input
