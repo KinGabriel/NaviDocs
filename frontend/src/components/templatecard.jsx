@@ -79,7 +79,7 @@ export default function TemplateCard({ template, onSelect }) {
   const status = getTemplateStatus(template);
 
   return (
-    <div className="relative w-[260px] bg-white rounded-lg shadow border flex flex-col overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer">
+  <div className="relative w-[260px] bg-white rounded-lg shadow border flex flex-col overflow-visible hover:shadow-lg transition-all duration-200 cursor-pointer">
       
       {/*  Status Badge */}
       <div className={`absolute top-3 right-3 z-10 px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
@@ -162,12 +162,12 @@ export default function TemplateCard({ template, onSelect }) {
             <>
               {/* Backdrop */}
               <div 
-                className="fixed inset-0 z-10" 
+                className="fixed inset-0 z-[40]" 
                 onClick={() => setShowMenu(false)}
               />
               
               {/* Menu */}
-              <div className="absolute right-0 top-8 z-20 w-32 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+              <div className="absolute right-0 top-8 z-[60] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
                 <button
                   className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                   onClick={(e) => handleMenuAction('edit', e)}
@@ -187,8 +187,6 @@ export default function TemplateCard({ template, onSelect }) {
                   </svg>
                   Duplicate
                 </button>
-                
-                <hr className="my-1" />
                 
                 <button
                   className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"

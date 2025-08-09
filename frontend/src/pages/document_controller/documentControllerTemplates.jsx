@@ -22,7 +22,7 @@ export default function DocumentControllerTemplates() {
   //  status filtering state
   const [selectedSchool, setSelectedSchool] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
-  const [sortOrder, setSortOrder] = useState('A-Z');
+  const [sortOrder, setSortOrder] = useState('Recent');
   
   const navigate = useNavigate(); 
 
@@ -147,6 +147,8 @@ export default function DocumentControllerTemplates() {
         templatesArray.sort((a, b) => a.title.localeCompare(b.title));
       } else if (sortOrder === 'Z-A') {
         templatesArray.sort((a, b) => b.title.localeCompare(a.title));
+      } else if (sortOrder === 'Recent') {
+        templatesArray.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
       }
       setTemplates(templatesArray);
     } catch (error) {
@@ -170,6 +172,8 @@ export default function DocumentControllerTemplates() {
         sortedTemplates.sort((a, b) => a.title.localeCompare(b.title));
       } else if (sortOrder === 'Z-A') {
         sortedTemplates.sort((a, b) => b.title.localeCompare(a.title));
+      } else if (sortOrder === 'Recent') {
+        sortedTemplates.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
       }
       setTemplates(sortedTemplates);
     }
@@ -196,7 +200,7 @@ export default function DocumentControllerTemplates() {
 
               {/* Sort Order */}
               <Dropdown
-                options={["A-Z", "Z-A"]}
+                options={["Recent", "A-Z", "Z-A"]}
                 value={sortOrder}
                 onChange={setSortOrder}
                 width="w-36"

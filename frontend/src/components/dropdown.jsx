@@ -12,7 +12,7 @@ export default function Dropdown({ value, onChange, options, width = "w-36" }) {
               <path d="M19 9l-7 7-7-7" />
             </svg>
           </Listbox.Button>
-          <Listbox.Options className="absolute mt-1 w-full bg-white text-black rounded shadow-lg z-10">
+          <Listbox.Options className="absolute mt-1 w-full bg-white text-black rounded shadow-lg z-40">
             {options.map(option => (
               <Listbox.Option
                 key={option}
