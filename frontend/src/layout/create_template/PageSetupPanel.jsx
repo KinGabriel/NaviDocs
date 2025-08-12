@@ -81,7 +81,11 @@ export default function PageSetupPanel({
           label="Paper size"
           value={draftPaperSize}
           onChange={setDraftPaperSize}
-          options={["Letter", "A4", "Legal"]}
+          options={[
+            { value: 'letter', label: 'Letter' },
+            { value: 'A4', label: 'A4' },
+            { value: 'legal', label: 'Legal' }
+          ]}
         />
       </div>
 

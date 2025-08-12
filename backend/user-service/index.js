@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { dbConnection } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import docControllerRoutes from "./routes/docControllerRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 dotenv.config();
@@ -28,6 +29,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // admin functionality
 app.use("/api/admin", adminRoutes);
+app.use("/api/doc-controller", docControllerRoutes);
 
 dbConnection();
 app.listen(PORT, () => console.log(`User Service running on port ${PORT}`));

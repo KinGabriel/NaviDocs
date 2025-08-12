@@ -28,7 +28,7 @@ export default function CreateTemplateModal({
   const [templateForm, setTemplateForm] = useState({
     school_identifier: defaultSchool,
     title: '',
-    document_size: '8.5 x 13'
+    document_size: 'legal'
   });
 
   // Update default school when modal opens
@@ -64,7 +64,7 @@ export default function CreateTemplateModal({
     setTemplateForm({
       school_identifier: defaultSchool,
       title: '',
-      document_size: '8.5 x 13'
+      document_size: 'legal'
     });
   };
 
@@ -73,7 +73,7 @@ export default function CreateTemplateModal({
     setTemplateForm({
       school_identifier: defaultSchool,
       title: '',
-      document_size: '8.5 x 13'
+      document_size: 'legal'
     });
     onClose();
   };
@@ -135,8 +135,8 @@ export default function CreateTemplateModal({
               onChange={(e) => setTemplateForm(prev => ({ ...prev, document_size: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="8.5 x 11">Letter (8.5 x 11)</option>
-              <option value="8.5 x 13">Legal (8.5 x 13)</option>
+              <option value="letter">Letter (8.5 x 11)</option>
+              <option value="legal">Legal (8.5 x 13)</option>
               <option value="A4">A4</option>
             </select>
           </div>

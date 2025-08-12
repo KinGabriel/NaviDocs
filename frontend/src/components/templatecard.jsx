@@ -5,6 +5,9 @@ export default function TemplateCard({ template, onSelect }) {
 
   // Helper function to get template status
   const getTemplateStatus = (template) => {
+    
+    if (typeof template.status === 'string') return template.status;
+
     if (template.computed_status) return template.computed_status;
     if (template.status?.published) return 'published';
     if (template.status?.pending_approval) return 'pending';

@@ -24,8 +24,8 @@ const templateSchema = new mongoose.Schema({
   },
   document_size: {
     type: String,
-    enum: ['8.5 x 11', '8.5 x 13', 'A4'],
-    default: '8.5 x 13'
+  enum: ['letter','legal','A4'],
+  default: 'legal'
   },
   margin: {
     top: { type: Number, default: 1 },
@@ -33,16 +33,8 @@ const templateSchema = new mongoose.Schema({
     left: { type: Number, default: 1 },
     right: { type: Number, default: 1 }
   },
-  created_by: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    ref: 'User'
-  },
-  header: {
-    type: mongoose.Schema.Types.Mixed,
-    default: []
-  },
-
+  created_by: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'User' },
+  header: { type: mongoose.Schema.Types.Mixed, default: [] },
   pages_json: {
     type: [mongoose.Schema.Types.Mixed],
     required: true,
@@ -53,34 +45,29 @@ const templateSchema = new mongoose.Schema({
           {
             type: 'paragraph',
             content: [
-              {
-                type: 'text',
-                text: 'Start typing your template content...'
-              }
+              { type: 'text', text: 'Start typing your template content...' }
             ]
           }
         ]
       }
     ]
   },
-  body: {
-    type: String,
-    default: ''
-  },
-  footer: {
-    type: mongoose.Schema.Types.Mixed,
-    default: []
-  },
-  status: {
-    approved: { type: Boolean, default: false },
-    published: { type: Boolean, default: false },
-    draft: { type: Boolean, default: true },
-    pending_approval: { type: Boolean, default: false },
+  body: { type: String, default: '' },
+  footer: { type: mongoose.Schema.Types.Mixed, default: [] },
+  status: { type: String, enum: ['draft','pending','approved','published'], default: 'draft' },
+  status_meta: {
     approved_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     approved_at: { type: Date, default: null },
     published_at: { type: Date, default: null },
     submitted_for_approval_at: { type: Date, default: null }
   },
+  notes: [{
+    added_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    role_snapshot: { type: String },
+    type: { type: String, enum: ['assignment','rejection','change','general'], default: 'general' },
+    message: { type: String, required: true },
+    created_at: { type: Date, default: Date.now }
+  }],
   approval_workflow: {
     required_approvers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     current_step: { type: Number, default: 0 },
@@ -91,15 +78,13 @@ const templateSchema = new mongoose.Schema({
     }]
   },
   assigned: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
-}, {
-  timestamps: true
-});
+}, { timestamps: true });
 
-templateSchema.index({ isDraft: 1 });
-templateSchema.index({ 'status.draft': 1 });
-templateSchema.index({ 'status.published': 1 });
-templateSchema.index({ 'status.pending_approval': 1 });
+
+templateSchema.index({ status: 1 });
 templateSchema.index({ created_by: 1 });
 templateSchema.index({ title: 'text' }); 
+templateSchema.index({ document_code: 1, revision_no: 1 }, { unique: true });
+
 
 export default mongoose.model('Template', templateSchema);

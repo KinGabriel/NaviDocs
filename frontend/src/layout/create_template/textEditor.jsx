@@ -13,7 +13,7 @@ import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
 // Image extension
 import Image from '@tiptap/extension-image'
-import { useEffect, useRef, useMemo, useCallback } from 'react'
+import { useEffect, useRef, useMemo, useCallback, useState } from 'react'
 
 // Paper size dimensions in pixels (96 DPI)
 const PAPER_DIMENSIONS = {
@@ -55,10 +55,14 @@ export default function TextEditor({
   onEditorReady, 
   onCreateNewPage,
   pageConfig,
-  pageAvailableHeight // optional explicit available height from parent for more precise measurement
+  pageAvailableHeight, 
+  readOnly=false
 }) {
   // Ref to prevent multiple overflow checks running simultaneously
   const overflowCheckRef = useRef(false)
+  // Track when user attempts to edit while readOnly to show hint
+  const [showReadOnlyHint, setShowReadOnlyHint] = useState(false)
+  const readOnlyHintTimerRef = useRef(null)
   
   // Ref to track the last content to prevent unnecessary updates
   const lastContentRef = useRef('')
@@ -444,6 +448,20 @@ export default function TextEditor({
     editorElement.style.lineHeight = DEFAULT_FONT_SETTINGS.lineHeight
   }, [editor, fontSettings])
 
+  // Toggle editability based on readOnly prop
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!readOnly)
+    }
+    // Clear hint when switching back to editable
+    if (!readOnly) {
+      setShowReadOnlyHint(false)
+      if (readOnlyHintTimerRef.current) {
+        clearTimeout(readOnlyHintTimerRef.current)
+      }
+    }
+  }, [editor, readOnly])
+
   if (!editor) {
     return (
       <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -453,9 +471,30 @@ export default function TextEditor({
   }
 
   // Render the editor
+  const triggerReadOnlyHint = (e) => {
+    if (!readOnly) return
+    e.stopPropagation()
+    if (readOnlyHintTimerRef.current) clearTimeout(readOnlyHintTimerRef.current)
+    setShowReadOnlyHint(true)
+    readOnlyHintTimerRef.current = setTimeout(() => setShowReadOnlyHint(false), 2200)
+  }
+
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full relative select-text">
+      {readOnly && (
+        <div
+          className="absolute inset-0 z-10 bg-transparent cursor-not-allowed"
+          onMouseDown={triggerReadOnlyHint}
+          onClick={triggerReadOnlyHint}
+          title="Read-only"
+        />
+      )}
       <EditorContent editor={editor} className="w-full h-full" />
+      {readOnly && showReadOnlyHint && (
+        <div className="absolute top-2 right-2 z-20 px-2 py-1 rounded bg-yellow-500 text-[10px] font-semibold text-white shadow animate-fade-in">
+          Read Only (Pending Approval)
+        </div>
+      )}
     </div>
   )
 }

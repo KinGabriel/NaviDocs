@@ -46,39 +46,3 @@ export function generateDocumentCode(existingTemplates, schoolIdentifier) {
   const sequentialNumber = nextSequentialNumber.toString().padStart(2, '0');
   return `${baseCode}-${sequentialNumber}`;
 }
-
-/**
- * Returns a MongoDB query object for filtering templates by status.
- * @param {string} status - The status to filter by ('draft', 'pending', 'approved', 'published').
- * @returns {Object} - The query object for MongoDB.
- */
-export function getStatusQuery(status) {
-  if (status === 'draft') {
-    return {
-      $and: [
-        { 'status.approved': false },
-        { 'status.pending_approval': false },
-        { 'status.published': false }
-      ]
-    };
-  } else if (status === 'pending') {
-    return { 'status.pending_approval': true };
-  } else if (status === 'approved') {
-    return { 'status.approved': true, 'status.published': false };
-  } else if (status === 'published') {
-    return { 'status.published': true };
-  }
-  return {};
-}
-
-/**
- * Computes the status string from a status object.
- * @param {Object} statusObj - The status object from a template.
- * @returns {string} - The computed status ('draft', 'pending', 'approved', 'published').
- */
-export function getComputedStatus(statusObj) {
-  if (statusObj.published) return 'published';
-  if (statusObj.pending_approval) return 'pending';
-  if (statusObj.approved) return 'approved';
-  return 'draft';
-}

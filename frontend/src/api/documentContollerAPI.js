@@ -82,3 +82,16 @@ export const updateTemplateAPI = async (templateId, updateData) => {
   });
   return res.data;
 };
+
+
+export const fetchApproversAPI = async (school) => {
+  try {
+    const params = school ? `?school=${encodeURIComponent(school)}` : '';
+    const res = await axios.get(`${API_URL}/api/doc-controller/approvers${params}`, {
+      withCredentials: true
+    });
+    return res.data; 
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to fetch approvers');
+  }
+};

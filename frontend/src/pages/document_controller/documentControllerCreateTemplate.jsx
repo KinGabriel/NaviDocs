@@ -1,6 +1,6 @@
 import { useRef, useState, useLayoutEffect, useCallback, useEffect } from "react";
 import { useLocation } from 'react-router-dom';
-import { getTemplateByIdAPI, updateTemplateAPI } from '../../api/documentContollerAPI';
+import { getTemplateByIdAPI, updateTemplateAPI, fetchApproversAPI} from '../../api/documentContollerAPI';
 import useUser from '../../hooks/useUser';
 import Header from "../../layout/header2";
 import FontPanel from "../../layout/create_template/FontPanel";
@@ -83,7 +83,7 @@ export default function CreateTemplate() {
   const [activeTab, setActiveTab] = useState("font");
   const [title, setTitle] = useState("Untitled Template");
   const [content, setContent] = useState("");
-  const [paperSize, setPaperSize] = useState("Letter");
+  const [paperSize, setPaperSize] = useState("legal");
   const [orientation, setOrientation] = useState(DEFAULT_ORIENTATION);
   const [margins, setMargins] = useState(DEFAULT_MARGINS);
 
@@ -231,11 +231,11 @@ const handlePageClick = (pageIndex) => {
   };
 
   const paperDimensions = {
-    Letter: { width: 816, height: 1056 },
-    A4: { width: 794, height: 1123 },
-    Legal: { width: 816, height: 1344 },
+    letter: { width: 816, height: 1056 },
+    A4: { width: 794, height: 1123 }, // keep A4 uppercase per enum
+    legal: { width: 816, height: 1344 },
   };
-  const baseSize = paperDimensions[paperSize] || paperDimensions["Letter"];
+  const baseSize = paperDimensions[paperSize] || paperDimensions["legal"];
   const docSize =
     orientation === "Landscape"
       ? { width: baseSize.height, height: baseSize.width }
@@ -248,6 +248,10 @@ const handlePageClick = (pageIndex) => {
   const [pages, setPages] = useState(['<p></p>']);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [templateStatus, setTemplateStatus] = useState('draft');
+  const [approvers, setApprovers] = useState([]);
+  const [loadingApprovers, setLoadingApprovers] = useState(false);
+  const [templateData, setTemplateData] = useState(null);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [dirty, setDirty] = useState(false);
   const autosaveTimerRef = useRef(null);
@@ -261,7 +265,7 @@ const handlePageClick = (pageIndex) => {
       try {
         setLoadingTemplate(true);
         const res = await getTemplateByIdAPI(templateId);
-        if (res.success && res.template && !ignore) {
+  if (res.success && res.template && !ignore) {
           setTitle(res.template.title || 'Untitled Template');
           // Prioritize multi-page content if available
           if (Array.isArray(res.template.pages_json) && res.template.pages_json.length > 0) {
@@ -272,8 +276,14 @@ const handlePageClick = (pageIndex) => {
           if (res.template.body) {
             setContent(res.template.body);
           }
-          if (res.template.document_size) setPaperSize(res.template.document_size);
+          if (res.template.document_size) {
+            const ds = res.template.document_size;
+            const mapped = ds === '8.5 x 11' ? 'letter' : ds === '8.5 x 13' ? 'legal' : ds;
+            setPaperSize(mapped);
+          }
           if (res.template.margin) setMargins(res.template.margin);
+          if (res.template.status) setTemplateStatus(res.template.status);
+          setTemplateData(res.template);
         }
       } catch (e) {
         console.error('Failed to load template', e);
@@ -283,6 +293,25 @@ const handlePageClick = (pageIndex) => {
     })();
     return () => { ignore = true; };
   }, [templateId]);
+
+  // Fetch approvers for user's school (Secretary & Dean)
+  useEffect(() => {
+    const loadApprovers = async () => {
+      if (!user?.role?.school) return;
+      setLoadingApprovers(true);
+      try {
+        const data = await fetchApproversAPI(user.role.school);
+        const list = data.approvers || [];
+        list.sort((a,b)=> (a.role.name===b.role.name)?0:(a.role.name==='Secretary'? -1:1));
+        setApprovers(list);
+      } catch(err){
+        console.warn('Failed to load approvers', err);
+      } finally {
+        setLoadingApprovers(false);
+      }
+    };
+    loadApprovers();
+  }, [user?.role?.school]);
 
   const buildUpdatePayload = (submitForApproval = false) => {
     // Collect JSON for each page editor
@@ -301,9 +330,8 @@ const handlePageClick = (pageIndex) => {
       margin: margins,
       body: pages.join(''),
       pages_json: pagesJSON,
-      status: submitForApproval ? { pending_approval: true } : undefined
+      ...(submitForApproval ? { status: 'pending' } : {})
     };
-    if (!submitForApproval) delete payload.status;
     return payload;
   };
   
@@ -317,6 +345,8 @@ const handlePageClick = (pageIndex) => {
       if (res.success) {
         setLastSavedAt(new Date());
   setDirty(false);
+  if (res.template?.status) setTemplateStatus(res.template.status);
+  if (res.template) setTemplateData(res.template);
       }
     } catch (e) {
       console.error('Save draft failed', e);
@@ -335,6 +365,8 @@ const handlePageClick = (pageIndex) => {
       if (res.success) {
         setLastSavedAt(new Date());
         setDirty(false);
+  if (res.template?.status) setTemplateStatus(res.template.status);
+  if (res.template) setTemplateData(res.template);
       }
     } catch (e) {
       console.error('Submit for approval failed', e);
@@ -403,7 +435,7 @@ const handlePageClick = (pageIndex) => {
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
-  <Header title={title} setTitle={setTitle} user={user} onSaveDraft={handleSaveDraft} onSubmitForApproval={handleSubmitForApproval} saving={saving} lastSavedAt={lastSavedAt} dirty={dirty} />
+  <Header title={title} setTitle={setTitle} user={user} onSaveDraft={handleSaveDraft} onSubmitForApproval={handleSubmitForApproval} saving={saving} lastSavedAt={lastSavedAt} dirty={dirty} templateStatus={templateStatus} approvers={approvers} loadingApprovers={loadingApprovers} reviewNotes={templateData?.status_meta?.review_notes || []} assignedIds={templateData?.assigned || []} />
       {/* Hidden measuring div */}
       <div
         id="measure-div"
@@ -501,6 +533,7 @@ const handlePageClick = (pageIndex) => {
                     margins
                   }}
                   pageAvailableHeight={availableContentHeight}
+                  readOnly={templateStatus!== 'draft'}
                   onChange={newContent => {
                       const newPages = [...pages];
                       newPages[idx] = newContent;

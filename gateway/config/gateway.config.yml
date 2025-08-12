@@ -13,11 +13,10 @@ apiEndpoints:
   users:
     host: localhost
     paths:
-      - /api/users/profile
-      - /api/users/update
-      - /api/admin/get-users
-      - /api/admin/dashboard-info
-      - /api/admin/create-user
+      - /api/users/*
+      - /api/admin/*
+      - /api/doc-controller/*
+
 
   documents:
     host: ${HOST}

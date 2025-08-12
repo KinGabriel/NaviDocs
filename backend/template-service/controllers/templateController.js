@@ -1,5 +1,12 @@
 import Template from "../models/templateModel.js";
-import { validSchools, schoolMap, getSchoolCode, generateDocumentCode, getStatusQuery, getComputedStatus } from "../utils/templateUtils.js";
+import { validSchools, schoolMap, getSchoolCode, generateDocumentCode } from "../utils/templateUtils.js";
+
+// Unified status query helper
+const statusQuery = (status) => {
+  if (!status || status === 'All') return {};
+  if (['draft','pending','approved','published'].includes(status)) return { status };
+  return {};
+};
 
 /**
  * @desc Get dashboard information for document controller
@@ -8,16 +15,22 @@ import { validSchools, schoolMap, getSchoolCode, generateDocumentCode, getStatus
  */
 export const dashboardInfo = async (req, res) => {
   try{
-    const countPublished = await Template.countDocuments({ 'status.published': true });
-    const countDraft = await Template.countDocuments({ 'status.draft': true });
-    const countPendingApproval = await Template.countDocuments({ 'status.pending_approval': true });
-    const getPublishedTemplates = await Template.find(
-    { 'status.published': true } 
-    )
-    .sort({ "status.published_at": -1 })
-    .limit(20)
-    .select("title document_code createdAt status.published revision_no effectivity created_by")
-    .lean();
+    const [counts, recentPublished] = await Promise.all([
+      Template.aggregate([
+        { $group: { _id: "$status", count: { $sum: 1 } } }
+      ]),
+      Template.find({ status: 'published' })
+        .sort({ 'status_meta.published_at': -1, updatedAt: -1 })
+        .limit(20)
+        .select('title document_code createdAt status revision_no effectivity created_by status_meta.published_at')
+        .lean()
+    ]);
+
+    const countMap = counts.reduce((acc,c)=>{ acc[c._id] = c.count; return acc; }, {});
+    const countPublished = countMap.published || 0;
+    const countDraft = countMap.draft || 0;
+    const countPendingApproval = countMap.pending || 0;
+    const getPublishedTemplates = recentPublished;
     res.status(200).json({
       success: true,
       data: {
@@ -157,10 +170,8 @@ export const getTemplates = async (req, res) => {
       query.document_code = { $regex: `^FM-${schoolCode}-\\d+$`, $options: 'i' };
     }
 
-    // Status filtering (use utility)
-    if (status && status !== 'All') {
-      Object.assign(query, getStatusQuery(status));
-    }
+  // Status filtering
+  Object.assign(query, statusQuery(status));
 
     // Search
     if (search) {
@@ -179,19 +190,13 @@ export const getTemplates = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Add computed_status 
-    const templatesWithStatus = templates.map(t => ({
-      ...t.toObject(),
-      computed_status: getComputedStatus(t.status)
-    }));
-
     const total = await Template.countDocuments(query);
 
     res.status(200).json({
       success: true,
       message: 'Templates retrieved successfully',
       data: {
-        templates: templatesWithStatus,
+  templates: templates,
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(total / parseInt(limit)),
@@ -292,9 +297,22 @@ export const updateTemplate = async (req, res) => {
       delete updatePayload.document_code;
     }
 
+    let updateOps = { $set: updatePayload };
+    if (req.body.notes_append && req.body.notes_append.message) {
+      updateOps.$push = { notes: {
+        added_by: req.body.notes_append.added_by || req.body.created_by || template.created_by,
+        role_snapshot: req.body.notes_append.role_snapshot || '',
+        type: req.body.notes_append.type || 'general',
+        message: req.body.notes_append.message,
+        created_at: new Date()
+      }};
+      // Prevent full overwrite if notes array also sent
+      delete updateOps.$set.notes;
+    }
+
     const updatedTemplate = await Template.findByIdAndUpdate(
       req.params.id,
-      { $set: updatePayload },
+      updateOps,
       { new: true, runValidators: true }
     );
 
