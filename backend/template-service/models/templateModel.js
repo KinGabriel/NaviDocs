@@ -56,10 +56,18 @@ const templateSchema = new mongoose.Schema({
   footer: { type: mongoose.Schema.Types.Mixed, default: [] },
   status: { type: String, enum: ['draft','pending','approved','published'], default: 'draft' },
   status_meta: {
-    approved_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     approved_at: { type: Date, default: null },
     published_at: { type: Date, default: null },
-    submitted_for_approval_at: { type: Date, default: null }
+    approvals: {
+      dean: {
+        approved_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+        approved_at: { type: Date, default: null }
+      },
+      secretary: {
+        approved_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+        approved_at: { type: Date, default: null }
+      }
+    }
   },
   notes: [{
     added_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -79,6 +87,18 @@ const templateSchema = new mongoose.Schema({
   },
   assigned: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, { timestamps: true });
+
+// to check if both dean & secretary approvals are complete (Virtual)
+templateSchema.virtual('isFullyApproved').get(function() {
+  try {
+    const approvals = this.status_meta?.approvals;
+    return !!(approvals?.dean?.approved_at && approvals?.secretary?.approved_at);
+  } catch (e) {
+    return false;
+  }
+});
+templateSchema.set('toJSON', { virtuals: true });
+templateSchema.set('toObject', { virtuals: true });
 
 
 templateSchema.index({ status: 1 });

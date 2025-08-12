@@ -1,16 +1,21 @@
 import { useState } from 'react';
 
-export default function TemplateCard({ template, onSelect }) {
+export default function TemplateCard({ template, onSelect, user, onApprove, onPublish }) {
   const [showMenu, setShowMenu] = useState(false);
 
   // Helper function to get template status
   const getTemplateStatus = (template) => {
-    
-    if (typeof template.status === 'string') return template.status;
-
+    if (typeof template.status === 'string') {
+      // Treat fully approved "pending" as approved for clearer UX in grid
+      if (template.status === 'pending' && template.approvalMeta?.isFullyApproved) return 'approved';
+      return template.status;
+    }
     if (template.computed_status) return template.computed_status;
     if (template.status?.published) return 'published';
-    if (template.status?.pending_approval) return 'pending';
+    if (template.status?.pending_approval) {
+      if (template.approvalMeta?.isFullyApproved) return 'approved';
+      return 'pending';
+    }
     if (template.status?.approved) return 'approved';
     return 'draft';
   };
@@ -80,13 +85,48 @@ export default function TemplateCard({ template, onSelect }) {
   };
 
   const status = getTemplateStatus(template);
+  const approvalMeta = template.approvalMeta || {};
+  const rawRole = (typeof user?.role === 'string') ? user.role : user?.role?.name;
+  const userRole = (rawRole || '').toString().toLowerCase();
+  const roleKey = userRole === 'secretary' ? 'secretary' : userRole === 'dean' ? 'dean' : null;
+  const canApprove = !!(roleKey && approvalMeta && !approvalMeta[`${roleKey}Approved`] && ['pending','draft','approved'].includes(status) && template.status !== 'published');
+  const canPublish = !!(approvalMeta && (approvalMeta.canPublish || (approvalMeta.isFullyApproved && status !== 'published')));
+
+  const handleApproveClick = (e) => {
+    e.stopPropagation();
+    if (onApprove) onApprove(template);
+  };
+  const handlePublishClick = (e) => {
+    e.stopPropagation();
+    if (onPublish) onPublish(template);
+  };
 
   return (
   <div className="relative w-[260px] bg-white rounded-lg shadow border flex flex-col overflow-visible hover:shadow-lg transition-all duration-200 cursor-pointer">
       
-      {/*  Status Badge */}
-      <div className={`absolute top-3 right-3 z-10 px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+      {/*  Status & actions cluster */}
+      <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
+        <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
+          {status.charAt(0).toUpperCase() + status.slice(1)}
+        </div>
+        {canPublish && (
+          <button
+            onClick={handlePublishClick}
+            className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow"
+            title="Publish template"
+          >
+            Publish
+          </button>
+        )}
+        {canApprove && !canPublish && (
+          <button
+            onClick={handleApproveClick}
+            className="px-2 py-0.5 rounded text-[10px] font-semibold bg-green-600 text-white hover:bg-green-700 shadow"
+            title="Approve as your role"
+          >
+            Approve
+          </button>
+        )}
       </div>
 
       {/*  Document Preview*/}
@@ -144,10 +184,28 @@ export default function TemplateCard({ template, onSelect }) {
             </svg>
             <span>Created {formatDate(template.createdAt || template.created_at)}</span>
           </div>
+
+          {/* Approval role indicators */}
+          {approvalMeta && (
+            <div className="flex items-center gap-2 mt-2">
+              {['secretary','dean'].map(r => {
+                const approved = approvalMeta[`${r}Approved`];
+                return (
+                  <div key={r} className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${approved ? 'bg-green-50 border-green-500 text-green-700' : 'bg-gray-50 border-gray-300 text-gray-500'}`} title={`${r.charAt(0).toUpperCase()+r.slice(1)} ${approved ? 'approved' : 'pending'}`}> 
+                    <span className={`w-2 h-2 rounded-full ${approved ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                    {r === 'secretary' ? 'Sec' : 'Dean'}
+                  </div>
+                );
+              })}
+              {approvalMeta.isFullyApproved && !['published'].includes(status) && (
+                <div className="text-[10px] text-green-600 font-semibold" title="Fully approved awaiting publish">2/2</div>
+              )}
+            </div>
+          )}
         </div>
 
         {/*  3-dot menu with dropdown */}
-        <div className="relative">
+  <div className="relative">
           <button
             className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
             onClick={(e) => {

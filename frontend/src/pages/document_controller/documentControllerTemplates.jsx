@@ -8,7 +8,7 @@ import Dropdown from '../../components/dropdown';
 import TemplateCard from '../../components/templatecard';
 import CreateTemplateModal from '../../components/modals/createTemplateModal';
 import usePagination from '../../hooks/usePagination';
-import { fetchTemplatesAPI, createTemplateAPI } from '../../api/documentContollerAPI';
+import { fetchTemplatesAPI, createTemplateAPI, approveTemplateAPI, publishTemplateAPI } from '../../api/documentContollerAPI';
 
 export default function DocumentControllerTemplates() {
   const user = useUser();
@@ -159,6 +159,32 @@ export default function DocumentControllerTemplates() {
     }
   };
 
+  // Inline approve handler
+  const handleInlineApprove = async (template) => {
+    if (!user) return;
+    const role = (user.role || '').toLowerCase();
+    if (!['secretary','dean'].includes(role)) return;
+    try {
+      const res = await approveTemplateAPI(template._id, role);
+      // Update the specific template in list
+      setTemplates(prev => prev.map(t => t._id === template._id ? { ...t, ...res.template, approvalMeta: res.approvalMeta || res.template?.approvalMeta } : t));
+    } catch (e) {
+      console.error('Approve failed', e);
+      alert(e.response?.data?.message || 'Approve failed');
+    }
+  };
+
+  // Inline publish handler
+  const handleInlinePublish = async (template) => {
+    try {
+      const res = await publishTemplateAPI(template._id);
+      setTemplates(prev => prev.map(t => t._id === template._id ? { ...t, ...res.template, approvalMeta: res.approvalMeta || res.template?.approvalMeta } : t));
+    } catch (e) {
+      console.error('Publish failed', e);
+      alert(e.response?.data?.message || 'Publish failed');
+    }
+  };
+
   // Fetch templates when filters change
   useEffect(() => {
     fetchTemplates();
@@ -272,9 +298,12 @@ export default function DocumentControllerTemplates() {
                 </div>
               ) : (
                 templates.map((template, i) => (
-                  <TemplateCard 
+                  <TemplateCard
                     key={template._id || i}
                     template={template}
+                    user={user}
+                    onApprove={handleInlineApprove}
+                    onPublish={handleInlinePublish}
                     onSelect={() => navigate(`/document-controller/create-template?templateId=${template._id}`)}
                   />
                 ))

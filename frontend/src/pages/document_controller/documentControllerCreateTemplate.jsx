@@ -1,6 +1,6 @@
 import { useRef, useState, useLayoutEffect, useCallback, useEffect } from "react";
 import { useLocation } from 'react-router-dom';
-import { getTemplateByIdAPI, updateTemplateAPI, fetchApproversAPI} from '../../api/documentContollerAPI';
+import { getTemplateByIdAPI, updateTemplateAPI, fetchApproversAPI, approveTemplateAPI, publishTemplateAPI } from '../../api/documentContollerAPI';
 import useUser from '../../hooks/useUser';
 import Header from "../../layout/header2";
 import FontPanel from "../../layout/create_template/FontPanel";
@@ -249,6 +249,8 @@ const handlePageClick = (pageIndex) => {
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [templateStatus, setTemplateStatus] = useState('draft');
+  const [approvals, setApprovals] = useState(null); // raw approvals object
+  const [approvalMeta, setApprovalMeta] = useState(null); // derived meta from backend
   const [approvers, setApprovers] = useState([]);
   const [loadingApprovers, setLoadingApprovers] = useState(false);
   const [templateData, setTemplateData] = useState(null);
@@ -283,6 +285,8 @@ const handlePageClick = (pageIndex) => {
           }
           if (res.template.margin) setMargins(res.template.margin);
           if (res.template.status) setTemplateStatus(res.template.status);
+          if (res.template.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
+          if (res.template.approvalMeta) setApprovalMeta(res.template.approvalMeta);
           setTemplateData(res.template);
         }
       } catch (e) {
@@ -346,6 +350,8 @@ const handlePageClick = (pageIndex) => {
         setLastSavedAt(new Date());
   setDirty(false);
   if (res.template?.status) setTemplateStatus(res.template.status);
+  if (res.template?.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
+  if (res.template?.approvalMeta) setApprovalMeta(res.template.approvalMeta);
   if (res.template) setTemplateData(res.template);
       }
     } catch (e) {
@@ -366,6 +372,8 @@ const handlePageClick = (pageIndex) => {
         setLastSavedAt(new Date());
         setDirty(false);
   if (res.template?.status) setTemplateStatus(res.template.status);
+  if (res.template?.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
+  if (res.template?.approvalMeta) setApprovalMeta(res.template.approvalMeta);
   if (res.template) setTemplateData(res.template);
       }
     } catch (e) {
@@ -374,6 +382,40 @@ const handlePageClick = (pageIndex) => {
       setSaving(false);
     }
   };
+
+  const handleApprove = async () => {
+    if (!templateId) return; if (saving) return;
+    const role = user?.role?.name?.toLowerCase();
+    if (!['dean','secretary'].includes(role)) return;
+    setSaving(true);
+    try {
+      const res = await approveTemplateAPI(templateId, role);
+      if (res.success) {
+        if (res.template?.status) setTemplateStatus(res.template.status);
+  if (res.template?.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
+  if (res.template?.approvalMeta) setApprovalMeta(res.template.approvalMeta);
+        // Local fallback: if backend still reports pending but both approvals now exist, flip status for UI so Publish appears
+        const ap = res.template?.status_meta?.approvals;
+        if (res.template?.status === 'pending' && ap?.dean?.approved_at && ap?.secretary?.approved_at) {
+          setTemplateStatus('approved');
+        }
+      }
+    } catch(e){ console.error('Approve failed', e);} finally { setSaving(false);} };
+
+  const handlePublish = async () => {
+    if (!templateId) return; if (saving) return;
+    // Allow publish if status approved OR pending but both approvals present
+    const fullyApproved = (approvalMeta && approvalMeta.isFullyApproved) || (approvals?.dean?.approved_at && approvals?.secretary?.approved_at);
+    if (!(templateStatus === 'approved' || (templateStatus === 'pending' && fullyApproved))) return;
+    setSaving(true);
+    try {
+      const res = await publishTemplateAPI(templateId);
+      if (res.success) {
+        if (res.template?.status) setTemplateStatus(res.template.status);
+        if (res.template?.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
+        if (res.approvalMeta) setApprovalMeta(res.approvalMeta); else if (res.template?.approvalMeta) setApprovalMeta(res.template.approvalMeta);
+      }
+    } catch(e){ console.error('Publish failed', e);} finally { setSaving(false);} };
 
   // Mark dirty when title/pages/margins/paper size change
   useEffect(() => {
@@ -435,7 +477,7 @@ const handlePageClick = (pageIndex) => {
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
-  <Header title={title} setTitle={setTitle} user={user} onSaveDraft={handleSaveDraft} onSubmitForApproval={handleSubmitForApproval} saving={saving} lastSavedAt={lastSavedAt} dirty={dirty} templateStatus={templateStatus} approvers={approvers} loadingApprovers={loadingApprovers} reviewNotes={templateData?.status_meta?.review_notes || []} assignedIds={templateData?.assigned || []} />
+  <Header title={title} setTitle={setTitle} user={user} onSaveDraft={handleSaveDraft} onSubmitForApproval={handleSubmitForApproval} onApprove={handleApprove} onPublish={handlePublish} saving={saving} lastSavedAt={lastSavedAt} dirty={dirty} templateStatus={templateStatus} approvals={approvals} approvalMeta={approvalMeta} approvers={approvers} loadingApprovers={loadingApprovers} reviewNotes={templateData?.status_meta?.review_notes || []} assignedIds={templateData?.assigned || []} />
       {/* Hidden measuring div */}
       <div
         id="measure-div"

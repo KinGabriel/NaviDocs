@@ -46,3 +46,31 @@ export function generateDocumentCode(existingTemplates, schoolIdentifier) {
   const sequentialNumber = nextSequentialNumber.toString().padStart(2, '0');
   return `${baseCode}-${sequentialNumber}`;
 }
+
+/**
+ * Builds approval meta summary for a template and current user.
+ * @param {Object} template - Mongoose template document or plain object.
+ * @param {string|ObjectId} currentUserId - Current user id.
+ * @returns {{deanApproved:boolean, secretaryApproved:boolean, isFullyApproved:boolean, hasApprovedCurrentUser:boolean, remainingRoles:string[], canPublish:boolean}}
+ */
+export function buildApprovalMeta(template, currentUserId) {
+  const approvals = template?.status_meta?.approvals || {};
+  const deanApproved = !!approvals.dean?.approved_at;
+  const secretaryApproved = !!approvals.secretary?.approved_at;
+  const isFullyApproved = deanApproved && secretaryApproved;
+  const hasApprovedCurrentUser = currentUserId ? [approvals.dean?.approved_by?.toString(), approvals.secretary?.approved_by?.toString()].includes(currentUserId.toString()) : false;
+  const remainingRoles = [!deanApproved && 'dean', !secretaryApproved && 'secretary'].filter(Boolean);
+  const canPublish = template.status === 'approved';
+  return { deanApproved, secretaryApproved, isFullyApproved, hasApprovedCurrentUser, remainingRoles, canPublish };
+}
+
+/**
+ * Builds a MongoDB query fragment for a given status filter.
+ * @param {string} status
+ * @returns {Object}
+ */
+export function statusQuery(status) {
+  if (!status || status === 'All') return {};
+  if (['draft','pending','approved','published'].includes(status)) return { status };
+  return {};
+}

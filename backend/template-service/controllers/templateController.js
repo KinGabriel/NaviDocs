@@ -1,12 +1,5 @@
 import Template from "../models/templateModel.js";
-import { validSchools, schoolMap, getSchoolCode, generateDocumentCode } from "../utils/templateUtils.js";
-
-// Unified status query helper
-const statusQuery = (status) => {
-  if (!status || status === 'All') return {};
-  if (['draft','pending','approved','published'].includes(status)) return { status };
-  return {};
-};
+import { validSchools, schoolMap, getSchoolCode, generateDocumentCode, buildApprovalMeta, statusQuery } from "../utils/templateUtils.js";
 
 /**
  * @desc Get dashboard information for document controller
@@ -192,11 +185,16 @@ export const getTemplates = async (req, res) => {
 
     const total = await Template.countDocuments(query);
 
+    const withMeta = templates.map(t => ({
+      ...t.toObject(),
+      approvalMeta: buildApprovalMeta(t, req.user?.id)
+    }));
+
     res.status(200).json({
       success: true,
       message: 'Templates retrieved successfully',
       data: {
-  templates: templates,
+  templates: withMeta,
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(total / parseInt(limit)),
@@ -241,7 +239,10 @@ export const getTemplateById = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Template retrieved successfully',
-      template: template
+      template: {
+        ...template.toObject(),
+        approvalMeta: buildApprovalMeta(template, req.user?.id)
+      }
     });
 
   } catch (error) {
@@ -332,7 +333,10 @@ export const updateTemplate = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Template updated successfully',
-      template: updatedTemplate
+      template: {
+        ...updatedTemplate.toObject(),
+        approvalMeta: buildApprovalMeta(updatedTemplate, req.user?.id)
+      }
     });
 
   } catch (error) {
@@ -400,14 +404,8 @@ export const getTemplatesByUser = async (req, res) => {
     let query = { created_by: req.params.userId };
     
     // Filter by status if provided
-    if (status) {
-      if (status === 'draft') {
-        query['status.draft'] = true;
-      } else if (status === 'published') {
-        query['status.published'] = true;
-      } else if (status === 'pending') {
-        query['status.pending_approval'] = true;
-      }
+    if (status && ['draft','pending','approved','published'].includes(status)) {
+      query.status = status;
     }
 
     // Calculate pagination
@@ -420,11 +418,12 @@ export const getTemplatesByUser = async (req, res) => {
 
     const total = await Template.countDocuments(query);
 
+    const withMeta = templates.map(t => ({ ...t.toObject(), approvalMeta: buildApprovalMeta(t, req.user?.id) }));
     res.status(200).json({
       success: true,
       message: 'User templates retrieved successfully',
       data: {
-        templates: templates,
+        templates: withMeta,
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(total / parseInt(limit)),
@@ -497,5 +496,79 @@ export const getTemplateStats = async (req, res) => {
       message: 'Failed to fetch template statistics',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
+  }
+};
+
+/**
+ * @desc Approve template as dean or secretary
+ * @route POST /api/templates/:id/approve
+ */
+export const approveTemplate = async (req, res) => {
+  try {
+    const { role } = req.body; // should be dean or secretary
+    if (!['dean','secretary'].includes(role)) {
+      return res.status(400).json({ success:false, message:'Invalid role' });
+    }
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    if (!['pending','draft','approved'].includes(template.status)) {
+      return res.status(400).json({ success:false, message:'Template not in approvable state' });
+    }
+    template.status_meta = template.status_meta || {};
+    template.status_meta.approvals = template.status_meta.approvals || { dean:{}, secretary:{} };
+    const slot = template.status_meta.approvals[role];
+    if (slot.approved_at) {
+      return res.status(400).json({ success:false, message: `${role} already approved` });
+    }
+    slot.approved_by = req.user.id;
+    slot.approved_at = new Date();
+    // If both approved set overall approved
+    const bothApproved = template.status_meta.approvals.dean?.approved_at && template.status_meta.approvals.secretary?.approved_at;
+    if (bothApproved) {
+      template.status = 'approved';
+      if (!template.status_meta.approved_at) template.status_meta.approved_at = new Date();
+    } else if (template.status === 'draft') {
+      template.status = 'pending'; // incase
+      if (!template.status_meta.submitted_for_approval_at) template.status_meta.submitted_for_approval_at = new Date();
+    } else if (template.status === 'pending') {
+      // keep pending until both
+    }
+    await template.save();
+  const approvalMeta = buildApprovalMeta(template, req.user?.id);
+  return res.status(200).json({ success:true, message:'Approval recorded', template: template.toObject(), approvalMeta });
+  } catch (err) {
+    console.error('Approve error', err);
+    return res.status(500).json({ success:false, message:'Failed to approve template' });
+  }
+};
+
+/**
+ * @desc Publish template (must be fully approved)
+ * @route POST /api/templates/:id/publish
+ */
+export const publishTemplate = async (req, res) => {
+  try {
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    // Allow publishing if status is approved or pending but both approvals exist
+    if (template.status !== 'approved') {
+      const approvals = template.status_meta?.approvals || {};
+      const fullyApproved = approvals.dean?.approved_at && approvals.secretary?.approved_at;
+      if (template.status === 'pending' && fullyApproved) {
+        template.status = 'approved';
+        if (!template.status_meta.approved_at) template.status_meta.approved_at = new Date();
+      } else {
+        return res.status(400).json({ success:false, message:'Template must be approved before publishing' });
+      }
+    }
+    template.status = 'published';
+    template.status_meta = template.status_meta || {};
+    template.status_meta.published_at = new Date();
+    await template.save();
+    const approvalMeta = buildApprovalMeta(template, req.user?.id);
+    return res.status(200).json({ success:true, message:'Template published', template: template.toObject(), approvalMeta });
+  } catch (err) {
+    console.error('Publish error', err);
+    return res.status(500).json({ success:false, message:'Failed to publish template' });
   }
 };
