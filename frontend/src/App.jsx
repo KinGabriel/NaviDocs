@@ -8,6 +8,7 @@ import DocumentControllerDashboard from './pages/document_controller/documentCon
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
+import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
 
 function App() {
   return(
@@ -59,6 +60,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Document Controller"]}>
               <DocumentControllerCreateTemplate />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/document-controller/statistics"
+          element={
+            <ProtectedRoute allowedRoles={["Document Controller"]}>
+              <DocumentControllerStatistics />
             </ProtectedRoute>
           }
         />
