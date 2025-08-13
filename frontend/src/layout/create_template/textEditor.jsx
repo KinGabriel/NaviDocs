@@ -351,8 +351,15 @@ export default function TextEditor({
     const html = editor.getHTML()
     
     // Skip if content hasn't actually changed
-    if (html === lastContentRef.current) return
-    
+    if (html === lastContentRef.current) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[TextEditor] update skipped (no change) page', pageIndex)
+      }
+      return
+    }
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[TextEditor] content changed page', pageIndex, 'length', html.length)
+    }
     lastContentRef.current = html
     onChange(html)
 

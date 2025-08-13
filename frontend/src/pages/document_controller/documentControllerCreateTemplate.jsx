@@ -1,6 +1,6 @@
-import { useRef, useState, useLayoutEffect, useCallback, useEffect } from "react";
-import { useLocation } from 'react-router-dom';
-import { getTemplateByIdAPI, updateTemplateAPI, fetchApproversAPI, approveTemplateAPI, publishTemplateAPI } from '../../api/documentContollerAPI';
+import { useRef, useState, useLayoutEffect, useCallback, useEffect, useMemo } from "react";
+import { useLocation, useNavigate } from 'react-router-dom';
+import { getTemplateByIdAPI, updateTemplateAPI, fetchApproversAPI, approveTemplateAPI, publishTemplateAPI, createTemplateAPI } from '../../api/documentContollerAPI';
 import useUser from '../../hooks/useUser';
 import Header from "../../layout/header2";
 import FontPanel from "../../layout/create_template/FontPanel";
@@ -78,6 +78,7 @@ function paginateContentByHeight(content, pageHeightPx) {
 export default function CreateTemplate() {
   const user = useUser();
   const location = useLocation();
+  const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
   const templateId = searchParams.get('templateId');
   const [activeTab, setActiveTab] = useState("font");
@@ -246,6 +247,31 @@ const handlePageClick = (pageIndex) => {
 
   const pageRef = useRef(null);
   const [pages, setPages] = useState(['<p></p>']);
+  const [hydrated, setHydrated] = useState(false); // true once initial load applied
+  const [initialContentLen, setInitialContentLen] = useState(0);
+  const lastMeaningfulLenRef = useRef(0);
+  const lastSavedHashRef = useRef(null);
+  const backupThrottleRef = useRef(null);
+  const RESTORE_KEY_PREFIX = 'templateBackup:';
+
+  const hashString = useCallback((str) => {
+    let h = 0; for (let i=0;i<str.length;i++) h = (h<<5)-h + str.charCodeAt(i) | 0; return h.toString(36);
+  }, []);
+  const stripHtml = useCallback((html) => (html||'').replace(/<[^>]+>/g,''), []);
+  const isTriviallyBlank = useCallback((html) => {
+    if (!html) return true;
+    const stripped = html
+      .replace(/<p><br\/?><\/p>/gi,'')
+      .replace(/<p>\s*<\/p>/gi,'')
+      .replace(/&nbsp;/g,' ')
+      .replace(/<[^>]+>/g,'')
+      .trim();
+    return stripped.length === 0;
+  }, []);
+  const scheduleBackup = useCallback((id, data) => {
+    if (!id) return; if (backupThrottleRef.current) clearTimeout(backupThrottleRef.current);
+    backupThrottleRef.current = setTimeout(()=>{ try { localStorage.setItem(RESTORE_KEY_PREFIX+id, JSON.stringify(data)); } catch(_){} }, 600);
+  }, []);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [templateStatus, setTemplateStatus] = useState('draft');
@@ -256,10 +282,12 @@ const handlePageClick = (pageIndex) => {
   const [templateData, setTemplateData] = useState(null);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [dirty, setDirty] = useState(false);
+  const [saveDebug, setSaveDebug] = useState(null); // latest reason / status
   const autosaveTimerRef = useRef(null);
   const AUTOSAVE_DELAY = 2000; // ms after last change
 
-  // Load existing template 
+  // Load existing template (with restore + reconstruction logic)
+  const reconstructionExtensions = useMemo(()=>[],[]); // placeholder for future generateHTML if needed
   useEffect(() => {
     if (!templateId) return;
     let ignore = false;
@@ -269,15 +297,17 @@ const handlePageClick = (pageIndex) => {
         const res = await getTemplateByIdAPI(templateId);
   if (res.success && res.template && !ignore) {
           setTitle(res.template.title || 'Untitled Template');
-          // Prioritize multi-page content if available
-          if (Array.isArray(res.template.pages_json) && res.template.pages_json.length > 0) {
-            setPages(res.template.pages_json.map(() => '<p></p>'));
+          const serverPagesJson = Array.isArray(res.template.pages_json) ? res.template.pages_json : [];
+          if (serverPagesJson.length > 0) {
+            // Convert minimal JSON pages into placeholder HTML (keep actual HTML from body for now)
+            const reconstructed = serverPagesJson.map(()=>'<p></p>');
+            setPages(reconstructed);
+          } else if (res.template.body) {
+            setPages([res.template.body]);
           } else {
             setPages(['<p></p>']);
           }
-          if (res.template.body) {
-            setContent(res.template.body);
-          }
+          if (res.template.body) setContent(res.template.body);
           if (res.template.document_size) {
             const ds = res.template.document_size;
             const mapped = ds === '8.5 x 11' ? 'letter' : ds === '8.5 x 13' ? 'legal' : ds;
@@ -288,6 +318,27 @@ const handlePageClick = (pageIndex) => {
           if (res.template.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
           if (res.template.approvalMeta) setApprovalMeta(res.template.approvalMeta);
           setTemplateData(res.template);
+          // Anti-wipe metrics
+          const body = res.template.body || '';
+          setInitialContentLen(body.length);
+          lastMeaningfulLenRef.current = isTriviallyBlank(body) ? 0 : stripHtml(body).trim().length;
+          lastSavedHashRef.current = hashString(body);
+          setHydrated(true);
+          scheduleBackup(templateId, { pages: [...(serverPagesJson.length?serverPagesJson:[])] , title: res.template.title, paperSize, margins, ts: Date.now(), body });
+          // Attempt restore if server blank but we had backup
+          if (isTriviallyBlank(body)) {
+            try {
+              const backupRaw = localStorage.getItem(RESTORE_KEY_PREFIX+templateId);
+              if (backupRaw) {
+                const backup = JSON.parse(backupRaw);
+                if (backup?.body && !isTriviallyBlank(backup.body)) {
+                  console.warn('Restoring body from backup snapshot');
+                  setContent(backup.body);
+                  setPages([backup.body]);
+                }
+              }
+            } catch(_){}
+          }
         }
       } catch (e) {
         console.error('Failed to load template', e);
@@ -317,32 +368,92 @@ const handlePageClick = (pageIndex) => {
     loadApprovers();
   }, [user?.role?.school]);
 
+  const htmlToBasicJSON = useCallback((html) => {
+    if (!html) return { type: 'doc', content: [{ type: 'paragraph' }] };
+    const parts = html.split(/<\/p>/i).map(p=>p.replace(/<[^>]+>/g,'').trim()).filter(Boolean);
+    return { type: 'doc', content: parts.length? parts.map(t=>({ type:'paragraph', content: t? [{ type:'text', text:t }] : [] })) : [{ type:'paragraph' }] };
+  }, []);
+
   const buildUpdatePayload = (submitForApproval = false) => {
-    // Collect JSON for each page editor
-    const pagesJSON = pages.map((_, idx) => {
-      const inst = editorInstances[idx];
-      if (inst) {
-        try {
-          return inst.getJSON();
-        } catch (e) { /* ignore */ }
+    // Determine body HTML smartly: if pages are effectively blank placeholders but we have richer content state, prefer content
+    let bodyHtml = pages.join('');
+    try {
+      const allPlaceholders = pages.length > 0 && pages.every(p => !p || p === '<p></p>' || isTriviallyBlank(p));
+      if (allPlaceholders && content && !isTriviallyBlank(content)) {
+        bodyHtml = content; // avoid wiping real body with placeholder aggregation
       }
-      return null;
-    }).filter(Boolean);
-    const payload = {
+    } catch(_) {}
+    const pagesJSON = pages.map((p, idx) => {
+      const inst = editorInstances[idx];
+      if (inst) { try { return inst.getJSON(); } catch(_){} }
+      if (templateData?.pages_json && templateData.pages_json[idx]) return templateData.pages_json[idx];
+      return htmlToBasicJSON(p);
+    });
+    // Include layout + metadata so save hashing considers these changes too
+    const meta = { margins, paperSize, title };
+    return {
       title,
       document_size: paperSize,
       margin: margins,
-      body: pages.join(''),
+      body: bodyHtml,
       pages_json: pagesJSON,
+      _metaForHash: meta, // not persisted (backend should ignore unknown field); used only for local hashing diagnostics
       ...(submitForApproval ? { status: 'pending' } : {})
     };
-    return payload;
   };
   
   const handleSaveDraft = async () => {
-    if (!templateId) return; // only saving existing
-    if (saving) return;
+    // Creation path for new templates
+    if (!templateId) {
+      if (saving) { setSaveDebug('skip: already saving (create)'); return; }
+      const plainLenNew = stripHtml(pages.join('')).trim().length;
+      if (plainLenNew === 0 && title === 'Untitled Template') { setSaveDebug('skip: new template empty'); return; }
+      setSaving(true);
+      setSaveDebug('creating new template...');
+      try {
+        const payload = buildUpdatePayload(false);
+        // Minimal required fields for creation (backend expects created_by, school_identifier maybe) – infer from user
+        const school_identifier = user?.role?.school_identifier || user?.role?.school || 'GEN';
+        const createPayload = { ...payload, created_by: user?.id, school_identifier };
+        const res = await createTemplateAPI(createPayload);
+        if (res.success && res.template?._id) {
+          setSaveDebug('created template');
+          navigate(`?templateId=${res.template._id}`, { replace: true });
+        } else {
+          setSaveDebug('create failed');
+        }
+      } catch(e) {
+        console.error('Create template failed', e); setSaveDebug('error: create failed');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+    if (saving) { setSaveDebug('skip: already saving'); return; }
+    if (!hydrated) { setSaveDebug('skip: not hydrated'); return; }
+    // Recompute body using same logic as payload builder (without creating full payload yet)
+    let bodyHtml = pages.join('');
+    try {
+      const allPlaceholders = pages.length > 0 && pages.every(p => !p || p === '<p></p>' || isTriviallyBlank(p));
+      if (allPlaceholders && content && !isTriviallyBlank(content)) {
+        bodyHtml = content;
+      }
+    } catch(_) {}
+    const plainLen = stripHtml(bodyHtml).trim().length;
+    // Anti-wipe: block if initial had content & now blank
+    if (initialContentLen > 50 && lastMeaningfulLenRef.current > 0 && plainLen === 0) {
+      console.warn('Blocked save that would wipe meaningful content'); setSaveDebug('blocked: wipe protection');
+      return;
+    }
+    // Expanded hash basis to include title, margins, paper size so non-body edits trigger save
+    const hashBasis = `${bodyHtml}__TITLE__${title}__MARGINS__${JSON.stringify(margins)}__SIZE__${paperSize}`;
+    const newHash = hashString(hashBasis);
+    if (newHash === lastSavedHashRef.current) {
+      setSaveDebug('skip: no changes');
+      return; // no change
+    }
     setSaving(true);
+    setSaveDebug('saving...');
     try {
       const payload = buildUpdatePayload(false);
       const res = await updateTemplateAPI(templateId, payload);
@@ -353,9 +464,13 @@ const handlePageClick = (pageIndex) => {
   if (res.template?.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
   if (res.template?.approvalMeta) setApprovalMeta(res.template.approvalMeta);
   if (res.template) setTemplateData(res.template);
+        if (plainLen>0) lastMeaningfulLenRef.current = plainLen;
+  lastSavedHashRef.current = newHash;
+        scheduleBackup(templateId, { pages: [...pages], title, body: bodyHtml, paperSize, margins, ts: Date.now() });
+        setSaveDebug('saved');
       }
     } catch (e) {
-      console.error('Save draft failed', e);
+      console.error('Save draft failed', e); setSaveDebug('error: save failed');
     } finally {
       setSaving(false);
     }
@@ -364,6 +479,13 @@ const handlePageClick = (pageIndex) => {
   const handleSubmitForApproval = async () => {
     if (!templateId) return;
     if (saving) return;
+    if (!hydrated) return;
+    const bodyHtml = pages.join('');
+    const plainLen = stripHtml(bodyHtml).trim().length;
+    if (initialContentLen > 50 && lastMeaningfulLenRef.current > 0 && plainLen === 0) {
+      console.warn('Blocked submit that would wipe meaningful content');
+      return;
+    }
     setSaving(true);
     try {
       const payload = buildUpdatePayload(true);
@@ -375,6 +497,7 @@ const handlePageClick = (pageIndex) => {
   if (res.template?.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
   if (res.template?.approvalMeta) setApprovalMeta(res.template.approvalMeta);
   if (res.template) setTemplateData(res.template);
+        scheduleBackup(templateId, { pages: [...pages], title, body: bodyHtml, paperSize, margins, ts: Date.now() });
       }
     } catch (e) {
       console.error('Submit for approval failed', e);
@@ -421,14 +544,18 @@ const handlePageClick = (pageIndex) => {
   useEffect(() => {
     if (loadingTemplate) return; // ignore initial load
     // Any change after initial load marks dirty
-    setDirty(true);
-  }, [title, pages, paperSize, orientation, margins, loadingTemplate]);
+    if (hydrated) {
+      setDirty(true);
+      scheduleBackup(templateId, { pages: [...pages], title, body: pages.join(''), paperSize, margins, ts: Date.now() });
+    }
+  }, [title, pages, paperSize, orientation, margins, loadingTemplate, hydrated, templateId, scheduleBackup]);
 
   // Debounced autosave effect
   useEffect(() => {
     if (!templateId) return; // only autosave existing
     if (!dirty) return; // nothing to save
     if (saving) return; // wait until current save finishes
+    if (!hydrated) return; // wait for initial load
     // Clear existing timer
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
@@ -439,7 +566,7 @@ const handlePageClick = (pageIndex) => {
     return () => {
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     };
-  }, [dirty, saving, templateId]);
+  }, [dirty, saving, templateId, hydrated]);
 
   // Warn user about unsaved changes on page unload
   useEffect(() => {
@@ -538,7 +665,7 @@ const handlePageClick = (pageIndex) => {
         {/* Document Editor */}
         <div className="flex-1 flex flex-col items-center overflow-y-scroll bg-gray-50 p-8">
           <div className="space-y-8">
-           {loadingTemplate && (
+           {templateId && loadingTemplate && (
              <div className="text-center text-sm text-gray-500">Loading template...</div>
            )}
            {pages.map((pageContent, idx) => (
