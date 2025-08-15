@@ -76,15 +76,7 @@ const templateSchema = new mongoose.Schema({
     message: { type: String, required: true },
     created_at: { type: Date, default: Date.now }
   }],
-  approval_workflow: {
-    required_approvers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    current_step: { type: Number, default: 0 },
-    completed_approvals: [{
-      approver: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      approved_at: { type: Date },
-      comments: { type: String }
-    }]
-  },
+  deadline:{ type: Date, default: null },
   assigned: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, { timestamps: true });
 
