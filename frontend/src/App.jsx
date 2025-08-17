@@ -9,6 +9,8 @@ import DocumentControllerTemplates from './pages/document_controller/documentCon
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
+import NotFoundPage from './pages/error_pages/notFoundPage';
+import ServerErrorPage from './pages/error_pages/serverErrorPage';
 
 function App() {
   return(
@@ -71,6 +73,11 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* Error Pages */}
+        <Route path="*" 
+          element={<NotFoundPage />} />
+        <Route path="/server-error" 
+          element={<ServerErrorPage />} />
       </Routes>
     </Router>
   )
