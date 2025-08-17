@@ -685,10 +685,11 @@ const handlePageClick = (pageIndex) => {
                 onClick={() => handlePageClick(idx)} 
               >
                {/* Page number indicator */}
-                  <div className="absolute -top-6 right-0 text-xs text-gray-400 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <div className="absolute -top-6 right-0 text-xs text-gray-400 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200 invisible">
                   Page {idx + 1} {idx === activeEditorIndex ? '(Active)' : ''}
                 </div>
-                
+
+              
                 <TextEditor
                   content={pageContent}
                   fontSettings={defaultFontSettings}
