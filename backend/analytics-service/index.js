@@ -4,9 +4,11 @@ import { expressMiddleware } from '@apollo/server/express4';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { userType } from './schemas/userSchema.js';
-import { resolvers } from './resolvers/index.js';
+import { templateType } from './schemas/templateSchema.js';
+import { resolvers } from './resolvers/aggregator.js';
 import { authenticateJWT } from "../user-service/middleware/authenticationMiddleware.js";
 import cookieParser from 'cookie-parser';
+
 
 dotenv.config();
 
@@ -18,8 +20,7 @@ async function startServer() {
   app.use(cookieParser());
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 
-
-  const server = new ApolloServer({ typeDefs: userType, resolvers });
+  const server = new ApolloServer({ typeDefs: [userType, templateType], resolvers });
   await server.start();
 
   app.use(
@@ -32,8 +33,6 @@ async function startServer() {
       }),
     })
   );
-
-  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => {

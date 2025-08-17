@@ -15,7 +15,7 @@ export const dashboardInfo = async (req, res) => {
       Template.find({ status: 'published' })
         .sort({ 'status_meta.published_at': -1, updatedAt: -1 })
         .limit(20)
-        .select('title document_code createdAt status revision_no effectivity created_by status_meta.published_at')
+        .select('_id title document_code createdAt status revision_no effectivity created_by status_meta.published_at')
         .lean()
     ]);
 
