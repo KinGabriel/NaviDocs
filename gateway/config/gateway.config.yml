@@ -34,6 +34,11 @@ apiEndpoints:
     paths:
       - /api/templates/*
 
+  analytics-graphql:
+    host: localhost
+    paths:
+      - /graphql
+
 
 
 serviceEndpoints:
@@ -47,6 +52,8 @@ serviceEndpoints:
     url: ${TEMPLATE_SERVICE_URL}
   file-service:
     url: ${FILE_SERVICE_URL}
+  analytics-service:
+    url: ${ANALYTICS_SERVICE_URL}
 
 policies:
   - jwt
@@ -131,6 +138,21 @@ pipelines:
             - action:
                 serviceEndpoint: file-service
                 changeOrigin: true
+
+  analytics-graphql-pipeline:
+    apiEndpoints:
+      - analytics-graphql
+    policies:
+      - cors:
+          - action:
+              origin: ${FRONTEND_URL}
+              methods: "POST,OPTIONS"
+              credentials: true
+              allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+      - proxy:
+          - action:
+              serviceEndpoint: analytics-service
+              changeOrigin: true
 
 
 

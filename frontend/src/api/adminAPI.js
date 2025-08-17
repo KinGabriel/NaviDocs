@@ -7,13 +7,33 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
  * @throws {Error} - Throws an error if the request fails.
  */
 export const fetchDashboardInfoAPI = async () => {
+  const query = `
+    query {
+      adminDashboard {
+        total
+        dean
+        deptHead
+        faculty
+        recentUsers {
+          email
+          firstname
+          lastname
+          profile_picture
+          role { name school department }
+          createdAt
+        }
+      }
+    }
+  `;
   try {
-    const res = await axios.get(`${API_URL}/api/admin/dashboard-info`, {
-      withCredentials: true
-    });
-    return res.data;
+    const res = await axios.post(
+      `${API_URL}/graphql`,
+      { query },
+      { withCredentials: true }
+    );
+    return res.data.data.adminDashboard;
   } catch (error) {
-    throw new Error(error.response?.data?.message || "Failed to fetch dashboard info.");
+    throw new Error(error.response?.data?.errors?.[0]?.message || "Failed to fetch dashboard info.");
   }
 };
 
