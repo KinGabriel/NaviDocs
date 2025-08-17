@@ -2,7 +2,7 @@ import Header from '../../layout/header';
 import Sidebar from '../../layout/sidebar'; 
 import useUser from '../../hooks/useUser';
 
-export default function DocumentControllerTemplates() {
+export default function DocumentControllerDashboard() {
 const user = useUser();
 
   return (

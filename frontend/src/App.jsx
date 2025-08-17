@@ -10,6 +10,7 @@ import DocumentControllerCreateTemplate from './pages/document_controller/docume
 import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
 import NotFoundPage from './pages/error_pages/notFoundPage';
+import ServerErrorPage from './pages/error_pages/serverErrorPage';
 
 function App() {
   return(
@@ -75,6 +76,8 @@ function App() {
         {/* Error Pages */}
         <Route path="*" 
           element={<NotFoundPage />} />
+        <Route path="/server-error" 
+          element={<ServerErrorPage />} />
       </Routes>
     </Router>
   )
