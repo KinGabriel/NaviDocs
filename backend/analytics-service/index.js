@@ -28,7 +28,7 @@ async function startServer() {
     expressMiddleware(server, {
       context: async ({ req }) => ({
         user: req.user,
-        token: req.cookies.token // or get the token from the header if needed
+        token: req.cookies.token 
       }),
     })
   );
