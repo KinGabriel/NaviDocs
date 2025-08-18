@@ -1,56 +1,85 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import useUser from "../../hooks/useUser";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
+import Loader from '../../components/loader';
+import { fetchDashboardInfoAPI } from "../../api/documentContollerAPI";
 import { FileText, CheckCircle, RotateCcw } from "lucide-react";
 
 export default function DocumentControllerDashboard() {
   const user = useUser();
+  const [dashboardInfo, setDashboardInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const fetchDashboardInfo = async () => {
+      try {
+        const data = await fetchDashboardInfoAPI();
+        setDashboardInfo(data);
+      } catch (err) {
+        setDashboardInfo(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardInfo();
+  }, []);
+    // loading animation
+ if (loading) {
+  return (
+    <div className="min-h-screen bg-gray-200 flex flex-col">
+      <Header user={user} />
+      <div className="flex flex-1">
+        <Sidebar user={user} />
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+          <div className="flex-1 flex items-center justify-center">
+            <Loader message="Loading..." />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+  // error state
+  if (!dashboardInfo) {
+  return (
+    <div className="min-h-screen bg-gray-200 flex flex-col">
+      <Header user={user} />
+      <div className="flex flex-1">
+        <Sidebar user={user} />
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+          <div className="flex-1 flex items-center justify-center text-center">
+            <div>
+              <h2 className="text-xl font-semibold text-red-600 mb-2">Unable to load dashboard</h2>
+              <p className="text-gray-500">Please check your connection or try again later.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
   const stats = [
     {
-      title: "Published Documents",
-      value: 8,
+      title: "Published Templates",
+      value: dashboardInfo.countPublished ?? 0,
       icon: <FileText className="w-10 h-10 text-blue-500" />,
     },
     {
-      title: "Returned Documents",
-      value: 5,
+      title: "Submitted Templates",
+      value: dashboardInfo.countPendingApproval ?? 0, 
       icon: <RotateCcw className="w-10 h-10 text-yellow-500" />,
     },
     {
-      title: "Approved Documents",
-      value: 7,
+      title: "Approved Templates",
+      value: dashboardInfo.countApproved ?? 0,
       icon: <CheckCircle className="w-10 h-10 text-green-500" />,
     },
   ];
 
-  const publishedDocs = [
-    {
-      id: "D100",
-      code: "FM-SA-003",
-      revision: "00",
-      date: "26-01-16",
-      title: "3D Modeling and Animation Course Syllabus 26-27",
-      author: "Mae Santos",
-    },
-    {
-      id: "D200",
-      code: "FM-SA-001",
-      revision: "00",
-      date: "26-01-16",
-      title: "Motion Graphics Design Course Syllabus 26-27",
-      author: "Mae Santos",
-    },
-    {
-      id: "D300",
-      code: "FM-SA-006",
-      revision: "00",
-      date: "26-01-16",
-      title: "Special Topics 2 Course Syllabus 26-27",
-      author: "Jennie Zhang",
-    },
-  ];
+  // Use real published documents
+  const publishedDocs = dashboardInfo.getPublishedTemplates || [];
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -93,7 +122,6 @@ export default function DocumentControllerDashboard() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gray-100 text-left text-sm font-medium text-gray-700">
-                    <th className="p-3">ID</th>
                     <th className="p-3">Document Code</th>
                     <th className="p-3">Revision No.</th>
                     <th className="p-3">Effectivity</th>
@@ -103,26 +131,37 @@ export default function DocumentControllerDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {publishedDocs.map((doc, index) => (
-                    <tr
-                      key={doc.id}
-                      className={`text-sm ${
-                        index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                      }`}
-                    >
-                      <td className="p-3">{doc.id}</td>
-                      <td className="p-3">{doc.code}</td>
-                      <td className="p-3">{doc.revision}</td>
-                      <td className="p-3">{doc.date}</td>
-                      <td className="p-3">{doc.title}</td>
-                      <td className="p-3">{doc.author}</td>
-                      <td className="p-3">
-                        <button className="px-4 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-                          Review
-                        </button>
+                  {publishedDocs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center p-4 text-gray-500">
+                        No published documents found.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    publishedDocs.map((doc, index) => (
+                      <tr
+                        key={doc.id}
+                        className={`text-sm ${
+                          index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                        }`}
+                      >
+                        <td className="p-3">{doc.document_code}</td>
+                        <td className="p-3">{doc.revision_no}</td>
+                        <td className="p-3">{doc.effectivity || 'N/A'}</td>
+                        <td className="p-3">{doc.title}</td>
+                        <td className="p-3">
+                          {doc.created_by_user
+                            ? `${doc.created_by_user.firstname} ${doc.created_by_user.lastname}`
+                            : doc.created_by}
+                        </td>
+                        <td className="p-3">
+                          <button className="px-4 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+                            Review
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

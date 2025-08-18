@@ -21,15 +21,17 @@ export const dashboardInfo = async (req, res) => {
 
     const countMap = counts.reduce((acc,c)=>{ acc[c._id] = c.count; return acc; }, {});
     const countPublished = countMap.published || 0;
-    const countDraft = countMap.draft || 0;
+    //const countDraft = countMap.draft || 0;
     const countPendingApproval = countMap.pending || 0;
+    const countApproved = countMap.approved || 0;
     const getPublishedTemplates = recentPublished;
     res.status(200).json({
       success: true,
       data: {
         countPublished,
-        countDraft,
+        //countDraft,
         countPendingApproval,
+        countApproved,
         getPublishedTemplates
       }
     });

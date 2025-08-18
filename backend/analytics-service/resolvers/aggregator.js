@@ -6,5 +6,6 @@ export const resolvers = {
   Query: {
     ...userResolvers.Query,
     ...templateResolvers.Query
-  }
+  },
+  ...(templateResolvers.Template && { Template: templateResolvers.Template })
 };

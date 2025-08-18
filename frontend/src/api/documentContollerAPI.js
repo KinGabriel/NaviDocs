@@ -2,6 +2,47 @@ import axios from "axios";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 /**
+ * Fetches dashboard statistics and published templates for the document controller dashboard.
+ * Queries the GraphQL API for published, pending, and approved document counts, and published template details including creator info.
+ * @returns {Promise<Object>} Dashboard info: { countPublished, countPendingApproval, countApproved, getPublishedTemplates: Array<{id, title, document_code, revision_no, effectivity, created_by, created_by_user: {firstname, lastname}}>} 
+ * @throws {Error} When the HTTP request or GraphQL query fails.
+ */
+export const fetchDashboardInfoAPI = async () => {
+const query = `
+    query {
+      templateDashboard {
+        countPublished
+        countPendingApproval
+        countApproved
+        getPublishedTemplates {
+          id
+          title
+          document_code
+          revision_no
+          effectivity
+          created_by
+          created_by_user {
+            firstname
+            lastname
+          }
+        }
+      }
+    }
+  `;
+  try {
+    const res = await axios.post(
+      `${API_URL}/graphql`,
+      { query },
+      { withCredentials: true }
+    );
+    
+    return res.data.data.templateDashboard;
+  } catch (error) {
+    throw new Error(error.response?.data?.errors?.[0]?.message || "Failed to fetch dashboard info.");
+  }
+};
+
+/**
  * Fetch paginated templates with optional school, status, and search filters.
  * Maps UI friendly status labels (Draft, Pending Approval, Approved, Published) to API enums.
  * @param {Object} params - Query builder.
