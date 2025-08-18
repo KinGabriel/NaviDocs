@@ -10,6 +10,7 @@ import DocumentControllerTemplates from './pages/document_controller/documentCon
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
+import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/UnauthorizedPage';
@@ -98,6 +99,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Document Controller"]}>
               <DocumentControllerStatistics />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="document-controller/document-workflow"
+          element={
+            <ProtectedRoute allowedRoles={["Document Controller"]}>
+              <DocumentControllerWorkFlow />
             </ProtectedRoute>
           }
         />
