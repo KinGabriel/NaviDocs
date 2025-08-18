@@ -12,12 +12,30 @@ import DocumentControllerStatistics from './pages/document_controller/documentCo
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/UnauthorizedPage';
+import useUser from './hooks/useUser';
+import { Navigate } from "react-router-dom";
+
+/**
+ * LoginRoute component checks if the user is logged in and if not it will return back to login page.
+ */
+function LoginRoute() {
+  const user = useUser();
+  if (user) {
+    const role = user.role?.name;
+    if (role === "Admin") return <Navigate to="/admin/dashboard" replace />;
+    if (role === "Document Controller") return <Navigate to="/document-controller/dashboard" replace />;
+
+  }
+  return <Login />;
+}
 
 function App() {
   return(
     <Router>
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<LoginRoute />} />
+        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="/document-controller" element={<Navigate to="/document-controller/dashboard" replace />} />
         <Route
           path="/admin/dashboard"
           element={
