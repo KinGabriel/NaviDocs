@@ -11,6 +11,7 @@ import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
+import UnauthorizedPage from './pages/error_pages/UnauthorizedPage';
 
 function App() {
   return(
@@ -78,6 +79,8 @@ function App() {
           element={<NotFoundPage />} />
         <Route path="/server-error" 
           element={<ServerErrorPage />} />
+        <Route path="/unauthorized" 
+          element={<UnauthorizedPage />} />
       </Routes>
     </Router>
   )
