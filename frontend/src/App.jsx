@@ -16,6 +16,8 @@ import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/UnauthorizedPage';
 import useUser from './hooks/useUser';
 import { Navigate } from "react-router-dom";
+import SecretaryDashboard from './pages/secretary/secretaryDashboard';
+import SecretaryTemplates from './pages/secretary/secretaryTemplates';
 
 /**
  * LoginRoute component checks if the user is logged in and if not it will return back to login page.
@@ -107,6 +109,30 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Document Controller"]}>
               <DocumentControllerWorkFlow />
+            </ProtectedRoute>
+          }
+        />
+         <Route
+          path="secretary/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary"]}>
+              <SecretaryDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="secretary/templates"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary"]}>
+              <SecretaryTemplates />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="secretary/settings"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary"]}>
+              <AdminAccountSettings />
             </ProtectedRoute>
           }
         />
