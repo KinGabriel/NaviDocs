@@ -4,6 +4,7 @@ import Login from './pages/login';
 import AdminDashboard from './pages/admin/adminDashboard';
 import AdminAccounts from './pages/admin/adminAccounts';
 import CreateUser from './pages/admin/adminCreateUser';
+import AdminAccountSettings from "./pages/admin/adminAccountSettings";
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
@@ -57,6 +58,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Admin"]}>
               <CreateUser />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <AdminAccountSettings />
             </ProtectedRoute>
           }
         />
