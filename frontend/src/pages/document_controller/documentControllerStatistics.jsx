@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import StatCard from '../../components/statcard';
 import Header from '../../layout/header';
 import Sidebar from '../../layout/sidebar';
 import Dropdown from '../../components/dropdown';

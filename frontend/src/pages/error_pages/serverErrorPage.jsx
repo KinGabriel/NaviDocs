@@ -1,4 +1,4 @@
-import { AlertTriangle, RefreshCw, Home, ArrowLeft } from "lucide-react";
+import { AlertTriangle, RefreshCw, ArrowLeft } from "lucide-react";
 
 export default function ServerErrorPage() {
   

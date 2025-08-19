@@ -4,16 +4,20 @@ import Login from './pages/login';
 import AdminDashboard from './pages/admin/adminDashboard';
 import AdminAccounts from './pages/admin/adminAccounts';
 import CreateUser from './pages/admin/adminCreateUser';
+import AdminAccountSettings from "./pages/admin/adminAccountSettings";
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
+import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/UnauthorizedPage';
 import useUser from './hooks/useUser';
 import { Navigate } from "react-router-dom";
+import SecretaryDashboard from './pages/secretary/secretaryDashboard';
+import SecretaryTemplates from './pages/secretary/secretaryTemplates';
 
 /**
  * LoginRoute component checks if the user is logged in and if not it will return back to login page.
@@ -61,6 +65,14 @@ function App() {
           }
         />
         <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <AdminAccountSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/document-controller/dashboard"
           element={
             <ProtectedRoute allowedRoles={["Document Controller"]}>
@@ -89,6 +101,38 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Document Controller"]}>
               <DocumentControllerStatistics />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="document-controller/document-workflow"
+          element={
+            <ProtectedRoute allowedRoles={["Document Controller"]}>
+              <DocumentControllerWorkFlow />
+            </ProtectedRoute>
+          }
+        />
+         <Route
+          path="secretary/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary"]}>
+              <SecretaryDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="secretary/templates"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary"]}>
+              <SecretaryTemplates />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="secretary/settings"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary"]}>
+              <AdminAccountSettings />
             </ProtectedRoute>
           }
         />
