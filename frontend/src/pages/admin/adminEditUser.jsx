@@ -1,12 +1,11 @@
+// src/pages/admin/adminEditUser.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
 import Dropdown2 from "../../components/dropdown2";
 import defaultProfile from "../../assets/images/profile_picture.png";
-// If you have real APIs, import them here:
-// import { getUserByIdAPI, updateUserAccountAPI } from "../../api/adminAPI";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const ROLE_OPTIONS = [
   "Admin",
@@ -40,10 +39,8 @@ const DEPARTMENT_OPTIONS = {
 const YEAR_OPTIONS = ["—", "1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
 
 export default function AdminEditUser() {
-  const sessionUser = useUser();
+  const user = useUser();
   const navigate = useNavigate();
-  const { id } = useParams(); // /admin/users/:id/edit
-  const [loading, setLoading] = useState(false);
 
   // --- form state ---
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -52,39 +49,33 @@ export default function AdminEditUser() {
     lastname: "",
     email: "",
     role: {
-      name: "Faculty",
-      school: "SEA",
-      department: "Chemical Engineering",
+      name: "",
+      school: "",
+      department: "",
     },
     year: "—",
   });
 
-  // MOCK hydrate: replace with real fetch using id
+  // Hydrate from the logged-in user (same approach as Account Settings)
   useEffect(() => {
-    setLoading(true);
-    // const data = await getUserByIdAPI(id);
-    const data = {
-      firstname: "Jomar",
-      lastname: "Castillo",
-      email: "jomar.castillo@slu.edu.ph",
-      profile_picture: null,
-      role: { name: "Faculty", school: "SEA", department: "Chemical Engineering" },
-      year: "—",
-    };
+    if (!user) return; // wait for useUser()
+    const roleName   = user?.role?.name || user?.role || "";
+    const school     = user?.role?.school || user?.school || "";
+    const department = user?.role?.department || user?.department || "";
+
     setForm({
-      firstname: data.firstname || "",
-      lastname: data.lastname || "",
-      email: data.email || "",
+      firstname: user?.firstname || "",
+      lastname : user?.lastname  || "",
+      email    : user?.email     || "",
       role: {
-        name: data.role?.name || "",
-        school: data.role?.school || "",
-        department: data.role?.department || "",
+        name      : roleName || "Faculty",
+        school    : school || (roleName === "Faculty" ? "SEA" : ""),
+        department: department || (roleName === "Faculty" ? "Chemical Engineering" : ""),
       },
-      year: data.year || "—",
+      year: user?.year || "—",
     });
-    setPhotoPreview(data.profile_picture || null);
-    setLoading(false);
-  }, [id]);
+    setPhotoPreview(user?.profile_picture || null);
+  }, [user]);
 
   // helpers
   const normalizeName = (val) =>
@@ -130,27 +121,22 @@ export default function AdminEditUser() {
     }));
 
   const handleClear = () => {
-    setForm(() => ({
+    setForm({
       firstname: "",
       lastname: "",
       email: "",
       role: { name: "", school: "", department: "" },
       year: "—",
-    }));
+    });
     setPhotoPreview(null);
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     if (!canSave) return;
-    setLoading(true);
-    try {
-      // await updateUserAccountAPI(id, { ...form, profile_picture: photoPreview });
-      await new Promise((r) => setTimeout(r, 600));
-      navigate(-1); // back to list
-    } finally {
-      setLoading(false);
-    }
+    // TODO: plug your update API here
+    await new Promise((r) => setTimeout(r, 600));
+    navigate(-1);
   };
 
   const fullName = `${normalizeName(form.firstname)} ${normalizeName(form.lastname)}`.trim();
@@ -159,13 +145,28 @@ export default function AdminEditUser() {
   const showDepartment = ["Faculty", "Document Controller", "Department Head"].includes(form.role.name);
   const showYear = ["Student"].includes(form.role.name);
 
+  if (!user) {
+    // lightweight loading state
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
+          <div className="flex-1 flex items-center justify-center text-gray-500">
+            Loading…
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
-      <Header user={sessionUser} />
+      <Header user={user} />
       <div className="flex flex-1">
-        {/* NOTE: Sidebar includes the new Edit User button; pass active to highlight */}
-        <Sidebar user={sessionUser} active="Edit User" />
-        {/* page shell matches your other admin pages */}
+        {/* Sidebar with Edit User highlighted */}
+        <Sidebar user={user} active="Edit User" />
+        {/* Page shell */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           <main className="flex-1 p-10">
             {/* Title */}
@@ -291,12 +292,12 @@ export default function AdminEditUser() {
                   </button>
                   <button
                     onClick={handleSave}
-                    disabled={!canSave || loading}
+                    disabled={!canSave}
                     className={`px-6 py-2 rounded text-white ${
-                      canSave && !loading ? "bg-blue-700 hover:bg-blue-800" : "bg-gray-400 cursor-not-allowed"
+                      canSave ? "bg-blue-700 hover:bg-blue-800" : "bg-gray-400 cursor-not-allowed"
                     }`}
                   >
-                    {loading ? "Saving…" : "Save"}
+                    Save
                   </button>
                 </div>
               </section>
