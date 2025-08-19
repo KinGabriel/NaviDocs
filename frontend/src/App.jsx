@@ -20,6 +20,7 @@ import useUser from './hooks/useUser';
 import { Navigate } from "react-router-dom";
 import SecretaryDashboard from './pages/secretary/secretaryDashboard';
 import SecretaryTemplates from './pages/secretary/secretaryTemplates';
+import DeanDashboard from './pages/dean/deanDashboard';
 
 /**
  * LoginRoute component checks if the user is logged in and if not it will return back to login page.
@@ -42,6 +43,8 @@ function App() {
         <Route path="/" element={<LoginRoute />} />
         <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="/document-controller" element={<Navigate to="/document-controller/dashboard" replace />} />
+
+        {/* Admin Module */}
         <Route
           path="/admin/dashboard"
           element={
@@ -74,6 +77,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Document Controller Module */}
         <Route
           path="/document-controller/dashboard"
           element={
@@ -108,7 +113,7 @@ function App() {
           }
         />
         <Route
-          path="document-controller/document-workflow"
+          path="/document-controller/document-workflow"
           element={
             <ProtectedRoute allowedRoles={["Document Controller"]}>
               <DocumentControllerWorkFlow />
@@ -116,15 +121,17 @@ function App() {
           }
         />
         <Route
-          path="document-controller/storage"
+          path="/document-controller/storage"
           element={
             <ProtectedRoute allowedRoles={["Document Controller"]}>
               <DocumentControllerStorage />
             </ProtectedRoute>
           }
         />
+
+        {/* Secretary Module */}
          <Route
-          path="secretary/dashboard"
+          path="/secretary/dashboard"
           element={
             <ProtectedRoute allowedRoles={["Secretary"]}>
               <SecretaryDashboard />
@@ -132,7 +139,7 @@ function App() {
           }
         />
         <Route
-          path="secretary/templates"
+          path="/secretary/templates"
           element={
             <ProtectedRoute allowedRoles={["Secretary"]}>
               <SecretaryTemplates />
@@ -140,21 +147,34 @@ function App() {
           }
         />
         <Route
-          path="secretary/settings"
+          path="/secretary/settings"
           element={
             <ProtectedRoute allowedRoles={["Secretary"]}>
               <AccountSettings />
             </ProtectedRoute>
           }
         />
+
+        {/* Dean Module */}
+         <Route
+          path="/dean/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Dean"]}>
+              <DeanDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Global */}
          <Route
           path="/account/settings"
           element={
-            <ProtectedRoute allowedRoles={["Admin", "Document Controller","Secretary"]}>
+            <ProtectedRoute allowedRoles={["Admin", "Document Controller","Secretary, Dean"]}>
               <AccountSettings />
             </ProtectedRoute>
           }
         />
+        
         {/* Error Pages */}
         <Route path="*" 
           element={<NotFoundPage />} />
