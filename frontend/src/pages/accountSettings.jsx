@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Header from "../../layout/header";
-import Sidebar from "../../layout/sidebar";
-import useUser from "../../hooks/useUser";
-import Loader from "../../components/loader";
-import { fetchUsersAccountsAPI } from "../../api/adminAPI";
-import SearchBar from '../../components/searchbar';
-import Table from '../../components/table';
-import Dropdown from '../../components/dropdown';
-import usePagination from '../../hooks/usePagination';
-
+import Header from "../layout/header";
+import Sidebar from "../layout/sidebar";
+import useUser from "../hooks/useUser";
+import Loader from "../components/loader";
+import { updateAccountSettingsAPI, updateUserPasswordAPI } from "../api/userAPI";
+import SearchBar from '../components/searchbar';
+import Table from '../components/table';
+import Dropdown from '../components/dropdown';
+import usePagination from '../hooks/usePagination';
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|mil|biz|info|io|co|ph)$/i;
 
 export default function AdminAccountSettings() {
@@ -27,6 +27,10 @@ export default function AdminAccountSettings() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword]         = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  // Show/hide password toggles
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   // -------- UI state --------
   const [savingInfo, setSavingInfo]       = useState(false);
@@ -45,7 +49,12 @@ export default function AdminAccountSettings() {
       setFirstName(user.firstname || "");
       setLastName(user.lastname || "");
       setEmail(user.email || "");
-      setPhotoPreview(user.profile_picture || null);
+      // If profile_picture is a relative path, prefix with API_URL
+      let pic = user.profile_picture || null;
+      if (pic && typeof pic === "string" && !pic.startsWith("http")) {
+        pic = `${API_URL}${pic.startsWith("/") ? "" : "/"}${pic}`;
+      }
+      setPhotoPreview(pic);
     }
   }, [user, isLoading]);
 
@@ -103,45 +112,49 @@ export default function AdminAccountSettings() {
 
     setSavingInfo(true);
     setInfoMessage(null);
-
     try {
-      // 1) If a photo is selected, upload it first to get a URL
-      let profileUrl = user?.profile_picture || null;
+      let payload;
+      let response;
       if (photoFile) {
-        // const uploaded = await uploadProfileImageAPI(photoFile);
-        // profileUrl = uploaded.url;
-        // Mock:
-        profileUrl = photoPreview;
+        payload = new FormData();
+        payload.append("firstname", normalizeName(firstName));
+        payload.append("lastname", normalizeName(lastName));
+        payload.append("profile_picture", photoFile);
+        response = await updateAccountSettingsAPI(user._id, payload);
+      } else {
+        payload = {
+          firstname: normalizeName(firstName),
+          lastname: normalizeName(lastName),
+        };
+        response = await updateAccountSettingsAPI(user._id, payload);
       }
 
-      // 2) Update account info
-      const payload = {
+      const updatedUser = {
+        ...(user || {}),
         firstname: normalizeName(firstName),
-        lastname : normalizeName(lastName),
-        email    : email.trim(),
-        profile_picture: profileUrl,
+        lastname: normalizeName(lastName),
+        profile_picture: response.data.profile_picture || user.profile_picture,
       };
-
-      // await updateAccountInfoAPI(payload);
-      // Mock success:
-      await new Promise((r) => setTimeout(r, 600));
-
-      // Update localStorage user so useUser() listeners react
-      const nextUser = { ...(user || {}), ...payload };
-      localStorage.setItem("user", JSON.stringify(nextUser));
+      localStorage.setItem("user", JSON.stringify(updatedUser));
       window.dispatchEvent(new Event("auth:change"));
 
-      if (!mountedRef.current) return;
-      setInfoSuccess(true);
-      setInfoMessage("Profile updated successfully.");
-      setPhotoFile(null);
+      if (mountedRef.current) {
+        setInfoSuccess(true);
+        setInfoMessage("Profile updated successfully.");
+        setPhotoFile(null);
+        setFirstName(updatedUser.firstname);
+        setLastName(updatedUser.lastname);
+        setPhotoPreview(updatedUser.profile_picture || photoPreview);
+      }
     } catch (err) {
-      if (!mountedRef.current) return;
-      setInfoSuccess(false);
-      setInfoMessage(err?.message || "Failed to update profile.");
+      if (mountedRef.current) {
+        setInfoSuccess(false);
+        setInfoMessage(
+          err?.response?.data?.message || err?.message || "Failed to update profile."
+        );
+      }
     } finally {
-      if (!mountedRef.current) return;
-      setSavingInfo(false);
+      if (mountedRef.current) setSavingInfo(false);
     }
   };
 
@@ -153,9 +166,7 @@ export default function AdminAccountSettings() {
     setPwMessage(null);
 
     try {
-      // await updatePasswordAPI({ currentPassword, newPassword });
-      // Mock:
-      await new Promise((r) => setTimeout(r, 600));
+  await updateUserPasswordAPI(user._id, newPassword);
 
       if (!mountedRef.current) return;
       setPwSuccess(true);
@@ -166,7 +177,9 @@ export default function AdminAccountSettings() {
     } catch (err) {
       if (!mountedRef.current) return;
       setPwSuccess(false);
-      setPwMessage(err?.message || "Failed to update password.");
+      setPwMessage(
+        err?.response?.data?.message || err?.message || "Failed to update password."
+      );
     } finally {
       if (!mountedRef.current) return;
       setChangingPw(false);
@@ -266,15 +279,13 @@ export default function AdminAccountSettings() {
                       <label className="block text-sm font-medium mb-1">Email</label>
                       <input
                         type="email"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
+                        className="w-full border border-gray-200 bg-gray-100 rounded px-3 py-2 cursor-not-allowed text-gray-500"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value.replace(/\s+/g, ""))}
-                        onKeyDown={(e) => e.key === " " && e.preventDefault()}
-                        required
+                        readOnly
+                        tabIndex={-1}
+                        aria-readonly="true"
                       />
-                      {!emailRegex.test(email) && email.length > 0 && (
-                        <p className="text-xs text-red-600 mt-1">Please enter a valid email (e.g., name@example.com).</p>
-                      )}
+                      <p className="text-xs text-gray-400 mt-1">Email cannot be changed.</p>
                     </div>
 
                     <div className="md:col-span-2 flex justify-end">
@@ -305,23 +316,53 @@ export default function AdminAccountSettings() {
                   <form onSubmit={handleChangePassword} className="space-y-5">
                     <div>
                       <label className="block text-sm font-medium mb-1">Current Password</label>
-                      <input
-                        type="password"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        required
-                      />
+                      <div className="relative">
+                        <input
+                          type={showCurrentPw ? "text" : "password"}
+                          className="w-full border border-gray-300 rounded px-3 py-2 pr-10"
+                          value={currentPassword}
+                          onChange={e => setCurrentPassword(e.target.value)}
+                          required
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          className="absolute right-2 top-1/2 -translate-y-1/2"
+                          onClick={() => setShowCurrentPw(v => !v)}
+                          aria-label={showCurrentPw ? "Hide password" : "Show password"}
+                        >
+                          {showCurrentPw ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="#9b9b9b" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"><path d="M21.257 10.962c.474.62.474 1.457 0 2.076C19.764 14.987 16.182 19 12 19s-7.764-4.013-9.257-5.962a1.69 1.69 0 0 1 0-2.076C4.236 9.013 7.818 5 12 5s7.764 4.013 9.257 5.962"/><circle cx="12" cy="12" r="3"/></g></svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16"><path fill="#9b9b9b" d="M8 11c-1.65 0-3-1.35-3-3s1.35-3 3-3s3 1.35 3 3s-1.35 3-3 3m0-5c-1.1 0-2 .9-2 2s.9 2 2 2s2-.9 2-2s-.9-2-2-2"/><path fill="#9b9b9b" d="M8 13c-3.19 0-5.99-1.94-6.97-4.84a.44.44 0 0 1 0-.32C2.01 4.95 4.82 3 8 3s5.99 1.94 6.97 4.84c.04.1.04.22 0 .32C13.99 11.05 11.18 13 8 13M2.03 8c.89 2.4 3.27 4 5.97 4s5.07-1.6 5.97-4C13.08 5.6 10.7 4 8 4S2.93 5.6 2.03 8"/><path fill="#9b9b9b" d="M14 14.5a.47.47 0 0 1-.35-.15l-12-12c-.2-.2-.2-.51 0-.71s.51-.2.71 0l11.99 12.01c.2.2.2.51 0 .71c-.1.1-.23.15-.35.15Z"/></svg>
+                          )}
+                        </button>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">New Password</label>
-                      <input
-                        type="password"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        required
-                      />
+                      <div className="relative">
+                        <input
+                          type={showNewPw ? "text" : "password"}
+                          className="w-full border border-gray-300 rounded px-3 py-2 pr-10"
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          required
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          className="absolute right-2 top-1/2 -translate-y-1/2"
+                          onClick={() => setShowNewPw(v => !v)}
+                          aria-label={showNewPw ? "Hide password" : "Show password"}
+                        >
+                          {showNewPw ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="#9b9b9b" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"><path d="M21.257 10.962c.474.62.474 1.457 0 2.076C19.764 14.987 16.182 19 12 19s-7.764-4.013-9.257-5.962a1.69 1.69 0 0 1 0-2.076C4.236 9.013 7.818 5 12 5s7.764 4.013 9.257 5.962"/><circle cx="12" cy="12" r="3"/></g></svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16"><path fill="#9b9b9b" d="M8 11c-1.65 0-3-1.35-3-3s1.35-3 3-3s3 1.35 3 3s-1.35 3-3 3m0-5c-1.1 0-2 .9-2 2s.9 2 2 2s2-.9 2-2s-.9-2-2-2"/><path fill="#9b9b9b" d="M8 13c-3.19 0-5.99-1.94-6.97-4.84a.44.44 0 0 1 0-.32C2.01 4.95 4.82 3 8 3s5.99 1.94 6.97 4.84c.04.1.04.22 0 .32C13.99 11.05 11.18 13 8 13M2.03 8c.89 2.4 3.27 4 5.97 4s5.07-1.6 5.97-4C13.08 5.6 10.7 4 8 4S2.93 5.6 2.03 8"/><path fill="#9b9b9b" d="M14 14.5a.47.47 0 0 1-.35-.15l-12-12c-.2-.2-.2-.51 0-.71s.51-.2.71 0l11.99 12.01c.2.2.2.51 0 .71c-.1.1-.23.15-.35.15Z"/></svg>
+                          )}
+                        </button>
+                      </div>
                       {newPassword.length > 0 && pwRules.length > 0 && (
                         <ul className="mt-1 text-xs text-gray-600 list-disc list-inside">
                           {pwRules.map((r) => (
@@ -332,13 +373,28 @@ export default function AdminAccountSettings() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Confirm Password</label>
-                      <input
-                        type="password"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                      />
+                      <div className="relative">
+                        <input
+                          type={showConfirmPw ? "text" : "password"}
+                          className="w-full border border-gray-300 rounded px-3 py-2 pr-10"
+                          value={confirmPassword}
+                          onChange={e => setConfirmPassword(e.target.value)}
+                          required
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          className="absolute right-2 top-1/2 -translate-y-1/2"
+                          onClick={() => setShowConfirmPw(v => !v)}
+                          aria-label={showConfirmPw ? "Hide password" : "Show password"}
+                        >
+                          {showConfirmPw ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="#9b9b9b" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"><path d="M21.257 10.962c.474.62.474 1.457 0 2.076C19.764 14.987 16.182 19 12 19s-7.764-4.013-9.257-5.962a1.69 1.69 0 0 1 0-2.076C4.236 9.013 7.818 5 12 5s7.764 4.013 9.257 5.962"/><circle cx="12" cy="12" r="3"/></g></svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16"><path fill="#9b9b9b" d="M8 11c-1.65 0-3-1.35-3-3s1.35-3 3-3s3 1.35 3 3s-1.35 3-3 3m0-5c-1.1 0-2 .9-2 2s.9 2 2 2s2-.9 2-2s-.9-2-2-2"/><path fill="#9b9b9b" d="M8 13c-3.19 0-5.99-1.94-6.97-4.84a.44.44 0 0 1 0-.32C2.01 4.95 4.82 3 8 3s5.99 1.94 6.97 4.84c.04.1.04.22 0 .32C13.99 11.05 11.18 13 8 13M2.03 8c.89 2.4 3.27 4 5.97 4s5.07-1.6 5.97-4C13.08 5.6 10.7 4 8 4S2.93 5.6 2.03 8"/><path fill="#9b9b9b" d="M14 14.5a.47.47 0 0 1-.35-.15l-12-12c-.2-.2-.2-.51 0-.71s.51-.2.71 0l11.99 12.01c.2.2.2.51 0 .71c-.1.1-.23.15-.35.15Z"/></svg>
+                          )}
+                        </button>
+                      </div>
                       {confirmPassword.length > 0 && confirmPassword !== newPassword && (
                         <p className="text-xs text-red-600 mt-1">Passwords do not match.</p>
                       )}

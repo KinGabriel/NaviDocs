@@ -4,7 +4,7 @@ import Login from './pages/login';
 import AdminDashboard from './pages/admin/adminDashboard';
 import AdminAccounts from './pages/admin/adminAccounts';
 import CreateUser from './pages/admin/adminCreateUser';
-import AdminAccountSettings from "./pages/admin/adminAccountSettings";
+import AccountSettings from "./pages/accountSettings";
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
@@ -64,14 +64,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/admin/settings"
-          element={
-            <ProtectedRoute allowedRoles={["Admin"]}>
-              <AdminAccountSettings />
-            </ProtectedRoute>
-          }
-        />
+       
         <Route
           path="/document-controller/dashboard"
           element={
@@ -96,6 +89,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        
         <Route
           path="/document-controller/statistics"
           element={
@@ -132,7 +126,15 @@ function App() {
           path="secretary/settings"
           element={
             <ProtectedRoute allowedRoles={["Secretary"]}>
-              <AdminAccountSettings />
+              <AccountSettings />
+            </ProtectedRoute>
+          }
+        />
+         <Route
+          path="/account/settings"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Document Controller","Secretary"]}>
+              <AccountSettings />
             </ProtectedRoute>
           }
         />
@@ -144,6 +146,7 @@ function App() {
         <Route path="/unauthorized" 
           element={<UnauthorizedPage />} />
       </Routes>
+      
     </Router>
   )
 }
