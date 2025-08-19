@@ -77,6 +77,7 @@ export default function DocumentControllerDashboard() {
 
   // Define columns for Published Documents
   const publishedDocsColumns = [
+    { key: "id", label: "ID" }, 
     { key: "document_code", label: "Document Code" },
     { key: "revision_no", label: "Revision No." },
     { key: "effectivity", label: "Effectivity", render: (row) => row.effectivity || "N/A" },
@@ -100,7 +101,10 @@ export default function DocumentControllerDashboard() {
     },
   ];
 
-  const publishedDocs = dashboardInfo.getPublishedTemplates || [];
+  const publishedDocs = (dashboardInfo.getPublishedTemplates || []).map((doc, index) => ({
+    ...doc,
+    id: index + 1, 
+  }));
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
