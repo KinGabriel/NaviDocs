@@ -7,7 +7,7 @@ export default function SecretaryDashboard() {
 const user = useUser();
 
   return (
-       <div className="min-h-screen bg-gray-200 flex flex-col">
+       <div className="min-h-screen bg-gray-100 flex flex-col">
          <Header user={user} />
          <div className="flex flex-1">
            <Sidebar user={user} active="User Accounts" />
