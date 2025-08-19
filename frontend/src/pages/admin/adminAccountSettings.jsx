@@ -4,10 +4,7 @@ import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
 import Loader from "../../components/loader";
 import { fetchUsersAccountsAPI } from "../../api/adminAPI";
-import SearchBar from '../../components/searchbar';
-import Table from '../../components/table';
-import Dropdown from '../../components/dropdown';
-import usePagination from '../../hooks/usePagination';
+
 
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|mil|biz|info|io|co|ph)$/i;
 
