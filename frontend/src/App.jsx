@@ -21,6 +21,7 @@ import { Navigate } from "react-router-dom";
 import SecretaryDashboard from './pages/secretary/secretaryDashboard';
 import SecretaryTemplates from './pages/secretary/secretaryTemplates';
 import DeanDashboard from './pages/dean/deanDashboard';
+import DeanDocuments from './pages/dean/deanDocuments';
 
 /**
  * LoginRoute component checks if the user is logged in and if not it will return back to login page.
@@ -156,11 +157,19 @@ function App() {
         />
 
         {/* Dean Module */}
-         <Route
+        <Route
           path="/dean/dashboard"
           element={
             <ProtectedRoute allowedRoles={["Dean"]}>
               <DeanDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dean/documents"
+          element={
+            <ProtectedRoute allowedRoles={["Dean"]}>
+              <DeanDocuments />
             </ProtectedRoute>
           }
         />
