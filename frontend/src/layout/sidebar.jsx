@@ -122,6 +122,15 @@ const MENU_CONFIG = {
       ),
       route: "/account/settings"
     },
+    {
+      label: "Edit User",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24">
+          <path fill="#003DA5" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zm2 1.5h1.67l8.9-8.9l-1.67-1.67l-8.9 8.9zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83l3.75 3.75l1.83-1.83z"/>
+        </svg>
+      ),
+      route: "/admin/edit-user"
+    },
   ],
   Faculty: [
     {

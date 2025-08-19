@@ -4,10 +4,7 @@ import Sidebar from "../layout/sidebar";
 import useUser from "../hooks/useUser";
 import Loader from "../components/loader";
 import { updateAccountSettingsAPI, updateUserPasswordAPI } from "../api/userAPI";
-import SearchBar from '../components/searchbar';
-import Table from '../components/table';
-import Dropdown from '../components/dropdown';
-import usePagination from '../hooks/usePagination';
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|mil|biz|info|io|co|ph)$/i;
 

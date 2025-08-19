@@ -5,11 +5,14 @@ import AdminDashboard from './pages/admin/adminDashboard';
 import AdminAccounts from './pages/admin/adminAccounts';
 import CreateUser from './pages/admin/adminCreateUser';
 import AccountSettings from "./pages/accountSettings";
+import AdminAccountSettings from "./pages/admin/adminAccountSettings";
+import AdminEditUser from "./pages/admin/adminEditUser";
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
+import DocumentControllerStorage from './pages/document_controller/documentControllerStorage';
 import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
@@ -64,7 +67,22 @@ function App() {
             </ProtectedRoute>
           }
         />
-       
+        <Route
+          path="/admin/edit-user"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <AdminEditUser />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <AdminAccountSettings />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/document-controller/dashboard"
           element={
@@ -103,6 +121,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Document Controller"]}>
               <DocumentControllerWorkFlow />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="document-controller/storage"
+          element={
+            <ProtectedRoute allowedRoles={["Document Controller"]}>
+              <DocumentControllerStorage />
             </ProtectedRoute>
           }
         />
