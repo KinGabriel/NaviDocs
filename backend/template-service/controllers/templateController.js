@@ -41,8 +41,6 @@ export const dashboardInfo = async (req, res) => {
   }
 }
 
-
-
 /**
  * @desc Create a new template
  * @route POST /api/templates/create-template

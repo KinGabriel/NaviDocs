@@ -1,728 +1,180 @@
-import { useRef, useState, useLayoutEffect, useCallback, useEffect, useMemo } from "react";
-import { useLocation, useNavigate } from 'react-router-dom';
-import { getTemplateByIdAPI, updateTemplateAPI, fetchApproversAPI, approveTemplateAPI, publishTemplateAPI, createTemplateAPI } from '../../api/documentContollerAPI';
-import useUser from '../../hooks/useUser';
+// src/pages/documentControllerCreateTemplate.jsx
+import { useRef, useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import {
+  getTemplateByIdAPI,
+  updateTemplateAPI,
+  fetchApproversAPI,
+  approveTemplateAPI,
+  publishTemplateAPI,
+  createTemplateAPI,
+} from "../../api/documentContollerAPI";
+import useUser from "../../hooks/useUser";
 import Header from "../../layout/header2";
 import FontPanel from "../../layout/create_template/FontPanel";
 import PageSetupPanel from "../../layout/create_template/pagesetupPanel";
 import LayoutPanel from "../../layout/create_template/layoutPanel";
 import TextEditor from "../../layout/create_template/textEditor";
-import Sidebar from "../../layout/TemplateSidebar";
+import Sidebar from "../../layout/templateSidebar"; 
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import DateFormatPanel from "../../layout/create_template/dateformatPanel";
-import '../../assets/css/global.css';
+import "../../assets/css/global.css";
 
-const TABS = [
-  { key: "font", label: "Fonts", icon: 
-    <svg xmlns="http://www.w3.org/2000/svg" width="1.3em" height="1.3em" viewBox="0 0 16 16">
-      <path fill="#000" fill-rule="evenodd" d="M1.5 1a.5.5 0 0 0-.5.5v4a.5.5 0 0 0 1 0V5c0-2 .5-3 3-3h1.5a.5.5 0 0 1 .5.5V13a1 1 0 0 1-1 1H4.5a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1H10a1 1 0 0 1-1-1V2.5a.5.5 0 0 1 .5-.5H11c2.5 0 3 1 3 3v.5a.5.5 0 0 0 1 0v-4a.5.5 0 0 0-.5-.5z" clip-rule="evenodd"/>
-    </svg>
-   },
-  { key: "date", label: "Date Format", icon: 
-    <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24">
-      <path fill="#000" d="M8 13.885q-.31 0-.54-.23t-.23-.54t.23-.539t.54-.23t.54.23t.23.54t-.23.539t-.54.23m4 0q-.31 0-.54-.23t-.23-.54t.23-.539t.54-.23t.54.23t.23.54t-.23.539t-.54.23m4 0q-.31 0-.54-.23t-.23-.54t.23-.539t.54-.23t.54.23t.23.54t-.23.539t-.54.23M5.616 21q-.691 0-1.153-.462T4 19.385V6.615q0-.69.463-1.152T5.616 5h1.769V3.308q0-.233.153-.386t.385-.153t.386.153t.153.386V5h7.154V3.27q0-.214.143-.358t.357-.143t.356.143t.144.357V5h1.769q.69 0 1.153.463T20 6.616v12.769q0 .69-.462 1.153T18.384 21zm0-1h12.769q.23 0 .423-.192t.192-.424v-8.768H5v8.769q0 .23.192.423t.423.192M5 9.615h14v-3q0-.23-.192-.423T18.384 6H5.616q-.231 0-.424.192T5 6.616zm0 0V6z"/>
-    </svg>
-   },
-  { key: "layout", label: "Layout", icon: 
-    <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 256 256">
-      <path fill="#000" d="M120 64a8 8 0 0 1-8 8H40a8 8 0 0 1 0-16h72a8 8 0 0 1 8 8m-8 32H40a8 8 0 0 0 0 16h72a8 8 0 0 0 0-16m0 40H40a8 8 0 0 0 0 16h72a8 8 0 0 0 0-16m0 40H40a8 8 0 0 0 0 16h72a8 8 0 0 0 0-16m32-104h72a8 8 0 0 0 0-16h-72a8 8 0 0 0 0 16m72 24h-72a8 8 0 0 0 0 16h72a8 8 0 0 0 0-16m0 40h-72a8 8 0 0 0 0 16h72a8 8 0 0 0 0-16m0 40h-72a8 8 0 0 0 0 16h72a8 8 0 0 0 0-16"/>
-    </svg>
-   },
-  { key: "header&footers", label: "Header & Footer", icon: 
-   <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 16 16"><g fill="#000">
-    <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2z"/><path d="M3 8.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5m0-5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5z"/></g>
-   </svg> 
-   },
-  { key: "insert", label: "Insert", icon: 
-    <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24">
-      <path fill="#000" d="M13.5 10.5H11q-.213 0-.357-.143T10.5 10t.143-.357T11 9.5h2.5V7q0-.213.143-.357T14 6.5t.357.143T14.5 7v2.5H17q.214 0 .357.143T17.5 10t-.143.357T17 10.5h-2.5V13q0 .214-.143.357T14 13.5t-.357-.143T13.5 13zM4.616 21q-.691 0-1.153-.462T3 19.385V8.615q0-.69.463-1.152T4.615 7h2V4.616q0-.691.463-1.153T8.231 3h11.154q.69 0 1.153.463T21 4.615V15.77q0 .69-.462 1.153t-1.153.463H17v2q0 .69-.462 1.152T15.385 21zm3.615-4.615h11.154q.23 0 .423-.193T20 15.77V4.615q0-.23-.192-.423T19.385 4H8.23q-.23 0-.422.192t-.192.423V15.77q0 .231.192.423t.423.193"/>
-    </svg>
-   },
-  { key: "pageSetup", label: "Page setup", icon: 
-    <svg xmlns="http://www.w3.org/2000/svg" width="1.7em" height="1.7em" viewBox="0 0 16 16">
-      <path fill="#000" fill-rule="evenodd" d="M4.89 15.5c.109-.214.109-.494.109-1.05v.6h5.17c.489 0 .734 0 .964-.055q.308-.075.578-.24c.202-.123.375-.296.721-.641l1.63-1.63c.346-.346.519-.52.643-.721q.165-.271.239-.578c.055-.23.055-.475.055-.964V5.85l-.001-.8h-.571c.542 0 .816-.002 1.03-.11a1 1 0 0 0 .437-.436c.109-.214.109-.494.109-1.05v-1.8c0-.56 0-.84-.11-1.05a1 1 0 0 0-.436-.437c-.214-.11-.494-.11-1.05-.11h-12.8c-.56 0-.84 0-1.05.11A1 1 0 0 0 .12.605c-.11.214-.11.494-.11 1.05v12.8c0 .56 0 .84.11 1.05c.096.188.249.34.437.437c.214.109.494.109 1.05.109h1.8c.56 0 .84 0 1.05-.11a1 1 0 0 0 .437-.436zM3.999 1h-2.4c-.297 0-.459 0-.575.01l-.013.001l-.001.014C1 1.142 1 1.304 1 1.6V3h.5a.5.5 0 0 1 0 1H1v2h.5a.5.5 0 0 1 0 1H1v2h.5a.5.5 0 0 1 0 1H1v2h.5a.5.5 0 0 1 0 1H1v1.4c0 .296 0 .459.01.575v.013h.014c.117.01.279.011.575.011h1.8c.297 0 .459 0 .575-.01l.013-.001l.001-.013c.01-.117.01-.28.01-.575zm10 4h-9v9h5v-3.5a.5.5 0 0 1 .5-.5h3.5V5.8q0-.446-.002-.8zm.402-1h-9.4V1h1v.5a.5.5 0 0 0 1 0V1h2v.5a.5.5 0 0 0 1 0V1h2v.5a.5.5 0 0 0 1 0V1h1.4c.296 0 .459 0 .575.01l.013.001l.001.014c.01.117.01.279.01.575v1.8c0 .297 0 .459-.01.575v.013l-.014.001c-.117.01-.279.01-.575.01zm-3.4 9.94a1 1 0 0 0 .194-.092c.077-.047.156-.117.536-.497l1.63-1.63c.38-.38.45-.459.497-.536a1 1 0 0 0 .092-.194h-2.94v2.94z" clip-rule="evenodd"/>
-    </svg>
-  }, 
-];
-
-const DEFAULT_MARGINS = { top: 1, bottom: 1, left: 1, right: 1 };
-const DEFAULT_ORIENTATION = "Portrait";
-
-
-function paginateContentByHeight(content, pageHeightPx) {
-  const htmlContent = content || '<p></p>';
-  const paragraphs = htmlContent.split('</p>').filter(p => p.trim()).map(p => p + '</p>');
-  const pages = [];
-  let currentPage = [];
-  let tempContent = "";
-  let measureDiv = document.getElementById("measure-div");
-
-  for (let i = 0; i < paragraphs.length; i++) {
-    currentPage.push(paragraphs[i]);
-    tempContent = currentPage.join('');
-    if (measureDiv) {
-      measureDiv.innerHTML = tempContent; 
-      if (measureDiv.offsetHeight > pageHeightPx) {
-        currentPage.pop();
-        pages.push(currentPage.join(''));
-        currentPage = [paragraphs[i]];
-      }
-    }
-  }
-  if (currentPage.length) pages.push(currentPage.join(''));
-
-  return pages.length > 0 ? pages : ['<p></p>'];
-}
-
-export default function CreateTemplate() {
-  const user = useUser();
-  const location = useLocation();
+export default function DocumentControllerCreateTemplate() {
   const navigate = useNavigate();
-  const searchParams = new URLSearchParams(location.search);
-  const templateId = searchParams.get('templateId');
-  const [activeTab, setActiveTab] = useState("font");
-  const [title, setTitle] = useState("Untitled Template");
-  const [content, setContent] = useState("");
-  const [paperSize, setPaperSize] = useState("legal");
-  const [orientation, setOrientation] = useState(DEFAULT_ORIENTATION);
-  const [margins, setMargins] = useState(DEFAULT_MARGINS);
+  const location = useLocation();
+  const user = useUser();
 
- 
-  // Store editor instances for each page
-  const [editorInstances, setEditorInstances] = useState({});
-  const [activeEditorIndex, setActiveEditorIndex] = useState(0);
-  
-  // Text selection and formatting states
-  const [selectedText, setSelectedText] = useState("");
-  const [selectionStart, setSelectionStart] = useState(0);
-  const [selectionEnd, setSelectionEnd] = useState(0);
-  const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const [editorStateUpdateTrigger, setEditorStateUpdateTrigger] = useState(0);
-  
-  // Default font settings for new text
-  const [defaultFontSettings, setDefaultFontSettings] = useState({
+  const editorRef = useRef(null);
+
+  const [templateId, setTemplateId] = useState(null);
+  const [templateContent, setTemplateContent] = useState("<p></p>");
+  const [selectedPanel, setSelectedPanel] = useState("font");
+
+  // Global configuration state for the template
+  const [fontSettings, setFontSettings] = useState({
+    fontFamily: "Times New Roman, serif",
     fontSize: 16,
-    fontFamily: 'Times New Roman, serif',
-    fontColor: '#000000',
-    isBold: false,
-    isItalic: false,
-    isUnderline: false,
-    isStrikethrough: false,
-    isSubscript: false,
-    isSuperscript: false
+    fontColor: "#000000",
   });
 
- // Get the active editor instance 
-const getActiveEditor = () => {
-  console.log('Getting active editor for index:', activeEditorIndex);
-  console.log('Available editors:', Object.keys(editorInstances));
-  console.log('Editor instances:', editorInstances);
-  
-  const editor = editorInstances[activeEditorIndex];
-  
-  if (!editor) {
-    console.warn('No editor found for index:', activeEditorIndex);
-    // Try to get any available editor as fallback
-    const availableEditors = Object.values(editorInstances).filter(Boolean);
-    if (availableEditors.length > 0) {
-      console.log('Using fallback editor');
-      return availableEditors[0];
-    }
-  }
-  
-  console.log('Returning editor:', !!editor);
-  return editor;
-};
-
-//  handleEditorRegister function
-const handleEditorRegister = (pageIndex, editor) => {
-  console.log('Registering editor for page:', pageIndex, !!editor);
-  setEditorInstances(prev => {
-    const updated = {
-      ...prev,
-      [pageIndex]: editor
-    };
-    console.log('Updated editor instances:', Object.keys(updated));
-    return updated;
+  const [pageSetup, setPageSetup] = useState({
+    paperSize: "A4",
+    orientation: "Portrait",
+    margins: { top: 1, bottom: 1, left: 1, right: 1 },
   });
-  
-  // If this is the first editor or the active page, set it as active
-  if (pageIndex === 0 || pageIndex === activeEditorIndex) {
-    setActiveEditorIndex(pageIndex);
-  }
-};
 
-// enhancer for click handler for pages
-const handlePageClick = (pageIndex) => {
-  console.log('Page clicked, setting active editor index:', pageIndex);
-  setActiveEditorIndex(pageIndex);
-  
-  // Focus the editor after a brief delay
-  setTimeout(() => {
-    const editor = editorInstances[pageIndex];
-    if (editor) {
-      editor.commands.focus();
-    }
-  }, 100);
-};
+  const [headerFooter, setHeaderFooter] = useState({
+    header: {},
+    footer: {},
+  });
 
-  // Handle text selection
-  const handleTextSelection = (pageIndex, start, end, text) => {
-    setSelectedText(text);
-    setSelectionStart(start);
-    setSelectionEnd(end);
-    setCurrentPageIndex(pageIndex);
-    setActiveEditorIndex(pageIndex);
-    setEditorStateUpdateTrigger(prev => prev + 1); 
-    
-    // Clear selection after a brief delay if no text is selected
-    if (!text || text.length === 0) {
-      setTimeout(() => {
-        setSelectedText("");
-        setSelectionStart(0);
-        setSelectionEnd(0);
-      }, 100);
-    }
-  };
-
-  // Applies formatting to selected text or sets formatting for new text
-  const applyFormattingToSelection = (formatType, value) => {
-    const activeEditor = getActiveEditor();
-    if (activeEditor) {
-      switch (formatType) {
-        case 'isBold':
-          activeEditor.chain().focus().toggleBold().run();
-          break;
-        case 'isItalic':
-          activeEditor.chain().focus().toggleItalic().run();
-          break;
-        case 'isUnderline':
-          activeEditor.chain().focus().toggleUnderline().run();
-          break;
-        case 'isStrikethrough':
-          activeEditor.chain().focus().toggleStrike().run();
-          break;
-        case 'fontColor':
-          activeEditor.chain().focus().setColor(value).run();
-          break;
-        case 'fontFamily':
-          activeEditor.chain().focus().setFontFamily(value).run();
-          break;
-        case 'fontSize':
-          // For fontSize, we need to apply it as a style
-          activeEditor.chain().focus().setFontSize(value + 'px').run();
-          break;
-        default:
-          break;
-      }
-      
-      // Also update default font settings for consistency
-      setDefaultFontSettings(prev => ({
-        ...prev,
-        [formatType]: value
-      }));
-    } else {
-      // No active editor, just update default formatting for new text
-      setDefaultFontSettings(prev => ({
-        ...prev,
-        [formatType]: value
-      }));
-    }
-  };
-
-  const paperDimensions = {
-    letter: { width: 816, height: 1056 },
-    A4: { width: 794, height: 1123 }, // keep A4 uppercase per enum
-    legal: { width: 816, height: 1344 },
-  };
-  const baseSize = paperDimensions[paperSize] || paperDimensions["legal"];
-  const docSize =
-    orientation === "Landscape"
-      ? { width: baseSize.height, height: baseSize.width }
-      : baseSize;
-
-  // Compute available content height (subtract top/bottom margins in px)
-  const availableContentHeight = (docSize.height - (margins.top || 1) * 96 - (margins.bottom || 1) * 96);
-
-  const pageRef = useRef(null);
-  const [pages, setPages] = useState(['<p></p>']);
-  const [hydrated, setHydrated] = useState(false); // true once initial load applied
-  const [initialContentLen, setInitialContentLen] = useState(0);
-  const lastMeaningfulLenRef = useRef(0);
-  const lastSavedHashRef = useRef(null);
-  const backupThrottleRef = useRef(null);
-  const RESTORE_KEY_PREFIX = 'templateBackup:';
-
-  const hashString = useCallback((str) => {
-    let h = 0; for (let i=0;i<str.length;i++) h = (h<<5)-h + str.charCodeAt(i) | 0; return h.toString(36);
-  }, []);
-  const stripHtml = useCallback((html) => (html||'').replace(/<[^>]+>/g,''), []);
-  const isTriviallyBlank = useCallback((html) => {
-    if (!html) return true;
-    const stripped = html
-      .replace(/<p><br\/?><\/p>/gi,'')
-      .replace(/<p>\s*<\/p>/gi,'')
-      .replace(/&nbsp;/g,' ')
-      .replace(/<[^>]+>/g,'')
-      .trim();
-    return stripped.length === 0;
-  }, []);
-  const scheduleBackup = useCallback((id, data) => {
-    if (!id) return; if (backupThrottleRef.current) clearTimeout(backupThrottleRef.current);
-    backupThrottleRef.current = setTimeout(()=>{ try { localStorage.setItem(RESTORE_KEY_PREFIX+id, JSON.stringify(data)); } catch(_){} }, 600);
-  }, []);
-  const [loadingTemplate, setLoadingTemplate] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [templateStatus, setTemplateStatus] = useState('draft');
-  const [approvals, setApprovals] = useState(null); // raw approvals object
-  const [approvalMeta, setApprovalMeta] = useState(null); // derived meta from backend
-  const [approvers, setApprovers] = useState([]);
-  const [loadingApprovers, setLoadingApprovers] = useState(false);
-  const [templateData, setTemplateData] = useState(null);
-  const [lastSavedAt, setLastSavedAt] = useState(null);
-  const [dirty, setDirty] = useState(false);
-  const [saveDebug, setSaveDebug] = useState(null); // latest reason / status
-  const autosaveTimerRef = useRef(null);
-  const AUTOSAVE_DELAY = 2000; // ms after last change
-
-  // Load existing template (with restore + reconstruction logic)
-  const reconstructionExtensions = useMemo(()=>[],[]); // placeholder for future generateHTML if needed
+  // Load existing template (edit mode)
   useEffect(() => {
-    if (!templateId) return;
-    let ignore = false;
+    const id = location?.state?.templateId;
+    if (!id) return;
+    setTemplateId(id);
     (async () => {
-      try {
-        setLoadingTemplate(true);
-        const res = await getTemplateByIdAPI(templateId);
-  if (res.success && res.template && !ignore) {
-          setTitle(res.template.title || 'Untitled Template');
-          const serverPagesJson = Array.isArray(res.template.pages_json) ? res.template.pages_json : [];
-          if (serverPagesJson.length > 0) {
-            // Convert minimal JSON pages into placeholder HTML (keep actual HTML from body for now)
-            const reconstructed = serverPagesJson.map(()=>'<p></p>');
-            setPages(reconstructed);
-          } else if (res.template.body) {
-            setPages([res.template.body]);
-          } else {
-            setPages(['<p></p>']);
-          }
-          if (res.template.body) setContent(res.template.body);
-          if (res.template.document_size) {
-            const ds = res.template.document_size;
-            const mapped = ds === '8.5 x 11' ? 'letter' : ds === '8.5 x 13' ? 'legal' : ds;
-            setPaperSize(mapped);
-          }
-          if (res.template.margin) setMargins(res.template.margin);
-          if (res.template.status) setTemplateStatus(res.template.status);
-          if (res.template.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
-          if (res.template.approvalMeta) setApprovalMeta(res.template.approvalMeta);
-          setTemplateData(res.template);
-          // Anti-wipe metrics
-          const body = res.template.body || '';
-          setInitialContentLen(body.length);
-          lastMeaningfulLenRef.current = isTriviallyBlank(body) ? 0 : stripHtml(body).trim().length;
-          lastSavedHashRef.current = hashString(body);
-          setHydrated(true);
-          scheduleBackup(templateId, { pages: [...(serverPagesJson.length?serverPagesJson:[])] , title: res.template.title, paperSize, margins, ts: Date.now(), body });
-          // Attempt restore if server blank but we had backup
-          if (isTriviallyBlank(body)) {
-            try {
-              const backupRaw = localStorage.getItem(RESTORE_KEY_PREFIX+templateId);
-              if (backupRaw) {
-                const backup = JSON.parse(backupRaw);
-                if (backup?.body && !isTriviallyBlank(backup.body)) {
-                  console.warn('Restoring body from backup snapshot');
-                  setContent(backup.body);
-                  setPages([backup.body]);
-                }
-              }
-            } catch(_){}
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load template', e);
-      } finally {
-        setLoadingTemplate(false);
-      }
+      const res = await getTemplateByIdAPI(id);
+      if (res?.content) setTemplateContent(res.content);
+      if (res?.pageSetup) setPageSetup(res.pageSetup);
+      if (res?.fontSettings) setFontSettings(res.fontSettings);
+      if (res?.headerFooter) setHeaderFooter(res.headerFooter);
     })();
-    return () => { ignore = true; };
-  }, [templateId]);
+  }, [location]);
 
-  // Fetch approvers for user's school (Secretary & Dean)
-  useEffect(() => {
-    const loadApprovers = async () => {
-      if (!user?.role?.school) return;
-      setLoadingApprovers(true);
-      try {
-        const data = await fetchApproversAPI(user.role.school);
-        const list = data.approvers || [];
-        list.sort((a,b)=> (a.role.name===b.role.name)?0:(a.role.name==='Secretary'? -1:1));
-        setApprovers(list);
-      } catch(err){
-        console.warn('Failed to load approvers', err);
-      } finally {
-        setLoadingApprovers(false);
-      }
+  // Save
+  const handleSave = async () => {
+    const editor = editorRef.current;
+    const content = editor ? editor.getHTML() : templateContent;
+
+    const payload = {
+      content,
+      pageSetup,
+      fontSettings,
+      headerFooter,
+      updatedBy: user?.id,
     };
-    loadApprovers();
-  }, [user?.role?.school]);
 
-  const htmlToBasicJSON = useCallback((html) => {
-    if (!html) return { type: 'doc', content: [{ type: 'paragraph' }] };
-    const parts = html.split(/<\/p>/i).map(p=>p.replace(/<[^>]+>/g,'').trim()).filter(Boolean);
-    return { type: 'doc', content: parts.length? parts.map(t=>({ type:'paragraph', content: t? [{ type:'text', text:t }] : [] })) : [{ type:'paragraph' }] };
-  }, []);
-
-  const buildUpdatePayload = (submitForApproval = false) => {
-    // Determine body HTML smartly: if pages are effectively blank placeholders but we have richer content state, prefer content
-    let bodyHtml = pages.join('');
     try {
-      const allPlaceholders = pages.length > 0 && pages.every(p => !p || p === '<p></p>' || isTriviallyBlank(p));
-      if (allPlaceholders && content && !isTriviallyBlank(content)) {
-        bodyHtml = content; // avoid wiping real body with placeholder aggregation
+      if (templateId) {
+        await updateTemplateAPI(templateId, payload);
+      } else {
+        const res = await createTemplateAPI(payload);
+        setTemplateId(res?.id);
       }
-    } catch(_) {}
-    const pagesJSON = pages.map((p, idx) => {
-      const inst = editorInstances[idx];
-      if (inst) { try { return inst.getJSON(); } catch(_){} }
-      if (templateData?.pages_json && templateData.pages_json[idx]) return templateData.pages_json[idx];
-      return htmlToBasicJSON(p);
-    });
-    // Include layout + metadata so save hashing considers these changes too
-    const meta = { margins, paperSize, title };
-    return {
-      title,
-      document_size: paperSize,
-      margin: margins,
-      body: bodyHtml,
-      pages_json: pagesJSON,
-      _metaForHash: meta, // not persisted (backend should ignore unknown field); used only for local hashing diagnostics
-      ...(submitForApproval ? { status: 'pending' } : {})
-    };
-  };
-  
-  const handleSaveDraft = async () => {
-    // Creation path for new templates
-    if (!templateId) {
-      if (saving) { setSaveDebug('skip: already saving (create)'); return; }
-      const plainLenNew = stripHtml(pages.join('')).trim().length;
-      if (plainLenNew === 0 && title === 'Untitled Template') { setSaveDebug('skip: new template empty'); return; }
-      setSaving(true);
-      setSaveDebug('creating new template...');
-      try {
-        const payload = buildUpdatePayload(false);
-        // Minimal required fields for creation (backend expects created_by, school_identifier maybe) – infer from user
-        const school_identifier = user?.role?.school_identifier || user?.role?.school || 'GEN';
-        const createPayload = { ...payload, created_by: user?.id, school_identifier };
-        const res = await createTemplateAPI(createPayload);
-        if (res.success && res.template?._id) {
-          setSaveDebug('created template');
-          navigate(`?templateId=${res.template._id}`, { replace: true });
-        } else {
-          setSaveDebug('create failed');
-        }
-      } catch(e) {
-        console.error('Create template failed', e); setSaveDebug('error: create failed');
-      } finally {
-        setSaving(false);
-      }
-      return;
-    }
-    if (saving) { setSaveDebug('skip: already saving'); return; }
-    if (!hydrated) { setSaveDebug('skip: not hydrated'); return; }
-    // Recompute body using same logic as payload builder (without creating full payload yet)
-    let bodyHtml = pages.join('');
-    try {
-      const allPlaceholders = pages.length > 0 && pages.every(p => !p || p === '<p></p>' || isTriviallyBlank(p));
-      if (allPlaceholders && content && !isTriviallyBlank(content)) {
-        bodyHtml = content;
-      }
-    } catch(_) {}
-    const plainLen = stripHtml(bodyHtml).trim().length;
-    // Anti-wipe: block if initial had content & now blank
-    if (initialContentLen > 50 && lastMeaningfulLenRef.current > 0 && plainLen === 0) {
-      console.warn('Blocked save that would wipe meaningful content'); setSaveDebug('blocked: wipe protection');
-      return;
-    }
-    // Expanded hash basis to include title, margins, paper size so non-body edits trigger save
-    const hashBasis = `${bodyHtml}__TITLE__${title}__MARGINS__${JSON.stringify(margins)}__SIZE__${paperSize}`;
-    const newHash = hashString(hashBasis);
-    if (newHash === lastSavedHashRef.current) {
-      setSaveDebug('skip: no changes');
-      return; // no change
-    }
-    setSaving(true);
-    setSaveDebug('saving...');
-    try {
-      const payload = buildUpdatePayload(false);
-      const res = await updateTemplateAPI(templateId, payload);
-      if (res.success) {
-        setLastSavedAt(new Date());
-  setDirty(false);
-  if (res.template?.status) setTemplateStatus(res.template.status);
-  if (res.template?.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
-  if (res.template?.approvalMeta) setApprovalMeta(res.template.approvalMeta);
-  if (res.template) setTemplateData(res.template);
-        if (plainLen>0) lastMeaningfulLenRef.current = plainLen;
-  lastSavedHashRef.current = newHash;
-        scheduleBackup(templateId, { pages: [...pages], title, body: bodyHtml, paperSize, margins, ts: Date.now() });
-        setSaveDebug('saved');
-      }
+      alert("Template saved.");
     } catch (e) {
-      console.error('Save draft failed', e); setSaveDebug('error: save failed');
-    } finally {
-      setSaving(false);
+      console.error(e);
+      alert("Save failed.");
     }
   };
 
-  const handleSubmitForApproval = async () => {
-    if (!templateId) return;
-    if (saving) return;
-    if (!hydrated) return;
-    const bodyHtml = pages.join('');
-    const plainLen = stripHtml(bodyHtml).trim().length;
-    if (initialContentLen > 50 && lastMeaningfulLenRef.current > 0 && plainLen === 0) {
-      console.warn('Blocked submit that would wipe meaningful content');
-      return;
-    }
-    setSaving(true);
-    try {
-      const payload = buildUpdatePayload(true);
-      const res = await updateTemplateAPI(templateId, payload);
-      if (res.success) {
-        setLastSavedAt(new Date());
-        setDirty(false);
-  if (res.template?.status) setTemplateStatus(res.template.status);
-  if (res.template?.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
-  if (res.template?.approvalMeta) setApprovalMeta(res.template.approvalMeta);
-  if (res.template) setTemplateData(res.template);
-        scheduleBackup(templateId, { pages: [...pages], title, body: bodyHtml, paperSize, margins, ts: Date.now() });
-      }
-    } catch (e) {
-      console.error('Submit for approval failed', e);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleApprove = async () => {
-    if (!templateId) return; if (saving) return;
-    const role = user?.role?.name?.toLowerCase();
-    if (!['dean','secretary'].includes(role)) return;
-    setSaving(true);
-    try {
-      const res = await approveTemplateAPI(templateId, role);
-      if (res.success) {
-        if (res.template?.status) setTemplateStatus(res.template.status);
-  if (res.template?.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
-  if (res.template?.approvalMeta) setApprovalMeta(res.template.approvalMeta);
-        // Local fallback: if backend still reports pending but both approvals now exist, flip status for UI so Publish appears
-        const ap = res.template?.status_meta?.approvals;
-        if (res.template?.status === 'pending' && ap?.dean?.approved_at && ap?.secretary?.approved_at) {
-          setTemplateStatus('approved');
-        }
-      }
-    } catch(e){ console.error('Approve failed', e);} finally { setSaving(false);} };
-
+  // Publish
   const handlePublish = async () => {
-    if (!templateId) return; if (saving) return;
-    // Allow publish if status approved OR pending but both approvals present
-    const fullyApproved = (approvalMeta && approvalMeta.isFullyApproved) || (approvals?.dean?.approved_at && approvals?.secretary?.approved_at);
-    if (!(templateStatus === 'approved' || (templateStatus === 'pending' && fullyApproved))) return;
-    setSaving(true);
+    if (!templateId) return alert("Save template before publishing.");
     try {
-      const res = await publishTemplateAPI(templateId);
-      if (res.success) {
-        if (res.template?.status) setTemplateStatus(res.template.status);
-        if (res.template?.status_meta?.approvals) setApprovals(res.template.status_meta.approvals);
-        if (res.approvalMeta) setApprovalMeta(res.approvalMeta); else if (res.template?.approvalMeta) setApprovalMeta(res.template.approvalMeta);
-      }
-    } catch(e){ console.error('Publish failed', e);} finally { setSaving(false);} };
-
-  // Mark dirty when title/pages/margins/paper size change
-  useEffect(() => {
-    if (loadingTemplate) return; // ignore initial load
-    // Any change after initial load marks dirty
-    if (hydrated) {
-      setDirty(true);
-      scheduleBackup(templateId, { pages: [...pages], title, body: pages.join(''), paperSize, margins, ts: Date.now() });
+      await publishTemplateAPI(templateId);
+      alert("Template published.");
+      navigate("/document-controller/templates");
+    } catch (e) {
+      console.error(e);
+      alert("Publish failed.");
     }
-  }, [title, pages, paperSize, orientation, margins, loadingTemplate, hydrated, templateId, scheduleBackup]);
-
-  // Debounced autosave effect
-  useEffect(() => {
-    if (!templateId) return; // only autosave existing
-    if (!dirty) return; // nothing to save
-    if (saving) return; // wait until current save finishes
-    if (!hydrated) return; // wait for initial load
-    // Clear existing timer
-    if (autosaveTimerRef.current) {
-      clearTimeout(autosaveTimerRef.current);
-    }
-    autosaveTimerRef.current = setTimeout(() => {
-      handleSaveDraft();
-    }, AUTOSAVE_DELAY);
-    return () => {
-      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
-    };
-  }, [dirty, saving, templateId, hydrated]);
-
-  // Warn user about unsaved changes on page unload
-  useEffect(() => {
-    const beforeUnload = (e) => {
-      if (dirty && !saving) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-    window.addEventListener('beforeunload', beforeUnload);
-    return () => window.removeEventListener('beforeunload', beforeUnload);
-  }, [dirty, saving]);
-
-  // Handle creation of new page when content overflows
-  const handleCreateNewPage = useCallback((currentPageIndex, overflowContent) => {
-    console.log('Creating new page after page', currentPageIndex, 'with content:', overflowContent.substring(0, 100) + '...');
-    
-    setPages(prevPages => {
-      const newPages = [...prevPages];
-      // Insert new page after the current page with the overflow content
-      const contentForNewPage = overflowContent && overflowContent.trim() !== '' ? overflowContent : '<p></p>';
-      newPages.splice(currentPageIndex + 1, 0, contentForNewPage);
-      
-      console.log('Pages after overflow creation:', newPages.length, 'New page content:', contentForNewPage.substring(0, 50) + '...');
-      return newPages;
-    });
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!pageRef.current) return;
-    const pageHeightPx = pageRef.current.offsetHeight;
-    const newPages = paginateContentByHeight(content, pageHeightPx);
-    setPages(newPages);
-  }, [content, docSize.height, margins]);
+  };
 
   return (
-    <div className="h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
-  <Header title={title} setTitle={setTitle} user={user} onSaveDraft={handleSaveDraft} onSubmitForApproval={handleSubmitForApproval} onApprove={handleApprove} onPublish={handlePublish} saving={saving} lastSavedAt={lastSavedAt} dirty={dirty} templateStatus={templateStatus} approvals={approvals} approvalMeta={approvalMeta} approvers={approvers} loadingApprovers={loadingApprovers} reviewNotes={templateData?.status_meta?.review_notes || []} assignedIds={templateData?.assigned || []} />
-      {/* Hidden measuring div */}
-      <div
-        id="measure-div"
-        className="invisible absolute pointer-events-none whitespace-pre-wrap"
-        style={{
-          width: docSize.width,
-          height: "auto",
-          fontSize: "16px",
-          fontFamily: "inherit",
-          paddingTop: (margins.top || 1) * 96,
-          paddingBottom: (margins.bottom || 1) * 96,
-          paddingLeft: (margins.left || 1) * 96,
-          paddingRight: (margins.right || 1) * 96,
-        }}
-      />
-      <div className="flex flex-row h-[calc(100vh-64px)]">
-        <Sidebar tabs={TABS} activeTab={activeTab} setActiveTab={setActiveTab} />
-        <div className="w-[370px] bg-white shadow-lg border-r border-gray-200 p-6 overflow-y-auto">
-          {activeTab === "font" && (
-            <FontPanel 
-              fontSettings={defaultFontSettings}
-              onFontSettingsChange={setDefaultFontSettings}
-              selectedText={selectedText}
-              onApplyFormatting={applyFormattingToSelection}
-              editor={getActiveEditor()}
-              key={`font-panel-${activeEditorIndex}-${editorStateUpdateTrigger}`}
+    <div className="flex flex-col h-screen">
+      <Header />
+
+      <div className="flex flex-1">
+        {/* Left sidebar with panels */}
+        <Sidebar selectedPanel={selectedPanel} onSelectPanel={setSelectedPanel}>
+          {selectedPanel === "font" && (
+            <FontPanel
+              editor={editorRef.current}
+              fontSettings={fontSettings}
+              onFontSettingsChange={setFontSettings}
             />
           )}
-          {activeTab === "pageSetup" && (
+
+          {selectedPanel === "layout" && (
+            <LayoutPanel editor={editorRef.current} />
+          )}
+
+          {selectedPanel === "dateformat" && <DateFormatPanel />}
+
+          {selectedPanel === "headerfooter" && (
+            <HeaderFooterPanel
+              value={headerFooter}
+              onChange={setHeaderFooter}
+            />
+          )}
+
+          {selectedPanel === "insert" && (
+            <InsertPanel editor={editorRef.current} />
+          )}
+
+          {selectedPanel === "pagesetup" && (
             <PageSetupPanel
-              paperSize={paperSize}
-              setPaperSize={setPaperSize}
-              orientation={orientation}
-              setOrientation={setOrientation}
-              margins={margins}
-              setMargins={setMargins}
-              defaultOrientation={DEFAULT_ORIENTATION}
-              defaultMargins={DEFAULT_MARGINS}
+              paperSize={pageSetup.paperSize}
+              setPaperSize={(v) => setPageSetup({ ...pageSetup, paperSize: v })}
+              orientation={pageSetup.orientation}
+              setOrientation={(v) =>
+                setPageSetup({ ...pageSetup, orientation: v })
+              }
+              margins={pageSetup.margins}
+              setMargins={(v) => setPageSetup({ ...pageSetup, margins: v })}
             />
           )}
-          {activeTab === "layout" && (
-          <LayoutPanel />
-          )} 
-          {activeTab === "header&footers" && (
-            <HeaderFooterPanel />
-          )}
-       {activeTab === "insert" && (
-        <InsertPanel 
-          editor={getActiveEditor()} 
-          key={`insert-panel-${activeEditorIndex}`} 
-        />
-        )}
-        {activeTab === "date" && (
-        <DateFormatPanel />
-        )}
-         </div>
+        </Sidebar>
 
-        {/* Document Editor */}
-        <div className="flex-1 flex flex-col items-center overflow-y-scroll bg-gray-50 p-8">
-          <div className="space-y-8">
-           {templateId && loadingTemplate && (
-             <div className="text-center text-sm text-gray-500">Loading template...</div>
-           )}
-           {pages.map((pageContent, idx) => (
-            <div key={idx} className="flex flex-col items-center">
-              <div
-                ref={idx === 0 ? pageRef : null}
-                className="bg-white shadow-2xl border border-gray-200 transition-all duration-300 hover:shadow-3xl relative group"
-                style={{
-                  width: docSize.width,
-                  height: docSize.height,
-                  paddingTop: (margins.top || 1) * 96,
-                  paddingBottom: (margins.bottom || 1) * 96,
-                  paddingLeft: (margins.left || 1) * 96,
-                  paddingRight: (margins.right || 1) * 96,
-                  overflow: "hidden",
-                }}
-                onClick={() => handlePageClick(idx)} 
-              >
-               {/* Page number indicator */}
-                <div className="absolute -top-6 right-0 text-xs text-gray-400 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200 invisible">
-                  Page {idx + 1} {idx === activeEditorIndex ? '(Active)' : ''}
-                </div>
-
-              
-                <TextEditor
-                  content={pageContent}
-                  fontSettings={defaultFontSettings}
-                  pageIndex={idx}
-                  onTextSelection={handleTextSelection}
-                  onEditorReady={handleEditorRegister}
-                  onCreateNewPage={handleCreateNewPage}
-                  pageConfig={{
-                    paperSize,
-                    orientation,
-                    margins
-                  }}
-                  pageAvailableHeight={availableContentHeight}
-                  readOnly={templateStatus!== 'draft'}
-                  onChange={newContent => {
-                      const newPages = [...pages];
-                      newPages[idx] = newContent;
-                      setPages(newPages);
-                      setContent(newPages.join(''));
-                    }}
-                />
-              </div>
-              {idx < pages.length - 1 && (
-                <div className="w-full flex items-center justify-center select-none" aria-hidden="true">
-                  <div className="relative w-[calc(100%+4rem)] my-6">
-                    <div className="border-t border-dashed border-gray-300" />
-                    <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-gray-50 text-[10px] tracking-wide text-gray-500 px-2 uppercase">Page Break</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+        {/* Right side: top action bar + editor canvas */}
+        <div className="flex-1 flex flex-col">
+          <div className="flex justify-end gap-3 p-3 border-b bg-white">
+            <button
+              onClick={handleSave}
+              className="px-5 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-900"
+            >
+              Save
+            </button>
+            <button
+              onClick={handlePublish}
+              className="px-5 py-2 rounded bg-[#063c8d] hover:bg-[#052c6d] text-white"
+            >
+              Publish
+            </button>
           </div>
+
+          <TextEditor
+            content={templateContent}
+            pageSetup={pageSetup}
+            onEditorReady={(editor) => {
+              editorRef.current = editor;
+            }}
+            onContentChange={setTemplateContent}
+          />
         </div>
       </div>
     </div>

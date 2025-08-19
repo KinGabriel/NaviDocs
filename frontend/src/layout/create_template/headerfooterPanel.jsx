@@ -139,7 +139,7 @@ export default function HeaderFooterPanel() {
 
  {/*section for header and footer options*/}
   return (
-    <div p-9 space-y-6>
+    <div className="p-9 space-y-6">
       <div className="flex space-x-4 border-b">
         <button
           className={`px-6 py-2 ${

@@ -1,19 +1,39 @@
-export default function TemplateSidebar({ tabs, activeTab, setActiveTab }) {
- return (
-    <div className="bg-[#f6f8fe] w-[120px] flex flex-col items-center  gap-2 ">
-      {tabs.map(tab => (
-        <button
-          key={tab.key}
-          onClick={() => setActiveTab(tab.key)}
-         className={`flex flex-col items-center w-full py-4 transition
-         ${activeTab === tab.key ? "bg-[#CCDFFF] shadow font-bold  " : ""}
-         }
-         `}
-        >
-          <span className="mb-1 text-2xl">{tab.icon}</span>
-          <span className="text-xs">{tab.label}</span>
-        </button>
-      ))}
+// src/layout/templateSidebar.jsx
+import React from "react";
+
+export default function Sidebar({ selectedPanel, onSelectPanel, children }) {
+  const panels = [
+    { id: "font", label: "Text" },
+    { id: "layout", label: "Layout" },
+    { id: "dateformat", label: "Date Format" },
+    { id: "headerfooter", label: "Header & Footers" },
+    { id: "insert", label: "Insert" },
+    { id: "pagesetup", label: "Page Setup" },
+  ];
+
+  return (
+    <div className="w-[320px] bg-[#f6f7fb] border-r flex flex-col">
+      {/* Tabs */}
+      <div className="flex flex-col">
+        {panels.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => onSelectPanel(p.id)}
+            className={`w-full text-left px-5 py-3 transition ${
+              selectedPanel === p.id
+                ? "bg-[#e7efff] text-[#063c8d] font-semibold"
+                : "hover:bg-gray-200 text-gray-800"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Panel content */}
+      <div className="flex-1 overflow-y-auto border-t p-4 bg-white">
+        {children}
+      </div>
     </div>
   );
 }

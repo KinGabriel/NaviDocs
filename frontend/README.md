@@ -16,6 +16,7 @@
    npm install react-router-dom@7
    npm install @headlessui/react
    npm install tailwindcss @tailwindcss/vite
+   npm i prosemirror-keymap prosemirror-transform
    ```
 
 
