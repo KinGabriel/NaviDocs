@@ -1,20 +1,54 @@
 import Header from '../../layout/header';
 import Sidebar from '../../layout/sidebar';
 import useUser from '../../hooks/useUser';
-import { Folder, FileText, Plus } from "lucide-react";
+import { Folder, FileText, Plus, Filter, ArrowDownAZ } from "lucide-react";
+import { useState } from "react";
 
 export default function DocumentControllerStorage() {
   const user = useUser();
 
-  const folders = [
-    "SAMCIS Dean",
-    "SAMCIS OSA",
-    "SAMCIS Department Heads",
-    "TRIL Utilization",
-    "School Clinic"
+  const initialFolders = [
+    { name: "SAMCIS Dean", date: "2024-01-10" },
+    { name: "SAMCIS OSA", date: "2024-03-05" },
+    { name: "SAMCIS Department Heads", date: "2024-02-15" },
+    { name: "TRIL Utilization", date: "2024-04-01" },
+    { name: "School Clinic", date: "2024-05-12" }
   ];
 
-  const files = new Array(12).fill("Course Syllabus 2023-2024"); // dummy files
+  const initialFiles = new Array(7).fill("Course Syllabus 2023-2024"); // dummy files
+
+  const [folders] = useState(initialFolders);
+  const [files] = useState(initialFiles);
+  const [sortAZ, setSortAZ] = useState(false);
+  const [filterLatest, setFilterLatest] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Apply filter + sort on folders
+  let displayedFolders = [...folders]
+    .sort((a, b) => {
+      if (filterLatest) {
+        return new Date(b.date) - new Date(a.date); // latest first
+      }
+      return 0;
+    })
+    .sort((a, b) => {
+      if (sortAZ) {
+        return a.name.localeCompare(b.name); // A-Z sort
+      }
+      return 0;
+    });
+
+  // Apply search (folders + files)
+  if (searchQuery) {
+    const query = searchQuery.toLowerCase();
+    displayedFolders = displayedFolders.filter((f) =>
+      f.name.toLowerCase().includes(query)
+    );
+  }
+
+  const displayedFiles = searchQuery
+    ? files.filter((file) => file.toLowerCase().includes(searchQuery.toLowerCase()))
+    : files;
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -33,23 +67,38 @@ export default function DocumentControllerStorage() {
 
             {/* Controls */}
             <div className="flex items-center gap-2 mb-6">
-              <button className="bg-blue-600 hover:bg-blue-600 text-white px-4 py-2 rounded-md shadow">
-                Filter by
+              {/* Filter Latest */}
+              <button
+                onClick={() => setFilterLatest(!filterLatest)}
+                className="flex items-center gap-2 px-4 py-2 rounded-md shadow text-white bg-blue-600 hover:bg-blue-700"
+              >
+                <Filter size={18} /> Filter
               </button>
-              <button className="bg-blue-600 hover:bg-blue-600 text-white px-4 py-2 rounded-md shadow">
-                Sort by
+
+              {/* Sort A-Z */}
+              <button
+                onClick={() => setSortAZ(!sortAZ)}
+                className="flex items-center gap-2 px-4 py-2 rounded-md shadow text-white bg-blue-600 hover:bg-blue-700"
+              >
+                <ArrowDownAZ size={18} /> Sort
               </button>
+
+              {/* Search */}
               <div className="flex-1 flex justify-start m-2">
                 <div className="w-64">
                   <input
                     type="text"
                     placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-400"
                   />
                 </div>
               </div>
+
+              {/* Add Folder */}
               <div className="flex-1 flex justify-end">
-                <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-600 text-white font-medium px-5 py-2 rounded-md shadow">
+                <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2 rounded-md shadow">
                   <Plus size={20} /> Add Folder
                 </button>
               </div>
@@ -57,33 +106,41 @@ export default function DocumentControllerStorage() {
 
             {/* Folders */}
             <h3 className="text-lg font-semibold mb-3">Folders</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-8">
-              {folders.map((folder, index) => (
-                <div
-                key={index}
-                className="bg-gray-100 flex items-center gap-3 p-4 shadow-sm rounded-md border border-gray-300 cursor-pointer hover:bg-gray-200"
-                >
-                <Folder size={28} className="text-blue-600 flex-shrink-0 w-7 h-7" />
-                <span className="font-medium text-gray-800 truncate flex-1">
-                {folder}
-                </span>
-                </div>
+            {displayedFolders.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-8">
+                {displayedFolders.map((folder, index) => (
+                  <div
+                    key={index}
+                    className="bg-gray-100 flex items-center gap-3 p-4 shadow-sm rounded-md border border-gray-300 cursor-pointer hover:bg-gray-200"
+                  >
+                    <Folder size={28} className="text-blue-600 flex-shrink-0 w-7 h-7" />
+                    <span className="font-medium text-gray-800 truncate flex-1">
+                      {folder.name}
+                    </span>
+                  </div>
                 ))}
-            </div>
+              </div>
+            ) : (
+              <p className="text-gray-500 italic mb-8">No folders found.</p>
+            )}
 
             {/* Files */}
             <h3 className="text-lg font-semibold mb-3">Files</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {files.map((file, index) => (
-                <div
-                  key={index}
-                  className="bg-gray-100 p-3 shadow-sm rounded-md border border-gray-300 hover:bg-gray-200 cursor-pointer"
-                >
-                  <FileText size={24} className="text-gray-600 mb-2" />
-                  <p className="text-sm font-medium text-gray-800">{file}</p>
-                </div>
-              ))}
-            </div>
+            {displayedFiles.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {displayedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="bg-gray-100 p-3 shadow-sm rounded-md border border-gray-300 hover:bg-gray-200 cursor-pointer"
+                  >
+                    <FileText size={24} className="text-gray-600 mb-2" />
+                    <p className="text-sm font-medium text-gray-800">{file}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 italic">No files found.</p>
+            )}
           </div>
         </div>
       </div>
