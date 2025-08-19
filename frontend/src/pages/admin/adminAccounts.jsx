@@ -3,7 +3,7 @@ import { fetchUsersAccountsAPI } from "../../api/adminAPI";
 import useUser from '../../hooks/useUser';
 import Sidebar from '../../layout/sidebar';
 import Header from '../../layout/header';
-import SearchBar from '../../components/searchbar';
+import SearchBar from '../../components/searchBar';
 import Table from '../../components/table';
 import Dropdown from '../../components/dropdown';
 import usePagination from '../../hooks/usePagination';
@@ -156,7 +156,7 @@ export default function AdminAccounts() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-200 flex flex-col">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="User Accounts" />

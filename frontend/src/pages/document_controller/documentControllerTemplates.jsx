@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../layout/header'; 
 import Sidebar from '../../layout/sidebar';
 import useUser from '../../hooks/useUser'; 
-import SearchBar from '../../components/searchbar';
+import SearchBar from '../../components/searchBar';
 import Dropdown from '../../components/dropdown';
 import TemplateCard from '../../components/templatecard';
 import CreateTemplateModal from '../../components/modals/createTemplateModal';

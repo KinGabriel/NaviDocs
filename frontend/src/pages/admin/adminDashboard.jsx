@@ -99,7 +99,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-200 flex flex-col">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <Header user={user} />
       {/* sidebar & content area */}
       <div className="flex flex-1">
