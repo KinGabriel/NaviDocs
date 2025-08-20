@@ -235,7 +235,11 @@ export default function DocumentControllerWorkflow() {
                     <Th className="w-28">Revision No.</Th>
                     <Th className="w-28">Effectivity</Th>
                     <Th className="w-72">Title</Th>
-                    {tab === "submitted" ? <Th className="w-40">Created By</Th> : <Th className="w-40">Owned By</Th>}
+                    {tab === "submitted" ? (
+                      <Th className="w-40">Created By</Th>
+                    ) : (
+                      <Th className="w-40">Owned By</Th>
+                    )}
                     <Th className="w-28">Due Date</Th>
                     <Th className="w-32">Status</Th>
                     <Th className="w-28 text-right pr-4">Actions</Th>
@@ -259,11 +263,15 @@ export default function DocumentControllerWorkflow() {
                       <Td className="truncate">{r.title}</Td>
                       <Td>{tab === "submitted" ? r.createdBy : r.ownedBy}</Td>
                       <Td>{r.due}</Td>
-                      <Td><StatusBadge type={r.status} /></Td>
+                      <Td>
+                        <StatusBadge type={r.status} />
+                      </Td>
                       <Td className="text-right pr-4">
                         <button
                           className="px-3 py-1.5 rounded border text-sm font-medium hover:bg-gray-100"
-                          onClick={() => navigate(`/document-controller/documents/${idx}`)}
+                          onClick={() =>
+                            navigate(`/document-controller/documents/${idx}`)
+                          }
                         >
                           View
                         </button>
@@ -273,7 +281,6 @@ export default function DocumentControllerWorkflow() {
                 </tbody>
               </table>
             </div>
-
 
             {/* Pagination */}
             <div className="flex items-center justify-between mt-6 text-sm">
@@ -328,7 +335,7 @@ export default function DocumentControllerWorkflow() {
 function Th({ children, className = "" }) {
   return (
     <th
-      className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider align-middle border-b border-gray-200 ${className}`}
+      className={`px-4 py-3 text-sm font-semibold uppercase tracking-wider align-middle border-b border-gray-200 ${className}`}
     >
       {children}
     </th>
@@ -338,7 +345,7 @@ function Th({ children, className = "" }) {
 function Td({ children, className = "" }) {
   return (
     <td
-      className={`px-4 py-4 align-middle leading-6 whitespace-normal break-words border-t border-gray-200 ${className}`}
+      className={`px-4 py-4 text-sm align-middle leading-6 whitespace-normal break-words border-t border-gray-200 ${className}`}
     >
       {children}
     </td>
@@ -353,7 +360,7 @@ function StatusBadge({ type }) {
   };
   return (
     <span
-      className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${styles[status]}`}
+      className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-sm font-semibold ${styles[status]}`}
     >
       <span
         className={`h-2 w-2 rounded-full ${
