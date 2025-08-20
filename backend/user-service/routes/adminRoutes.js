@@ -42,7 +42,8 @@ router.get("/dashboard-info",
 );
 
 router.patch("/archive-user/:id", 
-
+  authenticateJWT, 
+  authorizeAdmin, 
   archiveUser
 );
 
