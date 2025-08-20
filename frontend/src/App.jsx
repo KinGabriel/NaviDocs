@@ -135,7 +135,7 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Document Controller"]}>
               <DocumentControllerDocuments />
-            </ProtectedRoute>
+            </ProtectedRoute> 
           }
         />
 
