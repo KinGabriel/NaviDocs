@@ -4,12 +4,14 @@ import Login from './pages/login';
 import AdminDashboard from './pages/admin/adminDashboard';
 import AdminAccounts from './pages/admin/adminAccounts';
 import CreateUser from './pages/admin/adminCreateUser';
-import AdminAccountSettings from "./pages/admin/adminAccountSettings";
+import AccountSettings from "./pages/accountSettings";
+import AdminEditUser from "./pages/admin/adminEditUser";
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
+import DocumentControllerStorage from './pages/document_controller/documentControllerStorage';
 import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
@@ -18,6 +20,8 @@ import useUser from './hooks/useUser';
 import { Navigate } from "react-router-dom";
 import SecretaryDashboard from './pages/secretary/secretaryDashboard';
 import SecretaryTemplates from './pages/secretary/secretaryTemplates';
+import DeanDashboard from './pages/dean/deanDashboard';
+import DeanDocuments from './pages/dean/deanDocuments';
 
 /**
  * LoginRoute component checks if the user is logged in and if not it will return back to login page.
@@ -40,6 +44,8 @@ function App() {
         <Route path="/" element={<LoginRoute />} />
         <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="/document-controller" element={<Navigate to="/document-controller/dashboard" replace />} />
+
+        {/* Admin Module */}
         <Route
           path="/admin/dashboard"
           element={
@@ -65,13 +71,15 @@ function App() {
           }
         />
         <Route
-          path="/admin/settings"
+          path="/admin/edit-user"
           element={
             <ProtectedRoute allowedRoles={["Admin"]}>
-              <AdminAccountSettings />
+              <AdminEditUser />
             </ProtectedRoute>
           }
         />
+
+        {/* Document Controller Module */}
         <Route
           path="/document-controller/dashboard"
           element={
@@ -96,6 +104,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        
         <Route
           path="/document-controller/statistics"
           element={
@@ -105,15 +114,25 @@ function App() {
           }
         />
         <Route
-          path="document-controller/document-workflow"
+          path="/document-controller/document-workflow"
           element={
             <ProtectedRoute allowedRoles={["Document Controller"]}>
               <DocumentControllerWorkFlow />
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/document-controller/storage"
+          element={
+            <ProtectedRoute allowedRoles={["Document Controller"]}>
+              <DocumentControllerStorage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Secretary Module */}
          <Route
-          path="secretary/dashboard"
+          path="/secretary/dashboard"
           element={
             <ProtectedRoute allowedRoles={["Secretary"]}>
               <SecretaryDashboard />
@@ -121,7 +140,7 @@ function App() {
           }
         />
         <Route
-          path="secretary/templates"
+          path="/secretary/templates"
           element={
             <ProtectedRoute allowedRoles={["Secretary"]}>
               <SecretaryTemplates />
@@ -129,13 +148,42 @@ function App() {
           }
         />
         <Route
-          path="secretary/settings"
+          path="/secretary/settings"
           element={
             <ProtectedRoute allowedRoles={["Secretary"]}>
-              <AdminAccountSettings />
+              <AccountSettings />
             </ProtectedRoute>
           }
         />
+
+        {/* Dean Module */}
+        <Route
+          path="/dean/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Dean"]}>
+              <DeanDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dean/documents"
+          element={
+            <ProtectedRoute allowedRoles={["Dean"]}>
+              <DeanDocuments />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Global */}
+         <Route
+          path="/account/settings"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Document Controller","Secretary, Dean"]}>
+              <AccountSettings />
+            </ProtectedRoute>
+          }
+        />
+        
         {/* Error Pages */}
         <Route path="*" 
           element={<NotFoundPage />} />
@@ -144,6 +192,7 @@ function App() {
         <Route path="/unauthorized" 
           element={<UnauthorizedPage />} />
       </Routes>
+      
     </Router>
   )
 }

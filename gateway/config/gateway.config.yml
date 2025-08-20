@@ -13,7 +13,7 @@ apiEndpoints:
   users:
     host: localhost
     paths:
-      - /api/users/*
+      - /api/user/*
       - /api/admin/*
       - /api/doc-controller/*
 
