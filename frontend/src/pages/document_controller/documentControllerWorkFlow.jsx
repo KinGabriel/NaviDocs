@@ -7,7 +7,6 @@ import usePagination from "../../hooks/usePagination";
 
 // --- placeholder docs ---
 const PLACEHOLDER_DOCS = Array.from({ length: 20 }, (_, i) => ({
-  id: `D${100 + i}`,
   code: "FM-XXX-000",
   rev: "00",
   eff: "YY-MM-DD",
@@ -38,7 +37,7 @@ export default function DocumentControllerWorkflow() {
     if (query.trim()) {
       const q = query.toLowerCase();
       rows = rows.filter((r) =>
-        (r.id + r.code + r.title + (tab === "submitted" ? r.createdBy : r.ownedBy))
+        (r.code + r.title + (tab === "submitted" ? r.createdBy : r.ownedBy))
           .toLowerCase()
           .includes(q)
       );
@@ -229,67 +228,52 @@ export default function DocumentControllerWorkflow() {
 
             {/* Table */}
             <div className="bg-white rounded-xl shadow border overflow-x-auto">
-              <table className="min-w-full table-auto border-separate border-spacing-0">
+              <table className="min-w-full table-fixed border-separate border-spacing-0">
                 <thead className="bg-gray-50">
-                  <tr className="text-left text-gray-600">
-                    <Th>ID</Th>
-                    <Th>Document Code</Th>
-                    <Th>Revision No.</Th>
-                    <Th>Effectivity</Th>
-                    <Th>Title</Th>
-                    {tab === "submitted" ? <Th>Created By</Th> : <Th>Owned By</Th>}
-                    <Th>Due Date</Th>
-                    <Th>Status</Th>
-                    <Th className="text-right pr-4">Actions</Th>
+                  <tr className="text-gray-600 text-left">
+                    <Th className="w-32">Document Code</Th>
+                    <Th className="w-28">Revision No.</Th>
+                    <Th className="w-28">Effectivity</Th>
+                    <Th className="w-72">Title</Th>
+                    {tab === "submitted" ? <Th className="w-40">Created By</Th> : <Th className="w-40">Owned By</Th>}
+                    <Th className="w-28">Due Date</Th>
+                    <Th className="w-32">Status</Th>
+                    <Th className="w-28 text-right pr-4">Actions</Th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {pageRows.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="py-10 text-center text-gray-500">
+                      <td colSpan={8} className="py-10 text-center text-gray-500">
                         No results.
                       </td>
                     </tr>
                   )}
 
-                  {pageRows.map((r) => (
-                    <tr key={r.id} className="hover:bg-gray-50">
-                      <Td>{r.id}</Td>
-                      <Td className="text-[#0035DA] font-medium">{r.code}</Td>
+                  {pageRows.map((r, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <Td>{r.code}</Td>
                       <Td>{r.rev}</Td>
                       <Td>{r.eff}</Td>
-                      <Td className="max-w-[520px]">{r.title}</Td>
+                      <Td className="truncate">{r.title}</Td>
                       <Td>{tab === "submitted" ? r.createdBy : r.ownedBy}</Td>
                       <Td>{r.due}</Td>
-                      <Td>
-                        <StatusBadge type={r.status} />
-                      </Td>
+                      <Td><StatusBadge type={r.status} /></Td>
                       <Td className="text-right pr-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            className="px-3 py-1.5 rounded border text-sm font-medium hover:bg-gray-100"
-                            onClick={() =>
-                              navigate(`/document-controller/documents/${r.id}`)
-                            }
-                          >
-                            View
-                          </button>
-                          <button className="h-8 w-8 rounded hover:bg-gray-100 grid place-items-center">
-                            <svg width="18" height="18" viewBox="0 0 24 24">
-                              <path
-                                fill="#6b7280"
-                                d="M12 8a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z"
-                              />
-                            </svg>
-                          </button>
-                        </div>
+                        <button
+                          className="px-3 py-1.5 rounded border text-sm font-medium hover:bg-gray-100"
+                          onClick={() => navigate(`/document-controller/documents/${idx}`)}
+                        >
+                          View
+                        </button>
                       </Td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+
 
             {/* Pagination */}
             <div className="flex items-center justify-between mt-6 text-sm">

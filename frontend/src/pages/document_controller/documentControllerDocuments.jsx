@@ -7,7 +7,6 @@ import usePagination from "../../hooks/usePagination";
 
 // Placeholder rows instead of real documents
 const PLACEHOLDER_DOCS = Array.from({ length: 8 }, (_, i) => ({
-  id: `D${i + 1}00`,
   code: "DOC-XXX-000",
   rev: "--",
   eff: "---- -- --",
@@ -29,7 +28,7 @@ export default function DocumentControllerDocuments() {
     if (query.trim()) {
       const q = query.toLowerCase();
       rows = rows.filter((r) =>
-        (r.id + r.code + r.title + r.createdBy).toLowerCase().includes(q)
+        (r.code + r.title + r.createdBy).toLowerCase().includes(q)
       );
     }
     if (sortBy === "az") rows.sort((a, b) => a.title.localeCompare(b.title));
@@ -62,37 +61,35 @@ export default function DocumentControllerDocuments() {
 
             {/* Controls */}
             <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 mb-6">
-                <button className="flex items-center gap-2 px-4 py-2 rounded-md shadow text-white bg-[#0035DA] hover:bg-[#043485] font-semibold transition-colors">
+              <button className="flex items-center gap-2 px-4 py-2 rounded-md shadow text-white bg-[#0035DA] hover:bg-[#043485] font-semibold transition-colors">
                 Filter by
                 <svg width="14" height="14" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-md shadow text-white bg-[#0035DA] hover:bg-[#043485] font-semibold transition-colors">
+              </button>
+              <button className="flex items-center gap-2 px-4 py-2 rounded-md shadow text-white bg-[#0035DA] hover:bg-[#043485] font-semibold transition-colors">
                 Sort by
                 <svg width="14" height="14" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
-            </button>
+              </button>
 
-            <div className="flex-1 md:ml-auto">
+              <div className="flex-1 md:ml-auto">
                 <div className="relative w-full md:w-96">
-                <input
+                  <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search..."
                     className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 shadow-sm focus:ring-2 focus:ring-[#0035DA]"
-                />
-                <svg className="absolute left-3 top-2.5" width="18" height="18" viewBox="0 0 24 24">
+                  />
+                  <svg className="absolute left-3 top-2.5" width="18" height="18" viewBox="0 0 24 24">
                     <path fill="#0035DA" d="M15.5 14h-.79l-.28-.27a6.471 6.471 0 001.48-4.23C15.91 6.01 12.9 3 9.45 3A6.46 6.46 0 003 9.45c0 3.45 3.01 6.46 6.45 6.46 1.61 0 3.09-.59 4.23-1.48l.27.28v.79l4.99 4.98L20.49 19 15.5 14zm-6.05 0C6.47 14 4 11.53 4 8.95S6.47 4 9.05 4 14.1 6.47 14.1 9.05 11.63 14 9.45 14z"/>
-                </svg>
+                  </svg>
                 </div>
+              </div>
             </div>
-            </div>
-
 
             {/* Table */}
             <div className="bg-white rounded-xl shadow border overflow-hidden">
               <table className="w-full text-sm table-fixed">
                 <thead className="bg-gray-50">
                   <tr className="text-left text-gray-600">
-                    <Th>ID</Th>
                     <Th>Document Code</Th>
                     <Th>Revision No.</Th>
                     <Th>Effectivity</Th>
@@ -107,16 +104,15 @@ export default function DocumentControllerDocuments() {
                   {pageRows.length === 0 && (
                     <tr>
                       <td
-                        colSpan={9}
+                        colSpan={8}
                         className="py-10 text-center text-gray-500"
                       >
                         No results.
                       </td>
                     </tr>
                   )}
-                  {pageRows.map((r) => (
-                    <tr key={r.id} className="border-t hover:bg-gray-50">
-                      <Td>{r.id}</Td>
+                  {pageRows.map((r, idx) => (
+                    <tr key={idx} className="border-t hover:bg-gray-50">
                       <Td className="text-blue-600 font-medium underline">
                         {r.code}
                       </Td>
@@ -132,7 +128,7 @@ export default function DocumentControllerDocuments() {
                         <button
                           className="px-3 py-1.5 rounded border text-sm font-medium hover:bg-gray-100"
                           onClick={() =>
-                            navigate(`/document-controller/documents/${r.id}`)
+                            navigate(`/document-controller/documents/${idx}`)
                           }
                         >
                           View
@@ -163,15 +159,14 @@ export default function DocumentControllerDocuments() {
                     </span>
                   ) : (
                     <button
-                    key={n}
-                    onClick={() => handlePage(n)}
-                        className={`h-8 w-8 rounded-full grid place-items-center ${
+                      key={n}
+                      onClick={() => handlePage(n)}
+                      className={`h-8 w-8 rounded-full grid place-items-center ${
                         n === currentPage ? "bg-[#0035DA] text-white" : "hover:bg-gray-100"
-                    }`}
+                      }`}
                     >
-                {n}
-                </button>
-
+                      {n}
+                    </button>
                   )
                 )}
               </div>
