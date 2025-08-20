@@ -12,7 +12,7 @@ import { generatePassword } from "../utils/passwordGenerator.js";
  */ 
 export const getUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password");
+    const users = await User.find({ is_deleted: { $ne: true } }).select("-password");
     res.status(200).json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -187,6 +187,32 @@ console.log('Backend sees cookies:', req.headers.cookie);
     });
   } catch (error) {
     console.error('Error fetching dashboard info:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * @desc Archive a user
+ * @route PUT /api/admin/archive-user/:id
+ * @access Private (Admin only)
+ */
+export const archiveUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find user by ID and update isDeleted flag
+      const user = await User.findByIdAndUpdate(
+      id,
+      { is_deleted: true },
+      { new: true } 
+    );
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({ message: "User archived successfully", user });
+  } catch (error) {
+    console.error('Error archiving user:', error);
     res.status(500).json({ message: error.message });
   }
 };

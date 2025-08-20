@@ -18,6 +18,10 @@ export const loginUser = async (req, res) => {
       return res.status(400).json({ message: "Incorrect email or password!" });
     }
 
+    if (user.is_deleted) {
+      return res.status(400).json({ message: "Incorrect email or password!" });
+    }
+
     // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
