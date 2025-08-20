@@ -23,6 +23,7 @@ import SecretaryDashboard from './pages/secretary/secretaryDashboard';
 import SecretaryTemplates from './pages/secretary/secretaryTemplates';
 import DeanDashboard from './pages/dean/deanDashboard';
 import DeanDocuments from './pages/dean/deanDocuments';
+import DeanStatistics from './pages/dean/deanStatistics';
 
 /**
  * LoginRoute component checks if the user is logged in and if not it will return back to login page.
@@ -179,6 +180,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Dean"]}>
               <DeanDocuments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dean/statistics"
+          element={
+            <ProtectedRoute allowedRoles={["Dean"]}>
+              <DeanStatistics />
             </ProtectedRoute>
           }
         />
