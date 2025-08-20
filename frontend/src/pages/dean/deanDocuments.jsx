@@ -3,7 +3,7 @@ import Sidebar from '../../layout/sidebar';
 import useUser from '../../hooks/useUser';
 
 [/* STILL TO BE FIXED */]
-export default function DeanDashboard() {
+export default function DeanDocuments() {
 const user = useUser();
 
   return (
