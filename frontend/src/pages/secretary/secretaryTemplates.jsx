@@ -51,21 +51,20 @@ export default function SecretaryTemplates() {
 
   // still to be replaced with actual data fetching logic 
   const templatesData = [
-    { id: "T001", templateName: "Student Form", createdBy: "Jomar Castillo", department: "Chemical Engineering", school: "SEA", role: "Faculty" },
-    { id: "T002", templateName: "Course Syllabi 2026-2027", createdBy: "Trisha Mae Ramos", department: "Psychology", school: "STELA", role: "Faculty" },
-    { id: "T003", templateName: "Course Syllabi 2026-2027", createdBy: "Lea Francis Abad", department: "Pharmacy", school: "SONAHBS", role: "Faculty" },
-    { id: "T004", templateName: "Course Syllabi 2026-2027", createdBy: "Alex Santiago", department: "Civil Engineering", school: "SEA", role: "Faculty" },
-    { id: "T005", templateName: "Course Syllabi 2026-2027", createdBy: "Casey Medina", department: "Nursing", school: "SONAHBS", role: "Faculty" },
-    { id: "T006", templateName: "Course Syllabi 2026-2027", createdBy: "Jules Navarro", department: "Political Science", school: "STELA", role: "Faculty" },
-    { id: "T007", templateName: "Course Syllabi 2026-2027", createdBy: "Sam Llorente", department: "Philosophy and Humanities", school: "STELA", role: "Faculty" },
-    { id: "T008", templateName: "Course Syllabi 2026-2027", createdBy: "Angel Morales", department: "Accountancy", school: "SAMCIS", role: "Faculty" },
-    { id: "T009", templateName: "Course Syllabi 2026-2027", createdBy: "Jamie dela Rosa", department: "Financial Management", school: "SAMCIS", role: "Faculty" },
-    { id: "T010", templateName: "Course Syllabi 2026-2027", createdBy: "Kris Manalo", department: "Information Technology", school: "SAMCIS", role: "Faculty" },
-    { id: "T011", templateName: "Course Syllabi 2026-2027", createdBy: "Morgan Javier", department: "Computer Science", school: "SAMCIS", role: "Faculty" },
+    { templateName: "Student Form", createdBy: "Jomar Castillo", department: "Chemical Engineering", school: "SEA", role: "Faculty" },
+    { templateName: "Course Syllabi 2026-2027", createdBy: "Trisha Mae Ramos", department: "Psychology", school: "STELA", role: "Faculty" },
+    { templateName: "Course Syllabi 2026-2027", createdBy: "Lea Francis Abad", department: "Pharmacy", school: "SONAHBS", role: "Faculty" },
+    { templateName: "Course Syllabi 2026-2027", createdBy: "Alex Santiago", department: "Civil Engineering", school: "SEA", role: "Faculty" },
+    { templateName: "Course Syllabi 2026-2027", createdBy: "Casey Medina", department: "Nursing", school: "SONAHBS", role: "Faculty" },
+    { templateName: "Course Syllabi 2026-2027", createdBy: "Jules Navarro", department: "Political Science", school: "STELA", role: "Faculty" },
+    { templateName: "Course Syllabi 2026-2027", createdBy: "Sam Llorente", department: "Philosophy and Humanities", school: "STELA", role: "Faculty" },
+    { templateName: "Course Syllabi 2026-2027", createdBy: "Angel Morales", department: "Accountancy", school: "SAMCIS", role: "Faculty" },
+    { templateName: "Course Syllabi 2026-2027", createdBy: "Jamie dela Rosa", department: "Financial Management", school: "SAMCIS", role: "Faculty" },
+    { templateName: "Course Syllabi 2026-2027", createdBy: "Kris Manalo", department: "Information Technology", school: "SAMCIS", role: "Faculty" },
+    { templateName: "Course Syllabi 2026-2027", createdBy: "Morgan Javier", department: "Computer Science", school: "SAMCIS", role: "Faculty" },
   ];
 
   const columns = [
-    { key: "id", label: "ID" },
     { key: "templateName", label: "Template Name" },
     { key: "createdBy", label: "Created By" },
     { key: "department", label: "Department" },
