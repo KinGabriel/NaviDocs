@@ -17,6 +17,7 @@ import Image from "@tiptap/extension-image";
 import { Page } from "../../extensions/template/Page";
 import { PageBreak } from "../../extensions/template/PageBreak";
 import { AutoPaginator, BackspaceRemovePagePlugin } from "../../extensions/template/AutoPaginator";
+import { BackspaceAcrossPages } from "../../extensions/template/BackspaceAcrossPages";
 
 const PAGE_SIZES = {
   letter: { wIn: 8.5, hIn: 11 },
@@ -59,7 +60,8 @@ export default function TextEditor({
   const editor = useEditor({
     extensions: [
       Page,
-      PageBreak,            // optional, for manual breaks
+      PageBreak,
+      BackspaceAcrossPages,            
       StarterKit.configure({ paragraph: { keepOnSplit: false } }),
       TextStyle,
       Color,
@@ -96,22 +98,24 @@ export default function TextEditor({
 
   // Install Backspace-join plugin once
   useEffect(() => {
-    if (!editor || backspaceRef.current) return;
-    const plugin = BackspaceRemovePagePlugin();   // view-level handler
+  if (!editor) return;
+  const plugin = BackspaceRemovePagePlugin();
 
-    const nextState = editor.state.reconfigure({
-      plugins: [plugin, ...editor.state.plugins], // PREPEND for priority
-    });
-    editor.view.updateState(nextState);
-    backspaceRef.current = plugin;
+  const withoutOld = backspaceRef.current
+    ? editor.state.plugins.filter(p => p !== backspaceRef.current)
+    : editor.state.plugins;
 
-    return () => {
-      if (!editor || !backspaceRef.current) return;
-      const cleaned = editor.state.plugins.filter(p => p !== backspaceRef.current);
-      editor.view.updateState(editor.state.reconfigure({ plugins: cleaned }));
-      backspaceRef.current = null;
-    };
-  }, [editor]);
+  const nextState = editor.state.reconfigure({ plugins: [plugin, ...withoutOld] });
+  editor.view.updateState(nextState);
+  backspaceRef.current = plugin;
+
+  return () => {
+    if (!editor || !backspaceRef.current) return;
+    const cleaned = editor.state.plugins.filter(p => p !== backspaceRef.current);
+    editor.view.updateState(editor.state.reconfigure({ plugins: cleaned }));
+    backspaceRef.current = null;
+  };
+}, [editor]);
 
   // Install/refresh AutoPaginator (reconfigure state)
   useEffect(() => {

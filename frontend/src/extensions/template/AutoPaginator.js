@@ -1,6 +1,20 @@
-import { Plugin, TextSelection } from "prosemirror-state";
+ import { Plugin, TextSelection, Selection } from "prosemirror-state";
+import { keymap } from "prosemirror-keymap";
 
-/** ----------------- Auto Pagination (working version) ----------------- */
+/** Find the last page node and its pos (pos is BEFORE that node). */
+function findLastPage(doc) {
+  let pageNode = null;
+  let pagePos = -1;
+  doc.descendants((node, pos) => {
+    if (node.type?.name === "page") {
+      pageNode = node;
+      pagePos = pos; // before the page node
+    }
+  });
+  return pageNode ? { pageNode, pagePos } : null;
+}
+
+/** Auto create new pages when the last page overflows. */
 export function AutoPaginator() {
   let raf = null;
   let lastDocSize = -1;
@@ -17,39 +31,41 @@ export function AutoPaginator() {
     if (doc.content.size === lastDocSize) return;
     lastDocSize = doc.content.size;
 
-    // find last page + pos (pos BEFORE node)
-    let pageNode = null, pagePos = -1;
-    doc.descendants((node, pos) => {
-      if (node.type?.name === "page") { pageNode = node; pagePos = pos; }
-    });
-    if (!pageNode) return;
+    const found = findLastPage(doc);
+    if (!found) return;
+    const { pageNode, pagePos } = found;
 
     const pageDom = view.nodeDOM(pagePos);
     if (!(pageDom instanceof Element)) return;
 
-    const css  = getComputedStyle(pageDom);
-    const padT = parseFloat(css.paddingTop) || 0;
-    const padB = parseFloat(css.paddingBottom) || 0;
+    const css = getComputedStyle(pageDom);
+    const padTop = parseFloat(css.paddingTop) || 0;
+    const padBottom = parseFloat(css.paddingBottom) || 0;
     const rect = pageDom.getBoundingClientRect();
-    const frameBottom = rect.bottom - padB;
+    const frameBottom = rect.bottom - padBottom;
     const EPS = 1;
 
-    const pageStart = pagePos + 1;                     // before first child
-    const pageEnd   = pagePos + pageNode.nodeSize - 1; // after last child
+    const pageStart = pagePos + 1;                   // pos BEFORE first child
+    const pageEnd   = pagePos + pageNode.nodeSize - 1;
 
-    // first child whose bottom crosses the frame bottom
-    let cutPos = null, offset = 0;
+    // walk the children by *document* positions, test DOM bottom
+    let cutPos = null;
+    let offset = 0;
     for (let i = 0; i < pageNode.childCount; i++) {
       const child = pageNode.child(i);
-      const childPos = pageStart + offset;             // before this child
+      const childPos = pageStart + offset;           // pos BEFORE this child
       const childDom = view.nodeDOM(childPos);
       if (childDom && childDom.getBoundingClientRect) {
         const bottom = childDom.getBoundingClientRect().bottom;
-        if (bottom > frameBottom + EPS) { cutPos = childPos; break; }
+        if (bottom > frameBottom + EPS) {
+          cutPos = childPos;                         // split BEFORE this child
+          break;
+        }
       }
       offset += child.nodeSize;
     }
-    if (cutPos == null) return;
+
+    if (cutPos == null) return; // fits
 
     const pageType = schema.nodes.page;
     if (!pageType) return;
@@ -57,10 +73,10 @@ export function AutoPaginator() {
     const overflow = doc.slice(cutPos, pageEnd).content;
     if (overflow.size === 0) return;
 
-    // remove overflow from current page
+    // Delete overflow from current page
     let tr = state.tr.delete(cutPos, pageEnd);
 
-    // insert a new page *after this one* with the overflow
+    // Insert a *new* page after this one with the overflow
     const $cut = state.doc.resolve(cutPos);
     let pageDepth = -1;
     for (let d = $cut.depth; d >= 0; d--) {
@@ -70,10 +86,12 @@ export function AutoPaginator() {
 
     const afterCurrentPage = $cut.after(pageDepth);
     const mappedAfter = tr.mapping.map(afterCurrentPage);
-    tr = tr.insert(mappedAfter, pageType.create(null, overflow));
 
+    tr = tr.insert(mappedAfter, pageType.create(null, overflow));
     view.dispatch(tr);
-    schedule(view); // keep splitting if still overflowing
+
+    // loop again if still overflowing
+    schedule(view);
   };
 
   return new Plugin({
@@ -87,27 +105,19 @@ export function AutoPaginator() {
   });
 }
 
-/** -------- Backspace: remove current page & merge into previous -------- */
 export function BackspaceRemovePagePlugin() {
-  const NEAR_PX = 12; // visual tolerance near the top edge
+  const NEAR_PX = 12;
 
   const isAtPageStart = (view, $from, pageDepth, pageStart, pagePos) => {
-    // (1) logical: inside first child at offset 0
     const insideFirstChild =
       $from.before(pageDepth + 1) === pageStart && $from.index(pageDepth + 1) === 0;
     if (insideFirstChild && $from.parentOffset === 0) return true;
-
-    // (2) blue-edge caret: exactly before the first child
     if ($from.pos === pageStart + 1) return true;
-
-    // (3) content-aware fallback: no content between first child start and caret
     try {
       const hasTextBefore =
         view.state.doc.textBetween(pageStart + 1, $from.pos, "\n", "\n").trim().length > 0;
       if (!hasTextBefore) return true;
     } catch (_) {}
-
-    // (4) DOM fallback: caret visually within NEAR_PX of printable top
     const pageDom = view.nodeDOM(pagePos);
     if (pageDom instanceof Element) {
       const css = getComputedStyle(pageDom);
@@ -116,21 +126,37 @@ export function BackspaceRemovePagePlugin() {
       const caretTop = view.coordsAtPos($from.pos).top;
       if (caretTop <= topLine + NEAR_PX) return true;
     }
-
     return false;
   };
+
+  // Walk left past any non-page nodes and return the prev page + deletion start
+  const findPrevPageAndDelFrom = (doc, pagePos) => {
+    let delFrom = pagePos;              // position immediately before current page
+    let $pos = doc.resolve(delFrom);
+    let before = $pos.nodeBefore;
+    while (before && before.type && before.type.name !== "page") {
+      delFrom -= before.nodeSize;       // skip pageBreak/spacers/anything
+      $pos = doc.resolve(delFrom);
+      before = $pos.nodeBefore;
+    }
+    if (!before || before.type.name !== "page") return null;
+    const prevPage = before;
+    const prevEndInside = delFrom - 1;  // end position *inside* previous page
+    return { prevPage, prevEndInside, delFrom };
+  };
+
+  const isWhitespacePara = (n) =>
+    n && n.type?.name === "paragraph" &&
+    (n.textContent || "").replace(/\u00a0/g, "").trim().length === 0;
 
   return new Plugin({
     props: {
       handleKeyDown(view, event) {
-        if (event.key !== "Backspace" || event.altKey || event.ctrlKey || event.metaKey) {
-          return false;
-        }
-
+        if (event.key !== "Backspace") return false;
         const { state } = view;
-        const { selection, doc } = state;
-        if (!selection.empty) return false;
-        const { $from } = selection;
+        if (!state.selection.empty) return false;
+
+        const { $from } = state.selection;
 
         // find containing page
         let pageDepth = -1;
@@ -140,35 +166,49 @@ export function BackspaceRemovePagePlugin() {
         if (pageDepth === -1) return false;
 
         const pageNode  = $from.node(pageDepth);
-        const pagePos   = $from.before(pageDepth);  // before page node
-        const pageStart = $from.start(pageDepth);   // before first child
-        const pageEnd   = $from.end(pageDepth);     // after last child
+        const pagePos   = $from.before(pageDepth);
+        const pageStart = $from.start(pageDepth);
+        const pageEnd   = $from.end(pageDepth);
 
-        // must have a previous page
-        const $pagePos = state.doc.resolve(pagePos);
-        const prevPage = $pagePos.nodeBefore;
-        if (!prevPage || prevPage.type.name !== "page") return false;
-
-        // accept more cases as "at page start"
         if (!isAtPageStart(view, $from, pageDepth, pageStart, pagePos)) return false;
 
-        // insert current page's inner content at end of previous page
-        const prevBefore = pagePos - prevPage.nodeSize;
-        const prevEndInside = prevBefore + prevPage.nodeSize - 1;
+        const prevInfo = findPrevPageAndDelFrom(state.doc, pagePos);
+        if (!prevInfo) return false;
+        const { prevPage, prevEndInside, delFrom } = prevInfo;
 
-        const inner = doc.slice(pageStart, pageEnd).content;
+        let tr = state.tr;
 
-        let tr = state.tr.insert(prevEndInside, inner);
+        // Trim trailing whitespace-only paragraphs on the previous page (visual padding)
+        let trim = 0;
+        for (let i = prevPage.childCount - 1; i >= 0; i--) {
+          const ch = prevPage.child(i);
+          if (isWhitespacePara(ch)) trim += ch.nodeSize; else break;
+        }
+        if (trim > 0) tr = tr.delete(prevEndInside - trim + 1, prevEndInside + 1);
 
-        // delete the now-empty page wrapper
-        const mappedFrom = tr.mapping.map(pagePos);
-        const mappedTo   = tr.mapping.map(pagePos + pageNode.nodeSize);
-        tr = tr.delete(mappedFrom, mappedTo);
+        // Move current page’s inner content to the end of the previous page
+        const inner = state.doc.slice(pageStart, pageEnd).content;
+        const insertAt = tr.mapping.map(prevEndInside - trim);
+        tr = tr.insert(insertAt, inner);
 
-        // place caret at the join point
-        const joinAt = tr.mapping.map(prevEndInside);
-        const $join  = tr.doc.resolve(Math.max(1, Math.min(joinAt, tr.doc.content.size - 1)));
-        tr = tr.setSelection(TextSelection.near($join, -1)).scrollIntoView();
+        // Delete everything from (right after prev page) through the current page wrapper
+        const delFromMapped = tr.mapping.map(delFrom);
+        const delToMapped   = tr.mapping.map(pagePos + pageNode.nodeSize);
+        tr = tr.delete(delFromMapped, delToMapped);
+
+        // Put caret at the join point
+                // Put caret at the bottom of page 1 (left of the inserted content)
+        const joinAt = tr.mapping.map(insertAt); // position where we inserted page2 content
+        const docSize = tr.doc.content.size;
+        const safePos = Math.max(1, Math.min(joinAt, docSize - 1));
+        const $join = tr.doc.resolve(safePos);
+        // Prefer a cursor *to the left* of the join (end of prev page),
+        // fall back to the right if nothing valid to the left.
+         const sel =
+          Selection.findFrom($join, -1, true) ||
+          Selection.findFrom($join,  1, true) ||
+          TextSelection.near($join, 1);
+         tr = tr.setSelection(sel).scrollIntoView();
 
         view.dispatch(tr);
         event.preventDefault();
