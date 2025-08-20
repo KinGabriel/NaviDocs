@@ -244,7 +244,8 @@ export default function AdminAccountSettings() {
               <section className="lg:col-span-2 space-y-10">
                 {/* Personal Information */}
                 <div>
-                  <h2 className="text-lg font-semibold text-[#063c8d] mb-4">Personal Information:</h2>
+                  <h2 className="text-lg font-semibold text-[#0035DA] mb-4">Personal Information: </h2>
+
                   {infoMessage && (
                     <div className={`mb-4 rounded border px-3 py-2 text-sm ${infoSuccess ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
                       {infoMessage}
@@ -293,19 +294,20 @@ export default function AdminAccountSettings() {
                         disabled={!canSaveInfo || savingInfo}
                         className={`px-5 py-2 rounded text-white font-semibold transition ${
                           canSaveInfo && !savingInfo
-                            ? "bg-[#003DA5] hover:bg-[#002B7F]"
-                            : "bg-gray-400 cursor-not-allowed"
-                        }`}
-                      >
-                        {savingInfo ? "Saving…" : "Save Changes"}
-                      </button>
+                          ? "bg-[#0035DA] hover:bg-[#043485]" // unified blue
+                          : "bg-gray-400 cursor-not-allowed"
+                      }`}
+                    >
+                      {savingInfo ? "Saving…" : "Save Changes"}
+                    </button>
+
                     </div>
                   </form>
                 </div>
 
                 {/* Change Password */}
                 <div>
-                  <h2 className="text-lg font-semibold text-[#063c8d] mb-4">Change Password:</h2>
+                  <h2 className="text-lg font-semibold text-[#0035DA] mb-4">Change Password: </h2>
                   {pwMessage && (
                     <div className={`mb-4 rounded border px-3 py-2 text-sm ${pwSuccess ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
                       {pwMessage}
@@ -350,12 +352,12 @@ export default function AdminAccountSettings() {
 
                     <div className="flex justify-end">
                       <button
-                        type="submit"
-                        disabled={!canChangePw || changingPw}
-                        className={`px-5 py-2 rounded text-white font-semibold transition ${
-                          canChangePw && !changingPw
-                            ? "bg-[#003DA5] hover:bg-[#002B7F]"
-                            : "bg-gray-400 cursor-not-allowed"
+                          type="submit"
+                          disabled={!canChangePw || changingPw}
+                          className={`px-5 py-2 rounded text-white font-semibold transition ${
+                            canChangePw && !changingPw
+                              ? "bg-[#0035DA] hover:bg-[#043485]" // unified blue
+                              : "bg-gray-400 cursor-not-allowed"
                         }`}
                       >
                         {changingPw ? "Updating…" : "Update Password"}
