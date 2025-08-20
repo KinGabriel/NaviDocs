@@ -105,7 +105,7 @@ export default function SecretaryDashboard() {
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           <main className="p-8 flex-1 overflow-y-auto">
             {/* Greeting */}
-            <Greeting name={user?.name || "Secretary"} />
+            <Greeting name={user?.firstname || "Secretary"} />
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
