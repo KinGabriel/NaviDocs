@@ -178,7 +178,7 @@ function App() {
          <Route
           path="/account/settings"
           element={
-            <ProtectedRoute allowedRoles={["Admin", "Document Controller","Secretary, Dean"]}>
+            <ProtectedRoute allowedRoles={["Admin", "Document Controller","Secretary", "Dean"]}>
               <AccountSettings />
             </ProtectedRoute>
           }
