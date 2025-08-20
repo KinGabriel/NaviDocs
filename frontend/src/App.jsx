@@ -13,6 +13,7 @@ import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
 import DocumentControllerStorage from './pages/document_controller/documentControllerStorage';
 import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
+import DocumentControllerDocuments from './pages/document_controller/documentControllerDocuments';
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/UnauthorizedPage';
@@ -126,6 +127,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Document Controller"]}>
               <DocumentControllerStorage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/document-controller/documents"
+          element={
+            <ProtectedRoute allowedRoles={["Document Controller"]}>
+              <DocumentControllerDocuments />
             </ProtectedRoute>
           }
         />
