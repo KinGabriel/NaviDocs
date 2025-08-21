@@ -55,7 +55,7 @@ export default function DocumentControllerDocuments() {
           <main className="p-10 flex-1 overflow-y-auto">
             {/* Page Heading */}
             <div className="mb-8">
-              <h1 className="text-3xl font-extrabold tracking-wide">DOCUMENTS</h1>
+              <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase ">DOCUMENTS</h1>
               <div className="w-28 h-1 bg-yellow-400 mt-2 rounded" />
             </div>
 

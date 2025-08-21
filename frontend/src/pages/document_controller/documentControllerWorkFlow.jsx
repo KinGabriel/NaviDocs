@@ -94,7 +94,7 @@ export default function DocumentControllerWorkflow() {
           <main className="p-8 flex-1 overflow-y-auto">
             {/* Heading */}
             <div className="mb-8">
-              <h1 className="text-3xl font-extrabold tracking-wide">
+              <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase ">
                 {tab === "submitted" ? "SUBMITTED DOCUMENTS" : "PUBLISHED DOCUMENTS"}
               </h1>
               <div className="w-28 h-1 bg-yellow-400 mt-2 rounded" />

@@ -212,7 +212,7 @@ export default function DocumentControllerTemplates() {
         <Sidebar user={user} active="Templates" />
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           <div className="flex-1 p-10">
-            <h2 className="text-3xl font-semibold mb-2 tracking-wide">TEMPLATES</h2>
+            <h2 className="text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">TEMPLATES</h2>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
             <div className="flex items-center gap-2 mb-4">

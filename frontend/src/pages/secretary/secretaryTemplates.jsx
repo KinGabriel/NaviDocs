@@ -98,14 +98,14 @@ export default function SecretaryTemplates() {
   const currentData = templatesData.slice(startIdx, startIdx + itemsPerPage);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Templates" />
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <div className="mb-8">
+          <div className="flex-1 p-2">
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-8 ">Templates</h1>
             <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
           </div>

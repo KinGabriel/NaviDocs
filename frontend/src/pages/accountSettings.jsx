@@ -208,8 +208,8 @@ export default function AdminAccountSettings() {
           <main className="p-8 flex-1 overflow-y-auto">
             {/* Title (semibold for consistency with other tabs) */}
             <div className="mb-10">
-              <h1 className="text-3xl font-semibold tracking-wide text-black">ACCOUNT SETTINGS</h1>
-              <div className="w-24 h-1 bg-yellow-400 mt-2 rounded" />
+              <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase">ACCOUNT SETTINGS</h1>
+              <div className="w-28 h-1 bg-yellow-400 mt-2 rounded" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">

@@ -69,7 +69,7 @@ const columns = [
           className="bg-red-100 text-red-500 px-4 py-1 rounded text-xs font-semibold hover:bg-red-200"
           onClick={() => handleDelete(row._id)}
         >
-          Delete
+          Archive
         </button>
       </div>
     ),
@@ -173,13 +173,13 @@ const columns = [
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="User Accounts" />
        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           <div className="flex-1 p-10">
-            <h2 className="text-3xl font-semibold mb-2 tracking-wide">NAVIDOCS USERS</h2>
+            <h2 className="text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">NAVIDOCS USERS</h2>
             <div className="w-24 h-1 bg-yellow-400 mb-6 rounded" />
 
             {/* Filter, Sort, Search */}
