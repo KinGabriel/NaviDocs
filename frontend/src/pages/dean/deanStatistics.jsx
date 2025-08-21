@@ -45,6 +45,9 @@ export default function DeanStatistics() {
     { name: "BS IT/MMA", head: "Sarah Dela Cruz", submitted: 106, assigned: 89, pending: 10 },
     { name: "BS CS", head: "John Reyes", submitted: 92, assigned: 80, pending: 8 },
     { name: "BS HM", head: "Maria Lopez", submitted: 74, assigned: 68, pending: 6 },
+    { name: "BS CS", head: "John Reyes", submitted: 92, assigned: 80, pending: 8 },
+    { name: "BS HM", head: "Maria Lopez", submitted: 74, assigned: 68, pending: 6 },
+    { name: "BS HM", head: "Maria Lopez", submitted: 74, assigned: 68, pending: 6 },
   ];
 
   const barData = {
@@ -141,12 +144,12 @@ export default function DeanStatistics() {
         {/* Sidebar */}
         <Sidebar user={user} />
         {/* Main content */}
-        <main className="flex-1 mt-16 px-6 pb-8">
+        <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           {/* Stat cards */}
-          <div className="flex flex-wrap justify-between items-center mb-6">
+          <div className="flex flex-wrap justify-between items-center mt-6 mb-8">
             <div className="flex gap-4 flex-wrap">
               {/* Departments */}
-              <div className="bg-white p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="bg-[#FBFBFB]  p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
                 <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 24 24"><g fill="none"><path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="M12 3a3 3 0 0 0-1 5.83V11H8a3 3 0 0 0-3 3v1.17a3.001 3.001 0 1 0 2 0V14a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1.17a3.001 3.001 0 1 0 2 0V14a3 3 0 0 0-3-3h-3V8.83A3.001 3.001 0 0 0 12 3"/></g></svg>
                 </div>
@@ -157,7 +160,7 @@ export default function DeanStatistics() {
               </div>
 
               {/* Faculty */}
-              <div className="bg-white p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="bg-[#FBFBFB]  p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
                 <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
                   <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
@@ -170,7 +173,7 @@ export default function DeanStatistics() {
               </div>
 
               {/* Documents */}
-              <div className="bg-white p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="bg-[#FBFBFB]  p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
                 <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 256 256"><path fill="#fff" d="m213.66 66.34l-40-40A8 8 0 0 0 168 24H88a16 16 0 0 0-16 16v16H56a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h112a16 16 0 0 0 16-16v-16h16a16 16 0 0 0 16-16V72a8 8 0 0 0-2.34-5.66M136 192H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m0-32H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m64 24h-16v-80a8 8 0 0 0-2.34-5.66l-40-40A8 8 0 0 0 136 56H88V40h76.69L200 75.31Z"/></svg>
                 </div>
@@ -214,7 +217,7 @@ export default function DeanStatistics() {
           {/* Charts */}
           <div className="space-y-6">
             {/* Bar chart */}
-            <div className="bg-white p-4 rounded shadow">
+            <div className="bg-[#FBFBFB]  p-4 rounded shadow">
               <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase mb-2"> 
                 Department Comparison Chart
               </h2>
@@ -225,9 +228,9 @@ export default function DeanStatistics() {
             </div>
 
             {/* Table & pie chart */}
-            <div className="flex gap-6">
+            <div className="flex gap-6 mt-6">
               {/* Table */}
-              <div className="bg-white shadow p-4 rounded max-w-5xl w-full">
+              <div className="bg-[#FBFBFB] shadow p-4 rounded max-w-5xl w-full ">
                 <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase mb-2">
                   Department Performance Overview
                 </h2>
@@ -236,7 +239,7 @@ export default function DeanStatistics() {
               </div>
 
               {/* Pie chart */}
-              <div className="bg-white shadow p-4 rounded w-120 flex flex-col">
+              <div className="bg-[#FBFBFB] shadow p-4 rounded w-120 flex flex-col">
                 <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase mb-8">
                   Submission Timelines
                 </h2>
