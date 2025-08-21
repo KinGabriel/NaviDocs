@@ -3,6 +3,7 @@ import Header from "../layout/header";
 import Sidebar from "../layout/sidebar";
 import useUser from "../hooks/useUser";
 import Loader from "../components/loader";
+import PasswordInput from "../components/passwordinput.jsx"; // 👈 use the same eye-toggle input as Login
 import { updateAccountSettingsAPI, updateUserPasswordAPI } from "../api/userAPI";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -11,7 +12,6 @@ const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|mil|
 export default function AdminAccountSettings() {
   const user = useUser();
   const isLoading = !user; 
-
 
   // -------- Profile / personal info state --------
   const [firstName, setFirstName] = useState("");
@@ -24,10 +24,6 @@ export default function AdminAccountSettings() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword]         = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  // Show/hide password toggles
-  const [showCurrentPw, setShowCurrentPw] = useState(false);
-  const [showNewPw, setShowNewPw] = useState(false);
-  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   // -------- UI state --------
   const [savingInfo, setSavingInfo]       = useState(false);
@@ -163,7 +159,7 @@ export default function AdminAccountSettings() {
     setPwMessage(null);
 
     try {
-  await updateUserPasswordAPI(user._id, newPassword);
+      await updateUserPasswordAPI(user._id, newPassword);
 
       if (!mountedRef.current) return;
       setPwSuccess(true);
@@ -183,30 +179,36 @@ export default function AdminAccountSettings() {
     }
   };
 
+  // ---------- Loading ----------
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex flex-col">
+      <div className="min-h-screen bg-gray-200 flex flex-col">
         <Header user={user} />
         <div className="flex flex-1">
           <Sidebar user={user} />
-          <div className="flex-1 flex items-center justify-center">
-            <Loader message="Loading account…" />
+          {/* dashboard-style wrapper */}
+          <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+            <div className="flex-1 flex items-center justify-center">
+              <Loader message="Loading account…" />
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
+  // ---------- Page ----------
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Account Settings" />
-        <main className="flex-1 p-8">
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            {/* Title */}
+        {/* dashboard-style wrapper */}
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+          <main className="p-8 flex-1 overflow-y-auto">
+            {/* Title (semibold for consistency with other tabs) */}
             <div className="mb-10">
-              <h1 className="text-3xl font-extrabold tracking-wide text-black">ACCOUNT SETTINGS</h1>
+              <h1 className="text-3xl font-semibold tracking-wide text-black">ACCOUNT SETTINGS</h1>
               <div className="w-24 h-1 bg-yellow-400 mt-2 rounded" />
             </div>
 
@@ -242,7 +244,8 @@ export default function AdminAccountSettings() {
               <section className="lg:col-span-2 space-y-10">
                 {/* Personal Information */}
                 <div>
-                  <h2 className="text-lg font-semibold text-[#063c8d] mb-4">Personal Information:</h2>
+                  <h2 className="text-lg font-semibold text-[#0035DA] mb-4">Personal Information: </h2>
+
                   {infoMessage && (
                     <div className={`mb-4 rounded border px-3 py-2 text-sm ${infoSuccess ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
                       {infoMessage}
@@ -291,19 +294,20 @@ export default function AdminAccountSettings() {
                         disabled={!canSaveInfo || savingInfo}
                         className={`px-5 py-2 rounded text-white font-semibold transition ${
                           canSaveInfo && !savingInfo
-                            ? "bg-[#003DA5] hover:bg-[#002B7F]"
-                            : "bg-gray-400 cursor-not-allowed"
-                        }`}
-                      >
-                        {savingInfo ? "Saving…" : "Save Changes"}
-                      </button>
+                          ? "bg-[#0035DA] hover:bg-[#043485]" // unified blue
+                          : "bg-gray-400 cursor-not-allowed"
+                      }`}
+                    >
+                      {savingInfo ? "Saving…" : "Save Changes"}
+                    </button>
+
                     </div>
                   </form>
                 </div>
 
                 {/* Change Password */}
                 <div>
-                  <h2 className="text-lg font-semibold text-[#063c8d] mb-4">Change Password:</h2>
+                  <h2 className="text-lg font-semibold text-[#0035DA] mb-4">Change Password: </h2>
                   {pwMessage && (
                     <div className={`mb-4 rounded border px-3 py-2 text-sm ${pwSuccess ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
                       {pwMessage}
@@ -313,53 +317,19 @@ export default function AdminAccountSettings() {
                   <form onSubmit={handleChangePassword} className="space-y-5">
                     <div>
                       <label className="block text-sm font-medium mb-1">Current Password</label>
-                      <div className="relative">
-                        <input
-                          type={showCurrentPw ? "text" : "password"}
-                          className="w-full border border-gray-300 rounded px-3 py-2 pr-10"
-                          value={currentPassword}
-                          onChange={e => setCurrentPassword(e.target.value)}
-                          required
-                        />
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          className="absolute right-2 top-1/2 -translate-y-1/2"
-                          onClick={() => setShowCurrentPw(v => !v)}
-                          aria-label={showCurrentPw ? "Hide password" : "Show password"}
-                        >
-                          {showCurrentPw ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="#9b9b9b" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"><path d="M21.257 10.962c.474.62.474 1.457 0 2.076C19.764 14.987 16.182 19 12 19s-7.764-4.013-9.257-5.962a1.69 1.69 0 0 1 0-2.076C4.236 9.013 7.818 5 12 5s7.764 4.013 9.257 5.962"/><circle cx="12" cy="12" r="3"/></g></svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16"><path fill="#9b9b9b" d="M8 11c-1.65 0-3-1.35-3-3s1.35-3 3-3s3 1.35 3 3s-1.35 3-3 3m0-5c-1.1 0-2 .9-2 2s.9 2 2 2s2-.9 2-2s-.9-2-2-2"/><path fill="#9b9b9b" d="M8 13c-3.19 0-5.99-1.94-6.97-4.84a.44.44 0 0 1 0-.32C2.01 4.95 4.82 3 8 3s5.99 1.94 6.97 4.84c.04.1.04.22 0 .32C13.99 11.05 11.18 13 8 13M2.03 8c.89 2.4 3.27 4 5.97 4s5.07-1.6 5.97-4C13.08 5.6 10.7 4 8 4S2.93 5.6 2.03 8"/><path fill="#9b9b9b" d="M14 14.5a.47.47 0 0 1-.35-.15l-12-12c-.2-.2-.2-.51 0-.71s.51-.2.71 0l11.99 12.01c.2.2.2.51 0 .71c-.1.1-.23.15-.35.15Z"/></svg>
-                          )}
-                        </button>
-                      </div>
+                      <PasswordInput
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="Enter current password"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">New Password</label>
-                      <div className="relative">
-                        <input
-                          type={showNewPw ? "text" : "password"}
-                          className="w-full border border-gray-300 rounded px-3 py-2 pr-10"
-                          value={newPassword}
-                          onChange={e => setNewPassword(e.target.value)}
-                          required
-                        />
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          className="absolute right-2 top-1/2 -translate-y-1/2"
-                          onClick={() => setShowNewPw(v => !v)}
-                          aria-label={showNewPw ? "Hide password" : "Show password"}
-                        >
-                          {showNewPw ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="#9b9b9b" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"><path d="M21.257 10.962c.474.62.474 1.457 0 2.076C19.764 14.987 16.182 19 12 19s-7.764-4.013-9.257-5.962a1.69 1.69 0 0 1 0-2.076C4.236 9.013 7.818 5 12 5s7.764 4.013 9.257 5.962"/><circle cx="12" cy="12" r="3"/></g></svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16"><path fill="#9b9b9b" d="M8 11c-1.65 0-3-1.35-3-3s1.35-3 3-3s3 1.35 3 3s-1.35 3-3 3m0-5c-1.1 0-2 .9-2 2s.9 2 2 2s2-.9 2-2s-.9-2-2-2"/><path fill="#9b9b9b" d="M8 13c-3.19 0-5.99-1.94-6.97-4.84a.44.44 0 0 1 0-.32C2.01 4.95 4.82 3 8 3s5.99 1.94 6.97 4.84c.04.1.04.22 0 .32C13.99 11.05 11.18 13 8 13M2.03 8c.89 2.4 3.27 4 5.97 4s5.07-1.6 5.97-4C13.08 5.6 10.7 4 8 4S2.93 5.6 2.03 8"/><path fill="#9b9b9b" d="M14 14.5a.47.47 0 0 1-.35-.15l-12-12c-.2-.2-.2-.51 0-.71s.51-.2.71 0l11.99 12.01c.2.2.2.51 0 .71c-.1.1-.23.15-.35.15Z"/></svg>
-                          )}
-                        </button>
-                      </div>
+                      <PasswordInput
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Enter new password"
+                      />
                       {newPassword.length > 0 && pwRules.length > 0 && (
                         <ul className="mt-1 text-xs text-gray-600 list-disc list-inside">
                           {pwRules.map((r) => (
@@ -370,28 +340,11 @@ export default function AdminAccountSettings() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Confirm Password</label>
-                      <div className="relative">
-                        <input
-                          type={showConfirmPw ? "text" : "password"}
-                          className="w-full border border-gray-300 rounded px-3 py-2 pr-10"
-                          value={confirmPassword}
-                          onChange={e => setConfirmPassword(e.target.value)}
-                          required
-                        />
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          className="absolute right-2 top-1/2 -translate-y-1/2"
-                          onClick={() => setShowConfirmPw(v => !v)}
-                          aria-label={showConfirmPw ? "Hide password" : "Show password"}
-                        >
-                          {showConfirmPw ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="#9b9b9b" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"><path d="M21.257 10.962c.474.62.474 1.457 0 2.076C19.764 14.987 16.182 19 12 19s-7.764-4.013-9.257-5.962a1.69 1.69 0 0 1 0-2.076C4.236 9.013 7.818 5 12 5s7.764 4.013 9.257 5.962"/><circle cx="12" cy="12" r="3"/></g></svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16"><path fill="#9b9b9b" d="M8 11c-1.65 0-3-1.35-3-3s1.35-3 3-3s3 1.35 3 3s-1.35 3-3 3m0-5c-1.1 0-2 .9-2 2s.9 2 2 2s2-.9 2-2s-.9-2-2-2"/><path fill="#9b9b9b" d="M8 13c-3.19 0-5.99-1.94-6.97-4.84a.44.44 0 0 1 0-.32C2.01 4.95 4.82 3 8 3s5.99 1.94 6.97 4.84c.04.1.04.22 0 .32C13.99 11.05 11.18 13 8 13M2.03 8c.89 2.4 3.27 4 5.97 4s5.07-1.6 5.97-4C13.08 5.6 10.7 4 8 4S2.93 5.6 2.03 8"/><path fill="#9b9b9b" d="M14 14.5a.47.47 0 0 1-.35-.15l-12-12c-.2-.2-.2-.51 0-.71s.51-.2.71 0l11.99 12.01c.2.2.2.51 0 .71c-.1.1-.23.15-.35.15Z"/></svg>
-                          )}
-                        </button>
-                      </div>
+                      <PasswordInput
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter new password"
+                      />
                       {confirmPassword.length > 0 && confirmPassword !== newPassword && (
                         <p className="text-xs text-red-600 mt-1">Passwords do not match.</p>
                       )}
@@ -399,12 +352,12 @@ export default function AdminAccountSettings() {
 
                     <div className="flex justify-end">
                       <button
-                        type="submit"
-                        disabled={!canChangePw || changingPw}
-                        className={`px-5 py-2 rounded text-white font-semibold transition ${
-                          canChangePw && !changingPw
-                            ? "bg-[#003DA5] hover:bg-[#002B7F]"
-                            : "bg-gray-400 cursor-not-allowed"
+                          type="submit"
+                          disabled={!canChangePw || changingPw}
+                          className={`px-5 py-2 rounded text-white font-semibold transition ${
+                            canChangePw && !changingPw
+                              ? "bg-[#0035DA] hover:bg-[#043485]" // unified blue
+                              : "bg-gray-400 cursor-not-allowed"
                         }`}
                       >
                         {changingPw ? "Updating…" : "Update Password"}
@@ -414,8 +367,8 @@ export default function AdminAccountSettings() {
                 </div>
               </section>
             </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
     </div>
   );

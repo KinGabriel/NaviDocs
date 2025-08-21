@@ -27,8 +27,12 @@ const userSchema = new mongoose.Schema({
     required: true,
     enum: ["Dean", "Faculty", "Document Controller","Admin", "Secretary","Department Head"]
   },
-  school: String,       
-  department: String   
+  school: String,
+  department: String
+  },
+  is_deleted: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

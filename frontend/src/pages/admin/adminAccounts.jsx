@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchUsersAccountsAPI } from "../../api/adminAPI";
+import { fetchUsersAccountsAPI,archiveUserAccountAPI } from "../../api/adminAPI";
 import useUser from '../../hooks/useUser';
 import Sidebar from '../../layout/sidebar';
 import Header from '../../layout/header';
@@ -9,6 +9,32 @@ import Dropdown from '../../components/dropdown';
 import usePagination from '../../hooks/usePagination';
 import Loader from '../../components/loader';
 
+export default function AdminAccounts() {
+  const user = useUser();
+  const [users, setUsers] = useState([]);
+  const usersPerPage = 8;
+  const [roleFilter, setRoleFilter] = useState("All Roles");
+  const sortOptions = ["Sort By", "Name (A-Z)", "Name (Z-A)"];
+  const [sortBy, setSortBy] = useState(sortOptions[0]);
+  const [search, setSearch] = useState(""); 
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
+  // Handle delete (archive) user
+  const handleDelete = async (userId) => {
+    // TO DO: SET THIS AS MODAL
+    if (!window.confirm("Are you sure you want to archive this user?")) return; 
+    setDeletingId(userId);
+    try {
+      await archiveUserAccountAPI(userId);
+      setUsers((prev) => prev.filter((u) => u._id !== userId));
+    } catch (err) {
+      alert(err.message || "Failed to archive user.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+ 
 const columns = [
   {
     key: "name",
@@ -39,25 +65,16 @@ const columns = [
         <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">
           Edit
         </button>
-        <button className="bg-red-100 text-red-500 px-4 py-1 rounded text-xs font-semibold hover:bg-red-200">
+        <button
+          className="bg-red-100 text-red-500 px-4 py-1 rounded text-xs font-semibold hover:bg-red-200"
+          onClick={() => handleDelete(row._id)}
+        >
           Delete
         </button>
       </div>
     ),
   },
 ];
-
-export default function AdminAccounts() {
-  const user = useUser();
-  const [users, setUsers] = useState([]);
-  const usersPerPage = 8;
-  const [roleFilter, setRoleFilter] = useState("All Roles");
-  const sortOptions = ["Sort By", "Name (A-Z)", "Name (Z-A)"];
-  const [sortBy, setSortBy] = useState(sortOptions[0]);
-  const [search, setSearch] = useState(""); 
-  const [loading, setLoading] = useState(true);
-
- 
   useEffect(() => {
     const fetchUsers = async () => {
       try {

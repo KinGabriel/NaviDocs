@@ -13,6 +13,7 @@ import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
 import DocumentControllerStorage from './pages/document_controller/documentControllerStorage';
 import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
+import DocumentControllerDocuments from './pages/document_controller/documentControllerDocuments';
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/UnauthorizedPage';
@@ -22,6 +23,7 @@ import SecretaryDashboard from './pages/secretary/secretaryDashboard';
 import SecretaryTemplates from './pages/secretary/secretaryTemplates';
 import DeanDashboard from './pages/dean/deanDashboard';
 import DeanDocuments from './pages/dean/deanDocuments';
+import DeanStatistics from './pages/dean/deanStatistics';
 
 /**
  * LoginRoute component checks if the user is logged in and if not it will return back to login page.
@@ -129,6 +131,14 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/document-controller/documents"
+          element={
+            <ProtectedRoute allowedRoles={["Document Controller"]}>
+              <DocumentControllerDocuments />
+            </ProtectedRoute> 
+          }
+        />
 
         {/* Secretary Module */}
          <Route
@@ -173,12 +183,20 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/dean/statistics"
+          element={
+            <ProtectedRoute allowedRoles={["Dean"]}>
+              <DeanStatistics />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Global */}
          <Route
           path="/account/settings"
           element={
-            <ProtectedRoute allowedRoles={["Admin", "Document Controller","Secretary, Dean"]}>
+            <ProtectedRoute allowedRoles={["Admin", "Document Controller","Secretary", "Dean"]}>
               <AccountSettings />
             </ProtectedRoute>
           }
