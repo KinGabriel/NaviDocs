@@ -54,9 +54,14 @@ export default function SecretaryTemplateView() {
               >
                 <ArrowLeft className="h-5 w-5 text-gray-700" />
               </button>
-              <h1 className="text-2xl sm:text-3xl font-semibold tracking-wide underline underline-offset-4">
-                View Template
-              </h1>
+              <div>
+                <div className="mb-6">
+                    <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase">
+                        View Template
+                    </h1>
+                <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
+             </div>
+            </div>
             </div>
 
             {/* Chip header (code + title) */}
