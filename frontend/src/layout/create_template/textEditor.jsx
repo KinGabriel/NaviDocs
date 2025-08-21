@@ -46,12 +46,10 @@ function computeDims(pageSetup) {
   };
 }
 
-// JSON fallback document
+// JSON fallback document (valid for doc=page+)
 const DEFAULT_DOC = {
   type: "doc",
-  content: [
-    { type: "page", content: [{ type: "paragraph" }] },
-  ],
+  content: [{ type: "page", content: [{ type: "paragraph" }] }],
 };
 
 // Ensure any incoming HTML string is wrapped in a Page element
@@ -76,8 +74,9 @@ export default function TextEditor({
     extensions: [
       DocumentPages,
       Page,
-      AutoPaginator,
+      // Register our handlers BEFORE StarterKit's keymaps so we intercept first
       BackspaceHandler,
+      AutoPaginator,
       StarterKit.configure({ document: false }),
       TextStyle,
       Color,
@@ -95,6 +94,7 @@ export default function TextEditor({
     editorProps: { attributes: { class: "nd-editor" } },
     onCreate: ({ editor }) => {
       applyCssVars(dimsRef.current);
+      // Kick a reflow without reconfiguring plugins
       editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
       onEditorReady && onEditorReady(editor);
     },
@@ -123,12 +123,34 @@ export default function TextEditor({
   return (
     <div className={`w-full ${className}`}>
       <style>{`
-        :root { --nd-page-width: ${dimsRef.current.widthPx}px; --nd-page-height: ${dimsRef.current.heightPx}px; --nd-margin-top: ${dimsRef.current.marginTopPx}px; --nd-margin-bottom: ${dimsRef.current.marginBottomPx}px; --nd-margin-left: ${dimsRef.current.marginLeftPx}px; --nd-margin-right: ${dimsRef.current.marginRightPx}px; }
-        .nd-page { box-sizing: border-box; width: var(--nd-page-width); min-height: var(--nd-page-height); max-height: var(--nd-page-height); padding: var(--nd-margin-top) var(--nd-margin-right) var(--nd-margin-bottom) var(--nd-margin-left); margin: 1.25rem auto; background: #fff; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 6px 18px rgba(0,0,0,0.08); overflow: hidden; }
+        :root {
+          --nd-page-width: ${dimsRef.current.widthPx}px;
+          --nd-page-height: ${dimsRef.current.heightPx}px;
+          --nd-margin-top: ${dimsRef.current.marginTopPx}px;
+          --nd-margin-bottom: ${dimsRef.current.marginBottomPx}px;
+          --nd-margin-left: ${dimsRef.current.marginLeftPx}px;
+          --nd-margin-right: ${dimsRef.current.marginRightPx}px;
+        }
+        .nd-page {
+          box-sizing: border-box;
+          width: var(--nd-page-width);
+          min-height: var(--nd-page-height);
+          max-height: var(--nd-page-height);
+          padding: var(--nd-margin-top) var(--nd-margin-right) var(--nd-margin-bottom) var(--nd-margin-left);
+          margin: 1.25rem auto;
+          background: #fff;
+          border: 1px solid rgba(0,0,0,0.06);
+          box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+          overflow: hidden;
+        }
         .nd-editor { outline: none; }
       `}</style>
       <div className="mx-auto my-6" style={{ maxWidth: `calc(var(--nd-page-width) + 4rem)` }}>
-        {editor ? <EditorContent editor={editor} className="prose max-w-none" /> : <div className="text-sm text-gray-500">Loading editor…</div>}
+        {editor ? (
+          <EditorContent editor={editor} className="prose max-w-none" />
+        ) : (
+          <div className="text-sm text-gray-500">Loading editor…</div>
+        )}
       </div>
     </div>
   );

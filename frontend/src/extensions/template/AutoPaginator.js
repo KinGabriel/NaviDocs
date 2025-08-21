@@ -3,33 +3,27 @@ import { Extension } from "@tiptap/core";
 import { Plugin } from "prosemirror-state";
 
 /**
- * AutoPaginator — incremental, DOM-aware pagination with hysteresis.
- * - Moves EXACTLY one trailing block forward only after overflow persisted
- *   for 2 consecutive update cycles (hysteresis), OR when overflow is large.
- * - Cleans empty trailing pages.
- * - Never reconfigures editor state; guards re-entrancy.
+ * AutoPaginator — frame-scheduled + hysteresis, single-block move.
+ * - Schedules pagination at most once per animation frame.
+ * - Moves EXACTLY one trailing block forward per run — by creating a NEW page
+ *   whose content is that block (no placeholder empty page).
+ * - Requires overflow to persist ≥2 frames unless overflow ≥32px.
+ * - Cleans empty trailing pages. No state reconfigure; no history spam.
  */
 export const AutoPaginator = Extension.create({
   name: "autoPaginator",
 
   addProseMirrorPlugins() {
-    const running = new WeakSet();                // per-view reentrancy
-    const bootCount = new WeakMap();              // per-view initial updates to skip
-    const stateByView = new WeakMap();            // per-view transient state
+    const rafIdByView = new WeakMap();            // per-view RAF id
+    const running = new WeakSet();                // per-view reentrancy guard
+    const overflowCountsByView = new WeakMap();   // per-view Map<pagePos, count>
+    const bootSkips = new WeakMap();              // per-view initial update skips
 
-    const ensureState = (view) => {
-      let st = stateByView.get(view);
-      if (!st) {
-        st = {
-          // remember small/persistent overflow per page pos
-          overflowCounts: new Map(), // pos -> count of consecutive overflows
-        };
-        stateByView.set(view, st);
-      }
-      return st;
+    const ensureCounts = (view) => {
+      let m = overflowCountsByView.get(view);
+      if (!m) { m = new Map(); overflowCountsByView.set(view, m); }
+      return m;
     };
-
-    const clamp = (doc, pos) => Math.max(0, Math.min(pos, doc.content.size));
 
     const listPages = (doc) => {
       const pages = [];
@@ -40,92 +34,86 @@ export const AutoPaginator = Extension.create({
       return pages;
     };
 
-    // Return overflow amount in pixels (0 if none)
     const overflowPx = (dom) => {
       if (!(dom instanceof HTMLElement)) return 0;
       const diff = dom.scrollHeight - dom.clientHeight;
       return diff > 0 ? diff : 0;
     };
 
-    const makeEmptyPage = (schema) => {
-      const p = schema.nodes.paragraph.create();
-      return schema.nodes.page.create({}, [p]);
-    };
+    const clamp = (doc, pos) => Math.max(0, Math.min(pos, doc.content.size));
 
-    const moveOneBlockToNextPage = (state, tr, pagePos) => {
-      const workingDoc0 = tr.doc;
-      const page0 = workingDoc0.nodeAt(pagePos);
+    /**
+     * Move the LAST block of the page at `pagePos` to a NEW page inserted
+     * immediately after the current page. The new page's content is that block
+     * (no empty paragraph placeholder). Returns the updated transaction.
+     */
+    const moveLastBlockToNewPage = (state, tr, pagePos) => {
+      const { schema } = state;
+
+      // Work off the current tr.doc so we can keep mapping coherent
+      const doc0 = tr.doc;
+      const page0 = doc0.nodeAt(pagePos);
       if (!page0 || page0.type.name !== "page") return tr;
-      if (page0.childCount <= 1) return tr; // keep at least one block
+      if (page0.childCount <= 1) return tr; // keep at least one block in the page
 
-      // Range of last child inside page0
+      // Compute the range of the last child inside this page
       const lastIndex = page0.childCount - 1;
       let lastStart = pagePos + 1;
       for (let i = 0; i < lastIndex; i++) lastStart += page0.child(i).nodeSize;
       const lastEnd = lastStart + page0.child(lastIndex).nodeSize;
 
-      // Ensure next page exists BEFORE mapping
-      const afterPos0 = pagePos + page0.nodeSize;
-      const nodeAfter = workingDoc0.nodeAt(afterPos0);
-      if (!nodeAfter || nodeAfter.type.name !== "page") {
-        tr = tr.insert(clamp(tr.doc, afterPos0), makeEmptyPage(state.schema));
-      }
+      // Slice that single block
+      const blockSlice = doc0.slice(lastStart, lastEnd);
+      if (blockSlice.size === 0) return tr;
 
-      // Recompute against the current tr.doc
+      // 1) Delete the last block from the current page
+      tr = tr.delete(clamp(tr.doc, lastStart), clamp(tr.doc, lastEnd));
+
+      // 2) Compute the position just AFTER the current page (after the delete)
       const mappedPagePos = tr.mapping.map(pagePos, 1);
-      const workingDoc = tr.doc;
-      const curPage = workingDoc.nodeAt(mappedPagePos);
-      if (!curPage || curPage.type.name !== "page") return tr;
+      const pageAfterDelete = tr.doc.nodeAt(mappedPagePos);
+      if (!pageAfterDelete || pageAfterDelete.type.name !== "page") return tr;
+      const insertPos = mappedPagePos + pageAfterDelete.nodeSize; // sibling position
 
-      if (curPage.childCount <= 1) return tr;
-      const curLastIndex = curPage.childCount - 1;
-      let curLastStart = mappedPagePos + 1;
-      for (let i = 0; i < curLastIndex; i++) curLastStart += curPage.child(i).nodeSize;
-      const curLastEnd = curLastStart + curPage.child(curLastIndex).nodeSize;
+      // 3) Build a new page node with the moved block as its only child
+      const newPage = schema.nodes.page.create({}, blockSlice.content);
 
-      const nextPagePos = mappedPagePos + curPage.nodeSize;
-      const nextPage = workingDoc.nodeAt(nextPagePos);
-      if (!nextPage || nextPage.type.name !== "page") return tr;
-      const nextStart = clamp(workingDoc, nextPagePos + 1);
+      // 4) Insert the new page as a sibling after the current page
+      tr = tr.insert(clamp(tr.doc, insertPos), newPage);
 
-      const slice = workingDoc.slice(curLastStart, curLastEnd);
-
-      // Delete last block from current page
-      tr = tr.delete(clamp(tr.doc, curLastStart), clamp(tr.doc, curLastEnd));
-      // Insert at start of next page
-      const mappedInsert = tr.mapping.map(nextStart, 1);
-      tr = tr.replaceRange(clamp(tr.doc, mappedInsert), clamp(tr.doc, mappedInsert), slice);
-
-      // Don't spam undo history with auto moves
+      // This is automatic layout housekeeping — keep history clean
       tr.setMeta("addToHistory", false);
 
       return tr;
     };
 
-    const paginateOnce = (view) => {
-      if (running.has(view)) return false;
+    const paginateNow = (view) => {
+      if (running.has(view)) return;
       running.add(view);
-      try {
-        // Skip a couple of startup updates while CSS/apply kicks in
-        const seen = bootCount.get(view) ?? 0;
-        if (seen < 2) { bootCount.set(view, seen + 1); return false; }
 
-        const st = ensureState(view);
+      try {
+        const counts = ensureCounts(view);
         const { state } = view;
 
-        // If truly empty, seed a first page
+        // Bootstrap: skip first 2 updates to let CSS/DOM settle
+        const seen = bootSkips.get(view) ?? 0;
+        if (seen < 2) { bootSkips.set(view, seen + 1); return; }
+
+        // Seed first page ONLY if truly empty
         const pages0 = listPages(state.doc);
         if (state.doc.content.size === 0 && pages0.length === 0) {
-          const tr0 = state.tr.insert(0, makeEmptyPage(state.schema)).setMeta("addToHistory", false);
+          const p = state.schema.nodes.paragraph.create();
+          const firstPage = state.schema.nodes.page.create({}, [p]);
+          const tr0 = state.tr.insert(0, firstPage).setMeta("addToHistory", false);
           view.dispatch(tr0.setMeta("autoPaginator", "init"));
-          st.overflowCounts.clear();
-          return true;
+          counts.clear();
+          return;
         }
 
-        // PASS 1: overflow handling with hysteresis
-        const HARD_OVERFLOW_PX = 32;  // if >= this, move immediately
-        const SOFT_OVERFLOW_PX = 10;  // below this, ignore
-        const REQUIRED_TICKS = 2;     // must persist this many ticks
+        // Overflow handling (one move max per run)
+        const HARD_OVERFLOW_PX = 32;
+        const SOFT_OVERFLOW_PX = 10;
+        const REQUIRED_FRAMES = 2;
 
         for (let i = 0; i < pages0.length; i++) {
           const { pos, node } = pages0[i];
@@ -136,32 +124,35 @@ export const AutoPaginator = Extension.create({
 
           const over = overflowPx(dom);
 
+          // Hard overflow → move immediately
           if (over >= HARD_OVERFLOW_PX) {
-            const tr1 = moveOneBlockToNextPage(state, state.tr, pos);
+            const tr1 = moveLastBlockToNewPage(state, state.tr, pos);
             if (tr1.doc !== state.doc) {
               view.dispatch(tr1.setMeta("autoPaginator", "move"));
-              st.overflowCounts.clear();
-              return true;
+              counts.clear();
+              return;
             }
-          } else if (over > SOFT_OVERFLOW_PX) {
-            const prev = st.overflowCounts.get(pos) ?? 0;
+          }
+          // Soft overflow → require persistence for a couple frames
+          else if (over > SOFT_OVERFLOW_PX) {
+            const prev = counts.get(pos) ?? 0;
             const now = prev + 1;
-            st.overflowCounts.set(pos, now);
-            if (now >= REQUIRED_TICKS) {
-              const tr2 = moveOneBlockToNextPage(state, state.tr, pos);
+            counts.set(pos, now);
+            if (now >= REQUIRED_FRAMES) {
+              const tr2 = moveLastBlockToNewPage(state, state.tr, pos);
               if (tr2.doc !== state.doc) {
                 view.dispatch(tr2.setMeta("autoPaginator", "move"));
-                st.overflowCounts.clear();
-                return true;
+                counts.clear();
+                return;
               }
             }
           } else {
-            // no meaningful overflow — reset counter for this page
-            if (st.overflowCounts.has(pos)) st.overflowCounts.delete(pos);
+            // reset if no meaningful overflow
+            if (counts.has(pos)) counts.delete(pos);
           }
         }
 
-        // PASS 2: cleanup empty trailing pages (keep first)
+        // Cleanup empty trailing pages (keep first)
         const pagesAfter = listPages(state.doc);
         let tr3 = state.tr;
         let removed = false;
@@ -174,27 +165,40 @@ export const AutoPaginator = Extension.create({
         }
         if (removed) {
           view.dispatch(tr3.setMeta("addToHistory", false).setMeta("autoPaginator", "cleanup"));
-          st.overflowCounts.clear();
-          return true;
+          counts.clear();
+          return;
         }
-
-        return false;
       } finally {
         running.delete(view);
       }
     };
 
+    const schedule = (view) => {
+      if (rafIdByView.get(view)) return;
+      const id = requestAnimationFrame(() => {
+        rafIdByView.delete(view);
+        paginateNow(view);
+      });
+      rafIdByView.set(view, id);
+    };
+
     return [
       new Plugin({
         view: (view) => ({
-          update: () => { paginateOnce(view); },
-          destroy: () => { bootCount.delete(view); stateByView.delete(view); },
+          update: () => schedule(view),      // run at most once per frame
+          destroy: () => {
+            const id = rafIdByView.get(view);
+            if (id) cancelAnimationFrame(id);
+            rafIdByView.delete(view);
+            overflowCountsByView.delete(view);
+            bootSkips.delete(view);
+          },
         }),
         appendTransaction: (trs, _old, newState) => {
           // Reflow trigger (e.g., pageSetup change)
           const reflow = trs.some(t => t.getMeta("paginatorReflow"));
           if (!reflow) return null;
-          return newState.tr; // no-op, causes a view.update
+          return newState.tr; // no-op, causes a view.update -> scheduled paginate
         },
       }),
     ];
