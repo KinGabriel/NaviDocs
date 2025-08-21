@@ -208,8 +208,8 @@ export default function AdminAccountSettings() {
           <main className="p-8 flex-1 overflow-y-auto">
             {/* Title (semibold for consistency with other tabs) */}
             <div className="mb-10">
-              <h1 className="text-3xl font-semibold tracking-wide text-black">ACCOUNT SETTINGS</h1>
-              <div className="w-24 h-1 bg-yellow-400 mt-2 rounded" />
+              <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase">ACCOUNT SETTINGS</h1>
+              <div className="w-28 h-1 bg-yellow-400 mt-2 rounded" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -233,10 +233,10 @@ export default function AdminAccountSettings() {
                 </label>
 
                 <div className="mt-6 text-center">
-                  <div className="text-lg font-semibold">
+                  <div className="text-2xl font-semibold">
                     {normalizeName(`${firstName || user?.firstname || ""} ${lastName || user?.lastname || ""}`)}
                   </div>
-                  <div className="text-sm text-gray-500 mt-1">{user?.role?.name || "Admin"}</div>
+                  <div className="text-md text-gray-500 ">{user?.role?.name || "Admin"}</div>
                 </div>
               </section>
 
@@ -244,7 +244,7 @@ export default function AdminAccountSettings() {
               <section className="lg:col-span-2 space-y-10">
                 {/* Personal Information */}
                 <div>
-                  <h2 className="text-lg font-semibold text-[#0035DA] mb-4">Personal Information: </h2>
+                  <h2 className="text-2xl font-semibold text-[#0035DA] mb-4">Personal Information: </h2>
 
                   {infoMessage && (
                     <div className={`mb-4 rounded border px-3 py-2 text-sm ${infoSuccess ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
@@ -307,7 +307,7 @@ export default function AdminAccountSettings() {
 
                 {/* Change Password */}
                 <div>
-                  <h2 className="text-lg font-semibold text-[#0035DA] mb-4">Change Password: </h2>
+                  <h2 className="text-2xl font-semibold text-[#0035DA] mb-4">Change Password: </h2>
                   {pwMessage && (
                     <div className={`mb-4 rounded border px-3 py-2 text-sm ${pwSuccess ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
                       {pwMessage}

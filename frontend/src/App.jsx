@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './assets/css/global.css'
 import Login from './pages/login';
 import AdminDashboard from './pages/admin/adminDashboard';
@@ -14,27 +14,26 @@ import DocumentControllerStatistics from './pages/document_controller/documentCo
 import DocumentControllerStorage from './pages/document_controller/documentControllerStorage';
 import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
 import DocumentControllerDocuments from './pages/document_controller/documentControllerDocuments';
+import DocumentControllerViewDocuments from "./pages/document_controller/documentControllerViewDocuments";
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/UnauthorizedPage';
 import useUser from './hooks/useUser';
-import { Navigate } from "react-router-dom";
 import SecretaryDashboard from './pages/secretary/secretaryDashboard';
 import SecretaryTemplates from './pages/secretary/secretaryTemplates';
 import DeanDashboard from './pages/dean/deanDashboard';
 import DeanDocuments from './pages/dean/deanDocuments';
 import DeanStatistics from './pages/dean/deanStatistics';
 
-/**
- * LoginRoute component checks if the user is logged in and if not it will return back to login page.
- */
+/** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {
   const user = useUser();
   if (user) {
     const role = user.role?.name;
-    if (role === "Admin") return <Navigate to="/admin/dashboard" replace />;
+    if (role === "Admin")               return <Navigate to="/admin/dashboard" replace />;
     if (role === "Document Controller") return <Navigate to="/document-controller/dashboard" replace />;
-
+    if (role === "Secretary")           return <Navigate to="/secretary/dashboard" replace />;
+    if (role === "Dean")                return <Navigate to="/dean/dashboard" replace />;
   }
   return <Login />;
 }
@@ -97,7 +96,7 @@ function App() {
               <DocumentControllerTemplates />
             </ProtectedRoute>
           }
-          />
+        />
         <Route
           path="/document-controller/create-template"
           element={
@@ -106,7 +105,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        
         <Route
           path="/document-controller/statistics"
           element={
@@ -140,8 +138,26 @@ function App() {
           }
         />
 
+        {/* View pages should also be protected */}
+        <Route
+          path="/document-controller/documents/:id"
+          element={
+            <ProtectedRoute allowedRoles={["Document Controller"]}>
+              <DocumentControllerViewDocuments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/document-controller/document-workflow/:id"
+          element={
+            <ProtectedRoute allowedRoles={["Document Controller"]}>
+              <DocumentControllerViewDocuments />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Secretary Module */}
-         <Route
+        <Route
           path="/secretary/dashboard"
           element={
             <ProtectedRoute allowedRoles={["Secretary"]}>
@@ -193,26 +209,22 @@ function App() {
         />
 
         {/* Global */}
-         <Route
+        <Route
           path="/account/settings"
           element={
-            <ProtectedRoute allowedRoles={["Admin", "Document Controller","Secretary", "Dean"]}>
+            <ProtectedRoute allowedRoles={["Admin","Document Controller","Secretary","Dean"]}>
               <AccountSettings />
             </ProtectedRoute>
           }
         />
         
         {/* Error Pages */}
-        <Route path="*" 
-          element={<NotFoundPage />} />
-        <Route path="/server-error" 
-          element={<ServerErrorPage />} />
-        <Route path="/unauthorized" 
-          element={<UnauthorizedPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+        <Route path="/server-error" element={<ServerErrorPage />} />
+        <Route path="/unauthorized" element={<UnauthorizedPage />} />
       </Routes>
-      
     </Router>
   )
 }
 
-export default App
+export default App;

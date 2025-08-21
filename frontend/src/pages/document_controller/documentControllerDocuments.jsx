@@ -55,7 +55,7 @@ export default function DocumentControllerDocuments() {
           <main className="p-10 flex-1 overflow-y-auto">
             {/* Page Heading */}
             <div className="mb-8">
-              <h1 className="text-3xl font-extrabold tracking-wide">DOCUMENTS</h1>
+              <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase ">DOCUMENTS</h1>
               <div className="w-28 h-1 bg-yellow-400 mt-2 rounded" />
             </div>
 
@@ -126,10 +126,12 @@ export default function DocumentControllerDocuments() {
                       </Td>
                       <Td className="text-right pr-4">
                         <button
+                        onClick={() =>
+                          navigate(`/document-controller/documents/${r.id}`, {
+                            state: { from: 'documents' },
+                          })
+                        }
                           className="px-3 py-1.5 rounded border text-sm font-medium hover:bg-gray-100"
-                          onClick={() =>
-                            navigate(`/document-controller/documents/${idx}`)
-                          }
                         >
                           View
                         </button>

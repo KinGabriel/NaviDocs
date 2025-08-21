@@ -182,14 +182,14 @@ export default function CreateUser() {
   const showDepartment = ["Faculty", "Document Controller", "Department Head"].includes(formData.role.name);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} />
         <main className="flex-1 p-10">
           <div className="bg-white rounded-xl shadow-lg p-10">
-            <h2 className="text-3xl font-bold text-black uppercase mb-4">Create New User</h2>
-            <div className="w-20 h-1 bg-yellow-500 mb-8"></div>
+            <h2 className="text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">Create New User</h2>
+            <div className="w-25 h-1 bg-yellow-500 mb-8"></div>
             {modalMessage && (
               <div className={`p-4 mb-6 text-sm font-medium rounded-lg ${isSuccess ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'}`}>
                 {modalMessage}
