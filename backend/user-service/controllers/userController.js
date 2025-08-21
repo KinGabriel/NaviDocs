@@ -6,7 +6,7 @@ import FormData from "form-data";
 
 /**
  * Get basic user info (firstname and lastname) by user ID
- * @route GET /api/users/:id/basic-info
+ * @route GET /api/users/getUserInfo/:id'
  * @access Private
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object

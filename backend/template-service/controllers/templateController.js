@@ -1,5 +1,6 @@
 import Template from "../models/templateModel.js";
 import { validSchools, schoolMap, getSchoolCode, generateDocumentCode, buildApprovalMeta, statusQuery } from "../utils/templateUtils.js";
+import axios from "axios";
 
 /**
  * @desc Get dashboard information for document controller
@@ -163,8 +164,8 @@ export const getTemplates = async (req, res) => {
       query.document_code = { $regex: `^FM-${schoolCode}-\\d+$`, $options: 'i' };
     }
 
-  // Status filtering
-  Object.assign(query, statusQuery(status));
+    // Status filtering
+    Object.assign(query, statusQuery(status));
 
     // Search
     if (search) {
@@ -176,7 +177,6 @@ export const getTemplates = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-
     // Fetch templates with pagination
     const templates = await Template.find(query)
       .sort({ createdAt: -1 })
@@ -185,16 +185,44 @@ export const getTemplates = async (req, res) => {
 
     const total = await Template.countDocuments(query);
 
-    const withMeta = templates.map(t => ({
-      ...t.toObject(),
-      approvalMeta: buildApprovalMeta(t, req.user?.id)
+    // Fetch creator names for each template
+    const userServiceUrl = process.env.USER_SERVICE_URL || "http://localhost:5002";
+    // Get token from cookie or header 
+    let token = null;
+    if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+    const withMeta = await Promise.all(templates.map(async t => {
+      let createdByName = null;
+      try {
+        if (t.created_by) {
+          console.log("Fetching user info for template:", t._id);
+          const headers = {};
+          if (token) {
+            headers['Cookie'] = `token=${token}`;
+          }
+          const resp = await axios.get(
+            `${userServiceUrl}/api/user/getUserInfo/${t.created_by}`,
+            { headers, withCredentials: true }
+          );
+          if (resp.data && resp.data.firstname && resp.data.lastname) {
+            createdByName = `${resp.data.firstname} ${resp.data.lastname}`;
+          }
+        }
+      } catch (err) {
+        createdByName = null;
+      }
+      return {
+        ...t.toObject(),
+        approvalMeta: buildApprovalMeta(t, req.user?.id),
+        createdByName
+      };
     }));
-
     res.status(200).json({
       success: true,
       message: 'Templates retrieved successfully',
       data: {
-  templates: withMeta,
+        templates: withMeta,
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(total / parseInt(limit)),

@@ -1,77 +1,112 @@
-import { useState } from "react";
+import Table from '../../components/table';
+import { useState, useEffect } from "react";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
 import Dropdown from "../../components/dropdown";
-import SearchBar from "../../components/searchBar"; 
-
-function Table({ columns, data }) {
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="bg-[#F4F6FF] border-b border-gray-200">
-            {columns.map((col) => (
-              <th
-                key={col.key}
-                className="py-4 px-6 text-left font-semibold text-gray-700 tracking-wide"
-              >
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {data.map((row, idx) => (
-            <tr
-              key={row.id || idx}
-              className="hover:bg-[#F4F6FF]/50 transition-colors duration-150"
-            >
-              {columns.map((col) => (
-                <td key={col.key} className="py-4 px-6 text-gray-600">
-                  {typeof col.render === "function"
-                    ? col.render(row)
-                    : row[col.key]}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+import SearchBar from "../../components/searchBar";
+import usePagination from "../../hooks/usePagination";
+import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
+import { formatDate } from '../../utils/formatters';
+import Loader from '../../components/loader';
 
 export default function SecretaryTemplates() {
-  const [activeTab, setActiveTab] = useState("Pending Approvals");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
   const user = useUser();
-  const tabs = ["Pending Approvals", "Approved", "Returned"];
+  const [search, setSearch] = useState("");
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  const [error, setError] = useState(null);
+  const [selectedSchool, setSelectedSchool] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("All");
+  const [sortOrder, setSortOrder] = useState("Recent");
+  const PAGE_SIZE = 10;
+  const pagination = usePagination(totalPages, 1);
+  const tabs = ["All", "Pending Approvals", "Approved", "On Going", "Late"];
 
-  // still to be replaced with actual data fetching logic 
-  const templatesData = [
-    { templateName: "Student Form", createdBy: "Jomar Castillo", department: "Chemical Engineering", school: "SEA", role: "Faculty" },
-    { templateName: "Course Syllabi 2026-2027", createdBy: "Trisha Mae Ramos", department: "Psychology", school: "STELA", role: "Faculty" },
-    { templateName: "Course Syllabi 2026-2027", createdBy: "Lea Francis Abad", department: "Pharmacy", school: "SONAHBS", role: "Faculty" },
-    { templateName: "Course Syllabi 2026-2027", createdBy: "Alex Santiago", department: "Civil Engineering", school: "SEA", role: "Faculty" },
-    { templateName: "Course Syllabi 2026-2027", createdBy: "Casey Medina", department: "Nursing", school: "SONAHBS", role: "Faculty" },
-    { templateName: "Course Syllabi 2026-2027", createdBy: "Jules Navarro", department: "Political Science", school: "STELA", role: "Faculty" },
-    { templateName: "Course Syllabi 2026-2027", createdBy: "Sam Llorente", department: "Philosophy and Humanities", school: "STELA", role: "Faculty" },
-    { templateName: "Course Syllabi 2026-2027", createdBy: "Angel Morales", department: "Accountancy", school: "SAMCIS", role: "Faculty" },
-    { templateName: "Course Syllabi 2026-2027", createdBy: "Jamie dela Rosa", department: "Financial Management", school: "SAMCIS", role: "Faculty" },
-    { templateName: "Course Syllabi 2026-2027", createdBy: "Kris Manalo", department: "Information Technology", school: "SAMCIS", role: "Faculty" },
-    { templateName: "Course Syllabi 2026-2027", createdBy: "Morgan Javier", department: "Computer Science", school: "SAMCIS", role: "Faculty" },
-  ];
+  // Map tabs to status values for API
+  const tabToStatus = {
+    "Pending Approvals": "Pending Approval",
+    "Approved": "Approved",
+    "On Going": "Draft"
+  };
+
+  // Fetch templates from API
+  const fetchTemplates = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchTemplatesAPI({
+        user,
+        selectedSchool,
+        selectedStatus: tabToStatus[selectedStatus] || selectedStatus,
+        search,
+        PAGE_SIZE,
+        currentPage: pagination.currentPage
+      });
+      let templatesArray = [];
+      if (res.success && res.data?.templates) {
+        templatesArray = res.data.templates;
+        setTotalPages(res.data.pagination.total_pages || 1);
+      } else if (res.templates) {
+        templatesArray = res.templates;
+        setTotalPages(1);
+      } else if (Array.isArray(res)) {
+        templatesArray = res;
+        setTotalPages(1);
+      }
+      // If the selected tab is Late, filter templates whose deadline is in the past && status is Draft.
+      if (selectedStatus === 'Late') {
+        const now = new Date();
+        templatesArray = templatesArray.filter(t => {
+          if (!t.deadline) return false;
+          const deadlineDate = new Date(t.deadline);
+          return t.status === 'draft' && deadlineDate < now;
+        });
+      }
+      // Sorting
+      if (sortOrder === 'A-Z') {
+        templatesArray.sort((a, b) => a.title.localeCompare(b.title));
+      } else if (sortOrder === 'Z-A') {
+        templatesArray.sort((a, b) => b.title.localeCompare(a.title));
+      } else if (sortOrder === 'Recent') {
+        templatesArray.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
+      }
+      setTemplates(templatesArray);
+    } catch (err) {
+      setError(err.message || "Failed to fetch templates");
+      setTemplates([]);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
   const columns = [
-    { key: "templateName", label: "Template Name" },
-    { key: "createdBy", label: "Created By" },
-    { key: "department", label: "Department" },
-    { key: "school", label: "School" },
-    { key: "role", label: "Role" },
-    { 
-      key: "actions", 
+    { key: "title", label: "Template Name" },
+    { key: "document_code", label: "Document Code", render: row => row.document_code || "-" },
+    { key: "createdByName", label: "Created By", render: row => row.createdByName || row.created_by_name || "-" },
+    { key: "school", label: "School", render: row => {
+      // Extract school code from document_code 
+      const code = row.document_code || "";
+      const match = code.match(/^FM-([A-Z]+)-/);
+      if (match) {
+        const codePart = match[1];
+        // Find the school name by code
+        const schoolName = Object.keys(schoolIdentifiers).find(
+          key => schoolIdentifiers[key] === codePart
+        );
+        return schoolName || codePart;
+      }
+      return "-";
+    } },
+  { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDate(row.deadline) : "No Deadline set" },
+    {
+      key: "actions",
       label: "Actions",
       render: () => (
         <button className="text-white hover:text-white font-medium transition-colors rounded-sm  bg-blue-500 h-7 w-15 duration-200">
@@ -84,50 +119,36 @@ export default function SecretaryTemplates() {
   // School identifiers
   const schoolIdentifiers = {
     'University Wide': 'VAA',
-    'SAMCIS': 'SMI', 
+    'SAMCIS': 'SMI',
     'STELA': 'STL',
   };
 
-  // Filtering and sorting states
-  const [selectedSchool, setSelectedSchool] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
-  const [sortOrder, setSortOrder] = useState('Sort by');
-  const [search, setSearch] = useState('');
-  const totalPages = Math.ceil(templatesData.length / itemsPerPage);
-  const startIdx = (currentPage - 1) * itemsPerPage;
-  const currentData = templatesData.slice(startIdx, startIdx + itemsPerPage);
+  // Use fetched data directly 
+  const currentData = templates;
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Templates" />
-
-        {/* Main Content */}
         <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <div className="flex-1 p-2">
+          <div className=" p-2 ">
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-8 ">Templates</h1>
             <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
           </div>
-
-           <div className="flex items-center justify-end gap-2 mb-4">
-            {/* School Filter */}
+          <div className="flex items-center justify-end gap-2 mb-4">
             <Dropdown
               options={["All", ...Object.keys(schoolIdentifiers)]}
               value={selectedSchool}
               onChange={setSelectedSchool}
               width="w-50"
             />
-
-            {/* Sort Order */}
             <Dropdown
-              options={["A-Z", "Z-A"]}
+              options={["Recent", "A-Z", "Z-A"]}
               value={sortOrder}
               onChange={setSortOrder}
               width="w-36"
             />
-
-            {/* Search Bar */}
             <div className="w-64">
               <SearchBar
                 value={search}
@@ -135,16 +156,14 @@ export default function SecretaryTemplates() {
               />
             </div>
           </div>
-
-          {/* Tab Navigation */}
           <div className="mb-6 border-b border-gray-200">
             <div className="flex space-x-8">
               {tabs.map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => setSelectedStatus(tab)}
                   className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                    activeTab === tab
+                    selectedStatus === tab
                       ? "border-[#003DA5] text-[#003DA5]"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
@@ -154,35 +173,41 @@ export default function SecretaryTemplates() {
               ))}
             </div>
           </div>
-          
-          {/* Table */}
-          <Table columns={columns} data={currentData} />
-
-          {/* Pagination */}
+          {loading ? (
+            <Loader />
+          ) : error ? (
+            <div className="flex justify-center items-center h-40 text-red-500">{error}</div>
+          ) : (
+            <Table columns={columns} data={currentData} />
+          )}
           <div className="flex justify-center items-center mt-6 gap-2">
             <button
-              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-              disabled={currentPage === 1}
+              onClick={pagination.handlePrev}
+              disabled={pagination.currentPage === 1}
               className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
             >
               Prev
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((num) => (
-              <button
-                key={num}
-                onClick={() => setCurrentPage(num)}
-                className={`px-3 py-1 rounded border ${
-                  currentPage === num
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-100"
-                }`}
-              >
-                {num}
-              </button>
-            ))}
+            {pagination.getPageNumbers().map((num, idx) =>
+              num === "..." ? (
+                <span key={idx} className="px-2 text-gray-400">...</span>
+              ) : (
+                <button
+                  key={num}
+                  onClick={() => pagination.handlePage(num)}
+                  className={`px-3 py-1 rounded border ${
+                    pagination.currentPage === num
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {num}
+                </button>
+              )
+            )}
             <button
-              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-              disabled={currentPage === totalPages}
+              onClick={pagination.handleNext}
+              disabled={pagination.currentPage === totalPages}
               className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
             >
               Next
