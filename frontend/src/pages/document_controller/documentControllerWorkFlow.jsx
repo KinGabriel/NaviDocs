@@ -28,8 +28,12 @@ export default function DocumentControllerWorkflow() {
   const [sortBy, setSortBy] = useState("recent");
   const [peopleFilter, setPeopleFilter] = useState(null);
 
-  const baseRows = PLACEHOLDER_DOCS.filter((r) =>
-    tab === "submitted" ? r.status === "Submitted" : r.status === "Published"
+  const baseRows = useMemo(
+    () =>
+      PLACEHOLDER_DOCS.filter((r) =>
+        tab === "submitted" ? r.status === "Submitted" : r.status === "Published"
+      ),
+    [tab]
   );
 
   const filtered = useMemo(() => {
@@ -56,6 +60,7 @@ export default function DocumentControllerWorkflow() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const { currentPage, handlePrev, handleNext, handlePage, getPageNumbers } =
     usePagination(totalPages, 1);
+
   const pageRows = useMemo(
     () => filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize),
     [filtered, currentPage]
@@ -74,7 +79,7 @@ export default function DocumentControllerWorkflow() {
 
   const peopleList = useMemo(() => {
     const s = new Set();
-    (tab === "submitted" ? PLACEHOLDER_DOCS : PLACEHOLDER_DOCS).forEach((r) =>
+    PLACEHOLDER_DOCS.forEach((r) =>
       s.add(tab === "submitted" ? r.createdBy : r.ownedBy)
     );
     return Array.from(s);
@@ -270,7 +275,10 @@ export default function DocumentControllerWorkflow() {
                         <button
                           className="px-3 py-1.5 rounded border text-sm font-medium hover:bg-gray-100"
                           onClick={() =>
-                            navigate(`/document-controller/documents/${idx}`)
+                            // pass both state and a query fallback
+                            navigate(`/document-controller/documents/${idx}?from=workflow`, {
+                              state: { from: "workflow" },
+                            })
                           }
                         >
                           View

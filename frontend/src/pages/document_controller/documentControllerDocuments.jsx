@@ -126,10 +126,12 @@ export default function DocumentControllerDocuments() {
                       </Td>
                       <Td className="text-right pr-4">
                         <button
+                        onClick={() =>
+                          navigate(`/document-controller/documents/${r.id}`, {
+                            state: { from: 'documents' },
+                          })
+                        }
                           className="px-3 py-1.5 rounded border text-sm font-medium hover:bg-gray-100"
-                          onClick={() =>
-                            navigate(`/document-controller/documents/${idx}`)
-                          }
                         >
                           View
                         </button>
