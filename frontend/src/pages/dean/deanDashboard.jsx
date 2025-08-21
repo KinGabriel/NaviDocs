@@ -386,7 +386,7 @@ export default function DeanDashboard() {
               </div>
 
               {/* Scrollable Upcoming Deadlines */}
-              <div className="p-4 space-y-3 max-h-78 overflow-y-auto">
+              <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
                 {upcomingDeadlines.length > 0 ? (
                   upcomingDeadlines.map((deadline) => (
                     <div
@@ -426,7 +426,7 @@ export default function DeanDashboard() {
                 <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
                   <h3 className="font-semibold text-sm text-gray-800">DOCUMENTS SUMMARY</h3>
                 </div>
-                <div className="p-6">
+                <div className="p-6 h-105">
                   <div className="relative h-48 mb-4">
                     <Doughnut data={chartData} options={chartOptions} />
                   </div>
