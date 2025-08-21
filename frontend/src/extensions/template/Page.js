@@ -1,15 +1,21 @@
 // src/extensions/template/Page.js
 import { Node, mergeAttributes } from "@tiptap/core";
 
+/**
+ * Top-level Page container. Not in the generic 'block' group to prevent nesting
+ * pages inside pages. Each page holds normal block content.
+ */
 export const Page = Node.create({
   name: "page",
-  group: "block",
+  // No group => page is only allowed where the schema explicitly permits it (top-level)
   content: "block+",
   isolating: true,
   defining: true,
 
   addAttributes() {
-    return { number: { default: null } };
+    return {
+      number: { default: null }, // optional, not used by core
+    };
   },
 
   parseHTML() {
@@ -27,3 +33,5 @@ export const Page = Node.create({
     ];
   },
 });
+
+export default Page;

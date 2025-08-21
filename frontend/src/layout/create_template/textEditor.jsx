@@ -1,5 +1,5 @@
 // src/layout/create_template/textEditor.jsx
-import { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
@@ -10,59 +10,75 @@ import Superscript from "@tiptap/extension-superscript";
 import Subscript from "@tiptap/extension-subscript";
 import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
-import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
+import TableCell from "@tiptap/extension-table-cell";
 import Image from "@tiptap/extension-image";
 
-import { Page } from "../../extensions/template/Page";
-import { PageBreak } from "../../extensions/template/PageBreak";
-import { AutoPaginator, BackspaceRemovePagePlugin } from "../../extensions/template/AutoPaginator";
-import { BackspaceAcrossPages } from "../../extensions/template/BackspaceAcrossPages";
+// Core schema & behavior
+import DocumentPages from "../../extensions/template/DocumentPages";
+import Page from "../../extensions/template/Page";
+import AutoPaginator from "../../extensions/template/AutoPaginator";
+import BackspaceHandler from "../../extensions/template/BackspaceHandler";
 
-const PAGE_SIZES = {
-  letter: { wIn: 8.5, hIn: 11 },
-  legal: { wIn: 8.5, hIn: 14 },
-  A4: { wIn: 8.27, hIn: 11.69 },
+const inchToPx = (inches) => Math.round(inches * 96);
+const DEFAULT_SETUP = {
+  paperSize: "A4",
+  orientation: "Portrait",
+  margins: { top: 1, bottom: 1, left: 1, right: 1 },
 };
 
-function getDimsInches({ paperSize = "A4", orientation = "Portrait" }) {
-  const s = PAGE_SIZES[paperSize] || PAGE_SIZES.A4;
-  const landscape = orientation === "Landscape";
-  return { widthIn: landscape ? s.hIn : s.wIn, heightIn: landscape ? s.wIn : s.hIn };
+const PRESETS = { A4: { w: 8.27, h: 11.69 }, Letter: { w: 8.5, h: 11 }, Legal: { w: 8.5, h: 14 } };
+
+function computeDims(pageSetup) {
+  const p = pageSetup || DEFAULT_SETUP;
+  const base = PRESETS[p.paperSize] || PRESETS.A4;
+  const portrait = (p.orientation || "Portrait") === "Portrait";
+  const wIn = portrait ? base.w : base.h;
+  const hIn = portrait ? base.h : base.w;
+  const m = p.margins || DEFAULT_SETUP.margins;
+  return {
+    widthPx: inchToPx(wIn),
+    heightPx: inchToPx(hIn),
+    marginTopPx: inchToPx(m.top),
+    marginBottomPx: inchToPx(m.bottom),
+    marginLeftPx: inchToPx(m.left),
+    marginRightPx: inchToPx(m.right),
+  };
+}
+
+// JSON fallback document
+const DEFAULT_DOC = {
+  type: "doc",
+  content: [
+    { type: "page", content: [{ type: "paragraph" }] },
+  ],
+};
+
+// Ensure any incoming HTML string is wrapped in a Page element
+function normalizeInitialContent(content) {
+  if (!content) return DEFAULT_DOC;
+  if (typeof content !== "string") return content; // assume valid JSON doc
+  if (/data-type\s*=\s*"nd-page"/i.test(content)) return content; // already wrapped
+  // Wrap inside a single page so the schema (doc=page+) is satisfied
+  return `<section data-type="nd-page">${content}</section>`;
 }
 
 export default function TextEditor({
-  content = "<p></p>",
-  pageSetup = {
-    paperSize: "A4",
-    orientation: "Portrait",
-    margins: { top: 1, bottom: 1, left: 1, right: 1 },
-  },
+  content,
+  pageSetup = DEFAULT_SETUP,
   onEditorReady,
   onContentChange,
+  className = "",
 }) {
-  const paginatorRef = useRef(null);
-  const backspaceRef = useRef(null);
-
-  const pageCssVars = useMemo(() => {
-    const { widthIn, heightIn } = getDimsInches(pageSetup);
-    const m = pageSetup?.margins || { top: 1, bottom: 1, left: 1, right: 1 };
-    return {
-      ["--nd-page-width"]: `${widthIn}in`,
-      ["--nd-page-height"]: `${heightIn}in`,
-      ["--nd-pad-top"]: `${m.top}in`,
-      ["--nd-pad-bottom"]: `${m.bottom}in`,
-      ["--nd-pad-left"]: `${m.left}in`,
-      ["--nd-pad-right"]: `${m.right}in`,
-    };
-  }, [pageSetup]);
+  const dimsRef = useRef(computeDims(pageSetup));
 
   const editor = useEditor({
     extensions: [
+      DocumentPages,
       Page,
-      PageBreak,
-      BackspaceAcrossPages,            
-      StarterKit.configure({ paragraph: { keepOnSplit: false } }),
+      AutoPaginator,
+      BackspaceHandler,
+      StarterKit.configure({ document: false }),
       TextStyle,
       Color,
       FontFamily,
@@ -75,91 +91,44 @@ export default function TextEditor({
       TableCell,
       Image,
     ],
-    content,
-    autofocus: true,
-    onUpdate: ({ editor }) => onContentChange?.(editor.getHTML()),
+    content: normalizeInitialContent(content),
+    editorProps: { attributes: { class: "nd-editor" } },
     onCreate: ({ editor }) => {
-      // Ensure we always start inside a <section data-type="nd-page">
-      const hasPage = editor.state.doc.content.content.some(
-        n => n.type && n.type.name === "page"
-      );
-      if (!hasPage) {
-        const html = editor.getHTML();
-        editor.commands.setContent(
-          `<section data-type="nd-page">${html || "<p></p>"}</section>`,
-          false
-        );
-      }
+      applyCssVars(dimsRef.current);
+      editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
+      onEditorReady && onEditorReady(editor);
+    },
+    onUpdate: ({ editor }) => {
+      onContentChange && onContentChange(editor.getHTML());
     },
   });
 
-  // Expose editor
-  useEffect(() => { if (editor) onEditorReady?.(editor); }, [editor, onEditorReady]);
-
-  // Install Backspace-join plugin once
   useEffect(() => {
-  if (!editor) return;
-  const plugin = BackspaceRemovePagePlugin();
-
-  const withoutOld = backspaceRef.current
-    ? editor.state.plugins.filter(p => p !== backspaceRef.current)
-    : editor.state.plugins;
-
-  const nextState = editor.state.reconfigure({ plugins: [plugin, ...withoutOld] });
-  editor.view.updateState(nextState);
-  backspaceRef.current = plugin;
-
-  return () => {
-    if (!editor || !backspaceRef.current) return;
-    const cleaned = editor.state.plugins.filter(p => p !== backspaceRef.current);
-    editor.view.updateState(editor.state.reconfigure({ plugins: cleaned }));
-    backspaceRef.current = null;
-  };
-}, [editor]);
-
-  // Install/refresh AutoPaginator (reconfigure state)
-  useEffect(() => {
-    if (!editor) return;
-    const plugin = AutoPaginator();
-
-    const withoutOld = paginatorRef.current
-      ? editor.state.plugins.filter(p => p !== paginatorRef.current)
-      : editor.state.plugins;
-
-    const next = [...withoutOld, plugin];
-    const nextState = editor.state.reconfigure({ plugins: next });
-    editor.view.updateState(nextState);
-    paginatorRef.current = plugin;
-
-    return () => {
-      if (!editor || !paginatorRef.current) return;
-      const cleaned = editor.state.plugins.filter(p => p !== paginatorRef.current);
-      editor.view.updateState(editor.state.reconfigure({ plugins: cleaned }));
-      paginatorRef.current = null;
-    };
+    const dims = computeDims(pageSetup);
+    dimsRef.current = dims;
+    applyCssVars(dims);
+    if (editor) editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
   }, [editor, pageSetup]);
 
-  return (
-    <div className="flex-1 overflow-auto bg-[#f5f5f7]" style={pageCssVars}>
-      <style>{`
-        .nd-page {
-          width: var(--nd-page-width);
-          height: var(--nd-page-height);
-          padding: var(--nd-pad-top) var(--nd-pad-right) var(--nd-pad-bottom) var(--nd-pad-left);
-          margin: 24px auto;
-          background: #ffffff;
-          border: 1px solid #d1d5db;
-          box-shadow: 0 1px 2px rgba(0,0,0,.04);
-        }
-        .nd-page-break { display: none !important; }
-      `}</style>
+  const applyCssVars = (d) => {
+    const root = document.documentElement;
+    root.style.setProperty("--nd-page-width", `${d.widthPx}px`);
+    root.style.setProperty("--nd-page-height", `${d.heightPx}px`);
+    root.style.setProperty("--nd-margin-top", `${d.marginTopPx}px`);
+    root.style.setProperty("--nd-margin-bottom", `${d.marginBottomPx}px`);
+    root.style.setProperty("--nd-margin-left", `${d.marginLeftPx}px`);
+    root.style.setProperty("--nd-margin-right", `${d.marginRightPx}px`);
+  };
 
-      <div className="mx-auto my-6 max-w-[calc(var(--nd-page-width)+4rem)]">
-        {editor ? (
-          <EditorContent editor={editor} className="prose max-w-none" />
-        ) : (
-          <div className="text-sm text-gray-500">Loading editor…</div>
-        )}
+  return (
+    <div className={`w-full ${className}`}>
+      <style>{`
+        :root { --nd-page-width: ${dimsRef.current.widthPx}px; --nd-page-height: ${dimsRef.current.heightPx}px; --nd-margin-top: ${dimsRef.current.marginTopPx}px; --nd-margin-bottom: ${dimsRef.current.marginBottomPx}px; --nd-margin-left: ${dimsRef.current.marginLeftPx}px; --nd-margin-right: ${dimsRef.current.marginRightPx}px; }
+        .nd-page { box-sizing: border-box; width: var(--nd-page-width); min-height: var(--nd-page-height); max-height: var(--nd-page-height); padding: var(--nd-margin-top) var(--nd-margin-right) var(--nd-margin-bottom) var(--nd-margin-left); margin: 1.25rem auto; background: #fff; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 6px 18px rgba(0,0,0,0.08); overflow: hidden; }
+        .nd-editor { outline: none; }
+      `}</style>
+      <div className="mx-auto my-6" style={{ maxWidth: `calc(var(--nd-page-width) + 4rem)` }}>
+        {editor ? <EditorContent editor={editor} className="prose max-w-none" /> : <div className="text-sm text-gray-500">Loading editor…</div>}
       </div>
     </div>
   );
