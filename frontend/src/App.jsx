@@ -21,6 +21,7 @@ import UnauthorizedPage from './pages/error_pages/UnauthorizedPage';
 import useUser from './hooks/useUser';
 import SecretaryDashboard from './pages/secretary/secretaryDashboard';
 import SecretaryTemplates from './pages/secretary/secretaryTemplates';
+import SecretaryViewTemplates from './pages/secretary/secretaryViewTemplates';
 import DeanDashboard from './pages/dean/deanDashboard';
 import DeanDocuments from './pages/dean/deanDocuments';
 import DeanStatistics from './pages/dean/deanStatistics';
@@ -178,6 +179,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Secretary"]}>
               <AccountSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/secretary/templates/:id"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary"]}>
+              <SecretaryViewTemplates />
             </ProtectedRoute>
           }
         />

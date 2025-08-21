@@ -4,11 +4,12 @@ import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
 import Dropdown from "../../components/dropdown";
-import SearchBar from "../../components/searchBar";
+import SearchBar from "../../components/searchbar";
 import usePagination from "../../hooks/usePagination";
 import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
 import { formatDate } from '../../utils/formatters';
 import Loader from '../../components/loader';
+import { useNavigate } from "react-router-dom"; 
 
 export default function SecretaryTemplates() {
   const user = useUser();
@@ -23,6 +24,7 @@ export default function SecretaryTemplates() {
   const PAGE_SIZE = 10;
   const pagination = usePagination(totalPages, 1);
   const tabs = ["All", "Pending Approvals", "Approved", "On Going", "Late"];
+  const navigate = useNavigate();
 
   // Map tabs to status values for API
   const tabToStatus = {
@@ -104,12 +106,19 @@ export default function SecretaryTemplates() {
       }
       return "-";
     } },
-  { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDate(row.deadline) : "No Deadline set" },
+    { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDate(row.deadline) : "No Deadline set" },
     {
       key: "actions",
       label: "Actions",
-      render: () => (
-        <button className="text-white hover:text-white font-medium transition-colors rounded-sm  bg-blue-500 h-7 w-15 duration-200">
+      render: (row) => (
+        <button
+          onClick={() =>
+            navigate(`/secretary/templates/${row._id || row.id || "placeholder"}`, {
+              state: { from: "secretary-templates", doc: row },
+            })
+          }
+          className="text-white hover:text-white font-medium transition-colors rounded-sm bg-blue-500 h-7 w-15 duration-200"
+        >
           View
         </button>
       )
