@@ -87,7 +87,7 @@ export default function DeanDashboard() {
       key: 'code',
       label: 'Document Code',
       render: (row) => (
-        <span className="font-mono text-xs text-gray-700">{row.code}</span>
+        <span className="text-xs text-gray-700">{row.code}</span>
       )
     },
     {
@@ -113,10 +113,10 @@ export default function DeanDashboard() {
       key: 'status',
       label: 'Status',
       render: (row) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
           row.status === "Approved" 
-            ? "bg-green-100 text-green-800" 
-            : "bg-red-100 text-red-800"
+            ? "bg-green-100 text-green-800 border-green-200" 
+            : "bg-red-100 text-red-800 border-red-200"
         }`}>
           {row.status}
         </span>
@@ -129,7 +129,7 @@ export default function DeanDashboard() {
       key: 'code',
       label: 'Document Code',
       render: (row) => (
-        <span className="font-mono text-xs text-gray-700">{row.code}</span>
+        <span className="text-xs text-gray-700">{row.code}</span>
       )
     },
     {
@@ -155,12 +155,61 @@ export default function DeanDashboard() {
       key: 'action',
       label: 'Action',
       render: (row) => (
-        <button className="text-blue-600 hover:text-blue-700 font-medium text-sm hover:underline">
+        <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">
           Review
         </button>
       )
     }
   ];
+
+  const upcomingDeadlines = [
+    {
+      id: 1,
+      title: "Course Syllabi Review",
+      dueDate: "2025-08-1",
+      priority: "Overdue",
+      department: "BS Computer Science",
+    },
+    {
+      id: 2,
+      title: "Faculty Performance Reports",
+      dueDate: "2025-08-21",
+      priority: "Due Today",
+      department: "BS Information Technology",
+    },
+    {
+      id: 3,
+      title: "Budget Allocation Review",
+      dueDate: "2025-08-23",
+      priority: "Due This Week",
+      department: "Administration",
+    },
+    {
+      id: 3,
+      title: "Field Trip Agenda Review",
+      dueDate: "2025-09-23",
+      priority: "Upcoming",
+      department: "BS Information Technology",
+    
+    },
+  ];
+
+   const getPriorityColor = (priority) => {
+    switch (priority) {
+      case "Overdue":
+      return "bg-red-100 text-red-700 border-red-200";
+    case "Due Today":
+      return "bg-orange-100 text-orange-700 border-orange-200";
+    case "Due This Week":
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+    case "Upcoming":
+      return "bg-blue-100 text-blue-700 border-blue-200";
+    case "Future Deadline":
+      return "bg-green-100 text-green-700 border-green-200";
+    default:
+      return "bg-gray-100 text-gray-600 border-gray-200";
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -179,7 +228,7 @@ export default function DeanDashboard() {
           <div className="flex flex-wrap justify-between items-center mb-8">
             <div className="flex gap-4 flex-wrap mt-4">
               {/* Departments */}
-              <div className="bg-white p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
                 <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 24 24"><g fill="none"><path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="M12 3a3 3 0 0 0-1 5.83V11H8a3 3 0 0 0-3 3v1.17a3.001 3.001 0 1 0 2 0V14a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1.17a3.001 3.001 0 1 0 2 0V14a3 3 0 0 0-3-3h-3V8.83A3.001 3.001 0 0 0 12 3"/></g></svg>
                 </div>
@@ -190,7 +239,7 @@ export default function DeanDashboard() {
               </div>
 
               {/* Faculty */}
-              <div className="bg-white p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="bg-[#FBFBFB]  p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
                 <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
                   <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
@@ -203,7 +252,7 @@ export default function DeanDashboard() {
               </div>
 
                {/* Documents */}
-              <div className="bg-white p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="bg-[#FBFBFB]  p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
                 <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 256 256"><path fill="#fff" d="m213.66 66.34l-40-40A8 8 0 0 0 168 24H88a16 16 0 0 0-16 16v16H56a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h112a16 16 0 0 0 16-16v-16h16a16 16 0 0 0 16-16V72a8 8 0 0 0-2.34-5.66M136 192H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m0-32H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m64 24h-16v-80a8 8 0 0 0-2.34-5.66l-40-40A8 8 0 0 0 136 56H88V40h76.69L200 75.31Z"/></svg>
                 </div>
@@ -248,46 +297,144 @@ export default function DeanDashboard() {
           <div className="grid grid-cols-4 gap-6 flex-1">
             <div className="col-span-3 space-y-6">
               {/* Documents Table */}
-              <div className="bg-white shadow-sm rounded-lg border border-gray-100 overflow-hidden">
-                <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-                  <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-700">DOCUMENTS</h2>
-                  <a href="#" className="text-blue-600 text-sm hover:text-blue-700 font-medium">View All</a>
+              <div className="bg-[#FBFBFB] shadow p-4 rounded max-w-6xl w-full">
+                <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
+                  <div>
+                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">DOCUMENTS</h2>
+                   <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                  </div>
+                  <button className=" mr-4 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] ">
+                    View All
+                  </button>
                 </div>
-                <Table columns={documentColumns} data={documents} />
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-100 rounded-lg">
+                        {documentColumns.map((col) => (
+                          <th
+                            key={col.key}
+                            className="py-3 px-8 text-left font-semibold text-gray-700 text-xs"
+                          >
+                            {col.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {documents.map((row, idx) => (
+                        <tr
+                          key={row.id || idx}
+                          className="border-b border-gray-100 hover:bg-gray-50"
+                        >
+                          {documentColumns.map((col) => (
+                            <td key={col.key} className="py-3 px-8 text-gray-600 text-xs">
+                              {typeof col.render === "function"
+                                ? col.render(row)
+                                : row[col.key]}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Pending Documents Table */}
-              <div className="bg-white shadow-sm rounded-lg border border-gray-100 overflow-hidden">
-                <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-                  <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-700">PENDING DOCUMENTS</h2>
-                  <a href="#" className="text-blue-600 text-sm hover:text-blue-700 font-medium">View All</a>
-                </div>
-                <Table columns={pendingDocColumns} data={pendingDocs} />
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              {/*  Upcoming Deadlines */}
-              <div className="bg-white shadow-sm rounded-lg border border-gray-100">
-                <div className="px-6 py-4 border-b border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                      📌
-                    </div>
-                    <h3 className="font-semibold text-sm text-gray-800">Upcoming Deadlines</h3>
+              <div className="bg-[#FBFBFB] shadow p-4 rounded max-w-6xl w-full">
+                <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
+                  <div>
+                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">PENDING DOCUMENTS</h2>
+                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                   </div>
+                  <button className="mr-4 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F]">
+                    View All
+                  </button>
                 </div>
-                <div className="p-4 space-y-3">
-                  
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        {pendingDocColumns.map((col) => (
+                          <th
+                            key={col.key}
+                            className="py-3 px-8 text-left font-semibold text-gray-700 text-xs"
+                          >
+                            {col.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingDocs.map((row, idx) => (
+                        <tr
+                          key={row.id || idx}
+                          className="border-b border-gray-100 hover:bg-gray-50"
+                        >
+                          {pendingDocColumns.map((col) => (
+                            <td key={col.key} className="py-3 px-8 text-gray-600 text-xs">
+                              {typeof col.render === "function"
+                                ? col.render(row)
+                                : row[col.key]}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+        {/* Upcoming Deadlines */}
+         <div className="space-y-6">
+            <div className="bg-white shadow-sm rounded-lg border border-gray-100">
+              <div className="px-6 py-4 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                    📌
+                  </div>
+                  <h3 className="font-semibold text-sm text-gray-800">Upcoming Deadlines</h3>
                 </div>
               </div>
 
-              {/* Doughnut Chart */}
-            
-
-
-
+              {/* Scrollable Upcoming Deadlines */}
+              <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+                {upcomingDeadlines.length > 0 ? (
+                  upcomingDeadlines.map((deadline) => (
+                    <div
+                      key={deadline.id}
+                      className="border border-gray-100 rounded-lg p-3 hover:shadow-sm transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-medium text-sm text-gray-800 flex-1">
+                          {deadline.title}
+                        </h4>
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(deadline.priority)}`}
+                        >
+                          {deadline.priority}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <CalendarDays className="w-3 h-3" />
+                          <span>{deadline.dueDate}</span>
+                        </div>
+                        <div className="text-xs text-gray-500">{deadline.department}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <Clock className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-400 text-sm">No upcoming deadlines</p>
+                  </div>
+                )}
+              </div>
             </div>
+          </div>
           </div>
         </main>
       </div>
