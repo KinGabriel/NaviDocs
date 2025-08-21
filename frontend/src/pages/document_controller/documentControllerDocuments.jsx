@@ -6,7 +6,7 @@ import useUser from "../../hooks/useUser";
 import usePagination from "../../hooks/usePagination";
 import Table from "../../components/table";
 import Dropdown from "../../components/dropdown";
-import SearchBar from "../../components/searchbar";
+import SearchBar from "../../components/searchBar";
 
 // Placeholder rows instead of real documents
 const PLACEHOLDER_DOCS = Array.from({ length: 8 }, (_, i) => ({
@@ -137,6 +137,7 @@ export default function DocumentControllerDocuments() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search..."
+                  width="w-40"
                 />
               </div>
             </div>
@@ -203,7 +204,7 @@ function StatusBadge({ type }) {
   const styles = {
     approved: "bg-green-50 text-green-700 border border-green-200",
     pending: "bg-yellow-50 text-yellow-700 border border-yellow-200",
-    returned: "bg-red-50 text-red-700 border border-red-200",
+    returned: "bg-orange-50 text-red-700 border border-red-200",
   };
   return (
     <span
@@ -217,7 +218,7 @@ function StatusBadge({ type }) {
             ? "bg-green-500"
             : status === "pending"
             ? "bg-yellow-500"
-            : "bg-red-500"
+            : "bg-orange-500"
         }`}
       />
       {type}

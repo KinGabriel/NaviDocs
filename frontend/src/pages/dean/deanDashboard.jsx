@@ -6,37 +6,37 @@ import Dropdown from "../../components/dropdown";
 import SearchBar from "../../components/searchBar"; 
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
-import { CalendarDays, Clock, FileText, AlertCircle } from "lucide-react";
+import { CalendarDays, Clock } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 export default function DeanDashboard() {
   const user = useUser();
 
-  function Table({ columns, data }) {
+  function Table({ columns, data, className = "" }) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <table className="min-w-full text-sm">
+      <div className={`overflow-x-auto ${className}`}>
+        <table className="w-full text-sm">
           <thead>
-            <tr className="bg-[#F4F6FF] border-b border-gray-200">
+            <tr className="bg-gray-100">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="py-4 px-6 text-left font-semibold text-gray-700 tracking-wide"
+                  className="py-3 px-8 text-left font-semibold text-gray-700 text-xs"
                 >
                   {col.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {data.map((row, idx) => (
               <tr
                 key={row.id || idx}
-                className="hover:bg-[#F4F6FF]/50 transition-colors duration-150"
+                className="border-b border-gray-100 hover:bg-gray-50"
               >
                 {columns.map((col) => (
-                  <td key={col.key} className="py-4 px-6 text-gray-600">
+                  <td key={col.key} className="py-3 px-8 text-gray-600 text-xs">
                     {typeof col.render === "function"
                       ? col.render(row)
                       : row[col.key]}
@@ -47,6 +47,32 @@ export default function DeanDashboard() {
           </tbody>
         </table>
       </div>
+    );
+  }
+
+  function StatusBadge({ type }) {
+    const status = String(type).toLowerCase();
+    const styles = {
+      approved: "bg-green-50 text-green-700 border border-green-200",
+      pending: "bg-yellow-50 text-yellow-700 border border-yellow-200", 
+      returned: "bg-orange-50 text-orange-700 border border-orange-200",
+    };
+    
+    const dotColors = {
+      approved: "bg-green-500", 
+      pending: "bg-yellow-500",  
+      returned: "bg-orange-500", 
+    };
+    
+    return (
+      <span
+        className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${
+          styles[status] || "bg-gray-50 text-gray-700 border border-gray-200"
+        }`}
+      >
+        <span className={`h-2 w-2 rounded-full ${dotColors[status] || "bg-gray-500"}`} />
+        {type}
+      </span>
     );
   }
 
@@ -112,15 +138,7 @@ export default function DeanDashboard() {
     {
       key: 'status',
       label: 'Status',
-      render: (row) => (
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-          row.status === "Approved" 
-            ? "bg-green-100 text-green-800 border-green-200" 
-            : "bg-red-100 text-red-800 border-red-200"
-        }`}>
-          {row.status}
-        </span>
-      )
+      render: (row) => <StatusBadge type={row.status} />
     }
   ];
 
@@ -185,12 +203,11 @@ export default function DeanDashboard() {
       department: "Administration",
     },
     {
-      id: 3,
+      id: 4,
       title: "Field Trip Agenda Review",
       dueDate: "2025-09-23",
       priority: "Upcoming",
       department: "BS Information Technology",
-    
     },
   ];
 
@@ -209,6 +226,37 @@ export default function DeanDashboard() {
     default:
       return "bg-gray-100 text-gray-600 border-gray-200";
     }
+  };
+
+  const chartData = {
+    labels: [
+      'Submission Rate','Approved Documents','Assigned Documents','Pending Documents','Returned Documents'
+    ],
+    datasets: [
+      {
+        data: [56, 36, 5, 7, 15, 5],
+        backgroundColor: ['#3B82F6','#10B981', '#6B7280' ,'#F59E0B', '#F97316'],
+        borderWidth: 0,
+        cutout: '60%',
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: 'white',
+        bodyColor: 'white',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+      },
+    },
   };
 
   return (
@@ -307,38 +355,7 @@ export default function DeanDashboard() {
                     View All
                   </button>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-100 rounded-lg">
-                        {documentColumns.map((col) => (
-                          <th
-                            key={col.key}
-                            className="py-3 px-8 text-left font-semibold text-gray-700 text-xs"
-                          >
-                            {col.label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {documents.map((row, idx) => (
-                        <tr
-                          key={row.id || idx}
-                          className="border-b border-gray-100 hover:bg-gray-50"
-                        >
-                          {documentColumns.map((col) => (
-                            <td key={col.key} className="py-3 px-8 text-gray-600 text-xs">
-                              {typeof col.render === "function"
-                                ? col.render(row)
-                                : row[col.key]}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table columns={documentColumns} data={documents} />
               </div>
 
               {/* Pending Documents Table */}
@@ -352,45 +369,14 @@ export default function DeanDashboard() {
                     View All
                   </button>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        {pendingDocColumns.map((col) => (
-                          <th
-                            key={col.key}
-                            className="py-3 px-8 text-left font-semibold text-gray-700 text-xs"
-                          >
-                            {col.label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingDocs.map((row, idx) => (
-                        <tr
-                          key={row.id || idx}
-                          className="border-b border-gray-100 hover:bg-gray-50"
-                        >
-                          {pendingDocColumns.map((col) => (
-                            <td key={col.key} className="py-3 px-8 text-gray-600 text-xs">
-                              {typeof col.render === "function"
-                                ? col.render(row)
-                                : row[col.key]}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table columns={pendingDocColumns} data={pendingDocs} />
               </div>
             </div>
 
         {/* Upcoming Deadlines */}
          <div className="space-y-6">
             <div className="bg-white shadow-sm rounded-lg border border-gray-100">
-              <div className="px-6 py-4 border-b border-gray-100">
+              <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
                     📌
@@ -400,7 +386,7 @@ export default function DeanDashboard() {
               </div>
 
               {/* Scrollable Upcoming Deadlines */}
-              <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+              <div className="p-4 space-y-3 max-h-78 overflow-y-auto">
                 {upcomingDeadlines.length > 0 ? (
                   upcomingDeadlines.map((deadline) => (
                     <div
@@ -434,7 +420,63 @@ export default function DeanDashboard() {
                 )}
               </div>
             </div>
-          </div>
+  
+            {/* Documents Summary Doughnut Chart - all placeholders */}
+              <div className="bg-white shadow-sm rounded-lg border border-gray-100">
+                <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
+                  <h3 className="font-semibold text-sm text-gray-800">DOCUMENTS SUMMARY</h3>
+                </div>
+                <div className="p-6">
+                  <div className="relative h-48 mb-4">
+                    <Doughnut data={chartData} options={chartOptions} />
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <span className="text-gray-600">Submission Rate</span>
+                      </div>
+                      <span className="font-medium text-gray-800">56</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span className="text-gray-600">Approved Documents</span>
+                      </div>
+                      <span className="font-medium text-gray-800">36</span>
+                    </div>
+                    {/* <div className="flex items-center justify-between text-sm">
+                      {/* <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <span className="text-gray-600">Filled-out Documents</span>
+                      // </div> 
+                      <span className="font-medium text-gray-800">15</span>
+                    </div> */}
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-gray-500"></div>
+                        <span className="text-gray-600">Assigned Documents</span>
+                      </div>
+                      <span className="font-medium text-gray-800">5</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <span className="text-gray-600">Pending Documents</span>
+                      </div>
+                      <span className="font-medium text-gray-800">7</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                        <span className="text-gray-600">Returned Documents</span>
+                      </div>
+                      <span className="font-medium text-gray-800">5</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </main>
       </div>

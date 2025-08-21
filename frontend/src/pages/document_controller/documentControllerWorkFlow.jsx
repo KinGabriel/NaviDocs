@@ -6,7 +6,7 @@ import useUser from "../../hooks/useUser";
 import usePagination from "../../hooks/usePagination";
 import Table from "../../components/table";
 import Dropdown from "../../components/dropdown";
-import SearchBar from "../../components/searchbar";
+import SearchBar from "../../components/searchBar";
 
 // --- placeholder docs (now with id) ---
 const PLACEHOLDER_DOCS = Array.from({ length: 20 }, (_, i) => ({
