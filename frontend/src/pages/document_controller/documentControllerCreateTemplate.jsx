@@ -63,6 +63,7 @@ export default function DocumentControllerCreateTemplate() {
   const { user } = useUser?.() ?? { user: null };
 
   const editorRef = useRef(null);
+  const [editorInstance, setEditorInstance] = useState(null);
   const headerH = useHeaderHeight(); // <-- dynamic header height
 
   // Template state
@@ -124,7 +125,10 @@ export default function DocumentControllerCreateTemplate() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleEditorReady = (editor) => { editorRef.current = editor; };
+  const handleEditorReady = (editor) => { 
+      editorRef.current = editor; 
+      setEditorInstance(editor);
+    };
 
   const handleSave = async () => {
     try {
@@ -173,15 +177,15 @@ export default function DocumentControllerCreateTemplate() {
       case "font":
         return (
           <FontPanel
-            editor={editorRef.current}
+            editor={editorInstance}
             fontSettings={fontSettings}
             onFontSettingsChange={setFontSettings}
           />
         );
       case "layout":
-        return <LayoutPanel editor={editorRef.current} />;
+        return <LayoutPanel editor={editorInstance} />;
       case "insert":
-        return <InsertPanel editor={editorRef.current} />;
+        return <InsertPanel editor={editorInstance} />;
       case "pagesetup":
         return (
           <PageSetupPanel

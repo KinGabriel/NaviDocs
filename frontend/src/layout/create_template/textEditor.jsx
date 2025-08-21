@@ -1,5 +1,5 @@
 // src/layout/create_template/textEditor.jsx
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
@@ -15,10 +15,13 @@ import TableCell from "@tiptap/extension-table-cell";
 import Image from "@tiptap/extension-image";
 
 // Core schema & behavior
-import DocumentPages from "../../extensions/template/DocumentPages";
-import Page from "../../extensions/template/Page";
-import AutoPaginator from "../../extensions/template/AutoPaginator";
-import BackspaceHandler from "../../extensions/template/BackspaceHandler";
+import DocumentPages from "../../extensions/textEditor/DocumentPages";
+import Page from "../../extensions/textEditor/Page";
+import AutoPaginator from "../../extensions/textEditor/AutoPaginator";
+import BackspaceHandler from "../../extensions/textEditor/BackspaceHandler";
+
+// NEW: font size attribute on textStyle
+import FontSize from "../../extensions/marks/FontSize";
 
 const inchToPx = (inches) => Math.round(inches * 96);
 const DEFAULT_SETUP = {
@@ -46,7 +49,7 @@ function computeDims(pageSetup) {
   };
 }
 
-// JSON fallback document (valid for doc=page+)
+// JSON fallback document
 const DEFAULT_DOC = {
   type: "doc",
   content: [{ type: "page", content: [{ type: "paragraph" }] }],
@@ -57,7 +60,6 @@ function normalizeInitialContent(content) {
   if (!content) return DEFAULT_DOC;
   if (typeof content !== "string") return content; // assume valid JSON doc
   if (/data-type\s*=\s*"nd-page"/i.test(content)) return content; // already wrapped
-  // Wrap inside a single page so the schema (doc=page+) is satisfied
   return `<section data-type="nd-page">${content}</section>`;
 }
 
@@ -74,9 +76,6 @@ export default function TextEditor({
     extensions: [
       DocumentPages,
       Page,
-      // Register our handlers BEFORE StarterKit's keymaps so we intercept first
-      BackspaceHandler,
-      AutoPaginator,
       StarterKit.configure({ document: false }),
       TextStyle,
       Color,
@@ -84,17 +83,20 @@ export default function TextEditor({
       Underline,
       Superscript,
       Subscript,
+      // NEW:
+      FontSize,
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
       TableCell,
       Image,
+      AutoPaginator,
+      BackspaceHandler,
     ],
     content: normalizeInitialContent(content),
     editorProps: { attributes: { class: "nd-editor" } },
     onCreate: ({ editor }) => {
       applyCssVars(dimsRef.current);
-      // Kick a reflow without reconfiguring plugins
       editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
       onEditorReady && onEditorReady(editor);
     },
@@ -146,11 +148,7 @@ export default function TextEditor({
         .nd-editor { outline: none; }
       `}</style>
       <div className="mx-auto my-6" style={{ maxWidth: `calc(var(--nd-page-width) + 4rem)` }}>
-        {editor ? (
-          <EditorContent editor={editor} className="prose max-w-none" />
-        ) : (
-          <div className="text-sm text-gray-500">Loading editor…</div>
-        )}
+        {editor ? <EditorContent editor={editor} className="prose max-w-none" /> : <div className="text-sm text-gray-500">Loading editor…</div>}
       </div>
     </div>
   );
