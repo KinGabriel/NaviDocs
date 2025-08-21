@@ -84,23 +84,35 @@ export default function DocumentControllerViewDocuments() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleDownload}
-                  className="inline-flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-4 py-2 rounded-lg shadow transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md shadow text-white bg-[#0035DA] hover:bg-[#043485] font-semibold transition-colors"
                 >
-                  Download as PDF
+                  {/* Download Icon */}
+                < svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
+                </svg>
+                Download as PDF
                 </button>
 
                 <button
                   onClick={handleEdit}
-                  className="inline-flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-4 py-2 rounded-lg shadow transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md shadow text-white bg-[#0035DA] hover:bg-[#043485] font-semibold transition-colors"
                 >
-                  Edit
+                  {/* Edit Icon */}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 11l6-6 3 3-6 6H9v-3z" />
+                </svg>
+                Edit
                 </button>
 
                 <button
                   onClick={handleUnpublish}
-                  className="inline-flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-4 py-2 rounded-lg shadow transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md shadow text-white bg-[#0035DA] hover:bg-[#043485] font-semibold transition-colors"
                 >
-                  Unpublish
+                  {/* Unpublish / Archive Icon */}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-6 4h8" />
+                </svg>
+                Unpublish
                 </button>
               </div>
             </div>

@@ -4,9 +4,13 @@ import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
 import usePagination from "../../hooks/usePagination";
+import Table from "../../components/table";
+import Dropdown from "../../components/dropdown";
+import SearchBar from "../../components/searchbar";
 
 // Placeholder rows instead of real documents
 const PLACEHOLDER_DOCS = Array.from({ length: 8 }, (_, i) => ({
+  id: i + 1,
   code: "DOC-XXX-000",
   rev: "--",
   eff: "---- -- --",
@@ -16,26 +20,39 @@ const PLACEHOLDER_DOCS = Array.from({ length: 8 }, (_, i) => ({
   status: i % 3 === 0 ? "Approved" : i % 3 === 1 ? "Pending" : "Returned",
 }));
 
+const STATUS_OPTIONS = ["All", "Approved", "Pending", "Returned"];
+const SORT_OPTIONS = ["Recent", "A–Z", "Z–A"];
+
 export default function DocumentControllerDocuments() {
   const user = useUser();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
-  const [sortBy, setSortBy] = useState("recent");
+  const [sortBy, setSortBy] = useState("Recent");
+  const [statusFilter, setStatusFilter] = useState("All");
 
+  // filter + search + sort
   const filtered = useMemo(() => {
     let rows = [...PLACEHOLDER_DOCS];
+
+    if (statusFilter !== "All") {
+      rows = rows.filter((r) => r.status === statusFilter);
+    }
+
     if (query.trim()) {
       const q = query.toLowerCase();
       rows = rows.filter((r) =>
         (r.code + r.title + r.createdBy).toLowerCase().includes(q)
       );
     }
-    if (sortBy === "az") rows.sort((a, b) => a.title.localeCompare(b.title));
-    if (sortBy === "za") rows.sort((a, b) => b.title.localeCompare(a.title));
-    return rows;
-  }, [query, sortBy]);
 
+    if (sortBy === "A–Z") rows.sort((a, b) => a.title.localeCompare(b.title));
+    if (sortBy === "Z–A") rows.sort((a, b) => b.title.localeCompare(a.title));
+    // "Recent" is a no-op for placeholders (no dates); backend can sort by updatedAt later
+    return rows;
+  }, [query, sortBy, statusFilter]);
+
+  // pagination
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const { currentPage, handlePrev, handleNext, handlePage, getPageNumbers } =
@@ -46,6 +63,37 @@ export default function DocumentControllerDocuments() {
     [filtered, currentPage]
   );
 
+  // table columns
+  const columns = [
+    { key: "code", label: "Document Code" },
+    { key: "rev", label: "Revision No." },
+    { key: "eff", label: "Effectivity" },
+    { key: "title", label: "Title" },
+    { key: "createdBy", label: "Created By" },
+    { key: "due", label: "Due Date" },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) => <StatusBadge type={row.status} />,
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <button
+          onClick={() =>
+            navigate(`/document-controller/documents/${row.id}`, {
+              state: { from: "documents", doc: row },
+            })
+          }
+          className="px-4 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+        >
+          View
+        </button>
+      ),
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
@@ -55,92 +103,46 @@ export default function DocumentControllerDocuments() {
           <main className="p-10 flex-1 overflow-y-auto">
             {/* Page Heading */}
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase ">DOCUMENTS</h1>
+              <h1 className="text-3xl font-bold tracking-widest uppercase">
+                DOCUMENTS
+              </h1>
               <div className="w-28 h-1 bg-yellow-400 mt-2 rounded" />
             </div>
 
-            {/* Controls */}
+            {/* Controls (use shared components) */}
             <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 mb-6">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-md shadow text-white bg-[#0035DA] hover:bg-[#043485] font-semibold transition-colors">
-                Filter by
-                <svg width="14" height="14" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-md shadow text-white bg-[#0035DA] hover:bg-[#043485] font-semibold transition-colors">
-                Sort by
-                <svg width="14" height="14" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
-              </button>
+              {/* Filter by Status */}
+              <Dropdown
+                options={STATUS_OPTIONS}
+                value={statusFilter}
+                onChange={setStatusFilter}
+                width="w-44"
+                label="Filter"
+                buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
+              />
 
-              <div className="flex-1 md:ml-auto">
-                <div className="relative w-full md:w-96">
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search..."
-                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 shadow-sm focus:ring-2 focus:ring-[#0035DA]"
-                  />
-                  <svg className="absolute left-3 top-2.5" width="18" height="18" viewBox="0 0 24 24">
-                    <path fill="#0035DA" d="M15.5 14h-.79l-.28-.27a6.471 6.471 0 001.48-4.23C15.91 6.01 12.9 3 9.45 3A6.46 6.46 0 003 9.45c0 3.45 3.01 6.46 6.45 6.46 1.61 0 3.09-.59 4.23-1.48l.27.28v.79l4.99 4.98L20.49 19 15.5 14zm-6.05 0C6.47 14 4 11.53 4 8.95S6.47 4 9.05 4 14.1 6.47 14.1 9.05 11.63 14 9.45 14z"/>
-                  </svg>
-                </div>
+              {/* Sort order */}
+              <Dropdown
+                options={SORT_OPTIONS}
+                value={sortBy}
+                onChange={setSortBy}
+                width="w-36"
+                label="Sort"
+                buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
+              />
+
+              {/* Search */}
+              <div className="flex-1 md:ml-auto w-full md:w-96">
+                <SearchBar
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search..."
+                />
               </div>
             </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-xl shadow border overflow-hidden">
-              <table className="w-full text-sm table-fixed">
-                <thead className="bg-gray-50">
-                  <tr className="text-left text-gray-600">
-                    <Th>Document Code</Th>
-                    <Th>Revision No.</Th>
-                    <Th>Effectivity</Th>
-                    <Th>Title</Th>
-                    <Th>Created By</Th>
-                    <Th>Due Date</Th>
-                    <Th>Status</Th>
-                    <Th className="text-right pr-4">Actions</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageRows.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={8}
-                        className="py-10 text-center text-gray-500"
-                      >
-                        No results.
-                      </td>
-                    </tr>
-                  )}
-                  {pageRows.map((r, idx) => (
-                    <tr key={idx} className="border-t hover:bg-gray-50">
-                      <Td className="text-blue-600 font-medium underline">
-                        {r.code}
-                      </Td>
-                      <Td>{r.rev}</Td>
-                      <Td>{r.eff}</Td>
-                      <Td className="max-w-[360px] truncate">{r.title}</Td>
-                      <Td>{r.createdBy}</Td>
-                      <Td>{r.due}</Td>
-                      <Td>
-                        <StatusBadge type={r.status} />
-                      </Td>
-                      <Td className="text-right pr-4">
-                        <button
-                        onClick={() =>
-                          navigate(`/document-controller/documents/${r.id}`, {
-                            state: { from: 'documents' },
-                          })
-                        }
-                          className="px-3 py-1.5 rounded border text-sm font-medium hover:bg-gray-100"
-                        >
-                          View
-                        </button>
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {/* Reusable Table */}
+            <Table columns={columns} data={pageRows} />
 
             {/* Pagination */}
             <div className="flex items-center justify-between mt-6 text-sm">
@@ -153,6 +155,7 @@ export default function DocumentControllerDocuments() {
               >
                 <span className="text-lg">←</span> Previous
               </button>
+
               <div className="flex items-center gap-1">
                 {getPageNumbers().map((n, idx) =>
                   n === "..." ? (
@@ -164,7 +167,9 @@ export default function DocumentControllerDocuments() {
                       key={n}
                       onClick={() => handlePage(n)}
                       className={`h-8 w-8 rounded-full grid place-items-center ${
-                        n === currentPage ? "bg-[#0035DA] text-white" : "hover:bg-gray-100"
+                        n === currentPage
+                          ? "bg-[#0035DA] text-white"
+                          : "hover:bg-gray-100"
                       }`}
                     >
                       {n}
@@ -172,6 +177,7 @@ export default function DocumentControllerDocuments() {
                   )
                 )}
               </div>
+
               <button
                 onClick={handleNext}
                 disabled={currentPage === totalPages}
@@ -191,22 +197,7 @@ export default function DocumentControllerDocuments() {
   );
 }
 
-function Th({ children, className = "" }) {
-  return (
-    <th
-      className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider ${className}`}
-    >
-      {children}
-    </th>
-  );
-}
-function Td({ children, className = "" }) {
-  return (
-    <td className={`px-4 py-3 align-top ${className}`}>
-      {children}
-    </td>
-  );
-}
+// Reusable status pill
 function StatusBadge({ type }) {
   const status = String(type).toLowerCase();
   const styles = {
