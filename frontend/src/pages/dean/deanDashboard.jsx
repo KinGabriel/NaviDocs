@@ -76,6 +76,17 @@ export default function DeanDashboard() {
     );
   }
 
+    function Greeting({ name }) {
+    return (
+        <div className="px-1 pt-2 mb-6">
+        <h2 className="text-4xl font-bold text-[#003DA5]">
+            Welcome back, {name}!
+        </h2>
+        <p className="text-m text-gray-500">Dashboard Overview</p>
+        </div>
+    );
+  }
+
   // School identifiers
   const schoolIdentifiers = {
     'University Wide': 'VAA',
@@ -266,11 +277,8 @@ export default function DeanDashboard() {
         <Sidebar user={user} active="Dashboard" />
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl ">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-[#003DA5] mt-5">Welcome back, Kyla!</h1>
-            <p className="text-gray-600">Dashboard Overview</p>
-          </div>
+         <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl ">
+          <Greeting name={user?.firstname || 'Department Head'} />
 
           {/* Stat cards and filters */}
           <div className="flex flex-wrap justify-between items-center mb-8">
