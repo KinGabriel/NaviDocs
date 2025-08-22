@@ -3,9 +3,11 @@ import Sidebar from '../../layout/sidebar';
 import useUser from '../../hooks/useUser';
 import { Folder, FileText, Plus, Filter, ArrowDownAZ } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function DocumentControllerStorage() {
   const user = useUser();
+  const navigate = useNavigate();
 
   const initialFolders = [
     { name: "SAMCIS Dean", date: "2024-01-10" },
@@ -27,13 +29,13 @@ export default function DocumentControllerStorage() {
   let displayedFolders = [...folders]
     .sort((a, b) => {
       if (filterLatest) {
-        return new Date(b.date) - new Date(a.date); // latest first
+        return new Date(b.date) - new Date(a.date); 
       }
       return 0;
     })
     .sort((a, b) => {
       if (sortAZ) {
-        return a.name.localeCompare(b.name); // A-Z sort
+        return a.name.localeCompare(b.name); 
       }
       return 0;
     });
@@ -59,7 +61,6 @@ export default function DocumentControllerStorage() {
         {/* Main Container */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           <div className="flex-1 p-10">
-            {/* Title + underline */}
             <h2 className="text-3xl font-semibold mb-2 tracking-wide">
               FILLED-OUT DOCUMENT STORAGE
             </h2>
@@ -127,14 +128,32 @@ export default function DocumentControllerStorage() {
             {/* Files */}
             <h3 className="text-lg font-semibold mb-3">Files</h3>
             {displayedFiles.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {displayedFiles.map((file, index) => (
                   <div
                     key={index}
-                    className="bg-gray-100 p-3 shadow-sm rounded-md border border-gray-300 hover:bg-gray-200 cursor-pointer"
+                    onClick={() => navigate('/document-controller/create-template')}
+                    className="group relative bg-white border border-gray-300 rounded-xl shadow-sm hover:shadow-md transition cursor-pointer"
                   >
-                    <FileText size={24} className="text-gray-600 mb-2" />
-                    <p className="text-sm font-medium text-gray-800">{file}</p>
+                    {/* Status pill (optional, static) */}
+                    <div className="absolute -top-2 right-3">
+                      <span className="px-2 py-0.5 text-xs rounded-full border bg-white text-gray-700">
+                        Draft
+                      </span>
+                    </div>
+
+                    <div className="h-40 flex items-center justify-center bg-gray-50 rounded-t-xl">
+                      <FileText className="w-10 h-10 text-gray-300" />
+                    </div>
+
+                    <div className="border-t px-3 py-3 rounded-b-xl">
+                      <p className="font-semibold text-sm text-gray-900 truncate">
+                        {file}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Filled-out document
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
