@@ -27,7 +27,6 @@ export default function DocumentControllerDashboard() {
     fetchDashboardInfo();
   }, []);
 
-  // loading animation
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -44,7 +43,6 @@ export default function DocumentControllerDashboard() {
     );
   }
 
-  // error state
   if (!dashboardInfo) {
     return (
       <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -68,16 +66,14 @@ export default function DocumentControllerDashboard() {
     );
   }
 
-  // Stats to display on the dashboard
   const stats = [
     { title: "Published Templates", value: dashboardInfo.countPublished ?? 0 },
     { title: "Submitted Templates", value: dashboardInfo.countPendingApproval ?? 0 },
     { title: "Approved Templates", value: dashboardInfo.countApproved ?? 0 },
   ];
 
-  // Define columns for Published Documents
+  // Define columns for Published Documents (ID removed)
   const publishedDocsColumns = [
-    { key: "id", label: "ID" }, 
     { key: "document_code", label: "Document Code" },
     { key: "revision_no", label: "Revision No." },
     { key: "effectivity", label: "Effectivity", render: (row) => row.effectivity || "N/A" },
@@ -101,10 +97,7 @@ export default function DocumentControllerDashboard() {
     },
   ];
 
-  const publishedDocs = (dashboardInfo.getPublishedTemplates || []).map((doc, index) => ({
-    ...doc,
-    id: index + 1, 
-  }));
+  const publishedDocs = dashboardInfo.getPublishedTemplates || [];
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -113,17 +106,14 @@ export default function DocumentControllerDashboard() {
         <Sidebar user={user} />
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           <main className="p-8 flex-1 overflow-y-auto">
-            {/* Greeting */}
             <Greeting name={user?.firstname || "Document Controller"} />
 
-            {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
               {stats.map((stat) => (
                 <StatCard key={stat.title} title={stat.title} value={stat.value} />
               ))}
             </div>
 
-            {/* Table Section */}
             <div className="mt-10 bg-[#f7faff] rounded-t-xl p-6">
               <div>
                 <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase">
