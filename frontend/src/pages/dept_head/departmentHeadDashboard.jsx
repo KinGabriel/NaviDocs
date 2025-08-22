@@ -1,0 +1,475 @@
+import React, { useState } from "react";
+import Header from "../../layout/header";
+import Sidebar from "../../layout/sidebar";
+import useUser from "../../hooks/useUser";
+import Dropdown from "../../components/dropdown";
+import SearchBar from "../../components/searchBar"; 
+import { Doughnut } from "react-chartjs-2";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
+import { CalendarDays, Clock } from "lucide-react";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
+
+export default function DepartmentHeadDashboard() {
+  const user = useUser();
+
+  function Table({ columns, data, className = "" }) {
+    return (
+      <div className={`overflow-x-auto ${className}`}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-100">
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className="py-3 px-8 text-left font-semibold text-gray-700 text-xs"
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row, idx) => (
+              <tr
+                key={row.id || idx}
+                className="border-b border-gray-100 hover:bg-gray-50"
+              >
+                {columns.map((col) => (
+                  <td key={col.key} className="py-3 px-8 text-gray-600 text-xs">
+                    {typeof col.render === "function"
+                      ? col.render(row)
+                      : row[col.key]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  function StatusBadge({ type }) {
+    const status = String(type).toLowerCase();
+    const styles = {
+      approved: "bg-green-50 text-green-700 border border-green-200",
+      pending: "bg-yellow-50 text-yellow-700 border border-yellow-200", 
+      returned: "bg-orange-50 text-orange-700 border border-orange-200",
+    };
+    
+    const dotColors = {
+      approved: "bg-green-500", 
+      pending: "bg-yellow-500",  
+      returned: "bg-orange-500", 
+    };
+    
+    return (
+      <span
+        className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${
+          styles[status] || "bg-gray-50 text-gray-700 border border-gray-200"
+        }`}
+      >
+        <span className={`h-2 w-2 rounded-full ${dotColors[status] || "bg-gray-500"}`} />
+        {type}
+      </span>
+    );
+  }
+
+  function Greeting({ name }) {
+    return (
+        <div className="px-1 pt-2 mb-6">
+        <h2 className="text-4xl font-bold text-[#003DA5]">
+            Welcome back, {name}!
+        </h2>
+        <p className="text-m text-gray-500">Dashboard Overview</p>
+        </div>
+    );
+  }
+
+  // School identifiers
+  const schoolIdentifiers = {
+    'University Wide': 'VAA',
+    'SAMCIS': 'SMI', 
+    'STELA': 'STL',
+  };
+
+  // Filtering and sorting states
+  const [selectedSchool, setSelectedSchool] = useState('All');
+  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [sortOrder, setSortOrder] = useState('Sort by');
+  const [search, setSearch] = useState('');
+
+  // still to be replaced with actual data fetching logic
+  const documents = [
+    { id: 1, code: "FM-SAA-002", rev: "00", date: "26-01-16", title: "Graphic Design Course Syllabi 26-27", createdBy: "Daniela Torres", status: "Approved" },
+    { id: 2, code: "FM-SAA-002", rev: "00", date: "26-01-16", title: "Web Technologies Course Syllabi 26-27", createdBy: "Sarah Dela Cruz", status: "Approved" },
+    { id: 3, code: "FM-SAA-002", rev: "00", date: "26-01-16", title: "Special Topics 1 Course Syllabi 26-27", createdBy: "Sarah Dela Cruz", status: "Approved" },
+    { id: 4, code: "FM-SAA-002", rev: "00", date: "26-01-16", title: "AI Course Syllabi 26-27", createdBy: "Mark Gomez", status: "Approved" },
+    { id: 5, code: "FM-SAA-002", rev: "00", date: "26-01-16", title: "Hospitality Course Syllabi 26-27", createdBy: "Jana Aquino", status: "Returned" },
+  ];
+
+  const pendingDocs = [
+    { id: 1, code: "FM-SAA-003", rev: "00", date: "26-01-16", title: "3D Modeling and Animation Course Syllabi 26-27", createdBy: "Mae Santos" },
+    { id: 2, code: "FM-SAA-001", rev: "00", date: "26-01-16", title: "Motion Graphics Design Course Syllabi 26-27", createdBy: "Mae Santos" },
+    { id: 3, code: "FM-SAA-006", rev: "00", date: "26-01-16", title: "Special Topics 2 Course Syllabi 26-27", createdBy: "Jennie Zhang" },
+    { id: 4, code: "FM-SAA-005", rev: "00", date: "26-01-16", title: "Current Trends 2 Course Syllabi 26-27", createdBy: "Candice Gomez" },
+    { id: 5, code: "FM-SAA-008", rev: "00", date: "26-01-16", title: "Hospitality Course Syllabi 26-27", createdBy: "Stacey Dixon" },
+    { id: 6, code: "FM-SAA-008", rev: "00", date: "26-01-16", title: "Illustration Course Syllabi 26-27", createdBy: "Nicole Bautista" },
+    { id: 7, code: "FM-SAA-009", rev: "00", date: "26-01-16", title: "Animation Course Syllabi 26-27", createdBy: "Clint Garcia" },
+  ];
+
+  const documentColumns = [
+    {
+      key: 'code',
+      label: 'Document Code',
+      render: (row) => (
+        <span className="text-xs text-gray-700">{row.code}</span>
+      )
+    },
+    {
+      key: 'rev',
+      label: 'Revision No.'
+    },
+    {
+      key: 'date',
+      label: 'Effectivity'
+    },
+    {
+      key: 'title',
+      label: 'Title',
+      render: (row) => (
+        <span className="max-w-xs truncate block">{row.title}</span>
+      )
+    },
+    {
+      key: 'createdBy',
+      label: 'Created By'
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (row) => <StatusBadge type={row.status} />
+    }
+  ];
+
+  const pendingDocColumns = [
+    {
+      key: 'code',
+      label: 'Document Code',
+      render: (row) => (
+        <span className="text-xs text-gray-700">{row.code}</span>
+      )
+    },
+    {
+      key: 'rev',
+      label: 'Revision No.'
+    },
+    {
+      key: 'date',
+      label: 'Effectivity'
+    },
+    {
+      key: 'title',
+      label: 'Title',
+      render: (row) => (
+        <span className="max-w-xs truncate block">{row.title}</span>
+      )
+    },
+    {
+      key: 'createdBy',
+      label: 'Created By'
+    },
+    {
+      key: 'action',
+      label: 'Action',
+      render: (row) => (
+        <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">
+          Review
+        </button>
+      )
+    }
+  ];
+
+  const upcomingDeadlines = [
+    {
+      id: 1,
+      title: "Course Syllabi Review",
+      dueDate: "2025-08-1",
+      priority: "Overdue",
+      department: "BS Computer Science",
+    },
+    {
+      id: 2,
+      title: "Faculty Performance Reports",
+      dueDate: "2025-08-21",
+      priority: "Due Today",
+      department: "BS Information Technology",
+    },
+    {
+      id: 3,
+      title: "Budget Allocation Review",
+      dueDate: "2025-08-23",
+      priority: "Due This Week",
+      department: "Administration",
+    },
+    {
+      id: 4,
+      title: "Field Trip Agenda Review",
+      dueDate: "2025-09-23",
+      priority: "Upcoming",
+      department: "BS Information Technology",
+    },
+  ];
+
+   const getPriorityColor = (priority) => {
+    switch (priority) {
+      case "Overdue":
+      return "bg-red-100 text-red-700 border-red-200";
+    case "Due Today":
+      return "bg-orange-100 text-orange-700 border-orange-200";
+    case "Due This Week":
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+    case "Upcoming":
+      return "bg-blue-100 text-blue-700 border-blue-200";
+    case "Future Deadline":
+      return "bg-green-100 text-green-700 border-green-200";
+    default:
+      return "bg-gray-100 text-gray-600 border-gray-200";
+    }
+  };
+
+  const chartData = {
+    labels: [
+      'Submission Rate','Approved Documents','Assigned Documents','Pending Documents','Returned Documents'
+    ],
+    datasets: [
+      {
+        data: [56, 36, 5, 7, 15, 5],
+        backgroundColor: ['#3B82F6','#10B981', '#6B7280' ,'#F59E0B', '#F97316'],
+        borderWidth: 0,
+        cutout: '60%',
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: 'white',
+        bodyColor: 'white',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+      },
+    },
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-200 flex flex-col">
+      <Header user={user} />
+      <div className="flex flex-1">
+        <Sidebar user={user} active="Dashboard" />
+
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl ">
+          <Greeting name={user?.firstname || 'Department Head'} />
+
+          {/* Stat cards and filters */}
+          <div className="flex flex-wrap justify-between items-center mb-8">
+            <div className="flex gap-4 flex-wrap mt-4">
+              {/* Faculty */}
+              <div className="bg-[#FBFBFB]  p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+                <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-black-600 text-base font-bold">Faculty</div>
+                  <div className="text-gray-500 text-xs">106 Members</div>
+                </div>
+              </div>
+
+               {/* Documents */}
+              <div className="bg-[#FBFBFB]  p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+                <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 256 256"><path fill="#fff" d="m213.66 66.34l-40-40A8 8 0 0 0 168 24H88a16 16 0 0 0-16 16v16H56a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h112a16 16 0 0 0 16-16v-16h16a16 16 0 0 0 16-16V72a8 8 0 0 0-2.34-5.66M136 192H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m0-32H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m64 24h-16v-80a8 8 0 0 0-2.34-5.66l-40-40A8 8 0 0 0 136 56H88V40h76.69L200 75.31Z"/></svg>
+                </div>
+                <div>
+                  <div className="text-black-600 text-base font-bold">Documents</div>
+                  <div className="text-gray-500 text-xs">3,564 Files</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              {/* School Filter */}
+              <Dropdown
+                options={["All", ...Object.keys(schoolIdentifiers)]}
+                value={selectedSchool}
+                onChange={setSelectedSchool}
+                width="w-50"
+              />
+
+              {/* Sort Order */}
+              <Dropdown
+                options={["A-Z", "Z-A"]}
+                value={sortOrder}
+                onChange={setSortOrder}
+                width="w-36"
+              />
+
+              {/* Search Bar */}
+              <div className="flex-1 flex justify-start m-1">
+                <div className="w-64">
+                  <SearchBar
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search templates..."
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-4 gap-6 flex-1">
+            <div className="col-span-3 space-y-6">
+              {/* Documents Table */}
+              <div className="bg-[#FBFBFB] shadow p-4 rounded max-w-6xl w-full">
+                <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
+                  <div>
+                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">DOCUMENTS</h2>
+                   <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                  </div>
+                  <button className=" mr-4 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] ">
+                    View All
+                  </button>
+                </div>
+                <Table columns={documentColumns} data={documents} />
+              </div>
+
+              {/* Pending Documents Table */}
+              <div className="bg-[#FBFBFB] shadow p-4 rounded max-w-6xl w-full">
+                <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
+                  <div>
+                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">PENDING DOCUMENTS</h2>
+                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                  </div>
+                  <button className="mr-4 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F]">
+                    View All
+                  </button>
+                </div>
+                <Table columns={pendingDocColumns} data={pendingDocs} />
+              </div>
+            </div>
+
+        {/* Upcoming Deadlines */}
+         <div className="space-y-6">
+            <div className="bg-white shadow-sm rounded-lg border border-gray-100">
+              <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                    📌
+                  </div>
+                  <h3 className="font-semibold text-sm text-gray-800">Upcoming Deadlines</h3>
+                </div>
+              </div>
+
+              {/* Scrollable Upcoming Deadlines */}
+              <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+                {upcomingDeadlines.length > 0 ? (
+                  upcomingDeadlines.map((deadline) => (
+                    <div
+                      key={deadline.id}
+                      className="border border-gray-100 rounded-lg p-3 hover:shadow-sm transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-medium text-sm text-gray-800 flex-1">
+                          {deadline.title}
+                        </h4>
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(deadline.priority)}`}
+                        >
+                          {deadline.priority}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <CalendarDays className="w-3 h-3" />
+                          <span>{deadline.dueDate}</span>
+                        </div>
+                        <div className="text-xs text-gray-500">{deadline.department}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <Clock className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-400 text-sm">No upcoming deadlines</p>
+                  </div>
+                )}
+              </div>
+            </div>
+  
+            {/* Documents Summary Doughnut Chart - all placeholders */}
+              <div className="bg-white shadow-sm rounded-lg border border-gray-100">
+                <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
+                  <h3 className="font-semibold text-sm text-gray-800">DOCUMENTS SUMMARY</h3>
+                </div>
+                <div className="p-6 h-105">
+                  <div className="relative h-48 mb-4">
+                    <Doughnut data={chartData} options={chartOptions} />
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <span className="text-gray-600">Submission Rate</span>
+                      </div>
+                      <span className="font-medium text-gray-800">56</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span className="text-gray-600">Approved Documents</span>
+                      </div>
+                      <span className="font-medium text-gray-800">36</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-gray-500"></div>
+                        <span className="text-gray-600">Assigned Documents</span>
+                      </div>
+                      <span className="font-medium text-gray-800">5</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <span className="text-gray-600">Pending Documents</span>
+                      </div>
+                      <span className="font-medium text-gray-800">7</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                        <span className="text-gray-600">Returned Documents</span>
+                      </div>
+                      <span className="font-medium text-gray-800">5</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
