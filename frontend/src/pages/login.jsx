@@ -44,6 +44,9 @@ export default function Login() {
       case 'Document Controller':
         navigate('/document-controller/dashboard');
         break;
+      case 'Department Head':
+        navigate('/dept-head/dashboard');
+        break;
       default:
         setError("Unknown role");
     }

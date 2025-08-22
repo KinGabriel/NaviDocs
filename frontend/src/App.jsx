@@ -26,6 +26,8 @@ import DeanDashboard from './pages/dean/deanDashboard';
 import DeanDocuments from './pages/dean/deanDocuments';
 import DeanViewDocuments from './pages/dean/deanViewDocuments';
 import DeanStatistics from './pages/dean/deanStatistics';
+import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
+import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics';
 
 /** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {
@@ -36,6 +38,7 @@ function LoginRoute() {
     if (role === "Document Controller") return <Navigate to="/document-controller/dashboard" replace />;
     if (role === "Secretary")           return <Navigate to="/secretary/dashboard" replace />;
     if (role === "Dean")                return <Navigate to="/dean/dashboard" replace />;
+    if (role === "Department Head")     return <Navigate to="/dept-head/dashboard" replace />;
   }
   return <Login />;
 }
@@ -226,11 +229,29 @@ function App() {
           }
         />
 
+        {/* Department Head Module */}
+        <Route
+          path="/dept-head/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Department Head"]}>
+              <DepartmentHeadDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dept-head/statistics"
+          element={
+            <ProtectedRoute allowedRoles={["Department Head"]}>
+              <DepartmentHeadStatistics />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Global */}
         <Route
           path="/account/settings"
           element={
-            <ProtectedRoute allowedRoles={["Admin","Document Controller","Secretary","Dean"]}>
+            <ProtectedRoute allowedRoles={["Admin","Document Controller","Secretary","Dean", "Department Head"]}>
               <AccountSettings />
             </ProtectedRoute>
           }
