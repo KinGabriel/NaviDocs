@@ -24,6 +24,7 @@ import SecretaryTemplates from './pages/secretary/secretaryTemplates';
 import SecretaryViewTemplates from './pages/secretary/secretaryViewTemplates';
 import DeanDashboard from './pages/dean/deanDashboard';
 import DeanDocuments from './pages/dean/deanDocuments';
+import DeanViewDocuments from './pages/dean/deanViewDocuments';
 import DeanStatistics from './pages/dean/deanStatistics';
 
 /** Redirect logged-in users by role; otherwise show Login */
@@ -205,6 +206,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["Dean"]}>
               <DeanDocuments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dean/documents/:id"
+          element={
+            <ProtectedRoute allowedRoles={["Dean"]}>
+              <DeanViewDocuments />
             </ProtectedRoute>
           }
         />
