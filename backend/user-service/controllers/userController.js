@@ -27,7 +27,7 @@ export const getUserBasicInfo = async (req, res) => {
 
 /**
  * Update a user's password by user ID.
- * @route PUT /api/user/updatePassword/:id
+ * @route PATCH /api/user/updatePassword/:id
  * @access Private
  * @param {Object} req - Express request object (expects params.id and body.newPassword)
  * @param {Object} res - Express response object
@@ -64,7 +64,7 @@ export const updateUserPassword = async (req, res) => {
 
 /**
  * Update a user's account settings (firstname, lastname) by user ID.
- * @route PUT /api/user/updateAccountSettings/:id
+ * @route PATCH /api/user/updateAccountSettings/:id
  * @access Private
  * @param {Object} req - Express request object (expects params.id and body.firstname, body.lastname)
  * @param {Object} res - Express response object

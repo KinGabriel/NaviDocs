@@ -21,7 +21,7 @@ const upload = multer({
 });
 
 router.get('/getUserInfo/:id', authenticateJWT, getUserBasicInfo);
-router.put('/updatePassword/:id', authenticateJWT, updateUserPassword);
-router.put('/updateAccountSettings/:id', authenticateJWT, upload.single('profile_picture'), updateUserAccountSettings);
+router.patch('/updatePassword/:id', authenticateJWT, updateUserPassword);
+router.patch('/updateAccountSettings/:id', authenticateJWT, upload.single('profile_picture'), updateUserAccountSettings);
 
 export default router;

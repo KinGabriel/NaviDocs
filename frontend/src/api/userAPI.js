@@ -7,7 +7,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
  * @param {object} payload { firstname, lastname, profile_picture }
  */
 export async function updateAccountSettingsAPI(userId, payload) {
-	return axios.put(
+	return axios.patch(
 		`${API_URL}/api/user/updateAccountSettings/${userId}`,
 		payload,
 		{
@@ -22,7 +22,7 @@ export async function updateAccountSettingsAPI(userId, payload) {
  * @param {string} newPassword
  */
 export async function updateUserPasswordAPI(userId, newPassword) {
-	return axios.put(
+	return axios.patch(
 		`${API_URL}/api/user/updatePassword/${userId}`,
 		{ newPassword },
 		{
