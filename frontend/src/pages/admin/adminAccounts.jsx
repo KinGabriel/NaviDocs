@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchUsersAccountsAPI,archiveUserAccountAPI } from "../../api/adminAPI";
+import { fetchUsersAccountsAPI,archiveUserAccountAPI,unarchiveUserAccountAPI } from "../../api/adminAPI";
 import useUser from '../../hooks/useUser';
 import Sidebar from '../../layout/sidebar';
 import Header from '../../layout/header';
@@ -20,17 +20,26 @@ export default function AdminAccounts() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
   // Handle delete (archive) user
-  const handleDelete = async (userId) => {
+  const handleArchive = async (userId) => {
     // TO DO: SET THIS AS MODAL
     if (!window.confirm("Are you sure you want to archive this user?")) return; 
-    setDeletingId(userId);
     try {
       await archiveUserAccountAPI(userId);
-      setUsers((prev) => prev.filter((u) => u._id !== userId));
+      setUsers((prev) => prev.map((u) => u._id === userId ? { ...u, is_deleted: true } : u));
     } catch (err) {
       alert(err.message || "Failed to archive user.");
-    } finally {
-      setDeletingId(null);
+    } 
+  };
+
+    // Handle unarchive user
+  const handleUnarchive = async (userId) => {
+    // TO DO: SET THIS AS MODAL
+    if (!window.confirm("Are you sure you want to unarchive this user?")) return;
+    try {
+      await unarchiveUserAccountAPI(userId);
+      setUsers((prev) => prev.map((u) => u._id === userId ? { ...u, is_deleted: false } : u));
+    } catch (err) {
+      alert(err.message || "Failed to unarchive user.");
     }
   };
 
@@ -65,12 +74,21 @@ const columns = [
         <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">
           Edit
         </button>
-        <button
-          className="bg-red-100 text-red-500 px-4 py-1 rounded text-xs font-semibold hover:bg-red-200"
-          onClick={() => handleDelete(row._id)}
-        >
-          Archive
-        </button>
+        {row.is_deleted ? (
+          <button
+            className="bg-green-100 text-green-700 px-4 py-1 rounded text-xs font-semibold hover:bg-green-200"
+            onClick={() => handleUnarchive(row._id)}
+          >
+            Unarchive
+          </button>
+        ) : (
+          <button
+            className="bg-red-100 text-red-500 px-4 py-1 rounded text-xs font-semibold hover:bg-red-200"
+            onClick={() => handleArchive(row._id)}
+          >
+            Archive
+          </button>
+        )}
       </div>
     ),
   },

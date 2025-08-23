@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { createUser, getUsers, getDashboardInfo,archiveUser } from "../controllers/adminController.js";
+import { createUser, getUsers, getDashboardInfo,archiveUser,unarchiveUser } from "../controllers/adminController.js";
 import { authenticateJWT } from "../middleware/authenticationMiddleware.js"; 
 import { authorizeAdmin } from "../middleware/authorizationMiddleware.js";
 
@@ -47,6 +47,10 @@ router.patch("/archive-user/:id",
   archiveUser
 );
 
-
+router.patch("/unarchive-user/:id", 
+  authenticateJWT, 
+  authorizeAdmin, 
+  unarchiveUser
+);
 
 export default router;

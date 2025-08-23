@@ -88,3 +88,22 @@ export const archiveUserAccountAPI = async (userId) => {
     throw new Error(error.response?.data?.message || "Failed to archive user account.");
   }
 };
+
+/**
+ * unarchive a user account 
+ * @param {string} userId - The ID of the user to unarchive.
+ * @returns {Promise<Object>} - Resolves to the unarchived user account data.
+ * @throws {Error} - Throws an error if the request fails.
+ */
+export const unarchiveUserAccountAPI = async (userId) => {
+  try {
+    const res = await axios.patch(
+      `${API_URL}/api/admin/archive-user/${userId}`,
+      {},
+      { withCredentials: true }
+    );
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Failed to archive user account.");
+  }
+};
