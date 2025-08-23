@@ -7,7 +7,7 @@ import Dropdown from "../../components/dropdown";
 import SearchBar from "../../components/searchBar";
 import usePagination from "../../hooks/usePagination";
 import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
-import { formatDate } from '../../utils/formatters';
+import { formatDate,StatusBadge } from '../../utils/formatters.jsx';
 import Loader from '../../components/loader';
 import { useNavigate } from "react-router-dom"; 
 
@@ -23,14 +23,15 @@ export default function SecretaryTemplates() {
   const [sortOrder, setSortOrder] = useState("Recent");
   const PAGE_SIZE = 10;
   const pagination = usePagination(totalPages, 1);
-  const tabs = ["All", "Pending Approvals", "Approved", "On Going", "Late"];
+  const tabs = ["All","Published", "Pending Approvals", "Approved", "On Going", "Late"];
   const navigate = useNavigate();
 
   // Map tabs to status values for API
   const tabToStatus = {
     "Pending Approvals": "Pending Approval",
     "Approved": "Approved",
-    "On Going": "Draft"
+    "On Going": "Draft",
+    "Published": "Published"
   };
 
   // Fetch templates from API
@@ -107,6 +108,32 @@ export default function SecretaryTemplates() {
       return "-";
     } },
     { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDate(row.deadline) : "No Deadline set" },
+    {
+      key: "status",
+      label: "Status",
+      render: row => {
+        const now = new Date();
+        let type = "-";
+        if (row.status === "approved") type = "Approved";
+        else if (row.status === "pending") type = "Pending";
+        else if (row.status === "draft") {
+          if (row.deadline) {
+            const deadlineDate = new Date(row.deadline);
+            if (!isNaN(deadlineDate.getTime()) && deadlineDate < now) {
+              type = "Late";
+            } else {
+              type = "OnGoing";
+            }
+          } else {
+            type = "OnGoing";
+          }
+        }
+        else if (row.status === "published") {
+          type = "Published";
+        }
+        return <StatusBadge type={type} />;
+      }
+    },
     {
       key: "actions",
       label: "Actions",

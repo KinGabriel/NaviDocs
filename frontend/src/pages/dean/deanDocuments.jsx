@@ -7,6 +7,7 @@ import usePagination from "../../hooks/usePagination";
 import Table from "../../components/table";
 import Dropdown from "../../components/dropdown";
 import SearchBar from "../../components/searchBar";
+import { StatusBadge } from "../../utils/formatters.jsx";
 
 const DEAN_DOCS = Array.from({ length: 8 }, (_, i) => ({
   id: i + 1,
@@ -143,17 +144,3 @@ export default function DeanDocuments() {
   );
 }
 
-function StatusBadge({ type }) {
-  const status = String(type).toLowerCase();
-  const styles = {
-    approved: "bg-green-50 text-green-700 border border-green-200",
-    pending: "bg-yellow-50 text-yellow-700 border border-yellow-200",
-    returned: "bg-orange-50 text-red-700 border border-red-200",
-  };
-  return (
-    <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${styles[status]||''}`}>
-      <span className={`h-2 w-2 rounded-full ${status==='approved'?'bg-green-500':status==='pending'?'bg-yellow-500':'bg-orange-500'}`}/>
-      {type}
-    </span>
-  );
-}
