@@ -27,243 +27,271 @@ import DeanDocuments from './pages/dean/deanDocuments';
 import DeanViewDocuments from './pages/dean/deanViewDocuments';
 import DeanStatistics from './pages/dean/deanStatistics';
 import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
+import DepartmentHeadDocuments from './pages/dept_head/departmentHeadDocuments';
+import DepartmentHeadViewDocuments from './pages/dept_head/departmentHeadViewDocuments';
 import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics';
+
 
 /** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {
-  const user = useUser();
-  if (user) {
-    const role = user.role?.name;
-    if (role === "Admin")               return <Navigate to="/admin/dashboard" replace />;
-    if (role === "Document Controller") return <Navigate to="/document-controller/dashboard" replace />;
-    if (role === "Secretary")           return <Navigate to="/secretary/dashboard" replace />;
-    if (role === "Dean")                return <Navigate to="/dean/dashboard" replace />;
-    if (role === "Department Head")     return <Navigate to="/dept-head/dashboard" replace />;
-  }
-  return <Login />;
+ const user = useUser();
+ if (user) {
+   const role = user.role?.name;
+   if (role === "Admin")               return <Navigate to="/admin/dashboard" replace />;
+   if (role === "Document Controller") return <Navigate to="/document-controller/dashboard" replace />;
+   if (role === "Secretary")           return <Navigate to="/secretary/dashboard" replace />;
+   if (role === "Dean")                return <Navigate to="/dean/dashboard" replace />;
+   if (role === "Department Head")     return <Navigate to="/dept-head/dashboard" replace />;
+ }
+ return <Login />;
 }
+
 
 function App() {
-  return(
-    <Router>
-      <Routes>
-        <Route path="/" element={<LoginRoute />} />
-        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-        <Route path="/document-controller" element={<Navigate to="/document-controller/dashboard" replace />} />
+ return(
+   <Router>
+     <Routes>
+       <Route path="/" element={<LoginRoute />} />
+       <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+       <Route path="/document-controller" element={<Navigate to="/document-controller/dashboard" replace />} />
 
-        {/* Admin Module */}
-        <Route
-          path="/admin/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["Admin"]}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/accounts"
-          element={
-            <ProtectedRoute allowedRoles={["Admin"]}>
-              <AdminAccounts />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/create-user"
-          element={
-            <ProtectedRoute allowedRoles={["Admin"]}>
-              <CreateUser />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/edit-user/:id"
-          element={
-            <ProtectedRoute allowedRoles={["Admin"]}>
-              <AdminEditUser />
-            </ProtectedRoute>
-          }
-        />
 
-        {/* Document Controller Module */}
-        <Route
-          path="/document-controller/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["Document Controller"]}>
-              <DocumentControllerDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/document-controller/templates"
-          element={
-            <ProtectedRoute allowedRoles={["Document Controller"]}>
-              <DocumentControllerTemplates />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/document-controller/create-template"
-          element={
-            <ProtectedRoute allowedRoles={["Document Controller"]}>
-              <DocumentControllerCreateTemplate />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/document-controller/statistics"
-          element={
-            <ProtectedRoute allowedRoles={["Document Controller"]}>
-              <DocumentControllerStatistics />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/document-controller/document-workflow"
-          element={
-            <ProtectedRoute allowedRoles={["Document Controller"]}>
-              <DocumentControllerWorkFlow />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/document-controller/storage"
-          element={
-            <ProtectedRoute allowedRoles={["Document Controller"]}>
-              <DocumentControllerStorage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/document-controller/documents"
-          element={
-            <ProtectedRoute allowedRoles={["Document Controller"]}>
-              <DocumentControllerDocuments />
-            </ProtectedRoute> 
-          }
-        />
+       {/* Admin Module */}
+       <Route
+         path="/admin/dashboard"
+         element={
+           <ProtectedRoute allowedRoles={["Admin"]}>
+             <AdminDashboard />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/admin/accounts"
+         element={
+           <ProtectedRoute allowedRoles={["Admin"]}>
+             <AdminAccounts />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/admin/create-user"
+         element={
+           <ProtectedRoute allowedRoles={["Admin"]}>
+             <CreateUser />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/admin/edit-user/:id"
+         element={
+           <ProtectedRoute allowedRoles={["Admin"]}>
+             <AdminEditUser />
+           </ProtectedRoute>
+         }
+       />
 
-        {/* View pages should also be protected */}
-        <Route
-          path="/document-controller/documents/:id"
-          element={
-            <ProtectedRoute allowedRoles={["Document Controller"]}>
-              <DocumentControllerViewDocuments />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/document-controller/document-workflow/:id"
-          element={
-            <ProtectedRoute allowedRoles={["Document Controller"]}>
-              <DocumentControllerViewDocuments />
-            </ProtectedRoute>
-          }
-        />
 
-        {/* Secretary Module */}
-        <Route
-          path="/secretary/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["Secretary"]}>
-              <SecretaryDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/secretary/templates"
-          element={
-            <ProtectedRoute allowedRoles={["Secretary"]}>
-              <SecretaryTemplates />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/secretary/settings"
-          element={
-            <ProtectedRoute allowedRoles={["Secretary"]}>
-              <AccountSettings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/secretary/templates/:id"
-          element={
-            <ProtectedRoute allowedRoles={["Secretary"]}>
-              <SecretaryViewTemplates />
-            </ProtectedRoute>
-          }
-        />
+       {/* Document Controller Module */}
+       <Route
+         path="/document-controller/dashboard"
+         element={
+           <ProtectedRoute allowedRoles={["Document Controller"]}>
+             <DocumentControllerDashboard />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/document-controller/templates"
+         element={
+           <ProtectedRoute allowedRoles={["Document Controller"]}>
+             <DocumentControllerTemplates />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/document-controller/create-template"
+         element={
+           <ProtectedRoute allowedRoles={["Document Controller"]}>
+             <DocumentControllerCreateTemplate />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/document-controller/statistics"
+         element={
+           <ProtectedRoute allowedRoles={["Document Controller"]}>
+             <DocumentControllerStatistics />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/document-controller/document-workflow"
+         element={
+           <ProtectedRoute allowedRoles={["Document Controller"]}>
+             <DocumentControllerWorkFlow />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/document-controller/storage"
+         element={
+           <ProtectedRoute allowedRoles={["Document Controller"]}>
+             <DocumentControllerStorage />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/document-controller/documents"
+         element={
+           <ProtectedRoute allowedRoles={["Document Controller"]}>
+             <DocumentControllerDocuments />
+           </ProtectedRoute>
+         }
+       />
 
-        {/* Dean Module */}
-        <Route
-          path="/dean/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["Dean"]}>
-              <DeanDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dean/documents"
-          element={
-            <ProtectedRoute allowedRoles={["Dean"]}>
-              <DeanDocuments />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dean/documents/:id"
-          element={
-            <ProtectedRoute allowedRoles={["Dean"]}>
-              <DeanViewDocuments />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dean/statistics"
-          element={
-            <ProtectedRoute allowedRoles={["Dean"]}>
-              <DeanStatistics />
-            </ProtectedRoute>
-          }
-        />
 
-        {/* Department Head Module */}
-        <Route
-          path="/dept-head/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["Department Head"]}>
-              <DepartmentHeadDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dept-head/statistics"
-          element={
-            <ProtectedRoute allowedRoles={["Department Head"]}>
-              <DepartmentHeadStatistics />
-            </ProtectedRoute>
-          }
-        />
+       {/* View pages should also be protected */}
+       <Route
+         path="/document-controller/documents/:id"
+         element={
+           <ProtectedRoute allowedRoles={["Document Controller"]}>
+             <DocumentControllerViewDocuments />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/document-controller/document-workflow/:id"
+         element={
+           <ProtectedRoute allowedRoles={["Document Controller"]}>
+             <DocumentControllerViewDocuments />
+           </ProtectedRoute>
+         }
+       />
 
-        {/* Global */}
-        <Route
-          path="/account/settings"
-          element={
-            <ProtectedRoute allowedRoles={["Admin","Document Controller","Secretary","Dean", "Department Head"]}>
-              <AccountSettings />
-            </ProtectedRoute>
-          }
-        />
-        
-        {/* Error Pages */}
-        <Route path="*" element={<NotFoundPage />} />
-        <Route path="/server-error" element={<ServerErrorPage />} />
-        <Route path="/unauthorized" element={<UnauthorizedPage />} />
-      </Routes>
-    </Router>
-  )
+
+       {/* Secretary Module */}
+       <Route
+         path="/secretary/dashboard"
+         element={
+           <ProtectedRoute allowedRoles={["Secretary"]}>
+             <SecretaryDashboard />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/secretary/templates"
+         element={
+           <ProtectedRoute allowedRoles={["Secretary"]}>
+             <SecretaryTemplates />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/secretary/settings"
+         element={
+           <ProtectedRoute allowedRoles={["Secretary"]}>
+             <AccountSettings />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/secretary/templates/:id"
+         element={
+           <ProtectedRoute allowedRoles={["Secretary"]}>
+             <SecretaryViewTemplates />
+           </ProtectedRoute>
+         }
+       />
+
+
+       {/* Dean Module */}
+       <Route
+         path="/dean/dashboard"
+         element={
+           <ProtectedRoute allowedRoles={["Dean"]}>
+             <DeanDashboard />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/dean/documents"
+         element={
+           <ProtectedRoute allowedRoles={["Dean"]}>
+             <DeanDocuments />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/dean/documents/:id"
+         element={
+           <ProtectedRoute allowedRoles={["Dean"]}>
+             <DeanViewDocuments />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/dean/statistics"
+         element={
+           <ProtectedRoute allowedRoles={["Dean"]}>
+             <DeanStatistics />
+           </ProtectedRoute>
+         }
+       />
+
+
+       {/* Department Head Module */}
+       <Route
+         path="/dept-head/dashboard"
+         element={
+           <ProtectedRoute allowedRoles={["Department Head"]}>
+             <DepartmentHeadDashboard />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/dept-head/documents"
+         element={
+           <ProtectedRoute allowedRoles={["Department Head"]}>
+             <DepartmentHeadDocuments />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/dept-head/documents/:id"
+         element={
+           <ProtectedRoute allowedRoles={["Department Head"]}>
+             <DepartmentHeadViewDocuments />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/dept-head/statistics"
+         element={
+           <ProtectedRoute allowedRoles={["Department Head"]}>
+             <DepartmentHeadStatistics />
+           </ProtectedRoute>
+         }
+       />
+
+
+       {/* Global */}
+       <Route
+         path="/account/settings"
+         element={
+           <ProtectedRoute allowedRoles={["Admin","Document Controller","Secretary","Dean", "Department Head"]}>
+             <AccountSettings />
+           </ProtectedRoute>
+         }
+       />
+      
+       {/* Error Pages */}
+       <Route path="*" element={<NotFoundPage />} />
+       <Route path="/server-error" element={<ServerErrorPage />} />
+       <Route path="/unauthorized" element={<UnauthorizedPage />} />
+     </Routes>
+   </Router>
+ )
 }
+
 
 export default App;
