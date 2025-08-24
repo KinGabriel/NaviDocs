@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { normalizeName, canSaveUser, validateUserRoleFields } from "../../utils/validations";
 import Header from '../../layout/header';
 import Sidebar from '../../layout/sidebar';
 import useUser from '../../hooks/useUser';
@@ -59,33 +60,18 @@ export default function CreateUser() {
 
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [modalMessage, setModalMessage] = useState(null);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertType, setAlertType] = useState("error"); // 'success' or 'error'
 
-  const formatName = (name) => {
-    return name
-      .split(' ')
-      .filter(Boolean)
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     let newValue = value;
 
     if (name === 'firstname' || name === 'lastname') {
-      newValue = newValue.replace(/^\s+/, '');
-      newValue = newValue.replace(/[^a-zA-Z\s]/g, '');
-      newValue = newValue.replace(/\s{2,}/g, ' ');
-
-      newValue = newValue
-        .split(' ')
-        .map(word =>
-          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-        )
-        .join(' ');
-
+      // Allow only letters, spaces, and apostrophes when typing
+      newValue = newValue.replace(/[^a-zA-Z\s']/g, '');
+      // Do not normalize here, just filter
       if (!newValue.trim()) {
         setErrors(prev => ({ ...prev, [name]: `${name === 'firstname' ? 'First' : 'Last'} name is required.` }));
       } else {
@@ -111,8 +97,7 @@ export default function CreateUser() {
   const handleBlur = (e) => {
     const { name, value } = e.target;
     if ((name === 'firstname' || name === 'lastname') && value.trim()) {
-      const formatted = formatName(value);
-      setFormData(prev => ({ ...prev, [name]: formatted }));
+      setFormData(prev => ({ ...prev, [name]: normalizeName(value) }));
     }
   };
 
@@ -131,26 +116,23 @@ export default function CreateUser() {
     });
     setErrors({ firstname: '', lastname: '', email: '' });
     setImage(null);
-    setModalMessage(null);
+    setAlertMessage("");
   };
+
+  // Role-based required fields validation
+  const { valid: extraValid, error: extraError } = validateUserRoleFields(formData);
+  const isFormValid = canSaveUser({ ...formData, role: formData.role }) && !errors.firstname && !errors.lastname && !errors.email && extraValid;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (errors.firstname || errors.lastname || errors.email) {
-      setModalMessage("Please correct the errors before submitting.");
-      setIsSuccess(false);
-      return;
-    }
-
-    if (!formData.role.name) {
-      setModalMessage("Please select a role.");
-      setIsSuccess(false);
+    if (!isFormValid) {
+      setAlertMessage("Please correct the errors before submitting and ensure all required fields are filled.");
+      setAlertType("error");
       return;
     }
 
     setLoading(true);
-    setModalMessage(null);
+    setAlertMessage("");
 
     const data = new FormData();
     data.append('firstname', formData.firstname);
@@ -161,19 +143,20 @@ export default function CreateUser() {
     data.append('role', JSON.stringify(formData.role));
     if (image) data.append('profile_picture', image);
 
-   try {
+    try {
       // Use the API function instead of direct fetch
       const result = await createUserAccountAPI(data);
-      
       setLoading(false);
-      setIsSuccess(true);
-      setModalMessage(result.message || 'User created successfully');
       handleClear();
-      
+      setAlertType("success");
+      setAlertMessage('User created successfully');
+      setTimeout(() => {
+        setAlertMessage("");
+      }, 5000);
     } catch (error) {
       setLoading(false);
-      setIsSuccess(false);
-      setModalMessage(error.message || 'Failed to create user');
+      setAlertType("error");
+      setAlertMessage(error.message || 'Failed to create user');
       console.error('Create user error:', error);
     }
   };
@@ -190,11 +173,17 @@ export default function CreateUser() {
           <div className="bg-white rounded-xl shadow-lg p-10">
             <h2 className="text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">Create New User</h2>
             <div className="w-25 h-1 bg-yellow-500 mb-8"></div>
-            {modalMessage && (
-              <div className={`p-4 mb-6 text-sm font-medium rounded-lg ${isSuccess ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'}`}>
-                {modalMessage}
+            {(alertMessage && alertType === 'success') && (
+              <div className="mb-6 p-3 rounded border border-green-200 bg-green-50 text-green-700 text-base w-full transition-opacity duration-300">
+                {alertMessage}
               </div>
             )}
+            {(alertMessage && alertType === 'error') && (
+              <div className="mb-6 p-3 rounded border border-red-200 bg-red-50 text-red-700 text-base w-full transition-opacity duration-300">
+                {alertMessage}
+              </div>
+            )}
+           
 
             {loading ? (
               <Loader message="Submitting..." />
@@ -319,7 +308,7 @@ export default function CreateUser() {
 
                   <div className="flex justify-end gap-4">
                     <button type="button" onClick={handleClear} className="px-6 py-2 bg-gray-400 text-white rounded hover:bg-gray-500">Clear</button>
-                    <button type="submit" className="px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800">Add User</button>
+                    <button type="submit" className="px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 disabled:opacity-50" disabled={!isFormValid || loading}>Add User</button>
                   </div>
                 </form>
               </div>

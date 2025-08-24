@@ -1,5 +1,5 @@
-// src/pages/admin/adminEditUser.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import { normalizeName, canSaveUser, validateUserRoleFields } from "../../utils/validations";
 import { useParams } from "react-router-dom";
 import { fetchUserAccountByIdAPI } from "../../api/adminAPI";
 import Header from "../../layout/header";
@@ -40,11 +40,11 @@ const DEPARTMENT_OPTIONS = {
 
 const YEAR_OPTIONS = ["—", "1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
 
+
 export default function AdminEditUser() {
   const { id } = useParams();
   const user = useUser();
   const navigate = useNavigate();
-
 
   // --- form state ---
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -61,6 +61,9 @@ export default function AdminEditUser() {
   });
   const [loadingUser, setLoadingUser] = useState(true);
   const [errorUser, setErrorUser] = useState(null);
+  // Alert state for feedback
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertType, setAlertType] = useState("error"); // 'success' or 'error'
 
   // Fetch user details by id from URL
   useEffect(() => {
@@ -88,26 +91,9 @@ export default function AdminEditUser() {
       .finally(() => setLoadingUser(false));
   }, [id]);
 
-
-
-  // helpers
-  const normalizeName = (val) =>
-    val
-      .replace(/^\s+/, "")
-      .replace(/[^a-zA-Z\s]/g, "")
-      .replace(/\s{2,}/g, " ")
-      .split(" ")
-      .filter(Boolean)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(" ");
-
-  const canSave = useMemo(() => {
-    const emailOk =
-      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|mil|biz|info|io|co|ph)$/i.test(
-        form.email
-      );
-    return form.firstname.trim() && form.lastname.trim() && emailOk && form.role.name;
-  }, [form]);
+  const { valid: extraValid, error: extraError } = validateUserRoleFields(form);
+  const canSave = useMemo(() => canSaveUser(form) && extraValid, [form, extraValid]);
+  const [saveAttempted, setSaveAttempted] = useState(false);
 
   const handleInput = (e) => {
     const { name, value } = e.target;
@@ -144,12 +130,23 @@ export default function AdminEditUser() {
     setPhotoPreview(null);
   };
 
+
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!canSave) return;
+    setSaveAttempted(true);
+    if (!canSave) {
+      setAlertType("error");
+      setAlertMessage(extraError ? extraError : "Fill all required fields before saving.");
+      return;
+    }
     // TODO: plug your update API here
     await new Promise((r) => setTimeout(r, 600));
-    navigate(-1);
+    setAlertType("success");
+    setAlertMessage("User updated successfully.");
+    setTimeout(() => {
+      setAlertMessage("");
+      navigate(-1);
+    }, 2000);
   };
 
   const fullName = `${normalizeName(form.firstname)} ${normalizeName(form.lastname)}`.trim();
@@ -199,6 +196,17 @@ export default function AdminEditUser() {
               <h1 className="text-3xl font-extrabold tracking-wide text-black">EDIT USER</h1>
               <div className="w-24 h-1 bg-yellow-400 mt-2 rounded" />
             </div>
+
+            {/* Alert for success/error */}
+            {alertMessage && (
+              <div className={`mb-6 p-3 rounded border text-base w-full transition-opacity duration-300 ${
+                alertType === 'success'
+                  ? 'border-green-200 bg-green-50 text-green-700'
+                  : 'border-red-200 bg-red-50 text-red-700'
+              }`}>
+                {alertMessage}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
               {/* Left: avatar + name/role */}
@@ -316,7 +324,7 @@ export default function AdminEditUser() {
                     Clear
                   </button>
                   <button
-                    onClick={handleSave}
+                    type="submit"
                     disabled={!canSave}
                     className={`px-6 py-2 rounded text-white ${
                       canSave ? "bg-blue-700 hover:bg-blue-800" : "bg-gray-400 cursor-not-allowed"

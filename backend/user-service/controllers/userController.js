@@ -36,18 +36,24 @@ export const getUserBasicInfo = async (req, res) => {
 export const updateUserPassword = async (req, res) => {
   try {
     const { id } = req.params;
-    const { newPassword } = req.body;
-
-    if (!newPassword) {
-      return res.status(400).json({ message: "New password is required" });
-    }
+    const { currentPassword, newPassword } = req.body;
 
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+    if (!user.password) {
+      return res.status(400).json({ message: "User does not have a password set." });
+    }
 
-    if (user.password === newPassword) {
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Password is incorrect" });
+    }
+
+    // Prevent reusing the same password
+    const isSame = await bcrypt.compare(newPassword, user.password);
+    if (isSame) {
       return res.status(400).json({ message: "New password must be different from the old password" });
     }
 

@@ -21,10 +21,10 @@ export async function updateAccountSettingsAPI(userId, payload) {
  * @param {string} userId
  * @param {string} newPassword
  */
-export async function updateUserPasswordAPI(userId, newPassword) {
+export async function updateUserPasswordAPI(userId, currentPassword, newPassword) {
 	return axios.patch(
 		`${API_URL}/api/user/updatePassword/${userId}`,
-		{ newPassword },
+		{ currentPassword, newPassword },
 		{
 			withCredentials: true,
 		}

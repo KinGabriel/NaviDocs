@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { normalizeName, canSaveUser } from "../utils/validations.js";
 import Header from "../layout/header";
 import Sidebar from "../layout/sidebar";
 import useUser from "../hooks/useUser";
@@ -30,8 +31,8 @@ export default function AdminAccountSettings() {
   const [changingPw, setChangingPw]       = useState(false);
   const [infoMessage, setInfoMessage]     = useState(null);
   const [infoSuccess, setInfoSuccess]     = useState(false);
-  const [pwMessage, setPwMessage]         = useState(null);
-  const [pwSuccess, setPwSuccess]         = useState(false);
+  const [pwMessage, setPwMessage] = useState("");
+  const [pwSuccess, setPwSuccess] = useState(false);
 
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
@@ -60,13 +61,12 @@ export default function AdminAccountSettings() {
   }, [photoFile]);
 
   // Helpers
-  const canSaveInfo = useMemo(() => {
-    return (
-      firstName.trim().length > 0 &&
-      lastName.trim().length > 0 &&
-      emailRegex.test(email)
-    );
-  }, [firstName, lastName, email]);
+  const canSaveInfo = useMemo(() => canSaveUser({
+    firstname: firstName,
+    lastname: lastName,
+    email,
+    role: { name: user?.role?.name || "" }
+  }), [firstName, lastName, email, user]);
 
   const pwRules = useMemo(() => {
     const issues = [];
@@ -87,16 +87,6 @@ export default function AdminAccountSettings() {
     );
   }, [currentPassword, newPassword, confirmPassword, pwRules]);
 
-  // Format names like on CreateUser page
-  const normalizeName = (val) =>
-    val
-      .replace(/^\s+/, "")
-      .replace(/[^a-zA-Z\s]/g, "")
-      .replace(/\s{2,}/g, " ")
-      .split(" ")
-      .filter(Boolean)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(" ");
 
   // -------- Handlers --------
   const handleSaveInfo = async (e) => {
@@ -131,14 +121,21 @@ export default function AdminAccountSettings() {
       localStorage.setItem("user", JSON.stringify(updatedUser));
       window.dispatchEvent(new Event("auth:change"));
 
-      if (mountedRef.current) {
-        setInfoSuccess(true);
-        setInfoMessage("Profile updated successfully.");
-        setPhotoFile(null);
-        setFirstName(updatedUser.firstname);
-        setLastName(updatedUser.lastname);
-        setPhotoPreview(updatedUser.profile_picture || photoPreview);
+      
+    setInfoSuccess(true);
+    setInfoMessage("Profile updated successfully.");
+    setPhotoFile(null);
+    setFirstName(updatedUser.firstname);
+    setLastName(updatedUser.lastname);
+    // Only update photoPreview if a new image is returned, otherwise keep the current preview
+    if (response.data.profile_picture) {
+      let pic = response.data.profile_picture;
+      if (typeof pic === "string" && !pic.startsWith("http")) {
+        pic = `${API_URL}${pic.startsWith("/") ? "" : "/"}${pic}`;
       }
+      setPhotoPreview(pic);
+    }
+      
     } catch (err) {
       if (mountedRef.current) {
         setInfoSuccess(false);
@@ -147,7 +144,7 @@ export default function AdminAccountSettings() {
         );
       }
     } finally {
-      if (mountedRef.current) setSavingInfo(false);
+      setSavingInfo(false);
     }
   };
 
@@ -156,19 +153,18 @@ export default function AdminAccountSettings() {
     if (!canChangePw) return;
 
     setChangingPw(true);
-    setPwMessage(null);
+    setPwMessage("");
 
     try {
-      await updateUserPasswordAPI(user._id, newPassword);
+      await updateUserPasswordAPI(user._id, currentPassword,newPassword);
 
-      if (!mountedRef.current) return;
       setPwSuccess(true);
       setPwMessage("Password updated successfully.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      setTimeout(() => setPwMessage(""), 2000);
     } catch (err) {
-      if (!mountedRef.current) return;
       setPwSuccess(false);
       setPwMessage(
         err?.response?.data?.message || err?.message || "Failed to update password."
@@ -251,6 +247,11 @@ export default function AdminAccountSettings() {
                       {infoMessage}
                     </div>
                   )}
+                  {!canSaveInfo && (
+                    <div className="mb-4 rounded border px-3 py-2 text-sm bg-red-50 text-red-700 border-red-200">
+                      Fill all required fields before saving.
+                    </div>
+                  )}
 
                   <form onSubmit={handleSaveInfo} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -308,6 +309,7 @@ export default function AdminAccountSettings() {
                 {/* Change Password */}
                 <div>
                   <h2 className="text-2xl font-semibold text-[#0035DA] mb-4">Change Password: </h2>
+                  {/* Modal for password change success/error */}
                   {pwMessage && (
                     <div className={`mb-4 rounded border px-3 py-2 text-sm ${pwSuccess ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
                       {pwMessage}
