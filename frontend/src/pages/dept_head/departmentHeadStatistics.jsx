@@ -5,12 +5,19 @@ import Dropdown from '../../components/dropdown';
 import Table from '../../components/table';
 import SearchBar from '../../components/searchBar'; 
 import { Bar, Doughnut } from "react-chartjs-2";
+import StatCardModal from '../../components/modals/statCardsModal';
+import StatusBadge from '../../components/statusBadge';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 export default function DepartmentHeadStatistics() {
   const [user, setUser] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const closeModal = () => setIsModalOpen(false);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalContent, setModalContent] = useState(null);
+  const [modalData, setModalData] = useState([]);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -31,7 +38,8 @@ export default function DepartmentHeadStatistics() {
   const [sortOrder, setSortOrder] = useState('Sort by');
   const [search, setSearch] = useState('');
 
-  // replace with the actual data fetching logic
+
+  // replace with the actual data fetching logic - table data and chart data
   const tableColumns = [
     { key: "faculty", label: "Faculty Member" },
     { key: "submitted", label: "Submitted Documents" },
@@ -132,6 +140,130 @@ const chartOptions = {
   plugins: { legend: { display: false } },
 };
 
+// Modal data and handlers - static data for demonstration
+ const facultyData = [
+    { name: "Prof. Mark Santos", email: "mark@slu.edu.ph" },
+    { name: "Prof. Anna Rivera", email: "anna@slu.edu.ph" },
+    { name: "Prof. Daniel Cruz", email: "daniel@slu.edu.ph" },
+    { name: "Prof. Lea Gonzales", email: "lea@slu.edu.ph" },
+    { name: "Prof. Lea Gonzales", email: "lea@slu.edu.ph" },
+    { name: "Prof. Daniel Cruz", email: "daniel@slu.edu.ph" },
+    { name: "Prof. Lea Gonzales", email: "lea@slu.edu.ph" },
+    { name: "Prof. Lea Gonzales", email: "lea@slu.edu.ph" },
+  ];
+
+  const documentsData = [
+    { title: "Syllabus CS101", faculty: "Prof. Mark Santos", status: "Approved", dateSubmitted: "2025-08-10" },
+    { title: "Course Outline IT201", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
+    { title: "Examination CS101", faculty: "Prof. Mark Santos", status: "Approved", dateSubmitted: "2025-08-10" },
+    { title: "Seating Plan IT201", faculty: "Prof. Anna Rivera",  status: "Pending", dateSubmitted: "2025-08-12" },
+    { title: "Field Trip", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
+    { title: "Seating Plan IT201", faculty: "Prof. Anna Rivera",  status: "Returned", dateSubmitted: "2025-08-12" },
+    { title: "Field Trip", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
+    { title: "Seating Plan IT201", faculty: "Prof. Anna Rivera",  status: "Pending", dateSubmitted: "2025-08-12" },
+    { title: "Field Trip", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
+    { title: "Field Trip", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
+    { title: "Course Outline IT201", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
+  ];
+
+  const lateSubmissionsData = [
+    { faculty: "Prof. Daniel Cruz", document: "Final Exam CS301", dueDate: "2025-08-15", daysOverdue: 20, },
+    { faculty: "Prof. Lea Gonzales", document: "Assignment IT102", dueDate: "2025-08-14", daysOverdue: 11, },
+    { faculty: "Prof. Lea Gonzales", document: "Assignment IT102", dueDate: "2025-08-14", daysOverdue: 7,  },
+  ];
+
+const openFacultyModal = () => {
+  setModalTitle("Faculty Members");
+  setModalContent(<FacultyContent data={facultyData} />);
+  setModalData(facultyData); 
+  setIsModalOpen(true);
+};
+
+const openDocumentsModal = () => {
+  setModalTitle("Documents Overview");
+ setModalContent(<DocumentsContent data={documentsData} />);
+  setModalData(documentsData); 
+  setIsModalOpen(true);
+};
+
+const openLateSubmissionsModal = () => {
+  setModalTitle("Late Submissions");
+   setModalContent(<LateSubmissionsContent data={lateSubmissionsData} />);
+  setModalData(lateSubmissionsData);
+  setIsModalOpen(true);
+};
+
+const FacultyContent = ({ data }) => {
+  const facultyColumns = [
+    { key: "name", label: "Name" },
+    { key: "email", label: "Email" },
+  ];
+  return (
+    <div className="m-4">
+      <Table columns={facultyColumns} data={data} />
+      <div className="mt-3">
+        <p className="text-gray-600 text-sm">
+          Total Faculty Members:{" "}
+          <span className="font-semibold text-gray-800">
+            {facultyData.length} 
+          </span>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const DocumentsContent = ({ data }) => {
+  const documentColumns = [
+    { key: "title", label: "Document Title" },
+    { key: "faculty", label: "Faculty" },
+    { 
+      key: "status", 
+      label: "Status",
+      render: (row) => <StatusBadge type={row.status} />
+    },
+    { key: "dateSubmitted", label: "Date Submitted" }
+  ];
+  return (
+    <div className="m-4">
+      <Table columns={documentColumns} data={data} />
+      <div className="mt-3" />
+      <p className="text-gray-600 text-sm">
+        Total Documents: <span className="font-semibold text-gray-800">{data.length}</span>
+      </p>
+    </div>
+  );
+};
+
+const LateSubmissionsContent = ({ data }) => {
+  const getPriorityLabel = (daysOverdue) => {
+    if (daysOverdue >= 15) return "Severe Delay";
+    if (daysOverdue >= 8) return "Significant Delay";
+    if (daysOverdue >= 4) return "Moderate Delay";
+    return "Minor Delay"; 
+  };
+  const lateColumns = [
+    { key: "faculty", label: "Faculty" },
+    { key: "document", label: "Document" },
+    { key: "dueDate", label: "Due Date" },
+    { 
+      key: "daysOverdue", 
+      label: "Days Overdue",
+      render: (row) =>  <StatusBadge type={getPriorityLabel(row.daysOverdue)} />
+    },
+  ];
+  return (
+    <div className="m-4">
+      <Table columns={lateColumns} data={data} />
+      <div className="mt-3" />
+      <p className="text-gray-600 text-sm">
+        Total Late Submissions: <span className="font-semibold text-gray-800">{data.length}</span>
+      </p>
+    </div>
+  );
+};
+
+
   return (
     <div className="min-h-screen bg-gray-200">
       <Header user={user} />
@@ -144,7 +276,9 @@ const chartOptions = {
           <div className="flex flex-wrap justify-between items-center mt-6 mb-8">
             <div className="flex gap-4 flex-wrap">
               {/* Faculty */}
-              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48 hover:bg-gray-100 cursor-pointer"
+                onClick={openFacultyModal}
+              >
                 <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
                   <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
@@ -157,7 +291,9 @@ const chartOptions = {
               </div>
 
               {/* Documents */}
-              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48  hover:bg-gray-100 cursor-pointer"
+                onClick={openDocumentsModal}
+                >
                 <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 256 256"><path fill="#fff" d="m213.66 66.34l-40-40A8 8 0 0 0 168 24H88a16 16 0 0 0-16 16v16H56a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h112a16 16 0 0 0 16-16v-16h16a16 16 0 0 0 16-16V72a8 8 0 0 0-2.34-5.66M136 192H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m0-32H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m64 24h-16v-80a8 8 0 0 0-2.34-5.66l-40-40A8 8 0 0 0 136 56H88V40h76.69L200 75.31Z"/></svg>
                 </div>
@@ -168,7 +304,9 @@ const chartOptions = {
               </div>
 
               {/* Late Submissions */}
-              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48  hover:bg-gray-100 cursor-pointer"
+                onClick={openLateSubmissionsModal}
+                > 
                 <div className="w-12 h-12 bg-[#E53737] rounded-full flex items-center justify-center">
                   <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
@@ -179,6 +317,16 @@ const chartOptions = {
                   <div className="text-gray-500 text-xs">23 Overdue</div>
                 </div>
               </div>
+
+              <StatCardModal 
+              isOpen={isModalOpen} 
+              onClose={closeModal} 
+              title={modalTitle}
+              data={modalData}
+              itemsPerPage={10}
+            >
+              {modalContent}
+            </StatCardModal>
             </div>
 
             <div className="flex gap-2">
