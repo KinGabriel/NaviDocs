@@ -4,6 +4,9 @@ import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
 import Dropdown from "../../components/dropdown";
 import SearchBar from "../../components/searchBar"; 
+import StatusBadge from "../../components/statusBadge";
+import Table from "../../components/table";
+import Greeting from "../../components/greeting";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
 import { CalendarDays, Clock } from "lucide-react";
@@ -12,80 +15,6 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
 
 export default function DepartmentHeadDashboard() {
   const user = useUser();
-
-  function Table({ columns, data, className = "" }) {
-    return (
-      <div className={`overflow-x-auto ${className}`}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-100">
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className="py-3 px-8 text-left font-semibold text-gray-700 text-xs"
-                >
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((row, idx) => (
-              <tr
-                key={row.id || idx}
-                className="border-b border-gray-100 hover:bg-gray-50"
-              >
-                {columns.map((col) => (
-                  <td key={col.key} className="py-3 px-8 text-gray-600 text-xs">
-                    {typeof col.render === "function"
-                      ? col.render(row)
-                      : row[col.key]}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
-  function StatusBadge({ type }) {
-    const status = String(type).toLowerCase();
-    const styles = {
-      approved: "bg-green-50 text-green-700 border border-green-200",
-      pending: "bg-yellow-50 text-yellow-700 border border-yellow-200", 
-      returned: "bg-orange-50 text-orange-700 border border-orange-200",
-    };
-    
-    const dotColors = {
-      approved: "bg-green-500", 
-      pending: "bg-yellow-500",  
-      returned: "bg-orange-500", 
-    };
-    
-    return (
-      <span
-        className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${
-          styles[status] || "bg-gray-50 text-gray-700 border border-gray-200"
-        }`}
-      >
-        <span className={`h-2 w-2 rounded-full ${dotColors[status] || "bg-gray-500"}`} />
-        {type}
-      </span>
-    );
-  }
-
-  function Greeting({ name }) {
-    return (
-        <div className="px-1 pt-2 mb-6">
-        <h2 className="text-4xl font-bold text-[#003DA5]">
-            Welcome back, {name}!
-        </h2>
-        <p className="text-m text-gray-500">Dashboard Overview</p>
-        </div>
-    );
-  }
 
   // School identifiers
   const schoolIdentifiers = {
@@ -423,7 +352,7 @@ export default function DepartmentHeadDashboard() {
                 <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
                   <h3 className="font-semibold text-sm text-gray-800">DOCUMENTS SUMMARY</h3>
                 </div>
-                <div className="p-6 h-105">
+                <div className="p-6 h-107">
                   <div className="relative h-48 mb-4">
                     <Doughnut data={chartData} options={chartOptions} />
                   </div>
