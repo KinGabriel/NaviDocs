@@ -107,3 +107,20 @@ export const unarchiveUserAccountAPI = async (userId) => {
     throw new Error(error.response?.data?.message || "Failed to archive user account.");
   }
 };
+
+
+/**
+ * Fetch a single user account by ID (admin only)
+ * @param {string} userId
+ * @returns {Promise<Object>} - Resolves to the user account data
+ */
+export const fetchUserAccountByIdAPI = async (userId) => {
+  try {
+    const res = await axios.get(`${API_URL}/api/admin/get-user/${userId}`, {
+      withCredentials: true
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Failed to fetch user details.");
+  }
+};

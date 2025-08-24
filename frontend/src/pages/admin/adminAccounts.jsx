@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { fetchUsersAccountsAPI,archiveUserAccountAPI,unarchiveUserAccountAPI } from "../../api/adminAPI";
 import useUser from '../../hooks/useUser';
 import Sidebar from '../../layout/sidebar';
@@ -10,6 +11,7 @@ import usePagination from '../../hooks/usePagination';
 import Loader from '../../components/loader';
 
 export default function AdminAccounts() {
+  const navigate = useNavigate();
   const user = useUser();
   const [users, setUsers] = useState([]);
   const usersPerPage = 8;
@@ -71,7 +73,10 @@ const columns = [
     label: "Actions",
     render: (row) => (
       <div className="flex gap-2">
-        <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">
+        <button
+          className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+          onClick={() => navigate(`/admin/edit-user/${row._id}`)}
+        >
           Edit
         </button>
         {row.is_deleted ? (

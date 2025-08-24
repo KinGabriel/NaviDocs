@@ -3,7 +3,7 @@ import Header from "../layout/header";
 import Sidebar from "../layout/sidebar";
 import useUser from "../hooks/useUser";
 import Loader from "../components/loader";
-import PasswordInput from "../components/passwordinput.jsx"; // 👈 use the same eye-toggle input as Login
+import PasswordInput from "../components/passwordinput.jsx"; 
 import { updateAccountSettingsAPI, updateUserPasswordAPI } from "../api/userAPI";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";

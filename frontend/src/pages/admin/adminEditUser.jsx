@@ -1,12 +1,14 @@
 // src/pages/admin/adminEditUser.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
+import { fetchUserAccountByIdAPI } from "../../api/adminAPI";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
 import Dropdown2 from "../../components/dropdown2";
 import defaultProfile from "../../assets/images/profile_picture.png";
 import { useNavigate } from "react-router-dom";
-
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 const ROLE_OPTIONS = [
   "Admin",
   "Faculty",
@@ -39,8 +41,10 @@ const DEPARTMENT_OPTIONS = {
 const YEAR_OPTIONS = ["—", "1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
 
 export default function AdminEditUser() {
+  const { id } = useParams();
   const user = useUser();
   const navigate = useNavigate();
+
 
   // --- form state ---
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -55,27 +59,36 @@ export default function AdminEditUser() {
     },
     year: "—",
   });
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [errorUser, setErrorUser] = useState(null);
 
-  // Hydrate from the logged-in user (same approach as Account Settings)
+  // Fetch user details by id from URL
   useEffect(() => {
-    if (!user) return; // wait for useUser()
-    const roleName   = user?.role?.name || user?.role || "";
-    const school     = user?.role?.school || user?.school || "";
-    const department = user?.role?.department || user?.department || "";
+    if (!id) return;
+    setLoadingUser(true);
+    fetchUserAccountByIdAPI(id)
+      .then((data) => {
+        setForm({
+          firstname: data.firstname || "",
+          lastname: data.lastname || "",
+          email: data.email || "",
+          role: {
+            name: data.role?.name || "",
+            school: data.role?.school || "",
+            department: data.role?.department || "",
+          },
+          year: data.year || "—",
+        });
+        setPhotoPreview(data.profile_picture || null);
+        setErrorUser(null);
+      })
+      .catch((err) => {
+        setErrorUser(err.message || "Failed to fetch user details.");
+      })
+      .finally(() => setLoadingUser(false));
+  }, [id]);
 
-    setForm({
-      firstname: user?.firstname || "",
-      lastname : user?.lastname  || "",
-      email    : user?.email     || "",
-      role: {
-        name      : roleName || "Faculty",
-        school    : school || (roleName === "Faculty" ? "SEA" : ""),
-        department: department || (roleName === "Faculty" ? "Chemical Engineering" : ""),
-      },
-      year: user?.year || "—",
-    });
-    setPhotoPreview(user?.profile_picture || null);
-  }, [user]);
+
 
   // helpers
   const normalizeName = (val) =>
@@ -145,15 +158,27 @@ export default function AdminEditUser() {
   const showDepartment = ["Faculty", "Document Controller", "Department Head"].includes(form.role.name);
   const showYear = ["Student"].includes(form.role.name);
 
-  if (!user) {
-    // lightweight loading state
+  if (loadingUser) {
     return (
       <div className="min-h-screen bg-gray-200 flex flex-col">
         <Header user={user} />
         <div className="flex flex-1">
           <Sidebar user={user} />
           <div className="flex-1 flex items-center justify-center text-gray-500">
-            Loading…
+            Loading user details…
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (errorUser) {
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
+          <div className="flex-1 flex items-center justify-center text-red-500">
+            {errorUser}
           </div>
         </div>
       </div>
@@ -180,7 +205,7 @@ export default function AdminEditUser() {
               <section className="flex flex-col items-center">
                 <div className="w-44 h-44 rounded-full overflow-hidden bg-gray-100 border">
                   {photoPreview ? (
-                    <img src={photoPreview} alt="Profile" className="w-full h-full object-cover" />
+                    <img src={`${API_URL}${photoPreview}`} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
                     <img src={defaultProfile} alt="Default" className="w-full h-full object-cover" />
                   )}

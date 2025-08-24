@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { createUser, getUsers, getDashboardInfo,archiveUser,unarchiveUser } from "../controllers/adminController.js";
+import { createUser, getUsers, getDashboardInfo, archiveUser, unarchiveUser, getUserById } from "../controllers/adminController.js";
 import { authenticateJWT } from "../middleware/authenticationMiddleware.js"; 
 import { authorizeAdmin } from "../middleware/authorizationMiddleware.js";
 
@@ -52,5 +52,10 @@ router.patch("/unarchive-user/:id",
   authorizeAdmin, 
   unarchiveUser
 );
-
+// Get a single user by ID
+router.get("/get-user/:id",
+  authenticateJWT,
+  authorizeAdmin,
+  getUserById
+);
 export default router;
