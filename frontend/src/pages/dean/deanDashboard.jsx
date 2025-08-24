@@ -3,7 +3,10 @@ import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
 import Dropdown from "../../components/dropdown";
+import Table from "../../components/table";
 import SearchBar from "../../components/searchBar"; 
+import StatusBadge from "../../components/statusBadge";
+import Greeting from "../../components/greeting";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
 import { CalendarDays, Clock } from "lucide-react";
@@ -12,80 +15,6 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
 
 export default function DeanDashboard() {
   const user = useUser();
-
-  function Table({ columns, data, className = "" }) {
-    return (
-      <div className={`overflow-x-auto ${className}`}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-100">
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className="py-3 px-8 text-left font-semibold text-gray-700 text-xs"
-                >
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((row, idx) => (
-              <tr
-                key={row.id || idx}
-                className="border-b border-gray-100 hover:bg-gray-50"
-              >
-                {columns.map((col) => (
-                  <td key={col.key} className="py-3 px-8 text-gray-600 text-xs">
-                    {typeof col.render === "function"
-                      ? col.render(row)
-                      : row[col.key]}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
-  function StatusBadge({ type }) {
-    const status = String(type).toLowerCase();
-    const styles = {
-      approved: "bg-green-50 text-green-700 border border-green-200",
-      pending: "bg-yellow-50 text-yellow-700 border border-yellow-200", 
-      returned: "bg-orange-50 text-orange-700 border border-orange-200",
-    };
-    
-    const dotColors = {
-      approved: "bg-green-500", 
-      pending: "bg-yellow-500",  
-      returned: "bg-orange-500", 
-    };
-    
-    return (
-      <span
-        className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${
-          styles[status] || "bg-gray-50 text-gray-700 border border-gray-200"
-        }`}
-      >
-        <span className={`h-2 w-2 rounded-full ${dotColors[status] || "bg-gray-500"}`} />
-        {type}
-      </span>
-    );
-  }
-
-    function Greeting({ name }) {
-    return (
-        <div className="px-1 pt-2 mb-6">
-        <h2 className="text-4xl font-bold text-[#003DA5]">
-            Welcome back, {name}!
-        </h2>
-        <p className="text-m text-gray-500">Dashboard Overview</p>
-        </div>
-    );
-  }
 
   // School identifiers
   const schoolIdentifiers = {
@@ -100,144 +29,140 @@ export default function DeanDashboard() {
   const [sortOrder, setSortOrder] = useState('Sort by');
   const [search, setSearch] = useState('');
 
+  function formatDate(dateValue) {
+  if (!dateValue) return "-";
+  const date = new Date(dateValue);
+  if (isNaN(date.getTime())) return dateValue;
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
   // still to be replaced with actual data fetching logic
   const documents = [
-    { id: 1, code: "FM-SAA-002", rev: "00", date: "26-01-16", title: "Graphic Design Course Syllabi 26-27", createdBy: "Daniela Torres", status: "Approved" },
-    { id: 2, code: "FM-SAA-002", rev: "00", date: "26-01-16", title: "Web Technologies Course Syllabi 26-27", createdBy: "Sarah Dela Cruz", status: "Approved" },
-    { id: 3, code: "FM-SAA-002", rev: "00", date: "26-01-16", title: "Special Topics 1 Course Syllabi 26-27", createdBy: "Sarah Dela Cruz", status: "Approved" },
-    { id: 4, code: "FM-SAA-002", rev: "00", date: "26-01-16", title: "AI Course Syllabi 26-27", createdBy: "Mark Gomez", status: "Approved" },
-    { id: 5, code: "FM-SAA-002", rev: "00", date: "26-01-16", title: "Hospitality Course Syllabi 26-27", createdBy: "Jana Aquino", status: "Returned" },
-  ];
-
-  const pendingDocs = [
-    { id: 1, code: "FM-SAA-003", rev: "00", date: "26-01-16", title: "3D Modeling and Animation Course Syllabi 26-27", createdBy: "Mae Santos" },
-    { id: 2, code: "FM-SAA-001", rev: "00", date: "26-01-16", title: "Motion Graphics Design Course Syllabi 26-27", createdBy: "Mae Santos" },
-    { id: 3, code: "FM-SAA-006", rev: "00", date: "26-01-16", title: "Special Topics 2 Course Syllabi 26-27", createdBy: "Jennie Zhang" },
-    { id: 4, code: "FM-SAA-005", rev: "00", date: "26-01-16", title: "Current Trends 2 Course Syllabi 26-27", createdBy: "Candice Gomez" },
-    { id: 5, code: "FM-SAA-008", rev: "00", date: "26-01-16", title: "Hospitality Course Syllabi 26-27", createdBy: "Stacey Dixon" },
-    { id: 6, code: "FM-SAA-008", rev: "00", date: "26-01-16", title: "Illustration Course Syllabi 26-27", createdBy: "Nicole Bautista" },
-    { id: 7, code: "FM-SAA-009", rev: "00", date: "26-01-16", title: "Animation Course Syllabi 26-27", createdBy: "Clint Garcia" },
-  ];
-
-  const documentColumns = [
-    {
-      key: 'code',
-      label: 'Document Code',
-      render: (row) => (
-        <span className="text-xs text-gray-700">{row.code}</span>
-      )
-    },
-    {
-      key: 'rev',
-      label: 'Revision No.'
-    },
-    {
-      key: 'date',
-      label: 'Effectivity'
-    },
-    {
-      key: 'title',
-      label: 'Title',
-      render: (row) => (
-        <span className="max-w-xs truncate block">{row.title}</span>
-      )
-    },
-    {
-      key: 'createdBy',
-      label: 'Created By'
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (row) => <StatusBadge type={row.status} />
-    }
-  ];
-
-  const pendingDocColumns = [
-    {
-      key: 'code',
-      label: 'Document Code',
-      render: (row) => (
-        <span className="text-xs text-gray-700">{row.code}</span>
-      )
-    },
-    {
-      key: 'rev',
-      label: 'Revision No.'
-    },
-    {
-      key: 'date',
-      label: 'Effectivity'
-    },
-    {
-      key: 'title',
-      label: 'Title',
-      render: (row) => (
-        <span className="max-w-xs truncate block">{row.title}</span>
-      )
-    },
-    {
-      key: 'createdBy',
-      label: 'Created By'
-    },
-    {
-      key: 'action',
-      label: 'Action',
-      render: (row) => (
-        <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">
-          Review
-        </button>
-      )
-    }
-  ];
-
-  const upcomingDeadlines = [
-    {
-      id: 1,
-      title: "Course Syllabi Review",
-      dueDate: "2025-08-1",
-      priority: "Overdue",
-      department: "BS Computer Science",
-    },
-    {
-      id: 2,
-      title: "Faculty Performance Reports",
-      dueDate: "2025-08-21",
-      priority: "Due Today",
-      department: "BS Information Technology",
-    },
-    {
-      id: 3,
-      title: "Budget Allocation Review",
-      dueDate: "2025-08-23",
-      priority: "Due This Week",
-      department: "Administration",
-    },
-    {
-      id: 4,
-      title: "Field Trip Agenda Review",
-      dueDate: "2025-09-23",
-      priority: "Upcoming",
-      department: "BS Information Technology",
-    },
-  ];
-
-   const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "Overdue":
-      return "bg-red-100 text-red-700 border-red-200";
-    case "Due Today":
-      return "bg-orange-100 text-orange-700 border-orange-200";
-    case "Due This Week":
-      return "bg-yellow-100 text-yellow-700 border-yellow-200";
-    case "Upcoming":
-      return "bg-blue-100 text-blue-700 border-blue-200";
-    case "Future Deadline":
-      return "bg-green-100 text-green-700 border-green-200";
-    default:
-      return "bg-gray-100 text-gray-600 border-gray-200";
-    }
-  };
+      { id: 1, code: "FM-SAA-002", rev: "00", date: "2026-03-16", title: "Graphic Design Course Syllabi 26-27", createdBy: "Daniela Torres", status: "Approved" },
+      { id: 2, code: "FM-SAA-002", rev: "00", date: "2026-01-16", title: "Web Technologies Course Syllabi 26-27", createdBy: "Sarah Dela Cruz", status: "Approved" },
+      { id: 3, code: "FM-SAA-002", rev: "00", date: "2026-11-23", title: "Special Topics 1 Course Syllabi 26-27", createdBy: "Sarah Dela Cruz", status: "Approved" },
+      { id: 4, code: "FM-SAA-002", rev: "00", date: "2026-01-16", title: "AI Course Syllabi 26-27", createdBy: "Mark Gomez", status: "Approved" },
+      { id: 5, code: "FM-SAA-002", rev: "00", date: "2026-05-10", title: "Hospitality Course Syllabi 26-27", createdBy: "Jana Aquino", status: "Returned" },
+    ];
+  
+    const pendingDocs = [
+      { id: 1, code: "FM-SAA-003", rev: "00", date: "2025-01-16", title: "3D Modeling and Animation Course Syllabi 26-27", createdBy: "Mae Santos" },
+      { id: 2, code: "FM-SAA-001", rev: "00", date: "2025-12-17", title: "Motion Graphics Design Course Syllabi 26-27", createdBy: "Mae Santos" },
+      { id: 3, code: "FM-SAA-006", rev: "00", date: "2025-01-26", title: "Special Topics 2 Course Syllabi 26-27", createdBy: "Jennie Zhang" },
+      { id: 4, code: "FM-SAA-005", rev: "00", date: "2025-02-12", title: "Current Trends 2 Course Syllabi 26-27", createdBy: "Candice Gomez" },
+      { id: 5, code: "FM-SAA-008", rev: "00", date: "2025-04-06", title: "Hospitality Course Syllabi 26-27", createdBy: "Stacey Dixon" },
+      { id: 6, code: "FM-SAA-008", rev: "00", date: "2025-03-16", title: "Illustration Course Syllabi 26-27", createdBy: "Nicole Bautista" },
+      { id: 7, code: "FM-SAA-009", rev: "00", date: "2025-01-16", title: "Animation Course Syllabi 26-27", createdBy: "Clint Garcia" },
+    ];
+  
+     const documentColumns = [
+      {
+        key: 'code',
+        label: 'Document Code',
+        render: (row) => (
+          <span className="text-xs text-gray-700">{row.code}</span>
+        )
+      },
+      {
+        key: 'rev',
+        label: 'Revision No.'
+      },
+      {
+        key: 'date',
+        label: 'Effectivity',
+        render: (row) => formatDate(row.date) 
+      },
+      {
+        key: 'title',
+        label: 'Title',
+        render: (row) => (
+          <span className="max-w-xs truncate block">{row.title}</span>
+        )
+      },
+      {
+        key: 'createdBy',
+        label: 'Created By'
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        render: (row) => <StatusBadge type={row.status} />
+      }
+    ];
+  
+    const pendingDocColumns = [
+      {
+        key: 'code',
+        label: 'Document Code',
+        render: (row) => (
+          <span className="text-xs text-gray-700">{row.code}</span>
+        )
+      },
+      {
+        key: 'rev',
+        label: 'Revision No.'
+      },
+      {
+        key: 'date',
+        label: 'Effectivity',
+        render: (row) => formatDate(row.date) 
+      },
+      {
+        key: 'title',
+        label: 'Title',
+        render: (row) => (
+          <span className="max-w-xs truncate block">{row.title}</span>
+        )
+      },
+      {
+        key: 'createdBy',
+        label: 'Created By'
+      },
+      {
+        key: 'action',
+        label: 'Action',
+        render: (row) => (
+          <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">
+            Review
+          </button>
+        )
+      }
+    ];
+  
+    const upcomingDeadlines = [
+      {
+        id: 1,
+        title: "Course Syllabi Review",
+        date: "2025-08-01",
+        priority: "Overdue",
+        department: "BS Computer Science",
+      },
+      {
+        id: 2,
+        title: "Faculty Performance Reports",
+        date: "2025-08-21",
+        priority: "Due Today",
+        department: "BS Information Technology",
+      },
+      {
+        id: 3,
+        title: "Budget Allocation Review",
+        date: "2025-08-31",
+        priority: "Due This Week",
+        department: "Administration",
+      },
+      {
+        id: 4,
+        title: "Field Trip Agenda Review",
+        date: "2025-09-23",
+        priority: "Upcoming",
+        department: "BS Information Technology",
+      },
+    ];
 
   const chartData = {
     labels: [
@@ -278,7 +203,6 @@ export default function DeanDashboard() {
 
         {/* Main Content */}
          <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl ">
-          <div className=" p-2 "></div>
           <Greeting name={user?.firstname || 'Department Head'} />
 
           {/* Stat cards and filters */}
@@ -406,16 +330,12 @@ export default function DeanDashboard() {
                         <h4 className="font-medium text-sm text-gray-800 flex-1">
                           {deadline.title}
                         </h4>
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(deadline.priority)}`}
-                        >
-                          {deadline.priority}
-                        </span>
+                         <StatusBadge type={deadline.priority} />
                       </div>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           <CalendarDays className="w-3 h-3" />
-                          <span>{deadline.dueDate}</span>
+                          <span>{formatDate(deadline.date)}</span>
                         </div>
                         <div className="text-xs text-gray-500">{deadline.department}</div>
                       </div>
