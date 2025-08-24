@@ -1,7 +1,7 @@
 import Header from '../../layout/header';
 import Sidebar from '../../layout/sidebar';
 import useUser from '../../hooks/useUser';
-import { Folder, FileText, Plus, Filter, ArrowDownAZ, ArrowLeft } from "lucide-react";
+import { Folder, FileText, Plus, Filter, ArrowDownAZ, ArrowLeft, MoreVertical } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -35,6 +35,11 @@ export default function DocumentControllerStorage() {
   const [filterLatest, setFilterLatest] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFolder, setSelectedFolder] = useState(null);
+  const [openMenu, setOpenMenu] = useState(null);
+
+  const toggleMenu = (id) => {
+    setOpenMenu(openMenu === id ? null : id);
+  };
 
   // Apply filter + sort on folders
   let displayedFolders = [...folders]
@@ -51,7 +56,6 @@ export default function DocumentControllerStorage() {
   if (searchQuery) {
     const query = searchQuery.toLowerCase();
     if (!selectedFolder) {
-      // root: search both folders + files
       displayedFolders = displayedFolders.filter((f) =>
         f.name.toLowerCase().includes(query)
       );
@@ -137,7 +141,6 @@ export default function DocumentControllerStorage() {
                     <ArrowLeft size={18} /> Back
                   </button>
 
-                  {/* Breadcrumb */}
                   <div className="text-gray-600 text-sm font-medium">
                     Storage <span className="mx-1">/</span>
                     <span className="text-gray-900">{selectedFolder}</span>
@@ -151,26 +154,53 @@ export default function DocumentControllerStorage() {
                     {displayedFiles.map((file, index) => (
                       <div
                         key={index}
-                        onClick={() => navigate('/document-controller/create-template')}
-                        className="group relative bg-white border border-gray-300 rounded-xl shadow-sm hover:shadow-md transition cursor-pointer"
+                        className="group relative bg-white border border-gray-300 rounded-xl shadow-sm hover:shadow-md transition"
                       >
-                        <div className="absolute -top-2 right-3">
+                        {/* Status Label */}
+                        <div className="absolute -top-2 left-3">
                           <span className="px-2 py-0.5 text-xs rounded-full border bg-white text-gray-700">
                             Draft
                           </span>
                         </div>
 
-                        <div className="h-40 flex items-center justify-center bg-gray-50 rounded-t-xl">
+                        {/* File Menu */}
+                        <div className="absolute top-2 right-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleMenu(`file-${index}`);
+                            }}
+                            className="p-1 rounded-full hover:bg-gray-200"
+                          >
+                            <MoreVertical size={18} className="text-gray-600" />
+                          </button>
+
+                          {openMenu === `file-${index}` && (
+                            <div className="absolute right-0 mt-2 w-40 bg-white border rounded-lg shadow-lg z-50">
+                              <ul className="text-sm text-gray-700">
+                                <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Download</li>
+                                <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Rename</li>
+                                <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Organize</li>
+                                <li className="px-4 py-2 hover:bg-red-100 text-red-600 cursor-pointer">Remove</li>
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* File Preview */}
+                        <div
+                          onClick={() => navigate('/document-controller/create-template')}
+                          className="h-40 flex items-center justify-center bg-gray-50 rounded-t-xl cursor-pointer"
+                        >
                           <FileText className="w-10 h-10 text-gray-300" />
                         </div>
 
+                        {/* File Info */}
                         <div className="border-t px-3 py-3 rounded-b-xl">
-                          <p className="font-semibold text-sm text-gray-900 truncate">
+                          <p className="font-semibold text-sm text-gray-900 truncate" title={file}>
                             {file}
                           </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            Filled-out document
-                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">Filled-out document</p>
                         </div>
                       </div>
                     ))}
@@ -188,13 +218,42 @@ export default function DocumentControllerStorage() {
                     {displayedFolders.map((folder, index) => (
                       <div
                         key={index}
-                        onClick={() => setSelectedFolder(folder.name)}
-                        className="bg-gray-100 flex items-center gap-3 p-4 shadow-sm rounded-md border border-gray-300 cursor-pointer hover:bg-gray-200"
+                        className="relative bg-gray-100 flex items-center justify-between p-4 shadow-sm rounded-md border border-gray-300 hover:bg-gray-200"
                       >
-                        <Folder size={28} className="text-blue-600 flex-shrink-0 w-7 h-7" />
-                        <span className="font-medium text-gray-800 truncate flex-1">
-                          {folder.name}
-                        </span>
+                        {/* Folder Info */}
+                        <div
+                          className="flex items-center gap-3 flex-1 cursor-pointer"
+                          onClick={() => setSelectedFolder(folder.name)}
+                        >
+                          <Folder size={28} className="text-blue-600 flex-shrink-0 w-7 h-7" />
+                          <span
+                            className="font-medium text-gray-800 truncate max-w-[120px]"
+                            title={folder.name}
+                          >
+                            {folder.name}
+                          </span>
+                        </div>
+
+                        {/* Folder Menu */}
+                        <div className="relative">
+                          <button
+                            onClick={() => toggleMenu(index)}
+                            className="p-1 rounded-full hover:bg-gray-300"
+                          >
+                            <MoreVertical size={18} className="text-gray-600" />
+                          </button>
+
+                          {openMenu === index && (
+                            <div className="absolute right-0 mt-2 w-40 bg-white border rounded-lg shadow-lg z-50">
+                              <ul className="text-sm text-gray-700">
+                                <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Download</li>
+                                <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Rename</li>
+                                <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Organize</li>
+                                <li className="px-4 py-2 hover:bg-red-100 text-red-600 cursor-pointer">Remove</li>
+                              </ul>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -208,26 +267,53 @@ export default function DocumentControllerStorage() {
                     {displayedFiles.map((file, index) => (
                       <div
                         key={index}
-                        onClick={() => navigate('/document-controller/create-template')}
-                        className="group relative bg-white border border-gray-300 rounded-xl shadow-sm hover:shadow-md transition cursor-pointer"
+                        className="group relative bg-white border border-gray-300 rounded-xl shadow-sm hover:shadow-md transition"
                       >
-                        <div className="absolute -top-2 right-3">
+                        {/* Status Label */}
+                        <div className="absolute -top-2 left-3">
                           <span className="px-2 py-0.5 text-xs rounded-full border bg-white text-gray-700">
                             Draft
                           </span>
                         </div>
 
-                        <div className="h-40 flex items-center justify-center bg-gray-50 rounded-t-xl">
+                        {/* File Menu */}
+                        <div className="absolute top-2 right-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleMenu(`file-${index}`);
+                            }}
+                            className="p-1 rounded-full hover:bg-gray-200"
+                          >
+                            <MoreVertical size={18} className="text-gray-600" />
+                          </button>
+
+                          {openMenu === `file-${index}` && (
+                            <div className="absolute right-0 mt-2 w-40 bg-white border rounded-lg shadow-lg z-50">
+                              <ul className="text-sm text-gray-700">
+                                <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Download</li>
+                                <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Rename</li>
+                                <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Organize</li>
+                                <li className="px-4 py-2 hover:bg-red-100 text-red-600 cursor-pointer">Remove</li>
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* File Preview */}
+                        <div
+                          onClick={() => navigate('/document-controller/create-template')}
+                          className="h-40 flex items-center justify-center bg-gray-50 rounded-t-xl cursor-pointer"
+                        >
                           <FileText className="w-10 h-10 text-gray-300" />
                         </div>
 
+                        {/* File Info */}
                         <div className="border-t px-3 py-3 rounded-b-xl">
-                          <p className="font-semibold text-sm text-gray-900 truncate">
+                          <p className="font-semibold text-sm text-gray-900 truncate" title={file}>
                             {file}
                           </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            Filled-out document
-                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">Filled-out document</p>
                         </div>
                       </div>
                     ))}
