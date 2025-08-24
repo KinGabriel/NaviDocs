@@ -211,7 +211,7 @@ export default function DocumentControllerTemplates() {
       <div className="flex flex-1">
         <Sidebar user={user} active="Templates" />
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <div className="flex-1 p-10">
+          <div className="flex-1 px-2 py-6">
             <h2 className="text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">TEMPLATES</h2>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
@@ -283,7 +283,7 @@ export default function DocumentControllerTemplates() {
             </div>
 
             {/* Templates Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
               {loading ? (
                 <div className="col-span-full text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>

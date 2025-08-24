@@ -278,6 +278,7 @@ export default function DeanDashboard() {
 
         {/* Main Content */}
          <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl ">
+          <div className=" p-2 "></div>
           <Greeting name={user?.firstname || 'Department Head'} />
 
           {/* Stat cards and filters */}
