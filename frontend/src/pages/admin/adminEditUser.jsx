@@ -9,36 +9,7 @@ import Dropdown2 from "../../components/dropdown2";
 import defaultProfile from "../../assets/images/profile_picture.png";
 import { useNavigate } from "react-router-dom";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
-const ROLE_OPTIONS = [
-  "Admin",
-  "Faculty",
-  "Dean",
-  "Department Head",
-  "Secretary",
-  "Document Controller",
-];
-
-const SCHOOL_OPTIONS = [
-  { value: "SAS", label: "School of Advanced Studies (SAS)" },
-  { value: "SAMCIS", label: "School of Accountancy, Management, Computing and Information Studies (SAMCIS)" },
-  { value: "SEA", label: "School of Engineering and Architecture (SEA)" },
-  { value: "SOL", label: "School of Law (SOL)" },
-  { value: "SOM", label: "School of Medicine (SOM)" },
-  { value: "SOHNABS", label: "School of Nursing, Allied Health, and Biological Sciences (SOHNABS)" },
-  { value: "STELA", label: "School of Teacher Education and Liberal Arts (STELA)" },
-];
-
-const DEPARTMENT_OPTIONS = {
-  SAS: ["Department of Social Sciences", "Department of Natural Sciences"],
-  SAMCIS: ["Department of Accountancy", "Department of Management", "Department of Computing and Information Studies"],
-  SEA: ["Chemical Engineering", "Civil Engineering", "Architecture"],
-  SOL: ["Department of Law"],
-  SOM: ["Department of Medicine"],
-  SOHNABS: ["Department of Nursing", "Department of Allied Health", "Department of Biological Sciences"],
-  STELA: ["Department of Teacher Education", "Department of Liberal Arts"],
-};
-
-const YEAR_OPTIONS = ["—", "1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
+import { ROLE_OPTIONS, SCHOOL_OPTIONS, DEPARTMENT_OPTIONS, YEAR_OPTIONS } from "../../utils/options";
 
 
 export default function AdminEditUser() {
