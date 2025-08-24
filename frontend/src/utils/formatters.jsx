@@ -15,7 +15,7 @@ export function formatDate(dateValue) {
   });
 }
 
-/**
+/** FOR TEMPLATES
  * Renders a colored status badge with a dot and label for template/document status.
  * Supported types: Approved, Pending, Late, Returned, OnGoing, Published (case-insensitive).
  *
@@ -30,12 +30,12 @@ export function StatusBadge({ type }) {
     pending: "bg-yellow-50 text-yellow-700 border border-yellow-200",
     late: "bg-red-50 text-red-700 border border-red-200",
     returned: "bg-orange-50 text-red-700 border border-red-200",
-    ongoing: "bg-orange-50 text-orange-700 border border-orange-200",
+    ongoing: "bg-gray-50 text-gray-700 border border-gray-200",
     published: "bg-blue-50 text-blue-700 border border-blue-200",
   };
   return (
     <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${styles[status]||''}`}>
-      <span className={`h-2 w-2 rounded-full ${status==='approved'?'bg-green-500':status==='pending'?'bg-yellow-500':status==='late'?'bg-red-500':status==='published'?'bg-blue-500':'bg-orange-500'}`}/>
+      <span className={`h-2 w-2 rounded-full ${status==='approved'?'bg-green-500':status==='pending'?'bg-yellow-500':status==='late'?'bg-red-500':status==='published'?'bg-blue-500':'bg-gray-500'}`}/>
       {type}
     </span>
   );
