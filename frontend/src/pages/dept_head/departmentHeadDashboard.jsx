@@ -7,9 +7,9 @@ import SearchBar from "../../components/searchBar";
 import StatusBadge from "../../components/statusBadge";
 import Table from "../../components/table";
 import Greeting from "../../components/greeting";
+import UpcomingDeadlines from "../../components/upcomingDeadlines";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
-import { CalendarDays, Clock } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
@@ -296,48 +296,8 @@ export default function DepartmentHeadDashboard() {
             </div>
 
         {/* Upcoming Deadlines */}
-         <div className="space-y-6">
-            <div className="bg-white shadow-sm rounded-lg border border-gray-100">
-              <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                    📌
-                  </div>
-                  <h3 className="font-semibold text-sm text-gray-800">Upcoming Deadlines</h3>
-                </div>
-              </div>
-
-              {/* Scrollable Upcoming Deadlines */}
-              <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
-                {upcomingDeadlines.length > 0 ? (
-                  upcomingDeadlines.map((deadline) => (
-                    <div
-                      key={deadline.id}
-                      className="border border-gray-100 rounded-lg p-3 hover:shadow-sm transition-shadow"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-sm text-gray-800 flex-1">
-                          {deadline.title}
-                        </h4>
-                        <StatusBadge type={deadline.priority} />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <CalendarDays className="w-3 h-3" />
-                          <span>{formatDate(deadline.date)}</span>
-                        </div>
-                        <div className="text-xs text-gray-500">{deadline.department}</div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <Clock className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-400 text-sm">No upcoming deadlines</p>
-                  </div>
-                )}
-              </div>
-            </div>
+         <div className="col-span-1 space-y-6">
+          <UpcomingDeadlines deadlines={upcomingDeadlines} formatDate={formatDate} /> 
   
             {/* Documents Summary Doughnut Chart - all placeholders */}
               <div className="bg-white shadow-sm rounded-lg border border-gray-100">
