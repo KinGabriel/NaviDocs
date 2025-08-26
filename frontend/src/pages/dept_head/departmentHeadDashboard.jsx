@@ -2,8 +2,6 @@ import React, { useState } from "react";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
-import Dropdown from "../../components/dropdown";
-import SearchBar from "../../components/searchBar"; 
 import StatusBadge from "../../components/statusBadge";
 import Table from "../../components/table";
 import Greeting from "../../components/greeting";
@@ -55,8 +53,7 @@ export default function DepartmentHeadDashboard() {
     { id: 3, code: "FM-SAA-006", rev: "00", date: "2025-01-26", title: "Special Topics 2 Course Syllabi 26-27", createdBy: "Jennie Zhang" },
     { id: 4, code: "FM-SAA-005", rev: "00", date: "2025-02-12", title: "Current Trends 2 Course Syllabi 26-27", createdBy: "Candice Gomez" },
     { id: 5, code: "FM-SAA-008", rev: "00", date: "2025-04-06", title: "Hospitality Course Syllabi 26-27", createdBy: "Stacey Dixon" },
-    { id: 6, code: "FM-SAA-008", rev: "00", date: "2025-03-16", title: "Illustration Course Syllabi 26-27", createdBy: "Nicole Bautista" },
-    { id: 7, code: "FM-SAA-009", rev: "00", date: "2025-01-16", title: "Animation Course Syllabi 26-27", createdBy: "Clint Garcia" },
+  
   ];
 
    const documentColumns = [
@@ -205,7 +202,7 @@ export default function DepartmentHeadDashboard() {
         <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl ">
           <Greeting name={user?.firstname || 'Department Head'} />
 
-          {/* Stat cards and filters */}
+          {/* Stat cards */}
           <div className="flex flex-wrap justify-between items-center mb-8">
             <div className="flex gap-4 flex-wrap mt-4">
               {/* Faculty */}
@@ -229,35 +226,6 @@ export default function DepartmentHeadDashboard() {
                 <div>
                   <div className="text-black-600 text-base font-bold">Documents</div>
                   <div className="text-gray-500 text-xs">3,564 Files</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-4">
-              {/* School Filter */}
-              <Dropdown
-                options={["All", ...Object.keys(schoolIdentifiers)]}
-                value={selectedSchool}
-                onChange={setSelectedSchool}
-                width="w-50"
-              />
-
-              {/* Sort Order */}
-              <Dropdown
-                options={["A-Z", "Z-A"]}
-                value={sortOrder}
-                onChange={setSortOrder}
-                width="w-36"
-              />
-
-              {/* Search Bar */}
-              <div className="flex-1 flex justify-start m-1">
-                <div className="w-64">
-                  <SearchBar
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search templates..."
-                  />
                 </div>
               </div>
             </div>
