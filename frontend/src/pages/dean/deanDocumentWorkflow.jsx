@@ -9,61 +9,25 @@ import Table from "../../components/table";
 import usePagination from "../../hooks/usePagination";
 
 // ---------- PLACEHOLDER DATA ----------
-const SUBMITTED = Array.from({ length: 28 }, (_, i) => ({
+const SUBMITTED = Array.from({ length: 20 }, (_, i) => ({
   id: `D${(i + 1).toString().padStart(3, "0")}`,
-  code: "FM-SAA-002",
-  rev: "00",
-  eff: "26-01-16",
-  title:
-    i % 5 === 0
-      ? "Data Mining Course Syllabi 26-27"
-      : i % 5 === 1
-      ? "Web Technologies Course Syllabi 26-27"
-      : i % 5 === 2
-      ? "Special Topics 1 Course Syllabi 26-27"
-      : i % 5 === 3
-      ? "Applications Development Course Syllabi"
-      : "IT Capstone Project 1 Course Syllabi",
-  createdBy:
-    i % 5 === 0
-      ? "Daniela Torres"
-      : i % 5 === 1
-      ? "Sarah Dela Cruz"
-      : i % 5 === 2
-      ? "Sarah Dela Cruz"
-      : i % 5 === 3
-      ? "Mark Gomez"
-      : "Jana Aquino",
-  due: "26-01-10",
+  code: "FM-XXX-000",
+  rev: "--",
+  eff: "YY-MM-DD",
+  title: "Document Title Placeholder",
+  createdBy: "Creator Placeholder",
+  due: "YY-MM-DD",
   status: "Submitted",
 }));
 
-const PUBLISHED = Array.from({ length: 28 }, (_, i) => ({
+const PUBLISHED = Array.from({ length: 20 }, (_, i) => ({
   id: `D${(i + 1).toString().padStart(3, "0")}`,
-  code: "FM-SAA-002",
-  rev: "00",
-  eff: "26-01-16",
-  title:
-    i % 5 === 0
-      ? "Data Mining Course Syllabi 26-27"
-      : i % 5 === 1
-      ? "Web Technologies Course Syllabi 26-27"
-      : i % 5 === 2
-      ? "Special Topics 1 Course Syllabi 26-27"
-      : i % 5 === 3
-      ? "Human Computer Interaction Course Syllabi"
-      : "Computer Architecture Course Syllabi",
-  ownedBy:
-    i % 5 === 0
-      ? "Daniela Torres"
-      : i % 5 === 1
-      ? "Sarah Dela Cruz"
-      : i % 5 === 2
-      ? "Sarah Dela Cruz"
-      : i % 5 === 3
-      ? "Oliver Bearman"
-      : "Alisha Cruz",
-  due: "26-01-10",
+  code: "FM-XXX-000",
+  rev: "--",
+  eff: "YY-MM-DD",
+  title: "Document Title Placeholder",
+  ownedBy: "Owner Placeholder",
+  due: "YY-MM-DD",
   status: "Published",
 }));
 
@@ -114,15 +78,13 @@ export default function DeanDocumentWorkflow() {
     { key: "title", label: "Title" },
     { key: "createdBy", label: "Created By" },
     { key: "due", label: "Due Date" },
-    { key: "status", label: "Status", render: () => <StatusBadge type="Submitted" /> },
+    { key: "status", label: "Status", render: () => <StatusBadge type="submitted" /> },
     {
       key: "actions",
       label: "Actions",
       render: (row) => (
         <button
-          onClick={() =>
-            navigate(`/dean/documents/${row.id}`, { state: { from: "workflow" } })
-          }
+          onClick={() => navigate(`/dean/documents/${row.id}`, { state: { from: "workflow" } })}
           className="inline-flex items-center gap-2 px-3 py-1 bg-[#0035DA] text-white rounded-md hover:bg-[#043485] transition"
         >
           <svg width="16" height="16" viewBox="0 0 24 24">
@@ -145,15 +107,13 @@ export default function DeanDocumentWorkflow() {
     { key: "title", label: "Title" },
     { key: "ownedBy", label: "Owned By" },
     { key: "due", label: "Due Date" },
-    { key: "status", label: "Status", render: () => <StatusBadge type="Published" /> },
+    { key: "status", label: "Status", render: () => <StatusBadge type="published" /> },
     {
       key: "actions",
       label: "Actions",
       render: (row) => (
         <button
-          onClick={() =>
-            navigate(`/dean/documents/${row.id}`, { state: { from: "workflow" } })
-          }
+          onClick={() => navigate(`/dean/documents/${row.id}`, { state: { from: "workflow" } })}
           className="inline-flex items-center gap-2 px-3 py-1 bg-[#0035DA] text-white rounded-md hover:bg-[#043485] transition"
         >
           <svg width="16" height="16" viewBox="0 0 24 24">
@@ -176,33 +136,33 @@ export default function DeanDocumentWorkflow() {
       <div className="flex flex-1">
         <Sidebar user={user} active="Document Workflow" />
 
-        {/* WRAPPER + MAIN SPACING MATCH Dean Documents */}
+        {/* Match margins/paddings to DepartmentHeadDocuments */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           <main className="p-10 flex-1 overflow-y-auto">
-            {/* Title block (same margin + underline) */}
+            {/* Title block */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold tracking-widest uppercase">
-                {tab === "submitted" ? "SUBMITTED FORMS" : "PUBLISHED FORMS"}
+                {tab === "submitted" ? "SUBMITTED DOCUMENTS" : "PUBLISHED DOCUMENTS"}
               </h1>
               <div className="w-28 h-1 bg-yellow-400 mt-2 rounded" />
             </div>
 
-            {/* Controls row */}
+            {/* Controls */}
             <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 mb-6">
               <Dropdown
-                options={["All", "SAMCIS", "STELA", "University Wide"]}
-                value={"All"}
+                options={["Filter by", "All", "SAMCIS", "STELA", "University Wide"]}
+                value={"Filter by"}
                 onChange={() => {}}
                 width="w-44"
-                label="Filter"
                 buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
               />
               <Dropdown
-                options={["Recent", "A-Z", "Z-A"]}
-                value={sortBy}
-                onChange={(v) => setSortBy(v)}
+                options={["Sort by", "Recent", "A-Z", "Z-A"]}
+                value={"Sort by"}
+                onChange={(v) => {
+                  if (v === "Recent" || v === "A-Z" || v === "Z-A") setSortBy(v);
+                }}
                 width="w-36"
-                label="Sort"
                 buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
               />
               <div className="flex-1 md:ml-auto w-full md:w-96">
@@ -215,7 +175,7 @@ export default function DeanDocumentWorkflow() {
             </div>
 
             {/* Tabs */}
-            <div className="mb-6">
+            <div className="mb-5">
               <div className="inline-flex bg-gray-100 rounded-full p-1">
                 <button
                   onClick={() => {
@@ -296,12 +256,9 @@ export default function DeanDocumentWorkflow() {
 function StatusBadge({ type }) {
   const t = String(type).toLowerCase();
   const isPublished = t === "published";
-  // Submitted should be green per your spec
-  const styles = "bg-green-50 text-green-700 border border-green-200";
-  const dot = "bg-green-500";
   return (
-    <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${styles}`}>
-      <span className={`h-2 w-2 rounded-full ${dot}`} />
+    <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+      <span className="h-2 w-2 rounded-full bg-green-500" />
       {isPublished ? "Published" : "Submitted"}
     </span>
   );
