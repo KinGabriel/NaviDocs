@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import { dbConnection } from "./config/db.js";
 import fileRoutes from './routes/fileRoutes.js';
 
 dotenv.config();
@@ -28,7 +29,7 @@ app.get('/health', (req, res) => {
     uploadsPath: path.join(process.cwd(), 'uploads')
   });
 });
-
+dbConnection();
 app.listen(PORT, () => {
   console.log(`File Service running on port ${PORT}`);
 });

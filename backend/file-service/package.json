@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
-   "scripts": {
-      "start": "node index.js",
-      "dev": "nodemon index.js"
-   },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -16,6 +16,8 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "fs-extra": "^11.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.18.0",
     "multer": "^2.0.2",
     "nodaemon": "^0.0.5",
     "path": "^0.12.7",
