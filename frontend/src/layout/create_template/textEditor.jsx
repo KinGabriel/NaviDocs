@@ -1,5 +1,5 @@
 // src/layout/create_template/textEditor.jsx
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
@@ -20,16 +20,12 @@ import Page from "../../extensions/textEditor/Page";
 import AutoPaginator from "../../extensions/textEditor/AutoPaginator";
 import BackspaceHandler from "../../extensions/textEditor/BackspaceHandler";
 
-// NEW: font size attribute on textStyle
-import FontSize from "../../extensions/marks/FontSize";
-
 const inchToPx = (inches) => Math.round(inches * 96);
 const DEFAULT_SETUP = {
   paperSize: "A4",
   orientation: "Portrait",
   margins: { top: 1, bottom: 1, left: 1, right: 1 },
 };
-
 const PRESETS = { A4: { w: 8.27, h: 11.69 }, Letter: { w: 8.5, h: 11 }, Legal: { w: 8.5, h: 14 } };
 
 function computeDims(pageSetup) {
@@ -49,17 +45,15 @@ function computeDims(pageSetup) {
   };
 }
 
-// JSON fallback document
 const DEFAULT_DOC = {
   type: "doc",
   content: [{ type: "page", content: [{ type: "paragraph" }] }],
 };
 
-// Ensure any incoming HTML string is wrapped in a Page element
 function normalizeInitialContent(content) {
   if (!content) return DEFAULT_DOC;
-  if (typeof content !== "string") return content; // assume valid JSON doc
-  if (/data-type\s*=\s*"nd-page"/i.test(content)) return content; // already wrapped
+  if (typeof content !== "string") return content;
+  if (/data-type\s*=\s*"(nd-)?page"/i.test(content)) return content;
   return `<section data-type="nd-page">${content}</section>`;
 }
 
@@ -72,19 +66,41 @@ export default function TextEditor({
 }) {
   const dimsRef = useRef(computeDims(pageSetup));
 
+  const applyCssVars = (d) => {
+    const root = document.documentElement;
+    root.style.setProperty("--nd-page-width", `${d.widthPx}px`);
+    root.style.setProperty("--nd-page-height", `${d.heightPx}px`);
+    root.style.setProperty("--nd-margin-top", `${d.marginTopPx}px`);
+    root.style.setProperty("--nd-margin-bottom", `${d.marginBottomPx}px`);
+    root.style.setProperty("--nd-margin-left", `${d.marginLeftPx}px`);
+    root.style.setProperty("--nd-margin-right", `${d.marginRightPx}px`);
+  };
+
   const editor = useEditor({
     extensions: [
       DocumentPages,
       Page,
-      StarterKit.configure({ document: false }),
+      StarterKit.configure({
+        document: false,
+        bold: true,
+        italic: true,
+        strike: true,
+        blockquote: true,
+        bulletList: true,
+        orderedList: true,
+        heading: { levels: [1, 2, 3] },
+        code: false,
+        codeBlock: false,
+        dropcursor: true,
+        gapcursor: true,
+        history: true,
+      }),
       TextStyle,
       Color,
       FontFamily,
       Underline,
       Superscript,
       Subscript,
-      // NEW:
-      FontSize,
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -98,29 +114,29 @@ export default function TextEditor({
     onCreate: ({ editor }) => {
       applyCssVars(dimsRef.current);
       editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
-      onEditorReady && onEditorReady(editor);
+      onEditorReady?.(editor); // expose editor to your left panel
     },
-    onUpdate: ({ editor }) => {
-      onContentChange && onContentChange(editor.getHTML());
-    },
+    onUpdate: ({ editor }) => onContentChange?.(editor.getHTML()),
   });
 
   useEffect(() => {
     const dims = computeDims(pageSetup);
     dimsRef.current = dims;
     applyCssVars(dims);
-    if (editor) editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
+    editor?.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
   }, [editor, pageSetup]);
 
-  const applyCssVars = (d) => {
-    const root = document.documentElement;
-    root.style.setProperty("--nd-page-width", `${d.widthPx}px`);
-    root.style.setProperty("--nd-page-height", `${d.heightPx}px`);
-    root.style.setProperty("--nd-margin-top", `${d.marginTopPx}px`);
-    root.style.setProperty("--nd-margin-bottom", `${d.marginBottomPx}px`);
-    root.style.setProperty("--nd-margin-left", `${d.marginLeftPx}px`);
-    root.style.setProperty("--nd-margin-right", `${d.marginRightPx}px`);
-  };
+  useEffect(() => {
+    if (!editor) return;
+    if (typeof content === "string") {
+      const html = normalizeInitialContent(content);
+      if (html !== editor.getHTML()) editor.commands.setContent(html, false);
+    } else if (content && typeof content === "object") {
+      editor.commands.setContent(content, false);
+    }
+  }, [editor, content]);
+
+  useEffect(() => () => editor?.destroy(), [editor]);
 
   return (
     <div className={`w-full ${className}`}>
@@ -146,9 +162,16 @@ export default function TextEditor({
           overflow: hidden;
         }
         .nd-editor { outline: none; }
+        .ProseMirror:focus { outline: none; }
       `}</style>
+
+      {/* No toolbar here. Your left panel should use the editor you get via onEditorReady. */}
       <div className="mx-auto my-6" style={{ maxWidth: `calc(var(--nd-page-width) + 4rem)` }}>
-        {editor ? <EditorContent editor={editor} className="prose max-w-none" /> : <div className="text-sm text-gray-500">Loading editor…</div>}
+        {editor ? (
+          <EditorContent editor={editor} className="prose max-w-none" />
+        ) : (
+          <div className="text-sm text-gray-500">Loading editor…</div>
+        )}
       </div>
     </div>
   );
