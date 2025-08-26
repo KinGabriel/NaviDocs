@@ -7,14 +7,13 @@ import { Node, mergeAttributes } from "@tiptap/core";
  */
 export const Page = Node.create({
   name: "page",
-  // No group => page is only allowed where the schema explicitly permits it (top-level)
   content: "block+",
   isolating: true,
   defining: true,
 
   addAttributes() {
     return {
-      number: { default: null }, // optional, not used by core
+      number: { default: null },
     };
   },
 

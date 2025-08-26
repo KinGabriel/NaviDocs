@@ -1,8 +1,6 @@
 // src/pages/documentControllerCreateTemplate.jsx
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-
-// NOTE: Keeping the original (misspelled) import path to avoid breaking existing builds.
 import {
   getTemplateByIdAPI,
   updateTemplateAPI,
@@ -64,7 +62,7 @@ export default function DocumentControllerCreateTemplate() {
 
   const editorRef = useRef(null);
   const [editorInstance, setEditorInstance] = useState(null);
-  const headerH = useHeaderHeight(); // <-- dynamic header height
+  const headerH = useHeaderHeight(); 
 
   // Template state
   const [templateId, setTemplateId] = useState(null);
@@ -189,6 +187,7 @@ export default function DocumentControllerCreateTemplate() {
       case "pagesetup":
         return (
           <PageSetupPanel
+            pageSetup={pageSetup}
             paperSize={pageSetup.paperSize}
             setPaperSize={(v) => setPageSetup({ ...pageSetup, paperSize: v })}
             orientation={pageSetup.orientation}
