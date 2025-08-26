@@ -257,7 +257,7 @@ export const getUserById = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-
+};
   
   export const editUser = async (req, res) => {
   try {

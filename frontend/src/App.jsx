@@ -32,6 +32,7 @@ import DepartmentHeadDocuments from './pages/dept_head/departmentHeadDocuments';
 import DepartmentHeadViewDocuments from './pages/dept_head/departmentHeadViewDocuments';
 import DepartmentHeadDocumentWorkflow from './pages/dept_head/departmentHeadDocumentWorkflow';
 import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics';
+import FacultyDashboard from './pages/faculty/facultyDashboard';
 
 
 /** Redirect logged-in users by role; otherwise show Login */
@@ -44,6 +45,7 @@ function LoginRoute() {
    if (role === "Secretary")           return <Navigate to="/secretary/dashboard" replace />;
    if (role === "Dean")                return <Navigate to="/dean/dashboard" replace />;
    if (role === "Department Head")     return <Navigate to="/dept-head/dashboard" replace />;
+   if (role === "Faculty")             return <Navigate to="/faculty/dashboard" replace />;
  }
  return <Login />;
 }
@@ -290,12 +292,22 @@ function App() {
          }
        />
 
+       {/* Faculty Module */}
+       <Route
+         path="/faculty/dashboard"
+         element={
+           <ProtectedRoute allowedRoles={["Faculty"]}>
+             <FacultyDashboard />
+           </ProtectedRoute>
+         }
+       />
+    
 
        {/* Global */}
        <Route
          path="/account/settings"
          element={
-           <ProtectedRoute allowedRoles={["Admin","Document Controller","Secretary","Dean", "Department Head"]}>
+           <ProtectedRoute allowedRoles={["Admin","Document Controller","Secretary","Dean", "Department Head", "Faculty"]}>
              <AccountSettings />
            </ProtectedRoute>
          }
