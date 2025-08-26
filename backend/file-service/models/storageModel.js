@@ -18,6 +18,7 @@ const storageSchema = new mongoose.Schema({
   allowedSchools: [{ type: String }],
   allowedDepartments: [{ type: String }],
   allowedUsers: [{ type: String }],
+  parentFolder: { type: mongoose.Schema.Types.ObjectId, ref: 'Storage', default: null },
   files: [fileSchema],
   filledOutDocuments: [{ type: String }],
   createdAt: { type: Date, default: Date.now },

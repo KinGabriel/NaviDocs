@@ -2,8 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import cookieParser from 'cookie-parser';
 import { dbConnection } from "./config/db.js";
 import fileRoutes from './routes/fileRoutes.js';
+import storageRoutes from './routes/storageRoutes.js';
 
 dotenv.config();
 
@@ -11,14 +13,19 @@ const app = express();
 const PORT = process.env.PORT || 3004;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Routes
 app.use('/api/files', fileRoutes);
+app.use('/api/storage', storageRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
