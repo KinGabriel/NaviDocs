@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { createUser, getUsers, getDashboardInfo, archiveUser, unarchiveUser, getUserById } from "../controllers/adminController.js";
+import { createUser, getUsers, getDashboardInfo, archiveUser, unarchiveUser, getUserById, editUser } from "../controllers/adminController.js";
 import { authenticateJWT } from "../middleware/authenticationMiddleware.js"; 
 import { authorizeAdmin } from "../middleware/authorizationMiddleware.js";
 
@@ -57,5 +57,11 @@ router.get("/get-user/:id",
   authenticateJWT,
   authorizeAdmin,
   getUserById
+);
+router.patch("/edit-user/:id",
+  authenticateJWT,
+  authorizeAdmin,
+  upload.single("profile_picture"),
+  editUser
 );
 export default router;

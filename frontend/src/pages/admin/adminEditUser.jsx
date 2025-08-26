@@ -10,6 +10,7 @@ import defaultProfile from "../../assets/images/profile_picture.png";
 import { useNavigate } from "react-router-dom";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 import { ROLE_OPTIONS, SCHOOL_OPTIONS, DEPARTMENT_OPTIONS, YEAR_OPTIONS } from "../../utils/options";
+import axios from "axios";
 
 
 export default function AdminEditUser() {
@@ -19,6 +20,7 @@ export default function AdminEditUser() {
 
   // --- form state ---
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [form, setForm] = useState({
     firstname: "",
     lastname: "",
@@ -80,15 +82,17 @@ export default function AdminEditUser() {
     setForm((p) => ({ ...p, [name]: normalizeName(value) }));
   };
 
-  const setRoleField = (key, val) =>
-    setForm((p) => ({
-      ...p,
-      role: { ...p.role, [key]: val },
-      ...(key === "school" ? { role: { ...p.role, school: val, department: "" } } : {}),
-      ...(key === "name" && !["Faculty", "Document Controller", "Department Head"].includes(val)
-        ? { year: "—", role: { ...p.role, name: val } }
-        : {}),
-    }));
+  const setRoleField = (key, val) => {
+    setForm((prev) => {
+      const nextRole = { ...prev.role, [key]: val };
+      if (key === "school") nextRole.department = "";
+      const next = { ...prev, role: nextRole };
+      if (key === "name" && !["Faculty", "Document Controller", "Department Head"].includes(val)) {
+        next.year = "—";
+      }
+      return next;
+    });
+  };
 
   const handleClear = () => {
     setForm({
@@ -99,25 +103,53 @@ export default function AdminEditUser() {
       year: "—",
     });
     setPhotoPreview(null);
+    setSelectedFile(null);
   };
 
-
+// Save handler wired to PUT /api/admin/edit-user/:id
   const handleSave = async (e) => {
     e.preventDefault();
     setSaveAttempted(true);
+
     if (!canSave) {
       setAlertType("error");
-      setAlertMessage(extraError ? extraError : "Fill all required fields before saving.");
+      setAlertMessage(extraError || "Fill all required fields before saving.");
       return;
     }
-    // TODO: plug your update API here
-    await new Promise((r) => setTimeout(r, 600));
-    setAlertType("success");
-    setAlertMessage("User updated successfully.");
-    setTimeout(() => {
-      setAlertMessage("");
-      navigate(-1);
-    }, 2000);
+
+    try {
+      const token = localStorage.getItem("token");
+
+      const formData = new FormData();
+      formData.append("firstname", form.firstname);
+      formData.append("lastname", form.lastname);
+      formData.append("email", form.email);
+      // backend expects role name as `role`, plus `school` & `department`
+      formData.append("role", form.role.name || "");
+      formData.append("school", form.role.school || "");
+      formData.append("department", form.role.department || "");
+      if (selectedFile) formData.append("profile_picture", selectedFile);
+
+      // Use API_URL for consistency with your image base
+      await axios.patch(`${API_URL}/api/admin/edit-user/${id}`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+        withCredentials: true, // keep if your API uses cookies too; harmless otherwise
+      });
+
+      setAlertType("success");
+      setAlertMessage("User updated successfully.");
+      setTimeout(() => {
+        setAlertMessage("");
+        navigate(-1);
+      }, 1200);
+    } catch (err) {
+      console.error("Error updating user:", err?.response?.data || err?.message || err);
+      setAlertType("error");
+      setAlertMessage(err?.response?.data?.message || "Failed to update user.");
+    }
   };
 
   const fullName = `${normalizeName(form.firstname)} ${normalizeName(form.lastname)}`.trim();
@@ -154,161 +186,174 @@ export default function AdminEditUser() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-200 flex flex-col">
-      <Header user={user} />
-      <div className="flex flex-1">
-        {/* Sidebar with Edit User highlighted */}
-        <Sidebar user={user} active="Edit User" />
-        {/* Page shell */}
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <main className="flex-1 p-10">
-            {/* Title */}
-            <div className="mb-10">
-              <h1 className="text-3xl font-extrabold tracking-wide text-black">EDIT USER</h1>
-              <div className="w-24 h-1 bg-yellow-400 mt-2 rounded" />
+  <div className="min-h-screen bg-gray-200 flex flex-col">
+    <Header user={user} />
+    <div className="flex flex-1">
+      {/* Sidebar */}
+      <Sidebar user={user} active="Edit User" />
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+        <main className="flex-1 p-10">
+          {/* Title */}
+          <div className="mb-10">
+            <h1 className="text-3xl font-extrabold tracking-wide text-black">EDIT USER</h1>
+            <div className="w-24 h-1 bg-yellow-400 mt-2 rounded" />
+          </div>
+
+          {/* Alert */}
+          {alertMessage && (
+            <div
+              className={`mb-6 p-3 rounded border text-base w-full transition-opacity duration-300 ${
+                alertType === "success"
+                  ? "border-green-200 bg-green-50 text-green-700"
+                  : "border-red-200 bg-red-50 text-red-700"
+              }`}
+            >
+              {alertMessage}
             </div>
+          )}
 
-            {/* Alert for success/error */}
-            {alertMessage && (
-              <div className={`mb-6 p-3 rounded border text-base w-full transition-opacity duration-300 ${
-                alertType === 'success'
-                  ? 'border-green-200 bg-green-50 text-green-700'
-                  : 'border-red-200 bg-red-50 text-red-700'
-              }`}>
-                {alertMessage}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            {/* Left: Avatar */}
+            <section className="flex flex-col items-center">
+              <div className="w-44 h-44 rounded-full overflow-hidden bg-gray-100 border">
+                {photoPreview ? (
+                  <img src={`${API_URL}${photoPreview}`} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <img src={defaultProfile} alt="Default" className="w-full h-full object-cover" />
+                )}
               </div>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-              {/* Left: avatar + name/role */}
-              <section className="flex flex-col items-center">
-                <div className="w-44 h-44 rounded-full overflow-hidden bg-gray-100 border">
-                  {photoPreview ? (
-                    <img src={`${API_URL}${photoPreview}`} alt="Profile" className="w-full h-full object-cover" />
-                  ) : (
-                    <img src={defaultProfile} alt="Default" className="w-full h-full object-cover" />
-                  )}
+              <div className="mt-6 text-center">
+                <div className="text-lg font-semibold">{fullName || "—"}</div>
+                <div className="text-xs text-gray-500 leading-tight">
+                  {form.role?.department ? `BS ${form.role.department?.split(" ")[0] || ""}` : ""}
                 </div>
-                <div className="mt-6 text-center">
-                  <div className="text-lg font-semibold">{fullName || "—"}</div>
-                  <div className="text-xs text-gray-500 leading-tight">
-                    {form.role?.department ? `BS ${form.role.department?.split(" ")[0] || ""}` : ""}
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">{form.role?.name || "—"}</div>
-                </div>
-              </section>
+                <div className="text-sm text-gray-500 mt-1">{form.role?.name || "—"}</div>
+              </div>
 
-              {/* Right: Form */}
-              <section className="lg:col-span-2 space-y-10">
-                {/* Personal Information */}
-                <div>
-                  <h2 className="text-base font-semibold text-[#063c8d] mb-4">Personal Information:</h2>
-                  <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={handleSave}>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">First Name</label>
-                      <input
-                        name="firstname"
-                        type="text"
-                        value={form.firstname}
-                        onChange={handleInput}
-                        onBlur={handleBlurName}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Last Name</label>
-                      <input
-                        name="lastname"
-                        type="text"
-                        value={form.lastname}
-                        onChange={handleInput}
-                        onBlur={handleBlurName}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Email</label>
-                      <input
-                        name="email"
-                        type="email"
-                        value={form.email}
-                        onChange={handleInput}
-                        onKeyDown={(e) => e.key === " " && e.preventDefault()}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        required
-                      />
-                    </div>
-                    {showSchool && (
-                      <Dropdown2
-                        label="School"
-                        value={form.role.school}
-                        onChange={(val) => setRoleField("school", val)}
-                        options={SCHOOL_OPTIONS}
-                        placeholder="Select School"
-                      />
-                    )}
-                    {/* Year */}
-                    {showYear && (
-                      <Dropdown2
-                        label="Year"
-                        value={form.year}
-                        onChange={(val) => setForm((p) => ({ ...p, year: val }))}
-                        options={YEAR_OPTIONS}
-                        placeholder="Select Year"
-                      />
-                    )}
-                  </form>
-                </div>
+              {/* Upload */}
+              <div className="mt-4">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="text-sm"
+                />
+              </div>
+            </section>
 
-                {/* Department & Role */}
-                <div>
-                  <h2 className="text-base font-semibold text-[#063c8d] mb-4">Department &amp; Role:</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {showDepartment && (
-                      <Dropdown2
-                        label="Department"
-                        value={form.role.department}
-                        onChange={(val) => setRoleField("department", val)}
-                        options={DEPARTMENT_OPTIONS[form.role.school] || []}
-                        placeholder="Select Department"
-                      />
-                    )}
-                    <Dropdown2
-                      label="Role"
-                      value={form.role.name}
-                      onChange={(val) => setRoleField("name", val)}
-                      options={ROLE_OPTIONS}
-                      placeholder="Select Role"
+            {/* Right: Form Fields */}
+            <section className="lg:col-span-2 space-y-10">
+              {/* Personal Information */}
+              <div>
+                <h2 className="text-base font-semibold text-[#063c8d] mb-4">Personal Information:</h2>
+                <form className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">First Name</label>
+                    <input
+                      name="firstname"
+                      type="text"
+                      value={form.firstname}
+                      onChange={handleInput}
+                      onBlur={handleBlurName}
+                      className="w-full border border-gray-300 rounded px-3 py-2"
+                      required
                     />
                   </div>
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Last Name</label>
+                    <input
+                      name="lastname"
+                      type="text"
+                      value={form.lastname}
+                      onChange={handleInput}
+                      onBlur={handleBlurName}
+                      className="w-full border border-gray-300 rounded px-3 py-2"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Email</label>
+                    <input
+                      name="email"
+                      type="email"
+                      value={form.email}
+                      onChange={handleInput}
+                      onKeyDown={(e) => e.key === " " && e.preventDefault()}
+                      className="w-full border border-gray-300 rounded px-3 py-2"
+                      required
+                    />
+                  </div>
+                  {showSchool && (
+                    <Dropdown2
+                      label="School"
+                      value={form.role.school}
+                      onChange={(val) => setRoleField("school", val)}
+                      options={SCHOOL_OPTIONS}
+                      placeholder="Select School"
+                    />
+                  )}
+                  {showYear && (
+                    <Dropdown2
+                      label="Year"
+                      value={form.year}
+                      onChange={(val) => setForm((p) => ({ ...p, year: val }))}
+                      options={YEAR_OPTIONS}
+                      placeholder="Select Year"
+                    />
+                  )}
+                </form>
+              </div>
 
-                {/* Actions */}
-                <div className="flex justify-end gap-4">
-                  <button
-                    type="button"
-                    onClick={handleClear}
-                    className="px-6 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
-                  >
-                    Clear
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!canSave}
-                    className={`px-6 py-2 rounded text-white ${
-                      canSave ? "bg-blue-700 hover:bg-blue-800" : "bg-gray-400 cursor-not-allowed"
-                    }`}
-                  >
-                    Save
-                  </button>
+              {/* Department & Role */}
+              <div>
+                <h2 className="text-base font-semibold text-[#063c8d] mb-4">Department &amp; Role:</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {showDepartment && (
+                    <Dropdown2
+                      label="Department"
+                      value={form.role.department}
+                      onChange={(val) => setRoleField("department", val)}
+                      options={DEPARTMENT_OPTIONS[form.role.school] || []}
+                      placeholder="Select Department"
+                    />
+                  )}
+                  <Dropdown2
+                    label="Role"
+                    value={form.role.name}
+                    onChange={(val) => setRoleField("name", val)}
+                    options={ROLE_OPTIONS}
+                    placeholder="Select Role"
+                  />
                 </div>
-              </section>
-            </div>
-          </main>
-        </div>
+              </div>
+            </section>
+          </div>
+
+          {/* Save & Clear Buttons at Bottom-Right */}
+          <div className="flex justify-end gap-4 mt-8">
+            <button
+              type="button"
+              onClick={handleClear}
+              className="px-6 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canSave}
+              className={`px-6 py-2 rounded text-white ${
+                canSave ? "bg-blue-700 hover:bg-blue-800" : "bg-gray-400 cursor-not-allowed"
+              }`}
+            >
+              Save
+            </button>
+          </div>
+        </main>
       </div>
     </div>
-  );
+  </div>
+);
 }

@@ -26,9 +26,11 @@ import DeanDashboard from './pages/dean/deanDashboard';
 import DeanDocuments from './pages/dean/deanDocuments';
 import DeanViewDocuments from './pages/dean/deanViewDocuments';
 import DeanStatistics from './pages/dean/deanStatistics';
+import DeanDocumentWorkflow from './pages/dean/deanDocumentWorkflow';
 import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
 import DepartmentHeadDocuments from './pages/dept_head/departmentHeadDocuments';
 import DepartmentHeadViewDocuments from './pages/dept_head/departmentHeadViewDocuments';
+import DepartmentHeadDocumentWorkflow from './pages/dept_head/departmentHeadDocumentWorkflow';
 import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics';
 import FacultyDashboard from './pages/faculty/facultyDashboard';
 
@@ -239,7 +241,14 @@ function App() {
            </ProtectedRoute>
          }
        />
-
+       <Route
+         path="/dean/document-workflow"
+         element={
+           <ProtectedRoute allowedRoles={["Dean"]}>
+             <DeanDocumentWorkflow />
+           </ProtectedRoute>
+         }
+       />
 
        {/* Department Head Module */}
        <Route
@@ -271,6 +280,14 @@ function App() {
          element={
            <ProtectedRoute allowedRoles={["Department Head"]}>
              <DepartmentHeadStatistics />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/dept-head/document-workflow"
+         element={
+           <ProtectedRoute allowedRoles={["Department Head"]}>
+             <DepartmentHeadDocumentWorkflow/>
            </ProtectedRoute>
          }
        />
