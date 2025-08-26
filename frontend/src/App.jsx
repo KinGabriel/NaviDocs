@@ -30,6 +30,7 @@ import DeanDocumentWorkflow from './pages/dean/deanDocumentWorkflow';
 import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
 import DepartmentHeadDocuments from './pages/dept_head/departmentHeadDocuments';
 import DepartmentHeadViewDocuments from './pages/dept_head/departmentHeadViewDocuments';
+import DepartmentHeadDocumentWorkflow from './pages/dept_head/departmentHeadDocumentWorkflow';
 import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics';
 
 
@@ -277,6 +278,14 @@ function App() {
          element={
            <ProtectedRoute allowedRoles={["Department Head"]}>
              <DepartmentHeadStatistics />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/dept-head/document-workflow"
+         element={
+           <ProtectedRoute allowedRoles={["Department Head"]}>
+             <DepartmentHeadDocumentWorkflow/>
            </ProtectedRoute>
          }
        />
