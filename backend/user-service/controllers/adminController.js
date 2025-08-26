@@ -257,4 +257,45 @@ export const getUserById = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+
+  
+  export const editUser = async (req, res) => {
+  try {
+    console.log("Editing user:", req.params.id);
+    console.log("Request body:", req.body);
+    console.log("Uploaded file:", req.file);
+
+    const userId = req.params.id;
+    const { firstname, lastname, email, role, school, department } = req.body;
+
+    const updateData = {
+      firstname,
+      lastname,
+      email,
+      role,
+      school,
+      department,
+    };
+
+    // If profile picture uploaded
+    if (req.file) {
+      updateData.profile_picture = req.file.buffer.toString("base64");
+    }
+
+    // Update in database
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({ 
+      message: "User updated successfully", 
+      user: updatedUser 
+    });
+
+  } catch (error) {
+    console.error("Error editing user:", error);
+    return res.status(500).json({ message: "Server error", error });
+  }
 };
