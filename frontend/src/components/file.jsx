@@ -42,7 +42,7 @@ export default function FileComponent({
         onClick={() => setOpen(true)}
         className="group relative bg-white border border-gray-300 rounded-xl shadow-sm hover:shadow-md transition cursor-pointer"
       >
-        {/* 3-dots */}
+        {/* 3-bullets */}
         <div className="absolute top-2 right-2">
           <button
             onClick={(e) => {

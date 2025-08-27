@@ -148,7 +148,7 @@ export default function DocumentControllerStorage() {
               </div>
             </div>
 
-            {/* If inside a folder: breadcrumb */}
+            {/* If inside a folder*/}
             {selectedFolder && (
               <div className="flex flex-wrap items-center gap-3 mb-6">
                 <button

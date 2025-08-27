@@ -32,7 +32,7 @@ export default function FolderComponent({
         </span>
       </div>
 
-      {/* 3-dots Menu */}
+      {/* 3-bullets Menu */}
       <div className="relative flex-shrink-0">
         <button
           onClick={(e) => {
