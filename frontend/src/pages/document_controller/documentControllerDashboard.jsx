@@ -59,7 +59,7 @@ export default function DocumentControllerDashboard() {
             <div className="flex gap-4 flex-wrap mt-4">
               {/* Published Documents */}
               <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
-                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-gray-500 rounded-full flex items-center justify-center">
                   <FileText className="h-6 w-6 text-white" />
                 </div>
                 <div>
@@ -81,7 +81,7 @@ export default function DocumentControllerDashboard() {
 
               {/* Returned Documents */}
               <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
-                <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-[#EB5B00] rounded-full flex items-center justify-center">
                   <AlertCircle className="h-6 w-6 text-white" />
                 </div>
                 <div>
@@ -89,6 +89,7 @@ export default function DocumentControllerDashboard() {
                   <div className="text-3xl font-bold text-gray-900">3</div>
                 </div>
               </div>
+
             </div>
           </div>
 
