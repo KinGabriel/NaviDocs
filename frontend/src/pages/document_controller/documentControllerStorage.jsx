@@ -6,9 +6,9 @@ import FolderComponent from "../../components/folder";
 import FileComponent from "../../components/file";
 import SearchBar from "../../components/searchBar";
 import Dropdown from "../../components/dropdown";
-import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp } from "lucide-react";
+import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X } from "lucide-react";
 
-// initial folders with dates (for "Recent" sort demo)
+// initial folders with dates
 const INITIAL_FOLDERS = [
   { name: "SAMCIS Dean", date: "2024-01-10" },
   { name: "SAMCIS OSA", date: "2024-03-05" },
@@ -29,7 +29,7 @@ const FOLDER_FILES = {
   "School Clinic": [{ name: "Health Guidelines.pdf", url: "" }],
 };
 
-// root files (default)
+// root files
 const ROOT_FILES = [
   { name: "Course Syllabus 2023-2024.pdf", url: "" },
   { name: "Course Syllabus 2023-2024 (2).pdf", url: "" },
@@ -52,15 +52,22 @@ export default function DocumentControllerStorage() {
   // dropdown (new actions)
   const [showNewMenu, setShowNewMenu] = useState(false);
 
+  // new folder modal
+  const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+
+  // reactive folders state
+  const [folders, setFolders] = useState([...INITIAL_FOLDERS]);
+
   // toggle menus
   const toggleFolderMenu = (id) =>
     setOpenFolderMenu(openFolderMenu === id ? null : id);
   const toggleFileMenu = (id) =>
     setOpenFileMenu(openFileMenu === id ? null : id);
 
-  // folders (search + sort by recent)
+  // folders (search + sort)
   const displayedFolders = useMemo(() => {
-    let rows = [...INITIAL_FOLDERS];
+    let rows = [...folders];
     if (sortRecent === "Recent") {
       rows.sort((a, b) => new Date(b.date) - new Date(a.date));
     }
@@ -69,7 +76,7 @@ export default function DocumentControllerStorage() {
       rows = rows.filter((f) => f.name.toLowerCase().includes(q));
     }
     return rows;
-  }, [searchQuery, sortRecent]);
+  }, [searchQuery, sortRecent, folders]);
 
   // files depending on location + search
   const displayedFiles = useMemo(() => {
@@ -80,6 +87,17 @@ export default function DocumentControllerStorage() {
     }
     return rows;
   }, [selectedFolder, searchQuery]);
+
+  // handle create new folder
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return;
+    setFolders([
+      ...folders,
+      { name: newFolderName.trim(), date: new Date().toISOString().split("T")[0] },
+    ]);
+    setNewFolderName("");
+    setShowNewFolderModal(false);
+  };
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -123,7 +141,7 @@ export default function DocumentControllerStorage() {
                 />
               </div>
 
-              {/* New button (root or inside folder) */}
+              {/* New button */}
               <div className="ml-auto relative">
                 <button
                   onClick={() => setShowNewMenu((prev) => !prev)}
@@ -134,7 +152,13 @@ export default function DocumentControllerStorage() {
 
                 {showNewMenu && (
                   <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
-                    <button className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100">
+                    <button
+                      className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100"
+                      onClick={() => {
+                        setShowNewFolderModal(true);
+                        setShowNewMenu(false);
+                      }}
+                    >
                       <FolderPlus size={18} /> New Folder
                     </button>
                     <button className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100">
@@ -148,7 +172,7 @@ export default function DocumentControllerStorage() {
               </div>
             </div>
 
-            {/* If inside a folder*/}
+            {/* Inside folder */}
             {selectedFolder && (
               <div className="flex flex-wrap items-center gap-3 mb-6">
                 <button
@@ -207,7 +231,6 @@ export default function DocumentControllerStorage() {
               </>
             ) : (
               <>
-                {/* Folder contents */}
                 <h3 className="text-lg font-semibold mb-3">
                   Files in {selectedFolder}
                 </h3>
@@ -231,6 +254,42 @@ export default function DocumentControllerStorage() {
           </main>
         </div>
       </div>
+
+      {/* New Folder Modal */}
+      {showNewFolderModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-[400px] max-w-full rounded-xl shadow-lg p-6 relative">
+            <button
+              className="absolute top-3 right-3 text-gray-500 hover:text-black"
+              onClick={() => setShowNewFolderModal(false)}
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-lg font-semibold mb-4">New Folder</h2>
+            <input
+              type="text"
+              className="w-full border rounded-lg px-3 py-2 mb-4"
+              placeholder="Enter folder name"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
+                onClick={() => setShowNewFolderModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                onClick={handleCreateFolder}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
