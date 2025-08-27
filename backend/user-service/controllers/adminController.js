@@ -261,41 +261,75 @@ export const getUserById = async (req, res) => {
   
   export const editUser = async (req, res) => {
   try {
-    console.log("Editing user:", req.params.id);
-    console.log("Request body:", req.body);
-    console.log("Uploaded file:", req.file);
-
     const userId = req.params.id;
-    const { firstname, lastname, email, role, school, department } = req.body;
+    
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    let { firstname, lastname, email, role, school, department } = req.body;
+
+    if (typeof role === "string") {
+      try {
+        role = JSON.parse(role);
+      } catch {
+        role = { name: role, school: school || null, department: department || null };
+      }
+    }
 
     const updateData = {
       firstname,
       lastname,
       email,
-      role,
-      school,
-      department,
+      role: {
+        name: role?.name || user.role.name,
+        school: school || role?.school || user.role.school,
+        department: department || role?.department || user.role.department,
+      },
     };
 
-    // If profile picture uploaded
+    // Handle profile picture upload (if provided)
     if (req.file) {
-      updateData.profile_picture = req.file.buffer.toString("base64");
+      try {
+        const prevProfilePic = user.profile_picture;
+
+        const formData = new FormData();
+        formData.append('profile_picture', req.file.buffer, {
+          filename: req.file.originalname,
+          contentType: req.file.mimetype,
+        });
+        formData.append('userId', email.split('@')[0] || user.email.split('@')[0]);
+
+        const fileResponse = await axios.post(
+          `${process.env.FILE_SERVICE_URL}/api/files/upload/profile`,
+          formData,
+          { headers: formData.getHeaders(), timeout: 15000 }
+        );
+
+        updateData.profile_picture = fileResponse.data.filePath;
+
+        // Delete old profile picture if exists
+        if (prevProfilePic && !prevProfilePic.includes('default')) {
+          try {
+            await axios.delete(
+              `${process.env.FILE_SERVICE_URL}/api/files/delete`,
+              { data: { filePath: prevProfilePic }, timeout: 10000 }
+            );
+          } catch (deleteErr) {
+            console.warn("Failed to delete previous profile picture:", deleteErr.message);
+          }
+        }
+      } catch (err) {
+        console.error("Profile picture upload failed:", err.message);
+        return res.status(500).json({ message: "Failed to upload profile picture." });
+      }
     }
 
-    // Update in database
+    // Save updated user
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
-
-    if (!updatedUser) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    return res.status(200).json({ 
-      message: "User updated successfully", 
-      user: updatedUser 
-    });
+    res.status(200).json({ message: "User updated successfully", user: updatedUser });
 
   } catch (error) {
     console.error("Error editing user:", error);
-    return res.status(500).json({ message: "Server error", error });
+    res.status(500).json({ message: "Server error", error });
   }
 };
