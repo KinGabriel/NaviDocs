@@ -17,7 +17,7 @@ export default function FontPanel({ editor }) {
   const [recent, setRecent] = useState(["Adamina", "Gotu", "Castoro"]);
   const [activeFamily, setActiveFamily] = useState("");
 
-  if (!editor) return null;
+  const isReady = !!editor;
 
   const COLORS = useMemo(
     () => [
@@ -55,14 +55,14 @@ export default function FontPanel({ editor }) {
   }, [FONT_CATEGORIES, activeCategory, search]);
 
   // Helpers
-  const focus = () => editor.chain().focus();
+  const focus = () => editor?.chain().focus();
 
   const safeRun = (fn) => {
-    try { fn(); } catch (_) {}
+    try { if (isReady) fn(); } catch (_) {}
   };
 
   const setSize = (n) => {
-    const v = Math.max(8, Math.min(96, n|0));
+    const v = Math.max(8, Math.min(96, n | 0));
     setFontSize(v);
     safeRun(() => focus().setMark("textStyle", { fontSize: `${v}px` }).run());
   };
@@ -81,7 +81,7 @@ export default function FontPanel({ editor }) {
   };
 
   const clearFormatting = () => {
-    focus().unsetAllMarks().clearNodes().run();
+    safeRun(() => focus().unsetAllMarks().clearNodes().run());
   };
 
   // UI atoms
@@ -122,6 +122,9 @@ export default function FontPanel({ editor }) {
       <div className="text-xs text-gray-600 mt-2">{label}</div>
     </button>
   );
+
+  // --- Only conditionally render (hooks already ran) ---
+  if (!isReady) return null;
 
   return (
     <div className="w-full bg-white border rounded-xl p-3 text-sm">
@@ -194,7 +197,7 @@ export default function FontPanel({ editor }) {
         <div className="mt-4">
           <div className="text-xs text-gray-500 mb-2">Recently used</div>
           <div className="border rounded-lg overflow-hidden">
-            {recent.map((f, idx) => (
+            {recent.map((f) => (
               <button
                 key={f}
                 onClick={() => applyFamily(f)}
