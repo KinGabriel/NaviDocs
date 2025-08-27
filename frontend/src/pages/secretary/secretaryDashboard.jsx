@@ -26,8 +26,6 @@ export default function SecretaryDashboard() {
   const templates = [
     { id: 1, code: "ST-001", rev: "01", date: "2025-08-12", title: "IT Curriculum Template", createdBy: "Alice Ramos", status: "Pending" },
     { id: 2, code: "ST-002", rev: "01", date: "2025-07-25", title: "Graphic Design Template", createdBy: "John Dela Cruz", status: "Returned" },
-    { id: 3, code: "ST-003", rev: "02", date: "2025-06-30", title: "Web Technologies Template", createdBy: "Maria Lopez", status: "Approved" },
-    { id: 4, code: "ST-004", rev: "01", date: "2025-08-01", title: "Course Syllabi Template", createdBy: "Jennie Zhang", status: "My Document" },
   ];
 
   const templateColumns = [
