@@ -88,12 +88,15 @@ export default function FolderComponent({
           {isMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50">
               <ul className="text-sm text-gray-700">
+                {/* Download */}
                 <li
                   className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
                   onClick={() => alert("Download clicked")}
                 >
                   <Download size={16} className="text-gray-600" /> Download
                 </li>
+
+                {/* Rename */}
                 <li
                   className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
                   onClick={() => setIsRenameOpen(true)}
@@ -103,6 +106,7 @@ export default function FolderComponent({
 
                 <hr className="my-1" />
 
+                {/* Organize */}
                 <li
                   className="relative flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
                   onMouseEnter={() => setIsOrganizeOpen(true)}
@@ -121,6 +125,7 @@ export default function FolderComponent({
                   )}
                 </li>
 
+                {/* Share */}
                 <li
                   className="relative flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
                   onMouseEnter={() => setIsShareMenuOpen(true)}
@@ -133,19 +138,19 @@ export default function FolderComponent({
                   {isShareMenuOpen && (
                     <ul className="absolute left-full top-0 ml-1 w-32 bg-white border rounded-lg shadow-md">
                       <li
-                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
                           setIsShareOpen(true);
                         }}
                       >
-                        Share
+                        <Share2 size={16} className="text-gray-600" /> Share
                       </li>
                       <li
-                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
                         onClick={() => handleCopyLink()}
                       >
-                        Get Link
+                        <Copy size={16} className="text-gray-600" /> Get Link
                       </li>
                     </ul>
                   )}
@@ -153,6 +158,7 @@ export default function FolderComponent({
 
                 <hr className="my-1" />
 
+                {/* Remove */}
                 <li
                   className="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 cursor-pointer"
                   onClick={() => setIsRemoveOpen(true)}
@@ -291,7 +297,6 @@ export default function FolderComponent({
               <button
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                 onClick={() => {
-                  // Save rename logic here
                   alert(`Renamed to "${renameValue}"`);
                   setIsRenameOpen(false);
                 }}
