@@ -150,14 +150,19 @@ export default function FileComponent({
             <h2 className="text-lg font-bold mb-4 px-6 pt-6">{fileName}</h2>
 
             {/* Preview section */}
-            <div className="flex-1 border rounded-md bg-gray-50 overflow-hidden mx-6">
+            <div className="flex-1 border rounded-md bg-gray-50 overflow-y-scroll mx-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
               {fileUrl && fileName?.toLowerCase().endsWith(".pdf") ? (
-                <iframe title="preview" src={fileUrl} className="w-full h-full" />
+                <iframe
+                title="preview"
+                src={fileUrl}
+                className="w-full h-full"
+                style={{ minHeight: "100%", overflow: "auto" }}
+              />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-500">
-                  Preview not available. (Provide a PDF URL to render here)
-                </div>
-              )}
+              <div className="w-full h-full flex items-center justify-center text-gray-500">
+                Preview not available. (Provide a PDF URL to render here)
+              </div>
+            )}
             </div>
 
             {/* Action buttons pinned at bottom */}
