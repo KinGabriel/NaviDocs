@@ -43,8 +43,8 @@ export default function FolderComponent({
 
   // Initialize state from backend folder  if available
   const [visibility, setVisibility] = useState(folder.data.visibility || 'private');
-  const [selectedSchools, setSelectedSchools] = useState(folder.data.folder.allowedSchools || []);
-  const [selectedDepartments, setSelectedDepartments] = useState(folder.data.folder.allowedDepartments || []);
+  const [selectedSchools, setSelectedSchools] = useState(folder.data.allowedSchools || []);
+  const [selectedDepartments, setSelectedDepartments] = useState(folder.data.allowedDepartments || []);
 
   // Compute available departments based on selected schools
   const availableDepartments = selectedSchools

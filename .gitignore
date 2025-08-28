@@ -154,3 +154,5 @@ dist
 *.njsproj
 *.sln
 *.sw?
+# folder
+tmp

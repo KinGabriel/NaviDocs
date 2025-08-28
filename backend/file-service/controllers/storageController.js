@@ -3,7 +3,7 @@ import Storage, { File } from '../models/storageModel.js';
 import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
-import { uploadDocument } from './fileController.js';
+import { saveDocumentFile } from './fileController.js';
 
 /**
  * @desc Create a new folder (logical and optional physical) in the storage system
@@ -81,11 +81,15 @@ export const getFolder = async (req, res) => {
       }
    
       return {
-        folder,
-        dbFiles: folder.files || [],
-        filledOutDocuments: folder.filledOutDocuments || [],
+        _id: folder._id,
+        folderName: folder.folderName,
         visibility: folder.visibility,
-        physicalFiles
+        allowedDepartments: folder.allowedDepartments || [],
+        allowedSchools: folder.allowedSchools || [],
+        allowedUsers: folder.allowedUsers || [],
+        createdAt: folder.createdAt || null,
+        updatedAt: folder.updatedAt || null,
+        owner: folder.owner || null,
       };
     });
 
@@ -118,9 +122,33 @@ export const getFolderByID = async (req, res) => {
       return res.status(404).json({ message: 'Folder not found.' });
     }
 
+    // Get physical files
+    const folderPath = path.join(process.cwd(), 'uploads', folder.owner, folder.folderName);
+    let physicalFiles = [];
+    if (fs.existsSync(folderPath)) {
+      physicalFiles = fs.readdirSync(folderPath);
+    }
+
+    // If you want to include db files, adjust as needed
+    const dbfiles = folder.files || [];
+
+    const result = {
+      _id: folder._id,
+      folderName: folder.folderName,
+      visibility: folder.visibility,
+      allowedDepartments: folder.allowedDepartments || [],
+      allowedSchools: folder.allowedSchools || [],
+      allowedUsers: folder.allowedUsers || [],
+      createdAt: folder.createdAt || null,
+      updatedAt: folder.updatedAt || null,
+      owner: folder.owner || null,
+      dbfiles,
+      physicalFiles
+    };
+
     res.status(200).json({
       message: 'Folder fetched successfully.',
-      folder
+      folder: result
     });
   } catch (err) {
     console.error('Error fetching folder by ID:', err);
@@ -214,6 +242,10 @@ export const addDocuments = async (req, res) => {
     const { id } = req.params;
     // req.files is populated by multer middleware
     const uploadedFiles = req.files;
+    // user_id may be sent in multipart form data
+    const owner = req.body.user_id || null;
+    console.log('req.files:', req.files);
+    console.log('req.body.user_id:', req.body.user_id);
 
     if (!id || !Array.isArray(uploadedFiles) || uploadedFiles.length === 0) {
       return res.status(400).json({ message: 'Folder ID and files are required.' });
@@ -224,19 +256,27 @@ export const addDocuments = async (req, res) => {
       return res.status(404).json({ message: 'Folder not found.' });
     }
 
-    // Call uploadDocument for each file and collect the file metadata
+
+    // Use saveDocumentFile for each file and collect the file metadata
     const fileMetadatas = [];
     for (const file of uploadedFiles) {
-      // Create a mock req/res for uploadDocument
-      const mockReq = { ...req, file, params: { ...req.params, folderId: id } };
-      // uploadDocument should return a file metadata object
-      const result = await uploadDocument(mockReq, { json: (data) => data });
-      if (result && result.file) {
-        fileMetadatas.push(result.file);
+      try {
+        // Use user_id as owner if provided, else fallback to folder._id
+        const meta = await saveDocumentFile({
+          file,
+          documentId: file.documentId || undefined,
+          owner: owner || folder._id.toString(),
+          folderName: folder.folderName,
+          uploaded_by: req.body.user_id
+        });
+        fileMetadatas.push(meta);
+      } catch (err) {
+        console.error('Error uploading document:', err);
       }
     }
 
-    folder.files = fileMetadatas;
+    // Push new files to the array
+    folder.files.push(...fileMetadatas);
     await folder.save();
 
     res.status(200).json({ message: 'Files uploaded and updated successfully.', folder });

@@ -56,6 +56,47 @@ export const uploadProfilePicture = async (req, res) => {
   }
 };
 
+
+// Helper for document upload logic
+export async function saveDocumentFile({ file, documentId, owner, folderName }) {
+  if (!file) throw new Error('No file uploaded');
+  if (!owner) throw new Error('Owner is required');
+
+  // Validate file.buffer exists (for multer.memoryStorage)
+  if (!file.buffer) {
+    console.error('File object missing buffer:', file);
+    throw new Error('Uploaded file is missing data (buffer property is undefined). Check multer config and frontend upload.');
+  }
+
+  const fileExtension = path.extname(file.originalname);
+  const fileName = `${documentId || 'doc'}_${Date.now()}${fileExtension}`;
+  const baseDir = folderName
+    ? path.join(process.cwd(), 'uploads', owner, folderName)
+    : path.join(process.cwd(), 'uploads', owner);
+  const filePath = path.join(baseDir, fileName);
+
+  await fs.ensureDir(baseDir);
+  await fs.writeFile(filePath, file.buffer);
+
+  const relativePath = folderName
+    ? `/uploads/${owner}/${folderName}/${fileName}`
+    : `/uploads/${owner}/${fileName}`;
+
+  console.log(`Document saved: ${relativePath}`);
+  return {
+    message: 'Document uploaded successfully',
+    filePath: relativePath,
+    filename: fileName,
+    originalName: file.originalname,
+    mimetype: file.mimetype,
+    size: file.size,
+    path: filePath,
+    uploadedBy: owner,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+}
+
 /**
  * @desc Upload document file
  * @route POST /api/files/upload/document
@@ -65,44 +106,14 @@ export const uploadProfilePicture = async (req, res) => {
  */
 export const uploadDocument = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
-
     const { documentId, owner, folderName } = req.body;
-    if (!owner) {
-      return res.status(400).json({ message: 'Owner is required' });
-    }
-
-    // Generate unique filename
-    const fileExtension = path.extname(req.file.originalname);
-    const fileName = `${documentId || 'doc'}_${Date.now()}${fileExtension}`;
-    // Determine path: uploads/<owner>/<folderName> or uploads/<owner>
-    const baseDir = folderName
-      ? path.join(process.cwd(), 'uploads', owner, folderName)
-      : path.join(process.cwd(), 'uploads', owner);
-    const filePath = path.join(baseDir, fileName);
-
-    // Ensure directory exists
-    await fs.ensureDir(baseDir);
-
-    // Save file
-    await fs.writeFile(filePath, req.file.buffer);
-
-    // Return the file path
-    const relativePath = folderName
-      ? `/uploads/${owner}/${folderName}/${fileName}`
-      : `/uploads/${owner}/${fileName}`;
-
-    console.log(`Document saved: ${relativePath}`);
-    res.status(200).json({
-      message: 'Document uploaded successfully',
-      filePath: relativePath,
-      fileName: fileName,
-      originalName: req.file.originalname,
-      size: req.file.size
+    const result = await saveDocumentFile({
+      file: req.file,
+      documentId,
+      owner,
+      folderName
     });
-
+    res.status(200).json(result);
   } catch (error) {
     console.error('Error uploading document:', error);
     res.status(500).json({

@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { getFoldersAPI } from "../../api/storageAPI";
+import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI } from "../../api/storageAPI";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
@@ -42,6 +42,9 @@ export default function DocumentControllerStorage() {
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [openFolderMenu, setOpenFolderMenu] = useState(null);
   const [openFileMenu, setOpenFileMenu] = useState(null);
+  // document upload state
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
 
   // dropdown (new actions)
   const [showNewMenu, setShowNewMenu] = useState(false);
@@ -64,9 +67,9 @@ export default function DocumentControllerStorage() {
         console.log("Fetched folders:", data);
         // Map backend folder fields to UI folder state
         const mapped = (data.folders || []).map((f) => ({
-          name: f.folder?.folderName || "Unnamed Folder",
-          date: f.folder?.createdAt || "",
-          _id: f.folder?._id,
+          name: f.folderName || "Unnamed Folder",
+          date: f.createdAt || "",
+          _id: f._id,
           data: f 
         }));
         setFolders(mapped);
@@ -107,15 +110,33 @@ export default function DocumentControllerStorage() {
     return rows;
   }, [selectedFolder, searchQuery]);
 
-  // handle create new folder
-  const handleCreateFolder = () => {
+  // handle create new folder 
+  const [createFolderError, setCreateFolderError] = useState(null);
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
-    setFolders([
-      ...folders,
-      { name: newFolderName.trim(), date: new Date().toISOString().split("T")[0] },
-    ]);
-    setNewFolderName("");
-    setShowNewFolderModal(false);
+    setCreatingFolder(true);
+    setCreateFolderError(null);
+    try {
+      const res = await createFolderAPI({ folderName: newFolderName.trim(), user });
+      // Add the new folder to the folders state
+      const f = res.folder;
+      setFolders(prev => [
+        ...prev,
+        {
+          name: f.folderName || "Unnamed Folder",
+          date: f.createdAt || new Date().toISOString(),
+          _id: f._id,
+          data: f
+        }
+      ]);
+      setNewFolderName("");
+      setShowNewFolderModal(false);
+    } catch (err) {
+      setCreateFolderError(err.message || "Failed to create folder");
+    } finally {
+      setCreatingFolder(false);
+    }
   };
 
   return (
@@ -180,7 +201,17 @@ export default function DocumentControllerStorage() {
                     >
                       <FolderPlus size={18} /> New Folder
                     </button>
-                    <button className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100">
+                    <button
+                      className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100"
+                      onClick={() => {
+                        setShowNewMenu(false);
+                        if (!selectedFolder) {
+                          alert('Please select a folder to upload files.');
+                          return;
+                        }
+                        document.getElementById('upload-documents-global').click();
+                      }}
+                    >
                       <Upload size={18} /> Upload File
                     </button>
                     <button className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100">
@@ -203,7 +234,7 @@ export default function DocumentControllerStorage() {
 
                 <div className="text-gray-600 text-sm font-medium">
                   Storage <span className="mx-1">/</span>
-                  <span className="text-gray-900">{selectedFolder}</span>
+                  <span className="text-gray-900">{selectedFolder.folderName || selectedFolder.name}</span>
                 </div>
               </div>
             )}
@@ -217,12 +248,20 @@ export default function DocumentControllerStorage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
                     {displayedFolders.map((folder, idx) => (
                       <FolderComponent
-                        key={ folder._id }
+                        key={folder._id}
                         folder={folder}
                         index={idx}
                         isMenuOpen={openFolderMenu === idx}
                         toggleMenu={toggleFolderMenu}
-                        onClick={(name) => setSelectedFolder(name)}
+                        onClick={async () => {
+                          try {
+                            const data = await getFolderByIDAPI(folder._id);
+                            console.log("Fetched folder details:", data);
+                            setSelectedFolder(data.folder);
+                          } catch (err) {
+                            alert('Failed to fetch folder details.');
+                          }
+                        }}
                       />
                     ))}
                   </div>
@@ -251,13 +290,39 @@ export default function DocumentControllerStorage() {
             ) : (
               <>
                 <h3 className="text-lg font-semibold mb-3">
-                  Files in {selectedFolder}
+                  Files in {selectedFolder.folderName || selectedFolder.name}
                 </h3>
-                {displayedFiles.length ? (
+                {/* Hidden global file input for upload via +New menu */}
+                <input
+                  id="upload-documents-global"
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={async (e) => {
+                    setUploadError(null);
+                    const files = Array.from(e.target.files || []);
+                    if (!files.length) return;
+                    setUploading(true);
+                    try {
+                      const res = await addDocumentsAPI(selectedFolder._id, files,user._id);
+                      setSelectedFolder((prev) => ({ ...prev, dbfiles: res.folder.files }));
+                      e.target.value = "";
+                    } catch (err) {
+                      setUploadError(err.message || "Failed to upload files");
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                  disabled={uploading}
+                />
+                {uploading && <span className="text-blue-600 text-sm">Uploading...</span>}
+                {uploadError && <span className="text-red-600 text-sm">{uploadError}</span>}
+                {/* Use dbfiles or physicalFiles if present, else fallback */}
+                {((selectedFolder.dbfiles && selectedFolder.dbfiles.length) || (selectedFolder.physicalFiles && selectedFolder.physicalFiles.length)) ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {displayedFiles.map((file, idx) => (
+                    {(selectedFolder.dbfiles && selectedFolder.dbfiles.length ? selectedFolder.dbfiles : selectedFolder.physicalFiles).map((file, idx) => (
                       <FileComponent
-                        key={typeof file === "string" ? file : file.name}
+                        key={file._id || file.name || idx}
                         file={file}
                         index={idx}
                         isMenuOpen={openFileMenu === `file-${idx}`}
@@ -291,7 +356,11 @@ export default function DocumentControllerStorage() {
               placeholder="Enter folder name"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
+              disabled={creatingFolder}
             />
+            {createFolderError && (
+              <div className="text-red-600 text-sm mb-2">{createFolderError}</div>
+            )}
             <div className="flex justify-end gap-3">
               <button
                 className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
@@ -300,10 +369,11 @@ export default function DocumentControllerStorage() {
                 Cancel
               </button>
               <button
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
                 onClick={handleCreateFolder}
+                disabled={creatingFolder}
               >
-                Create
+                {creatingFolder ? "Creating..." : "Create"}
               </button>
             </div>
           </div>
