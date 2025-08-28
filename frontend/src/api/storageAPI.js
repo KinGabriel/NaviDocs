@@ -50,13 +50,17 @@ export const getFoldersAPI = async ({ user }) => {
  * @param {FileList|Array<File>} files
  * @returns {Promise<Object>}
  */
-export const addDocumentsAPI = async (folderId, files,user_id) => {
+export const addDocumentsAPI = async (folderId, files,user_id,owner) => {
+    console.log("Owner in API:", owner);
 		const formData = new FormData();
 		for (const file of files) {
 			formData.append('files', file);
 		}
 		if (user_id) {
 			formData.append('user_id', user_id);
+		}
+		if (owner) {
+			formData.append('owner', owner);
 		}
 		const res = await axios.post(
 			`${API_URL}/api/storage/folders/${folderId}/files`,

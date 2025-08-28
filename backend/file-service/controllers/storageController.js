@@ -3,7 +3,7 @@ import Storage, { File } from '../models/storageModel.js';
 import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
-import { saveDocumentFile } from './fileController.js';
+import { saveDocumentFile } from '../utils/saveDocumentFile.js';
 
 /**
  * @desc Create a new folder (logical and optional physical) in the storage system
@@ -240,12 +240,13 @@ export const deleteFolderByID = async (req, res) => {
 export const addDocuments = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(req.body)
     // req.files is populated by multer middleware
     const uploadedFiles = req.files;
     // user_id may be sent in multipart form data
-    const owner = req.body.user_id || null;
+    const owner = req.body.owner || null;
     console.log('req.files:', req.files);
-    console.log('req.body.user_id:', req.body.user_id);
+    console.log('req.body.owner:', owner);
 
     if (!id || !Array.isArray(uploadedFiles) || uploadedFiles.length === 0) {
       return res.status(400).json({ message: 'Folder ID and files are required.' });
@@ -265,7 +266,7 @@ export const addDocuments = async (req, res) => {
         const meta = await saveDocumentFile({
           file,
           documentId: file.documentId || undefined,
-          owner: owner || folder._id.toString(),
+          owner: owner,
           folderName: folder.folderName,
           uploaded_by: req.body.user_id
         });
