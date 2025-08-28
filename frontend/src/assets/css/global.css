@@ -36,3 +36,30 @@ body {
   background: rgba(200, 200, 255, 0.4);
   pointer-events: none;
 }
+
+.nd-page {
+  position: relative;
+}
+
+
+.nd-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  font-size: 0.85rem;
+  color: #444;
+  text-align: center; /* overridden by attrs */
+  pointer-events: none; /* makes it non-editable */
+}
+
+.nd-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  font-size: 0.8rem;
+  color: #666;
+  text-align: center; /* overridden by attrs */
+  pointer-events: none; /* non-editable */
+}

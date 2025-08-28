@@ -1,5 +1,8 @@
 // src/extensions/template/Page.js
 import { Node, mergeAttributes } from "@tiptap/core";
+import { Plugin, PluginKey } from "prosemirror-state";
+
+const PageConfigKey = new PluginKey("pageConfig");
 
 export const Page = Node.create({
   name: "page",
@@ -11,7 +14,6 @@ export const Page = Node.create({
     return {
       number: { default: null },
 
-      // Header config
       headerFields: {
         default: { fullName: true, studentId: false, university: false, school: false },
         parseHTML: el =>
@@ -28,7 +30,6 @@ export const Page = Node.create({
         renderHTML: attrs => ({ "data-header-align": attrs.headerAlign }),
       },
 
-      // Footer config
       footerFields: {
         default: { pageNumber: false, date: false },
         parseHTML: el =>
@@ -54,14 +55,12 @@ export const Page = Node.create({
   renderHTML({ node, HTMLAttributes }) {
     const { headerFields, headerAlign, footerFields, footerAlign, number } = node.attrs;
 
-    // Build header text
     let headerText = [];
     if (headerFields.fullName) headerText.push("Full Name");
     if (headerFields.studentId) headerText.push("Student ID");
     if (headerFields.university) headerText.push("University");
     if (headerFields.school) headerText.push("School");
 
-    // Build footer text
     let footerText = [];
     if (footerFields.pageNumber && number) footerText.push(`Page ${number}`);
     if (footerFields.date) footerText.push(new Date().toLocaleDateString());
@@ -76,7 +75,7 @@ export const Page = Node.create({
         "div",
         { class: "nd-page-inner" },
         ["header", { class: "nd-header", style: `text-align:${headerAlign}` }, headerText.join(" · ")],
-        ["div", { class: "nd-content" }, 0], // content hole in its own container ✅
+        ["div", { class: "nd-content" }, 0],
         ["footer", { class: "nd-footer", style: `text-align:${footerAlign}` }, footerText.join(" · ")],
       ],
     ];
@@ -102,10 +101,65 @@ export const Page = Node.create({
             }
           });
 
-          if (dispatch) dispatch(transaction);
+          if (dispatch) {
+            dispatch(transaction);
+
+            // Update plugin state with latest config
+            const pluginState = PageConfigKey.getState(state);
+            if (pluginState) {
+              pluginState.currentConfig = config;
+            }
+          }
           return true;
         },
     };
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: PageConfigKey,
+        state: {
+          init: () => ({ currentConfig: null }),
+          apply(tr, value) {
+            // keep current config unchanged unless command updates it
+            return value;
+          },
+        },
+        appendTransaction(transactions, oldState, newState) {
+          const pluginState = PageConfigKey.getState(newState);
+          if (!pluginState || !pluginState.currentConfig) return null;
+
+          const cfg = pluginState.currentConfig;
+          let tr = newState.tr;
+          let changed = false;
+
+          newState.doc.descendants((node, pos) => {
+            if (node.type.name === "page") {
+              const { headerFields, footerFields } = node.attrs;
+              // if page still looks like defaults, overwrite
+              if (
+                JSON.stringify(headerFields) ===
+                  JSON.stringify({ fullName: true, studentId: false, university: false, school: false }) &&
+                JSON.stringify(footerFields) ===
+                  JSON.stringify({ pageNumber: false, date: false })
+              ) {
+                tr.setNodeMarkup(pos, undefined, {
+                  ...node.attrs,
+                  headerFields: cfg.header.fields,
+                  headerAlign: cfg.header.align,
+                  footerFields: cfg.footer.fields,
+                  footerAlign: cfg.footer.align,
+                });
+                changed = true;
+              }
+            }
+          });
+
+          return changed ? tr : null;
+        },
+      }),
+    ];
   },
 });
 
