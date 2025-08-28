@@ -57,47 +57,6 @@ export const createTemplate = async (req, res) => {
       templateData.title = 'Untitled Template';
     }
 
-    if (!templateData.created_by) {
-      return res.status(400).json({
-        success: false,
-        message: 'created_by is required'
-      });
-    }
-
-    const schoolIdentifier = templateData.school_identifier;
-    if (!schoolIdentifier) {
-      return res.status(400).json({
-        success: false,
-        message: 'School identifier is required to generate document code'
-      });
-    }
-
-    if (!validSchools.includes(schoolIdentifier)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid school identifier. Must be one of: ${validSchools.join(', ')}`
-      });
-    }
-
-    // Find existing templates for document code generation
-    const existingTemplates = await Template.find({
-      document_code: { $regex: `^FM-${schoolIdentifier}-\\d+$` }
-    }).sort({ document_code: -1 });
-
-    const generatedDocumentCode = generateDocumentCode(existingTemplates, schoolIdentifier);
-
-    const existingTemplate = await Template.findOne({
-      document_code: generatedDocumentCode,
-      revision_no: templateData.revision_no || 0
-    });
-
-    if (existingTemplate) {
-      return res.status(400).json({
-        success: false,
-        message: `Template ${generatedDocumentCode} revision ${templateData.revision_no || 0} already exists`
-      });
-    }
-
     // Accept only pages_json (array of page JSONs) and body (HTML)
     if (!Array.isArray(templateData.pages_json)) {
       templateData.pages_json = [
@@ -114,16 +73,13 @@ export const createTemplate = async (req, res) => {
     }
 
     const template = new Template({
-      ...templateData,
-      document_code: generatedDocumentCode
+      ...templateData
     });
 
     // Remove transient / client-only fields
     delete template.school_identifier; // not stored separately
 
     await template.save();
-
-    console.log('Template created successfully:', `${template.document_code} Rev ${template.revision_no} - "${template.title}"`);
 
     res.status(201).json({
       success: true,
