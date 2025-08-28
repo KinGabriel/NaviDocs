@@ -1,0 +1,183 @@
+import { useNavigate } from 'react-router-dom';
+import naviLogo from '../assets/images/navilogo.png';
+import { ChevronDown, Copy, Send, FileDown, MoreHorizontal } from "lucide-react";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+export default function EditableFieldsHeader({ 
+  title = "Course Syllabus FTS", 
+  user,
+  setTitle, 
+  onSave,
+  onArchive,
+  saving = false, 
+  lastSavedAt, 
+  dirty = false,
+  isEditing = true,
+  currentStep = 1,
+  totalSteps = 2
+}) {
+  const navigate = useNavigate();
+
+  const handleSave = () => {
+    if (onSave) onSave();
+  };
+
+    const handleArchive = () => {
+    if (onArchive) onArchive();
+  };
+
+  return (
+    <div>
+      <div className="h-4 bg-[#063c8d] w-full" /> 
+      <div className="flex items-center justify-between bg-[#f3f3f3] px-8 py-3 border-b border-gray-200">
+        <div className="flex items-center gap-8">
+          {/* Logo */}
+          <img 
+            src={naviLogo} 
+            alt="Logo" 
+            className="w-15 h-10 cursor-pointer" 
+            onClick={() => navigate('/dashboard')} 
+          />
+          
+          {/* Title */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center">
+              <span className="text-xl font-medium text-gray-800">
+                {title}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-3">
+          {/* Save status */}
+          <div className="flex flex-col items-start">
+            {lastSavedAt && (
+              <span className="text-[10px] text-gray-500 leading-tight">
+                Saved {lastSavedAt.toLocaleTimeString()}
+              </span>
+            )}
+            {dirty && !saving && (
+              <span className="text-[10px] text-amber-600 leading-tight">
+                Unsaved changes
+              </span>
+            )}
+            {saving && (
+              <span className="text-[10px] text-blue-600 leading-tight">
+                Saving...
+              </span>
+            )}
+          </div>
+
+          {/* Version History btn */}
+          <button 
+            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded"
+            title="Version History"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24">
+              <path fill="#7D7D7D" d="M12 21q-3.45 0-6.012-2.287T3.05 13H5.1q.35 2.6 2.313 4.3T12 19q2.925 0 4.963-2.037T19 12t-2.037-4.962T12 5q-1.725 0-3.225.8T6.25 8H9v2H3V4h2v2.35q1.275-1.6 3.113-2.475T12 3q1.875 0 3.513.713t2.85 1.924t1.925 2.85T21 12t-.712 3.513t-1.925 2.85t-2.85 1.925T12 21m2.8-4.8L11 12.4V7h2v4.6l3.2 3.2z"/>
+            </svg>
+          </button>
+
+          {/* Save/Action btn*/}
+          <div className="relative group">
+            <button 
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-[#063c8d] hover:bg-[#052c6d] text-white rounded px-5 py-2.5 text-sm font-semibold flex items-center gap-2 disabled:opacity-70"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 0V4a2 2 0 00-2-2H9a2 2 0 00-2 2v3m1 0h4"/>
+              </svg>
+              {saving ? 'Saving...' : 'Save Draft'}
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            
+            {/* Save options dropdown */}
+            <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150 absolute right-0 mt-2 w-64 z-50">
+              <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 text-xs text-gray-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">Save Options</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">Draft</span>
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  Your document is automatically saved as you work. You can continue editing anytime.
+                </p>
+                <div className="space-y-2">
+                  <button 
+                    onClick={handleSave}
+                    className="w-full text-left px-3 py-2 rounded bg-gray-50 hover:bg-gray-100 text-[11px]"
+                  >
+                    <div className="font-medium">Save Draft</div>
+                    <div className="text-gray-500">Continue working later</div>
+                  </button>
+                   <button 
+                    onClick={handleArchive}
+                    className="w-full text-left px-3 py-2 rounded bg-gray-50 hover:bg-gray-100 text-[11px]"
+                >
+                    <div className="font-medium">Archive Version</div>
+                    <div className="text-gray-500">Store for reference</div>
+                </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions dropdown */}
+        <div className="relative group">
+        <button className="bg-gray-700 hover:bg-gray-800 text-white rounded px-5 py-2.5 text-sm font-medium flex items-center gap-2 shadow-lg">
+            <MoreHorizontal className="w-5 h-5" />
+            <span className="font-semibold">Quick Actions</span>
+            <ChevronDown className="w-4 h-4" />
+        </button>
+        
+        <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 absolute right-0 mt-3 w-64 z-50">
+            <div className="bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+            <div className="py-2">
+                <button className="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-3 group/item">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Copy className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                    <div className="font-medium text-gray-900 text-sm">Make a Copy</div>
+                    <div className="text-xs text-gray-500">Duplicate this document</div>
+                </div>
+                </button>
+                
+                <button className="w-full text-left px-4 py-3 hover:bg-green-50 flex items-center gap-3 group/item">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Send className="w-4 h-4 text-green-600" />
+                </div>
+                <div className="flex-1">
+                    <div className="font-medium text-gray-900 text-sm">Submit</div>
+                    <div className="text-xs text-gray-500">Send to department head</div>
+                </div>
+                </button>
+                
+                <button className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3 group/item">
+                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <FileDown className="w-4 h-4 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                    <div className="font-medium text-gray-900 text-sm">Export as PDF</div>
+                </div>
+                </button>
+            </div>
+            </div>
+        </div>
+        </div>
+                
+          {/* Profile picture */}
+          <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
+            <img
+              src={user && user.profile_picture ? `${API_URL}${user.profile_picture}` : '/default-avatar.png'}
+              alt="Profile"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
