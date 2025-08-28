@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const templateResolvers = {
+export const templateDashboardResolvers = {
 	Query: {
 		templateDashboard: async (_parent, _args, context) => {
 			const TEMPLATE_SERVICE_URL = process.env.TEMPLATE_SERVICE_URL;

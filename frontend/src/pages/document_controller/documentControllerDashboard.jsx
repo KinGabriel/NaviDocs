@@ -1,133 +1,176 @@
-import React, { useEffect, useState } from "react";
-import useUser from "../../hooks/useUser";
+import React, { useState } from "react";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
-import Loader from "../../components/loader";
-import Greeting from "../../components/greeting";
-import StatCard from "../../components/statcard";
+import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
-import { fetchDashboardInfoAPI } from "../../api/documentContollerAPI";
+import Greeting from "../../components/greeting";
+import UpcomingDeadlines from "../../components/upcomingDeadlines";
+import { FileText, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function DocumentControllerDashboard() {
   const user = useUser();
-  const [dashboardInfo, setDashboardInfo] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchDashboardInfo = async () => {
-      try {
-        const data = await fetchDashboardInfoAPI();
-        setDashboardInfo(data);
-      } catch (err) {
-        setDashboardInfo(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDashboardInfo();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-200 flex flex-col">
-        <Header user={user} />
-        <div className="flex flex-1">
-          <Sidebar user={user} />
-          <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-            <div className="flex-1 flex items-center justify-center">
-              <Loader message="Loading..." />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  function formatDate(dateValue) {
+    if (!dateValue) return "-";
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return dateValue;
+    return date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   }
 
-  if (!dashboardInfo) {
-    return (
-      <div className="min-h-screen bg-gray-200 flex flex-col">
-        <Header user={user} />
-        <div className="flex flex-1">
-          <Sidebar user={user} />
-          <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-            <div className="flex-1 flex items-center justify-center text-center">
-              <div>
-                <h2 className="text-xl font-semibold text-red-600 mb-2">
-                  Unable to load dashboard
-                </h2>
-                <p className="text-gray-500">
-                  Please check your connection or try again later.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const stats = [
-    { title: "Published Templates", value: dashboardInfo.countPublished ?? 0 },
-    { title: "Submitted Templates", value: dashboardInfo.countPendingApproval ?? 0 },
-    { title: "Approved Templates", value: dashboardInfo.countApproved ?? 0 },
+  // Sample data
+  const templates = [
+    { id: 1, code: "TMP-001", rev: "01", date: "2025-03-11", title: "Template for Research Proposal", createdBy: "Admin User" },
+    { id: 2, code: "TMP-002", rev: "02", date: "2025-02-05", title: "Template for Internship Report", createdBy: "Admin User" },
+    { id: 3, code: "TMP-003", rev: "00", date: "2025-04-22", title: "Template for Syllabus Format", createdBy: "Admin User" },
   ];
 
-  // Define columns for Published Documents (ID removed)
-  const publishedDocsColumns = [
-    { key: "document_code", label: "Document Code" },
-    { key: "revision_no", label: "Revision No." },
-    { key: "effectivity", label: "Effectivity", render: (row) => row.effectivity || "N/A" },
-    { key: "title", label: "Title" },
-    {
-      key: "created_by",
-      label: "Created By",
-      render: (row) =>
-        row.created_by_user
-          ? `${row.created_by_user.firstname} ${row.created_by_user.lastname}`
-          : row.created_by,
-    },
+  const documents = [
+    { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
+    { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
+    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+  ];
+
+  const templateColumns = [
+    { key: "code", label: "Document Code" },
+    { key: "rev", label: "Revision No." },
+    { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
+    { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
+    { key: "createdBy", label: "Created By" },
     {
       key: "action",
       label: "Action",
       render: () => (
-        <button className="px-4 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+        <button className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200">
           Review
         </button>
       ),
     },
   ];
 
-  const publishedDocs = dashboardInfo.getPublishedTemplates || [];
+  const documentColumns = [
+    { key: "code", label: "Document Code" },
+    { key: "rev", label: "Revision No." },
+    { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
+    { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
+    { key: "createdBy", label: "Created By" },
+    {
+      key: "action",
+      label: "Action",
+      render: () => (
+        <button className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200">
+          Review
+        </button>
+      ),
+    },
+  ];
+
+  const upcomingDeadlines = [
+    {
+      id: 1,
+      title: "Template Review for AY 2025",
+      date: "2025-08-15",
+      priority: "Overdue",
+      department: "Quality Assurance",
+    },
+    {
+      id: 2,
+      title: "Annual Document Audit",
+      date: "2025-08-28",
+      priority: "Due Today",
+      department: "Administration",
+    },
+    {
+      id: 3,
+      title: "Syllabus Submission Check",
+      date: "2025-09-10",
+      priority: "Upcoming",
+      department: "Academics",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
-        <Sidebar user={user} />
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <main className="p-8 flex-1 overflow-y-auto">
-            <Greeting name={user?.firstname || "Document Controller"} />
+        <Sidebar user={user} active="Dashboard" />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-              {stats.map((stat) => (
-                <StatCard key={stat.title} title={stat.title} value={stat.value} />
-              ))}
+        <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+          <Greeting name={user?.firstname || "Document Controller"} />
+
+          {/* Stat cards */}
+          <div className="flex flex-wrap justify-between items-center mb-8">
+            <div className="flex gap-4 flex-wrap mt-4">
+              {/* Published Documents */}
+              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+                <div className="w-12 h-12 bg-gray-500 rounded-full flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-600 mb-1">Published Documents</div>
+                  <div className="text-3xl font-bold text-gray-900">15</div>
+                </div>
+              </div>
+
+              {/* Approved Documents */}
+              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                  <CheckCircle className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-600 mb-1">Approved Documents</div>
+                  <div className="text-3xl font-bold text-gray-900">8</div>
+                </div>
+              </div>
+
+              {/* Returned Documents */}
+              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+                <div className="w-12 h-12 bg-[#EB5B00] rounded-full flex items-center justify-center">
+                  <AlertCircle className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-600 mb-1">Returned Documents</div>
+                  <div className="text-3xl font-bold text-gray-900">3</div>
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div className="mt-10 bg-[#f7faff] rounded-t-xl p-6">
-              <div>
-                <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase">
-                  Published Documents
-                </h2>
-                <div className="w-30 h-0.5 bg-yellow-400 mt-1 rounded" />
+          {/* Tables and Upcoming Deadlines */}
+          <div className="grid grid-cols-4 gap-6 flex-1">
+            <div className="col-span-3 space-y-6">
+              {/* Templates Table */}
+              <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
+                <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
+                  <div>
+                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">TEMPLATES</h2>
+                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                  </div>
+                </div>
+                <Table columns={templateColumns} data={templates} />
               </div>
             </div>
 
-            <div className="-mt-2">
-              <Table columns={publishedDocsColumns} data={publishedDocs} />
+            {/* Upcoming Deadlines */}
+            <div className="col-span-1 space-y-6">
+              <UpcomingDeadlines deadlines={upcomingDeadlines} formatDate={formatDate} />
             </div>
-          </main>
-        </div>
+
+            {/* Documents Table */}
+            <div className="col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
+              <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
+                <div>
+                  <h2 className="font-bold text-sm text-gray-800 tracking-wide">DOCUMENTS</h2>
+                  <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                </div>
+              </div>
+              <Table columns={documentColumns} data={documents} />
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   );

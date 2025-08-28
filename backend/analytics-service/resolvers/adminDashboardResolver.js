@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const userResolvers = {
+export const adminDashboardResolver = {
   Query: {
     adminDashboard: async (_parent, _args, context) => {
       const USER_SERVICE_URL = process.env.USER_SERVICE_URL;

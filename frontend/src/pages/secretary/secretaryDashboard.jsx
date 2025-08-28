@@ -1,125 +1,140 @@
-import React, { useEffect, useState } from "react";
-import useUser from "../../hooks/useUser";
+import React from "react";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
-import Loader from "../../components/loader";
-import Greeting from "../../components/greeting";
-import StatCard from "../../components/statcard";
+import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
+import StatusBadge from "../../components/statusBadge";
+import Greeting from "../../components/greeting";
+import UpcomingDeadlines from "../../components/upcomingDeadlines";
+import { Clock, AlertCircle, FileText, CheckCircle } from "lucide-react";
 
 export default function SecretaryDashboard() {
   const user = useUser();
-  const [loading, setLoading] = useState(true);
-  const [dashboardInfo, setDashboardInfo] = useState(null);
 
-  useEffect(() => {
-    // simulate fetching data (dummy)
-    setTimeout(() => {
-      setDashboardInfo({
-        countPendingTemplates: 5,
-        countReturnedTemplates: 2,
-        countMyDocuments: 7,
-        countApproved: 10,
-        receivedTemplates: [
-          {
-            document_code: "TMP-001",
-            revision_no: "1",
-            effectivity: "2025-08-01",
-            title: "Annual Budget Report",
-            created_by: "Juan Dela Cruz",
-          },
-          {
-            document_code: "TMP-002",
-            revision_no: "3",
-            effectivity: "2025-08-05",
-            title: "Meeting Minutes",
-            created_by: "Maria Santos",
-          },
-          {
-            document_code: "TMP-003",
-            revision_no: "2",
-            effectivity: "2025-08-10",
-            title: "Project Proposal",
-            created_by: "Jose Rizal",
-          },
-        ],
-      });
-      setLoading(false);
-    }, 1000);
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-200 flex flex-col">
-        <Header user={user} />
-        <div className="flex flex-1">
-          <Sidebar user={user} />
-          <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-            <div className="flex-1 flex items-center justify-center">
-              <Loader message="Loading..." />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  function formatDate(dateValue) {
+    if (!dateValue) return "-";
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return dateValue;
+    return date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   }
 
-  const stats = [
-    { title: "Pending Templates", value: dashboardInfo.countPendingTemplates },
-    { title: "Returned Templates", value: dashboardInfo.countReturnedTemplates },
-    { title: "My Documents", value: dashboardInfo.countMyDocuments },
-    { title: "Approved Templates", value: dashboardInfo.countApproved },
+  // Example data
+  const templates = [
+    { id: 1, code: "ST-001", rev: "01", date: "2025-08-12", title: "IT Curriculum Template", createdBy: "Alice Ramos", status: "Pending" },
+    { id: 2, code: "ST-002", rev: "01", date: "2025-07-25", title: "Graphic Design Template", createdBy: "John Dela Cruz", status: "Returned" },
   ];
 
-  // Define table columns (ID removed)
-  const receivedTemplatesColumns = [
-    { key: "document_code", label: "Document Code" },
-    { key: "revision_no", label: "Revision No." },
-    { key: "effectivity", label: "Effectivity" },
-    { key: "title", label: "Title" },
-    { key: "created_by", label: "Created By" },
+  const templateColumns = [
+    { key: "code", label: "Document Code", render: (row) => <span className="text-xs text-gray-700">{row.code}</span> },
+    { key: "rev", label: "Revision No." },
+    { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
+    { key: "title", label: "Title", render: (row) => <span className="max-w-xs truncate block">{row.title}</span> },
+    { key: "createdBy", label: "Created By" },
     {
       key: "action",
       label: "Action",
-      render: () => (
-        <button className="px-4 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-          Review
-        </button>
-      ),
+      render: (row) =>
+        row.status === "Returned" || row.status === "Pending" ? (
+          <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">
+            Review
+          </button>
+        ) : null,
     },
   ];
 
-  const receivedTemplates = dashboardInfo.receivedTemplates || [];
+  const upcomingDeadlines = [
+    { id: 1, title: "Template Review", date: "2025-08-01", priority: "Overdue", department: "BS Computer Science" },
+    { id: 2, title: "Faculty Performance Reports", date: "2025-08-21", priority: "Due Today", department: "BS Information Technology" },
+    { id: 3, title: "Budget Allocation Review", date: "2025-08-31", priority: "Due This Week", department: "Administration" },
+    { id: 4, title: "Field Trip Agenda Review", date: "2025-09-23", priority: "Upcoming", department: "BS Information Technology" },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
-        <Sidebar user={user} />
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <main className="p-8 flex-1 overflow-y-auto">
-            <Greeting name={user?.firstname || "Secretary"} />
+        <Sidebar user={user} active="Dashboard" />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-              {stats.map((stat) => (
-                <StatCard key={stat.title} title={stat.title} value={stat.value} />
-              ))}
-            </div>
+        <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+          <Greeting name={user?.firstname || "Secretary"} />
 
-            <div className="mt-10 bg-[#f7faff] rounded-t-xl p-6">
+          {/* Stat Cards */}
+          <div className="flex gap-4 flex-wrap mt-4 mb-8">
+
+            {/* My Documents */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="w-12 h-12 bg-gray-500 rounded-full flex items-center justify-center">
+                <FileText className="h-6 w-6 text-white" />
+              </div>
               <div>
-                <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase">
-                  Templates Received
-                </h2>
-                <div className="w-30 h-0.5 bg-yellow-400 mt-1 rounded" />
+                <div className="text-sm font-medium text-gray-600 mb-1">My Documents</div>
+                <div className="text-3xl font-bold text-gray-900">5</div>
               </div>
             </div>
 
-            <div className="-mt-2">
-              <Table columns={receivedTemplatesColumns} data={receivedTemplates} />
+            {/* Approved Templates */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Approved Templates</div>
+                <div className="text-3xl font-bold text-gray-900">12</div>
+              </div>
             </div>
-          </main>
-        </div>
+
+            {/* Pending Templates */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
+                <Clock className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Pending Templates</div>
+                <div className="text-3xl font-bold text-gray-900">8</div>
+              </div>
+            </div>
+
+            {/* Returned Templates */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
+              <div className="w-12 h-12 bg-[#EB5B00] rounded-full flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Returned Templates</div>
+                <div className="text-3xl font-bold text-gray-900">2</div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Tables and Upcoming Deadlines */}
+          <div className="grid grid-cols-4 gap-6 flex-1">
+            <div className="col-span-3 space-y-6">
+              {/* Templates Received Table */}
+              <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
+                <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
+                  <div>
+                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">TEMPLATES RECEIVED</h2>
+                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                  </div>
+                  <button className="mr-4 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F]">
+                    View All
+                  </button>
+                </div>
+                <Table columns={templateColumns} data={templates} />
+              </div>
+            </div>
+
+            {/* Upcoming Deadlines */}
+            <div className="col-span-1 space-y-6">
+              <UpcomingDeadlines deadlines={upcomingDeadlines} formatDate={formatDate} />
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   );

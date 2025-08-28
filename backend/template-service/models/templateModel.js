@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const templateSchema = new mongoose.Schema({
   document_code: {
     type: String,
-    required: true
+    default: null
   },
   revision_no: {
     type: Number,
