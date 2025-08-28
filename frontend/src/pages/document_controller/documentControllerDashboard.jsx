@@ -1,9 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
-import StatusBadge from "../../components/statusBadge";
 import Greeting from "../../components/greeting";
 import UpcomingDeadlines from "../../components/upcomingDeadlines";
 import { FileText, CheckCircle, AlertCircle } from "lucide-react";
@@ -22,27 +21,75 @@ export default function DocumentControllerDashboard() {
     });
   }
 
-  // Example data
+  // Sample data
+  const templates = [
+    { id: 1, code: "TMP-001", rev: "01", date: "2025-03-11", title: "Template for Research Proposal", createdBy: "Admin User" },
+    { id: 2, code: "TMP-002", rev: "02", date: "2025-02-05", title: "Template for Internship Report", createdBy: "Admin User" },
+    { id: 3, code: "TMP-003", rev: "00", date: "2025-04-22", title: "Template for Syllabus Format", createdBy: "Admin User" },
+  ];
+
   const documents = [
-    { id: 1, code: "DC-001", rev: "01", date: "2025-08-15", title: "Course Syllabi 2025", createdBy: "Alice Ramos", status: "Published" },
-    { id: 2, code: "DC-002", rev: "02", date: "2025-07-20", title: "Web Technologies Curriculum", createdBy: "John Dela Cruz", status: "Approved" },
-    { id: 3, code: "DC-003", rev: "01", date: "2025-06-30", title: "Graphic Design Curriculum", createdBy: "Maria Lopez", status: "Returned" },
+    { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
+    { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
+    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+  ];
+
+  const templateColumns = [
+    { key: "code", label: "Document Code" },
+    { key: "rev", label: "Revision No." },
+    { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
+    { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
+    { key: "createdBy", label: "Created By" },
+    {
+      key: "action",
+      label: "Action",
+      render: () => (
+        <button className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200">
+          Review
+        </button>
+      ),
+    },
   ];
 
   const documentColumns = [
-    { key: "code", label: "Document Code", render: (row) => <span className="text-xs text-gray-700">{row.code}</span> },
+    { key: "code", label: "Document Code" },
     { key: "rev", label: "Revision No." },
     { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
-    { key: "title", label: "Title", render: (row) => <span className="max-w-xs truncate block">{row.title}</span> },
+    { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
     { key: "createdBy", label: "Created By" },
-    { key: "action", label: "Action", render: (row) => <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">Review</button> },
+    {
+      key: "action",
+      label: "Action",
+      render: () => (
+        <button className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200">
+          Review
+        </button>
+      ),
+    },
   ];
 
   const upcomingDeadlines = [
-    { id: 1, title: "Syllabi Submission", date: "2025-08-10", priority: "Overdue", department: "BS Computer Science" },
-    { id: 2, title: "Curriculum Review", date: "2025-08-21", priority: "Due Today", department: "BS Information Technology" },
-    { id: 3, title: "Budget Approval", date: "2025-08-31", priority: "Due This Week", department: "Administration" },
-    { id: 4, title: "Field Trip Agenda", date: "2025-09-23", priority: "Upcoming", department: "BS Information Technology" },
+    {
+      id: 1,
+      title: "Template Review for AY 2025",
+      date: "2025-08-15",
+      priority: "Overdue",
+      department: "Quality Assurance",
+    },
+    {
+      id: 2,
+      title: "Annual Document Audit",
+      date: "2025-08-28",
+      priority: "Due Today",
+      department: "Administration",
+    },
+    {
+      id: 3,
+      title: "Syllabus Submission Check",
+      date: "2025-09-10",
+      priority: "Upcoming",
+      department: "Academics",
+    },
   ];
 
   return (
@@ -54,7 +101,7 @@ export default function DocumentControllerDashboard() {
         <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           <Greeting name={user?.firstname || "Document Controller"} />
 
-          {/* Stat Cards */}
+          {/* Stat cards */}
           <div className="flex flex-wrap justify-between items-center mb-8">
             <div className="flex gap-4 flex-wrap mt-4">
               {/* Published Documents */}
@@ -75,7 +122,7 @@ export default function DocumentControllerDashboard() {
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-600 mb-1">Approved Documents</div>
-                  <div className="text-3xl font-bold text-gray-900">12</div>
+                  <div className="text-3xl font-bold text-gray-900">8</div>
                 </div>
               </div>
 
@@ -89,31 +136,38 @@ export default function DocumentControllerDashboard() {
                   <div className="text-3xl font-bold text-gray-900">3</div>
                 </div>
               </div>
-
             </div>
           </div>
 
           {/* Tables and Upcoming Deadlines */}
           <div className="grid grid-cols-4 gap-6 flex-1">
             <div className="col-span-3 space-y-6">
-              {/* Published Documents Table */}
+              {/* Templates Table */}
               <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
                 <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
                   <div>
-                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">PUBLISHED DOCUMENTS</h2>
+                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">TEMPLATES</h2>
                     <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                   </div>
-                  <button className="mr-4 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F]">
-                    View All
-                  </button>
                 </div>
-                <Table columns={documentColumns} data={documents} />
+                <Table columns={templateColumns} data={templates} />
               </div>
             </div>
 
             {/* Upcoming Deadlines */}
             <div className="col-span-1 space-y-6">
               <UpcomingDeadlines deadlines={upcomingDeadlines} formatDate={formatDate} />
+            </div>
+
+            {/* Documents Table */}
+            <div className="col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
+              <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
+                <div>
+                  <h2 className="font-bold text-sm text-gray-800 tracking-wide">DOCUMENTS</h2>
+                  <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                </div>
+              </div>
+              <Table columns={documentColumns} data={documents} />
             </div>
           </div>
         </main>
