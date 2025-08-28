@@ -3,8 +3,8 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { userType } from './schemas/userSchema.js';
-import { templateType } from './schemas/templateSchema.js';
+import { adminDashboardType } from './schemas/adminDashboardSchema.js';
+import { templateDashboardType } from './schemas/templateDashboardSchema.js';
 import { resolvers } from './resolvers/aggregator.js';
 import { authenticateJWT } from "../user-service/middleware/authenticationMiddleware.js";
 import cookieParser from 'cookie-parser';
@@ -20,7 +20,7 @@ async function startServer() {
   app.use(cookieParser());
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 
-  const server = new ApolloServer({ typeDefs: [userType, templateType], resolvers });
+  const server = new ApolloServer({ typeDefs: [adminDashboardType, templateDashboardType], resolvers });
   await server.start();
 
   app.use(

@@ -1,6 +1,6 @@
 import gql from 'graphql-tag';
 
-export const userType = gql`
+export const adminDashboardType = gql`
   type Role {
     name: String
     school: String

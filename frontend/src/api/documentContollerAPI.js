@@ -7,8 +7,14 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
  * @returns {Promise<Object>} Dashboard info: { countPublished, countPendingApproval, countApproved, getPublishedTemplates: Array<{id, title, document_code, revision_no, effectivity, created_by, created_by_user: {firstname, lastname}}>} 
  * @throws {Error} When the HTTP request or GraphQL query fails.
  */
-export const fetchDashboardInfoAPI = async () => {
-const query = `
+// Accept user as a parameter (from useUser hook)
+export const fetchDashboardInfoAPI = async (user) => {
+  // Extract school from user object
+  let school = null;
+  if (user) {
+    school = user?.role?.school || user?.school || null;
+  }
+  const query = `
     query {
       templateDashboard {
         countPublished
@@ -33,9 +39,11 @@ const query = `
     const res = await axios.post(
       `${API_URL}/graphql`,
       { query },
-      { withCredentials: true }
+      {
+        withCredentials: true,
+        headers: school ? { 'X-User-School': school } : {},
+      }
     );
-    
     return res.data.data.templateDashboard;
   } catch (error) {
     throw new Error(error.response?.data?.errors?.[0]?.message || "Failed to fetch dashboard info.");

@@ -1,6 +1,6 @@
 import gql from 'graphql-tag';
 
-export const templateType = gql`
+export const templateDashboardType = gql`
     type User {
         id: ID
         firstname: String
