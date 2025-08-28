@@ -1,3 +1,4 @@
+
 import mongoose from 'mongoose';
 
 const fileSchema = new mongoose.Schema({
@@ -10,6 +11,8 @@ const fileSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
+
+export const File = mongoose.model('File', fileSchema);
 
 const storageSchema = new mongoose.Schema({
   folderName: { type: String, required: true },

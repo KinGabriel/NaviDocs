@@ -1,4 +1,11 @@
-import React, { useState } from "react";
+
+// Use shared options and dynamic department filtering
+import { SCHOOL_OPTIONS, DEPARTMENT_OPTIONS } from "../utils/options";
+
+
+import React, { useState, Fragment,useEffect } from "react";
+import { Listbox, Transition } from '@headlessui/react';
+
 import {
   Folder,
   MoreVertical,
@@ -32,7 +39,24 @@ export default function FolderComponent({
   ]);
   const [inputEmail, setInputEmail] = useState("");
   const [inputRole, setInputRole] = useState("Viewer");
-  const [renameValue, setRenameValue] = useState(folder.name);
+  const [renameValue, setRenameValue] = useState(folder.foldername);
+
+  // Initialize state from backend folder  if available
+  const [visibility, setVisibility] = useState(folder.data.visibility || 'private');
+  const [selectedSchools, setSelectedSchools] = useState(folder.data.folder.allowedSchools || []);
+  const [selectedDepartments, setSelectedDepartments] = useState(folder.data.folder.allowedDepartments || []);
+
+  // Compute available departments based on selected schools
+  const availableDepartments = selectedSchools
+    .flatMap((school) => DEPARTMENT_OPTIONS[school] || [])
+    .map((dept) => ({ value: dept, label: dept }));
+
+  // Remove any selected departments that are no longer available
+  useEffect(() => {
+  
+    setSelectedDepartments((prev) => prev.filter((d) => availableDepartments.some((opt) => opt.value === d)));
+    // eslint-disable-next-line
+  }, [selectedSchools]);
 
   const handleAddEmail = () => {
     if (inputEmail && !emails.some((e) => e.email === inputEmail)) {
@@ -53,6 +77,7 @@ export default function FolderComponent({
   };
 
   const handleCopyLink = () => {
+      console.log(folder)
     navigator.clipboard.writeText(
       `https://mydrive.com/folder/${folder.name.replace(/\s+/g, "-")}`
     );
@@ -195,17 +220,87 @@ export default function FolderComponent({
               </button>
             </h2>
 
-            {/* School & Department */}
-            <label className="block text-sm font-medium text-gray-700 mb-1">School</label>
-            <select className="w-full border rounded-lg px-3 py-2 mb-3">
-              <option value="samcis">Samcis</option>
-              <option value="sohnabs">Sohnabs</option>
-            </select>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-            <select className="w-full border rounded-lg px-3 py-2 mb-3">
-              <option value="cis">CIS</option>
-              <option value="ba">BA</option>
-            </select>
+
+
+            {/* Visibility Field */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Visibility</label>
+              <select
+                value={visibility}
+                onChange={e => setVisibility(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+              >
+                <option value="private">Private</option>
+                <option value="public">Public</option>
+              </select>
+            </div>
+
+            {/* Only show school/department if private */}
+            {visibility === 'private' && (
+              <>
+                {/* HeadlessUI Listbox Multi-select for Schools */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Schools</label>
+                  <Listbox value={selectedSchools} onChange={setSelectedSchools} multiple>
+                    <div className="relative mt-1">
+                      <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-white border py-2 pl-3 pr-10 text-left shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span className="block truncate">{selectedSchools.length > 0 ? selectedSchools.map(val => (SCHOOL_OPTIONS.find(o => o.value === val)?.label || val)).join(', ') : 'Select schools...'}</span>
+                      </Listbox.Button>
+                      <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
+                        <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                          {SCHOOL_OPTIONS.map(option => (
+                            <Listbox.Option key={option.value} value={option.value} className={({ active }) => `relative cursor-pointer select-none py-2 pl-10 pr-4 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}` }>
+                              {({ selected }) => (
+                                <>
+                                  <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>{option.label}</span>
+                                  {selected ? (
+                                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-600">✔</span>
+                                  ) : null}
+                                </>
+                              )}
+                            </Listbox.Option>
+                          ))}
+                        </Listbox.Options>
+                      </Transition>
+                    </div>
+                  </Listbox>
+                </div>
+
+                {/* HeadlessUI Listbox Multi-select for Departments (filtered by selected schools) */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Departments</label>
+                  <Listbox value={selectedDepartments} onChange={setSelectedDepartments} multiple>
+                    <div className="relative mt-1">
+                      <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-white border py-2 pl-3 pr-10 text-left shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span className="block truncate">{selectedDepartments.length > 0 ? selectedDepartments.join(', ') : 'Select departments...'}</span>
+                      </Listbox.Button>
+                      <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
+                        <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                          {availableDepartments.length === 0 ? (
+                            <div className="px-4 py-2 text-gray-400">Select a school first</div>
+                          ) : (
+                            availableDepartments.map(option => (
+                              <Listbox.Option key={option.value} value={option.value} className={({ active }) => `relative cursor-pointer select-none py-2 pl-10 pr-4 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}` }>
+                                {({ selected }) => (
+                                  <>
+                                    <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>{option.label}</span>
+                                    {selected ? (
+                                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-600">✔</span>
+                                    ) : null}
+                                  </>
+                                )}
+                              </Listbox.Option>
+                            ))
+                          )}
+                        </Listbox.Options>
+                      </Transition>
+                    </div>
+                  </Listbox>
+                </div>
+              </>
+            )}
+
+
 
             {/* Add People */}
             <label className="block text-sm font-medium text-gray-700 mb-1">Add People</label>

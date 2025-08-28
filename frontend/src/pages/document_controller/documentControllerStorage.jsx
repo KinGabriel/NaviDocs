@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { getFoldersAPI } from "../../api/storageAPI";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
@@ -8,14 +9,7 @@ import SearchBar from "../../components/searchBar";
 import Dropdown from "../../components/dropdown";
 import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X } from "lucide-react";
 
-// initial folders with dates
-const INITIAL_FOLDERS = [
-  { name: "SAMCIS Dean", date: "2024-01-10" },
-  { name: "SAMCIS OSA", date: "2024-03-05" },
-  { name: "SAMCIS Department Heads", date: "2024-02-15" },
-  { name: "TRIL Utilization", date: "2024-04-01" },
-  { name: "School Clinic", date: "2024-05-12" },
-];
+// Remove mock folders, will fetch from backend
 
 // files per folder
 const FOLDER_FILES = {
@@ -56,8 +50,33 @@ export default function DocumentControllerStorage() {
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
 
-  // reactive folders state
-  const [folders, setFolders] = useState([...INITIAL_FOLDERS]);
+  // folders state from backend
+  const [folders, setFolders] = useState([]);
+  const [loadingFolders, setLoadingFolders] = useState(true);
+  const [foldersError, setFoldersError] = useState(null);
+
+  // Fetch folders from backend on mount
+  useEffect(() => {
+    if (!user) return;
+    setLoadingFolders(true);
+    getFoldersAPI({ user })
+      .then((data) => {
+        console.log("Fetched folders:", data);
+        // Map backend folder fields to UI folder state
+        const mapped = (data.folders || []).map((f) => ({
+          name: f.folder?.folderName || "Unnamed Folder",
+          date: f.folder?.createdAt || "",
+          _id: f.folder?._id,
+          data: f 
+        }));
+        setFolders(mapped);
+        setFoldersError(null);
+      })
+      .catch((err) => {
+        setFoldersError(err.message || "Failed to load folders");
+      })
+      .finally(() => setLoadingFolders(false));
+  }, [user]);
 
   // toggle menus
   const toggleFolderMenu = (id) =>
@@ -198,7 +217,7 @@ export default function DocumentControllerStorage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
                     {displayedFolders.map((folder, idx) => (
                       <FolderComponent
-                        key={folder.name}
+                        key={ folder._id }
                         folder={folder}
                         index={idx}
                         isMenuOpen={openFolderMenu === idx}
@@ -217,7 +236,7 @@ export default function DocumentControllerStorage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     {displayedFiles.map((file, idx) => (
                       <FileComponent
-                        key={typeof file === "string" ? file : file.name}
+                        key={file._id || file.name || idx}
                         file={file}
                         index={idx}
                         isMenuOpen={openFileMenu === `file-${idx}`}

@@ -60,6 +60,8 @@ export const uploadProfilePicture = async (req, res) => {
  * @desc Upload document file
  * @route POST /api/files/upload/document
  * @access Internal (from other services)
+ *
+ * Pathing: uploads/<owner>/<folderName> if folderName provided, else uploads/<owner>
  */
 export const uploadDocument = async (req, res) => {
   try {
@@ -67,23 +69,31 @@ export const uploadDocument = async (req, res) => {
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    const { documentId, category } = req.body;
-    
+    const { documentId, owner, folderName } = req.body;
+    if (!owner) {
+      return res.status(400).json({ message: 'Owner is required' });
+    }
+
     // Generate unique filename
     const fileExtension = path.extname(req.file.originalname);
     const fileName = `${documentId || 'doc'}_${Date.now()}${fileExtension}`;
-    const documentsDir = path.join(process.cwd(), 'uploads', 'documents', category || 'general');
-    const filePath = path.join(documentsDir, fileName);
+    // Determine path: uploads/<owner>/<folderName> or uploads/<owner>
+    const baseDir = folderName
+      ? path.join(process.cwd(), 'uploads', owner, folderName)
+      : path.join(process.cwd(), 'uploads', owner);
+    const filePath = path.join(baseDir, fileName);
 
     // Ensure directory exists
-    await fs.ensureDir(documentsDir);
+    await fs.ensureDir(baseDir);
 
     // Save file
     await fs.writeFile(filePath, req.file.buffer);
 
     // Return the file path
-    const relativePath = `/uploads/documents/${category || 'general'}/${fileName}`;
-    
+    const relativePath = folderName
+      ? `/uploads/${owner}/${folderName}/${fileName}`
+      : `/uploads/${owner}/${fileName}`;
+
     console.log(`Document saved: ${relativePath}`);
     res.status(200).json({
       message: 'Document uploaded successfully',
