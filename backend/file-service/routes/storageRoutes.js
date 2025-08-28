@@ -1,10 +1,10 @@
-import { createFolder, getFolder, addAccessToFolders, getFolderByID, deleteFolderByID, addDocuments, deleteFile,addOrphanFile } from "../controllers/storageController.js";
-import { authenticateJWT } from "../middleware/authenticationMiddleware.js"; 
-import multer from "multer";
-const upload = multer({ dest: 'uploads/tmp' });
+import { createFolder, getFolder, addAccessToFolders, getFolderByID, deleteFolderByID, addDocuments, deleteFile, addOrphanFile } from "../controllers/storageController.js";
+import { authenticateJWT } from "../middleware/authenticationMiddleware.js";
+import { upload } from "../middleware/uploadmiddleware.js";
 import express from "express";
 
 const router = express.Router();
+
 
 
 // Folder routes

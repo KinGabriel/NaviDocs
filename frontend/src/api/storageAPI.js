@@ -50,20 +50,23 @@ export const getFoldersAPI = async ({ user }) => {
  * @param {FileList|Array<File>} files
  * @returns {Promise<Object>}
  */
-export const addDocumentsAPI = async (folderId, files) => {
-	const formData = new FormData();
-	for (const file of files) {
-		formData.append('files', file);
-	}
-	const res = await axios.post(
-		`${API_URL}/api/storage/folders/${folderId}/files`,
-		formData,
-		{
-			withCredentials: true,
-			headers: { 'Content-Type': 'multipart/form-data' },
+export const addDocumentsAPI = async (folderId, files,user_id) => {
+		const formData = new FormData();
+		for (const file of files) {
+			formData.append('files', file);
 		}
-	);
-	return res.data;
+		if (user_id) {
+			formData.append('user_id', user_id);
+		}
+		const res = await axios.post(
+			`${API_URL}/api/storage/folders/${folderId}/files`,
+			formData,
+			{
+				withCredentials: true,
+				headers: { 'Content-Type': 'multipart/form-data' },
+			}
+		);
+		return res.data;
 };
 
 /**
