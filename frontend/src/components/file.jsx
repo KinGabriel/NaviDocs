@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import PdfThumbnail from "./thumbnails/pdfThumbnail";
+import DocxThumbnail from "./thumbnails/docxThumbnail";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 import {
   FileText,
   MoreVertical,
@@ -16,7 +19,7 @@ import {
 } from "lucide-react";
 
 export default function FileComponent({
-  file, // string or { name, url }
+  file,
   index,
   isMenuOpen,
   toggleMenu,
@@ -37,17 +40,45 @@ export default function FileComponent({
   const [inputEmail, setInputEmail] = useState("");
   const [inputRole, setInputRole] = useState("Viewer");
 
-  const fileName = typeof file === "string" ? file : file?.name;
-  const fileUrl = typeof file === "string" ? null : file?.url;
+  const fileName = typeof file === "string" ? file : file?.originalName;
+  //  fileUrl construction for all file objects (filePath, path, url)
+  let fileUrl = null;
+  if (typeof file !== "string" && file) {
+    if (file.filePath) {
+      fileUrl = `${API_URL.replace(/\/$/, '')}/${file.filePath.replace(/^\//, '')}`;
+    } else if (file.path) {
+      // Convert Windows path to POSIX and remove everything before /uploads
+      let relPath = file.path.replace(/\\/g, '/');
+      const idx = relPath.indexOf('/uploads/');
+      if (idx !== -1) relPath = relPath.slice(idx + 1); // remove leading /
+      fileUrl = `${API_URL.replace(/\/$/, '')}/${relPath}`;
+    } else if (file.url) {
+      fileUrl = file.url;
+    }
+  }
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!fileUrl) return;
-    const a = document.createElement("a");
-    a.href = fileUrl;
-    a.download = fileName || "file";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    // Always use the original file name if available
+    let downloadName = (typeof file !== 'string' && file?.originalName) ? file.originalName : (fileName || 'file');
+    try {
+      const response = await fetch(fileUrl, { credentials: 'include' });
+      if (!response.ok) throw new Error('Network response was not ok');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = downloadName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        a.remove();
+      }, 100);
+    } catch (err) {
+      alert('Failed to download file.');
+    }
   };
 
   const handleAddEmail = () => {
@@ -196,8 +227,16 @@ export default function FileComponent({
         </div>
 
         {/* Preview tile */}
-        <div className="h-40 flex items-center justify-center bg-gray-50 rounded-t-xl">
-          <FileText className="w-10 h-10 text-gray-300" />
+        <div className="h-40 flex items-center justify-center bg-gray-50 rounded-t-xl" style={{overflow: 'hidden'}}>
+          {fileUrl && (
+            (file?.mimetype?.toLowerCase().includes('pdf') || fileName?.toLowerCase().endsWith('.pdf')) ? (
+              <PdfThumbnail url={fileUrl} width={120} height={160} />
+            ) : (file?.mimetype?.toLowerCase().includes('word') || fileName?.toLowerCase().endsWith('.docx')) ? (
+              <DocxThumbnail url={fileUrl} width={120} height={160} />
+            ) : (
+              <FileText className="w-10 h-10 text-gray-300" />
+            )
+          )}
         </div>
 
         {/* Info */}
@@ -205,7 +244,38 @@ export default function FileComponent({
           <p className="font-semibold text-sm text-gray-900 truncate" title={fileName}>
             {fileName}
           </p>
-          <p className="text-xs text-gray-500 mt-0.5">Filled-out document</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {(() => {
+              const type = file?.mimetype || '';
+              if (type.includes('pdf')) return 'PDF Document';
+              if (type.includes('image')) return 'Image File';
+              if (type.includes('word')) return 'Word Document';
+              if (type.includes('excel') || type.includes('spreadsheet')) return 'Excel Spreadsheet';
+              if (type.includes('text')) return 'Text File';
+              if (type.includes('zip')) return 'ZIP Archive';
+              if (type.includes('powerpoint')) return 'PowerPoint Presentation';
+              if (type) return type;
+              return 'Filled-out document';
+            })()}
+          </p>
+          {file && (
+            <div className="flex flex-wrap gap-2 text-xs text-gray-500 mt-1">
+              {file.createdAt && (
+                <span>
+                  Uploaded: {new Date(file.createdAt).toLocaleDateString()} {new Date(file.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              {file.size && (
+                <span>
+                  • Size: {file.size >= 1024 * 1024
+                    ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+                    : file.size >= 1024
+                    ? (file.size / 1024).toFixed(1) + ' KB'
+                    : file.size + ' B'}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -237,18 +307,29 @@ export default function FileComponent({
             <h2 className="text-lg font-bold mb-4 px-6 pt-6">{fileName}</h2>
 
             {/* Preview section */}
-            <div className="flex-1 border rounded-md bg-gray-50 overflow-y-scroll mx-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
-              {fileUrl && fileName?.toLowerCase().endsWith(".pdf") ? (
-                <iframe
-                  title="preview"
-                  src={fileUrl}
-                  className="w-full h-full"
-                  style={{ minHeight: "100%", overflow: "auto" }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-500">
-                  Preview not available. (Provide a PDF URL to render here)
-                </div>
+            <div className="flex-1 border rounded-md bg-gray-50 mx-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+              {fileUrl && (
+                (file?.mimetype?.toLowerCase().includes('pdf') || fileName?.toLowerCase().endsWith('.pdf')) ? (
+                  <iframe
+                    title="PDF preview"
+                    src={fileUrl}
+                    className="w-full h-full"
+                    style={{ height: '100%', width: '100%', border: 'none', overflow: 'hidden' }}
+                    scrolling="no"
+                  />
+                ) : (file?.mimetype?.toLowerCase().includes('word') || fileName?.toLowerCase().endsWith('.docx')) ? (
+                  <iframe
+                    title="DOCX preview"
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`}
+                    className="w-full h-full"
+                    style={{ height: '100%', width: '100%', border: 'none', overflow: 'hidden' }}
+                    scrolling="no"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-500">
+                    Preview not available. (Provide a PDF or DOCX URL to render here)
+                  </div>
+                )
               )}
             </div>
 

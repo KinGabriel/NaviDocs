@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs-extra';
 import sharp from 'sharp';
+import { saveDocumentFile } from '../utils/saveDocumentFile.js';
 
 /**
  * @desc Upload profile picture
@@ -57,45 +58,6 @@ export const uploadProfilePicture = async (req, res) => {
 };
 
 
-// Helper for document upload logic
-export async function saveDocumentFile({ file, documentId, owner, folderName }) {
-  if (!file) throw new Error('No file uploaded');
-  if (!owner) throw new Error('Owner is required');
-
-  // Validate file.buffer exists (for multer.memoryStorage)
-  if (!file.buffer) {
-    console.error('File object missing buffer:', file);
-    throw new Error('Uploaded file is missing data (buffer property is undefined). Check multer config and frontend upload.');
-  }
-
-  const fileExtension = path.extname(file.originalname);
-  const fileName = `${documentId || 'doc'}_${Date.now()}${fileExtension}`;
-  const baseDir = folderName
-    ? path.join(process.cwd(), 'uploads', owner, folderName)
-    : path.join(process.cwd(), 'uploads', owner);
-  const filePath = path.join(baseDir, fileName);
-
-  await fs.ensureDir(baseDir);
-  await fs.writeFile(filePath, file.buffer);
-
-  const relativePath = folderName
-    ? `/uploads/${owner}/${folderName}/${fileName}`
-    : `/uploads/${owner}/${fileName}`;
-
-  console.log(`Document saved: ${relativePath}`);
-  return {
-    message: 'Document uploaded successfully',
-    filePath: relativePath,
-    filename: fileName,
-    originalName: file.originalname,
-    mimetype: file.mimetype,
-    size: file.size,
-    path: filePath,
-    uploadedBy: owner,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  };
-}
 
 /**
  * @desc Upload document file

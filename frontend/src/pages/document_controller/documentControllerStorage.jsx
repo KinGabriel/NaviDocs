@@ -275,7 +275,7 @@ export default function DocumentControllerStorage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     {displayedFiles.map((file, idx) => (
                       <FileComponent
-                        key={file._id || file.name || idx}
+                        key={file._id}
                         file={file}
                         index={idx}
                         isMenuOpen={openFileMenu === `file-${idx}`}
@@ -304,7 +304,7 @@ export default function DocumentControllerStorage() {
                     if (!files.length) return;
                     setUploading(true);
                     try {
-                      const res = await addDocumentsAPI(selectedFolder._id, files,user._id);
+                      const res = await addDocumentsAPI(selectedFolder._id, files,user._id,selectedFolder.owner);
                       setSelectedFolder((prev) => ({ ...prev, dbfiles: res.folder.files }));
                       e.target.value = "";
                     } catch (err) {
@@ -322,7 +322,7 @@ export default function DocumentControllerStorage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     {(selectedFolder.dbfiles && selectedFolder.dbfiles.length ? selectedFolder.dbfiles : selectedFolder.physicalFiles).map((file, idx) => (
                       <FileComponent
-                        key={file._id || file.name || idx}
+                        key={file._id}
                         file={file}
                         index={idx}
                         isMenuOpen={openFileMenu === `file-${idx}`}
