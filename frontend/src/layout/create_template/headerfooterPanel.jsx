@@ -1,169 +1,331 @@
-import { useState } from 'react';
+// src/layout/create_template/headerFooterPanel.jsx
+import React, { useEffect, useMemo, useState } from "react";
 
-export default function HeaderFooterPanel() {
+/**
+ * HeaderFooterPanel — drives the editor directly.
+ * - No extra background/borders; the parent container styles the card.
+ * - Emits changes to the editor via a single command:
+ *     editor.commands.applyHeaderFooterToAllPages(config)
+ *   (Guarded: if the command doesn't exist yet, it won't throw.)
+ *
+ * Props:
+ *  - editor?: Tiptap editor instance (recommended)
+ *  - initialConfig?: same shape as below (optional)
+ *  - onConfigChange?: (cfg) => void  // optional hook for persistence
+ *
+ * Config shape:
+ * {
+ *   header: {
+ *     fields: { fullName, studentId, university, school },
+ *     align: "left" | "center" | "right" | "justify"
+ *   },
+ *   footer: {
+ *     fields: { pageNumber, date },
+ *     align: "left" | "center" | "right" | "justify"
+ *   }
+ * }
+ */
+export default function HeaderFooterPanel({
+  editor,
+  initialConfig,
+  onConfigChange,
+}) {
+  // ---- state ---------------------------------------------------------------
+  const initial = useMemo(
+    () => ({
+      header: {
+        fields: {
+          fullName: initialConfig?.header?.fields?.fullName ?? true,
+          studentId: initialConfig?.header?.fields?.studentId ?? false,
+          university: initialConfig?.header?.fields?.university ?? false,
+          school: initialConfig?.header?.fields?.school ?? false,
+        },
+        align: initialConfig?.header?.align ?? "left",
+      },
+      footer: {
+        fields: {
+          pageNumber: initialConfig?.footer?.fields?.pageNumber ?? false,
+          date: initialConfig?.footer?.fields?.date ?? false,
+        },
+        align: initialConfig?.footer?.align ?? "center",
+      },
+    }),
+    [initialConfig]
+  );
 
-  const [tab, setTab] = useState('header');
-  const [headerContent, setHeaderContent] = useState({
-    fullName: false,
-    studentId: false,
-    course: false,
-    date: false,
-    university: false,
-    school: false,
-    custom: '',
-    alignment: 'left',
-  });
+  const [tab, setTab] = useState("header");
+  const [cfg, setCfg] = useState(initial);
 
-  const [footerContent, setFooterContent] = useState({
-    pageNumber: false,
-    email: false,
-    university: false,
-    custom: '',
-    alignment: 'center',
-  });
+  // Apply to editor once on mount (so preview matches saved templates)
+  useEffect(() => {
+    applyToEditor(cfg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleChange = (section, field, value = null) => {
-    const update = section === 'header' ? { ...headerContent } : { ...footerContent };
-    update[field] = value !== null ? value : !update[field];
-    section === 'header' ? setHeaderContent(update) : setFooterContent(update);
+  // ---- helpers -------------------------------------------------------------
+  const applyToEditor = (next) => {
+    onConfigChange?.(next);
+    // Call the editor command if it exists (no crash if not wired yet)
+    try {
+      if (editor?.commands?.applyHeaderFooterToAllPages) {
+        editor.commands.applyHeaderFooterToAllPages(next);
+      } else {
+        // Optional: emit a custom event for your app bus if you use one
+        editor?.emit?.("nd:headerFooterChanged", next);
+      }
+    } catch {
+      /* swallow — panel should never throw if the command isn't ready */
+    }
   };
 
-  const handleAlignment = (section, alignment) => {
-    section === 'header'
-      ? setHeaderContent({ ...headerContent, alignment })
-      : setFooterContent({ ...footerContent, alignment });
+  const patch = (updater) => {
+    setCfg((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      applyToEditor(next);
+      return next;
+    });
   };
 
-  const renderContent = (section) => {
-    const data = section === 'header' ? headerContent : footerContent;
-
-    return (
-      <div className="space-y-6 space-x-3 p-5">
-        <div className="grid grid-cols-2 gap-4">
-          {section === 'header' ? (
-            <>
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={data.fullName} onChange={() => handleChange(section, 'fullName')} /> Full Name
-              </label>
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={data.studentId} onChange={() => handleChange(section, 'studentId')} /> Student ID
-              </label>
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={data.course} onChange={() => handleChange(section, 'course')} /> Course
-              </label>
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={data.date} onChange={() => handleChange(section, 'date')} /> Date
-              </label>
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={data.university} onChange={() => handleChange(section, 'university')} /> University
-              </label>
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={data.school} onChange={() => handleChange(section, 'school')} /> School
-              </label>
-            </>
-          ) : (
-            <>
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={data.pageNumber} onChange={() => handleChange(section, 'pageNumber')} /> Page Number
-              </label>
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={data.email} onChange={() => handleChange(section, 'email')} /> Email
-              </label>
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={data.university} onChange={() => handleChange(section, 'university')} /> University
-              </label>
-            
-            </>
-          )}
-        </div>
-
-         {/* custom text input */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Custom Text:</label>
-          <textarea
-            className="border rounded px-2 py-1 w-full"
-            value={data.custom}
-            onChange={(e) => handleChange(section, 'custom', e.target.value)}
-            placeholder="e.g. Thesis Title, Semester, etc."
-          />
-        </div>
-
-        {/* alignment */}
-        <div>
-          <h3 className="block text-sm font-semibold mb-1">Alignment</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {['left', 'right', 'center', 'justified'].map((align) => (
-              <div key={align} className="flex flex-col items-center">
-                <button
-                  onClick={() => handleAlignment(section, align)}
-                  className={`border rounded-lg p-3 w-30 h-14 hover:border-blue-500 ${
-                    data.alignment === align ? 'border-blue-600' : 'border-gray-300'
-                  }`}
-                >
-                  {align === 'left' && (
-                    <>
-                      <div className="w-3/4 h-2 bg-gray-300 mb-1 rounded" />
-                      <div className="w-1/2 h-2 bg-gray-300 rounded" />
-                    </>
-                  )}
-                  {align === 'right' && (
-                    <>
-                      <div className="w-3/4 h-2 bg-gray-300 mb-1 rounded ml-auto" />
-                      <div className="w-1/2 h-2 bg-gray-300 rounded ml-auto" />
-                    </>
-                  )}
-                  {align === 'center' && (
-                    <>
-                      <div className="w-4/5 h-2 bg-gray-300 mb-1 rounded mx-auto" />
-                      <div className="w-2/3 h-2 bg-gray-300 rounded mx-auto" />
-                      <div className="w-4/5 h-2 bg-gray-300 mt-1 rounded mx-auto" />
-                    </>
-                  )}
-                  {align === 'justified' && (
-                    <>
-                      <div className="w-full h-2 bg-gray-300 mb-1 rounded" />
-                      <div className="w-full h-2 bg-gray-300 mb-1 rounded" />
-                      <div className="w-full h-2 bg-gray-300 rounded" />
-                    </>
-                  )}
-                </button>
-                <span className="mt-1 text-xs capitalize">{align}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-      </div>
-    );
-  };
-
- {/*section for header and footer options*/}
-  return (
-    <div className="p-9 space-y-6">
-      <div className="flex space-x-4 border-b">
+  // ---- small UI atoms ------------------------------------------------------
+  const TitleRow = () => (
+    <div className="px-4 pt-3">
+      <div className="flex gap-6 text-[14px]">
         <button
-          className={`px-6 py-2 ${
-            tab === 'header'
-              ? 'border-b-2 border-[#063c8d] font-semibold text-[#063c8d]'
-              : 'text-gray-500'
+          onClick={() => setTab("header")}
+          className={`pb-2 ${
+            tab === "header"
+              ? "text-gray-900 font-semibold border-b-2 border-gray-900"
+              : "text-gray-500 hover:text-gray-700"
           }`}
-          onClick={() => setTab('header')}
         >
           Header
         </button>
         <button
-          className={`px-6 py-2 ${
-            tab === 'footer'
-              ? 'border-b-2 border-[#063c8d] font-semibold text-[#063c8d]'
-              : 'text-gray-500'
+          onClick={() => setTab("footer")}
+          className={`pb-2 ${
+            tab === "footer"
+              ? "text-gray-900 font-semibold border-b-2 border-gray-900"
+              : "text-gray-500 hover:text-gray-700"
           }`}
-          onClick={() => setTab('footer')}
         >
           Footer
         </button>
       </div>
-
-      <div>{renderContent(tab)}</div>
+      <div className="h-px bg-gray-200" />
     </div>
-);
-};
+  );
+
+  const Checkbox = ({ label, checked, onChange }) => (
+    <label className="flex items-center gap-2 text-[14px] text-gray-900 cursor-pointer select-none">
+      <input
+        type="checkbox"
+        className="appearance-none w-4 h-4 border border-gray-400 rounded-sm
+                   checked:bg-gray-900 checked:border-gray-900 transition-colors"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span>{label}</span>
+    </label>
+  );
+
+  const AlignTile = ({ active, onClick, label, align }) => {
+    const alignMap = {
+      left: "items-start",
+      center: "items-center",
+      right: "items-end",
+      justify: "items-stretch",
+    };
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={[
+          "w-full h-[64px] rounded-lg border bg-white transition",
+          active
+            ? "border-gray-800 shadow-[0_0_0_2px_rgba(17,24,39,0.06)]"
+            : "border-gray-300 hover:border-gray-400",
+          "flex flex-col justify-center",
+        ].join(" ")}
+      >
+        <div className={`px-3 flex flex-col ${alignMap[align]} gap-1.5`}>
+          <div className="h-[8px] rounded bg-gray-200 w-4/5" />
+          <div className="h-[6px] rounded bg-gray-200 w-3/5" />
+          <div className="h-[6px] rounded bg-gray-200 w-2/3" />
+        </div>
+        <div className="text-[12px] text-gray-700 mt-1">{label}</div>
+      </button>
+    );
+  };
+
+  // ---- tabs ---------------------------------------------------------------
+  const HeaderTab = () => (
+    <div className="px-4 pt-4 pb-6">
+      <div className="grid grid-cols-2 gap-x-10 gap-y-4 mb-6">
+        <Checkbox
+          label="Full Name"
+          checked={cfg.header.fields.fullName}
+          onChange={(v) =>
+            patch({
+              ...cfg,
+              header: {
+                ...cfg.header,
+                fields: { ...cfg.header.fields, fullName: v },
+              },
+            })
+          }
+        />
+        <Checkbox
+          label="School"
+          checked={cfg.header.fields.school}
+          onChange={(v) =>
+            patch({
+              ...cfg,
+              header: {
+                ...cfg.header,
+                fields: { ...cfg.header.fields, school: v },
+              },
+            })
+          }
+        />
+        <Checkbox
+          label="Student ID"
+          checked={cfg.header.fields.studentId}
+          onChange={(v) =>
+            patch({
+              ...cfg,
+              header: {
+                ...cfg.header,
+                fields: { ...cfg.header.fields, studentId: v },
+              },
+            })
+          }
+        />
+        <Checkbox
+          label="University"
+          checked={cfg.header.fields.university}
+          onChange={(v) =>
+            patch({
+              ...cfg,
+              header: {
+                ...cfg.header,
+                fields: { ...cfg.header.fields, university: v },
+              },
+            })
+          }
+        />
+      </div>
+
+      <div className="text-[12px] font-semibold text-gray-600 mb-2">
+        Alignment
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <AlignTile
+          label="Left aligned"
+          align="left"
+          active={cfg.header.align === "left"}
+          onClick={() => patch({ ...cfg, header: { ...cfg.header, align: "left" } })}
+        />
+        <AlignTile
+          label="Right aligned"
+          align="right"
+          active={cfg.header.align === "right"}
+          onClick={() =>
+            patch({ ...cfg, header: { ...cfg.header, align: "right" } })
+          }
+        />
+        <AlignTile
+          label="Center"
+          align="center"
+          active={cfg.header.align === "center"}
+          onClick={() =>
+            patch({ ...cfg, header: { ...cfg.header, align: "center" } })
+          }
+        />
+        <AlignTile
+          label="Justified"
+          align="justify"
+          active={cfg.header.align === "justify"}
+          onClick={() =>
+            patch({ ...cfg, header: { ...cfg.header, align: "justify" } })
+          }
+        />
+      </div>
+    </div>
+  );
+
+  const FooterTab = () => (
+    <div className="px-4 pt-4 pb-6">
+      <div className="grid grid-cols-2 gap-x-10 gap-y-4 mb-6">
+        <Checkbox
+          label="Page number"
+          checked={cfg.footer.fields.pageNumber}
+          onChange={(v) =>
+            patch({
+              ...cfg,
+              footer: {
+                ...cfg.footer,
+                fields: { ...cfg.footer.fields, pageNumber: v },
+              },
+            })
+          }
+        />
+        <Checkbox
+          label="Date"
+          checked={cfg.footer.fields.date}
+          onChange={(v) =>
+            patch({
+              ...cfg,
+              footer: { ...cfg.footer, fields: { ...cfg.footer.fields, date: v } },
+            })
+          }
+        />
+      </div>
+
+      <div className="text-[12px] font-semibold text-gray-600 mb-2">
+        Alignment
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <AlignTile
+          label="Left aligned"
+          align="left"
+          active={cfg.footer.align === "left"}
+          onClick={() =>
+            patch({ ...cfg, footer: { ...cfg.footer, align: "left" } })
+          }
+        />
+        <AlignTile
+          label="Right aligned"
+          align="right"
+          active={cfg.footer.align === "right"}
+          onClick={() =>
+            patch({ ...cfg, footer: { ...cfg.footer, align: "right" } })
+          }
+        />
+        <AlignTile
+          label="Center"
+          align="center"
+          active={cfg.footer.align === "center"}
+          onClick={() =>
+            patch({ ...cfg, footer: { ...cfg.footer, align: "center" } })
+          }
+        />
+        <AlignTile
+          label="Justified"
+          align="justify"
+          active={cfg.footer.align === "justify"}
+          onClick={() =>
+            patch({ ...cfg, footer: { ...cfg.footer, align: "justify" } })
+          }
+        />
+      </div>
+    </div>
+  );
+
+  // ---- render --------------------------------------------------------------
+  return (
+    <div className="h-full w-full bg-transparent overflow-x-hidden">
+      <TitleRow />
+      {tab === "header" ? <HeaderTab /> : <FooterTab />}
+    </div>
+  );
+}

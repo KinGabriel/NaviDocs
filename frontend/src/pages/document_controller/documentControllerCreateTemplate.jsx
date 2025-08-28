@@ -199,7 +199,12 @@ export default function DocumentControllerCreateTemplate() {
       case "dateformat":
         return <DateFormatPanel value={dateFormat} onChange={setDateFormat} />;
       case "headerfooter":
-        return <HeaderFooterPanel value={headerFooter} onChange={setHeaderFooter} />;
+        return (
+        <HeaderFooterPanel
+          editor={editorInstance}
+          value={headerFooter}
+          onChange={setHeaderFooter}
+        />);
       default:
         return null;
     }

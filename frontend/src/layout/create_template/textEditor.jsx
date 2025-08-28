@@ -26,7 +26,11 @@ const DEFAULT_SETUP = {
   orientation: "Portrait",
   margins: { top: 1, bottom: 1, left: 1, right: 1 },
 };
-const PRESETS = { A4: { w: 8.27, h: 11.69 }, Letter: { w: 8.5, h: 11 }, Legal: { w: 8.5, h: 14 } };
+const PRESETS = {
+  A4: { w: 8.27, h: 11.69 },
+  Letter: { w: 8.5, h: 11 },
+  Legal: { w: 8.5, h: 14 },
+};
 
 function computeDims(pageSetup) {
   const p = pageSetup || DEFAULT_SETUP;
@@ -114,7 +118,7 @@ export default function TextEditor({
     onCreate: ({ editor }) => {
       applyCssVars(dimsRef.current);
       editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
-      onEditorReady?.(editor); // expose editor to your left panel
+      onEditorReady?.(editor); // expose editor so CreateTemplate can pass it to panels
     },
     onUpdate: ({ editor }) => onContentChange?.(editor.getHTML()),
   });
@@ -165,8 +169,10 @@ export default function TextEditor({
         .ProseMirror:focus { outline: none; }
       `}</style>
 
-      {/* No toolbar here. Your left panel should use the editor you get via onEditorReady. */}
-      <div className="mx-auto my-6" style={{ maxWidth: `calc(var(--nd-page-width) + 4rem)` }}>
+      <div
+        className="mx-auto my-6"
+        style={{ maxWidth: `calc(var(--nd-page-width) + 4rem)` }}
+      >
         {editor ? (
           <EditorContent editor={editor} className="prose max-w-none" />
         ) : (
