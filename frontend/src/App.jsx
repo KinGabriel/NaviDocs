@@ -34,6 +34,7 @@ import DepartmentHeadDocumentWorkflow from './pages/dept_head/departmentHeadDocu
 import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics';
 import FacultyDashboard from './pages/faculty/facultyDashboard';
 import FacultyDocuments from './pages/faculty/facultyDocuments';
+import FacultyViewDocuments from "./pages/faculty/facultyViewDocuments";
 
 
 /** Redirect logged-in users by role; otherwise show Login */
@@ -310,6 +311,10 @@ function App() {
              <FacultyDocuments />
            </ProtectedRoute>
          }
+       />
+       
+       <Route path="/faculty/documents/:id" 
+       element={<FacultyViewDocuments />} 
        />
 
        {/* Global */}
