@@ -13,7 +13,7 @@ import axios from 'axios';
  */
 export const createFolder = async (req, res) => {
   try {
-    const { folderName, owner, visibility, allowedSchools, allowedDepartments, allowedUsers } = req.body;
+    const { folderName, owner } = req.body;
     if (!folderName || !owner) {
       return res.status(400).json({ message: 'folderName and owner are required.' });
     }
@@ -25,11 +25,7 @@ export const createFolder = async (req, res) => {
     // Create folder in DB
     const folder = new Storage({
       folderName,
-      owner,
-      visibility: visibility || 'private',
-      allowedSchools: allowedSchools || [],
-      allowedDepartments: allowedDepartments || [],
-      allowedUsers: allowedUsers || []
+      owner
     });
     await folder.save();
 
@@ -97,6 +93,75 @@ export const getFolder = async (req, res) => {
     });
   } catch (err) {
     console.error('Error fetching accessible folders:', err);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+/**
+ * Get folder by ID
+ * @route GET /api/storage/folder/:id
+ * @param {*} req
+ * @param {*} res
+ * @returns
+ */
+export const getFolderByID = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ message: 'Folder ID is required.' });
+    }
+
+    const folder = await Storage.findById(id);
+    if (!folder) {
+      return res.status(404).json({ message: 'Folder not found.' });
+    }
+
+    res.status(200).json({
+      message: 'Folder fetched successfully.',
+      folder
+    });
+  } catch (err) {
+    console.error('Error fetching folder by ID:', err);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+/**
+ * Add access to folders
+ * @route POST /api/storage/folders/share
+ * @param {*} req
+ * @param {*} res
+ * @returns
+ */
+export const addAccessToFolders = async (req, res) => {
+  try {
+    const { folderId, userId, school, department } = req.body;
+    if (!folderId || !userId) {
+      return res.status(400).json({ message: 'folderId and userId are required.' });
+    }
+
+    // Find the folder
+    const folder = await Storage.findById(folderId);
+    if (!folder) {
+      return res.status(404).json({ message: 'Folder not found.' });
+    }
+
+    // Update access control lists
+    if (school) {
+      folder.allowedSchools = folder.allowedSchools || [];
+      folder.allowedSchools.push(school);
+    }
+    if (department) {
+      folder.allowedDepartments = folder.allowedDepartments || [];
+      folder.allowedDepartments.push(department);
+    }
+    folder.allowedUsers = folder.allowedUsers || [];
+    folder.allowedUsers.push(userId);
+
+    await folder.save();
+    res.status(200).json({ message: 'Access control updated successfully.', folder });
+  } catch (err) {
+    console.error('Error updating access control:', err);
     res.status(500).json({ message: 'Internal server error.' });
   }
 };

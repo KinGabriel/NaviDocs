@@ -11,7 +11,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 export const createFolderAPI = async ({ folderName, user }) => {
 	try {
 		const res = await axios.post(
-			`${API_URL}/api/create-folder`,
+			`${API_URL}/api/storage/create-folder`,
 			{
 				folderName,
 				owner: user.id
@@ -38,7 +38,7 @@ export const getFoldersAPI = async ({ userId, school, department }) => {
 		const params = { userId };
 		if (school) params.school = school;
 		if (department) params.department = department;
-		const res = await axios.get(`${API_URL}api/folders`, {
+		const res = await axios.get(`${API_URL}/api/storage/folders`, {
 			params,
 			withCredentials: true
 		});

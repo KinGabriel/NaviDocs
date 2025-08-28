@@ -28,6 +28,7 @@ apiEndpoints:
     paths:
       - /api/files/*
       - /uploads/*
+      - /api/storage/*
 
   templates:
     host: ${HOST}
