@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import naviLogo from '../assets/images/navilogo.png';
+import naviLogo from '../../assets/images/navilogo.png';
 import { ChevronDown, Copy, Send, FileDown, MoreHorizontal } from "lucide-react";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -12,9 +12,6 @@ export default function EditableFieldsHeader({
   saving = false, 
   lastSavedAt, 
   dirty = false,
-  isEditing = true,
-  currentStep = 1,
-  totalSteps = 2
 }) {
   const navigate = useNavigate();
 
@@ -126,48 +123,47 @@ export default function EditableFieldsHeader({
 
           {/* Quick Actions dropdown */}
         <div className="relative group">
-        <button className="bg-gray-700 hover:bg-gray-800 text-white rounded px-5 py-2.5 text-sm font-medium flex items-center gap-2 shadow-lg">
+          <button className="bg-gray-700 hover:bg-gray-800 text-white rounded px-5 py-2.5 text-sm font-medium flex items-center gap-2 shadow-lg">
             <MoreHorizontal className="w-5 h-5" />
             <span className="font-semibold">Quick Actions</span>
             <ChevronDown className="w-4 h-4" />
-        </button>
-        
-        <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 absolute right-0 mt-3 w-64 z-50">
-            <div className="bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
-            <div className="py-2">
-                <button className="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-3 group/item">
+          </button>
+
+          {/* Dropdown menu */}
+          <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150 absolute right-0 mt-2 w-64 z-50">
+            <div className="bg-white rounded-lg shadow-xl border border-gray-200 py-2">
+              <button className="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-3">
                 <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Copy className="w-4 h-4 text-blue-600" />
+                  <Copy className="w-4 h-4 text-blue-600" />
                 </div>
                 <div className="flex-1">
-                    <div className="font-medium text-gray-900 text-sm">Make a Copy</div>
-                    <div className="text-xs text-gray-500">Duplicate this document</div>
+                  <div className="font-medium text-gray-900 text-sm">Make a Copy</div>
+                  <div className="text-xs text-gray-500">Duplicate this document</div>
                 </div>
-                </button>
-                
-                <button className="w-full text-left px-4 py-3 hover:bg-green-50 flex items-center gap-3 group/item">
+              </button>
+
+              <button className="w-full text-left px-4 py-3 hover:bg-green-50 flex items-center gap-3">
                 <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Send className="w-4 h-4 text-green-600" />
+                  <Send className="w-4 h-4 text-green-600" />
                 </div>
                 <div className="flex-1">
-                    <div className="font-medium text-gray-900 text-sm">Submit</div>
-                    <div className="text-xs text-gray-500">Send to department head</div>
+                  <div className="font-medium text-gray-900 text-sm">Submit</div>
+                  <div className="text-xs text-gray-500">Send to department head</div>
                 </div>
-                </button>
-                
-                <button className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3 group/item">
+              </button>
+
+              <button className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3">
                 <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <FileDown className="w-4 h-4 text-purple-600" />
+                  <FileDown className="w-4 h-4 text-purple-600" />
                 </div>
                 <div className="flex-1">
-                    <div className="font-medium text-gray-900 text-sm">Export as PDF</div>
+                  <div className="font-medium text-gray-900 text-sm">Export as PDF</div>
                 </div>
-                </button>
+              </button>
             </div>
-            </div>
+          </div>
         </div>
-        </div>
-                
+
           {/* Profile picture */}
           <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
             <img

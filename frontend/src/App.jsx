@@ -35,7 +35,7 @@ import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics
 import FacultyDashboard from './pages/faculty/facultyDashboard';
 import FacultyDocuments from './pages/faculty/facultyDocuments';
 import FacultyViewDocuments from "./pages/faculty/facultyViewDocuments";
-import EditableFields from './layout/editable_fields/editableFields';
+import EditableFields from './pages/editableFields';
 
 
 /** Redirect logged-in users by role; otherwise show Login */
