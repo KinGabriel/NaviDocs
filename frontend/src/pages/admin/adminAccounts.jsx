@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchUsersAccountsAPI,archiveUserAccountAPI,unarchiveUserAccountAPI } from "../../api/adminAPI";
+import { 
+  fetchUsersAccountsAPI,
+  archiveUserAccountAPI,
+  unarchiveUserAccountAPI 
+} from "../../api/adminAPI";
 import useUser from '../../hooks/useUser';
 import Sidebar from '../../layout/sidebar';
 import Header from '../../layout/header';
@@ -52,14 +56,30 @@ export default function AdminAccounts() {
     }
   };
 
-  // Handle unarchive user
-  const handleUnarchive = async (userId) => {
-    if (!window.confirm("Are you sure you want to unarchive this user?")) return;
+  // --- Unarchive modal state ---
+  const [unarchiveOpen, setUnarchiveOpen] = useState(false);
+  const [unarchiving, setUnarchiving] = useState(false);
+  const [targetUserUnarchive, setTargetUserUnarchive] = useState(null);
+
+  const openUnarchiveModal = (row) => {
+    setTargetUserUnarchive(row);
+    setUnarchiveOpen(true);
+  };
+  const closeUnarchiveModal = () => {
+    if (unarchiving) return;
+    setUnarchiveOpen(false);
+    setTargetUserUnarchive(null);
+  };
+  const confirmUnarchive = async () => {
+    if (!targetUserUnarchive?._id) return;
     try {
-      await unarchiveUserAccountAPI(userId);
-      setUsers((prev) => prev.map((u) => u._id === userId ? { ...u, is_deleted: false } : u));
+      setUnarchiving(true);
+      await unarchiveUserAccountAPI(targetUserUnarchive._id);
+      setUsers(prev => prev.map(u => u._id === targetUserUnarchive._id ? { ...u, is_deleted: false } : u));
+      closeUnarchiveModal();
     } catch (err) {
       alert(err.message || "Failed to unarchive user.");
+      setUnarchiving(false);
     }
   };
 
@@ -100,7 +120,7 @@ const columns = [
         {row.is_deleted ? (
           <button
             className="bg-green-100 text-green-700 px-4 py-1 rounded text-xs font-semibold hover:bg-green-200"
-            onClick={() => handleUnarchive(row._id)}
+            onClick={() => openUnarchiveModal(row)}
           >
             Unarchive
           </button>
@@ -346,7 +366,63 @@ const columns = [
           </div>
         </div>
       )}
-      {/* END MODAL */}
+      {/* END ARCHIVE MODAL */}
+
+      {/* UNARCHIVE CONFIRMATION MODAL */}
+      {unarchiveOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={closeUnarchiveModal} />
+          <div className="relative w-[520px] max-w-[92vw] rounded-2xl bg-white p-6 shadow-2xl">
+            {/* Close (X) */}
+            <button
+              onClick={closeUnarchiveModal}
+              className="absolute right-3 top-3 rounded-full p-1 text-gray-500 hover:bg-gray-100"
+              aria-label="Close"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Icon (green accent) */}
+            <div className="mx-auto mb-4 mt-2 flex h-12 w-12 items-center justify-center rounded-xl bg-green-100">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-green-600">
+                <path d="M12 3v18m9-9H3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              </svg>
+            </div>
+
+            {/* Message */}
+            <p className="text-center text-lg font-semibold text-gray-800">
+              Are you sure you want to unarchive
+              <br />
+              <span className="font-bold">
+                {`${targetUserUnarchive?.firstname ?? ""} ${targetUserUnarchive?.lastname ?? ""}`.trim()}
+              </span>
+              ?
+            </p>
+
+            {/* Actions */}
+            <div className="mt-6 flex items-center justify-center gap-3">
+              <button
+                onClick={closeUnarchiveModal}
+                disabled={unarchiving}
+                className="rounded-md bg-gray-200 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmUnarchive}
+                disabled={unarchiving}
+                className="rounded-md bg-green-600 px-5 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
+              >
+                {unarchiving ? "Unarchiving…" : "Unarchive"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* END UNARCHIVE MODAL */}
+
     </div>
   );
 }
