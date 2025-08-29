@@ -102,7 +102,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
   };
 
   return (
-  <div className="relative w-[260px] bg-white rounded-lg shadow border flex flex-col overflow-visible hover:shadow-lg transition-all duration-200 cursor-pointer">
+ <div className="relative w-[280px] bg-white rounded-lg shadow border border-gray-500 flex flex-col overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer">
       
       {/*  Status & actions cluster */}
       <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
@@ -131,7 +131,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
 
       {/*  Document Preview*/}
       <div 
-        className="w-full h-[310px] bg-gray-50 flex items-center justify-center border-b hover:bg-gray-100 transition-colors"
+        className="w-full h-[310px] bg-gray-50 flex items-center justify-center border-b border-gray-500 hover:bg-gray-100 transition-colors"
         onClick={onSelect}
       >
         <div className="text-center">

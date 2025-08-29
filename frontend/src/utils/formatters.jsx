@@ -35,7 +35,7 @@ export function StatusBadge({ type }) {
   };
   return (
     <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${styles[status]||''}`}>
-      <span className={`h-2 w-2 rounded-full ${status==='approved'?'bg-green-500':status==='pending'?'bg-yellow-500':status==='late'?'bg-red-500':status==='published'?'bg-blue-500':'bg-orange-500'}`}/>
+      <span className={`h-2 w-2 rounded-full ${status==='approved'?'bg-green-500':status==='pending'?'bg-yellow-500':status==='late'?'bg-red-500':status==='published'?'bg-blue-500':status==='ongoing'?'bg-gray-500':'bg-orange-500'}`}/>
       {type}
     </span>
   );
