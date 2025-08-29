@@ -1,4 +1,5 @@
 import Storage, { File } from '../models/storageModel.js';
+import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
@@ -14,25 +15,56 @@ import { saveDocumentFile } from '../utils/saveDocumentFile.js';
  */
 export const createFolder = async (req, res) => {
   try {
-    const { folderName, owner } = req.body;
+    let { folderName, owner, parentFolder } = req.body;
+    console.log('[createFolder] folderName:', folderName, 'owner:', owner, 'parentFolder:', parentFolder);
+    if (parentFolder && typeof parentFolder === 'string') {
+      try {
+        parentFolder = new mongoose.Types.ObjectId(parentFolder);
+      } catch (e) {
+        return res.status(400).json({ message: 'Invalid parentFolder ID.' });
+      }
+    } else if (!parentFolder) {
+      parentFolder = null;
+    }
     if (!folderName || !owner) {
       return res.status(400).json({ message: 'folderName and owner are required.' });
     }
-    // Check for duplicate folder for this owner
-    const existing = await Storage.findOne({ folderName, owner });
+    // Check for duplicate folder for this owner and parent
+  const query = { folderName, owner };
+  if (parentFolder) query.parentFolder = parentFolder;
+  const existing = await Storage.findOne(query);
     if (existing) {
       return res.status(409).json({ message: 'Folder already exists' });
     }
     // Create folder in DB
     const folder = new Storage({
       folderName,
-      owner
+      owner,
+      parentFolder: parentFolder
     });
     await folder.save();
 
-    // create a physical folder on disk
+    // create a physical folder on disk (nested if parentFolder is set)
     const uploadsRoot = path.join(process.cwd(), 'uploads');
-    const folderPath = path.join(uploadsRoot, owner, folderName);
+    let folderPath;
+    if (parentFolder) {
+      // Find parent folder's path recursively
+      const parent = await Storage.findById(parentFolder);
+      if (!parent) {
+        return res.status(400).json({ message: 'Parent folder not found.' });
+      }
+      // Build the nested path: uploads/owner/parent1/parent2/.../folderName
+      let parentNames = [parent.folderName];
+      let current = parent;
+      while (current.parentFolder) {
+        current = await Storage.findById(current.parentFolder);
+        if (current) parentNames.unshift(current.folderName);
+        else break;
+      }
+      folderPath = path.join(uploadsRoot, owner, ...parentNames, folderName);
+    } else {
+      folderPath = path.join(uploadsRoot, owner, folderName);
+    }
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
     }
@@ -89,6 +121,7 @@ export const getFolder = async (req, res) => {
         createdAt: folder.createdAt || null,
         updatedAt: folder.updatedAt || null,
         owner: folder.owner || null,
+        parentFolder: folder.parentFolder || null,
       };
     });
 
@@ -259,14 +292,21 @@ export const addDocuments = async (req, res) => {
 
     // Use saveDocumentFile for each file and collect the file metadata
     const fileMetadatas = [];
+    // Build the full nested path for the folder
+    let parentNames = [];
+    let current = folder;
+    while (current.parentFolder) {
+      current = await Storage.findById(current.parentFolder);
+      if (current) parentNames.unshift(current.folderName);
+      else break;
+    }
     for (const file of uploadedFiles) {
       try {
-        // Use user_id as owner if provided, else fallback to folder._id
         const meta = await saveDocumentFile({
           file,
           documentId: file.documentId || undefined,
           owner: owner,
-          folderName: folder.folderName,
+          folderName: parentNames.length > 0 ? [...parentNames, folder.folderName].join(path.sep) : folder.folderName,
           uploaded_by: req.body.user_id
         });
         fileMetadatas.push(meta);

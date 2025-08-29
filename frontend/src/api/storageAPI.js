@@ -8,14 +8,16 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
  * @param {Object} user
  * @returns {Promise<Object>}
  */
-export const createFolderAPI = async ({ folderName, user }) => {
+export const createFolderAPI = async ({ folderName, user, parentFolder }) => {
 	try {
+		const payload = {
+			folderName,
+			owner: user._id
+		};
+		if (parentFolder) payload.parentFolder = parentFolder;
 		const res = await axios.post(
 			`${API_URL}/api/storage/create-folder`,
-			{
-				folderName,
-				owner: user._id
-			},
+			payload,
 			{ withCredentials: true }
 		);
 		return res.data;

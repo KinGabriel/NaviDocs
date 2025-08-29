@@ -55,6 +55,19 @@ export default function DocumentControllerStorage() {
   // new folder modal
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [parentFolderId, setParentFolderId] = useState("");
+
+  // When opening the new folder modal, default parentFolderId to the currently selected folder
+  useEffect(() => {
+    if (showNewFolderModal) {
+      if (selectedFolder && selectedFolder._id) {
+        setParentFolderId(selectedFolder._id);
+      } else {
+        setParentFolderId("");
+      }
+    }
+    // Only run when modal is toggled or selectedFolder changes
+  }, [showNewFolderModal, selectedFolder]);
 
   // folders state from backend
   const [folders, setFolders] = useState([]);
@@ -72,7 +85,7 @@ export default function DocumentControllerStorage() {
         setRootFiles([]);
       });
   }, [user]);
-  
+
   // Fetch folders from backend on mount
   useEffect(() => {
     if (!user) return;
@@ -80,12 +93,15 @@ export default function DocumentControllerStorage() {
     getFoldersAPI({ user })
       .then((data) => {
         console.log("Fetched folders:", data);
-        // Map backend folder fields to UI folder state
+        // Map backend folder fields to UI folder state, ensure parentFolder is string or null
         const mapped = (data.folders || []).map((f) => ({
           name: f.folderName || "Unnamed Folder",
           date: f.createdAt || "",
           _id: f._id,
-          data: f 
+          data: {
+            ...f,
+            parentFolder: f.parentFolder ? String(f.parentFolder) : null
+          }
         }));
         setFolders(mapped);
         setFoldersError(null);
@@ -105,6 +121,12 @@ export default function DocumentControllerStorage() {
   // folders (search + sort)
   const displayedFolders = useMemo(() => {
     let rows = [...folders];
+    // Only show folders whose parent matches the selected folder (or top-level if none selected)
+    if (selectedFolder && selectedFolder._id) {
+      rows = rows.filter(f => f.data.parentFolder === selectedFolder._id);
+    } else {
+      rows = rows.filter(f => !f.data.parentFolder);
+    }
     if (sortRecent === "Recent") {
       rows.sort((a, b) => new Date(b.date) - new Date(a.date));
     }
@@ -113,7 +135,7 @@ export default function DocumentControllerStorage() {
       rows = rows.filter((f) => f.name.toLowerCase().includes(q));
     }
     return rows;
-  }, [searchQuery, sortRecent, folders]);
+  }, [searchQuery, sortRecent, folders, selectedFolder]);
 
   // files depending on location + search
   const displayedFiles = useMemo(() => {
@@ -133,7 +155,7 @@ export default function DocumentControllerStorage() {
     setCreatingFolder(true);
     setCreateFolderError(null);
     try {
-      const res = await createFolderAPI({ folderName: newFolderName.trim(), user });
+      const res = await createFolderAPI({ folderName: newFolderName.trim(), user, parentFolder: parentFolderId || null });
       // Add the new folder to the folders state
       const f = res.folder;
       setFolders(prev => [
@@ -146,6 +168,7 @@ export default function DocumentControllerStorage() {
         }
       ]);
       setNewFolderName("");
+      setParentFolderId("");
       setShowNewFolderModal(false);
     } catch (err) {
       setCreateFolderError(err.message || "Failed to create folder");
@@ -331,6 +354,32 @@ export default function DocumentControllerStorage() {
               </>
             ) : (
               <>
+                {/* Folders inside this folder */}
+                <h3 className="text-lg font-semibold mb-3">Folders</h3>
+                {displayedFolders.length ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+                    {displayedFolders.map((folder, idx) => (
+                      <FolderComponent
+                        key={folder._id}
+                        folder={folder}
+                        index={idx}
+                        isMenuOpen={openFolderMenu === idx}
+                        toggleMenu={toggleFolderMenu}
+                        onClick={async () => {
+                          try {
+                            const data = await getFolderByIDAPI(folder._id);
+                            setSelectedFolder(data.folder);
+                          } catch (err) {
+                            alert('Failed to fetch folder details.');
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic mb-8">No folders found.</p>
+                )}
+
                 <h3 className="text-lg font-semibold mb-3">
                   Files in {selectedFolder.folderName || selectedFolder.name}
                 </h3>
@@ -400,6 +449,18 @@ export default function DocumentControllerStorage() {
               onChange={(e) => setNewFolderName(e.target.value)}
               disabled={creatingFolder}
             />
+            {/* Parent folder dropdown */}
+            <select
+              className="w-full border rounded-lg px-3 py-2 mb-4"
+              value={parentFolderId}
+              onChange={e => setParentFolderId(e.target.value)}
+              disabled={creatingFolder}
+            >
+              <option value="">No Parent (Top Level)</option>
+              {folders.map(f => (
+                <option key={f._id} value={f._id}>{f.name}</option>
+              ))}
+            </select>
             {createFolderError && (
               <div className="text-red-600 text-sm mb-2">{createFolderError}</div>
             )}
