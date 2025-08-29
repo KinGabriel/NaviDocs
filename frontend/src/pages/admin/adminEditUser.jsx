@@ -124,19 +124,17 @@ export default function AdminEditUser() {
       formData.append("firstname", form.firstname);
       formData.append("lastname", form.lastname);
       formData.append("email", form.email);
-      // backend expects role name as `role`, plus `school` & `department`
       formData.append("role", form.role.name || "");
       formData.append("school", form.role.school || "");
       formData.append("department", form.role.department || "");
       if (selectedFile) formData.append("profile_picture", selectedFile);
 
-      // Use API_URL for consistency with your image base
       await axios.patch(`${API_URL}/api/admin/edit-user/${id}`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
-        withCredentials: true, // keep if your API uses cookies too; harmless otherwise
+        withCredentials: true,
       });
 
       setAlertType("success");
@@ -196,9 +194,30 @@ export default function AdminEditUser() {
       <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
         <main className="flex-1 p-10">
           {/* Title */}
-          <div className="mb-10">
-            <h1 className="text-3xl font-extrabold tracking-wide text-black">EDIT USER</h1>
-            <div className="w-24 h-1 bg-yellow-400 mt-2 rounded" />
+          <div className="mb-10 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="p-2 rounded-lg hover:bg-gray-100 -ml-2 shrink-0"
+              aria-label="Go back"
+            >
+              {/* left arrow icon */}
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-5 w-5" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            <div className="flex flex-col">
+              <h1 className="text-3xl font-extrabold tracking-wide text-black">EDIT USER</h1>
+              <span className="mt-2 inline-block h-1 w-24 bg-yellow-400 rounded" />
+            </div>
           </div>
 
           {/* Alert */}
