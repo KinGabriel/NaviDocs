@@ -32,8 +32,10 @@ export default function AdminEditUser() {
     },
     year: "—",
   });
+
   const [loadingUser, setLoadingUser] = useState(true);
   const [errorUser, setErrorUser] = useState(null);
+
   // Alert state for feedback
   const [alertMessage, setAlertMessage] = useState("");
   const [alertType, setAlertType] = useState("error"); // 'success' or 'error'
@@ -64,14 +66,16 @@ export default function AdminEditUser() {
       .finally(() => setLoadingUser(false));
   }, [id]);
 
+  // extra validation depending on role
   const { valid: extraValid, error: extraError } = validateUserRoleFields(form);
   const canSave = useMemo(() => canSaveUser(form) && extraValid, [form, extraValid]);
-  const [saveAttempted, setSaveAttempted] = useState(false);
 
   const handleInput = (e) => {
     const { name, value } = e.target;
     if (name === "firstname" || name === "lastname") {
-      setForm((p) => ({ ...p, [name]: value }));
+      // allow only letters/spaces while typing (matches create user behavior)
+      const filtered = value.replace(/[^a-zA-Z\s']/g, "");
+      setForm((p) => ({ ...p, [name]: filtered }));
     } else if (name === "email") {
       setForm((p) => ({ ...p, email: value.replace(/\s+/g, "") }));
     }
@@ -79,7 +83,9 @@ export default function AdminEditUser() {
 
   const handleBlurName = (e) => {
     const { name, value } = e.target;
-    setForm((p) => ({ ...p, [name]: normalizeName(value) }));
+    if (value.trim()) {
+      setForm((p) => ({ ...p, [name]: normalizeName(value) }));
+    }
   };
 
   const setRoleField = (key, val) => {
@@ -104,12 +110,12 @@ export default function AdminEditUser() {
     });
     setPhotoPreview(null);
     setSelectedFile(null);
+    setAlertMessage("");
   };
 
-// Save handler wired to PUT /api/admin/edit-user/:id
+  // Save handler wired to PUT /api/admin/edit-user/:id
   const handleSave = async (e) => {
     e.preventDefault();
-    setSaveAttempted(true);
 
     if (!canSave) {
       setAlertType("error");
@@ -119,7 +125,6 @@ export default function AdminEditUser() {
 
     try {
       const token = localStorage.getItem("token");
-
       const formData = new FormData();
       formData.append("firstname", form.firstname);
       formData.append("lastname", form.lastname);
@@ -151,7 +156,6 @@ export default function AdminEditUser() {
   };
 
   const fullName = `${normalizeName(form.firstname)} ${normalizeName(form.lastname)}`.trim();
-
   const showSchool = ["Faculty", "Dean", "Secretary", "Document Controller", "Department Head"].includes(form.role.name);
   const showDepartment = ["Faculty", "Document Controller", "Department Head"].includes(form.role.name);
   const showYear = ["Student"].includes(form.role.name);
@@ -191,37 +195,31 @@ export default function AdminEditUser() {
       <Sidebar user={user} active="Edit User" />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-        <main className="flex-1 p-10">
-          {/* Title */}
-          <div className="mb-10 flex items-center gap-3">
+      <div className="flex-1 p-10">
+        <div className="bg-white rounded-xl shadow-lg p-10">
+          {/* Title row (same style as Create User) */}
+          <div className="mb-8 flex items-center gap-3">
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="p-2 rounded-lg hover:bg-gray-100 -ml-2 shrink-0"
               aria-label="Go back"
+              className="p-2 rounded-lg hover:bg-gray-100 -ml-2 shrink-0"
             >
-              {/* left arrow icon */}
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-5 w-5" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2"
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
 
             <div className="flex flex-col">
-              <h1 className="text-3xl font-extrabold tracking-wide text-black">EDIT USER</h1>
-              <span className="mt-2 inline-block h-1 w-24 bg-yellow-400 rounded" />
+              <h2 className="text-3xl font-bold text-black-800 tracking-widest uppercase leading-none">
+                Edit User
+              </h2>
+              <span className="mt-2 inline-block h-1 w-25 bg-yellow-500 rounded" />
             </div>
           </div>
 
-          {/* Alert */}
-          {alertMessage && (
+          {/* Alerts */}
+          {!!alertMessage && (
             <div
               className={`mb-6 p-3 rounded border text-base w-full transition-opacity duration-300 ${
                 alertType === "success"
@@ -233,77 +231,94 @@ export default function AdminEditUser() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-            {/* Left: Avatar */}
-            <section className="flex flex-col items-center">
-              <div className="w-44 h-44 rounded-full overflow-hidden bg-gray-100 border">
-                {photoPreview ? (
-                  <img src={`${API_URL}${photoPreview}`} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <img src={defaultProfile} alt="Default" className="w-full h-full object-cover" />
-                )}
+          <div className="flex flex-col lg:flex-row items-start gap-10">
+            {/* Avatar picker — identical UX to Create User */}
+            <div className="flex justify-center w-full lg:w-1/3">
+              <div className="w-48 h-48 bg-gray-200 rounded-full flex items-center justify-center relative">
+                <label
+                  htmlFor="profile_picture"
+                  className="w-full h-full flex items-center justify-center cursor-pointer"
+                  title="Upload profile photo"
+                >
+                  {selectedFile ? (
+                    <img
+                      src={URL.createObjectURL(selectedFile)}
+                      alt="Preview"
+                      className="w-48 h-48 object-cover rounded-full"
+                    />
+                  ) : photoPreview ? (
+                    <img
+                      src={`${API_URL}${photoPreview}`}
+                      alt="Profile"
+                      className="w-48 h-48 object-cover rounded-full"
+                      onError={(e) => (e.currentTarget.src = defaultProfile)}
+                    />
+                  ) : (
+                    <img
+                      src={defaultProfile}
+                      alt="Default Profile"
+                      className="h-30 w-30 object-cover"
+                    />
+                  )}
+                  <input
+                    id="profile_picture"
+                    name="profile_picture"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
               </div>
-              <div className="mt-6 text-center">
-                <div className="text-lg font-semibold">{fullName || "—"}</div>
-                <div className="text-xs text-gray-500 leading-tight">
-                  {form.role?.department ? `BS ${form.role.department?.split(" ")[0] || ""}` : ""}
-                </div>
-                <div className="text-sm text-gray-500 mt-1">{form.role?.name || "—"}</div>
-              </div>
+            </div>
 
-              {/* Upload */}
-              <div className="mt-4">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="text-sm"
-                />
-              </div>
-            </section>
-
-            {/* Right: Form Fields */}
-            <section className="lg:col-span-2 space-y-10">
+            {/* Form fields */}
+            <section className="w-full lg:w-2/3 space-y-8">
               {/* Personal Information */}
               <div>
-                <h2 className="text-base font-semibold text-[#063c8d] mb-4">Personal Information:</h2>
-                <form className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <h3 className="text-blue-900 font-bold text-lg mb-2">Personal Information:</h3>
+                <form className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium mb-1">First Name</label>
+                    <label className="block font-medium text-sm">First Name</label>
                     <input
                       name="firstname"
                       type="text"
                       value={form.firstname}
                       onChange={handleInput}
                       onBlur={handleBlurName}
-                      className="w-full border border-gray-300 rounded px-3 py-2"
                       required
+                      className="w-full p-2 border border-gray-300 rounded"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Last Name</label>
+                    <label className="block font-medium text-sm">Last Name</label>
                     <input
                       name="lastname"
                       type="text"
                       value={form.lastname}
                       onChange={handleInput}
                       onBlur={handleBlurName}
-                      className="w-full border border-gray-300 rounded px-3 py-2"
                       required
+                      className="w-full p-2 border border-gray-300 rounded"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Email</label>
+                    <label className="block font-medium text-sm">Email</label>
                     <input
                       name="email"
                       type="email"
                       value={form.email}
                       onChange={handleInput}
                       onKeyDown={(e) => e.key === " " && e.preventDefault()}
-                      className="w-full border border-gray-300 rounded px-3 py-2"
+                      onPaste={(e) => {
+                        const pasted = e.clipboardData.getData("text");
+                        if (/\s/.test(pasted)) e.preventDefault();
+                      }}
                       required
+                      className="w-full p-2 border border-gray-300 rounded"
                     />
                   </div>
+
                   {showSchool && (
                     <Dropdown2
                       label="School"
@@ -313,6 +328,7 @@ export default function AdminEditUser() {
                       placeholder="Select School"
                     />
                   )}
+
                   {showYear && (
                     <Dropdown2
                       label="Year"
@@ -327,8 +343,8 @@ export default function AdminEditUser() {
 
               {/* Department & Role */}
               <div>
-                <h2 className="text-base font-semibold text-[#063c8d] mb-4">Department &amp; Role:</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <h3 className="text-blue-900 font-bold text-lg mb-2">Department &amp; Role:</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {showDepartment && (
                     <Dropdown2
                       label="Department"
@@ -347,30 +363,28 @@ export default function AdminEditUser() {
                   />
                 </div>
               </div>
+
+              {/* Actions (same style as Create User) */}
+              <div className="flex justify-end gap-4">
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="px-6 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={!canSave}
+                  className="px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 disabled:opacity-50"
+                >
+                  Save
+                </button>
+              </div>
             </section>
           </div>
-
-          {/* Save & Clear Buttons at Bottom-Right */}
-          <div className="flex justify-end gap-4 mt-8">
-            <button
-              type="button"
-              onClick={handleClear}
-              className="px-6 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
-            >
-              Clear
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!canSave}
-              className={`px-6 py-2 rounded text-white ${
-                canSave ? "bg-blue-700 hover:bg-blue-800" : "bg-gray-400 cursor-not-allowed"
-              }`}
-            >
-              Save
-            </button>
-          </div>
-        </main>
+        </div>
       </div>
     </div>
   </div>
