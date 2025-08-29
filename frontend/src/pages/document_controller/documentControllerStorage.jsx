@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI } from "../../api/storageAPI";
+import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI } from "../../api/storageAPI";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
@@ -23,14 +23,17 @@ const FOLDER_FILES = {
   "School Clinic": [{ name: "Health Guidelines.pdf", url: "" }],
 };
 
-// root files
-const ROOT_FILES = [
-  { name: "Course Syllabus 2023-2024.pdf", url: "" },
-  { name: "Course Syllabus 2023-2024 (2).pdf", url: "" },
-  { name: "Course Syllabus 2023-2024 (3).pdf", url: "" },
-];
+
+
+// root files initial (empty, will be fetched from backend)
+const ROOT_FILES_INITIAL = [];
 
 export default function DocumentControllerStorage() {
+  // Orphan/root files state
+  const [rootFiles, setRootFiles] = useState(ROOT_FILES_INITIAL);
+
+  const [uploadingOrphan, setUploadingOrphan] = useState(false);
+  const [uploadOrphanError, setUploadOrphanError] = useState(null);
   const user = useUser();
 
   // controls
@@ -58,6 +61,18 @@ export default function DocumentControllerStorage() {
   const [loadingFolders, setLoadingFolders] = useState(true);
   const [foldersError, setFoldersError] = useState(null);
 
+  // Fetch orphan files for the user
+  useEffect(() => {
+    if (!user || !user._id) return;
+    getOrphanFilesAPI(user._id)
+      .then((data) => {
+        setRootFiles(data.files || []);
+      })
+      .catch((err) => {
+        setRootFiles([]);
+      });
+  }, [user]);
+  
   // Fetch folders from backend on mount
   useEffect(() => {
     if (!user) return;
@@ -102,13 +117,13 @@ export default function DocumentControllerStorage() {
 
   // files depending on location + search
   const displayedFiles = useMemo(() => {
-    let rows = selectedFolder ? FOLDER_FILES[selectedFolder] || [] : ROOT_FILES;
+    let rows = selectedFolder ? FOLDER_FILES[selectedFolder] || [] : rootFiles;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      rows = rows.filter((f) => (f.name || f).toLowerCase().includes(q));
+      rows = rows.filter((f) => (f.name || f.originalName || f).toLowerCase().includes(q));
     }
     return rows;
-  }, [selectedFolder, searchQuery]);
+  }, [selectedFolder, searchQuery, rootFiles]);
 
   // handle create new folder 
   const [createFolderError, setCreateFolderError] = useState(null);
@@ -205,11 +220,11 @@ export default function DocumentControllerStorage() {
                       className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100"
                       onClick={() => {
                         setShowNewMenu(false);
-                        if (!selectedFolder) {
-                          alert('Please select a folder to upload files.');
-                          return;
+                        if (selectedFolder) {
+                          document.getElementById('upload-documents-global').click();
+                        } else {
+                          document.getElementById('upload-orphan-files').click();
                         }
-                        document.getElementById('upload-documents-global').click();
                       }}
                     >
                       <Upload size={18} /> Upload File
@@ -256,7 +271,6 @@ export default function DocumentControllerStorage() {
                         onClick={async () => {
                           try {
                             const data = await getFolderByIDAPI(folder._id);
-                            console.log("Fetched folder details:", data);
                             setSelectedFolder(data.folder);
                           } catch (err) {
                             alert('Failed to fetch folder details.');
@@ -269,13 +283,41 @@ export default function DocumentControllerStorage() {
                   <p className="text-gray-500 italic mb-8">No folders found.</p>
                 )}
 
+                {/* Orphan/Root Files Upload */}
+                <input
+                  id="upload-orphan-files"
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={async (e) => {
+                    setUploadOrphanError(null);
+                    const files = Array.from(e.target.files || []);
+                    if (!files.length) return;
+                    setUploadingOrphan(true);
+                    try {
+                      const res = await addOrphanFileAPI(files, user._id, user?.role?.school);
+                      // Refetch orphan files after upload to ensure latest state
+                      const orphanRes = await getOrphanFilesAPI(user._id);
+                      setRootFiles(orphanRes.files || []);
+                      e.target.value = "";
+                    } catch (err) {
+                      setUploadOrphanError(err.message || "Failed to upload files");
+                    } finally {
+                      setUploadingOrphan(false);
+                    }
+                  }}
+                  disabled={uploadingOrphan}
+                />
+                {uploadingOrphan && <span className="text-blue-600 text-sm">Uploading...</span>}
+                {uploadOrphanError && <span className="text-red-600 text-sm">{uploadOrphanError}</span>}
+
                 {/* Files */}
                 <h3 className="text-lg font-semibold mb-3">Files</h3>
                 {displayedFiles.length ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     {displayedFiles.map((file, idx) => (
                       <FileComponent
-                        key={file._id}
+                        key={file._id || file.name || idx}
                         file={file}
                         index={idx}
                         isMenuOpen={openFileMenu === `file-${idx}`}

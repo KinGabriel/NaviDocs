@@ -1,4 +1,3 @@
-
 import Storage, { File } from '../models/storageModel.js';
 import fs from 'fs';
 import path from 'path';
@@ -353,9 +352,67 @@ export const deleteFile = async (req, res) => {
  */
 export const addOrphanFile = async (req, res) => {
   try {
-    return await uploadDocument(req, res);
+    // req.files is populated by multer middleware
+
+    const uploadedFiles = req.files;
+    // Always use user_id as owner for orphan files
+    const owner = req.body.user_id || req.body.owner || null;
+    if (!owner) {
+      return res.status(400).json({ message: 'user_id (owner) is required.' });
+    }
+    if (!Array.isArray(uploadedFiles) || uploadedFiles.length === 0) {
+      return res.status(400).json({ message: 'Files are required.' });
+    }
+
+    // Use saveDocumentFile for each file and collect the file metadata
+    const fileMetadatas = [];
+    for (const file of uploadedFiles) {
+      try {
+        const meta = await saveDocumentFile({
+          file,
+          documentId: file.documentId || undefined,
+          owner: owner,
+          uploaded_by: req.body.user_id
+        });
+        fileMetadatas.push(meta);
+      } catch (err) {
+        console.error('Error uploading orphan document:', err);
+      }
+    }
+
+    // Save each orphan file as a separate File document
+    const createdFiles = [];
+    for (const meta of fileMetadatas) {
+      const fileDoc = new File(meta);
+      await fileDoc.save();
+      createdFiles.push(fileDoc);
+    }
+
+    res.status(200).json({ message: 'Orphan files uploaded successfully.', files: createdFiles });
   } catch (err) {
     console.error('Error uploading orphan file:', err);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+/**
+ * Get orphan files for a user (files not in any folder)
+ * @route GET /api/storage/orphan-files?userId=xxx
+ * @param {*} req
+ * @param {*} res
+ * @returns
+ */
+export const getOrphanFiles = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ message: 'userId is required' });
+    }
+    // Find all File documents where owner/user_id matches and not linked to a folder
+    const orphanFiles = await File.find({ uploadedBy: userId });
+    res.status(200).json({ message: 'Orphan files fetched successfully.', files: orphanFiles });
+  } catch (err) {
+    console.error('Error fetching orphan files:', err);
     res.status(500).json({ message: 'Internal server error.' });
   }
 };

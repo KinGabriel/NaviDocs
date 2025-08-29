@@ -101,13 +101,24 @@ export const deleteOrphanFileAPI = async (fileId) => {
 };
 
 /**
- * Upload an orphan file (not in a folder)
- * @param {File} file
+ * Upload orphan files (not in a folder)
+ * @param {FileList|Array<File>} files
+ * @param {string} [user_id]
+ * @param {string} [owner]
  * @returns {Promise<Object>}
  */
-export const addOrphanFileAPI = async (file) => {
+export const addOrphanFileAPI = async (files, user_id, owner) => {
 	const formData = new FormData();
-	formData.append('file', file);
+	console.log("Uploading orphan files:", files);
+	for (const file of files) {
+		formData.append('files', file);
+	}
+	if (user_id) {
+		formData.append('user_id', user_id);
+	}
+	if (owner) {
+		formData.append('owner', owner);
+	}
 	const res = await axios.post(
 		`${API_URL}/api/storage/files/upload-orphan`,
 		formData,
@@ -159,4 +170,22 @@ export const deleteFolderByIDAPI = async (id) => {
 		withCredentials: true,
 	});
 	return res.data;
+};
+
+/**
+ * Fetch orphan files for a user (files not in any folder)
+ * @param {string} userId
+ * @returns {Promise<Object>}
+ */
+export const getOrphanFilesAPI = async (userId) => {
+	try {
+		const res = await axios.get(`${API_URL}/api/storage/files/get-orphan-files`, {
+			params: { userId },
+			withCredentials: true
+		});
+		console.log("Orphan files response:", res.data);
+		return res.data;
+	} catch (err) {
+		throw err.response?.data || { message: err.message };
+	}
 };

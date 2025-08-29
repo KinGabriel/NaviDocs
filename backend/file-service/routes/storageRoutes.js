@@ -1,4 +1,4 @@
-import { createFolder, getFolder, addAccessToFolders, getFolderByID, deleteFolderByID, addDocuments, deleteFile, addOrphanFile } from "../controllers/storageController.js";
+import { createFolder, getFolder, addAccessToFolders, getFolderByID, deleteFolderByID, addDocuments, deleteFile, addOrphanFile, getOrphanFiles } from "../controllers/storageController.js";
 import { authenticateJWT } from "../middleware/authenticationMiddleware.js";
 import { upload } from "../middleware/uploadmiddleware.js";
 import express from "express";
@@ -16,6 +16,7 @@ router.delete('/folders/:id', deleteFolderByID);
 router.post('/folders/:id/files', upload.array('files'), addDocuments);
 router.delete('/folders/:folderId/files/:fileId', deleteFile);
 router.delete('/files/:fileId', deleteFile);
-router.post('/files/upload-orphan', upload.single('file'), addOrphanFile);
+router.post('/files/upload-orphan', upload.array('files'), addOrphanFile);
+router.get('/files/get-orphan-files', getOrphanFiles);
 
 export default router;
