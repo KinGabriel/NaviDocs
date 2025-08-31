@@ -143,6 +143,14 @@ const MENU_CONFIG = {
       ),
       route: "/faculty/documents"
     },
+      { 
+      label: "Storage",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="none" stroke="#003DA5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M3 6h5l2 2h11v10.4a.6.6 0 0 1-.6.6H3.6a.6.6 0 0 1-.6-.6V6.6a.6.6 0 0 1 .6-.6Z"/>
+        </svg>
+      ),  
+      route: "/storage"
+    },
     {
       label: "Account Settings",
       icon: (
@@ -199,7 +207,7 @@ const MENU_CONFIG = {
         <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="none" stroke="#003DA5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M3 6h5l2 2h11v10.4a.6.6 0 0 1-.6.6H3.6a.6.6 0 0 1-.6-.6V6.6a.6.6 0 0 1 .6-.6Z"/>
         </svg>
       ),  
-      route: "/document-controller/storage"
+      route: "/storage"
     },
     {
       label: "Account Settings",
@@ -235,6 +243,14 @@ const MENU_CONFIG = {
        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><path fill="#003da5" d="M2 2h20v20H2zm2 2v4h16V4zm16 6h-9v10h9zM9 20V10H4v10z"/></svg>
       ),
       route: "/secretary/templates"
+    },
+    { 
+      label: "Storage",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="none" stroke="#003DA5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M3 6h5l2 2h11v10.4a.6.6 0 0 1-.6.6H3.6a.6.6 0 0 1-.6-.6V6.6a.6.6 0 0 1 .6-.6Z"/>
+        </svg>
+      ),  
+      route: "/storage"
     },
     {
       label: "Account Settings",
@@ -285,6 +301,14 @@ const MENU_CONFIG = {
       ),  
       route: "/dean/statistics"
     },
+    { 
+      label: "Storage",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="none" stroke="#003DA5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M3 6h5l2 2h11v10.4a.6.6 0 0 1-.6.6H3.6a.6.6 0 0 1-.6-.6V6.6a.6.6 0 0 1 .6-.6Z"/>
+        </svg>
+      ),  
+      route: "/storage"
+    },
     {
       label: "Account Settings",
       icon: (
@@ -333,6 +357,14 @@ const MENU_CONFIG = {
       <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16 16V8m-4 8v-5m-4 5v-3"/><path d="M3 20.4V3.6a.6.6 0 0 1 .6-.6h16.8a.6.6 0 0 1 .6.6v16.8a.6.6 0 0 1-.6.6H3.6a.6.6 0 0 1-.6-.6Z"/></g></svg>
       ),  
       route: "/dept-head/statistics"
+    },
+    { 
+      label: "Storage",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="none" stroke="#003DA5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M3 6h5l2 2h11v10.4a.6.6 0 0 1-.6.6H3.6a.6.6 0 0 1-.6-.6V6.6a.6.6 0 0 1 .6-.6Z"/>
+        </svg>
+      ),  
+      route: "/storage"
     },
     {
       label: "Account Settings",
