@@ -1,12 +1,12 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI } from "../../api/storageAPI";
-import Header from "../../layout/header";
-import Sidebar from "../../layout/sidebar";
-import useUser from "../../hooks/useUser";
-import FolderComponent from "../../components/folder";
-import FileComponent from "../../components/file";
-import SearchBar from "../../components/searchBar";
-import Dropdown from "../../components/dropdown";
+import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI } from "../api/storageAPI";
+import Header from "../layout/header";
+import Sidebar from "../layout/sidebar";
+import useUser from "../hooks/useUser";
+import FolderComponent from "../components/folder";
+import FileComponent from "../components/file";
+import SearchBar from "../components/searchBar";
+import Dropdown from "../components/dropdown";
 import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X } from "lucide-react";
 
 // Remove mock folders, will fetch from backend
@@ -184,63 +184,38 @@ export default function DocumentControllerStorage() {
         <Sidebar user={user} active="Filled-Out Documents Storage" />
 
         {/* Main */}
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-6 px-8 mx-6 mt-8 rounded-xl">
-          <main className="flex-1 p-8">
+         <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
             {/* Title */}
-            <h2 className="text-3xl font-semibold mb-2 tracking-wide">
+            <h2 className="text-3xl font-semibold mt-7 tracking-wide">
               FILLED-OUT DOCUMENT STORAGE
             </h2>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
-            {/* Controls row */}
-            <div className="flex flex-wrap items-center gap-3 mb-6">
-              <Dropdown
-                options={["All"]}
-                value={filterAll}
-                onChange={setFilterAll}
-                width="w-28"
-                label="All"
-                buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
-              />
-
-              <Dropdown
-                options={["Recent"]}
-                value={sortRecent}
-                onChange={setSortRecent}
-                width="w-32"
-                label="Recent"
-                buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
-              />
-
-              <div className="flex-1 min-w-[240px] md:max-w-md">
-                <SearchBar
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-
-              {/* New button */}
-              <div className="ml-auto relative">
-                <button
+           {/* Controls - Only show when not in folder */}
+            {!selectedFolder && (
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                {/* New button */}
+                <div className="relative">
+                  <button
                   onClick={() => setShowNewMenu((prev) => !prev)}
-                  className="px-4 py-2 bg-[#0035DA] hover:bg-[#043485] text-white rounded-lg shadow flex items-center gap-2"
+                  className="px-6 py-3 bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] text-white rounded-xl shadow-lg hover:shadow-xl flex items-center gap-3 font-medium transition-all duration-200 transform hover:scale-105"
                 >
-                  <Plus size={18} /> New
+                  <Plus size={20} /> New
                 </button>
 
-                {showNewMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
-                    <button
-                      className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100"
+                  {showNewMenu && (
+                    <div className="absolute left-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
+                      <button
+                      className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-[#0035DA] rounded-lg transition-all duration-150 font-medium"
                       onClick={() => {
                         setShowNewFolderModal(true);
                         setShowNewMenu(false);
                       }}
-                    >
-                      <FolderPlus size={18} /> New Folder
+                      >
+                      <FolderPlus size={20} className="text-blue-500" /> New Folder
                     </button>
-                    <button
-                      className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100"
+                      <button
+                      className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-all duration-150 font-medium"
                       onClick={() => {
                         setShowNewMenu(false);
                         if (selectedFolder) {
@@ -250,32 +225,64 @@ export default function DocumentControllerStorage() {
                         }
                       }}
                     >
-                      <Upload size={18} /> Upload File
+                      <Upload size={20} className="text-green-500" /> Upload File
                     </button>
-                    <button className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100">
-                      <FolderUp size={18} /> Upload Folder
+                     <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-purple-50 hover:text-purple-700 rounded-lg transition-all duration-150 font-medium">
+                      <FolderUp size={20} className="text-purple-500" /> Upload Folder
                     </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Control row*/}
+                <div className="flex flex-wrap items-center gap-3">
+                  <Dropdown
+                    options={["All"]}
+                    value={filterAll}
+                    onChange={setFilterAll}
+                    width="w-28"
+                    label="All"
+                    buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
+                  />
+
+                  <Dropdown
+                    options={["Recent"]}
+                    value={sortRecent}
+                    onChange={setSortRecent}
+                    width="w-32"
+                    label="Recent"
+                    buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
+                  />
+
+                  <div className="flex-1 min-w-[240px] md:max-w-md">
+                    <SearchBar
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Inside folder */}
-            {selectedFolder && (
-              <div className="flex flex-wrap items-center gap-3 mb-6">
-                <button
-                  onClick={() => setSelectedFolder(null)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg shadow text-white bg-[#0035DA] hover:bg-[#043485]"
-                >
-                  <ArrowLeft size={18} /> Back
-                </button>
-
-                <div className="text-gray-600 text-sm font-medium">
-                  Storage <span className="mx-1">/</span>
-                  <span className="text-gray-900">{selectedFolder.folderName || selectedFolder.name}</span>
                 </div>
               </div>
             )}
+
+            {/* Inside folder */}
+           {selectedFolder && (
+          <div className="sticky top-0 bg-white border-b border-gray-200 -mx-8 px-8 py-4 mb-6 z-10">
+            <div className="flex items-center justify-between">
+            <button
+              onClick={() => setSelectedFolder(null)}
+              className="flex items-center gap-2 px-6 py-3 rounded-lg shadow-md text-white bg-[#0035DA] hover:bg-[#043485] transition-all duration-200 font-medium"
+            >
+              <ArrowLeft size={20} /> Back to Storage
+            </button>
+            
+              <div className="flex items-center text-gray-600 text-sm font-medium">
+                <span className="text-gray-400">Storage</span>
+                <span className="mx-2 text-gray-300">/</span>
+                <span className="text-[#0035DA] font-bold">{selectedFolder.folderName || selectedFolder.name}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
             {/* Root view or folder view */}
             {!selectedFolder ? (
@@ -428,7 +435,7 @@ export default function DocumentControllerStorage() {
             )}
           </main>
         </div>
-      </div>
+
 
       {/* New Folder Modal */}
       {showNewFolderModal && (

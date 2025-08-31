@@ -11,7 +11,6 @@ import DocumentControllerTemplates from './pages/document_controller/documentCon
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
-import DocumentControllerStorage from './pages/document_controller/documentControllerStorage';
 import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
 import DocumentControllerDocuments from './pages/document_controller/documentControllerDocuments';
 import DocumentControllerViewDocuments from "./pages/document_controller/documentControllerViewDocuments";
@@ -36,7 +35,7 @@ import FacultyDashboard from './pages/faculty/facultyDashboard';
 import FacultyDocuments from './pages/faculty/facultyDocuments';
 import FacultyViewDocuments from "./pages/faculty/facultyViewDocuments";
 import EditableFields from './pages/editableFields';
-
+import Storage from './pages/Storage';
 
 /** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {
@@ -136,14 +135,6 @@ function App() {
          element={
            <ProtectedRoute allowedRoles={["Document Controller"]}>
              <DocumentControllerWorkFlow />
-           </ProtectedRoute>
-         }
-       />
-       <Route
-         path="/document-controller/storage"
-         element={
-           <ProtectedRoute allowedRoles={["Document Controller"]}>
-             <DocumentControllerStorage />
            </ProtectedRoute>
          }
        />
@@ -333,6 +324,15 @@ function App() {
          element={
            <ProtectedRoute allowedRoles={["Document Controller","Secretary","Dean", "Department Head", "Faculty"]}>
              <EditableFields />
+           </ProtectedRoute>
+         }
+       />
+
+        <Route
+         path="/storage"
+         element={
+           <ProtectedRoute allowedRoles={["Document Controller","Secretary","Dean", "Department Head", "Faculty"]}>
+             <Storage />
            </ProtectedRoute>
          }
        />
