@@ -26,6 +26,7 @@ import DeanDocuments from './pages/dean/deanDocuments';
 import DeanViewDocuments from './pages/dean/deanViewDocuments';
 import DeanStatistics from './pages/dean/deanStatistics';
 import DeanDocumentWorkflow from './pages/dean/deanDocumentWorkflow';
+import DeanTemplates from "./pages/dean/deanTemplates.jsx";
 import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
 import DepartmentHeadDocuments from './pages/dept_head/departmentHeadDocuments';
 import DepartmentHeadViewDocuments from './pages/dept_head/departmentHeadViewDocuments';
@@ -243,6 +244,14 @@ function App() {
            </ProtectedRoute>
          }
        />
+       <Route
+         path="/dean/templates" 
+         element={
+            <ProtectedRoute allowedRoles={["Dean"]}>
+             <DeanTemplates />
+           </ProtectedRoute>
+          }
+        />  
 
        {/* Department Head Module */}
        <Route
