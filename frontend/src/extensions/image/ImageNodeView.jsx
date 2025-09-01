@@ -8,9 +8,64 @@ export default function ImageNodeView(props) {
 
   const wrapperRef = useRef(null);
   const imgRef = useRef(null);
-  const [drag, setDrag] = useState(null); // { type, startX, startY, ... }
+  const roWrapperRef = useRef(null);
+  const roImgRef = useRef(null);
 
-  // --- Derived styles ---
+  const [drag, setDrag] = useState(null); // { type, ... }
+  const [measured, setMeasured] = useState({ w: null, h: null }); // actual rendered px
+
+  // ---- helpers -------------------------------------------------------------
+  const getUsablePageContentWidth = useCallback(() => {
+    const wrapper = wrapperRef.current;
+    const pageEl = wrapper?.closest?.('.nd-page') || document.querySelector('.nd-page');
+    if (!pageEl) {
+      const rs = getComputedStyle(document.documentElement);
+      const pageW = parseFloat(rs.getPropertyValue('--nd-page-width')) || 800;
+      const padL = parseFloat(rs.getPropertyValue('--nd-margin-left')) || 96;
+      const padR = parseFloat(rs.getPropertyValue('--nd-margin-right')) || 96;
+      return Math.max(100, Math.round(pageW - padL - padR));
+    }
+    const cs = getComputedStyle(pageEl);
+    const rectW = pageEl.getBoundingClientRect().width;
+    const padL = parseFloat(cs.paddingLeft) || 0;
+    const padR = parseFloat(cs.paddingRight) || 0;
+    return Math.max(100, Math.round(rectW - padL - padR));
+  }, []);
+
+  const measureNow = useCallback(() => {
+    const el = imgRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    setMeasured({ w: Math.round(r.width), h: Math.round(r.height) });
+  }, []);
+
+  useEffect(() => {
+    measureNow();
+
+    // react to container/page resizes
+    if ('ResizeObserver' in window) {
+      if (wrapperRef.current) {
+        roWrapperRef.current = new ResizeObserver(measureNow);
+        roWrapperRef.current.observe(wrapperRef.current);
+      }
+      if (imgRef.current) {
+        roImgRef.current = new ResizeObserver(measureNow); // <- observe the IMG itself
+        roImgRef.current.observe(imgRef.current);
+      }
+    }
+    window.addEventListener('resize', measureNow);
+
+    return () => {
+      roWrapperRef.current?.disconnect?.();
+      roWrapperRef.current = null;
+      roImgRef.current?.disconnect?.();
+      roImgRef.current = null;
+      window.removeEventListener('resize', measureNow);
+    };
+  }, [measureNow, attrs.width, attrs.height, attrs.rotation, attrs.crop, attrs.keepAspect]);
+
+  // ---- derived styles ------------------------------------------------------
   const effectFilter = useMemo(() => {
     const base = [];
     if (attrs.filterPreset === 'grayscale') base.push('grayscale(1)');
@@ -31,22 +86,17 @@ export default function ImageNodeView(props) {
       marginRight: attrs.marginRight ?? 0,
       marginBottom: attrs.marginBottom ?? 0,
       marginLeft: attrs.marginLeft ?? 0,
-      position: attrs.position === 'fixed' ? 'absolute' : 'relative',
-      left: attrs.position === 'fixed' ? attrs.x || 0 : undefined,
-      top: attrs.position === 'fixed' ? attrs.y || 0 : undefined,
+      position: 'relative', // always relative so the absolute children can anchor
       textAlign: isBlock && attrs.align === 'center' ? 'center' : undefined,
+      maxWidth: '100%',
     };
   }, [attrs]);
 
   const cropBox = attrs.crop; // {x,y,w,h} or null
-  const renderedBox = useMemo(() => {
-    const w = (cropBox?.w ?? attrs.width) || 'auto';
-    const h = (cropBox?.h ?? attrs.height) || 'auto';
-    return { w, h };
-  }, [attrs.width, attrs.height, cropBox]);
 
   const imageStyle = useMemo(() => {
     const rotate = `rotate(${attrs.rotation || 0}deg)`;
+    const height = attrs.keepAspect && !cropBox ? 'auto' : (attrs.height || undefined);
     return {
       transform: rotate,
       filter: effectFilter,
@@ -54,30 +104,34 @@ export default function ImageNodeView(props) {
       top: cropBox ? -1 * (cropBox.y || 0) : undefined,
       left: cropBox ? -1 * (cropBox.x || 0) : undefined,
       width: attrs.width || undefined,
-      height: attrs.height || undefined,
+      height,
+      maxWidth: '100%',
       userSelect: 'none',
       pointerEvents: 'none',
       display: 'block',
-      maxWidth: 'none',
     };
-  }, [attrs.rotation, effectFilter, cropBox, attrs.width, attrs.height]);
+  }, [attrs.rotation, effectFilter, cropBox, attrs.width, attrs.height, attrs.keepAspect]);
 
+  // Make the crop container wrap the actual image size (no 100% stretch)
   const cropContainerStyle = useMemo(() => ({
-    width: renderedBox.w || undefined,
-    height: renderedBox.h || undefined,
+    width: attrs.width || (measured.w ? `${measured.w}px` : 'auto'),
+    height: cropBox
+      ? (cropBox.h || attrs.height || (measured.h ? `${measured.h}px` : 'auto'))
+      : (attrs.height || (measured.h ? `${measured.h}px` : 'auto')),
     overflow: cropBox ? 'hidden' : 'visible',
     position: 'relative',
     display: 'inline-block',
     boxSizing: 'border-box',
-  }), [renderedBox, cropBox]);
+  }), [attrs.width, attrs.height, cropBox, measured.w, measured.h]);
 
-  // --- Drag handlers ---
+  // ---- drag handlers -------------------------------------------------------
   const onPointerDownResize = (e, corner) => {
     e.preventDefault(); e.stopPropagation();
     setDrag({
       type: 'resize', corner,
       startX: e.clientX, startY: e.clientY,
       startAttrs: { width: attrs.width, height: attrs.height, keepAspect: attrs.keepAspect },
+      maxW: getUsablePageContentWidth(),
     });
   };
 
@@ -95,7 +149,7 @@ export default function ImageNodeView(props) {
 
   const onPointerDownCrop = (e, edge) => {
     e.preventDefault(); e.stopPropagation();
-    const c = cropBox || { x: 0, y: 0, w: attrs.width || 100, h: attrs.height || 100 };
+    const c = cropBox || { x: 0, y: 0, w: attrs.width || measured.w || 100, h: attrs.height || measured.h || 100 };
     setDrag({
       type: 'crop', edge,
       startX: e.clientX, startY: e.clientY,
@@ -111,14 +165,28 @@ export default function ImageNodeView(props) {
     if (drag.type === 'resize') {
       const factorX = drag.corner.includes('l') ? -1 : 1;
       const factorY = drag.corner.includes('t') ? -1 : 1;
-      let newW = (drag.startAttrs.width || 100) + dx * factorX;
-      let newH = (drag.startAttrs.height || 100) + dy * factorY;
+      let newW = (drag.startAttrs.width || measured.w || 100) + dx * factorX;
+      let newH = (drag.startAttrs.height || measured.h || 100) + dy * factorY;
 
-      if (drag.startAttrs.keepAspect && drag.startAttrs.width && drag.startAttrs.height) {
-        const aspect = drag.startAttrs.width / drag.startAttrs.height;
+      if (drag.startAttrs.keepAspect) {
+        const baseW = drag.startAttrs.width || measured.w || 1;
+        const baseH = drag.startAttrs.height || measured.h || 1;
+        const aspect = baseW / baseH;
         if (Math.abs(dx) > Math.abs(dy)) newH = newW / aspect;
         else newW = newH * aspect;
       }
+
+      const maxW = drag.maxW || getUsablePageContentWidth();
+      if (newW > maxW) {
+        newW = maxW;
+        if (drag.startAttrs.keepAspect) {
+          const baseW = drag.startAttrs.width || measured.w || 1;
+          const baseH = drag.startAttrs.height || measured.h || 1;
+          const aspect = baseW / baseH;
+          newH = newW / aspect;
+        }
+      }
+
       newW = Math.max(10, Math.round(newW));
       newH = Math.max(10, Math.round(newH));
       updateAttributes({ width: newW, height: newH });
@@ -148,10 +216,9 @@ export default function ImageNodeView(props) {
       if (edge.includes('b')) { h = Math.max(10, h + dy); }
       updateAttributes({ crop: { x, y, w, h } });
     }
-  }, [drag, updateAttributes]);
+  }, [drag, measured.w, measured.h, getUsablePageContentWidth, updateAttributes]);
 
   const onPointerUp = useCallback(() => setDrag(null), []);
-
   useEffect(() => {
     if (!drag) return;
     window.addEventListener('pointermove', onPointerMove);
@@ -162,10 +229,11 @@ export default function ImageNodeView(props) {
     };
   }, [drag, onPointerMove, onPointerUp]);
 
+  // double-click toggles crop mode
   const onDoubleClick = () => {
     updateAttributes({
       isCropping: !attrs.isCropping,
-      crop: attrs.crop || { x: 0, y: 0, w: attrs.width || 100, h: attrs.height || 100 },
+      crop: attrs.crop || { x: 0, y: 0, w: attrs.width || measured.w || 100, h: attrs.height || measured.h || 100 },
     });
   };
 
@@ -181,6 +249,7 @@ export default function ImageNodeView(props) {
       data-selected={selected ? 'true' : 'false'}
       onDoubleClick={onDoubleClick}
     >
+      {/* The crop container wraps the actual rendered image size */}
       <span className="nd-image-crop-container" style={cropContainerStyle}>
         <img
           ref={imgRef}
@@ -189,8 +258,10 @@ export default function ImageNodeView(props) {
           title={node.attrs.title || undefined}
           style={imageStyle}
           draggable={false}
+          onLoad={measureNow}
         />
 
+        {/* CROP MODE UI (unchanged) */}
         {showCrop && (
           <>
             <div
@@ -230,66 +301,65 @@ export default function ImageNodeView(props) {
             })}
           </>
         )}
-      </span>
 
-      {showFrame && (
-        <>
-          <span
-            className="nd-frame"
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              width: renderedBox.w || attrs.width || 'auto',
-              height: renderedBox.h || attrs.height || 'auto',
-              outline: '1.5px solid #3b82f6',
-              pointerEvents: 'none',
-            }}
-          />
-          {['tl','tr','bl','br','t','b','l','r'].map(corner => {
-            const pos = {
-              tl: { top: -5, left: -5, cursor: 'nwse-resize' },
-              tr: { top: -5, right: -5, cursor: 'nesw-resize' },
-              bl: { bottom: -5, left: -5, cursor: 'nesw-resize' },
-              br: { bottom: -5, right: -5, cursor: 'nwse-resize' },
-              t:  { top: -5, left: '50%', marginLeft: -5, cursor: 'ns-resize' },
-              b:  { bottom: -5, left: '50%', marginLeft: -5, cursor: 'ns-resize' },
-              l:  { left: -5, top: '50%', marginTop: -5, cursor: 'ew-resize' },
-              r:  { right: -5, top: '50%', marginTop: -5, cursor: 'ew-resize' },
-            }[corner];
-            return (
-              <span
-                key={corner}
-                style={{
-                  position: 'absolute',
-                  width: 10,
-                  height: 10,
-                  background: '#3b82f6',
-                  borderRadius: 2,
-                  ...pos,
-                }}
-                onPointerDown={(e) => onPointerDownResize(e, corner)}
-              />
-            );
-          })}
-          <span
-            title="Drag to rotate"
-            style={{
-              position: 'absolute',
-              left: '50%',
-              top: -28,
-              marginLeft: -8,
-              width: 16,
-              height: 16,
-              borderRadius: 16,
-              background: '#3b82f6',
-              cursor: 'grab',
-              boxShadow: '0 0 0 2px white',
-            }}
-            onPointerDown={onPointerDownRotate}
-          />
-        </>
-      )}
+        {/* FRAME + RESIZE HANDLES: now INSIDE crop container and pinned with inset:0 */}
+        {showFrame && (
+          <>
+            <span
+              className="nd-frame"
+              style={{
+                position: 'absolute',
+                inset: 0,                  // <- keeps the outline glued to the rendered box
+                outline: '1.5px solid #3b82f6',
+                pointerEvents: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+            {['tl','tr','bl','br','t','b','l','r'].map(corner => {
+              const pos = {
+                tl: { top: -5, left: -5, cursor: 'nwse-resize' },
+                tr: { top: -5, right: -5, cursor: 'nesw-resize' },
+                bl: { bottom: -5, left: -5, cursor: 'nesw-resize' },
+                br: { bottom: -5, right: -5, cursor: 'nwse-resize' },
+                t:  { top: -5, left: '50%', marginLeft: -5, cursor: 'ns-resize' },
+                b:  { bottom: -5, left: '50%', marginLeft: -5, cursor: 'ns-resize' },
+                l:  { left: -5, top: '50%', marginTop: -5, cursor: 'ew-resize' },
+                r:  { right: -5, top: '50%', marginTop: -5, cursor: 'ew-resize' },
+              }[corner];
+              return (
+                <span
+                  key={corner}
+                  style={{
+                    position: 'absolute',
+                    width: 10,
+                    height: 10,
+                    background: '#3b82f6',
+                    borderRadius: 2,
+                    ...pos,
+                  }}
+                  onPointerDown={(e) => onPointerDownResize(e, corner)}
+                />
+              );
+            })}
+            <span
+              title="Drag to rotate"
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: -28,
+                marginLeft: -8,
+                width: 16,
+                height: 16,
+                borderRadius: 16,
+                background: '#3b82f6',
+                cursor: 'grab',
+                boxShadow: '0 0 0 2px white',
+              }}
+              onPointerDown={onPointerDownRotate}
+            />
+          </>
+        )}
+      </span>
     </NodeViewWrapper>
   );
 }
