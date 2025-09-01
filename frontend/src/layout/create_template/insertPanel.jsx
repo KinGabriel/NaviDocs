@@ -18,6 +18,31 @@ export default function InsertPanel({ editor }) {
       .run();
   };
 
+  // Compute the inner content width of the current page (page width minus left/right padding)
+  const getUsablePageContentWidth = () => {
+    // Prefer the currently focused page; fallback to the first .nd-page
+    const pageEl =
+      editor?.view?.dom?.closest?.('.nd-page') ||
+      document.querySelector('.nd-page');
+
+    if (!pageEl) {
+      // Fallback to CSS vars if no page element found
+      const rs = getComputedStyle(document.documentElement);
+      const pageWidthPx = parseFloat(rs.getPropertyValue('--nd-page-width')) || 800;
+      const padL = parseFloat(rs.getPropertyValue('--nd-margin-left')) || 96;
+      const padR = parseFloat(rs.getPropertyValue('--nd-margin-right')) || 96;
+      return Math.max(100, Math.round(pageWidthPx - padL - padR));
+    }
+
+    const cs = getComputedStyle(pageEl);
+    const rectW = pageEl.getBoundingClientRect().width;
+    const padL = parseFloat(cs.paddingLeft) || 0;
+    const padR = parseFloat(cs.paddingRight) || 0;
+    // Inner content box (where paragraphs/images live)
+    const inner = Math.max(100, Math.round(rectW - padL - padR));
+    return inner;
+  };
+
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file || !editor) return;
@@ -25,28 +50,56 @@ export default function InsertPanel({ editor }) {
     const reader = new FileReader();
     reader.onload = () => {
       const src = reader.result;
-      // RichImage exposes insertImage (not setImage)
-      const ok =
-        editor
-          .chain()
-          .focus()
-          .insertImage({ src, srcOriginal: src })
-          .run();
 
-      // Fallback (very rare): insert via insertContent if needed
-      if (!ok) {
-        editor
+      // Load to get natural dimensions, then scale to fit the page’s inner width
+      const img = new Image();
+      img.onload = () => {
+        const usableW = getUsablePageContentWidth();
+        const natW = img.naturalWidth || 1;
+        const natH = img.naturalHeight || 1;
+
+        const scale = Math.min(1, usableW / natW);
+        const width = Math.round(natW * scale);
+        const height = Math.round(natH * scale);
+
+        // Insert via RichImage’s command (we replaced base Image)
+        const ok = editor
           .chain()
           .focus()
-          .insertContent({
-            type: 'richImage',
-            attrs: { src, srcOriginal: src },
+          .insertImage({
+            src,
+            srcOriginal: src,
+            width,
+            height,
+            keepAspect: true,
+            wrapMode: 'break', // show on its own line like Docs
           })
           .run();
-      }
+
+        if (!ok) {
+          // Very rare fallback
+          editor
+            .chain()
+            .focus()
+            .insertContent({
+              type: 'richImage',
+              attrs: {
+                src,
+                srcOriginal: src,
+                width,
+                height,
+                keepAspect: true,
+                wrapMode: 'break',
+              },
+            })
+            .run();
+        }
+      };
+      img.src = src;
     };
     reader.readAsDataURL(file);
-    // reset the input so the same file can be selected again if desired
+
+    // Allow selecting the same file again
     e.target.value = '';
   };
 
