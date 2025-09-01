@@ -7,6 +7,9 @@ import ImageNodeView from '../image/ImageNodeView.jsx';
 import imageCommands from '../image/commands.js';
 import imageKeymap from '../image/keymap.js';
 
+import cropPlugin from './plugins/cropPlugin';
+import wrapPositionPlugin from './plugins/wrapPositionPlugin';
+
 /**
  * RichImage — replaces @tiptap/extension-image with:
  * - Extra attrs: transforms, layout, meta, non-destructive crop, effects
@@ -118,6 +121,15 @@ const RichImage = Image.extend({
   addKeyboardShortcuts() {
     // Provide keyboard helpers (toggle crop, rotate, nudge, reset, open options)
     return imageKeymap(this);
+  },
+
+
+  addProseMirrorPlugins() {
+    const name = this.name; // 'richImage'
+    return [
+      cropPlugin({ nodeTypeName: name }),
+      wrapPositionPlugin({ nodeTypeName: name }),
+    ];
   },
 });
 
