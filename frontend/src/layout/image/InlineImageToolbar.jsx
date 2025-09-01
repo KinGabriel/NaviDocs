@@ -1,4 +1,3 @@
-// src/layout/image/InlineImageToolbar.jsx
 import React from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,15 +20,15 @@ export default function InlineImageToolbar({ editor, onOpenOptions }) {
   if (!editor) return null;
 
   const setAlign = (value) => {
-    editor.chain().focus().updateAttributes("image", { align: value }).run();
+    editor.chain().focus().updateAttributes("richImage", { align: value }).run();
   };
 
   const setWrap = (value) => {
-    editor.chain().focus().updateAttributes("image", { wrap: value }).run();
+    editor.chain().focus().updateAttributes("richImage", { wrapMode: value }).run();
   };
 
   const quickResize = (percent) => {
-    editor.chain().focus().updateAttributes("image", { width: `${percent}%` }).run();
+    editor.chain().focus().updateAttributes("richImage", { width: `${percent}%` }).run();
   };
 
   return (

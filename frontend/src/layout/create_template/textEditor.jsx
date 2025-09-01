@@ -1,5 +1,5 @@
 // src/layout/create_template/textEditor.jsx
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
@@ -14,6 +14,7 @@ import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 
 import RichImage from "../../extensions/image/ImageNode";
+import ImageOptionsPanel from "../../layout/image/sidebar/ImageOptionsPanel";
 
 // Core schema & behavior
 import DocumentPages from "../../extensions/textEditor/DocumentPages";
@@ -67,10 +68,10 @@ export default function TextEditor({
   pageSetup = DEFAULT_SETUP,
   onEditorReady,
   onContentChange,
-  onOpenImageOptions, // ⬅️ expose this so a parent can open the sidebar
   className = "",
 }) {
   const dimsRef = useRef(computeDims(pageSetup));
+  const [showImageOptions, setShowImageOptions] = useState(false);
 
   const applyCssVars = (d) => {
     const root = document.documentElement;
@@ -112,10 +113,10 @@ export default function TextEditor({
       TableHeader,
       TableCell,
 
-      // ⬇️ Register RichImage
+      // ⬇️ Register RichImage with callback
       RichImage.configure({
         onOpenImageOptions: ({ editor: ed }) => {
-          onOpenImageOptions?.(ed);
+          setShowImageOptions(true);
         },
       }),
 
@@ -127,11 +128,11 @@ export default function TextEditor({
     onCreate: ({ editor }) => {
       applyCssVars(dimsRef.current);
       editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
-      onEditorReady?.(editor); 
+      onEditorReady?.(editor);
     },
     onUpdate: ({ editor }) => onContentChange?.(editor.getHTML()),
   });
-  
+
   useEffect(() => {
     const dims = computeDims(pageSetup);
     dimsRef.current = dims;
@@ -152,7 +153,7 @@ export default function TextEditor({
   useEffect(() => () => editor?.destroy(), [editor]);
 
   return (
-    <div className={`w-full ${className}`}>
+    <div className={`w-full flex ${className}`}>
       <style>{`
         :root {
           --nd-page-width: ${dimsRef.current.widthPx}px;
@@ -176,8 +177,6 @@ export default function TextEditor({
         }
         .nd-editor { outline: none; }
         .ProseMirror:focus { outline: none; }
-
-        /* ⬇️ Minimal styling for RichImage NodeView */
         .nd-image-wrapper { position: relative; }
         .nd-image-crop-container img { display: block; }
         .nd-frame { pointer-events: none; }
@@ -185,13 +184,14 @@ export default function TextEditor({
           content: '';
           position: absolute;
           inset: 0;
-          outline: 1px dashed #60a5fa; /* dashed crop box hint */
+          outline: 1px dashed #60a5fa;
           pointer-events: none;
         }
       `}</style>
 
+      {/* Main editor */}
       <div
-        className="mx-auto my-6"
+        className="flex-1 mx-auto my-6"
         style={{ maxWidth: `calc(var(--nd-page-width) + 4rem)` }}
       >
         {editor ? (
@@ -200,6 +200,11 @@ export default function TextEditor({
           <div className="text-sm text-gray-500">Loading editor…</div>
         )}
       </div>
+
+      {/* Sidebar panel */}
+      {showImageOptions && editor && (
+        <ImageOptionsPanel editor={editor} />
+      )}
     </div>
   );
 }

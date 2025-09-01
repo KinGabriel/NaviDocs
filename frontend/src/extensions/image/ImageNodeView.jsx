@@ -2,17 +2,22 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 
+// UI surfaces
+import InlineImageToolbar from '../../layout/image/InlineImageToolbar';
+import ImageContextMenu from '../../layout/image/ImageContextMenu';
+
 export default function ImageNodeView(props) {
-  const { node, updateAttributes, selected } = props;
+  const { node, updateAttributes, selected, editor } = props;
   const attrs = node.attrs;
 
   const wrapperRef = useRef(null);
   const imgRef = useRef(null);
   const roWrapperRef = useRef(null);
   const roImgRef = useRef(null);
+  const fileRef = useRef(null); // for Replace action in context menu
 
-  const [drag, setDrag] = useState(null); // { type, ... }
-  const [measured, setMeasured] = useState({ w: null, h: null }); // actual rendered px
+  const [drag, setDrag] = useState(null);
+  const [measured, setMeasured] = useState({ w: null, h: null });
 
   // ---- helpers -------------------------------------------------------------
   const getUsablePageContentWidth = useCallback(() => {
@@ -50,7 +55,7 @@ export default function ImageNodeView(props) {
         roWrapperRef.current.observe(wrapperRef.current);
       }
       if (imgRef.current) {
-        roImgRef.current = new ResizeObserver(measureNow); // <- observe the IMG itself
+        roImgRef.current = new ResizeObserver(measureNow);
         roImgRef.current.observe(imgRef.current);
       }
     }
@@ -86,7 +91,7 @@ export default function ImageNodeView(props) {
       marginRight: attrs.marginRight ?? 0,
       marginBottom: attrs.marginBottom ?? 0,
       marginLeft: attrs.marginLeft ?? 0,
-      position: 'relative', // always relative so the absolute children can anchor
+      position: 'relative',
       textAlign: isBlock && attrs.align === 'center' ? 'center' : undefined,
       maxWidth: '100%',
     };
@@ -249,117 +254,181 @@ export default function ImageNodeView(props) {
       data-selected={selected ? 'true' : 'false'}
       onDoubleClick={onDoubleClick}
     >
-      {/* The crop container wraps the actual rendered image size */}
-      <span className="nd-image-crop-container" style={cropContainerStyle}>
-        <img
-          ref={imgRef}
-          src={attrs.src}
-          alt={attrs.alt || ''}
-          title={node.attrs.title || undefined}
-          style={imageStyle}
-          draggable={false}
-          onLoad={measureNow}
+      {/* Inline toolbar appears when selected */}
+      {selected && (
+        <InlineImageToolbar
+          attrs={attrs}
+          measured={measured}
+          onChange={(patch) => updateAttributes(patch)}
+          onOpenOptions={() => {
+            if (editor?.state) {
+              const tr = editor.state.tr.setMeta('nd:imageOptionsOpen', true);
+              editor.view.dispatch(tr);
+            }
+          }}
         />
+      )}
 
-        {/* CROP MODE UI (unchanged) */}
-        {showCrop && (
-          <>
-            <div
-              className="nd-crop-overlay"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                outline: '1200px solid rgba(0,0,0,0.35)',
-                cursor: 'move',
-              }}
-              onPointerDown={(e) => onPointerDownCrop(e, 'move')}
-            />
-            {['t','b','l','r','tl','tr','bl','br'].map(key => {
-              const base = {
-                position: 'absolute',
-                width: ['t','b'].includes(key) ? '100%' : 8,
-                height: ['l','r'].includes(key) ? '100%' : 8,
-                background: ['tl','tr','bl','br'].includes(key) ? '#3b82f6' : 'transparent',
-              };
-              const pos = {
-                t: { top: -3, left: 0, height: 6, cursor: 'ns-resize' },
-                b: { bottom: -3, left: 0, height: 6, cursor: 'ns-resize' },
-                l: { left: -3, top: 0, width: 6, cursor: 'ew-resize' },
-                r: { right: -3, top: 0, width: 6, cursor: 'ew-resize' },
-                tl: { top: -5, left: -5, width: 10, height: 10, cursor: 'nwse-resize' },
-                tr: { top: -5, right: -5, width: 10, height: 10, cursor: 'nesw-resize' },
-                bl: { bottom: -5, left: -5, width: 10, height: 10, cursor: 'nesw-resize' },
-                br: { bottom: -5, right: -5, width: 10, height: 10, cursor: 'nwse-resize' },
-              }[key];
-              return (
-                <div
-                  key={key}
-                  style={{ ...base, ...pos }}
-                  onPointerDown={(e) => onPointerDownCrop(e, key)}
-                />
-              );
-            })}
-          </>
-        )}
+      {/* Hidden file input for Replace action */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const objectUrl = URL.createObjectURL(file);
+          updateAttributes({ src: objectUrl });
+          // Optional: revoke later to free memory
+          // setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+        }}
+      />
 
-        {/* FRAME + RESIZE HANDLES: now INSIDE crop container and pinned with inset:0 */}
-        {showFrame && (
-          <>
-            <span
-              className="nd-frame"
-              style={{
-                position: 'absolute',
-                inset: 0,                  // <- keeps the outline glued to the rendered box
-                outline: '1.5px solid #3b82f6',
-                pointerEvents: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
-            {['tl','tr','bl','br','t','b','l','r'].map(corner => {
-              const pos = {
-                tl: { top: -5, left: -5, cursor: 'nwse-resize' },
-                tr: { top: -5, right: -5, cursor: 'nesw-resize' },
-                bl: { bottom: -5, left: -5, cursor: 'nesw-resize' },
-                br: { bottom: -5, right: -5, cursor: 'nwse-resize' },
-                t:  { top: -5, left: '50%', marginLeft: -5, cursor: 'ns-resize' },
-                b:  { bottom: -5, left: '50%', marginLeft: -5, cursor: 'ns-resize' },
-                l:  { left: -5, top: '50%', marginTop: -5, cursor: 'ew-resize' },
-                r:  { right: -5, top: '50%', marginTop: -5, cursor: 'ew-resize' },
-              }[corner];
-              return (
-                <span
-                  key={corner}
-                  style={{
-                    position: 'absolute',
-                    width: 10,
-                    height: 10,
-                    background: '#3b82f6',
-                    borderRadius: 2,
-                    ...pos,
-                  }}
-                  onPointerDown={(e) => onPointerDownResize(e, corner)}
-                />
-              );
-            })}
-            <span
-              title="Drag to rotate"
-              style={{
-                position: 'absolute',
-                left: '50%',
-                top: -28,
-                marginLeft: -8,
-                width: 16,
-                height: 16,
-                borderRadius: 16,
-                background: '#3b82f6',
-                cursor: 'grab',
-                boxShadow: '0 0 0 2px white',
-              }}
-              onPointerDown={onPointerDownRotate}
-            />
-          </>
-        )}
-      </span>
+      {/* Wrap the crop container with the ShadCN context menu */}
+      <ImageContextMenu
+        onAction={(action, payload) => {
+          if (action === 'options') {
+            if (editor?.state) {
+              const tr = editor.state.tr.setMeta('nd:imageOptionsOpen', true);
+              editor.view.dispatch(tr);
+            }
+          } else if (action === 'crop') {
+            updateAttributes({
+              isCropping: true,
+              crop: attrs.crop || { x: 0, y: 0, w: attrs.width || measured.w || 100, h: attrs.height || measured.h || 100 },
+            });
+          } else if (action === 'replace') {
+            fileRef.current?.click();
+          } else if (action === 'reset') {
+            updateAttributes({
+              width: null,
+              height: null,
+              rotation: 0,
+              crop: null,
+              filterPreset: null,
+              brightness: 100,
+              contrast: 100,
+              opacity: 100,
+            });
+          } else if (action === 'alt') {
+            const value = typeof payload === 'string' ? payload : prompt('Alt text:', attrs.alt || '');
+            if (value != null) updateAttributes({ alt: value });
+          }
+        }}
+      >
+        {/* The crop container wraps the actual rendered image size */}
+        <span className="nd-image-crop-container" style={cropContainerStyle}>
+          <img
+            ref={imgRef}
+            src={attrs.src}
+            alt={attrs.alt || ''}
+            title={node.attrs.title || undefined}
+            style={imageStyle}
+            draggable={false}
+            onLoad={measureNow}
+          />
+
+          {/* CROP MODE UI (unchanged) */}
+          {showCrop && (
+            <>
+              <div
+                className="nd-crop-overlay"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  outline: '1200px solid rgba(0,0,0,0.35)',
+                  cursor: 'move',
+                }}
+                onPointerDown={(e) => onPointerDownCrop(e, 'move')}
+              />
+              {['t','b','l','r','tl','tr','bl','br'].map(key => {
+                const base = {
+                  position: 'absolute',
+                  width: ['t','b'].includes(key) ? '100%' : 8,
+                  height: ['l','r'].includes(key) ? '100%' : 8,
+                  background: ['tl','tr','bl','br'].includes(key) ? '#3b82f6' : 'transparent',
+                };
+                const pos = {
+                  t: { top: -3, left: 0, height: 6, cursor: 'ns-resize' },
+                  b: { bottom: -3, left: 0, height: 6, cursor: 'ns-resize' },
+                  l: { left: -3, top: 0, width: 6, cursor: 'ew-resize' },
+                  r: { right: -3, top: 0, width: 6, cursor: 'ew-resize' },
+                  tl: { top: -5, left: -5, width: 10, height: 10, cursor: 'nwse-resize' },
+                  tr: { top: -5, right: -5, width: 10, height: 10, cursor: 'nesw-resize' },
+                  bl: { bottom: -5, left: -5, width: 10, height: 10, cursor: 'nesw-resize' },
+                  br: { bottom: -5, right: -5, width: 10, height: 10, cursor: 'nwse-resize' },
+                }[key];
+                return (
+                  <div
+                    key={key}
+                    style={{ ...base, ...pos }}
+                    onPointerDown={(e) => onPointerDownCrop(e, key)}
+                  />
+                );
+              })}
+            </>
+          )}
+
+          {/* FRAME + RESIZE HANDLES */}
+          {showFrame && (
+            <>
+              <span
+                className="nd-frame"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  outline: '1.5px solid #3b82f6',
+                  pointerEvents: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+              {['tl','tr','bl','br','t','b','l','r'].map(corner => {
+                const pos = {
+                  tl: { top: -5, left: -5, cursor: 'nwse-resize' },
+                  tr: { top: -5, right: -5, cursor: 'nesw-resize' },
+                  bl: { bottom: -5, left: -5, cursor: 'nesw-resize' },
+                  br: { bottom: -5, right: -5, cursor: 'nwse-resize' },
+                  t:  { top: -5, left: '50%', marginLeft: -5, cursor: 'ns-resize' },
+                  b:  { bottom: -5, left: '50%', marginLeft: -5, cursor: 'ns-resize' },
+                  l:  { left: -5, top: '50%', marginTop: -5, cursor: 'ew-resize' },
+                  r:  { right: -5, top: '50%', marginTop: -5, cursor: 'ew-resize' },
+                }[corner];
+                return (
+                  <span
+                    key={corner}
+                    style={{
+                      position: 'absolute',
+                      width: 10,
+                      height: 10,
+                      background: '#3b82f6',
+                      borderRadius: 2,
+                      ...pos,
+                    }}
+                    onPointerDown={(e) => onPointerDownResize(e, corner)}
+                  />
+                );
+              })}
+              <span
+                title="Drag to rotate"
+                style={{
+                  position: 'absolute',
+                  left: '50%',
+                  top: -28,
+                  marginLeft: -8,
+                  width: 16,
+                  height: 16,
+                  borderRadius: 16,
+                  background: '#3b82f6',
+                  cursor: 'grab',
+                  boxShadow: '0 0 0 2px white',
+                }}
+                onPointerDown={onPointerDownRotate}
+              />
+            </>
+          )}
+        </span>
+      </ImageContextMenu>
     </NodeViewWrapper>
   );
 }
