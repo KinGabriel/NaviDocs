@@ -1,4 +1,3 @@
-// src/extensions/image/ImageNodeView.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 
@@ -14,7 +13,7 @@ export default function ImageNodeView(props) {
   const imgRef = useRef(null);
   const roWrapperRef = useRef(null);
   const roImgRef = useRef(null);
-  const fileRef = useRef(null); // for Replace action in context menu
+  const fileRef = useRef(null); // for Replace (upload)
 
   const [drag, setDrag] = useState(null);
   const [measured, setMeasured] = useState({ w: null, h: null });
@@ -47,8 +46,6 @@ export default function ImageNodeView(props) {
 
   useEffect(() => {
     measureNow();
-
-    // react to container/page resizes
     if ('ResizeObserver' in window) {
       if (wrapperRef.current) {
         roWrapperRef.current = new ResizeObserver(measureNow);
@@ -60,7 +57,6 @@ export default function ImageNodeView(props) {
       }
     }
     window.addEventListener('resize', measureNow);
-
     return () => {
       roWrapperRef.current?.disconnect?.();
       roWrapperRef.current = null;
@@ -117,7 +113,6 @@ export default function ImageNodeView(props) {
     };
   }, [attrs.rotation, effectFilter, cropBox, attrs.width, attrs.height, attrs.keepAspect]);
 
-  // Make the crop container wrap the actual image size (no 100% stretch)
   const cropContainerStyle = useMemo(() => ({
     width: attrs.width || (measured.w ? `${measured.w}px` : 'auto'),
     height: cropBox
@@ -245,6 +240,17 @@ export default function ImageNodeView(props) {
   const showFrame = selected && !attrs.isCropping;
   const showCrop = selected && attrs.isCropping;
 
+  // helper to open the sidebar through the extension option
+  const openImageOptions = () => {
+    const ext = editor?.extensionManager?.extensions?.find(e => e.name === 'richImage');
+    ext?.options?.onOpenImageOptions?.({ editor });
+  };
+
+  const replaceFromUrl = async () => {
+    const url = prompt('Paste image URL:');
+    if (url) updateAttributes({ src: url });
+  };
+
   return (
     <NodeViewWrapper
       as="span"
@@ -257,19 +263,14 @@ export default function ImageNodeView(props) {
       {/* Inline toolbar appears when selected */}
       {selected && (
         <InlineImageToolbar
-          attrs={attrs}
-          measured={measured}
-          onChange={(patch) => updateAttributes(patch)}
-          onOpenOptions={() => {
-            if (editor?.state) {
-              const tr = editor.state.tr.setMeta('nd:imageOptionsOpen', true);
-              editor.view.dispatch(tr);
-            }
-          }}
+          editor={editor}
+          onOpenOptions={openImageOptions}
+          // Add Replace in toolbar (optional hook; toolbar will call this if provided)
+          onReplace={() => fileRef.current?.click()}
         />
       )}
 
-      {/* Hidden file input for Replace action */}
+      {/* Hidden file input for Replace (upload) */}
       <input
         ref={fileRef}
         type="file"
@@ -280,26 +281,24 @@ export default function ImageNodeView(props) {
           if (!file) return;
           const objectUrl = URL.createObjectURL(file);
           updateAttributes({ src: objectUrl });
-          // Optional: revoke later to free memory
-          // setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+          // Optionally: URL.revokeObjectURL later
         }}
       />
 
-      {/* Wrap the crop container with the ShadCN context menu */}
+      {/* Context menu wrapper */}
       <ImageContextMenu
         onAction={(action, payload) => {
           if (action === 'options') {
-            if (editor?.state) {
-              const tr = editor.state.tr.setMeta('nd:imageOptionsOpen', true);
-              editor.view.dispatch(tr);
-            }
+            openImageOptions();
           } else if (action === 'crop') {
             updateAttributes({
               isCropping: true,
               crop: attrs.crop || { x: 0, y: 0, w: attrs.width || measured.w || 100, h: attrs.height || measured.h || 100 },
             });
-          } else if (action === 'replace') {
+          } else if (action === 'replace-upload') {
             fileRef.current?.click();
+          } else if (action === 'replace-url') {
+            replaceFromUrl();
           } else if (action === 'reset') {
             updateAttributes({
               width: null,
@@ -311,7 +310,7 @@ export default function ImageNodeView(props) {
               contrast: 100,
               opacity: 100,
             });
-          } else if (action === 'alt') {
+          } else if (action === 'alt-text') {
             const value = typeof payload === 'string' ? payload : prompt('Alt text:', attrs.alt || '');
             if (value != null) updateAttributes({ alt: value });
           }
@@ -329,7 +328,7 @@ export default function ImageNodeView(props) {
             onLoad={measureNow}
           />
 
-          {/* CROP MODE UI (unchanged) */}
+          {/* CROP MODE UI */}
           {showCrop && (
             <>
               <div

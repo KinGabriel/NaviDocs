@@ -16,7 +16,7 @@ import {
   Settings,
 } from "lucide-react";
 
-export default function InlineImageToolbar({ editor, onOpenOptions }) {
+export default function InlineImageToolbar({ editor, onOpenOptions, onReplace }) {
   if (!editor) return null;
 
   const setAlign = (value) => {
@@ -70,7 +70,7 @@ export default function InlineImageToolbar({ editor, onOpenOptions }) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Button size="sm" variant="outline">
+      <Button size="sm" variant="outline" onClick={onReplace}>
         <Replace className="mr-1" size={14} /> Replace
       </Button>
 
