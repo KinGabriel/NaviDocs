@@ -13,18 +13,19 @@ import {
 import useUser from "../../hooks/useUser";
 import Header from "../../layout/header2";
 
-// Panels (paths must match your filenames/casing)
+// Panels
 import FontPanel from "../../layout/create_template/fontPanel";
 import PageSetupPanel from "../../layout/create_template/PageSetupPanel";
 import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
 import DateFormatPanel from "../../layout/create_template/dateformatPanel";
+import FieldsPanel from "../../layout/create_template/fieldsPanel"; // ⬅ NEW
 
-// Sidebar (reusable)
-import TemplateSidebar from "../../layout/templateSidebar";
+// Sidebar
+import TemplateSidebar from "../../layout/TemplateSidebar";
 
-// Text editor (new core)
+// Text editor
 import TextEditor from "../../layout/create_template/textEditor";
 
 // --- Helpers -----------------------------------------------------------------
@@ -35,9 +36,8 @@ const DEFAULT_PAGE_SETUP = {
   margins: { top: 1, bottom: 1, left: 1, right: 1 },
 };
 
-// Measure the header so the rail never overlaps it
 function useHeaderHeight() {
-  const [h, setH] = useState(80); // safe default
+  const [h, setH] = useState(80);
   useLayoutEffect(() => {
     const pick = () =>
       document.querySelector("[data-app-header]") ||
@@ -62,7 +62,7 @@ export default function DocumentControllerCreateTemplate() {
 
   const editorRef = useRef(null);
   const [editorInstance, setEditorInstance] = useState(null);
-  const headerH = useHeaderHeight(); 
+  const headerH = useHeaderHeight();
 
   // Template state
   const [templateId, setTemplateId] = useState(null);
@@ -74,6 +74,9 @@ export default function DocumentControllerCreateTemplate() {
   const [fontSettings, setFontSettings] = useState({});
   const [headerFooter, setHeaderFooter] = useState({ header: {}, footer: {} });
   const [dateFormat, setDateFormat] = useState({ style: "numeric" });
+
+  // NEW: editable fields registry
+  const [editableFields, setEditableFields] = useState([]); // [{key,type,required,placeholder,...}]
 
   // UI
   const [selectedPanel, setSelectedPanel] = useState("font");
@@ -100,6 +103,7 @@ export default function DocumentControllerCreateTemplate() {
         if (res.fontSettings) setFontSettings(res.fontSettings);
         if (res.headerFooter) setHeaderFooter(res.headerFooter);
         if (res.dateFormat) setDateFormat(res.dateFormat);
+        if (Array.isArray(res.fields)) setEditableFields(res.fields); // ⬅ load fields
       } catch (e) {
         console.error(e);
         setError("Failed to load template.");
@@ -123,10 +127,10 @@ export default function DocumentControllerCreateTemplate() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleEditorReady = (editor) => { 
-      editorRef.current = editor; 
-      setEditorInstance(editor);
-    };
+  const handleEditorReady = (editor) => {
+    editorRef.current = editor;
+    setEditorInstance(editor);
+  };
 
   const handleSave = async () => {
     try {
@@ -141,6 +145,7 @@ export default function DocumentControllerCreateTemplate() {
         fontSettings,
         headerFooter,
         dateFormat,
+        fields: editableFields, // ⬅ save fields to backend
       };
 
       if (templateId) {
@@ -200,11 +205,20 @@ export default function DocumentControllerCreateTemplate() {
         return <DateFormatPanel value={dateFormat} onChange={setDateFormat} />;
       case "headerfooter":
         return (
-        <HeaderFooterPanel
-          editor={editorInstance}
-          value={headerFooter}
-          onChange={setHeaderFooter}
-        />);
+          <HeaderFooterPanel
+            editor={editorInstance}
+            value={headerFooter}
+            onChange={setHeaderFooter}
+          />
+        );
+      case "fields": // ⬅ NEW
+        return (
+          <FieldsPanel
+            editor={editorInstance}
+            fields={editableFields}
+            onChange={setEditableFields}
+          />
+        );
       default:
         return null;
     }
@@ -238,7 +252,6 @@ export default function DocumentControllerCreateTemplate() {
               onEditorReady={handleEditorReady}
               onContentChange={setTemplateContent}
             />
-
           </main>
         </div>
       </div>

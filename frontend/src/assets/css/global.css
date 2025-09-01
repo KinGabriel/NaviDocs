@@ -48,8 +48,8 @@ body {
   right: 0;
   font-size: 0.85rem;
   color: #444;
-  text-align: center; /* overridden by attrs */
-  pointer-events: none; /* makes it non-editable */
+  text-align: center; 
+  pointer-events: none; 
 }
 
 .nd-footer {
@@ -59,6 +59,6 @@ body {
   right: 0;
   font-size: 0.8rem;
   color: #666;
-  text-align: center; /* overridden by attrs */
-  pointer-events: none; /* non-editable */
+  text-align: center; 
+  pointer-events: none; 
 }
