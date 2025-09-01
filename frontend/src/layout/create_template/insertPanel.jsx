@@ -1,3 +1,4 @@
+// src/layout/create_template/insertPanel.jsx
 import { useState } from 'react';
 
 export default function InsertPanel({ editor }) {
@@ -18,14 +19,35 @@ export default function InsertPanel({ editor }) {
   };
 
   const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file && editor) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        editor.chain().focus().setImage({ src: reader.result }).run();
-      };
-      reader.readAsDataURL(file);
-    }
+    const file = e.target.files?.[0];
+    if (!file || !editor) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = reader.result;
+      // RichImage exposes insertImage (not setImage)
+      const ok =
+        editor
+          .chain()
+          .focus()
+          .insertImage({ src, srcOriginal: src })
+          .run();
+
+      // Fallback (very rare): insert via insertContent if needed
+      if (!ok) {
+        editor
+          .chain()
+          .focus()
+          .insertContent({
+            type: 'richImage',
+            attrs: { src, srcOriginal: src },
+          })
+          .run();
+      }
+    };
+    reader.readAsDataURL(file);
+    // reset the input so the same file can be selected again if desired
+    e.target.value = '';
   };
 
   const isInTable = editor?.isActive('table');

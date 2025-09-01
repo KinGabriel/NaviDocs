@@ -12,7 +12,8 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
-import Image from "@tiptap/extension-image";
+
+import RichImage from "../../extensions/image/ImageNode";
 
 // Core schema & behavior
 import DocumentPages from "../../extensions/textEditor/DocumentPages";
@@ -66,6 +67,7 @@ export default function TextEditor({
   pageSetup = DEFAULT_SETUP,
   onEditorReady,
   onContentChange,
+  onOpenImageOptions, // ⬅️ expose this so a parent can open the sidebar
   className = "",
 }) {
   const dimsRef = useRef(computeDims(pageSetup));
@@ -98,6 +100,7 @@ export default function TextEditor({
         dropcursor: true,
         gapcursor: true,
         history: true,
+        // No need to disable the built-in Image here, we simply don't include it.
       }),
       TextStyle,
       Color,
@@ -109,7 +112,16 @@ export default function TextEditor({
       TableRow,
       TableHeader,
       TableCell,
-      Image,
+
+      // ⬇️ Register RichImage
+      RichImage.configure({
+        onOpenImageOptions: ({ editor: ed }) => {
+          // This will be triggered by keymap (Mod+Alt+Y) or your UI later.
+          // Wire this up to your right sidebar opener.
+          onOpenImageOptions?.(ed);
+        },
+      }),
+
       AutoPaginator,
       BackspaceHandler,
     ],
@@ -167,6 +179,18 @@ export default function TextEditor({
         }
         .nd-editor { outline: none; }
         .ProseMirror:focus { outline: none; }
+
+        /* ⬇️ Minimal styling for RichImage NodeView */
+        .nd-image-wrapper { position: relative; }
+        .nd-image-crop-container img { display: block; }
+        .nd-frame { pointer-events: none; }
+        .nd-crop-overlay::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          outline: 1px dashed #60a5fa; /* dashed crop box hint */
+          pointer-events: none;
+        }
       `}</style>
 
       <div

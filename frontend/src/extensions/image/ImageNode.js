@@ -3,9 +3,9 @@ import { mergeAttributes } from '@tiptap/core';
 import Image from '@tiptap/extension-image';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 
-import ImageNodeView from './ImageNodeView.jsx';
-import imageCommands from './commands.js';
-import imageKeymap from './keymap.js';
+import ImageNodeView from '../image/ImageNodeView.jsx';
+import imageCommands from '../image/commands.js';
+import imageKeymap from '../image/keymap.js';
 
 /**
  * RichImage — replaces @tiptap/extension-image with:
