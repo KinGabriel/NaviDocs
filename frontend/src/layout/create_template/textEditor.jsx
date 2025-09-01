@@ -100,7 +100,6 @@ export default function TextEditor({
         dropcursor: true,
         gapcursor: true,
         history: true,
-        // No need to disable the built-in Image here, we simply don't include it.
       }),
       TextStyle,
       Color,
@@ -116,8 +115,6 @@ export default function TextEditor({
       // ⬇️ Register RichImage
       RichImage.configure({
         onOpenImageOptions: ({ editor: ed }) => {
-          // This will be triggered by keymap (Mod+Alt+Y) or your UI later.
-          // Wire this up to your right sidebar opener.
           onOpenImageOptions?.(ed);
         },
       }),
@@ -130,11 +127,11 @@ export default function TextEditor({
     onCreate: ({ editor }) => {
       applyCssVars(dimsRef.current);
       editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
-      onEditorReady?.(editor); // expose editor so CreateTemplate can pass it to panels
+      onEditorReady?.(editor); 
     },
     onUpdate: ({ editor }) => onContentChange?.(editor.getHTML()),
   });
-
+  
   useEffect(() => {
     const dims = computeDims(pageSetup);
     dimsRef.current = dims;

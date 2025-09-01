@@ -1,44 +1,68 @@
-import React from "react";
-import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubTrigger, ContextMenuSubContent } from "@/components/ui/context-menu";
-import { Crop, Replace, Undo2, Settings, Type } from "lucide-react";
+// src/layout/image/ImageContextMenu.jsx
+import React from "react"
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubTrigger,
+  ContextMenuSubContent,
+} from "@/components/ui/context-menu"
+import { Crop, Replace, Undo2, Settings, Type } from "lucide-react"
 
-export default function ImageContextMenu({ children, editor }) {
-  const cropImage = () => editor.chain().focus().setNodeSelection().run();
-  const resetImage = () => editor.chain().focus().updateAttributes("image", { width: null, height: null, crop: null }).run();
-
+export default function ImageContextMenu({ children, onAction }) {
   return (
     <ContextMenu>
-      <ContextMenuTrigger>{children}</ContextMenuTrigger>
-      <ContextMenuContent className="w-48">
-        <ContextMenuItem onClick={cropImage}>
-          <Crop className="mr-2 h-4 w-4" /> Crop image
+      <ContextMenuTrigger asChild>
+        {children}
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-56">
+        {/* Crop image */}
+        <ContextMenuItem onClick={() => onAction?.("crop")}>
+          <Crop className="mr-2 h-4 w-4" />
+          Crop image
         </ContextMenuItem>
 
+        {/* Replace image submenu */}
         <ContextMenuSub>
           <ContextMenuSubTrigger>
-            <Replace className="mr-2 h-4 w-4" /> Replace image
+            <Replace className="mr-2 h-4 w-4" />
+            Replace image
           </ContextMenuSubTrigger>
           <ContextMenuSubContent>
-            <ContextMenuItem>From computer</ContextMenuItem>
-            <ContextMenuItem>From URL</ContextMenuItem>
-            <ContextMenuItem>From Drive</ContextMenuItem>
+            <ContextMenuItem onClick={() => onAction?.("replace-upload")}>
+              Upload from computer
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => onAction?.("replace-url")}>
+              Paste image URL
+            </ContextMenuItem>
           </ContextMenuSubContent>
         </ContextMenuSub>
 
-        <ContextMenuItem onClick={resetImage}>
-          <Undo2 className="mr-2 h-4 w-4" /> Reset image
+        <ContextMenuSeparator />
+
+        {/* Reset */}
+        <ContextMenuItem onClick={() => onAction?.("reset")}>
+          <Undo2 className="mr-2 h-4 w-4" />
+          Reset image
         </ContextMenuItem>
 
-        <ContextMenuItem onClick={() => console.log("Open sidebar options")}>
-          <Settings className="mr-2 h-4 w-4" /> Image options
+        {/* Alt text */}
+        <ContextMenuItem onClick={() => onAction?.("alt-text")}>
+          <Type className="mr-2 h-4 w-4" />
+          Alt text
         </ContextMenuItem>
 
         <ContextMenuSeparator />
 
-        <ContextMenuItem>
-          <Type className="mr-2 h-4 w-4" /> Alt text
+        {/* Options */}
+        <ContextMenuItem onClick={() => onAction?.("options")}>
+          <Settings className="mr-2 h-4 w-4" />
+          Image options…
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
-  );
+  )
 }
