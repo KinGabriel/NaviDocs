@@ -1,3 +1,4 @@
+// src/extensions/image/ImageNodeView.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 
@@ -14,9 +15,11 @@ export default function ImageNodeView(props) {
   const roWrapperRef = useRef(null);
   const roImgRef = useRef(null);
   const fileRef = useRef(null); // for Replace (upload)
+  const toolbarRef = useRef(null);
 
   const [drag, setDrag] = useState(null);
   const [measured, setMeasured] = useState({ w: null, h: null });
+  const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0, side: 'below' });
 
   // ---- helpers -------------------------------------------------------------
   const getUsablePageContentWidth = useCallback(() => {
@@ -65,6 +68,56 @@ export default function ImageNodeView(props) {
       window.removeEventListener('resize', measureNow);
     };
   }, [measureNow, attrs.width, attrs.height, attrs.rotation, attrs.crop, attrs.keepAspect]);
+
+  // ---- inline toolbar positioning (fixed + clamped to page) ----------------
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const computeToolbarPosition = useCallback(() => {
+    if (!selected || !wrapperRef.current || !toolbarRef.current) return;
+
+    const pageEl = wrapperRef.current.closest('.nd-page');
+    if (!pageEl) return;
+
+    const GAP = 8;
+    const pageRect = pageEl.getBoundingClientRect();
+    const imgRect = wrapperRef.current.getBoundingClientRect();
+    const tbRect = toolbarRef.current.getBoundingClientRect();
+
+    let side = 'below';
+    let top = imgRect.bottom + GAP;
+
+    const overflowBottom = top + tbRect.height > (pageRect.bottom - GAP);
+    if (overflowBottom) {
+      side = 'above';
+      top = imgRect.top - tbRect.height - GAP;
+    }
+
+    // if still outside top (tiny page), clamp inside
+    top = clamp(top, pageRect.top + GAP, pageRect.bottom - tbRect.height - GAP);
+
+    const centeredLeft = imgRect.left + (imgRect.width - tbRect.width) / 2;
+    const left = clamp(
+      centeredLeft,
+      pageRect.left + GAP,
+      pageRect.right - tbRect.width - GAP
+    );
+
+    setToolbarPos({ top, left, side });
+  }, [selected]);
+
+  useEffect(() => {
+    computeToolbarPosition();
+  }, [computeToolbarPosition, measured.w, measured.h, attrs.width, attrs.height, attrs.rotation, attrs.crop]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const reflow = () => computeToolbarPosition();
+    window.addEventListener('scroll', reflow, { passive: true });
+    window.addEventListener('resize', reflow);
+    return () => {
+      window.removeEventListener('scroll', reflow);
+      window.removeEventListener('resize', reflow);
+    };
+  }, [selected, computeToolbarPosition]);
 
   // ---- derived styles ------------------------------------------------------
   const effectFilter = useMemo(() => {
@@ -255,19 +308,29 @@ export default function ImageNodeView(props) {
     <NodeViewWrapper
       as="span"
       ref={wrapperRef}
-      className="nd-image-wrapper"
+      className="nd-image-wrapper relative"
       style={containerStyle}
       data-selected={selected ? 'true' : 'false'}
       onDoubleClick={onDoubleClick}
     >
-      {/* Inline toolbar appears when selected */}
+      {/* Inline toolbar (fixed, clamped to page) */}
       {selected && (
-        <InlineImageToolbar
-          editor={editor}
-          onOpenOptions={openImageOptions}
-          // Add Replace in toolbar (optional hook; toolbar will call this if provided)
-          onReplace={() => fileRef.current?.click()}
-        />
+        <div
+          ref={toolbarRef}
+          style={{
+            position: 'fixed',
+            top: `${toolbarPos.top}px`,
+            left: `${toolbarPos.left}px`,
+            zIndex: 60,
+            maxWidth: 'calc(100vw - 16px)',
+          }}
+        >
+          <InlineImageToolbar
+            editor={editor}
+            onOpenOptions={openImageOptions}
+            onReplace={() => fileRef.current?.click()}
+          />
+        </div>
       )}
 
       {/* Hidden file input for Replace (upload) */}
@@ -281,7 +344,7 @@ export default function ImageNodeView(props) {
           if (!file) return;
           const objectUrl = URL.createObjectURL(file);
           updateAttributes({ src: objectUrl });
-          // Optionally: URL.revokeObjectURL later
+          // Optional: revoke later after persisted
         }}
       />
 
