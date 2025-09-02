@@ -24,8 +24,6 @@ const FOLDER_FILES = {
   "School Clinic": [{ name: "Health Guidelines.pdf", url: "" }],
 };
 
-
-
 // root files initial (empty, will be fetched from backend)
 const ROOT_FILES_INITIAL = [];
 
@@ -246,13 +244,11 @@ export default function DocumentControllerStorage() {
       }
     }
   };
-
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Filled-Out Documents Storage" />
-
         {/* Move Modal (reusable for folders/files) */}
         <MoveModal
           folders={folders}
@@ -271,12 +267,28 @@ export default function DocumentControllerStorage() {
             </h2>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
-           {/* Controls - Only show when not in folder */}
-            {!selectedFolder && (
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-                {/* New button */}
-                <div className="relative">
-                  <button
+            {/* Inside folder navigation */}
+            {selectedFolder && (
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                <button
+                  onClick={() => setSelectedFolder(null)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-[#0035DA] hover:bg-blue-50 transition-all duration-200 font-medium"
+                >
+                  <ArrowLeft size={18} /> Back to Storage
+                </button>
+                
+                <div className="flex items-center text-gray-600 text-sm font-medium">
+                  <span className="text-gray-400">Storage</span>
+                  <span className="mx-2 text-gray-300">/</span>
+                  <span className="text-[#0035DA] font-bold">{selectedFolder.folderName || selectedFolder.name}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              {/* New button */}
+              <div className="relative">
+                <button
                   onClick={() => setShowNewMenu((prev) => !prev)}
                   className="px-6 py-3 bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] text-white rounded-xl shadow-lg hover:shadow-xl flex items-center gap-3 font-medium transition-all duration-200 transform hover:scale-105"
                 >
@@ -314,55 +326,36 @@ export default function DocumentControllerStorage() {
                   )}
                 </div>
 
-                {/* Control row*/}
-                <div className="flex flex-wrap items-center gap-3">
-                  <Dropdown
-                    options={["All"]}
-                    value={filterAll}
-                    onChange={setFilterAll}
-                    width="w-28"
-                    label="All"
-                    buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
-                  />
+              {/* Control row*/}
+              <div className="flex items-center gap-3">
+                 <Dropdown
+                  options={["All", "Folders", "Files"]}
+                  value={filterAll}
+                  onChange={setFilterAll}
+                  width="w-20"
+                  label=""
+                  buttonClass="bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 text-xs px-3 py-2"
+                />
 
-                  <Dropdown
-                    options={["Recent"]}
-                    value={sortRecent}
-                    onChange={setSortRecent}
-                    width="w-32"
-                    label="Recent"
-                    buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
+                <Dropdown
+                  options={["Recent", "A-Z", "Z-A", "Oldest"]}
+                  value={sortRecent}
+                  onChange={setSortRecent}
+                  width="w-20"
+                  label=""
+                  buttonClass="bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 text-xs px-3 py-2"
+                />
+               
+                <div className="flex-1 min-w-[200px] sm:w-64">
+                  <SearchBar
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                   />
-
-                  <div className="flex-1 min-w-[240px] md:max-w-md">
-                    <SearchBar
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
                 </div>
-              </div>
-            )}
+                
 
-            {/* Inside folder */}
-           {selectedFolder && (
-          <div className="sticky top-0 bg-white border-b border-gray-200 -mx-8 px-8 py-4 mb-6 z-10">
-            <div className="flex items-center justify-between">
-            <button
-              onClick={() => setSelectedFolder(null)}
-              className="flex items-center gap-2 px-6 py-3 rounded-lg shadow-md text-white bg-[#0035DA] hover:bg-[#043485] transition-all duration-200 font-medium"
-            >
-              <ArrowLeft size={20} /> Back to Storage
-            </button>
-            
-              <div className="flex items-center text-gray-600 text-sm font-medium">
-                <span className="text-gray-400">Storage</span>
-                <span className="mx-2 text-gray-300">/</span>
-                <span className="text-[#0035DA] font-bold">{selectedFolder.folderName || selectedFolder.name}</span>
               </div>
             </div>
-          </div>
-        )}
 
             {/* Root view or folder view */}
             {!selectedFolder ? (
@@ -519,8 +512,6 @@ export default function DocumentControllerStorage() {
             )}
           </main>
         </div>
-
-
       {/* New Folder Modal */}
       {showNewFolderModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
