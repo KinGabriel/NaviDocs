@@ -5,6 +5,8 @@ import AdminDashboard from './pages/admin/adminDashboard';
 import AdminAccounts from './pages/admin/adminAccounts';
 import CreateUser from './pages/admin/adminCreateUser';
 import AccountSettings from "./pages/accountSettings";
+import Documents from "./pages/documents";
+import DocumentView from "./pages/documentView";
 import AdminEditUser from "./pages/admin/adminEditUser";
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
@@ -12,8 +14,6 @@ import DocumentControllerCreateTemplate from './pages/document_controller/docume
 import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
 import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
-import DocumentControllerDocuments from './pages/document_controller/documentControllerDocuments';
-import DocumentControllerViewDocuments from "./pages/document_controller/documentControllerViewDocuments";
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/UnauthorizedPage';
@@ -22,19 +22,13 @@ import SecretaryDashboard from './pages/secretary/secretaryDashboard';
 import SecretaryTemplates from './pages/secretary/secretaryTemplates';
 import SecretaryViewTemplates from './pages/secretary/secretaryViewTemplates';
 import DeanDashboard from './pages/dean/deanDashboard';
-import DeanDocuments from './pages/dean/deanDocuments';
-import DeanViewDocuments from './pages/dean/deanViewDocuments';
 import DeanStatistics from './pages/dean/deanStatistics';
 import DeanDocumentWorkflow from './pages/dean/deanDocumentWorkflow';
 import DeanTemplates from "./pages/dean/deanTemplates.jsx";
 import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
-import DepartmentHeadDocuments from './pages/dept_head/departmentHeadDocuments';
-import DepartmentHeadViewDocuments from './pages/dept_head/departmentHeadViewDocuments';
 import DepartmentHeadDocumentWorkflow from './pages/dept_head/departmentHeadDocumentWorkflow';
 import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics';
 import FacultyDashboard from './pages/faculty/facultyDashboard';
-import FacultyDocuments from './pages/faculty/facultyDocuments';
-import FacultyViewDocuments from "./pages/faculty/facultyViewDocuments";
 import EditableFields from './pages/editableFields';
 import Storage from './pages/storage';
 
@@ -139,34 +133,6 @@ function App() {
            </ProtectedRoute>
          }
        />
-       <Route
-         path="/document-controller/documents"
-         element={
-           <ProtectedRoute allowedRoles={["Document Controller"]}>
-             <DocumentControllerDocuments />
-           </ProtectedRoute>
-         }
-       />
-
-
-       {/* View pages should also be protected */}
-       <Route
-         path="/document-controller/documents/:id"
-         element={
-           <ProtectedRoute allowedRoles={["Document Controller"]}>
-             <DocumentControllerViewDocuments />
-           </ProtectedRoute>
-         }
-       />
-       <Route
-         path="/document-controller/document-workflow/:id"
-         element={
-           <ProtectedRoute allowedRoles={["Document Controller"]}>
-             <DocumentControllerViewDocuments />
-           </ProtectedRoute>
-         }
-       />
-
 
        {/* Secretary Module */}
        <Route
@@ -212,22 +178,7 @@ function App() {
            </ProtectedRoute>
          }
        />
-       <Route
-         path="/dean/documents"
-         element={
-           <ProtectedRoute allowedRoles={["Dean"]}>
-             <DeanDocuments />
-           </ProtectedRoute>
-         }
-       />
-       <Route
-         path="/dean/documents/:id"
-         element={
-           <ProtectedRoute allowedRoles={["Dean"]}>
-             <DeanViewDocuments />
-           </ProtectedRoute>
-         }
-       />
+     
        <Route
          path="/dean/statistics"
          element={
@@ -262,22 +213,7 @@ function App() {
            </ProtectedRoute>
          }
        />
-       <Route
-         path="/dept-head/documents"
-         element={
-           <ProtectedRoute allowedRoles={["Department Head"]}>
-             <DepartmentHeadDocuments />
-           </ProtectedRoute>
-         }
-       />
-       <Route
-         path="/dept-head/documents/:id"
-         element={
-           <ProtectedRoute allowedRoles={["Department Head"]}>
-             <DepartmentHeadViewDocuments />
-           </ProtectedRoute>
-         }
-       />
+      
        <Route
          path="/dept-head/statistics"
          element={
@@ -303,19 +239,6 @@ function App() {
              <FacultyDashboard />
            </ProtectedRoute>
          }
-       />
-
-       <Route
-         path="/faculty/documents"
-         element={
-           <ProtectedRoute allowedRoles={["Faculty"]}>
-             <FacultyDocuments />
-           </ProtectedRoute>
-         }
-       />
-       
-       <Route path="/faculty/documents/:id" 
-       element={<FacultyViewDocuments />} 
        />
 
        {/* Global */}
@@ -345,6 +268,25 @@ function App() {
            </ProtectedRoute>
          }
        />
+
+       <Route
+         path="/documents"
+         element={
+           <ProtectedRoute allowedRoles={["Document Controller","Dean", "Department Head", "Faculty"]}>
+             <Documents />
+           </ProtectedRoute>
+         }
+       />
+
+       <Route
+        path="/documents/:id"
+        element={
+          <ProtectedRoute allowedRoles={["Document Controller","Dean","Department Head","Faculty"]}>
+            <DocumentView />
+          </ProtectedRoute>
+        }
+      />
+
       
        {/* Error Pages */}
        <Route path="*" element={<NotFoundPage />} />

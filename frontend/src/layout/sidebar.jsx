@@ -141,7 +141,7 @@ const MENU_CONFIG = {
       <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 48 48"><path fill="none" stroke="#0035da" stroke-linecap="round" stroke-linejoin="round" d="M10.364 4.51a1.994 1.994 0 0 0-1.945 1.994v35.002a1.995 1.995 0 0 0 1.944 1.994h27.224a1.994 1.994 0 0 0 1.994-1.994V14.472h-7.977a1.995 1.995 0 0 1-1.945-1.995V4.5Zm19.205 0l9.962 9.962m-23.693 8.456h16.274M15.838 34.994h16.274m-16.274-6.033h16.274" stroke-width="2"/>
        </svg>
       ),
-      route: "/faculty/documents"
+      route: "/documents"
     },
       { 
       label: "Storage",
@@ -177,7 +177,7 @@ const MENU_CONFIG = {
        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 48 48"><path fill="none" stroke="#0035da" stroke-linecap="round" stroke-linejoin="round" d="M10.364 4.51a1.994 1.994 0 0 0-1.945 1.994v35.002a1.995 1.995 0 0 0 1.944 1.994h27.224a1.994 1.994 0 0 0 1.994-1.994V14.472h-7.977a1.995 1.995 0 0 1-1.945-1.995V4.5Zm19.205 0l9.962 9.962m-23.693 8.456h16.274M15.838 34.994h16.274m-16.274-6.033h16.274" stroke-width="2"/>
        </svg>
       ),
-      route: "/document-controller/documents"
+      route: "/documents"
     },
     { 
       label: "Templates",
@@ -235,7 +235,7 @@ const MENU_CONFIG = {
        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 48 48"><path fill="none" stroke="#0035da" stroke-linecap="round" stroke-linejoin="round" d="M10.364 4.51a1.994 1.994 0 0 0-1.945 1.994v35.002a1.995 1.995 0 0 0 1.944 1.994h27.224a1.994 1.994 0 0 0 1.994-1.994V14.472h-7.977a1.995 1.995 0 0 1-1.945-1.995V4.5Zm19.205 0l9.962 9.962m-23.693 8.456h16.274M15.838 34.994h16.274m-16.274-6.033h16.274" stroke-width="2"/>
        </svg>
       ),
-      route: "/secretary/documents"
+      route: "/documents"
     },
     {
       label: "Templates",
@@ -278,7 +278,7 @@ const MENU_CONFIG = {
        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 48 48"><path fill="none" stroke="#0035da" stroke-linecap="round" stroke-linejoin="round" d="M10.364 4.51a1.994 1.994 0 0 0-1.945 1.994v35.002a1.995 1.995 0 0 0 1.944 1.994h27.224a1.994 1.994 0 0 0 1.994-1.994V14.472h-7.977a1.995 1.995 0 0 1-1.945-1.995V4.5Zm19.205 0l9.962 9.962m-23.693 8.456h16.274M15.838 34.994h16.274m-16.274-6.033h16.274" stroke-width="2"/>
        </svg>
       ),
-      route: "/dean/documents"
+      route: "/documents"
     },
     {
       label: "Templates",
@@ -335,7 +335,7 @@ const MENU_CONFIG = {
        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 48 48"><path fill="none" stroke="#0035da" stroke-linecap="round" stroke-linejoin="round" d="M10.364 4.51a1.994 1.994 0 0 0-1.945 1.994v35.002a1.995 1.995 0 0 0 1.944 1.994h27.224a1.994 1.994 0 0 0 1.994-1.994V14.472h-7.977a1.995 1.995 0 0 1-1.945-1.995V4.5Zm19.205 0l9.962 9.962m-23.693 8.456h16.274M15.838 34.994h16.274m-16.274-6.033h16.274" stroke-width="2"/>
        </svg>
       ),
-      route: "/dept-head/documents"
+      route: "/documents"
     },
     {
       label: "Templates",
