@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI } from "../api/storageAPI";
+import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI, moveFolderAPI } from "../api/storageAPI";
 import Header from "../layout/header";
 import Sidebar from "../layout/sidebar";
 import useUser from "../hooks/useUser";
@@ -7,6 +7,7 @@ import FolderComponent from "../components/folder";
 import FileComponent from "../components/file";
 import SearchBar from "../components/searchBar";
 import Dropdown from "../components/dropdown";
+import MoveModal from "../components/modals/MoveModal";
 import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X } from "lucide-react";
 
 // Remove mock folders, will fetch from backend
@@ -177,11 +178,61 @@ export default function DocumentControllerStorage() {
     }
   };
 
+  // Move modal state (reusable for folders/files)
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [itemToMove, setItemToMove] = useState(null);
+  const [moveType, setMoveType] = useState("folder"); // 'folder' or 'file'
+
+  // Move handler for folders
+  const handleMoveFolder = (folder) => {
+    setItemToMove(folder);
+    setMoveType("folder");
+    setShowMoveModal(true);
+  };
+
+  // Actually move folder (API call)
+  const handleMove = async (destinationId) => {
+    if (!itemToMove || moveType !== "folder") return;
+    try {
+      await moveFolderAPI(itemToMove._id, destinationId);
+      // Refetch folders after move
+      setLoadingFolders(true);
+      const data = await getFoldersAPI({ user });
+      const mapped = (data.folders || []).map((f) => ({
+        name: f.folderName || "Unnamed Folder",
+        date: f.createdAt || "",
+        _id: f._id,
+        data: {
+          ...f,
+          parentFolder: f.parentFolder ? String(f.parentFolder) : null
+        }
+      }));
+      setFolders(mapped);
+      setFoldersError(null);
+    } catch (err) {
+      alert(err.message || "Failed to move folder");
+    } finally {
+      setShowMoveModal(false);
+      setItemToMove(null);
+      setLoadingFolders(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Filled-Out Documents Storage" />
+
+        {/* Move Modal (reusable for folders/files) */}
+        <MoveModal
+          folders={folders}
+          open={showMoveModal}
+          onClose={() => setShowMoveModal(false)}
+          onMove={handleMove}
+          itemToMove={itemToMove}
+          type={moveType}
+        />
 
         {/* Main */}
          <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
@@ -306,6 +357,7 @@ export default function DocumentControllerStorage() {
                             alert('Failed to fetch folder details.');
                           }
                         }}
+                        onMoveRequest={handleMoveFolder}
                       />
                     ))}
                   </div>
@@ -380,6 +432,7 @@ export default function DocumentControllerStorage() {
                             alert('Failed to fetch folder details.');
                           }
                         }}
+                        onMoveRequest={handleMoveFolder}
                       />
                     ))}
                   </div>

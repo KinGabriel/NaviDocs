@@ -203,7 +203,7 @@ export const moveFolderAPI = async (folderId, newParentId) => {
 		const payload = { folderId };
 		if (newParentId) payload.newParentId = newParentId;
 		const res = await axios.post(
-			`${API_URL}/api/storage/move-folder`,
+			`${API_URL}/api/storage/folders/move-folder`,
 			payload,
 			{ withCredentials: true }
 		);

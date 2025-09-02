@@ -26,6 +26,7 @@ export default function FolderComponent({
   isMenuOpen,
   toggleMenu,
   onClick,
+  onMoveRequest, 
 }) {
   const [isOrganizeOpen, setIsOrganizeOpen] = useState(false);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
@@ -143,7 +144,13 @@ export default function FolderComponent({
                   <span className="text-gray-500 text-xs">▶</span>
                   {isOrganizeOpen && (
                     <ul className="absolute left-full top-0 ml-1 w-32 bg-white border rounded-lg shadow-md">
-                      <li className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                      <li
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (onMoveRequest) onMoveRequest(folder);
+                        }}
+                      >
                         <Move size={16} className="text-gray-600" /> Move
                       </li>
                     </ul>
