@@ -23,6 +23,7 @@ export default function FileComponent({
   index,
   isMenuOpen,
   toggleMenu,
+  onMoveRequest,
 }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -170,7 +171,13 @@ export default function FileComponent({
 
                   {isOrganizeOpen && (
                     <ul className="absolute left-full top-0 ml-1 w-32 bg-white border rounded-lg shadow-md">
-                      <li className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                      <li
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (onMoveRequest) onMoveRequest(file);
+                        }}
+                      >
                         <Move size={16} className="text-gray-600" />
                         Move
                       </li>

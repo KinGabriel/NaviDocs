@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI, moveFolderAPI } from "../api/storageAPI";
+import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI, moveFolderAPI, moveFileAPI } from "../api/storageAPI";
 import Header from "../layout/header";
 import Sidebar from "../layout/sidebar";
 import useUser from "../hooks/useUser";
@@ -183,6 +183,7 @@ export default function DocumentControllerStorage() {
   const [itemToMove, setItemToMove] = useState(null);
   const [moveType, setMoveType] = useState("folder"); // 'folder' or 'file'
 
+
   // Move handler for folders
   const handleMoveFolder = (folder) => {
     setItemToMove(folder);
@@ -190,31 +191,59 @@ export default function DocumentControllerStorage() {
     setShowMoveModal(true);
   };
 
-  // Actually move folder (API call)
+  // Move handler for files (orphan or in folder)
+  const handleMoveFile = (file) => {
+    setItemToMove(file);
+    setMoveType("file");
+    setShowMoveModal(true);
+  };
+
+  // Actually move folder or file (API call)
   const handleMove = async (destinationId) => {
-    if (!itemToMove || moveType !== "folder") return;
-    try {
-      await moveFolderAPI(itemToMove._id, destinationId);
-      // Refetch folders after move
-      setLoadingFolders(true);
-      const data = await getFoldersAPI({ user });
-      const mapped = (data.folders || []).map((f) => ({
-        name: f.folderName || "Unnamed Folder",
-        date: f.createdAt || "",
-        _id: f._id,
-        data: {
-          ...f,
-          parentFolder: f.parentFolder ? String(f.parentFolder) : null
+    if (!itemToMove) return;
+    if (moveType === "folder") {
+      try {
+        await moveFolderAPI(itemToMove._id, destinationId);
+        // Refetch folders after move
+        setLoadingFolders(true);
+        const data = await getFoldersAPI({ user });
+        const mapped = (data.folders || []).map((f) => ({
+          name: f.folderName || "Unnamed Folder",
+          date: f.createdAt || "",
+          _id: f._id,
+          data: {
+            ...f,
+            parentFolder: f.parentFolder ? String(f.parentFolder) : null
+          }
+        }));
+        setFolders(mapped);
+        setFoldersError(null);
+      } catch (err) {
+        alert(err.message || "Failed to move folder");
+      } finally {
+        setShowMoveModal(false);
+        setItemToMove(null);
+        setLoadingFolders(false);
+      }
+    } else if (moveType === "file") {
+      try {
+        await moveFileAPI(itemToMove._id, destinationId);
+        // Refetch orphan files and folder files after move
+        if (!selectedFolder) {
+          // If in root, refresh orphan files
+          const orphanRes = await getOrphanFilesAPI(user._id);
+          setRootFiles(orphanRes.files || []);
+        } else {
+          // If in folder, refresh folder files
+          const folderRes = await getFolderByIDAPI(selectedFolder._id);
+          setSelectedFolder(folderRes.folder);
         }
-      }));
-      setFolders(mapped);
-      setFoldersError(null);
-    } catch (err) {
-      alert(err.message || "Failed to move folder");
-    } finally {
-      setShowMoveModal(false);
-      setItemToMove(null);
-      setLoadingFolders(false);
+      } catch (err) {
+        alert(err.message || "Failed to move file");
+      } finally {
+        setShowMoveModal(false);
+        setItemToMove(null);
+      }
     }
   };
 
@@ -404,6 +433,7 @@ export default function DocumentControllerStorage() {
                         index={idx}
                         isMenuOpen={openFileMenu === `file-${idx}`}
                         toggleMenu={toggleFileMenu}
+                        onMoveRequest={handleMoveFile}
                       />
                     ))}
                   </div>
@@ -478,6 +508,7 @@ export default function DocumentControllerStorage() {
                         index={idx}
                         isMenuOpen={openFileMenu === `file-${idx}`}
                         toggleMenu={toggleFileMenu}
+                        onMoveRequest={handleMoveFile}
                       />
                     ))}
                   </div>

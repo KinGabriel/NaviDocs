@@ -37,7 +37,7 @@ export default function MoveModal({
 
   // Get current location name
   const currentLocation = useMemo(() => {
-    if (!currentFolderId) return { name: "My Drive", _id: "" };
+    if (!currentFolderId) return { name: "My Storage", _id: "" };
     const f = folders.find(f => f._id === currentFolderId);
     return f ? { name: f.name, _id: f._id } : { name: "Unknown", _id: currentFolderId };
   }, [currentFolderId, folders]);
@@ -99,7 +99,7 @@ export default function MoveModal({
             <ArrowLeft size={16} className="inline mr-1" />
             Back
           </button>
-          <span className="ml-2 text-gray-500">{["My Drive", ...path.map(p => p.name)].join(" / ")}</span>
+          <span className="ml-2 text-gray-500">{["My Storage", ...path.map(p => p.name)].join(" / ")}</span>
         </div>
         {/* Folder list */}
         <div className="max-h-60 overflow-y-auto divide-y divide-gray-100 mb-4">

@@ -525,3 +525,106 @@ export const moveFolder = async (req, res) => {
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
+
+/**
+ * @route POST /api/storage/move-file
+ * @param {*} req
+ * @param {*} res
+ * @returns
+ * Moves a file (orphan or in folder) to a new folder (or to orphan/root)
+ */
+export const moveFile = async (req, res) => {
+  try {
+    const { fileId, newFolderId } = req.body;
+    if (!fileId) {
+      return res.status(400).json({ message: 'fileId is required.' });
+    }
+
+    // Find the file (could be orphan or in a folder)
+    let fileDoc = await File.findById(fileId);
+    let isOrphan = !!fileDoc;
+    let oldFolder = null;
+    if (!fileDoc) {
+      // Try to find in folders
+      oldFolder = await Storage.findOne({ 'files._id': fileId });
+      if (!oldFolder) {
+        return res.status(404).json({ message: 'File not found.' });
+      }
+      fileDoc = oldFolder.files.find(f => f._id.toString() === fileId);
+      if (!fileDoc) {
+        return res.status(404).json({ message: 'File not found in folder.' });
+      }
+    }
+
+    // Find the new folder (if any)
+    let newFolder = null;
+    if (newFolderId) {
+      newFolder = await Storage.findById(newFolderId);
+      if (!newFolder) {
+        return res.status(404).json({ message: 'Destination folder not found.' });
+      }
+    }
+
+    // Move the physical file if needed
+    if (fileDoc.path && fs.existsSync(fileDoc.path)) {
+      // Build new path
+      let newFilePath;
+      if (newFolder) {
+        // Build nested path for new folder
+        let parentNames = [newFolder.folderName];
+        let current = newFolder;
+        while (current.parentFolder) {
+          current = await Storage.findById(current.parentFolder);
+          if (current) parentNames.unshift(current.folderName);
+          else break;
+        }
+        const uploadsRoot = path.join(process.cwd(), 'uploads');
+        const destDir = path.join(uploadsRoot, newFolder.owner, ...parentNames);
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true });
+        }
+        newFilePath = path.join(destDir, path.basename(fileDoc.path));
+      } else {
+        // Orphan: uploads/owner/
+        const uploadsRoot = path.join(process.cwd(), 'uploads');
+        const destDir = path.join(uploadsRoot, fileDoc.owner || fileDoc.uploadedBy);
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true });
+        }
+        newFilePath = path.join(destDir, path.basename(fileDoc.path));
+      }
+      if (fileDoc.path !== newFilePath) {
+        fs.renameSync(fileDoc.path, newFilePath);
+        fileDoc.path = newFilePath;
+      }
+    }
+
+    // Remove from old location (if in folder)
+    if (!isOrphan && oldFolder) {
+      oldFolder.files = oldFolder.files.filter(f => f._id.toString() !== fileId);
+      await oldFolder.save();
+    }
+
+    // Add to new folder or orphan
+    if (newFolder) {
+      // Add to new folder's files array
+      newFolder.files.push(fileDoc);
+      await newFolder.save();
+      // Remove orphan file doc if it exists
+      if (isOrphan) {
+        await File.findByIdAndDelete(fileId);
+      }
+    } else {
+      // Move to orphan: create File doc if not already
+      if (!isOrphan) {
+        const orphanFile = new File(fileDoc);
+        await orphanFile.save();
+      }
+    }
+
+    res.status(200).json({ message: 'File moved successfully.' });
+  } catch (err) {
+    console.error('Error moving file:', err);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+};

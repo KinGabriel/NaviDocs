@@ -212,3 +212,24 @@ export const moveFolderAPI = async (folderId, newParentId) => {
 		throw err.response?.data || { message: err.message };
 	}
 };
+
+/**
+ * Move a file to a new folder (or to orphan/root)
+ * @param {string} fileId
+ * @param {string|null} newFolderId
+ * @returns {Promise<Object>}
+ */
+export const moveFileAPI = async (fileId, newFolderId) => {
+	try {
+		const payload = { fileId };
+		if (newFolderId) payload.newFolderId = newFolderId;
+		const res = await axios.post(
+			`${API_URL}/api/storage/files/move-file`,
+			payload,
+			{ withCredentials: true }
+		);
+		return res.data;
+	} catch (err) {
+		throw err.response?.data || { message: err.message };
+	}
+};
