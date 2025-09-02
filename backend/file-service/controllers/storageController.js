@@ -595,8 +595,10 @@ export const moveFile = async (req, res) => {
       }
       if (fileDoc.path !== newFilePath) {
         fs.renameSync(fileDoc.path, newFilePath);
-        fileDoc.path = newFilePath;
       }
+      //  set path to relative (from project root, forward slashes)
+      const relPath = path.relative(process.cwd(), newFilePath).replace(/\\/g, '/');
+      fileDoc.path = relPath;
     }
 
     // Remove from old location (if in folder)
