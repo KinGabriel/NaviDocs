@@ -36,7 +36,7 @@ import FacultyDashboard from './pages/faculty/facultyDashboard';
 import FacultyDocuments from './pages/faculty/facultyDocuments';
 import FacultyViewDocuments from "./pages/faculty/facultyViewDocuments";
 import EditableFields from './pages/editableFields';
-import Storage from './pages/Storage';
+import Storage from './pages/storage';
 
 /** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {

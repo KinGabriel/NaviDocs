@@ -7,7 +7,7 @@ import FolderComponent from "../components/folder";
 import FileComponent from "../components/file";
 import SearchBar from "../components/searchBar";
 import Dropdown from "../components/dropdown";
-import MoveModal from "../components/modals/MoveModal";
+import MoveModal from "../components/modals/moveModal";
 import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X } from "lucide-react";
 
 // Remove mock folders, will fetch from backend
