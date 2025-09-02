@@ -191,3 +191,24 @@ export const getOrphanFilesAPI = async (userId) => {
 		throw err.response?.data || { message: err.message };
 	}
 };
+
+/**
+ * Move a folder to a new parent
+ * @param {string} folderId
+ * @param {string|null} newParentId
+ * @returns {Promise<Object>}
+ */
+export const moveFolderAPI = async (folderId, newParentId) => {
+	try {
+		const payload = { folderId };
+		if (newParentId) payload.newParentId = newParentId;
+		const res = await axios.post(
+			`${API_URL}/api/storage/move-folder`,
+			payload,
+			{ withCredentials: true }
+		);
+		return res.data;
+	} catch (err) {
+		throw err.response?.data || { message: err.message };
+	}
+};

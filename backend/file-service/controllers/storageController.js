@@ -456,3 +456,72 @@ export const getOrphanFiles = async (req, res) => {
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
+/**
+ * @route POST /api/storage/move-folder
+ * @param {*} req
+ * @param {*} res
+ * @returns
+ */
+export const moveFolder = async (req, res) => {
+  try {
+    const { folderId, newParentId } = req.body;
+    if (!folderId) {
+      return res.status(400).json({ message: 'folderId is required.' });
+    }
+
+    const folder = await Storage.findById(folderId);
+    if (!folder) {
+      return res.status(404).json({ message: 'Folder not found.' });
+    }
+
+    //  Move physical folder on disk 
+    const uploadsRoot = path.join(process.cwd(), 'uploads');
+    // Get current physical path
+    let oldParentNames = [];
+    let current = folder;
+    while (current.parentFolder) {
+      current = await Storage.findById(current.parentFolder);
+      if (current) oldParentNames.unshift(current.folderName);
+      else break;
+    }
+    const oldPath = path.join(uploadsRoot, folder.owner, ...oldParentNames, folder.folderName);
+
+    // Set new parentFolder and build new path
+    let newPath;
+    if (!newParentId) {
+      folder.parentFolder = null;
+      newPath = path.join(uploadsRoot, folder.owner, folder.folderName);
+    } else {
+      const newParent = await Storage.findById(newParentId);
+      if (!newParent) {
+        return res.status(404).json({ message: 'New parent folder not found.' });
+      }
+      folder.parentFolder = newParent._id;
+      // Build new parent path
+      let newParentNames = [newParent.folderName];
+      let temp = newParent;
+      while (temp.parentFolder) {
+        temp = await Storage.findById(temp.parentFolder);
+        if (temp) newParentNames.unshift(temp.folderName);
+        else break;
+      }
+      newPath = path.join(uploadsRoot, folder.owner, ...newParentNames, folder.folderName);
+    }
+
+    // Move the folder on disk if it exists and the path is changing
+    if (oldPath !== newPath && fs.existsSync(oldPath)) {
+      // Ensure new parent directory exists
+      const newParentDir = path.dirname(newPath);
+      if (!fs.existsSync(newParentDir)) {
+        fs.mkdirSync(newParentDir, { recursive: true });
+      }
+      fs.renameSync(oldPath, newPath);
+    }
+
+    await folder.save();
+    res.status(200).json({ message: 'Folder moved successfully.' });
+  } catch (err) {
+    console.error('Error moving folder:', err);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+};
