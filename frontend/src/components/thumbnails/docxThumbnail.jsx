@@ -1,21 +1,13 @@
 import React from "react";
 import { FileText } from "lucide-react";
 
-export default function DocxThumbnail({ width = 120, height = 160 }) {
+export default function DocxThumbnail() {
   return (
-    <div
-      style={{
-        width: width,
-        height: height,
-        overflow: 'hidden',
-        borderRadius: 8,
-        background: '#f3f3f3',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <FileText size={48} color="#3b82f6" />
+    <div className="w-full h-full flex items-center justify-center bg-gray-100 overflow-hidden">
+      <FileText
+        className="w-14 h-14 text-blue-500" 
+        style={{ transform: "scale(1.1)" }}
+      />
     </div>
   );
 }

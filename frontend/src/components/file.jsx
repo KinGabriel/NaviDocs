@@ -268,18 +268,22 @@ export default function FileComponent({
         </div>
 
         {/* Preview tile */}
-        <div className="h-40 flex items-center justify-center bg-gray-50 rounded-t-xl" style={{overflow: 'hidden'}}>
-          {fileUrl && (
-            (file?.mimetype?.toLowerCase().includes('pdf') || fileName?.toLowerCase().endsWith('.pdf')) ? (
-              <PdfThumbnail url={fileUrl} width={120} height={160} />
-            ) : (file?.mimetype?.toLowerCase().includes('word') || fileName?.toLowerCase().endsWith('.docx')) ? (
-              <DocxThumbnail url={fileUrl} width={120} height={160} />
+          <div className="h-40 flex items-center justify-center bg-gray-50 rounded-t-xl overflow-hidden">
+            {fileUrl ? (
+              (file?.mimetype?.toLowerCase().includes("pdf") ||
+                fileName?.toLowerCase().endsWith(".pdf")) ? (
+                <PdfThumbnail url={fileUrl} />
+              ) : file?.mimetype?.toLowerCase().includes("word") ||
+                fileName?.toLowerCase().endsWith(".docx") ? (
+                <DocxThumbnail />
+              ) : (
+                <FileText className="w-12 h-12 text-gray-300" />
+              )
             ) : (
-              <FileText className="w-10 h-10 text-gray-300" />
-            )
-          )}
-        </div>
-
+              <FileText className="w-12 h-12 text-gray-300" />
+            )}
+          </div>
+          
         {/* Info */}
         <div className="border-t px-3 py-3 rounded-b-xl min-w-0">
           <p className="font-semibold text-sm text-gray-900 truncate" title={fileName}>
