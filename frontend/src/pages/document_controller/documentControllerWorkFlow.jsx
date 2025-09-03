@@ -26,7 +26,6 @@ const SORT_OPTIONS = ["Recent", "A–Z", "Z–A"];
 export default function DocumentControllerWorkflow() {
   const user = useUser();
   const navigate = useNavigate();
-
   const [tab, setTab] = useState("submitted"); // 'submitted' | 'published'
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("Recent");
@@ -76,13 +75,17 @@ export default function DocumentControllerWorkflow() {
   // pagination
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const { currentPage, handlePrev, handleNext, handlePage, getPageNumbers } =
-    usePagination(totalPages, 1);
+  const pagination = usePagination(totalPages, 1);
 
   const pageRows = useMemo(
-    () => filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [filtered, currentPage]
+    () =>
+      filtered.slice(
+        (pagination.currentPage - 1) * pageSize,
+        pagination.currentPage * pageSize
+      ),
+    [filtered, pagination.currentPage]
   );
+
 
   // dynamic columns based on tab (Created By vs Owned By)
   const columns = useMemo(() => {
@@ -199,46 +202,34 @@ export default function DocumentControllerWorkflow() {
             {/* Reusable Table */}
             <Table columns={columns} data={pageRows} />
 
-            {/* Pagination */}
-            <div className="flex items-center justify-between mt-6 text-sm">
+            {/* Pagination Controls */}
+            <div className="flex justify-center items-center mt-6 gap-2">
               <button
-                onClick={handlePrev}
-                disabled={currentPage === 1}
-                className={`flex items-center gap-2 px-2 py-1 rounded ${
-                  currentPage === 1 ? "text-gray-400" : "hover:bg-gray-100"
-                }`}
+                onClick={pagination.handlePrev}
+                disabled={pagination.currentPage === 1}
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
-                <span className="text-lg">←</span> Previous
+                Prev
               </button>
-              <div className="flex items-center gap-1">
-                {getPageNumbers().map((n, idx) =>
-                  n === "..." ? (
-                    <span key={`dots-${idx}`} className="px-2">
-                      …
-                    </span>
-                  ) : (
-                    <button
-                      key={n}
-                      onClick={() => handlePage(n)}
-                      className={`h-8 w-8 rounded-full grid place-items-center ${
-                        n === currentPage
-                          ? "bg-[#0035DA] text-white"
-                          : "hover:bg-gray-100"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  )
-                )}
-              </div>
+              {pagination.getPageNumbers().map((num, idx) =>
+                num === "..." ? (
+                  <span key={idx} className="px-2 text-gray-400">...</span>
+                ) : (
+                  <button
+                    key={num}
+                    onClick={() => pagination.handlePage(num)}
+                    className={`px-3 py-1 rounded border ${pagination.currentPage === num ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+                  >
+                    {num}
+                  </button>
+                )
+              )}
               <button
-                onClick={handleNext}
-                disabled={currentPage === totalPages}
-                className={`flex items-center gap-2 px-2 py-1 rounded ${
-                  currentPage === totalPages ? "text-gray-400" : "hover:bg-gray-100"
-                }`}
+                onClick={pagination.handleNext}
+                disabled={pagination.currentPage === totalPages}
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
-                Next <span className="text-lg">→</span>
+                Next
               </button>
             </div>
           </main>
