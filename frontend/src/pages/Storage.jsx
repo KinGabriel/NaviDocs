@@ -12,7 +12,7 @@ import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X } from "lucide-react";
 
 // root files initial (empty, will be fetched from backend)
 const ROOT_FILES_INITIAL = [];
-
+const FOLDER_FILES = [];
 export default function Storage() {
   // Orphan/root files state
   const [rootFiles, setRootFiles] = useState(ROOT_FILES_INITIAL);
