@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { deleteFileAPI, deleteFileFromFolderAPI } from '../api/storageAPI';
 import PdfThumbnail from "./thumbnails/pdfThumbnail";
 import DocxThumbnail from "./thumbnails/docxThumbnail";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -24,6 +25,8 @@ export default function FileComponent({
   isMenuOpen,
   toggleMenu,
   onMoveRequest,
+  onDelete,
+  parentFolderId,
 }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -32,6 +35,8 @@ export default function FileComponent({
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [isRemoveOpen, setIsRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState(null);
 
   const [renameInput, setRenameInput] = useState("");
   const [emails, setEmails] = useState([
@@ -529,14 +534,30 @@ export default function FileComponent({
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsRemoveOpen(false);
+                onClick={async () => {
+                  setRemoving(true);
+                  setRemoveError(null);
+                  try {
+                    if (parentFolderId) {
+                      await deleteFileFromFolderAPI(parentFolderId, file._id);
+                    } else {
+                      await deleteFileAPI(file._id);
+                    }
+                    setIsRemoveOpen(false);
+                    if (onDelete) onDelete(file);
+                  } catch (err) {
+                    setRemoveError(err?.message || 'Failed to delete file');
+                  } finally {
+                    setRemoving(false);
+                  }
                 }}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                disabled={removing}
               >
-                Remove
+                {removing ? 'Removing...' : 'Remove'}
               </button>
             </div>
+            {removeError && <div className="text-red-600 text-xs mt-2">{removeError}</div>}
           </div>
         </div>
       )}

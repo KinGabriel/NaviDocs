@@ -434,19 +434,32 @@ export default function DocumentControllerStorage() {
 
                 {/* Files */}
                 <h3 className="text-lg font-semibold mb-3">Files</h3>
-                {displayedFiles.length ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {displayedFiles.map((file, idx) => (
-                      <FileComponent
-                        key={file._id || file.name || idx}
-                        file={file}
-                        index={idx}
-                        isMenuOpen={openFileMenu === `file-${idx}`}
-                        toggleMenu={toggleFileMenu}
-                        onMoveRequest={handleMoveFile}
-                      />
-                    ))}
-                  </div>
+                  {displayedFiles.length ? ( 
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"> 
+                      {displayedFiles.map((file, idx) => ( 
+                        <FileComponent 
+                          key={file._id || file.name || idx} 
+                          file={file} 
+                          index={idx} 
+                          isMenuOpen={openFileMenu === `file-${idx}`} 
+                          toggleMenu={toggleFileMenu} 
+                          onMoveRequest={handleMoveFile} 
+                          onDelete={async () => {
+                            // Refresh orphan/root files if not in a folder
+                            if (!selectedFolder) {
+                              if (user && user._id) {
+                                const data = await getOrphanFilesAPI(user._id);
+                                setRootFiles(data.files || []);
+                              }
+                            } else {
+                              console.log(selectedFolder._id);
+                              const data = await getFolderByIDAPI(selectedFolder._id);
+                              setSelectedFolder({ ...selectedFolder, dbfiles: data.folder.dbfiles, physicalFiles: data.folder.physicalFiles });
+                            }
+                          }}
+                        />
+                      ))}
+                    </div>
                 ) : (
                   <p className="text-gray-500 italic">No files found.</p>
                 )}
@@ -536,6 +549,12 @@ export default function DocumentControllerStorage() {
                         isMenuOpen={openFileMenu === `file-${idx}`}
                         toggleMenu={toggleFileMenu}
                         onMoveRequest={handleMoveFile}
+                        parentFolderId={selectedFolder._id}
+                        onDelete={async () => {
+                          // Refresh files in folder after delete
+                          const data = await getFolderByIDAPI(selectedFolder._id);
+                          setSelectedFolder({ ...selectedFolder, dbfiles: data.folder.dbfiles, physicalFiles: data.folder.physicalFiles });
+                        }}
                       />
                     ))}
                   </div>
