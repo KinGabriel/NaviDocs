@@ -10,20 +10,6 @@ import Dropdown from "../components/dropdown";
 import MoveModal from "../components/modals/moveModal";
 import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X } from "lucide-react";
 
-// Remove mock folders, will fetch from backend
-
-// files per folder
-const FOLDER_FILES = {
-  "SAMCIS Dean": [
-    { name: "Dean Memo.pdf", url: "" },
-    { name: "Meeting Notes.pdf", url: "" },
-  ],
-  "SAMCIS OSA": [{ name: "Student Report.pdf", url: "" }],
-  "SAMCIS Department Heads": [{ name: "Department Plan.pdf", url: "" }],
-  "TRIL Utilization": [{ name: "TRIL Usage Report.pdf", url: "" }],
-  "School Clinic": [{ name: "Health Guidelines.pdf", url: "" }],
-};
-
 // root files initial (empty, will be fetched from backend)
 const ROOT_FILES_INITIAL = [];
 

@@ -92,6 +92,20 @@ export const deleteFileAPI = async (fileId) => {
 };
 
 /**
+ * Delete a file from a folder
+ * @param {string} folderId
+ * @param {string} fileId
+ * @returns {Promise<Object>}
+ */
+export const deleteFileFromFolderAPI = async (folderId, fileId) => {
+	const res = await axios.delete(
+		`${API_URL}/api/storage/folders/${folderId}/files/${fileId}`,
+		{ withCredentials: true }
+	);
+	return res.data;
+};
+
+/**
  * Upload orphan files (not in a folder)
  * @param {FileList|Array<File>} files
  * @param {string} [user_id]
@@ -163,19 +177,6 @@ export const deleteFolderByIDAPI = async (id) => {
 	return res.data;
 };
 
-/**
- * Delete a file from a folder
- * @param {string} folderId
- * @param {string} fileId
- * @returns {Promise<Object>}
- */
-export const deleteFileFromFolderAPI = async (folderId, fileId) => {
-	const res = await axios.delete(
-		`${API_URL}/api/storage/folders/${folderId}/files/${fileId}`,
-		{ withCredentials: true }
-	);
-	return res.data;
-};
 
 /**
  * Fetch orphan files for a user (files not in any folder)
