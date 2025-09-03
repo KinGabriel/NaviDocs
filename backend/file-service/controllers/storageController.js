@@ -2,6 +2,7 @@ import Storage, { File } from '../models/storageModel.js';
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
+import { deleteFolderRecursive } from '../utils/storageUtils.js';
 import axios from 'axios';
 import { saveDocumentFile } from '../utils/saveDocumentFile.js';
 
@@ -226,8 +227,9 @@ export const addAccessToFolders = async (req, res) => {
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
+
 /**
- * Delete Folder by ID
+ * Delete Folder by ID (recursive)
  * @param {*} req
  * @param {*} res
  * @returns
@@ -238,21 +240,9 @@ export const deleteFolderByID = async (req, res) => {
     if (!id) {
       return res.status(400).json({ message: 'Folder ID is required.' });
     }
-
-    const folder = await Storage.findById(id);
-    if (!folder) {
-      return res.status(404).json({ message: 'Folder not found.' });
-    }
-
-    // Remove physical folder and its contents
     const uploadsRoot = path.join(process.cwd(), 'uploads');
-    const folderPath = path.join(uploadsRoot, folder.owner, folder.folderName);
-    if (fs.existsSync(folderPath)) {
-      fs.rmSync(folderPath, { recursive: true, force: true });
-    }
-
-    await folder.remove();
-    res.status(200).json({ message: 'Folder deleted successfully.' });
+    await deleteFolderRecursive(id, uploadsRoot);
+    res.status(200).json({ message: 'Folder and all contents deleted.' });
   } catch (err) {
     console.error('Error deleting folder by ID:', err);
     res.status(500).json({ message: 'Internal server error.' });
