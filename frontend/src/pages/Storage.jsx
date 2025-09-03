@@ -85,6 +85,17 @@ export default function Storage() {
       });
   }, [user]);
 
+  
+    // close menus when clicking outside
+useEffect(() => {
+  const handleClickOutside = () => {
+    setOpenFolderMenu(null);
+    setOpenFileMenu(null);
+  };
+  document.addEventListener('click', handleClickOutside);
+  return () => document.removeEventListener('click', handleClickOutside);
+}, []);
+
   // Fetch folders from backend on mount
   useEffect(() => {
     if (!user) return;
@@ -276,7 +287,7 @@ export default function Storage() {
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
                 <button
                   onClick={() => setSelectedFolder(null)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-[#0035DA] hover:bg-blue-50 transition-all duration-200 font-medium"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-[#0035DA] hover:bg-blue-50 transition-all duration-200 font-medium mt-4"
                 >
                   <ArrowLeft size={18} /> Back to Storage
                 </button>
