@@ -1,8 +1,6 @@
 // Use shared options and dynamic department filtering
 import { SCHOOL_OPTIONS, DEPARTMENT_OPTIONS } from "../utils/options";
 import { deleteFolderByIDAPI } from "../api/storageAPI";
-
-
 import React, { useState, Fragment,useEffect } from "react";
 import { Listbox, Transition } from '@headlessui/react';
 
@@ -30,7 +28,9 @@ export default function FolderComponent({
   onDelete,
 }) {
   const [isOrganizeOpen, setIsOrganizeOpen] = useState(false);
+  const [organizeTimeout, setOrganizeTimeout] = useState(null);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const [shareTimeout, setShareTimeout] = useState(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [isRemoveOpen, setIsRemoveOpen] = useState(false);
@@ -92,7 +92,10 @@ export default function FolderComponent({
       <div className="relative bg-gray-100 flex items-center justify-between px-5 py-4 shadow-sm rounded-lg border border-gray-300 hover:bg-gray-200 transition">
         <div
           className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-          onClick={() => onClick(folder.name)}
+          onClick={(e) => {
+            // Prevent preview if menu is open
+            if (!isMenuOpen) onClick(folder.name);
+          }}
           title={folder.name}
         >
           <Folder size={28} className="text-blue-600 flex-shrink-0" />
@@ -126,7 +129,10 @@ export default function FolderComponent({
                 {/* Rename */}
                 <li
                   className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => setIsRenameOpen(true)}
+                  onClick={() => {
+                    setIsRenameOpen(true);
+                    toggleMenu(index); // Close menu when opening modal
+                  }}
                 >
                   <Pencil size={16} className="text-gray-600" /> Rename
                 </li>
@@ -136,8 +142,14 @@ export default function FolderComponent({
                 {/* Organize */}
                 <li
                   className="relative flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                  onMouseEnter={() => setIsOrganizeOpen(true)}
-                  onMouseLeave={() => setIsOrganizeOpen(false)}
+                  onMouseEnter={() => {
+                    if (organizeTimeout) clearTimeout(organizeTimeout);
+                    setIsOrganizeOpen(true);
+                  }}
+                  onMouseLeave={() => {
+                    const timeout = setTimeout(() => setIsOrganizeOpen(false), 1000);
+                    setOrganizeTimeout(timeout);
+                  }}
                 >
                   <div className="flex items-center gap-2">
                     <FolderCog size={16} className="text-gray-600" /> Organize
@@ -150,6 +162,7 @@ export default function FolderComponent({
                         onClick={e => {
                           e.stopPropagation();
                           if (onMoveRequest) onMoveRequest(folder);
+                          toggleMenu(index); // Close menu when opening move modal
                         }}
                       >
                         <Move size={16} className="text-gray-600" /> Move
@@ -161,8 +174,14 @@ export default function FolderComponent({
                 {/* Share */}
                 <li
                   className="relative flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                  onMouseEnter={() => setIsShareMenuOpen(true)}
-                  onMouseLeave={() => setIsShareMenuOpen(false)}
+                  onMouseEnter={() => {
+                    if (shareTimeout) clearTimeout(shareTimeout);
+                    setIsShareMenuOpen(true);
+                  }}
+                  onMouseLeave={() => {
+                    const timeout = setTimeout(() => setIsShareMenuOpen(false), 1000);
+                    setShareTimeout(timeout);
+                  }}
                 >
                   <div className="flex items-center gap-2">
                     <Share2 size={16} className="text-gray-600" /> Share
@@ -175,6 +194,7 @@ export default function FolderComponent({
                         onClick={(e) => {
                           e.stopPropagation();
                           setIsShareOpen(true);
+                          toggleMenu(index); // Close menu when opening modal
                         }}
                       >
                         <Share2 size={16} className="text-gray-600" /> Share
@@ -194,7 +214,10 @@ export default function FolderComponent({
                 {/* Remove */}
                 <li
                   className="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 cursor-pointer"
-                  onClick={() => setIsRemoveOpen(true)}
+                  onClick={() => {
+                    setIsRemoveOpen(true);
+                    toggleMenu(index); // Close menu when opening modal
+                  }}
                 >
                   <Trash2 size={16} className="text-red-600" /> Remove
                 </li>

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { deleteFileAPI, deleteFileFromFolderAPI } from '../api/storageAPI';
 import PdfThumbnail from "./thumbnails/pdfThumbnail";
 import DocxThumbnail from "./thumbnails/docxThumbnail";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -24,14 +25,20 @@ export default function FileComponent({
   isMenuOpen,
   toggleMenu,
   onMoveRequest,
+  onDelete,
+  parentFolderId,
 }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [isOrganizeOpen, setIsOrganizeOpen] = useState(false);
+  const [organizeTimeout, setOrganizeTimeout] = useState(null);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const [shareTimeout, setShareTimeout] = useState(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [isRemoveOpen, setIsRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState(null);
 
   const [renameInput, setRenameInput] = useState("");
   const [emails, setEmails] = useState([
@@ -111,11 +118,18 @@ export default function FileComponent({
     <>
       {/* File Card */}
       <div
-        onClick={() => setOpen(true)}
+        onClick={e => {
+          // Only open preview if not clicking on menu or its children
+          if (
+            e.target.closest('.file-menu-area') ||
+            e.target.closest('.file-menu-action')
+          ) return;
+          setOpen(true);
+        }}
         className="group relative bg-white border border-gray-300 rounded-xl shadow-sm hover:shadow-md transition cursor-pointer"
       >
         {/* 3-bullets menu */}
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2 right-2 file-menu-area">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -128,7 +142,7 @@ export default function FileComponent({
           </button>
 
           {isMenuOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50">
+            <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50 file-menu-area">
               <ul className="text-sm text-gray-700">
                 {/* Download */}
                 <li
@@ -149,6 +163,7 @@ export default function FileComponent({
                     e.stopPropagation();
                     setRenameInput(fileName);
                     setIsRenameOpen(true);
+                    if (toggleMenu) toggleMenu(null);
                   }}
                 >
                   <Pencil size={16} className="text-gray-600" />
@@ -160,8 +175,14 @@ export default function FileComponent({
                 {/* Organize with submenu */}
                 <li
                   className="relative flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                  onMouseEnter={() => setIsOrganizeOpen(true)}
-                  onMouseLeave={() => setIsOrganizeOpen(false)}
+                  onMouseEnter={() => {
+                    if (organizeTimeout) clearTimeout(organizeTimeout);
+                    setIsOrganizeOpen(true);
+                  }}
+                  onMouseLeave={() => {
+                    const timeout = setTimeout(() => setIsOrganizeOpen(false), 1000);
+                    setOrganizeTimeout(timeout);
+                  }}
                 >
                   <div className="flex items-center gap-2">
                     <FolderCog size={16} className="text-gray-600" />
@@ -176,6 +197,7 @@ export default function FileComponent({
                         onClick={e => {
                           e.stopPropagation();
                           if (onMoveRequest) onMoveRequest(file);
+                          if (toggleMenu) toggleMenu(null); 
                         }}
                       >
                         <Move size={16} className="text-gray-600" />
@@ -188,8 +210,14 @@ export default function FileComponent({
                 {/* Share with submenu */}
                 <li
                   className="relative flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                  onMouseEnter={() => setIsShareMenuOpen(true)}
-                  onMouseLeave={() => setIsShareMenuOpen(false)}
+                  onMouseEnter={() => {
+                    if (shareTimeout) clearTimeout(shareTimeout);
+                    setIsShareMenuOpen(true);
+                  }}
+                  onMouseLeave={() => {
+                    const timeout = setTimeout(() => setIsShareMenuOpen(false), 1000);
+                    setShareTimeout(timeout);
+                  }}
                 >
                   <div className="flex items-center gap-2">
                     <Share2 size={16} className="text-gray-600" />
@@ -204,6 +232,7 @@ export default function FileComponent({
                         onClick={(e) => {
                           e.stopPropagation();
                           setIsShareOpen(true);
+                          if (toggleMenu) toggleMenu(null);
                         }}
                       >
                         <Share2 size={16} className="text-gray-600" /> Share
@@ -222,8 +251,13 @@ export default function FileComponent({
 
                 {/* Remove */}
                 <li
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 cursor-pointer"
-                  onClick={() => setIsRemoveOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 cursor-pointer file-menu-action"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setIsRemoveOpen(true);
+                    // Close the menu when opening the Remove modal
+                    if (toggleMenu) toggleMenu(null);
+                  }}
                 >
                   <Trash2 size={16} className="text-red-600" />
                   Remove
@@ -529,14 +563,30 @@ export default function FileComponent({
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsRemoveOpen(false);
+                onClick={async () => {
+                  setRemoving(true);
+                  setRemoveError(null);
+                  try {
+                    if (parentFolderId) {
+                      await deleteFileFromFolderAPI(parentFolderId, file._id);
+                    } else {
+                      await deleteFileAPI(file._id);
+                    }
+                    setIsRemoveOpen(false);
+                    if (onDelete) onDelete(file);
+                  } catch (err) {
+                    setRemoveError(err?.message || 'Failed to delete file');
+                  } finally {
+                    setRemoving(false);
+                  }
                 }}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                disabled={removing}
               >
-                Remove
+                {removing ? 'Removing...' : 'Remove'}
               </button>
             </div>
+            {removeError && <div className="text-red-600 text-xs mt-2">{removeError}</div>}
           </div>
         </div>
       )}

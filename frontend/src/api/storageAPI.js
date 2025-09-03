@@ -1,3 +1,4 @@
+
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -75,6 +76,21 @@ export const addDocumentsAPI = async (folderId, files,user_id,owner) => {
 		return res.data;
 };
 
+
+
+/**
+ * Delete an orphan file
+ * @param {string} fileId
+ * @returns {Promise<Object>}
+ */
+export const deleteFileAPI = async (fileId) => {
+	const res = await axios.delete(
+		`${API_URL}/api/storage/files/${fileId}`,
+		{ withCredentials: true }
+	);
+	return res.data;
+};
+
 /**
  * Delete a file from a folder
  * @param {string} folderId
@@ -84,19 +100,6 @@ export const addDocumentsAPI = async (folderId, files,user_id,owner) => {
 export const deleteFileFromFolderAPI = async (folderId, fileId) => {
 	const res = await axios.delete(
 		`${API_URL}/api/storage/folders/${folderId}/files/${fileId}`,
-		{ withCredentials: true }
-	);
-	return res.data;
-};
-
-/**
- * Delete an orphan file
- * @param {string} fileId
- * @returns {Promise<Object>}
- */
-export const deleteOrphanFileAPI = async (fileId) => {
-	const res = await axios.delete(
-		`${API_URL}/api/storage/files/${fileId}`,
 		{ withCredentials: true }
 	);
 	return res.data;
@@ -173,6 +176,7 @@ export const deleteFolderByIDAPI = async (id) => {
 	});
 	return res.data;
 };
+
 
 /**
  * Fetch orphan files for a user (files not in any folder)
