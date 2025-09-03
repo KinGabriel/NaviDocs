@@ -125,23 +125,21 @@ export default function DocumentControllerWorkflow() {
       <Header user={user} />
       <div className="flex flex-1">
         {/* Sidebar fixed width */}
-        <div className="flex-none">
           <Sidebar user={user} />
-        </div>
 
         {/* Main content wrapper (aligned with other pages) */}
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <main className="p-8 flex-1 overflow-y-auto">
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-3 mx-6 mt-8 rounded-xl">
+          <main className="p-5 flex-1 overflow-y-auto">
             {/* Heading */}
-            <div className="mb-8">
+         <div className="flex-1 px-1 py-3">
               <h1 className="text-3xl font-bold tracking-widest uppercase">
                 {tab === "submitted" ? "SUBMITTED DOCUMENTS" : "PUBLISHED DOCUMENTS"}
               </h1>
-              <div className="w-28 h-1 bg-yellow-400 mt-2 rounded" />
+              <div className="w-28 h-1 bg-yellow-400 mb-6 rounded" />
             </div>
 
             {/* Controls using shared components */}
-            <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 mb-6">
+            <div className="flex items-center gap-2 mb-4">
               {/* People filter */}
               <Dropdown
                 options={peopleOptions}
@@ -173,11 +171,11 @@ export default function DocumentControllerWorkflow() {
             </div>
 
             {/* Tabs */}
-            <div className="mb-5">
-              <div className="inline-flex bg-gray-100 rounded-full p-1">
+            <div className="mt-5">
+              <div className="inline-flex bg-gray-100 rounded p-1">
                 <button
                   onClick={() => setTab("submitted")}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                  className={`px-4 py-2 rounded-md text-sm font-semibold ${
                     tab === "submitted"
                       ? "bg-white shadow text-[#0035DA]"
                       : "text-gray-600"
@@ -187,7 +185,7 @@ export default function DocumentControllerWorkflow() {
                 </button>
                 <button
                   onClick={() => setTab("published")}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                  className={`px-4 py-2 rounded-md text-sm font-semibold ${
                     tab === "published"
                       ? "bg-white shadow text-[#0035DA]"
                       : "text-gray-600"

@@ -27,7 +27,7 @@ const FOLDER_FILES = {
 // root files initial (empty, will be fetched from backend)
 const ROOT_FILES_INITIAL = [];
 
-export default function DocumentControllerStorage() {
+export default function Storage() {
   // Orphan/root files state
   const [rootFiles, setRootFiles] = useState(ROOT_FILES_INITIAL);
 
@@ -262,10 +262,14 @@ export default function DocumentControllerStorage() {
         {/* Main */}
          <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
             {/* Title */}
+           {!selectedFolder && (
+          <>
             <h2 className="text-3xl font-semibold mt-7 tracking-wide">
               FILLED-OUT DOCUMENT STORAGE
             </h2>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
+          </>
+        )}
 
             {/* Inside folder navigation */}
             {selectedFolder && (
