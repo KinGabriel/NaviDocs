@@ -1,6 +1,6 @@
-
 // Use shared options and dynamic department filtering
 import { SCHOOL_OPTIONS, DEPARTMENT_OPTIONS } from "../utils/options";
+import { deleteFolderByIDAPI } from "../api/storageAPI";
 
 
 import React, { useState, Fragment,useEffect } from "react";
@@ -26,7 +26,8 @@ export default function FolderComponent({
   isMenuOpen,
   toggleMenu,
   onClick,
-  onMoveRequest, 
+  onMoveRequest,
+  onDelete,
 }) {
   const [isOrganizeOpen, setIsOrganizeOpen] = useState(false);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
@@ -431,9 +432,14 @@ export default function FolderComponent({
               </button>
               <button
                 className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
-                onClick={() => {
-                  alert(`"${folder.name}" removed`);
-                  setIsRemoveOpen(false);
+                onClick={async () => {
+                  try {
+                    await deleteFolderByIDAPI(folder._id);
+                    setIsRemoveOpen(false);
+                    if (onDelete) onDelete(); // Notify parent to refresh
+                  } catch (err) {
+                    alert(err.message || "Failed to delete folder");
+                  }
                 }}
               >
                 Remove

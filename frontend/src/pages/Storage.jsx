@@ -380,6 +380,23 @@ export default function DocumentControllerStorage() {
                           }
                         }}
                         onMoveRequest={handleMoveFolder}
+                        onDelete={async () => {
+                          // Refetch folders after deletion
+                          setLoadingFolders(true);
+                          const data = await getFoldersAPI({ user });
+                          const mapped = (data.folders || []).map((f) => ({
+                            name: f.folderName || "Unnamed Folder",
+                            date: f.createdAt || "",
+                            _id: f._id,
+                            data: {
+                              ...f,
+                              parentFolder: f.parentFolder ? String(f.parentFolder) : null
+                            }
+                          }));
+                          setFolders(mapped);
+                          setFoldersError(null);
+                          setLoadingFolders(false);
+                        }}
                       />
                     ))}
                   </div>
@@ -456,6 +473,23 @@ export default function DocumentControllerStorage() {
                           }
                         }}
                         onMoveRequest={handleMoveFolder}
+                        onDelete={async () => {
+                          // Refetch folders after deletion
+                          setLoadingFolders(true);
+                          const data = await getFoldersAPI({ user });
+                          const mapped = (data.folders || []).map((f) => ({
+                            name: f.folderName || "Unnamed Folder",
+                            date: f.createdAt || "",
+                            _id: f._id,
+                            data: {
+                              ...f,
+                              parentFolder: f.parentFolder ? String(f.parentFolder) : null
+                            }
+                          }));
+                          setFolders(mapped);
+                          setFoldersError(null);
+                          setLoadingFolders(false);
+                        }}
                       />
                     ))}
                   </div>
