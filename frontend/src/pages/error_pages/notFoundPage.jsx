@@ -1,6 +1,9 @@
-import { SearchX, Home } from "lucide-react";
+import { SearchX, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function NotFoundPage() {
+   const navigate = useNavigate(); 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F4F6FF] via-[#F4F6FF] to-blue-50 flex items-center justify-center px-6">
       {/* Background */}
@@ -41,12 +44,12 @@ export default function NotFoundPage() {
           
           {/* Action button */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button 
-              onClick={() => navigate("/")}
-              className="bg-gradient-to-r from-[#344BFD] to-[#1F2D97] hover:from-[#344BFD] hover:to-[#1F2D97] text-white font-medium py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+           <button 
+              onClick={() => navigate(-1)}
+              className="border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-medium py-3 px-6 rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
             >
-            <Home size={20} className="inline-block mr-3" />
-              Return Home
+              <ArrowLeft className="h-5 w-5" />
+              Go Back
             </button>
           </div>
         </div>

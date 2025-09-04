@@ -1,12 +1,14 @@
 import { AlertTriangle, RefreshCw, ArrowLeft } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function ServerErrorPage() {
-  
-    // mock navigation for demo
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const handleRefresh = () => {
-    window.location.reload();
+    navigate(location.pathname, { replace: true });
   };
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 flex items-center justify-center px-6">
       {/* Background */}
@@ -16,8 +18,8 @@ export default function ServerErrorPage() {
         <div className="absolute top-1/3 right-1/3 w-24 h-24 bg-red-200/20 rounded-full blur-lg"></div>
       </div>
       
-      <div className="relative z-10 text-center max-w-2xl ">
-        {/* Main content  */}
+      <div className="relative z-10 text-center max-w-2xl">
+        {/* Main content */}
         <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-10">
           {/* Icon container */}
           <div className="flex justify-center mb-8">
@@ -28,7 +30,7 @@ export default function ServerErrorPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl blur-md opacity-30 -z-10"></div>
             </div>
           </div>
-          
+
           {/* Error code */}
           <div className="mb-6">
             <h1 className="text-7xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent mb-2">
@@ -36,15 +38,16 @@ export default function ServerErrorPage() {
             </h1>
             <div className="w-24 h-1 bg-gradient-to-r from-amber-500 to-orange-600 mx-auto rounded-full"></div>
           </div>
+
           <div className="mb-8">
             <h2 className="text-2xl font-semibold text-slate-800 mb-3">
               Server Error
             </h2>
             <p className="text-slate-600 leading-relaxed">
-             NaviDocs is currently experiencing an internal error. Our team has been notified and is already working to fix the issue. Please try again shortly.
+              NaviDocs is currently experiencing an internal error. Our team has been notified and is already working to fix the issue. Please try again shortly.
             </p>
           </div>
-          
+
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button 

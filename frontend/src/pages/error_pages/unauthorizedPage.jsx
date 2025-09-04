@@ -1,12 +1,13 @@
 import { Shield, ArrowLeft, LogIn} from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function UnauthorizedPage() {
+   const navigate = useNavigate(); 
 
- // mock navigation for demo
   const handleLogin = () => {
-    console.log("Redirecting to login...");
+    navigate("/");
   };
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F4F6FF] via-red-50 to-pink-50 flex items-center justify-center px-6">
       {/* Background  */}
