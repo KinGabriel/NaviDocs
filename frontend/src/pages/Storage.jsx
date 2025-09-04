@@ -537,29 +537,49 @@ useEffect(() => {
                 />
                 {uploading && <span className="text-blue-600 text-sm">Uploading...</span>}
                 {uploadError && <span className="text-red-600 text-sm">{uploadError}</span>}
-                {/* Use dbfiles or physicalFiles if present, else fallback */}
-                {((selectedFolder.dbfiles && selectedFolder.dbfiles.length) || (selectedFolder.physicalFiles && selectedFolder.physicalFiles.length)) ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {(selectedFolder.dbfiles && selectedFolder.dbfiles.length ? selectedFolder.dbfiles : selectedFolder.physicalFiles).map((file, idx) => (
-                      <FileComponent
-                        key={file._id}
-                        file={file}
-                        index={idx}
-                        isMenuOpen={openFileMenu === `file-${idx}`}
-                        toggleMenu={toggleFileMenu}
-                        onMoveRequest={handleMoveFile}
-                        parentFolderId={selectedFolder._id}
-                        onDelete={async () => {
-                          // Refresh files in folder after delete
-                          const data = await getFolderByIDAPI(selectedFolder._id);
-                          setSelectedFolder({ ...selectedFolder, dbfiles: data.folder.dbfiles, physicalFiles: data.folder.physicalFiles });
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 italic">No files found.</p>
-                )}
+                {/* Always show 'No files found.' if there are no files */}
+                {(() => {
+                  let files = [];
+                  if (selectedFolder.dbfiles && selectedFolder.dbfiles.length) {
+                    files = selectedFolder.dbfiles;
+                  } else if (selectedFolder.physicalFiles && selectedFolder.physicalFiles.length) {
+                    files = selectedFolder.physicalFiles.filter(f => {
+                      if (typeof f === 'string') {
+                        return /\.[a-zA-Z0-9]+$/.test(f);
+                      }
+                      if (f && f.originalName) {
+                        return /\.[a-zA-Z0-9]+$/.test(f.originalName);
+                      }
+                      if (f && f.name) {
+                        return /\.[a-zA-Z0-9]+$/.test(f.name);
+                      }
+                      return true;
+                    });
+                  }
+                  if (files.length) {
+                    return (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {files.map((file, idx) => (
+                          <FileComponent
+                            key={file._id || file.name || idx}
+                            file={file}
+                            index={idx}
+                            isMenuOpen={openFileMenu === `file-${idx}`}
+                            toggleMenu={toggleFileMenu}
+                            onMoveRequest={handleMoveFile}
+                            parentFolderId={selectedFolder._id}
+                            onDelete={async () => {
+                              const data = await getFolderByIDAPI(selectedFolder._id);
+                              setSelectedFolder({ ...selectedFolder, dbfiles: data.folder.dbfiles, physicalFiles: data.folder.physicalFiles });
+                            }}
+                          />
+                        ))}
+                      </div>
+                    );
+                  } else {
+                    return <p className="text-gray-500 italic">No files found.</p>;
+                  }
+                })()}
               </>
             )}
           </main>

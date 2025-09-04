@@ -37,11 +37,26 @@ export const createFolder = async (req, res) => {
     if (existing) {
       return res.status(409).json({ message: 'Folder already exists' });
     }
+    // Inherit access from parent if present
+    let allowedUsers = [];
+    let allowedSchools = [];
+    let allowedDepartments = [];
+    if (parentFolder) {
+      const parent = await Storage.findById(parentFolder);
+      if (parent) {
+        allowedUsers = parent.allowedUsers || [];
+        allowedSchools = parent.allowedSchools || [];
+        allowedDepartments = parent.allowedDepartments || [];
+      }
+    }
     // Create folder in DB
     const folder = new Storage({
       folderName,
       owner,
-      parentFolder: parentFolder
+      parentFolder: parentFolder,
+      allowedUsers,
+      allowedSchools,
+      allowedDepartments
     });
     await folder.save();
 
@@ -226,29 +241,38 @@ export const addAccessToFolders = async (req, res) => {
       return res.status(400).json({ message: 'folderId is required.' });
     }
 
-    // Find the folder
-    const folder = await Storage.findById(folderId);
-    if (!folder) {
-      return res.status(404).json({ message: 'Folder not found.' });
-    }
+    //  recursively update access for folder and all descendants
+    const updateAccessRecursive = async (parentId) => {
+      const queue = [parentId];
+      while (queue.length) {
+        const currentId = queue.shift();
+        const folder = await Storage.findById(currentId);
+        if (!folder) continue;
+        // Update access
+        if (Array.isArray(allowedUsers)) {
+          const filtered = allowedUsers
+            .filter(u => typeof u === 'object' && u.userId && u.role)
+            .map(u => ({ userId: u.userId, role: u.role }));
+          folder.allowedUsers = filtered;
+        }
+        if (Array.isArray(allowedSchools)) {
+          folder.allowedSchools = allowedSchools;
+        }
+        if (Array.isArray(allowedDepartments)) {
+          folder.allowedDepartments = allowedDepartments;
+        }
+        await folder.save();
+        // Find children and add to queue
+        const children = await Storage.find({ parentFolder: currentId });
+        for (const child of children) {
+          queue.push(child._id);
+        }
+      }
+    };
 
-    // allowedUsers should be array of { userId (email), role }
-    if (Array.isArray(allowedUsers)) {
-        // Only accept userId and role, no conversion
-        const filtered = allowedUsers
-          .filter(u => typeof u === 'object' && u.userId && u.role)
-          .map(u => ({ userId: u.userId, role: u.role }));
-        folder.allowedUsers = filtered;
-    }
-    if (Array.isArray(allowedSchools)) {
-      folder.allowedSchools = allowedSchools;
-    }
-    if (Array.isArray(allowedDepartments)) {
-      folder.allowedDepartments = allowedDepartments;
-    }
-
-    await folder.save();
-    res.status(200).json({ message: 'Access control updated successfully.', folder });
+    await updateAccessRecursive(folderId);
+    const updatedFolder = await Storage.findById(folderId);
+    res.status(200).json({ message: 'Access control updated recursively.', folder: updatedFolder });
   } catch (err) {
     console.error('Error updating access control:', err);
     res.status(500).json({ message: 'Internal server error.' });

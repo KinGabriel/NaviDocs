@@ -39,7 +39,6 @@ export default function FileComponent({
   const [isRemoveOpen, setIsRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState(null);
-
   const [renameInput, setRenameInput] = useState("");
   const [emails, setEmails] = useState([
     { email: "juan@example.com", role: "Viewer" },
@@ -290,7 +289,9 @@ export default function FileComponent({
             {fileName}
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
+      
             {(() => {
+
               const type = file?.mimetype || '';
               if (type.includes('pdf')) return 'PDF Document';
               if (type.includes('image')) return 'Image File';
