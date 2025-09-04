@@ -41,7 +41,7 @@ export default function FolderComponent({
   ]);
   const [inputEmail, setInputEmail] = useState("");
   const [inputRole, setInputRole] = useState("Viewer");
-  const [renameValue, setRenameValue] = useState(folder.foldername);
+  const [renameValue, setRenameValue] = useState(folder.name);
 
   // Initialize state from backend folder  if available
   const [visibility, setVisibility] = useState(folder.data.visibility || 'private');
@@ -130,6 +130,7 @@ export default function FolderComponent({
                 <li
                   className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
                   onClick={() => {
+                    setRenameValue(folder.name);
                     setIsRenameOpen(true);
                     toggleMenu(index); // Close menu when opening modal
                   }}
@@ -422,9 +423,19 @@ export default function FolderComponent({
               </button>
               <button
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                onClick={() => {
-                  alert(`Renamed to "${renameValue}"`);
-                  setIsRenameOpen(false);
+                onClick={async () => {
+                  if (!renameValue || renameValue === folder.name) {
+                    setIsRenameOpen(false);
+                    return;
+                  }
+                  try {
+                    await import('../api/storageAPI').then(({ renameFolderAPI }) => renameFolderAPI(folder._id, renameValue));
+                    setIsRenameOpen(false);
+                    // Trigger a refresh or update parent
+                    if (onDelete) onDelete(folder); // Use onDelete as a refresh callback
+                  } catch (err) {
+                    alert(err?.message || 'Failed to rename folder');
+                  }
                 }}
               >
                 Save

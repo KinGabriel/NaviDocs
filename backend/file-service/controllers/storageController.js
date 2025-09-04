@@ -447,7 +447,7 @@ export const getOrphanFiles = async (req, res) => {
   }
 };
 /**
- * @route POST /api/storage/move-folder
+ * @route PATCH /api/storage/move-folder
  * @param {*} req
  * @param {*} res
  * @returns
@@ -517,7 +517,7 @@ export const moveFolder = async (req, res) => {
 };
 
 /**
- * @route POST /api/storage/move-file
+ * @route PATCH /api/storage/move-file
  * @param {*} req
  * @param {*} res
  * @returns
@@ -618,5 +618,149 @@ export const moveFile = async (req, res) => {
   } catch (err) {
     console.error('Error moving file:', err);
     res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+/*
+  * Rename a folder
+   * @route PATCH /api/storage/rename-folder
+  * @param {*} req
+  * @param {*} res
+  * @returns
+  */
+export const renameFolder = async (req, res) => {
+  try {
+    const { folderId, newName } = req.body;
+    if (!folderId || !newName) {
+      return res.status(400).json({ message: 'folderId and newName are required.' });
+    }
+    const folder = await Storage.findById(folderId);
+    if (!folder) {
+      return res.status(404).json({ message: 'Folder not found.' });
+    } 
+    const oldName = folder.folderName;
+    if (oldName === newName) {
+      return res.status(400).json({ message: 'New name is the same as the current name.' });
+    }
+    // Check for duplicate folder name under same parent
+    const query = { folderName: newName, owner: folder.owner };
+    if (folder.parentFolder) query.parentFolder = folder.parentFolder;
+    const existing = await Storage.findOne(query);
+    if (existing) {
+      return res.status(409).json({ message: 'A folder with the new name already exists in this location.' });
+    }
+
+    // Rename physical folder on disk
+    const uploadsRoot = path.join(process.cwd(), 'uploads');
+    let parentNames = [];
+    let current = folder;
+    while (current.parentFolder) {
+      current = await Storage.findById(current.parentFolder);
+      if (current) parentNames.unshift(current.folderName);
+      else break;
+    }
+    // Build old and new folder paths
+    const oldPath = path.join(uploadsRoot, folder.owner, ...parentNames, oldName);
+    const newPath = path.join(uploadsRoot, folder.owner, ...parentNames, newName);
+    // Rename on disk if exists and name is changing
+    if (oldPath !== newPath && fs.existsSync(oldPath)) {
+      try {
+        fs.renameSync(oldPath, newPath);
+      } catch (err) {
+        return res.status(500).json({ message: 'Failed to rename folder on disk.', error: err.message });
+      }
+    }
+    // Update DB
+    folder.folderName = newName;
+    await folder.save();
+    return res.status(200).json({ message: 'Folder renamed successfully.', folder });
+  } catch (err) {
+    console.error('Error renaming folder:', err);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+
+/**
+ * Rename a file (orphan or in folder)
+ * @route PATCH /api/storage/rename-file
+ * @param {*} req
+ * @param {*} res
+ * @returns
+ */
+export const renameFile = async (req, res) => {
+  try {
+    const { fileId, newName, folderId } = req.body;
+    if (!fileId || !newName) {
+      return res.status(400).json({ message: 'fileId and newName are required.' });
+    }
+    let fileDoc;
+    let oldName;
+    let filePath;
+    let newFilePath;
+    if (folderId) {
+      // File inside a folder
+      const folder = await Storage.findById(folderId);
+      if (!folder) {
+        return res.status(404).json({ message: 'Folder not found.' });
+      }
+      console.log('Folder files:', folder.files);
+      fileDoc = folder.files.find(f => f._id.toString() === fileId);
+      if (!fileDoc) {
+        return res.status(404).json({ message: 'File not found in folder.' });
+      }
+      oldName = fileDoc.originalName || fileDoc.filename || fileDoc.name;
+      // Check for duplicate name in folder
+      if (folder.files.some(f => (f._id.toString() !== fileId && (f.originalName || f.filename || f.name) === newName))) {
+        return res.status(409).json({ message: 'A file with the new name already exists in this folder.' });
+      }
+      // Build file path
+      let parentNames = [folder.folderName];
+      let current = folder;
+      while (current.parentFolder) {
+        current = await Storage.findById(current.parentFolder);
+        if (current) parentNames.unshift(current.folderName);
+        else break;
+      }
+      const uploadsRoot = path.join(process.cwd(), 'uploads');
+      const folderPath = path.join(uploadsRoot, folder.owner, ...parentNames);
+      filePath = fileDoc.path ? path.join(process.cwd(), fileDoc.path) : path.join(folderPath, oldName);
+      newFilePath = path.join(folderPath, newName);
+    } else {
+      // Orphan file
+      fileDoc = await File.findById(fileId);
+      if (!fileDoc) {
+        return res.status(404).json({ message: 'File not found.' });
+      }
+      oldName = fileDoc.originalName || fileDoc.filename || fileDoc.name;
+      // Check for duplicate name among orphan files for owner
+      const owner = fileDoc.owner || fileDoc.uploadedBy;
+      const uploadsRoot = path.join(process.cwd(), 'uploads');
+      const orphanDir = path.join(uploadsRoot, owner);
+      filePath = fileDoc.path ? path.join(process.cwd(), fileDoc.path) : path.join(orphanDir, oldName);
+      newFilePath = path.join(orphanDir, newName);
+      const duplicate = await File.findOne({ owner, originalName: newName });
+      if (duplicate && duplicate._id.toString() !== fileId) {
+        return res.status(409).json({ message: 'A file with the new name already exists.' });
+      }
+    }
+  //  update DB
+  fileDoc.originalName = newName;
+  // Do not change filename or path
+    if (folderId) {
+      // Save parent folder
+      const folderToUpdate = await Storage.findById(folderId);
+      if (folderToUpdate) {
+        const updatedFiles = folderToUpdate.files.map(f => f._id.toString() === fileDoc._id.toString() ? fileDoc : f);
+        folderToUpdate.files = updatedFiles;
+        await folderToUpdate.save();
+      }
+    } else {
+      await fileDoc.save();
+    }
+    return res.status(200).json({ message: 'File renamed successfully.', file: fileDoc });
+  } catch (err) {
+    console.error('Error renaming file:', err);
+    return res.status(500).json({ message: 'Internal server error.' });
   }
 };

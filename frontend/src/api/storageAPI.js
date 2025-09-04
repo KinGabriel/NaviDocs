@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -206,7 +205,7 @@ export const moveFolderAPI = async (folderId, newParentId) => {
 	try {
 		const payload = { folderId };
 		if (newParentId) payload.newParentId = newParentId;
-		const res = await axios.post(
+		const res = await axios.patch(
 			`${API_URL}/api/storage/folders/move-folder`,
 			payload,
 			{ withCredentials: true }
@@ -227,8 +226,50 @@ export const moveFileAPI = async (fileId, newFolderId) => {
 	try {
 		const payload = { fileId };
 		if (newFolderId) payload.newFolderId = newFolderId;
-		const res = await axios.post(
+		const res = await axios.patch(
 			`${API_URL}/api/storage/files/move-file`,
+			payload,
+			{ withCredentials: true }
+		);
+		return res.data;
+	} catch (err) {
+		throw err.response?.data || { message: err.message };
+	}
+};
+
+/**
+ * Rename a folder
+ * @param {string} folderId
+ * @param {string} newName
+ * @returns {Promise<Object>}
+ */
+export const renameFolderAPI = async (folderId, newName) => {
+	try {
+		const payload = { folderId, newName };
+		const res = await axios.patch(
+			`${API_URL}/api/storage/folders/rename-folder`,
+			payload,
+			{ withCredentials: true }
+		);
+		return res.data;
+	} catch (err) {
+		throw err.response?.data || { message: err.message };
+	}
+};
+
+/**
+ * Rename a file (orphan or in folder)
+ * @param {string} fileId
+ * @param {string} newName
+ * @param {string} [folderId]
+ * @returns {Promise<Object>}
+ */
+export const renameFileAPI = async (fileId, newName, folderId = null) => {
+	try {
+		const payload = { fileId, newName };
+		if (folderId) payload.folderId = folderId;
+		const res = await axios.patch(
+			`${API_URL}/api/storage/files/rename-file`,
 			payload,
 			{ withCredentials: true }
 		);
