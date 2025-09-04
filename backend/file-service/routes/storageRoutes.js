@@ -20,6 +20,6 @@ router.post('/files/upload-orphan', upload.array('files'), addOrphanFile);
 router.get('/files/get-orphan-files', getOrphanFiles);
 router.post('/folders/move-folder', moveFolder);
 router.post('/files/move-file', moveFile);
-router.post('/folders/rename-folder', renameFolder);
-router.post('/files/rename-file', renameFile);
+router.patch('/folders/rename-folder', renameFolder);
+router.patch('/files/rename-file', renameFile);
 export default router;

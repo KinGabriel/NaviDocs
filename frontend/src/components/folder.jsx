@@ -41,7 +41,7 @@ export default function FolderComponent({
   ]);
   const [inputEmail, setInputEmail] = useState("");
   const [inputRole, setInputRole] = useState("Viewer");
-  const [renameValue, setRenameValue] = useState(folder.foldername);
+  const [renameValue, setRenameValue] = useState(folder.name);
 
   // Initialize state from backend folder  if available
   const [visibility, setVisibility] = useState(folder.data.visibility || 'private');
@@ -130,6 +130,7 @@ export default function FolderComponent({
                 <li
                   className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
                   onClick={() => {
+                    setRenameValue(folder.name);
                     setIsRenameOpen(true);
                     toggleMenu(index); // Close menu when opening modal
                   }}

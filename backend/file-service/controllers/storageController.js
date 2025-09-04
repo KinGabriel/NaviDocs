@@ -623,7 +623,7 @@ export const moveFile = async (req, res) => {
 
 /*
   * Rename a folder
-  * @route POST /api/storage/rename-folder
+   * @route PATCH /api/storage/rename-folder
   * @param {*} req
   * @param {*} res
   * @returns
@@ -683,7 +683,7 @@ export const renameFolder = async (req, res) => {
 
 /**
  * Rename a file (orphan or in folder)
- * @route POST /api/storage/rename-file
+ * @route PATCH /api/storage/rename-file
  * @param {*} req
  * @param {*} res
  * @returns

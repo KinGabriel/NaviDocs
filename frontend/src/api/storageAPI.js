@@ -246,7 +246,7 @@ export const moveFileAPI = async (fileId, newFolderId) => {
 export const renameFolderAPI = async (folderId, newName) => {
 	try {
 		const payload = { folderId, newName };
-		const res = await axios.post(
+		const res = await axios.patch(
 			`${API_URL}/api/storage/folders/rename-folder`,
 			payload,
 			{ withCredentials: true }
@@ -268,7 +268,7 @@ export const renameFileAPI = async (fileId, newName, folderId = null) => {
 	try {
 		const payload = { fileId, newName };
 		if (folderId) payload.folderId = folderId;
-		const res = await axios.post(
+		const res = await axios.patch(
 			`${API_URL}/api/storage/files/rename-file`,
 			payload,
 			{ withCredentials: true }
