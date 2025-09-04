@@ -8,7 +8,7 @@ import {
   Folder,
   MoreVertical,
   Download,
-  FolderPen,
+  Pencil,
   FolderCog,
   Trash2,
   Move,
@@ -135,7 +135,7 @@ export default function FolderComponent({
                     toggleMenu(index); // Close menu when opening modal
                   }}
                 >
-                  <FolderPen size={16} className="text-gray-600" /> Rename
+                  <Pencil size={16} className="text-gray-600" /> Rename
                 </li>
 
                 <hr className="my-1" />
