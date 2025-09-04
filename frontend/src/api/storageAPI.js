@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 /**
@@ -150,18 +151,20 @@ export const getFolderByIDAPI = async (id) => {
  * Add access to folders (share)
  * @param {Object} param0
  * @param {string} param0.folderId
- * @param {string} param0.userId
- * @param {string} [param0.school]
- * @param {string} [param0.department]
+ * @param {Array<{userId: string, role: string}>} [param0.allowedUsers]
+ * @param {Array<string>} [param0.allowedSchools]
+ * @param {Array<string>} [param0.allowedDepartments]
  * @returns {Promise<Object>}
  */
-export const addAccessToFoldersAPI = async ({ folderId, userId, school, department }) => {
-	const res = await axios.post(
-		`${API_URL}/api/storage/folders/share`,
-		{ folderId, userId, school, department },
-		{ withCredentials: true }
-	);
-	return res.data;
+export const addAccessToFoldersAPI = async ({ folderId, allowedUsers = [], allowedSchools = [], allowedDepartments = [] }) => {
+  // Ensure only userId is sent, not email
+  const processedAllowedUsers = allowedUsers.map(u => ({ userId: u.userId, role: u.role }));
+  const res = await axios.post(
+    `${API_URL}/api/storage/folders/share`,
+    { folderId, allowedUsers: processedAllowedUsers, allowedSchools, allowedDepartments },
+    { withCredentials: true }
+  );
+  return res.data;
 };
 
 /**

@@ -1,3 +1,4 @@
+
 import axios from "axios";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -31,3 +32,39 @@ export async function updateUserPasswordAPI(userId, currentPassword, newPassword
 	);
 }
 
+/**
+ * Get userId by email (returns userId if user exists, null otherwise)
+ * @param {string} email
+ * @returns {Promise<string|null>} userId or null
+ */
+export const getUserIdByEmailAPI = async (email) => {
+  try {
+    const resp = await axios.get(`${API_URL}/api/user/getUserIdByEmail/${encodeURIComponent(email)}`, { withCredentials: true });
+    return resp.data?.userId || null;
+  } catch (err) {
+    // Optionally log error or handle specific error codes
+    return null;
+  }
+};
+
+/**
+ * Search users by email substring (for suggestions)
+ * @param {string} query
+ * @returns {Promise<Array<{userId: string, email: string}>>}
+ */
+export const searchUsersByEmailAPI = async (query) => {
+	if (!query || query.length < 2) return [];
+	try {
+		const res = await axios.get(
+			`${API_URL}/api/user/searchByEmail`,
+			{
+				params: { query },
+				withCredentials: true,
+			}
+		);
+		return res.data.users || [];
+	} catch (err) {
+
+		return [];
+	}
+};

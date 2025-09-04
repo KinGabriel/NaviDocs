@@ -1,9 +1,49 @@
+
 import User from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import axios from "axios";
 import FormData from "form-data";
 
+
+/**
+ * Get user email by user ID
+ * @route POST /api/user/getUserMail
+ * @access Private
+ */
+
+export const getUserEmail = async (req, res) => {
+  try {
+    const userId = req.params.id; // Extract user ID from request parameters
+    const user = await User.findById(userId).select("email");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({ email: user.email });
+  } catch (error) {
+    console.error("Error fetching user email:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+/**
+ * Convert email to user ID
+ * @route GET /api/user/getUserId/:email
+ * @access Private
+ */
+export const getUserIdByEmail = async (req, res) => {
+  try {
+    const email = req.params.email; // Extract email from request parameters
+    const user = await User.findOne({ email }).select("_id");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({ userId: user._id });
+  } catch (error) {
+    console.error("Error fetching user ID by email:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 /**
  * Get basic user info (firstname and lastname) by user ID
  * @route GET /api/users/getUserInfo/:id'
@@ -25,6 +65,27 @@ export const getUserBasicInfo = async (req, res) => {
   }
 };
 
+/**
+ * Search users by email substring (for autocomplete suggestions)
+ * @route GET /api/user/searchByEmail?query=xxx
+ * @access Private
+ */
+export const searchUsersByEmail = async (req, res) => {
+  try {
+    const query = req.query.query;
+    if (!query || query.length < 2) {
+      return res.status(400).json({ message: "Query too short" });
+    }
+    // Find users whose email contains the query (case-insensitive)
+    const users = await User.find({ email: { $regex: query, $options: "i" } })
+      .select("_id email")
+      .limit(10);
+    res.json({ users: users.map(u => ({ userId: u._id, email: u.email })) });
+  } catch (error) {
+    console.error("Error searching users by email:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 /**
  * Update a user's password by user ID.
  * @route PATCH /api/user/updatePassword/:id

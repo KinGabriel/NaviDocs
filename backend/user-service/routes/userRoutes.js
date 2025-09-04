@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from "multer";
-import { getUserBasicInfo,updateUserAccountSettings,updateUserPassword } from '../controllers/userController.js';
+import {getUserEmail, getUserBasicInfo,getUserIdByEmail,updateUserAccountSettings,updateUserPassword, searchUsersByEmail } from '../controllers/userController.js';
 import { authenticateJWT } from '../middleware/authenticationMiddleware.js';
 
 const router = express.Router();
@@ -19,8 +19,11 @@ const upload = multer({
     }
   }
 });
-
+router.get('/getUserEmail/:id', authenticateJWT, getUserEmail);
 router.get('/getUserInfo/:id', authenticateJWT, getUserBasicInfo);
+router.get('/getUserIdByEmail/:email', authenticateJWT, getUserIdByEmail);
+// Search users by email substring (for suggestions)
+router.get('/searchByEmail', authenticateJWT, searchUsersByEmail);
 router.patch('/updatePassword/:id', authenticateJWT, updateUserPassword);
 router.patch('/updateAccountSettings/:id', authenticateJWT, upload.single('profile_picture'), updateUserAccountSettings);
 

@@ -20,7 +20,10 @@ const storageSchema = new mongoose.Schema({
   visibility: { type: String, enum: ['public', 'private', 'restricted'], default: 'private' },
   allowedSchools: [{ type: String }],
   allowedDepartments: [{ type: String }],
-  allowedUsers: [{ type: String }],
+  allowedUsers: [{
+    userId: { type: String, required: true },
+    role: { type: String, required: true }
+  }],
   parentFolder: { type: mongoose.Schema.Types.ObjectId, ref: 'Storage', default: null },
   files: [fileSchema],
   filledOutDocuments: [{ type: String }],

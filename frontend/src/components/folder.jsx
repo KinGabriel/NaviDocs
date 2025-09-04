@@ -1,8 +1,10 @@
 // Use shared options and dynamic department filtering
 import { SCHOOL_OPTIONS, DEPARTMENT_OPTIONS } from "../utils/options";
-import { deleteFolderByIDAPI } from "../api/storageAPI";
-import React, { useState, Fragment,useEffect } from "react";
+import { deleteFolderByIDAPI,addAccessToFoldersAPI } from "../api/storageAPI";
+import { searchUsersByEmailAPI,getUserIdByEmailAPI } from "../api/userAPI";
+import React, { useState, Fragment,useEffect, useRef } from "react";
 import { Listbox, Transition } from '@headlessui/react';
+import axios from "axios";
 
 import {
   Folder,
@@ -17,6 +19,8 @@ import {
   Plus,
   Copy,
 } from "lucide-react";
+
+
 
 export default function FolderComponent({
   folder,
@@ -35,18 +39,48 @@ export default function FolderComponent({
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [isRemoveOpen, setIsRemoveOpen] = useState(false);
 
-  const [emails, setEmails] = useState([
-    { email: "juan@example.com", role: "Viewer" },
-    { email: "maria@example.com", role: "Editor" },
-  ]);
+  // Build people with access from folder data
+  const initialPeople = React.useMemo(() => {
+    const people = [];
+    // Add owner (prefer email if available)
+    if (folder.data) {
+      const ownerEmail = folder.data.ownerEmail || folder.data.owner;
+      if (ownerEmail) {
+        people.push({
+          email: ownerEmail,
+          role: 'Owner',
+          isOwner: true
+        });
+      }
+    }
+    // Add allowed users
+    if (folder.data && Array.isArray(folder.data.allowedUsers)) {
+      folder.data.allowedUsers.forEach(u => {
+        // If backend returns {email, role}, use those
+        if (u.email && u.role) {
+          people.push({ email: u.email, role: u.role });
+        } else if (u.userId && u.role) {
+          people.push({ email: u.userId, role: u.role });
+        }
+      });
+    }
+    return people;
+  }, [folder]);
+
+  const [emails, setEmails] = useState(initialPeople);
   const [inputEmail, setInputEmail] = useState("");
   const [inputRole, setInputRole] = useState("Viewer");
   const [renameValue, setRenameValue] = useState(folder.name);
+  const [suggestions, setSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const debounceRef = useRef();
+
 
   // Initialize state from backend folder  if available
   const [visibility, setVisibility] = useState(folder.data.visibility || 'private');
   const [selectedSchools, setSelectedSchools] = useState(folder.data.allowedSchools || []);
   const [selectedDepartments, setSelectedDepartments] = useState(folder.data.allowedDepartments || []);
+  
 
   // Compute available departments based on selected schools
   const availableDepartments = selectedSchools
@@ -60,12 +94,30 @@ export default function FolderComponent({
     // eslint-disable-next-line
   }, [selectedSchools]);
 
-  const handleAddEmail = () => {
-    if (inputEmail && !emails.some((e) => e.email === inputEmail)) {
-      setEmails([...emails, { email: inputEmail, role: inputRole }]);
-      setInputEmail("");
-      setInputRole("Viewer");
+  const handleAddEmail = async () => {
+    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    if (!inputEmail) return;
+    if (!emailRegex.test(inputEmail)) {
+      alert('Please enter a valid email address.');
+      return;
     }
+    if (emails.some((e) => e.email === inputEmail)) return;
+    // Check if user exists via userAPI.js
+    let userId;
+    try {
+      userId = await getUserIdByEmailAPI(inputEmail);
+      if (!userId) {
+        alert('No user found with this email.');
+        return;
+      }
+    } catch (err) {
+      alert('Error checking user existence.');
+      return;
+    }
+    // Add the email and userId to the list with the selected role
+    setEmails([...emails, { email: inputEmail, userId, role: inputRole }]);
+    setInputEmail("");
+    setInputRole("Viewer");
   };
 
   const handleRemoveEmail = (email) => {
@@ -85,6 +137,37 @@ export default function FolderComponent({
     );
     alert("Link copied to clipboard!");
   };
+
+  const debounce = (fn, delay) => {
+    let timer;
+    return (...args) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  };
+
+
+  // Debounced email suggestion fetcher
+  const fetchEmailSuggestions = async (query) => {
+    if (!query || query.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    setLoadingSuggestions(true);
+    try {
+      const users = await searchUsersByEmailAPI(query);
+      setSuggestions(users);
+    } catch (err) {
+      setSuggestions([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  // Debounced handler
+  if (!debounceRef.current) {
+    debounceRef.current = debounce(fetchEmailSuggestions, 400);
+  }
 
   return (
     <>
@@ -340,7 +423,10 @@ export default function FolderComponent({
               <input
                 type="email"
                 value={inputEmail}
-                onChange={(e) => setInputEmail(e.target.value)}
+                onChange={(e) => {
+                  setInputEmail(e.target.value);
+                  debounceRef.current(e.target.value);
+                }}
                 className="flex-1 border rounded-lg px-3 py-2"
                 placeholder="Enter email"
               />
@@ -360,24 +446,51 @@ export default function FolderComponent({
               </button>
             </div>
 
+            {/* Suggestions Dropdown */}
+            {suggestions.length > 0 && (
+              <ul className="left-0 top-full bg-white border rounded-xl shadow  z-10 w-full max-h-60 overflow-y-auto">
+                {suggestions.map((user) => (
+                  <li
+                    key={user.userId}
+                    className="px-3 py-2 cursor-pointer hover:bg-blue-100"
+                    onClick={() => {
+                      setInputEmail(user.email);
+                      setSuggestions([]);
+                    }}
+                  >
+                    {user.email}
+                  </li>
+                ))}
+              </ul>
+            )}
+
             {/* People with access */}
             <h3 className="text-sm font-medium text-gray-700 mb-2">People with access</h3>
             <div className="space-y-2 mb-4">
               {emails.map((person, idx) => (
                 <div key={idx} className="flex items-center justify-between bg-gray-100 px-3 py-2 rounded-lg">
-                  <span className="text-sm text-gray-800">{person.email}</span>
+                  <span className="text-sm text-gray-800">
+                    {person.email}
+                    {person.isOwner && <span className="ml-2 text-xs text-blue-600 font-semibold">(Owner)</span>}
+                  </span>
                   <div className="flex items-center gap-2">
-                    <select
-                      value={person.role}
-                      onChange={(e) => handleChangeRole(person.email, e.target.value)}
-                      className="border rounded-lg px-2 text-sm"
-                    >
-                      <option value="Viewer">Viewer</option>
-                      <option value="Editor">Editor</option>
-                    </select>
-                    <button onClick={() => handleRemoveEmail(person.email)} className="text-gray-500 hover:text-red-600">
-                      <X size={14} />
-                    </button>
+                    {person.isOwner ? (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">Owner</span>
+                    ) : (
+                      <>
+                        <select
+                          value={person.role}
+                          onChange={(e) => handleChangeRole(person.email, e.target.value)}
+                          className="border rounded-lg px-2 text-sm"
+                        >
+                          <option value="Viewer">Viewer</option>
+                          <option value="Editor">Editor</option>
+                        </select>
+                        <button onClick={() => handleRemoveEmail(person.email)} className="text-gray-500 hover:text-red-600">
+                          <X size={14} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -391,7 +504,31 @@ export default function FolderComponent({
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">Share</button>
+              <button
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                onClick={async () => {
+                  // Only send userId and role, not email
+                  const allowedUsers = emails
+                    .filter(e => !e.isOwner) // don't send owner
+                    .map(e => ({
+                      userId: e.userId || e.email, // prefer userId if present, else email
+                      role: e.role
+                    }));
+                  try {
+                    await addAccessToFoldersAPI({
+                      folderId: folder._id,
+                      allowedUsers,
+                      allowedSchools: selectedSchools,
+                      allowedDepartments: selectedDepartments
+                    });
+                    setIsShareOpen(false);
+                  } catch (err) {
+                    alert(err.message || 'Failed to share folder');
+                  }
+                }}
+              >
+                Share
+              </button>
             </div>
           </div>
         </div>

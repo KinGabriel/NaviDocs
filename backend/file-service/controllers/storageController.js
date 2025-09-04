@@ -91,40 +91,63 @@ export const getFolder = async (req, res) => {
     // Get all folders
     const allFolders = await Storage.find();
 
-    // Filter by access control
+    // Filter by access control (allowedUsers is now array of objects)
     const accessible = allFolders.filter(folder => {
       if (folder.visibility === 'public') return true;
       if (folder.owner === userId) return true;
-      if (folder.allowedUsers?.includes(userId)) return true;
+      if (Array.isArray(folder.allowedUsers) && folder.allowedUsers.some(u => u.userId === userId)) return true;
       if (school && folder.allowedSchools?.includes(school)) return true;
       if (department && folder.allowedDepartments?.includes(department)) return true;
       return false;
     });
 
-     // TO DO: Axios request the user details
-    // axios.get
-    
-    //  physical files list
-    const result = accessible.map(folder => {
+    // Convert owner and allowedUsers IDs to emails
+    const getUserEmail = async (userId) => {
+      try {
+        const headers = {};
+        // Use JWT token from request cookies or headers
+        const token = req.cookies?.token || req.headers?.cookie?.split('token=')[1]?.split(';')[0];
+        if (token) {
+          headers['Cookie'] = `token=${token}`;
+        } else {
+          console.warn('No token found in request!');
+        }
+        const resp = await axios.get(`${process.env.USER_SERVICE_URL || 'http://localhost:3001'}/api/user/getUserEmail/${userId}`, { headers });
+        return resp.data?.email || userId;
+      } catch (err) {
+        console.log('Error fetching user email:', err);
+        return userId;
+      }
+    };
+
+    // Map folders and convert IDs to emails, preserving role
+    const result = await Promise.all(accessible.map(async folder => {
       const folderPath = path.join(process.cwd(), 'uploads', folder.owner, folder.folderName);
       let physicalFiles = [];
       if (fs.existsSync(folderPath)) {
         physicalFiles = fs.readdirSync(folderPath);
       }
-   
+      // Convert owner and allowedUsers
+      const ownerEmail = await getUserEmail(folder.owner);
+      const allowedUsersEmails = Array.isArray(folder.allowedUsers) && folder.allowedUsers.length
+        ? await Promise.all(folder.allowedUsers.map(async u => {
+            const email = await getUserEmail(u.userId);
+            return { userId: u.userId, role: u.role, email };
+          }))
+        : [];
       return {
         _id: folder._id,
         folderName: folder.folderName,
         visibility: folder.visibility,
         allowedDepartments: folder.allowedDepartments || [],
         allowedSchools: folder.allowedSchools || [],
-        allowedUsers: folder.allowedUsers || [],
+        allowedUsers: allowedUsersEmails,
         createdAt: folder.createdAt || null,
         updatedAt: folder.updatedAt || null,
-        owner: folder.owner || null,
+        owner: ownerEmail,
         parentFolder: folder.parentFolder || null,
       };
-    });
+    }));
 
     res.status(200).json({
       message: 'Accessible folders fetched successfully.',
@@ -209,9 +232,13 @@ export const addAccessToFolders = async (req, res) => {
       return res.status(404).json({ message: 'Folder not found.' });
     }
 
-    // Overwrite access control lists if provided
+    // allowedUsers should be array of { userId (email), role }
     if (Array.isArray(allowedUsers)) {
-      folder.allowedUsers = allowedUsers;
+        // Only accept userId and role, no conversion
+        const filtered = allowedUsers
+          .filter(u => typeof u === 'object' && u.userId && u.role)
+          .map(u => ({ userId: u.userId, role: u.role }));
+        folder.allowedUsers = filtered;
     }
     if (Array.isArray(allowedSchools)) {
       folder.allowedSchools = allowedSchools;
