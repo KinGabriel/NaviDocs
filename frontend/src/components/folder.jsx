@@ -422,9 +422,19 @@ export default function FolderComponent({
               </button>
               <button
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                onClick={() => {
-                  alert(`Renamed to "${renameValue}"`);
-                  setIsRenameOpen(false);
+                onClick={async () => {
+                  if (!renameValue || renameValue === folder.name) {
+                    setIsRenameOpen(false);
+                    return;
+                  }
+                  try {
+                    await import('../api/storageAPI').then(({ renameFolderAPI }) => renameFolderAPI(folder._id, renameValue));
+                    setIsRenameOpen(false);
+                    // Trigger a refresh or update parent
+                    if (onDelete) onDelete(folder); // Use onDelete as a refresh callback
+                  } catch (err) {
+                    alert(err?.message || 'Failed to rename folder');
+                  }
                 }}
               >
                 Save

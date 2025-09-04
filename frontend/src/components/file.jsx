@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { deleteFileAPI, deleteFileFromFolderAPI } from '../api/storageAPI';
+import { deleteFileAPI, deleteFileFromFolderAPI, renameFileAPI } from '../api/storageAPI';
 import PdfThumbnail from "./thumbnails/pdfThumbnail";
 import DocxThumbnail from "./thumbnails/docxThumbnail";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -534,8 +534,23 @@ export default function FileComponent({
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsRenameOpen(false);
+                onClick={async () => {
+                  if (!renameInput || renameInput === fileName) {
+                    setIsRenameOpen(false);
+                    return;
+                  }
+                  try {
+                    if (parentFolderId) {
+                      await renameFileAPI(file._id, renameInput, parentFolderId);
+                    } else {
+                      await renameFileAPI(file._id, renameInput);
+                    }
+                    setIsRenameOpen(false);
+                    // Trigger a refresh or update parent
+                    if (onDelete) onDelete(file); // Use onDelete as a refresh callback
+                  } catch (err) {
+                    alert(err?.message || 'Failed to rename file');
+                  }
                 }}
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
               >
