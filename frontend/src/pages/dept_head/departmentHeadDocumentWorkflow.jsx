@@ -141,18 +141,18 @@ export default function DepartmentHeadDocumentWorkflow() {
         <Sidebar user={user} active="Document Workflow" />
 
         {/* Wrapper */}
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <main className="p-10 flex-1 overflow-y-auto">
+          <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-3 mx-6 mt-8 rounded-xl">
+          <main className="p-5 flex-1 overflow-y-auto">
             {/* Title */}
-            <div className="mb-8">
+            <div className="flex-1 px-1 py-3">
               <h1 className="text-3xl font-bold tracking-widest uppercase">
                 {tab === "submitted" ? "SUBMITTED DOCUMENTS" : "PUBLISHED DOCUMENTS"}
               </h1>
-              <div className="w-28 h-1 bg-yellow-400 mt-2 rounded" />
+              <div className="w-28 h-1 bg-yellow-400 mb-6 rounded" />
             </div>
 
             {/* Controls */}
-            <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 mb-6">
+             <div className="flex items-center gap-2 mb-4">
               <Dropdown
                 options={["All", "SAMCIS", "STELA", "University Wide"]}
                 value={"All"}
@@ -179,26 +179,24 @@ export default function DepartmentHeadDocumentWorkflow() {
             </div>
 
             {/* Tabs */}
-            <div className="mb-6">
-              <div className="inline-flex bg-gray-100 rounded-full p-1">
+            <div className="mt-5">
+              <div className="inline-flex bg-gray-100 rounded p-1">
                 <button
-                  onClick={() => {
-                    setTab("submitted");
-                    pagination.handlePage(1);
-                  }}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                    tab === "submitted" ? "bg-white shadow text-[#0035DA]" : "text-gray-600"
+                  onClick={() => setTab("submitted")}
+                  className={`px-4 py-2 rounded-md text-sm font-semibold ${
+                    tab === "submitted"
+                      ? "bg-white shadow text-[#0035DA]"
+                      : "text-gray-600"
                   }`}
                 >
                   Submitted
                 </button>
                 <button
-                  onClick={() => {
-                    setTab("published");
-                    pagination.handlePage(1);
-                  }}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                    tab === "published" ? "bg-white shadow text-[#0035DA]" : "text-gray-600"
+                  onClick={() => setTab("published")}
+                  className={`px-4 py-2 rounded-md text-sm font-semibold ${
+                    tab === "published"
+                      ? "bg-white shadow text-[#0035DA]"
+                      : "text-gray-600"
                   }`}
                 >
                   Published
@@ -209,44 +207,34 @@ export default function DepartmentHeadDocumentWorkflow() {
             {/* Table */}
             <Table columns={columns} data={pageRows} />
 
-            {/* Pagination */}
-            <div className="flex items-center justify-between mt-6 text-sm">
+             {/* Pagination Controls */}
+            <div className="flex justify-center items-center mt-6 gap-2">
               <button
                 onClick={pagination.handlePrev}
                 disabled={pagination.currentPage === 1}
-                className={`flex items-center gap-2 px-2 py-1 rounded ${
-                  pagination.currentPage === 1 ? "text-gray-400" : "hover:bg-gray-100"
-                }`}
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
-                <span className="text-lg">←</span> Previous
+                Prev
               </button>
-              <div className="flex items-center gap-1">
-                {pagination.getPageNumbers().map((n, idx) =>
-                  n === "..." ? (
-                    <span key={`dots-${idx}`} className="px-2">
-                      …
-                    </span>
-                  ) : (
-                    <button
-                      key={n}
-                      onClick={() => pagination.handlePage(n)}
-                      className={`h-8 w-8 rounded-full grid place-items-center ${
-                        n === pagination.currentPage ? "bg-[#0035DA] text-white" : "hover:bg-gray-100"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  )
-                )}
-              </div>
+              {pagination.getPageNumbers().map((num, idx) =>
+                num === "..." ? (
+                  <span key={idx} className="px-2 text-gray-400">...</span>
+                ) : (
+                  <button
+                    key={num}
+                    onClick={() => pagination.handlePage(num)}
+                    className={`px-3 py-1 rounded border ${pagination.currentPage === num ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+                  >
+                    {num}
+                  </button>
+                )
+              )}
               <button
                 onClick={pagination.handleNext}
                 disabled={pagination.currentPage === totalPages}
-                className={`flex items-center gap-2 px-2 py-1 rounded ${
-                  pagination.currentPage === totalPages ? "text-gray-400" : "hover:bg-gray-100"
-                }`}
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
-                Next <span className="text-lg">→</span>
+                Next
               </button>
             </div>
           </main>

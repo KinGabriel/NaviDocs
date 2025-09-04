@@ -261,7 +261,7 @@ useEffect(() => {
             {/* Title */}
            {!selectedFolder && (
           <>
-            <h2 className="text-3xl font-semibold mt-7 tracking-wide">
+            <h2 className="text-3xl font-semibold mt-8 tracking-wide">
               FILLED-OUT DOCUMENT STORAGE
             </h2>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
