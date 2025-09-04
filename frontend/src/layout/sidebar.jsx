@@ -143,7 +143,15 @@ const MENU_CONFIG = {
       ),
       route: "/documents"
     },
-      { 
+    { 
+      label: "Templates",
+      icon: (
+       <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><path fill="#0035da" d="M2 2h20v20H2zm2 2v4h16V4zm16 6h-9v10h9zM9 20V10H4v10z"/>
+       </svg>
+      ),  
+      route: "/faculty/templates"
+    },
+    { 
       label: "Storage",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="none" stroke="#003DA5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M3 6h5l2 2h11v10.4a.6.6 0 0 1-.6.6H3.6a.6.6 0 0 1-.6-.6V6.6a.6.6 0 0 1 .6-.6Z"/>

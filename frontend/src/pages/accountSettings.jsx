@@ -201,11 +201,11 @@ export default function AdminAccountSettings() {
         <Sidebar user={user} active="Account Settings" />
         {/* dashboard-style wrapper */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <main className="p-8 flex-1 overflow-y-auto">
+          <main className="p-1 flex-1 overflow-y-auto">
             {/* Title (semibold for consistency with other tabs) */}
-            <div className="mb-10">
-              <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase">ACCOUNT SETTINGS</h1>
-              <div className="w-28 h-1 bg-yellow-400 mt-2 rounded" />
+           <div className="flex-1 px-1 py-5">
+              <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-2">ACCOUNT SETTINGS</h1>
+              <div className="w-28 h-1 bg-yellow-400 mb-6 rounded" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
