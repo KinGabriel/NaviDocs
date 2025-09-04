@@ -205,7 +205,7 @@ export const moveFolderAPI = async (folderId, newParentId) => {
 	try {
 		const payload = { folderId };
 		if (newParentId) payload.newParentId = newParentId;
-		const res = await axios.post(
+		const res = await axios.patch(
 			`${API_URL}/api/storage/folders/move-folder`,
 			payload,
 			{ withCredentials: true }
@@ -226,7 +226,7 @@ export const moveFileAPI = async (fileId, newFolderId) => {
 	try {
 		const payload = { fileId };
 		if (newFolderId) payload.newFolderId = newFolderId;
-		const res = await axios.post(
+		const res = await axios.patch(
 			`${API_URL}/api/storage/files/move-file`,
 			payload,
 			{ withCredentials: true }

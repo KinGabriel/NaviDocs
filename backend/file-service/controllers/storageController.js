@@ -447,7 +447,7 @@ export const getOrphanFiles = async (req, res) => {
   }
 };
 /**
- * @route POST /api/storage/move-folder
+ * @route PATCH /api/storage/move-folder
  * @param {*} req
  * @param {*} res
  * @returns
@@ -517,7 +517,7 @@ export const moveFolder = async (req, res) => {
 };
 
 /**
- * @route POST /api/storage/move-file
+ * @route PATCH /api/storage/move-file
  * @param {*} req
  * @param {*} res
  * @returns
