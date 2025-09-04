@@ -56,7 +56,6 @@ function App() {
        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
        <Route path="/document-controller" element={<Navigate to="/document-controller/dashboard" replace />} />
 
-
        {/* Admin Module */}
        <Route
          path="/admin/dashboard"
@@ -272,7 +271,7 @@ function App() {
        <Route
          path="/documents"
          element={
-           <ProtectedRoute allowedRoles={["Document Controller","Dean", "Department Head", "Faculty"]}>
+           <ProtectedRoute allowedRoles={["Document Controller","Dean", "Department Head", "Faculty", "Secretary"]}>
              <Documents />
            </ProtectedRoute>
          }
@@ -281,12 +280,11 @@ function App() {
        <Route
         path="/documents/:id"
         element={
-          <ProtectedRoute allowedRoles={["Document Controller","Dean","Department Head","Faculty"]}>
+          <ProtectedRoute allowedRoles={["Document Controller","Dean","Department Head","Faculty", "Secretary"]}>
             <DocumentView />
           </ProtectedRoute>
         }
       />
-
       
        {/* Error Pages */}
        <Route path="*" element={<NotFoundPage />} />

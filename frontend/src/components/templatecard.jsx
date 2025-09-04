@@ -102,8 +102,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
   };
 
   return (
- <div className="relative w-[280px] bg-white rounded-lg shadow border border-gray-500 flex flex-col overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer">
-      
+<div className="relative w-[280px] bg-white rounded-lg shadow border border-gray-500 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer">
       {/*  Status & actions cluster */}
       <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
         <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
@@ -154,7 +153,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
       </div>
 
       {/*  Footer with dynamic content */}
-      <div className="flex items-start justify-between px-4 py-3">
+     <div className="flex items-start justify-between px-4 py-3 relative overflow-visible">
         <div className="flex-1 min-w-0">
           {/*  Template Title */}
           <p className="text-sm font-medium text-gray-900 leading-tight truncate" title={template.title}>
@@ -204,8 +203,8 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
           )}
         </div>
 
-        {/*  3-dot menu with dropdown */}
-  <div className="relative">
+        {/* 3-dot menu with dropdown */}
+          <div className="relative">
           <button
             className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
             onClick={(e) => {
@@ -228,15 +227,21 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
               />
               
               {/* Menu */}
-              <div className="absolute right-0 top-8 z-[60] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+              <div className="absolute right-0 top-8 z-[9999] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
                 <button
                   className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                   onClick={(e) => handleMenuAction('edit', e)}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Edit
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-pen-icon lucide-folder-pen"><path d="M2 11.5V5a2 2 0 0 1 2-2h3.9c.7 0 1.3.3 1.7.9l.8 1.2c.4.6 1 .9 1.7.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-9.5"/><path d="M11.378 13.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/></svg>
+                  Rename
+                </button>
+                
+                <button
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  onClick={(e) => handleMenuAction('duplicate', e)}
+                >
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users-round-icon lucide-users-round"><path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/></svg>
+                  Assign
                 </button>
                 
                 <button
