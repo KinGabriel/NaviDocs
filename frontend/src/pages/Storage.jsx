@@ -8,7 +8,7 @@ import FileComponent from "../components/file";
 import SearchBar from "../components/searchBar";
 import Dropdown from "../components/dropdown";
 import MoveModal from "../components/modals/moveModal";
-import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X } from "lucide-react";
+import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ListFilter } from "lucide-react";
 
 // root files initial (empty, will be fetched from backend)
 const ROOT_FILES_INITIAL = [];
@@ -23,8 +23,8 @@ export default function Storage() {
 
   // controls
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterAll, setFilterAll] = useState("All");
-  const [sortRecent, setSortRecent] = useState("Recent");
+  const [filterAll, setFilterAll] = useState("Owned by anyone");
+  const [sortRecent, setSortRecent] = useState("Sort by");
 
   // state
   const [selectedFolder, setSelectedFolder] = useState(null);
@@ -327,34 +327,32 @@ useEffect(() => {
                   )}
                 </div>
 
-              {/* Control row*/}
+              {/* Control row */}
               <div className="flex items-center gap-3">
-                 <Dropdown
-                  options={["All", "Folders", "Files"]}
-                  value={filterAll}
-                  onChange={setFilterAll}
-                  width="w-20"
-                  label=""
-                  buttonClass="bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 text-xs px-3 py-2"
-                />
+              <Dropdown
+                options={["Owned by anyone", "Owned by Me", "Shared with Me"]}
+                value={filterAll}
+                onChange={setFilterAll}
+                width="w-48"
+                label="Filter by"
+                buttonClass="bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 text-sm px-4 py-2"
+              />
 
-                <Dropdown
-                  options={["Recent", "A-Z", "Z-A", "Oldest"]}
-                  value={sortRecent}
-                  onChange={setSortRecent}
-                  width="w-20"
-                  label=""
-                  buttonClass="bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 text-xs px-3 py-2"
-                />
-               
+              <Dropdown
+                options={["Last Modified", "Date Created", "Title"]}
+                value={sortRecent}
+                onChange={setSortRecent}
+                width="w-40"
+                label="Sort by"
+                buttonClass="bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 text-sm px-4 py-2"
+              />
+                {/* Search */}
                 <div className="flex-1 min-w-[200px] sm:w-64">
                   <SearchBar
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                
-
               </div>
             </div>
 

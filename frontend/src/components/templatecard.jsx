@@ -102,170 +102,178 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
   };
 
   return (
-<div className="relative w-[280px] bg-white rounded-lg shadow border border-gray-500 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer">
-      {/*  Status & actions cluster */}
-      <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
-        <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
-          {status.charAt(0).toUpperCase() + status.slice(1)}
-        </div>
-        {canPublish && (
-          <button
-            onClick={handlePublishClick}
-            className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow"
-            title="Publish template"
-          >
-            Publish
-          </button>
-        )}
-        {canApprove && !canPublish && (
-          <button
-            onClick={handleApproveClick}
-            className="px-2 py-0.5 rounded text-[10px] font-semibold bg-green-600 text-white hover:bg-green-700 shadow"
-            title="Approve as your role"
-          >
-            Approve
-          </button>
-        )}
-      </div>
-
-      {/*  Document Preview*/}
-      <div 
-        className="w-full h-[310px] bg-gray-50 flex items-center justify-center border-b border-gray-500 hover:bg-gray-100 transition-colors"
-        onClick={onSelect}
-      >
-        <div className="text-center">
-          <svg 
-            className="mx-auto h-16 w-16 text-gray-300 mb-3" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={1} 
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
-            />
-          </svg>
-          <span className="text-gray-400 text-sm">Document Preview</span>
-          <p className="text-xs text-gray-300 mt-1">{template.document_size || 'A4'}</p>
-        </div>
-      </div>
-
-      {/*  Footer with dynamic content */}
-     <div className="flex items-start justify-between px-4 py-3 relative overflow-visible">
-        <div className="flex-1 min-w-0">
-          {/*  Template Title */}
-          <p className="text-sm font-medium text-gray-900 leading-tight truncate" title={template.title}>
-            {template.title || 'Untitled Template'}
-          </p>
-          
-          {/* Document Code */}
-          <p className="text-xs text-blue-600 font-mono mt-1">
-            {template.document_code || 'No Code'}
-          </p>
-          
-          {/*  School and Date Info */}
-          <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4z"/>
-              <circle cx="12" cy="7" r="4"/>
-            </svg>
-            <span>{extractSchoolFromCode(template.document_code)}</span>
+    <div className="m-2">
+      <div className="relative w-[280px] bg-white rounded-lg shadow-md border border-gray-300 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer overflow-visible">
+        <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
+          <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
+            {status.charAt(0).toUpperCase() + status.slice(1)}
           </div>
-          
-          <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            <span>Created {formatDate(template.createdAt || template.created_at)}</span>
-          </div>
-
-          {/* Approval role indicators */}
-          {approvalMeta && (
-            <div className="flex items-center gap-2 mt-2">
-              {['secretary','dean'].map(r => {
-                const approved = approvalMeta[`${r}Approved`];
-                return (
-                  <div key={r} className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${approved ? 'bg-green-50 border-green-500 text-green-700' : 'bg-gray-50 border-gray-300 text-gray-500'}`} title={`${r.charAt(0).toUpperCase()+r.slice(1)} ${approved ? 'approved' : 'pending'}`}> 
-                    <span className={`w-2 h-2 rounded-full ${approved ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                    {r === 'secretary' ? 'Sec' : 'Dean'}
-                  </div>
-                );
-              })}
-              {approvalMeta.isFullyApproved && !['published'].includes(status) && (
-                <div className="text-[10px] text-green-600 font-semibold" title="Fully approved awaiting publish">2/2</div>
-              )}
-            </div>
+          {canPublish && (
+            <button
+              onClick={handlePublishClick}
+              className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow"
+              title="Publish template"
+            >
+              Publish
+            </button>
+          )}
+          {canApprove && !canPublish && (
+            <button
+              onClick={handleApproveClick}
+              className="px-2 py-0.5 rounded text-[10px] font-semibold bg-green-600 text-white hover:bg-green-700 shadow"
+              title="Approve as your role"
+            >
+              Approve
+            </button>
           )}
         </div>
 
-        {/* 3-dot menu with dropdown */}
-          <div className="relative">
-          <button
-            className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(!showMenu);
-            }}
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 2a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm0 5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" />
-            </svg>
-          </button>
-
-          {/*  Dropdown Menu */}
-          {showMenu && (
-            <>
-              {/* Backdrop */}
-              <div 
-                className="fixed inset-0 z-[40]" 
-                onClick={() => setShowMenu(false)}
+        {/*  Document Preview*/}
+        <div 
+          className="w-full h-[310px] bg-gray-50 flex items-center justify-center border-b border-gray-300 hover:bg-gray-100 transition-colors rounded-t-lg"
+          onClick={onSelect}
+        >
+          <div className="text-center">
+            <svg 
+              className="mx-auto h-16 w-16 text-gray-300 mb-3" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={1} 
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
               />
-              
-              {/* Menu */}
-              <div className="absolute right-0 top-8 z-[9999] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
-                <button
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                  onClick={(e) => handleMenuAction('edit', e)}
-                >
-                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-pen-icon lucide-folder-pen"><path d="M2 11.5V5a2 2 0 0 1 2-2h3.9c.7 0 1.3.3 1.7.9l.8 1.2c.4.6 1 .9 1.7.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-9.5"/><path d="M11.378 13.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/></svg>
-                  Rename
-                </button>
-                
-                <button
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                  onClick={(e) => handleMenuAction('duplicate', e)}
-                >
-                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users-round-icon lucide-users-round"><path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/></svg>
-                  Assign
-                </button>
-                
-                <button
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                  onClick={(e) => handleMenuAction('duplicate', e)}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Duplicate
-                </button>
-                
-                <button
-                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                  onClick={(e) => handleMenuAction('delete', e)}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Delete
-                </button>
+            </svg>
+            <span className="text-gray-400 text-sm">Document Preview</span>
+            <p className="text-xs text-gray-300 mt-1">{template.document_size || 'A4'}</p>
+          </div>
+        </div>
+
+        {/*  Footer with dynamic content */}
+        <div className="flex items-start justify-between px-4 py-3 relative overflow-visible">
+          <div className="flex-1 min-w-0">
+            {/*  Template Title */}
+            <p className="text-sm font-medium text-gray-900 leading-tight truncate" title={template.title}>
+              {template.title || 'Untitled Template'}
+            </p>
+            
+            {/* Document Code */}
+            <p className="text-xs text-blue-600 font-mono mt-1">
+              {template.document_code || 'No Code'}
+            </p>
+            
+            {/*  School and Date Info */}
+            <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4z"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              <span>{extractSchoolFromCode(template.document_code)}</span>
+            </div>
+            
+            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <span>Created {formatDate(template.createdAt || template.created_at)}</span>
+            </div>
+
+            {/* Approval role indicators */}
+            {approvalMeta && (
+              <div className="flex items-center gap-2 mt-2">
+                {['secretary','dean'].map(r => {
+                  const approved = approvalMeta[`${r}Approved`];
+                  return (
+                    <div key={r} className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${approved ? 'bg-green-50 border-green-500 text-green-700' : 'bg-gray-50 border-gray-300 text-gray-500'}`} title={`${r.charAt(0).toUpperCase()+r.slice(1)} ${approved ? 'approved' : 'pending'}`}> 
+                      <span className={`w-2 h-2 rounded-full ${approved ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                      {r === 'secretary' ? 'Sec' : 'Dean'}
+                    </div>
+                  );
+                })}
+                {approvalMeta.isFullyApproved && !['published'].includes(status) && (
+                  <div className="text-[10px] text-green-600 font-semibold" title="Fully approved awaiting publish">2/2</div>
+                )}
               </div>
-            </>
-          )}
+            )}
+          </div>
+
+          {/* 3-dot menu with dropdown */}
+          <div className="relative">
+            <button
+              className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 2a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm0 5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" />
+              </svg>
+            </button>
+
+            {/*  Dropdown Menu */}
+            {showMenu && (
+              <>
+                {/* Backdrop */}
+                <div 
+                  className="fixed inset-0 z-[40]" 
+                  onClick={() => setShowMenu(false)}
+                />
+                
+                {/* Menu */}
+                <div className="absolute right-0 top-8 z-[9999] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={(e) => handleMenuAction('edit', e)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 11.5V5a2 2 0 0 1 2-2h3.9c.7 0 1.3.3 1.7.9l.8 1.2c.4.6 1 .9 1.7.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-9.5"/>
+                      <path d="M11.378 13.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/>
+                    </svg>
+                    Rename
+                  </button>
+                  
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={(e) => handleMenuAction('assign', e)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 21a8 8 0 0 0-16 0"/>
+                      <circle cx="10" cy="8" r="5"/>
+                      <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/>
+                    </svg>
+                    Assign
+                  </button>
+                  
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={(e) => handleMenuAction('duplicate', e)}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Duplicate
+                  </button>
+                  
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    onClick={(e) => handleMenuAction('delete', e)}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
