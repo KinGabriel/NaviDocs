@@ -23,8 +23,17 @@ export default function Storage() {
 
   // controls
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterAll, setFilterAll] = useState("Owned by anyone");
   const [sortRecent, setSortRecent] = useState("Sort by");
+
+   // Status options for filtering
+  const statusOptions = [
+    'Owned by anyone',
+    'Owned by me',
+    'Not owned by me'
+  ];
+
+  // Add selectedStatus state
+  const [selectedStatus, setSelectedStatus] = useState('All');
 
   // state
   const [selectedFolder, setSelectedFolder] = useState(null);
@@ -114,7 +123,7 @@ useEffect(() => {
   const toggleFileMenu = (id) =>
     setOpenFileMenu(openFileMenu === id ? null : id);
 
-  // folders (search + sort)
+  // folders (search + sort + status filter)
   const displayedFolders = useMemo(() => {
     let rows = [...folders];
     // Only show folders whose parent matches the selected folder (or top-level if none selected)
@@ -123,6 +132,12 @@ useEffect(() => {
     } else {
       rows = rows.filter(f => !f.data.parentFolder);
     }
+    
+    // Status filtering for folders
+    if (selectedStatus !== 'All') {
+      rows = rows.filter(f => f.data.status === selectedStatus);
+    }
+    
     if (sortRecent === "Recent") {
       rows.sort((a, b) => new Date(b.date) - new Date(a.date));
     }
@@ -131,17 +146,23 @@ useEffect(() => {
       rows = rows.filter((f) => f.name.toLowerCase().includes(q));
     }
     return rows;
-  }, [searchQuery, sortRecent, folders, selectedFolder]);
+  }, [searchQuery, sortRecent, folders, selectedFolder, selectedStatus]);
 
-  // files depending on location + search
+  // files depending on location + search + status filter
   const displayedFiles = useMemo(() => {
     let rows = selectedFolder ? FOLDER_FILES[selectedFolder] || [] : rootFiles;
+    
+    // Status filtering for files
+    if (selectedStatus !== 'All') {
+      rows = rows.filter((f) => f.status === selectedStatus);
+    }
+    
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       rows = rows.filter((f) => (f.name || f.originalName || f).toLowerCase().includes(q));
     }
     return rows;
-  }, [selectedFolder, searchQuery, rootFiles]);
+  }, [selectedFolder, searchQuery, rootFiles, selectedStatus]);
 
   // handle create new folder 
   const [createFolderError, setCreateFolderError] = useState(null);
@@ -262,7 +283,7 @@ useEffect(() => {
            {!selectedFolder && (
           <>
             <h1 className="text-3xl font-semibold mt-8 tracking-wide">
-              FILLED-OUT DOCUMENT STORAGE
+              DOCUMENT STORAGE
             </h1>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
           </>
@@ -286,77 +307,94 @@ useEffect(() => {
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              {/* New button */}
-              <div className="relative">
+        <div className="flex items-center justify-between gap-6 mb-3 bg-gray-50/50 p-3 rounded-lg">
+        <div className="flex items-center gap-4">
+          {/* New Button */}
+          <div className="relative">
+            <button
+              onClick={() => setShowNewMenu((prev) => !prev)}
+              className="px-5 py-2.5 bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] text-white rounded-lg 
+                        shadow-md hover:shadow-lg flex items-center gap-2 font-medium transition-all duration-200"
+            >
+              <Plus size={18} /> New
+            </button>
+
+            {showNewMenu && (
+              <div className="absolute left-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
                 <button
-                  onClick={() => setShowNewMenu((prev) => !prev)}
-                  className="px-6 py-3 bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] text-white rounded-xl shadow-lg hover:shadow-xl flex items-center gap-3 font-medium transition-all duration-200 transform hover:scale-105"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-[#0035DA] rounded-lg transition-all duration-150 font-medium"
+                  onClick={() => {
+                    setShowNewFolderModal(true);
+                    setShowNewMenu(false);
+                  }}
                 >
-                  <Plus size={20} /> New
+                  <FolderPlus size={20} className="text-blue-500" /> New Folder
                 </button>
-
-                  {showNewMenu && (
-                    <div className="absolute left-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
-                      <button
-                      className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-[#0035DA] rounded-lg transition-all duration-150 font-medium"
-                      onClick={() => {
-                        setShowNewFolderModal(true);
-                        setShowNewMenu(false);
-                      }}
-                      >
-                      <FolderPlus size={20} className="text-blue-500" /> New Folder
-                    </button>
-                      <button
-                      className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-all duration-150 font-medium"
-                      onClick={() => {
-                        setShowNewMenu(false);
-                        if (selectedFolder) {
-                          document.getElementById('upload-documents-global').click();
-                        } else {
-                          document.getElementById('upload-orphan-files').click();
-                        }
-                      }}
-                    >
-                      <Upload size={20} className="text-green-500" /> Upload File
-                    </button>
-                     <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-purple-50 hover:text-purple-700 rounded-lg transition-all duration-150 font-medium">
-                      <FolderUp size={20} className="text-purple-500" /> Upload Folder
-                    </button>
-                    </div>
-                  )}
-                </div>
-
-              {/* Control row */}
-              <div className="flex items-center gap-3">
-              <Dropdown
-                options={["Owned by anyone", "Owned by Me", "Shared with Me"]}
-                value={filterAll}
-                onChange={setFilterAll}
-                width="w-48"
-                label="Filter by"
-                buttonClass="bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 text-sm px-4 py-2"
-              />
-
-              <Dropdown
-                options={["Last Modified", "Date Created", "Title"]}
-                value={sortRecent}
-                onChange={setSortRecent}
-                width="w-40"
-                label="Sort by"
-                buttonClass="bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 text-sm px-4 py-2"
-              />
-                {/* Search */}
-                <div className="flex-1 min-w-[200px] sm:w-64">
-                  <SearchBar
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-all duration-150 font-medium"
+                  onClick={() => {
+                    setShowNewMenu(false);
+                    if (selectedFolder) {
+                      document.getElementById("upload-documents-global").click();
+                    } else {
+                      document.getElementById("upload-orphan-files").click();
+                    }
+                  }}
+                >
+                  <Upload size={20} className="text-green-500" /> Upload File
+                </button>
+                <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-purple-50 hover:text-purple-700 rounded-lg transition-all duration-150 font-medium">
+                  <FolderUp size={20} className="text-purple-500" /> Upload Folder
+                </button>
               </div>
-            </div>
+            )}
+          </div>
 
-            {/* Root view or folder view */}
+          {/* Status Filter Tabs */}
+          <div className="flex gap-1 ml-2">
+            {statusOptions.map((status) => {
+              const isSelected = selectedStatus === status;
+              return (
+                <button
+                key={status}
+                onClick={() => setSelectedStatus(status)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 border ${
+                  isSelected
+                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700"
+                }`}
+              >
+                  {status}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+      {/* Sort & Search */}
+      <div className="flex items-center gap-3">
+        <Dropdown
+          options={["Last Modified", "Date Created", "Title"]}
+          value={sortRecent}
+          onChange={setSortRecent}
+          width="w-36"
+          label="Sort"
+          buttonClass="bg-white hover:bg-gray-50 text-gray-700 border 
+                      border-gray-200 text-sm px-3 py-2.5 shadow-sm"
+        />
+
+        <div className="w-60">
+          <SearchBar
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search files and folders..."
+          />
+        </div>
+      </div>
+      </div>
+      <div className="border-t border-gray-200 mb-4"></div>
+
+        {/* Root view or folder view */}
             {!selectedFolder ? (
               <>
                 {/* Folders */}
@@ -556,6 +594,12 @@ useEffect(() => {
                       return true;
                     });
                   }
+
+                  // status filtering to folder files
+                  if (selectedStatus !== 'All') {
+                    files = files.filter((f) => f.status === selectedStatus);
+                  }
+
                   if (files.length) {
                     return (
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -584,6 +628,7 @@ useEffect(() => {
             )}
           </main>
         </div>
+
       {/* New Folder Modal */}
       {showNewFolderModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
