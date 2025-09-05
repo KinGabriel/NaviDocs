@@ -4,7 +4,7 @@ import { deleteFolderByIDAPI,addAccessToFoldersAPI } from "../api/storageAPI";
 import { searchUsersByEmailAPI,getUserIdByEmailAPI } from "../api/userAPI";
 import React, { useState, Fragment,useEffect, useRef } from "react";
 import { Listbox, Transition } from '@headlessui/react';
-import axios from "axios";
+import useUser from '../hooks/useUser';
 
 import {
   Folder,
@@ -31,6 +31,7 @@ export default function FolderComponent({
   onMoveRequest,
   onDelete,
 }) {
+  const user = useUser();
   const [isOrganizeOpen, setIsOrganizeOpen] = useState(false);
   const [organizeTimeout, setOrganizeTimeout] = useState(null);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
@@ -508,11 +509,16 @@ export default function FolderComponent({
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                 onClick={async () => {
                   // Only send userId and role, not email
+
+                console.log(user)
                   const allowedUsers = emails
                     .filter(e => !e.isOwner) // don't send owner
                     .map(e => ({
-                      userId: e.userId || e.email, // prefer userId if present, else email
-                      role: e.role
+                      userId: e.userId, 
+                      role: e.role,
+                      email: e.email,
+                     grantedBy: user?.firstname + ' ' + user?.lastname,
+                     emailOfGrantedBy: user?.email
                     }));
                   try {
                     await addAccessToFoldersAPI({

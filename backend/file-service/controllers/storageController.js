@@ -240,7 +240,6 @@ export const addAccessToFolders = async (req, res) => {
     if (!folderId) {
       return res.status(400).json({ message: 'folderId is required.' });
     }
-
     //  recursively update access for folder and all descendants
     const updateAccessRecursive = async (parentId) => {
       const queue = [parentId];
@@ -250,9 +249,16 @@ export const addAccessToFolders = async (req, res) => {
         if (!folder) continue;
         // Update access
         if (Array.isArray(allowedUsers)) {
+          // Preserve grantedBy and emailOfGrantedBy if present
           const filtered = allowedUsers
             .filter(u => typeof u === 'object' && u.userId && u.role)
-            .map(u => ({ userId: u.userId, role: u.role }));
+            .map(u => ({
+              userId: u.userId,
+              role: u.role,
+              email: u.email,
+              grantedBy: u.grantedBy,
+              emailOfGrantedBy: u.emailOfGrantedBy
+            }));
           folder.allowedUsers = filtered;
         }
         if (Array.isArray(allowedSchools)) {
@@ -272,6 +278,57 @@ export const addAccessToFolders = async (req, res) => {
 
     await updateAccessRecursive(folderId);
     const updatedFolder = await Storage.findById(folderId);
+
+    // Send notification emails to allowed users (if email is present)
+    if (Array.isArray(allowedUsers) && allowedUsers.length) {
+      const mailServiceUrl = process.env.EMAIL_SERVICE_URL || 'http://localhost:3005';
+      let folderName = updatedFolder?.folderName || 'a folder';
+      // Determine the default grantedBy (display name) and emailOfGrantedBy (email address)
+      let defaultGrantedBy = 'an administrator';
+      let emailOfGrantedBy = '';
+      if (req.user) {
+        if (req.user.name) {
+          defaultGrantedBy = req.user.name;
+        }
+        if (req.user.email) {
+          emailOfGrantedBy = req.user.email;
+          // If no name, use email as fallback for display
+          if (!req.user.name) {
+            defaultGrantedBy = req.user.email;
+          }
+        }
+      }
+      // Allow override from request body if provided
+      if (req.body.grantedBy) {
+        defaultGrantedBy = req.body.grantedBy;
+      }
+      if (req.body.emailOfGrantedBy) {
+        emailOfGrantedBy = req.body.emailOfGrantedBy;
+      }
+      for (const user of allowedUsers) {
+        if (user.email) {
+          // Use user.grantedBy and user.emailOfGrantedBy if present, else default
+          const grantedBy = user.grantedBy || defaultGrantedBy;
+          const emailGrantedBy = user.emailOfGrantedBy || emailOfGrantedBy;
+          try {
+            await axios.post(`${mailServiceUrl}/api/email/send-access`, {
+              to: user.email,
+              subject: 'You have been granted access to a folder',
+              template: 'folderAccess',
+              templateData: {
+                folderName,
+                grantedBy,
+                emailOfGrantedBy: emailGrantedBy,
+                folderLink: null
+              }
+            });
+          } catch (mailErr) {
+            console.error('Failed to send notification email to', user.email, mailErr.message);
+          }
+        }
+      }
+    }
+
     res.status(200).json({ message: 'Access control updated recursively.', folder: updatedFolder });
   } catch (err) {
     console.error('Error updating access control:', err);

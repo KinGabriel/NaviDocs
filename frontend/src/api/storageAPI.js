@@ -157,11 +157,9 @@ export const getFolderByIDAPI = async (id) => {
  * @returns {Promise<Object>}
  */
 export const addAccessToFoldersAPI = async ({ folderId, allowedUsers = [], allowedSchools = [], allowedDepartments = [] }) => {
-  // Ensure only userId is sent, not email
-  const processedAllowedUsers = allowedUsers.map(u => ({ userId: u.userId, role: u.role }));
   const res = await axios.post(
     `${API_URL}/api/storage/folders/share`,
-    { folderId, allowedUsers: processedAllowedUsers, allowedSchools, allowedDepartments },
+    { folderId, allowedUsers: allowedUsers, allowedSchools, allowedDepartments },
     { withCredentials: true }
   );
   return res.data;
