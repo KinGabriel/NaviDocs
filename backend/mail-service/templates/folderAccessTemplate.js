@@ -7,7 +7,7 @@
  * @param {string} [param0.folderLink]
  * @returns {string}
  */
-export function folderAccessTemplate({ folderName, grantedBy, folderLink,emailOfGrantedBy }) {
+export function folderAccessTemplate({ folderName, grantedBy, folderLink,emailOfGrantedBy,role }) {
   return `
     <!DOCTYPE html>
     <html>
@@ -47,6 +47,7 @@ export function folderAccessTemplate({ folderName, grantedBy, folderLink,emailOf
           <div class="info-box">
             <p>You have been granted access to the folder <b>${folderName || 'a folder'}</b>.</p>
             <p><strong>Granted By:</strong> ${grantedBy || 'an administrator'}${emailOfGrantedBy ? ` (${emailOfGrantedBy})` : ''}</p>
+            ${role ? `<p><strong>Your Role:</strong> ${role}</p>` : ''}
           </div>
           ${folderLink ? `<center><a href="${folderLink}" class="btn">Open Folder</a></center>` : ''}
           <p>If you have any questions, please contact your administrator.</p>

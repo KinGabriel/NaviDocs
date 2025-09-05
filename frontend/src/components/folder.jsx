@@ -68,7 +68,33 @@ export default function FolderComponent({
     return people;
   }, [folder]);
 
-  const [emails, setEmails] = useState(initialPeople);
+  const [emails, setEmails] = useState(() => initialPeople);
+
+  // Always sync emails with backend allowedUsers when modal opens
+  useEffect(() => {
+    if (isShareOpen && folder.data) {
+      const people = [];
+      const ownerEmail = folder.data.ownerEmail || folder.data.owner;
+      if (ownerEmail) {
+        people.push({
+          email: ownerEmail,
+          role: 'Owner',
+          isOwner: true
+        });
+      }
+      if (Array.isArray(folder.data.allowedUsers)) {
+        folder.data.allowedUsers.forEach(u => {
+          if (u.email && u.role) {
+            people.push({ email: u.email, role: u.role, userId: u.userId });
+          } else if (u.userId && u.role) {
+            people.push({ email: u.userId, role: u.role, userId: u.userId });
+          }
+        });
+      }
+      setEmails(people);
+    }
+    // eslint-disable-next-line
+  }, [isShareOpen, folder.data]);
   const [inputEmail, setInputEmail] = useState("");
   const [inputRole, setInputRole] = useState("Viewer");
   const [renameValue, setRenameValue] = useState(folder.name);
@@ -508,17 +534,15 @@ export default function FolderComponent({
               <button
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                 onClick={async () => {
-                  // Only send userId and role, not email
-
-                console.log(user)
+                  // Always resend all current users (except owner) as allowedUsers
                   const allowedUsers = emails
-                    .filter(e => !e.isOwner) // don't send owner
+                    .filter(e => !e.isOwner)
                     .map(e => ({
-                      userId: e.userId, 
+                      userId: e.userId,
                       role: e.role,
                       email: e.email,
-                     grantedBy: user?.firstname + ' ' + user?.lastname,
-                     emailOfGrantedBy: user?.email
+                      grantedBy: user?.firstname + ' ' + user?.lastname,
+                      emailOfGrantedBy: user?.email
                     }));
                   try {
                     await addAccessToFoldersAPI({

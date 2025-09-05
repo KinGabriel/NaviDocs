@@ -276,10 +276,20 @@ export const addAccessToFolders = async (req, res) => {
       }
     };
 
+    // Get the previous allowedUsers list before update
+    const folderBeforeUpdate = await Storage.findById(folderId);
+    // Build a map of previous allowedUsers: { userId: role }
+    const prevAllowedUsersMap = {};
+    if (Array.isArray(folderBeforeUpdate?.allowedUsers)) {
+      for (const u of folderBeforeUpdate.allowedUsers) {
+        if (u.userId) prevAllowedUsersMap[u.userId.toString()] = u.role;
+      }
+    }
+
     await updateAccessRecursive(folderId);
     const updatedFolder = await Storage.findById(folderId);
 
-    // Send notification emails to allowed users (if email is present)
+    // Send notification emails only to users not already in the previous allowedUsers
     if (Array.isArray(allowedUsers) && allowedUsers.length) {
       const mailServiceUrl = process.env.EMAIL_SERVICE_URL || 'http://localhost:3005';
       let folderName = updatedFolder?.folderName || 'a folder';
@@ -292,13 +302,11 @@ export const addAccessToFolders = async (req, res) => {
         }
         if (req.user.email) {
           emailOfGrantedBy = req.user.email;
-          // If no name, use email as fallback for display
           if (!req.user.name) {
             defaultGrantedBy = req.user.email;
           }
         }
       }
-      // Allow override from request body if provided
       if (req.body.grantedBy) {
         defaultGrantedBy = req.body.grantedBy;
       }
@@ -306,8 +314,11 @@ export const addAccessToFolders = async (req, res) => {
         emailOfGrantedBy = req.body.emailOfGrantedBy;
       }
       for (const user of allowedUsers) {
-        if (user.email) {
-          // Use user.grantedBy and user.emailOfGrantedBy if present, else default
+        // Only send if user is new or their role has changed
+        const prevRole = user.userId ? prevAllowedUsersMap[user.userId?.toString()] : undefined;
+        const isNewUser = !prevRole;
+        const isRoleChanged = prevRole && user.role && user.role !== prevRole;
+        if (user.email && (isNewUser || isRoleChanged)) {
           const grantedBy = user.grantedBy || defaultGrantedBy;
           const emailGrantedBy = user.emailOfGrantedBy || emailOfGrantedBy;
           try {
@@ -319,7 +330,8 @@ export const addAccessToFolders = async (req, res) => {
                 folderName,
                 grantedBy,
                 emailOfGrantedBy: emailGrantedBy,
-                folderLink: null
+                folderLink: null,
+                role: user.role || null
               }
             });
           } catch (mailErr) {
