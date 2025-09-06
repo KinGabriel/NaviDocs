@@ -88,6 +88,16 @@ export default function DepartmentHeadTemplates() {
     fetchTemplates();
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
+  const openPreview = (template, i) => {
+    navigate(`/documents/${template._id || i}`, {
+        state: {
+        doc: template,
+        sidebarActive: "Templates",      // left-nav highlight for this page
+        backTo: "/department-head/templates", // adjust if your route differs
+        },
+    });
+  };
+
   // Open assign modal
   const handleOpenAssign = async (template) => {
     setSelectedTemplate(template);
