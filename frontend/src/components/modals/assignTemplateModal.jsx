@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 
 export default function AssignTemplateModal({
   open,
@@ -12,6 +12,20 @@ export default function AssignTemplateModal({
   loading
 }) {
   if (!open) return null;
+
+  // Local search state
+  const [query, setQuery] = useState('');
+
+  // Filtered list (name/fullName/email)
+  const filteredFaculty = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return faculty || [];
+    return (faculty || []).filter((f) => {
+      const name = String(f?.name || f?.fullName || '').toLowerCase();
+      const email = String(f?.email || '').toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
+  }, [faculty, query]);
 
   return (
     <div
@@ -44,6 +58,47 @@ export default function AssignTemplateModal({
                     clipRule="evenodd" />
             </svg>
           </button>
+        </div>
+
+        {/* Optional search input */}
+        <div className="mb-3">
+          <div className="relative">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search faculty by name or email…"
+              className="w-full rounded-md border border-gray-300 pl-9 pr-9 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              aria-label="Search faculty"
+            />
+            {/* Search icon */}
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
+              xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4z" />
+            </svg>
+            {/* Clear button */}
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 hover:bg-gray-100"
+                aria-label="Clear search"
+                title="Clear"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400"
+                     viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {/* Result count */}
+          <p className="mt-1 text-xs text-gray-500">
+            {facultyLoading ? 'Loading faculty…' : `${filteredFaculty.length} result${filteredFaculty.length === 1 ? '' : 's'}`}
+          </p>
         </div>
 
         {/* Faculty list */}
