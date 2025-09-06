@@ -21,7 +21,7 @@ export default function DepartmentHeadTemplates() {
   const [sortOrder, setSortOrder] = useState('Recent');
   const navigate = useNavigate();
 
-    // Assign modal state
+  // Assign modal state
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignLoading, setAssignLoading] = useState(false);
   const [facultyLoading, setFacultyLoading] = useState(false);
@@ -73,6 +73,7 @@ export default function DepartmentHeadTemplates() {
       } else if (sortOrder === 'Recent') {
         templatesArray.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
       }
+
       setTemplates(templatesArray);
     } catch (error) {
       setTemplates([]);
@@ -85,6 +86,71 @@ export default function DepartmentHeadTemplates() {
   useEffect(() => {
     fetchTemplates();
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
+
+  // Open assign modal
+  const handleOpenAssign = async (template) => {
+    setSelectedTemplate(template);
+    setSelectedFacultyIds([]);
+    setShowAssignModal(true);
+    await loadFaculty();
+  };
+
+  // Fetch faculty (same department as Dept Head)
+  const loadFaculty = async () => {
+    if (!user) return;
+    setFacultyLoading(true);
+    try {
+      // You can adjust how you derive departmentId from user
+      const departmentId = user?.department?._id || user?.department || null;
+      const res = await fetchFacultyAPI({ departmentId });
+      const list = res?.data?.faculty || res?.faculty || [];
+      setFaculty(list);
+    } catch (e) {
+      console.error('Failed to load faculty list:', e);
+      setFaculty([]); // fallback
+    } finally {
+      setFacultyLoading(false);
+    }
+  };
+
+  // Confirm assignment
+  const handleConfirmAssign = async () => {
+    if (!selectedTemplate || selectedFacultyIds.length === 0) {
+      alert('Please select at least one faculty to assign.');
+      return;
+    }
+    setAssignLoading(true);
+    try {
+      const payload = {
+        templateId: selectedTemplate._id,
+        assignees: selectedFacultyIds,
+        assignedBy: user?._id || user?.id,
+      };
+      const res = await assignTemplateAPI(payload);
+      if (res?.success) {
+        setShowAssignModal(false);
+        setSelectedTemplate(null);
+        setSelectedFacultyIds([]);
+        // Optional: refresh list or show toast
+        // fetchTemplates();
+        alert('Template assigned successfully.');
+      } else {
+        throw new Error(res?.message || 'Assignment failed');
+      }
+    } catch (e) {
+      console.error('Assignment error:', e);
+      alert(e?.message || 'Failed to assign template');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  // Toggle select faculty
+  const toggleFaculty = (id) => {
+    setSelectedFacultyIds((prev) =>
+      prev.includes(id) ? prev.filter((fid) => fid !== id) : [...prev, id]
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -137,13 +203,23 @@ export default function DepartmentHeadTemplates() {
                 </div>
               ) : (
                 templates.map((template, i) => (
-                  <TemplateCard
-                    key={template._id || i}
-                    template={template}
-                    user={user}
-                    // Department Head assigns or views only
-                    onSelect={() => navigate(`/department-head/assign-template?templateId=${template._id}`)}
-                  />
+                  <div key={template._id} className="flex flex-col">
+                    <TemplateCard
+                      template={template}
+                      user={user}
+                      onSelect={() => handleOpenAssign(template)}
+                    />
+                    {/* Assign button*/}
+                    <button
+                      onClick={() => handleOpenAssign(template)}
+                      className="mt-2 inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-2 rounded-md shadow"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 25 25" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 0l-4-4m4 4l-4 4" />
+                      </svg>
+                      Assign
+                    </button>
+                  </div>
                 ))
               )}
             </div>
@@ -190,5 +266,6 @@ export default function DepartmentHeadTemplates() {
         </div>
       </div>
     </div>
+
   );
 }
