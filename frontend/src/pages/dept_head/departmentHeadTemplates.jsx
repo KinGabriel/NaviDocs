@@ -212,7 +212,7 @@ export default function DepartmentHeadTemplates() {
                     {/* Assign button*/}
                     <button
                       onClick={() => handleOpenAssign(template)}
-                      className="mt-2 inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-2 rounded-md shadow"
+                      className="mt-2 inline-flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-1 rounded-md shadow w-20"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 25 25" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 0l-4-4m4 4l-4 4" />
