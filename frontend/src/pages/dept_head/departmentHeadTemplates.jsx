@@ -8,6 +8,7 @@ import Dropdown from '../../components/dropdown';
 import TemplateCard from '../../components/templatecard';
 import usePagination from '../../hooks/usePagination';
 import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
+import AssignTemplateModal from '../../components/modals/assignTemplateModal';
 
 export default function DepartmentHeadTemplates() {
   const user = useUser();
@@ -267,7 +268,20 @@ export default function DepartmentHeadTemplates() {
           </div>
         </div>
       </div>
-    </div>
 
+      {showAssignModal && (
+        <AssignTemplateModal
+          open={showAssignModal}
+          onClose={() => { setShowAssignModal(false); setSelectedTemplate(null); }}
+          template={selectedTemplate}
+          faculty={faculty}
+          facultyLoading={facultyLoading}
+          selectedFacultyIds={selectedFacultyIds}
+          toggleFaculty={toggleFaculty}
+          onConfirm={handleConfirmAssign}
+          loading={assignLoading}
+        />
+      )}
+    </div>
   );
 }
