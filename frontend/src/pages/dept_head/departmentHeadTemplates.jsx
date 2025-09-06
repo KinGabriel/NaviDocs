@@ -16,12 +16,18 @@ export default function DepartmentHeadTemplates() {
   const [loading, setLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const pagination = usePagination(totalPages, 1);
-
   const [selectedSchool, setSelectedSchool] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [sortOrder, setSortOrder] = useState('Recent');
-
   const navigate = useNavigate();
+
+    // Assign modal state
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [facultyLoading, setFacultyLoading] = useState(false);
+  const [faculty, setFaculty] = useState([]);              // list to choose from
+  const [selectedFacultyIds, setSelectedFacultyIds] = useState([]); // chosen assignees
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   // School identifiers for filtering
   const schoolIdentifiers = {
@@ -29,13 +35,6 @@ export default function DepartmentHeadTemplates() {
     'SAMCIS': 'SMI',
     'STELA': 'STL',
   };
-
-  const statusOptions = [
-    'All',
-    'Pending Approval',
-    'Approved',
-    'Published'
-  ];
 
   const PAGE_SIZE = 8;
 
