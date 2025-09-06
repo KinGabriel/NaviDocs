@@ -29,6 +29,7 @@ import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
 import DepartmentHeadDocumentWorkflow from './pages/dept_head/departmentHeadDocumentWorkflow';
 import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics';
 import DepartmentHeadTemplates from './pages/dept_head/departmentHeadTemplates'; 
+import DepartmentHeadTemplateView from './pages/dept_head/departmentHeadTemplateView';
 import FacultyDashboard from './pages/faculty/facultyDashboard';
 import EditableFields from './pages/editableFields';
 import Storage from './pages/storage';
@@ -235,6 +236,14 @@ function App() {
          element={
            <ProtectedRoute allowedRoles={["Department Head"]}>
              <DepartmentHeadTemplates/>
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/dept-head/templates/:id"
+         element={
+           <ProtectedRoute allowedRoles={["Department Head"]}>
+             <DepartmentHeadTemplateView/>
            </ProtectedRoute>
          }
        />
