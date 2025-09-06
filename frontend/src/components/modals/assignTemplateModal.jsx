@@ -27,6 +27,20 @@ export default function AssignTemplateModal({
     });
   }, [faculty, query]);
 
+  const handleSelectAll = () => {
+    const ids = filteredFaculty.map((f) => f._id);
+    ids.forEach((id) => {
+      if (!selectedFacultyIds.includes(id)) toggleFaculty(id);
+    });
+  };
+
+  const handleDeselectAll = () => {
+    const ids = filteredFaculty.map((f) => f._id);
+    ids.forEach((id) => {
+      if (selectedFacultyIds.includes(id)) toggleFaculty(id);
+    });
+  };
+
   return (
     <div
       className="fixed inset-0 z-[2000] flex items-center justify-center"
@@ -60,7 +74,7 @@ export default function AssignTemplateModal({
           </button>
         </div>
 
-        {/* Optional search input */}
+        {/* search input */}
         <div className="mb-3">
           <div className="relative">
             <input
@@ -95,10 +109,31 @@ export default function AssignTemplateModal({
               </button>
             )}
           </div>
+
           {/* Result count */}
-          <p className="mt-1 text-xs text-gray-500">
-            {facultyLoading ? 'Loading faculty…' : `${filteredFaculty.length} result${filteredFaculty.length === 1 ? '' : 's'}`}
-          </p>
+          <div className="mt-1 flex items-center justify-between text-xs text-gray-500">
+            <span>
+              {facultyLoading
+                ? 'Loading faculty…'
+                : `${filteredFaculty.length} result${filteredFaculty.length === 1 ? '' : 's'}`}
+            </span>
+            {!facultyLoading && filteredFaculty.length > 0 && (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSelectAll}
+                  className="text-blue-600 hover:underline"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={handleDeselectAll}
+                  className="text-blue-600 hover:underline"
+                >
+                  Deselect All
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Faculty list */}
