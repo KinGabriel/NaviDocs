@@ -89,11 +89,11 @@ export default function DepartmentHeadTemplates() {
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
   const openPreview = (template, i) => {
-    navigate(`/documents/${template._id || i}`, {
+    navigate(`/dept-head/templates/${template._id || i}`, {
         state: {
         doc: template,
-        sidebarActive: "Templates",      // left-nav highlight for this page
-        backTo: "/department-head/templates", // adjust if your route differs
+        sidebarActive: "Templates", 
+        backTo: "/dept-head/templates", 
         },
     });
   };
@@ -214,12 +214,21 @@ export default function DepartmentHeadTemplates() {
                 </div>
               ) : (
                 templates.map((template, i) => (
-                  <div key={template._id} className="flex flex-col">
+                  <div key={template._id || i} className="flex flex-col">
+                    {/* Click the card => open preview */}
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => openPreview(template, i)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openPreview(template, i)}
+                    >
                     <TemplateCard
-                      template={template}
-                      user={user}
-                      onSelect={() => handleOpenAssign(template)}
+                        template={template}
+                        user={user}
+                        onSelect={() => {() => {}}}
                     />
+                    </div>
 
                     {/* Assign button*/}
                     <div className="flex justify-start px-3 pb-3">
