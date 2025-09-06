@@ -209,17 +209,19 @@ export default function DepartmentHeadTemplates() {
                       user={user}
                       onSelect={() => handleOpenAssign(template)}
                     />
+
                     {/* Assign button*/}
-                    <button
-                      onClick={() => handleOpenAssign(template)}
-                      className="mt-2 inline-flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-1 rounded-md shadow w-20"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 25 25" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 0l-4-4m4 4l-4 4" />
-                      </svg>
-                      Assign
-                    </button>
-                  </div>
+                    <div className="flex justify-start px-3 pb-3">
+                        <button
+                            onClick={() => handleOpenAssign(template)}
+                            className="inline-flex items-center justify-center 
+                                        bg-blue-600 hover:bg-blue-700 text-white 
+                                        text-xs font-medium px-4 py-1 rounded shadow w-20"
+                        >
+                            Assign
+                        </button>
+                    </div>
+                </div>
                 ))
               )}
             </div>
