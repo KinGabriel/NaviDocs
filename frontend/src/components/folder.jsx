@@ -549,7 +549,8 @@ export default function FolderComponent({
                       folderId: folder._id,
                       allowedUsers,
                       allowedSchools: selectedSchools,
-                      allowedDepartments: selectedDepartments
+                      allowedDepartments: selectedDepartments,
+                      visibility: visibility
                     });
                     setIsShareOpen(false);
                   } catch (err) {

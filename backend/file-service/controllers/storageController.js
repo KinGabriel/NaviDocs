@@ -268,7 +268,7 @@ console.log(result)
  */
 export const addAccessToFolders = async (req, res) => {
   try {
-    const { folderId, allowedUsers, allowedSchools, allowedDepartments } = req.body;
+  const { folderId, allowedUsers, allowedSchools, allowedDepartments, visibility } = req.body;
     if (!folderId) {
       return res.status(400).json({ message: 'folderId is required.' });
     }
@@ -293,6 +293,9 @@ export const addAccessToFolders = async (req, res) => {
               viaFiles: false
             }));
           folder.allowedUsers = filtered;
+        }
+        if (typeof visibility === 'string') {
+          folder.visibility = visibility;
         }
         if (Array.isArray(allowedSchools)) {
           folder.allowedSchools = allowedSchools;
@@ -322,7 +325,7 @@ export const addAccessToFolders = async (req, res) => {
             return {
               ...file,
               allowedUsers: [...fileAllowedUsers, ...folderAllowedUsers],
-              visibility: folder.visibility // sync file visibility with folder
+              visibility: typeof visibility === 'string' ? visibility : folder.visibility 
             };
           });
         }
