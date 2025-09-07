@@ -200,8 +200,41 @@ export const getFolderByID = async (req, res) => {
       physicalFiles = fs.readdirSync(folderPath);
     }
 
-    // If you want to include db files, adjust as needed
-    const dbfiles = folder.files || [];
+    // Helper to get user email
+    const getUserEmail = async (userId) => {
+      try {
+        const headers = {};
+        const token = req.cookies?.token || req.headers?.cookie?.split('token=')[1]?.split(';')[0];
+        if (token) {
+          headers['Cookie'] = `token=${token}`;
+        }
+        const resp = await axios.get(`${process.env.USER_SERVICE_URL || 'http://localhost:3001'}/api/user/getUserEmail/${userId}`, { headers });
+        return resp.data?.email || userId;
+      } catch (err) {
+        console.log('Error fetching user email:', err);
+        return userId;
+      }
+    };
+
+    // Map dbfiles to resolve owner and allowedUsers to emails
+    const dbfiles = folder.files && folder.files.length
+      ? await Promise.all(folder.files.map(async file => {
+        // Convert to plain object to avoid Mongoose subdoc internals
+        const plainFile = typeof file.toObject === 'function' ? file.toObject() : { ...file };
+        const ownerEmail = plainFile.owner ? await getUserEmail(plainFile.owner) : (plainFile.uploadedBy ? await getUserEmail(plainFile.uploadedBy) : null);
+        const allowedUsersEmails = Array.isArray(plainFile.allowedUsers) && plainFile.allowedUsers.length
+          ? await Promise.all(plainFile.allowedUsers.map(async u => {
+            const email = await getUserEmail(u.userId);
+            return { ...u, email };
+          }))
+          : [];
+        return {
+          ...plainFile,
+          owner: ownerEmail,
+          allowedUsers: allowedUsersEmails
+        };
+      }))
+      : [];
 
     const result = {
       _id: folder._id,
@@ -213,10 +246,10 @@ export const getFolderByID = async (req, res) => {
       createdAt: folder.createdAt || null,
       updatedAt: folder.updatedAt || null,
       owner: folder.owner || null,
-      dbfiles,
+      dbfiles, 
       physicalFiles
     };
-
+console.log(result)
     res.status(200).json({
       message: 'Folder fetched successfully.',
       folder: result
@@ -226,7 +259,6 @@ export const getFolderByID = async (req, res) => {
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
-
 /**
  * Add or replace access to folders
  * @route POST /api/storage/folders/share
@@ -240,14 +272,14 @@ export const addAccessToFolders = async (req, res) => {
     if (!folderId) {
       return res.status(400).json({ message: 'folderId is required.' });
     }
-    //  recursively update access for folder and all descendants
+    //  recursively update access for folder and all descendants, including files in folders
     const updateAccessRecursive = async (parentId) => {
       const queue = [parentId];
       while (queue.length) {
         const currentId = queue.shift();
         const folder = await Storage.findById(currentId);
         if (!folder) continue;
-        // Update access
+        // Update folder allowedUsers
         if (Array.isArray(allowedUsers)) {
           // Preserve grantedBy and emailOfGrantedBy if present
           const filtered = allowedUsers
@@ -257,7 +289,8 @@ export const addAccessToFolders = async (req, res) => {
               role: u.role,
               email: u.email,
               grantedBy: u.grantedBy,
-              emailOfGrantedBy: u.emailOfGrantedBy
+              emailOfGrantedBy: u.emailOfGrantedBy,
+              viaFiles: false
             }));
           folder.allowedUsers = filtered;
         }
@@ -267,6 +300,33 @@ export const addAccessToFolders = async (req, res) => {
         if (Array.isArray(allowedDepartments)) {
           folder.allowedDepartments = allowedDepartments;
         }
+
+        // Recursively update allowedUsers and visibility for files in this folder
+        if (Array.isArray(allowedUsers) && Array.isArray(folder.files)) {
+          folder.files = folder.files.map(file => {
+            // Preserve all viaFiles:true entries
+            const fileAllowedUsers = Array.isArray(file.allowedUsers) ? file.allowedUsers.filter(u => u.viaFiles) : [];
+            // Build a set of userIds that have viaFiles:true
+            const viaFilesUserIds = new Set(fileAllowedUsers.map(u => u.userId));
+            // Add folder allowedUsers (with viaFiles: false), but skip if userId already exists in viaFiles:true
+            const folderAllowedUsers = allowedUsers
+              .filter(u => typeof u === 'object' && u.userId && u.role && !viaFilesUserIds.has(u.userId))
+              .map(u => ({
+                userId: u.userId,
+                role: u.role,
+                email: u.email,
+                grantedBy: u.grantedBy,
+                emailOfGrantedBy: u.emailOfGrantedBy,
+                viaFiles: false
+              }));
+            return {
+              ...file,
+              allowedUsers: [...fileAllowedUsers, ...folderAllowedUsers],
+              visibility: folder.visibility // sync file visibility with folder
+            };
+          });
+        }
+
         await folder.save();
         // Find children and add to queue
         const children = await Storage.find({ parentFolder: currentId });
@@ -349,6 +409,132 @@ export const addAccessToFolders = async (req, res) => {
 };
 
 /**
+ * Add or replace access to a file (orphan or in folder)
+ * @route PATCH /api/files/share-access
+ * @param {*} req
+ * @param {*} res
+ * @returns
+ */
+export const addAccessToFile = async (req, res) => {
+  try {
+  const { fileId, folderId, allowedUsers, visibility } = req.body;
+    if (!fileId) {
+      return res.status(400).json({ message: 'fileId is required.' });
+    }
+    let fileDoc;
+    let parentFolder = null;
+    if (folderId) {
+      // File inside a folder
+      parentFolder = await Storage.findById(folderId);
+      if (!parentFolder) {
+        return res.status(404).json({ message: 'Parent folder not found.' });
+      }
+      fileDoc = parentFolder.files.find(f => f._id.toString() === fileId);
+      if (!fileDoc) {
+        return res.status(404).json({ message: 'File not found in folder.' });
+      }
+    } else {
+      // Orphan file
+      fileDoc = await File.findById(fileId);
+      if (!fileDoc) {
+        return res.status(404).json({ message: 'File not found.' });
+      }
+    }
+
+    // Build a map of previous allowedUsers: { userId: role }
+    const prevAllowedUsersMap = {};
+    if (Array.isArray(fileDoc.allowedUsers)) {
+      for (const u of fileDoc.allowedUsers) {
+        if (u.userId) prevAllowedUsersMap[u.userId.toString()] = u.role;
+      }
+    }
+
+    // Update allowedUsers
+    if (Array.isArray(allowedUsers)) {
+      const filtered = allowedUsers
+        .filter(u => typeof u === 'object' && u.userId && u.role)
+        .map(u => ({
+          userId: u.userId,
+          role: u.role,
+          email: u.email,
+          grantedBy: u.grantedBy,
+          emailOfGrantedBy: u.emailOfGrantedBy
+        }));
+      fileDoc.allowedUsers = filtered;
+    }
+    // Update visibility if provided
+    if (typeof visibility === 'string') {
+      fileDoc.visibility = visibility;
+    }
+
+    // Save changes
+    if (folderId && parentFolder) {
+      // Update file in parent folder's files array
+      parentFolder.files = parentFolder.files.map(f => f._id.toString() === fileId ? fileDoc : f);
+      await parentFolder.save();
+    } else {
+      await fileDoc.save();
+    }
+
+    // Send notification emails only to users not already in the previous allowedUsers
+    if (Array.isArray(allowedUsers) && allowedUsers.length) {
+      const mailServiceUrl = process.env.EMAIL_SERVICE_URL || 'http://localhost:3005';
+      let fileName = fileDoc.originalName || fileDoc.filename || 'a file';
+      // Determine the default grantedBy (display name) and emailOfGrantedBy (email address)
+      let defaultGrantedBy = 'an administrator';
+      let emailOfGrantedBy = '';
+      if (req.user) {
+        if (req.user.name) {
+          defaultGrantedBy = req.user.name;
+        }
+        if (req.user.email) {
+          emailOfGrantedBy = req.user.email;
+          if (!req.user.name) {
+            defaultGrantedBy = req.user.email;
+          }
+        }
+      }
+      if (req.body.grantedBy) {
+        defaultGrantedBy = req.body.grantedBy;
+      }
+      if (req.body.emailOfGrantedBy) {
+        emailOfGrantedBy = req.body.emailOfGrantedBy;
+      }
+      for (const user of allowedUsers) {
+        // Only send if user is new or their role has changed
+        const prevRole = user.userId ? prevAllowedUsersMap[user.userId?.toString()] : undefined;
+        const isNewUser = !prevRole;
+        const isRoleChanged = prevRole && user.role && user.role !== prevRole;
+        if (user.email && (isNewUser || isRoleChanged)) {
+          const grantedBy = user.grantedBy || defaultGrantedBy;
+          const emailGrantedBy = user.emailOfGrantedBy || emailOfGrantedBy;
+          try {
+            await axios.post(`${mailServiceUrl}/api/email/send-access`, {
+              to: user.email,
+              subject: 'You have been granted access to a file',
+              template: 'fileAccess',
+              templateData: {
+                fileName,
+                grantedBy,
+                emailOfGrantedBy: emailGrantedBy,
+                fileLink: null,
+                role: user.role || null
+              }
+            });
+          } catch (mailErr) {
+            console.error('Failed to send notification email to', user.email, mailErr.message);
+          }
+        }
+      }
+    }
+
+    res.status(200).json({ message: 'File access updated.', file: fileDoc });
+  } catch (err) {
+    console.error('Error updating file access:', err);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+/**
  * Delete Folder by ID (recursive)
  * @param {*} req
  * @param {*} res
@@ -419,6 +605,9 @@ export const addDocuments = async (req, res) => {
           folderName: parentNames.length > 0 ? [...parentNames, folder.folderName].join(path.sep) : folder.folderName,
           uploaded_by: req.body.user_id
         });
+        // Inherit allowedUsers and visibility from folder for non-orphan files
+        meta.allowedUsers = Array.isArray(folder.allowedUsers) ? folder.allowedUsers.map(u => ({ ...u })) : [];
+        meta.visibility = folder.visibility || 'private';
         fileMetadatas.push(meta);
       } catch (err) {
         console.error('Error uploading document:', err);
@@ -560,7 +749,43 @@ export const getOrphanFiles = async (req, res) => {
     }
     // Find all File documents where owner/user_id matches and not linked to a folder
     const orphanFiles = await File.find({ uploadedBy: userId });
-    res.status(200).json({ message: 'Orphan files fetched successfully.', files: orphanFiles });
+
+    // Convert owner and allowedUsers IDs to emails
+    const getUserEmail = async (userId) => {
+      try {
+        const headers = {};
+        // Use JWT token from request cookies or headers
+        const token = req.cookies?.token || req.headers?.cookie?.split('token=')[1]?.split(';')[0];
+        if (token) {
+          headers['Cookie'] = `token=${token}`;
+        } else {
+          console.warn('No token found in request!');
+        }
+        const resp = await axios.get(`${process.env.USER_SERVICE_URL || 'http://localhost:3001'}/api/user/getUserEmail/${userId}`, { headers });
+        return resp.data?.email || userId;
+      } catch (err) {
+        console.log('Error fetching user email:', err);
+        return userId;
+      }
+    };
+
+    // Map files and convert IDs to emails, preserving role
+    const result = await Promise.all(orphanFiles.map(async file => {
+      const ownerEmail = file.owner ? await getUserEmail(file.owner) : (file.uploadedBy ? await getUserEmail(file.uploadedBy) : null);
+      const allowedUsersEmails = Array.isArray(file.allowedUsers) && file.allowedUsers.length
+        ? await Promise.all(file.allowedUsers.map(async u => {
+            const email = await getUserEmail(u.userId);
+            return { userId: u.userId, role: u.role, email };
+          }))
+        : [];
+      return {
+        ...file.toObject(),
+        owner: ownerEmail,
+        allowedUsers: allowedUsersEmails
+      };
+    }));
+
+    res.status(200).json({ message: 'Orphan files fetched successfully.', files: result });
   } catch (err) {
     console.error('Error fetching orphan files:', err);
     res.status(500).json({ message: 'Internal server error.' });

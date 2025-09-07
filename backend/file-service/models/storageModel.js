@@ -7,6 +7,12 @@ const fileSchema = new mongoose.Schema({
   mimetype: { type: String, required: true },
   size: { type: Number, required: true },
   path: { type: String, required: true },
+  visibility: { type: String, enum: ['public', 'private', 'restricted'], default: 'private' },
+  allowedUsers: [{
+    userId: { type: String, required: true },
+    role: { type: String, required: true },
+    viaFiles: { type: Boolean, default: false }
+  }],
   uploadedBy: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
@@ -22,7 +28,8 @@ const storageSchema = new mongoose.Schema({
   allowedDepartments: [{ type: String }],
   allowedUsers: [{
     userId: { type: String, required: true },
-    role: { type: String, required: true }
+    role: { type: String, required: true },
+    viaFiles: { type: Boolean, default: false }
   }],
   parentFolder: { type: mongoose.Schema.Types.ObjectId, ref: 'Storage', default: null },
   files: [fileSchema],

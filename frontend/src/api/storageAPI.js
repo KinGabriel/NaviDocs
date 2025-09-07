@@ -166,6 +166,25 @@ export const addAccessToFoldersAPI = async ({ folderId, allowedUsers = [], allow
 };
 
 /**
+ * Add or update access to a file (orphan or in folder)
+ * @param {Object} param0
+ * @param {string} param0.fileId
+ * @param {string} [param0.folderId]
+ * @param {Array<{userId: string, role: string}>} param0.allowedUsers
+ * @returns {Promise<Object>}
+ */
+export const addAccessToFileAPI = async ({ fileId, folderId = null, allowedUsers = [],visibility }) => {
+	const payload = { fileId, allowedUsers,visibility };
+	if (folderId) payload.folderId = folderId;
+	const res = await axios.patch(
+		`${API_URL}/api/storage/files/share-access`,
+		payload,
+		{ withCredentials: true }
+	);
+	return res.data;
+};
+
+/**
  * Delete folder by ID
  * @param {string} id
  * @returns {Promise<Object>}
