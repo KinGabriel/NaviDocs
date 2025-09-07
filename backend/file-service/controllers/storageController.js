@@ -260,7 +260,7 @@ export const addAccessToFolders = async (req, res) => {
         // Recursively update allowedUsers and visibility for files in this folder
         if (Array.isArray(allowedUsers) && Array.isArray(folder.files)) {
           folder.files = folder.files.map(file => {
-            // Preserve all viaFiles:true entries
+
             const fileAllowedUsers = Array.isArray(file.allowedUsers) ? file.allowedUsers.filter(u => u.viaFiles) : [];
             // Build a set of userIds that have viaFiles:true
             const viaFilesUserIds = new Set(fileAllowedUsers.map(u => u.userId));
@@ -275,6 +275,7 @@ export const addAccessToFolders = async (req, res) => {
                 emailOfGrantedBy: u.emailOfGrantedBy,
                 viaFiles: false
               }));
+
             return {
               ...file,
               allowedUsers: [...fileAllowedUsers, ...folderAllowedUsers],
@@ -407,15 +408,25 @@ export const addAccessToFile = async (req, res) => {
 
     // Update allowedUsers
     if (Array.isArray(allowedUsers)) {
+      // Create a map of previous allowedUsers by userId for quick lookup
+      const prevAllowedUsers = Array.isArray(fileDoc.allowedUsers) ? fileDoc.allowedUsers : [];
+      const prevMap = new Map();
+      for (const u of prevAllowedUsers) {
+        if (u.userId) prevMap.set(u.userId.toString(), u);
+      }
       const filtered = allowedUsers
         .filter(u => typeof u === 'object' && u.userId && u.role)
-        .map(u => ({
-          userId: u.userId,
-          role: u.role,
-          email: u.email,
-          grantedBy: u.grantedBy,
-          emailOfGrantedBy: u.emailOfGrantedBy
-        }));
+        .map(u => {
+          const prev = prevMap.get(u.userId.toString());
+          return {
+            userId: u.userId,
+            role: u.role,
+            email: u.email,
+            grantedBy: u.grantedBy,
+            emailOfGrantedBy: u.emailOfGrantedBy,
+            viaFiles: prev ? prev.viaFiles === true : true
+          };
+        });
       fileDoc.allowedUsers = filtered;
     }
     // Update visibility if provided
