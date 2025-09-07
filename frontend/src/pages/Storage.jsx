@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from "react";
 import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI, moveFolderAPI, moveFileAPI } from "../api/storageAPI";
 import Header from "../layout/header";
@@ -9,6 +10,7 @@ import SearchBar from "../components/searchBar";
 import Dropdown from "../components/dropdown";
 import MoveModal from "../components/modals/moveModal";
 import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ListFilter } from "lucide-react";
+
 
 // root files initial (empty, will be fetched from backend)
 const ROOT_FILES_INITIAL = [];
@@ -33,7 +35,7 @@ export default function Storage() {
   ];
 
   // Add selectedStatus state
-  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedStatus, setSelectedStatus] = useState('Owned by anyone');
 
   // state
   const [selectedFolder, setSelectedFolder] = useState(null);
@@ -68,18 +70,28 @@ export default function Storage() {
   const [loadingFolders, setLoadingFolders] = useState(true);
   const [foldersError, setFoldersError] = useState(null);
 
-  // Fetch orphan files for the user
+  // Fetch orphan files for the user and when status changes
   useEffect(() => {
     if (!user || !user._id) return;
-    getOrphanFilesAPI(user._id)
+    getOrphanFilesAPI(user._id, selectedStatus)
       .then((data) => {
         setRootFiles(data.files || []);
       })
       .catch((err) => {
         setRootFiles([]);
       });
-  }, [user]);
+  }, [user, selectedStatus]);
 
+// Refetch in-folder files when status changes and a folder is selected
+useEffect(() => {
+  if (selectedFolder && selectedFolder._id && user && user._id) {
+    getFolderByIDAPI(selectedFolder._id, user._id, selectedStatus)
+      .then((data) => {
+        setSelectedFolder(data.folder);
+      })
+      .catch(() => {});
+  }
+}, [selectedStatus, selectedFolder?._id, user]);
   
     // close menus when clicking outside
 useEffect(() => {
@@ -91,13 +103,12 @@ useEffect(() => {
   return () => document.removeEventListener('click', handleClickOutside);
 }, []);
 
-  // Fetch folders from backend on mount
+  // Fetch folders from backend on mount and when selectedStatus changes
   useEffect(() => {
     if (!user) return;
     setLoadingFolders(true);
-    getFoldersAPI({ user })
+    getFoldersAPI({ user, status: selectedStatus })
       .then((data) => {
-        console.log("Fetched folders:", data);
         // Map backend folder fields to UI folder state, ensure parentFolder is string or null
         const mapped = (data.folders || []).map((f) => ({
           name: f.folderName || "Unnamed Folder",
@@ -115,7 +126,7 @@ useEffect(() => {
         setFoldersError(err.message || "Failed to load folders");
       })
       .finally(() => setLoadingFolders(false));
-  }, [user]);
+  }, [user, selectedStatus]);
 
   // toggle menus
   const toggleFolderMenu = (id) =>
@@ -123,7 +134,7 @@ useEffect(() => {
   const toggleFileMenu = (id) =>
     setOpenFileMenu(openFileMenu === id ? null : id);
 
-  // folders (search + sort + status filter)
+  // folders (search + sort)
   const displayedFolders = useMemo(() => {
     let rows = [...folders];
     // Only show folders whose parent matches the selected folder (or top-level if none selected)
@@ -132,12 +143,6 @@ useEffect(() => {
     } else {
       rows = rows.filter(f => !f.data.parentFolder);
     }
-    
-    // Status filtering for folders
-    if (selectedStatus !== 'All') {
-      rows = rows.filter(f => f.data.status === selectedStatus);
-    }
-    
     if (sortRecent === "Recent") {
       rows.sort((a, b) => new Date(b.date) - new Date(a.date));
     }
@@ -146,23 +151,17 @@ useEffect(() => {
       rows = rows.filter((f) => f.name.toLowerCase().includes(q));
     }
     return rows;
-  }, [searchQuery, sortRecent, folders, selectedFolder, selectedStatus]);
+  }, [searchQuery, sortRecent, folders, selectedFolder]);
 
-  // files depending on location + search + status filter
+  // files depending on location + search
   const displayedFiles = useMemo(() => {
     let rows = selectedFolder ? FOLDER_FILES[selectedFolder] || [] : rootFiles;
-    
-    // Status filtering for files
-    if (selectedStatus !== 'All') {
-      rows = rows.filter((f) => f.status === selectedStatus);
-    }
-    
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       rows = rows.filter((f) => (f.name || f.originalName || f).toLowerCase().includes(q));
     }
     return rows;
-  }, [selectedFolder, searchQuery, rootFiles, selectedStatus]);
+  }, [selectedFolder, searchQuery, rootFiles]);
 
   // handle create new folder 
   const [createFolderError, setCreateFolderError] = useState(null);
@@ -247,11 +246,11 @@ useEffect(() => {
         // Refetch orphan files and folder files after move
         if (!selectedFolder) {
           // If in root, refresh orphan files
-          const orphanRes = await getOrphanFilesAPI(user._id);
+          const orphanRes = await getOrphanFilesAPI(user._id, selectedStatus);
           setRootFiles(orphanRes.files || []);
         } else {
           // If in folder, refresh folder files
-          const folderRes = await getFolderByIDAPI(selectedFolder._id);
+          const folderRes = await getFolderByIDAPI(selectedFolder._id, user?._id, selectedStatus);
           setSelectedFolder(folderRes.folder);
         }
       } catch (err) {
@@ -356,14 +355,14 @@ useEffect(() => {
               const isSelected = selectedStatus === status;
               return (
                 <button
-                key={status}
-                onClick={() => setSelectedStatus(status)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 border ${
-                  isSelected
-                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700"
-                }`}
-              >
+                  key={status}
+                  onClick={() => setSelectedStatus(status)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 border ${
+                    isSelected
+                      ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700"
+                  }`}
+                >
                   {status}
                 </button>
               );
@@ -410,7 +409,7 @@ useEffect(() => {
                         toggleMenu={toggleFolderMenu}
                         onClick={async () => {
                           try {
-                            const data = await getFolderByIDAPI(folder._id);
+                            const data = await getFolderByIDAPI(folder._id, user?._id, selectedStatus);
                             setSelectedFolder(data.folder);
                           } catch (err) {
                             alert('Failed to fetch folder details.');
@@ -455,7 +454,7 @@ useEffect(() => {
                     try {
                       const res = await addOrphanFileAPI(files, user._id, user?.role?.school);
                       // Refetch orphan files after upload to ensure latest state
-                      const orphanRes = await getOrphanFilesAPI(user._id);
+                      const orphanRes = await getOrphanFilesAPI(user._id, selectedStatus);
                       setRootFiles(orphanRes.files || []);
                       e.target.value = "";
                     } catch (err) {
@@ -485,12 +484,12 @@ useEffect(() => {
                             // Refresh orphan/root files if not in a folder
                             if (!selectedFolder) {
                               if (user && user._id) {
-                                const data = await getOrphanFilesAPI(user._id);
+                                const data = await getOrphanFilesAPI(user._id, selectedStatus);
                                 setRootFiles(data.files || []);
                               }
                             } else {
                               console.log(selectedFolder._id);
-                              const data = await getFolderByIDAPI(selectedFolder._id);
+                              const data = await getFolderByIDAPI(selectedFolder._id, user?._id, selectedStatus);
                               setSelectedFolder({ ...selectedFolder, dbfiles: data.folder.dbfiles, physicalFiles: data.folder.physicalFiles });
                             }
                           }}
@@ -516,7 +515,7 @@ useEffect(() => {
                         toggleMenu={toggleFolderMenu}
                         onClick={async () => {
                           try {
-                            const data = await getFolderByIDAPI(folder._id);
+                            const data = await getFolderByIDAPI(folder._id, user?._id, selectedStatus);
                             setSelectedFolder(data.folder);
                           } catch (err) {
                             alert('Failed to fetch folder details.');
@@ -576,54 +575,27 @@ useEffect(() => {
                 {uploading && <span className="text-blue-600 text-sm">Uploading...</span>}
                 {uploadError && <span className="text-red-600 text-sm">{uploadError}</span>}
                 {/* Always show 'No files found.' if there are no files */}
-                {(() => {
-                  let files = [];
-                  if (selectedFolder.dbfiles && selectedFolder.dbfiles.length) {
-                    files = selectedFolder.dbfiles;
-                  } else if (selectedFolder.physicalFiles && selectedFolder.physicalFiles.length) {
-                    files = selectedFolder.physicalFiles.filter(f => {
-                      if (typeof f === 'string') {
-                        return /\.[a-zA-Z0-9]+$/.test(f);
-                      }
-                      if (f && f.originalName) {
-                        return /\.[a-zA-Z0-9]+$/.test(f.originalName);
-                      }
-                      if (f && f.name) {
-                        return /\.[a-zA-Z0-9]+$/.test(f.name);
-                      }
-                      return true;
-                    });
-                  }
-
-                  // status filtering to folder files
-                  if (selectedStatus !== 'All') {
-                    files = files.filter((f) => f.status === selectedStatus);
-                  }
-
-                  if (files.length) {
-                    return (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                        {files.map((file, idx) => (
-                          <FileComponent
-                            key={file._id || file.name || idx}
-                            file={file}
-                            index={idx}
-                            isMenuOpen={openFileMenu === `file-${idx}`}
-                            toggleMenu={toggleFileMenu}
-                            onMoveRequest={handleMoveFile}
-                            parentFolderId={selectedFolder._id}
-                            onDelete={async () => {
-                              const data = await getFolderByIDAPI(selectedFolder._id);
-                              setSelectedFolder({ ...selectedFolder, dbfiles: data.folder.dbfiles, physicalFiles: data.folder.physicalFiles });
-                            }}
-                          />
-                        ))}
-                      </div>
-                    );
-                  } else {
-                    return <p className="text-gray-500 italic">No files found.</p>;
-                  }
-                })()}
+                {selectedFolder.dbfiles && selectedFolder.dbfiles.length ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {selectedFolder.dbfiles.map((file, idx) => (
+                      <FileComponent
+                        key={file._id || file.name || idx}
+                        file={file}
+                        index={idx}
+                        isMenuOpen={openFileMenu === `file-${idx}`}
+                        toggleMenu={toggleFileMenu}
+                        onMoveRequest={handleMoveFile}
+                        parentFolderId={selectedFolder._id}
+                        onDelete={async () => {
+                          const data = await getFolderByIDAPI(selectedFolder._id, user?._id, selectedStatus);
+                          setSelectedFolder({ ...selectedFolder, dbfiles: data.folder.dbfiles, physicalFiles: data.folder.physicalFiles });
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic">No files found.</p>
+                )}
               </>
             )}
           </main>

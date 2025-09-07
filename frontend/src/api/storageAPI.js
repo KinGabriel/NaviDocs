@@ -1,3 +1,4 @@
+
 import axios from 'axios';
 
 
@@ -35,9 +36,10 @@ export const createFolderAPI = async ({ folderName, user, parentFolder }) => {
  * @param {string} [param0.department]
  * @returns {Promise<Array>}
  */
-export const getFoldersAPI = async ({ user }) => {
+export const getFoldersAPI = async ({ user, status }) => {
 	try {
 		const params = { userId: user._id, school: user?.role?.school || null, department: user?.role?.department || null };
+		if (status) params.status = status;
 		const res = await axios.get(`${API_URL}/api/storage/folders`, {
 			params,
 			withCredentials: true
@@ -135,17 +137,6 @@ export const addOrphanFileAPI = async (files, user_id, owner) => {
 	return res.data;
 };
 
-/**
- * Get folder by ID
- * @param {string} id
- * @returns {Promise<Object>}
- */
-export const getFolderByIDAPI = async (id) => {
-	const res = await axios.get(`${API_URL}/api/storage/folders/${id}`, {
-		withCredentials: true,
-	});
-	return res.data;
-};
 
 /**
  * Add access to folders (share)
@@ -200,12 +191,15 @@ export const deleteFolderByIDAPI = async (id) => {
 /**
  * Fetch orphan files for a user (files not in any folder)
  * @param {string} userId
+ * @param {string} [status]
  * @returns {Promise<Object>}
  */
-export const getOrphanFilesAPI = async (userId) => {
+export const getOrphanFilesAPI = async (userId, status) => {
 	try {
+		const params = { userId };
+		if (status) params.status = status;
 		const res = await axios.get(`${API_URL}/api/storage/files/get-orphan-files`, {
-			params: { userId },
+			params,
 			withCredentials: true
 		});
 		console.log("Orphan files response:", res.data);
@@ -213,8 +207,24 @@ export const getOrphanFilesAPI = async (userId) => {
 	} catch (err) {
 		throw err.response?.data || { message: err.message };
 	}
-};
-
+}
+/**
+ * Get folder by ID
+ * @param {string} id
+ * @param {string} [userId]
+ * @param {string} [status]
+ * @returns {Promise<Object>}
+ */
+export const getFolderByIDAPI = async (id, userId, status) => {
+	const params = {};
+	if (userId) params.userId = userId;
+	if (status) params.status = status;
+		const res = await axios.get(`${API_URL}/api/storage/folders/${id}`, {
+			params,
+			withCredentials: true,
+		});
+		return res.data;
+	};
 /**
  * Move a folder to a new parent
  * @param {string} folderId
@@ -235,7 +245,6 @@ export const moveFolderAPI = async (folderId, newParentId) => {
 		throw err.response?.data || { message: err.message };
 	}
 };
-
 /**
  * Move a file to a new folder (or to orphan/root)
  * @param {string} fileId

@@ -1,6 +1,6 @@
 import Storage, { File } from '../models/storageModel.js';
 import mongoose from 'mongoose';
-import fs from 'fs';
+import fs, { stat } from 'fs';
 import path from 'path';
 import { deleteFolderRecursive } from '../utils/storageUtils.js';
 import axios from 'axios';
@@ -99,7 +99,7 @@ export const createFolder = async (req, res) => {
  */
 export const getFolder = async (req, res) => {
   try {
-    const { userId, school, department } = req.query;
+    const { userId, school, department, status } = req.query;
     if (!userId) {
       return res.status(400).json({ message: 'userId is required' });
     }
@@ -108,7 +108,7 @@ export const getFolder = async (req, res) => {
     const allFolders = await Storage.find();
 
     // Filter by access control (allowedUsers is now array of objects)
-    const accessible = allFolders.filter(folder => {
+    let accessible = allFolders.filter(folder => {
       if (folder.visibility === 'public') return true;
       if (folder.owner === userId) return true;
       if (Array.isArray(folder.allowedUsers) && folder.allowedUsers.some(u => u.userId === userId)) return true;
@@ -116,6 +116,24 @@ export const getFolder = async (req, res) => {
       if (department && folder.allowedDepartments?.includes(department)) return true;
       return false;
     });
+
+
+    // Apply status filter if provided
+    if (status === 'Owned by me') {
+      accessible = accessible.filter(folder => folder.owner === userId);
+    } else if (status === 'Not owned by me') {
+      // Only folders the user can access but does NOT own
+      accessible = accessible.filter(folder => {
+        if (folder.owner === userId) return false;
+        // Only include if user is in allowedUsers, allowedDepartments, allowedSchools, or folder is public
+        if (folder.visibility === 'public') return true;
+        if (Array.isArray(folder.allowedUsers) && folder.allowedUsers.some(u => u.userId === userId)) return true;
+        if (school && folder.allowedSchools?.includes(school)) return true;
+        if (department && folder.allowedDepartments?.includes(department)) return true;
+        return false;
+      });
+    }
+    // 'Owned by anyone' (or no status) returns all accessible
 
     // Map folders and convert IDs to emails, preserving role
     const result = await Promise.all(accessible.map(async folder => {
@@ -170,6 +188,7 @@ export const getFolder = async (req, res) => {
 export const getFolderByID = async (req, res) => {
   try {
     const { id } = req.params;
+    const { userId, status, school, department } = req.query;
     if (!id) {
       return res.status(400).json({ message: 'Folder ID is required.' });
     }
@@ -186,9 +205,29 @@ export const getFolderByID = async (req, res) => {
       physicalFiles = fs.readdirSync(folderPath);
     }
 
+    // Filter dbfiles by access control and status
+    let dbfiles = Array.isArray(folder.files) ? folder.files : [];
+    if (userId) {
+      dbfiles = dbfiles.filter(file => {
+        if (file.visibility === 'public') return true;
+        if (file.owner === userId || file.uploadedBy === userId) return true;
+        if (Array.isArray(file.allowedUsers) && file.allowedUsers.some(u => u.userId === userId)) return true;
+        return false;
+      });
+      if (status === 'Owned by me') {
+        dbfiles = dbfiles.filter(file => file.owner === userId || file.uploadedBy === userId);
+      } else if (status === 'Not owned by me') {
+        dbfiles = dbfiles.filter(file => {
+          if (file.owner === userId || file.uploadedBy === userId) return false;
+          if (file.visibility === 'public') return true;
+          if (Array.isArray(file.allowedUsers) && file.allowedUsers.some(u => u.userId === userId)) return true;
+          return false;
+        });
+      }
+    }
 
-  // Use shared utility to map dbfiles with emails
-  const dbfiles = await mapFilesWithEmails(folder.files, req, getUserEmail);
+    // Use shared utility to map dbfiles with emails
+    const dbfilesWithEmails = await mapFilesWithEmails(dbfiles, req, getUserEmail);
     const result = {
       _id: folder._id,
       folderName: folder.folderName,
@@ -199,10 +238,10 @@ export const getFolderByID = async (req, res) => {
       createdAt: folder.createdAt || null,
       updatedAt: folder.updatedAt || null,
       owner: folder.owner || null,
-      dbfiles, 
+      dbfiles: dbfilesWithEmails,
       physicalFiles
     };
-console.log(result)
+
     res.status(200).json({
       message: 'Folder fetched successfully.',
       folder: result
@@ -712,16 +751,37 @@ export const addOrphanFile = async (req, res) => {
  */
 export const getOrphanFiles = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const { userId, status, school, department } = req.query;
     if (!userId) {
       return res.status(400).json({ message: 'userId is required' });
     }
-    // Find all File documents where owner/user_id matches and not linked to a folder
-    const orphanFiles = await File.find({ uploadedBy: userId });
+    console.log(status)
+    // Find all orphan files (not in any folder)
+    let orphanFiles = await File.find();
 
+    // Filter by access control (allowedUsers is now array of objects)
+    let accessible = orphanFiles.filter(file => {
+      if (file.visibility === 'public') return true;
+      if (file.owner === userId || file.uploadedBy === userId) return true;
+      if (Array.isArray(file.allowedUsers) && file.allowedUsers.some(u => u.userId === userId)) return true;
+      return false;
+    });
+
+    // Apply status filter if provided
+    if (status === 'Owned by me') {
+      accessible = accessible.filter(file => file.owner === userId || file.uploadedBy === userId);
+    } else if (status === 'Not owned by me') {
+      accessible = accessible.filter(file => {
+        if (file.owner === userId || file.uploadedBy === userId) return false;
+        if (file.visibility === 'public') return true;
+        if (Array.isArray(file.allowedUsers) && file.allowedUsers.some(u => u.userId === userId)) return true;
+        return false;
+      });
+    }
+    // 'Owned by anyone' (or no status) returns all accessible
 
     // Map files and convert IDs to emails, preserving role
-    const result = await Promise.all(orphanFiles.map(async file => {
+    const result = await Promise.all(accessible.map(async file => {
       const ownerEmail = file.owner ? await getUserEmail(file.owner, req) : (file.uploadedBy ? await getUserEmail(file.uploadedBy, req) : null);
       const allowedUsersEmails = Array.isArray(file.allowedUsers) && file.allowedUsers.length
         ? await Promise.all(file.allowedUsers.map(async u => {
@@ -729,10 +789,21 @@ export const getOrphanFiles = async (req, res) => {
             return { userId: u.userId, role: u.role, email };
           }))
         : [];
+      // Compute status for this file
+      let status = 'Owned by anyone';
+      if (file.owner === userId || file.uploadedBy === userId) {
+        status = 'Owned by me';
+      } else if (
+        (file.visibility === 'public') ||
+        (Array.isArray(file.allowedUsers) && file.allowedUsers.some(u => u.userId === userId))
+      ) {
+        status = 'Not owned by me';
+      }
       return {
         ...file.toObject(),
         owner: ownerEmail,
-        allowedUsers: allowedUsersEmails
+        allowedUsers: allowedUsersEmails,
+        status
       };
     }));
 
@@ -943,11 +1014,8 @@ export const renameFolder = async (req, res) => {
     if (folder.parentFolder) query.parentFolder = folder.parentFolder;
     const existing = await Storage.findOne(query);
     if (existing) {
-      return res.status(409).json({ message: 'A folder with the new name already exists in this location.' });
+      return res.status(409).json({ message: 'A folder with the new name already exists under the same parent.' });
     }
-
-    // Rename physical folder on disk
-    const uploadsRoot = path.join(process.cwd(), 'uploads');
     let parentNames = [];
     let current = folder;
     while (current.parentFolder) {
@@ -956,6 +1024,7 @@ export const renameFolder = async (req, res) => {
       else break;
     }
     // Build old and new folder paths
+    const uploadsRoot = path.join(process.cwd(), 'uploads');
     const oldPath = path.join(uploadsRoot, folder.owner, ...parentNames, oldName);
     const newPath = path.join(uploadsRoot, folder.owner, ...parentNames, newName);
     // Rename on disk if exists and name is changing
