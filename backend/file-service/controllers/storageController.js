@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { deleteFolderRecursive } from '../utils/storageUtils.js';
 import axios from 'axios';
+import { getUserEmail, mapFilesWithEmails} from '../utils/userUtils.js';
 import { saveDocumentFile } from '../utils/saveDocumentFile.js';
 
 /**
@@ -116,25 +117,6 @@ export const getFolder = async (req, res) => {
       return false;
     });
 
-    // Convert owner and allowedUsers IDs to emails
-    const getUserEmail = async (userId) => {
-      try {
-        const headers = {};
-        // Use JWT token from request cookies or headers
-        const token = req.cookies?.token || req.headers?.cookie?.split('token=')[1]?.split(';')[0];
-        if (token) {
-          headers['Cookie'] = `token=${token}`;
-        } else {
-          console.warn('No token found in request!');
-        }
-        const resp = await axios.get(`${process.env.USER_SERVICE_URL || 'http://localhost:3001'}/api/user/getUserEmail/${userId}`, { headers });
-        return resp.data?.email || userId;
-      } catch (err) {
-        console.log('Error fetching user email:', err);
-        return userId;
-      }
-    };
-
     // Map folders and convert IDs to emails, preserving role
     const result = await Promise.all(accessible.map(async folder => {
       const folderPath = path.join(process.cwd(), 'uploads', folder.owner, folder.folderName);
@@ -142,14 +124,16 @@ export const getFolder = async (req, res) => {
       if (fs.existsSync(folderPath)) {
         physicalFiles = fs.readdirSync(folderPath);
       }
-      // Convert owner and allowedUsers
-      const ownerEmail = await getUserEmail(folder.owner);
+      // Convert owner and allowedUsers for folder
+      const ownerEmail = await getUserEmail(folder.owner, req);
       const allowedUsersEmails = Array.isArray(folder.allowedUsers) && folder.allowedUsers.length
         ? await Promise.all(folder.allowedUsers.map(async u => {
-            const email = await getUserEmail(u.userId);
+            const email = await getUserEmail(u.userId, req);
             return { userId: u.userId, role: u.role, email };
           }))
         : [];
+      // Map dbfiles (files in folder) with emails
+      const dbfiles = await mapFilesWithEmails(folder.files, req, getUserEmail);
       return {
         _id: folder._id,
         folderName: folder.folderName,
@@ -161,6 +145,8 @@ export const getFolder = async (req, res) => {
         updatedAt: folder.updatedAt || null,
         owner: ownerEmail,
         parentFolder: folder.parentFolder || null,
+        dbfiles,
+        physicalFiles
       };
     }));
 
@@ -200,42 +186,9 @@ export const getFolderByID = async (req, res) => {
       physicalFiles = fs.readdirSync(folderPath);
     }
 
-    // Helper to get user email
-    const getUserEmail = async (userId) => {
-      try {
-        const headers = {};
-        const token = req.cookies?.token || req.headers?.cookie?.split('token=')[1]?.split(';')[0];
-        if (token) {
-          headers['Cookie'] = `token=${token}`;
-        }
-        const resp = await axios.get(`${process.env.USER_SERVICE_URL || 'http://localhost:3001'}/api/user/getUserEmail/${userId}`, { headers });
-        return resp.data?.email || userId;
-      } catch (err) {
-        console.log('Error fetching user email:', err);
-        return userId;
-      }
-    };
 
-    // Map dbfiles to resolve owner and allowedUsers to emails
-    const dbfiles = folder.files && folder.files.length
-      ? await Promise.all(folder.files.map(async file => {
-        // Convert to plain object to avoid Mongoose subdoc internals
-        const plainFile = typeof file.toObject === 'function' ? file.toObject() : { ...file };
-        const ownerEmail = plainFile.owner ? await getUserEmail(plainFile.owner) : (plainFile.uploadedBy ? await getUserEmail(plainFile.uploadedBy) : null);
-        const allowedUsersEmails = Array.isArray(plainFile.allowedUsers) && plainFile.allowedUsers.length
-          ? await Promise.all(plainFile.allowedUsers.map(async u => {
-            const email = await getUserEmail(u.userId);
-            return { ...u, email };
-          }))
-          : [];
-        return {
-          ...plainFile,
-          owner: ownerEmail,
-          allowedUsers: allowedUsersEmails
-        };
-      }))
-      : [];
-
+  // Use shared utility to map dbfiles with emails
+  const dbfiles = await mapFilesWithEmails(folder.files, req, getUserEmail);
     const result = {
       _id: folder._id,
       folderName: folder.folderName,
@@ -621,7 +574,9 @@ export const addDocuments = async (req, res) => {
     folder.files.push(...fileMetadatas);
     await folder.save();
 
-    res.status(200).json({ message: 'Files uploaded and updated successfully.', folder });
+  // Map dbfiles (files in folder) with emails for response
+  const dbfiles = await mapFilesWithEmails(folder.files, req, getUserEmail);
+  res.status(200).json({ message: 'Files uploaded and updated successfully.', folder: { ...folder.toObject(), dbfiles } });
   } catch (err) {
     console.error('Error updating files in folder:', err);
     res.status(500).json({ message: 'Internal server error.' });
@@ -753,31 +708,13 @@ export const getOrphanFiles = async (req, res) => {
     // Find all File documents where owner/user_id matches and not linked to a folder
     const orphanFiles = await File.find({ uploadedBy: userId });
 
-    // Convert owner and allowedUsers IDs to emails
-    const getUserEmail = async (userId) => {
-      try {
-        const headers = {};
-        // Use JWT token from request cookies or headers
-        const token = req.cookies?.token || req.headers?.cookie?.split('token=')[1]?.split(';')[0];
-        if (token) {
-          headers['Cookie'] = `token=${token}`;
-        } else {
-          console.warn('No token found in request!');
-        }
-        const resp = await axios.get(`${process.env.USER_SERVICE_URL || 'http://localhost:3001'}/api/user/getUserEmail/${userId}`, { headers });
-        return resp.data?.email || userId;
-      } catch (err) {
-        console.log('Error fetching user email:', err);
-        return userId;
-      }
-    };
 
     // Map files and convert IDs to emails, preserving role
     const result = await Promise.all(orphanFiles.map(async file => {
-      const ownerEmail = file.owner ? await getUserEmail(file.owner) : (file.uploadedBy ? await getUserEmail(file.uploadedBy) : null);
+      const ownerEmail = file.owner ? await getUserEmail(file.owner, req) : (file.uploadedBy ? await getUserEmail(file.uploadedBy, req) : null);
       const allowedUsersEmails = Array.isArray(file.allowedUsers) && file.allowedUsers.length
         ? await Promise.all(file.allowedUsers.map(async u => {
-            const email = await getUserEmail(u.userId);
+            const email = await getUserEmail(u.userId, req);
             return { userId: u.userId, role: u.role, email };
           }))
         : [];
