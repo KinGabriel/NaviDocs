@@ -155,13 +155,6 @@ export default function FolderComponent({
     debounceRef.current(value);
   };
 
-  // Handle email input blur (auto-add when user clicks away)
-  const handleEmailInputBlur = () => {
-    if (inputEmail.trim() && isValidEmail(inputEmail.trim())) {
-      handleAddEmail();
-    }
-  };
-
   // Handle key press (Enter to add)
   const handleEmailKeyPress = (e) => {
     if (e.key === 'Enter') {
@@ -475,7 +468,6 @@ export default function FolderComponent({
                         setInputEmail(e.target.value);
                         debounceRef.current(e.target.value);
                       }}
-                      onBlur={handleEmailInputBlur}
                       onKeyPress={handleEmailKeyPress}
                       className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter email"
@@ -516,7 +508,7 @@ export default function FolderComponent({
 
               {/* Tool tip */}
                 <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded-lg">
-                  <strong>Tool tip:</strong> Press Enter or click away from the email field to add the person.
+                  <strong>Tool tip:</strong> Press Enter to add the person.
                 </div>
               </div>
             </div>
@@ -549,7 +541,7 @@ export default function FolderComponent({
                           <option value="Viewer">Viewer</option>
                           <option value="Editor">Editor</option>
                         </select>
-                        <button onClick={() => handleRemoveEmail(person.email)} 
+                        <button onClick={() => handleRemoveEmail(person.email)}
                         className="text-gray-500 hover:text-red-600 p-1 rounded hover:bg-red-50"
                         >
                           <X size={14} />
