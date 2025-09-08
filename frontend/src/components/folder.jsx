@@ -16,11 +16,8 @@ import {
   Move,
   Share2,
   X,
-  Plus,
   Copy,
 } from "lucide-react";
-
-
 
 export default function FolderComponent({
   folder,
@@ -95,20 +92,18 @@ export default function FolderComponent({
     }
     // eslint-disable-next-line
   }, [isShareOpen, folder.data]);
+
   const [inputEmail, setInputEmail] = useState("");
   const [inputRole, setInputRole] = useState("Viewer");
   const [renameValue, setRenameValue] = useState(folder.name);
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const debounceRef = useRef();
-
-
-  // Initialize state from backend folder  if available
+    // Initialize state from backend folder  if available
   const [visibility, setVisibility] = useState(folder.data.visibility || 'private');
   const [selectedSchools, setSelectedSchools] = useState(folder.data.allowedSchools || []);
   const [selectedDepartments, setSelectedDepartments] = useState(folder.data.allowedDepartments || []);
   
-
   // Compute available departments based on selected schools
   const availableDepartments = selectedSchools
     .flatMap((school) => DEPARTMENT_OPTIONS[school] || [])
@@ -116,7 +111,6 @@ export default function FolderComponent({
 
   // Remove any selected departments that are no longer available
   useEffect(() => {
-  
     setSelectedDepartments((prev) => prev.filter((d) => availableDepartments.some((opt) => opt.value === d)));
     // eslint-disable-next-line
   }, [selectedSchools]);
@@ -146,6 +140,35 @@ export default function FolderComponent({
     setInputEmail("");
     setInputRole("Viewer");
   };
+  
+  // Email validation 
+  const isValidEmail = (email) => {
+    return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+  };
+
+  // Handle email input changes with auto-add on separators
+  const handleEmailInputChange = (e) => {
+    const value = e.target.value;
+    setInputEmail(value);
+  
+    // Debounced search for suggestions
+    debounceRef.current(value);
+  };
+
+  // Handle email input blur (auto-add when user clicks away)
+  const handleEmailInputBlur = () => {
+    if (inputEmail.trim() && isValidEmail(inputEmail.trim())) {
+      handleAddEmail();
+    }
+  };
+
+  // Handle key press (Enter to add)
+  const handleEmailKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddEmail();
+    }
+  };
 
   const handleRemoveEmail = (email) => {
     setEmails(emails.filter((e) => e.email !== email));
@@ -172,7 +195,6 @@ export default function FolderComponent({
       timer = setTimeout(() => fn(...args), delay);
     };
   };
-
 
   // Debounced email suggestion fetcher
   const fetchEmailSuggestions = async (query) => {
@@ -361,9 +383,7 @@ export default function FolderComponent({
                 <Copy size={18} />
               </button>
             </h2>
-
-
-
+        
             {/* Visibility Field */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Visibility</label>
@@ -442,36 +462,39 @@ export default function FolderComponent({
               </>
             )}
 
-
-
             {/* Add People */}
-            <label className="block text-sm font-medium text-gray-700 mb-1">Add People</label>
-            <div className="flex gap-2 mb-3">
-              <input
-                type="email"
-                value={inputEmail}
-                onChange={(e) => {
-                  setInputEmail(e.target.value);
-                  debounceRef.current(e.target.value);
-                }}
-                className="flex-1 border rounded-lg px-3 py-2"
-                placeholder="Enter email"
-              />
-              <select
-                value={inputRole}
-                onChange={(e) => setInputRole(e.target.value)}
-                className="border rounded-lg px-2"
-              >
-                <option value="Viewer">Viewer</option>
-                <option value="Editor">Editor</option>
-              </select>
-              <button
-                onClick={handleAddEmail}
-                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                <Plus size={16} />
-              </button>
-            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Add People</label>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <input
+                      type="email"
+                      value={inputEmail}
+                      onChange={(e) => {
+                        setInputEmail(e.target.value);
+                        debounceRef.current(e.target.value);
+                      }}
+                      onBlur={handleEmailInputBlur}
+                      onKeyPress={handleEmailKeyPress}
+                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter email"
+                    />
+                    {inputEmail && isValidEmail(inputEmail) && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      </div>
+                    )}
+                  </div>
+                  <select
+                    value={inputRole}
+                    onChange={(e) => setInputRole(e.target.value)}
+                    className="border rounded-lg px-2"
+                  >
+                    <option value="Viewer">Viewer</option>
+                    <option value="Editor">Editor</option>
+                  </select>
+                </div>
 
             {/* Suggestions Dropdown */}
             {suggestions.length > 0 && (
@@ -491,15 +514,28 @@ export default function FolderComponent({
               </ul>
             )}
 
+              {/* Tool tip */}
+                <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded-lg">
+                  <strong>Tool tip:</strong> Press Enter or click away from the email field to add the person.
+                </div>
+              </div>
+            </div>
+
+          
             {/* People with access */}
-            <h3 className="text-sm font-medium text-gray-700 mb-2">People with access</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">People with access ({emails.length})</h3>
             <div className="space-y-2 mb-4">
               {emails.map((person, idx) => (
                 <div key={idx} className="flex items-center justify-between bg-gray-100 px-3 py-2 rounded-lg">
-                  <span className="text-sm text-gray-800">
-                    {person.email}
-                    {person.isOwner && <span className="ml-2 text-xs text-blue-600 font-semibold">(Owner)</span>}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-gradient-to-r from-[#0035DA] to-[#043485] rounded-full flex items-center justify-center text-white font-medium text-sm">
+                      {person.email.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-800 block">{person.email}</span>
+                      {person.isOwner && <span className="text-xs text-blue-600 font-semibold">(Owner)</span>}
+                    </div>
+                  </div>
                   <div className="flex items-center gap-2">
                     {person.isOwner ? (
                       <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">Owner</span>
@@ -513,7 +549,9 @@ export default function FolderComponent({
                           <option value="Viewer">Viewer</option>
                           <option value="Editor">Editor</option>
                         </select>
-                        <button onClick={() => handleRemoveEmail(person.email)} className="text-gray-500 hover:text-red-600">
+                        <button onClick={() => handleRemoveEmail(person.email)} 
+                        className="text-gray-500 hover:text-red-600 p-1 rounded hover:bg-red-50"
+                        >
                           <X size={14} />
                         </button>
                       </>
