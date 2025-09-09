@@ -45,6 +45,11 @@ export default function FileComponent({
   const [renameInput, setRenameInput] = useState("");
 
   const user = useUser();
+
+  // Refs for positioning calculations
+  const organizeRef = useRef(null);
+  const shareRef = useRef(null);
+
   // Build people with access from file data
   const initialPeople = React.useMemo(() => {
     const people = [];
@@ -153,6 +158,18 @@ export default function FileComponent({
     }
   };
 
+  // Function to determine submenu positioning
+  const getSubmenuPosition = (ref) => {
+    if (!ref?.current) return { right: false };
+    
+    const rect = ref.current.getBoundingClientRect();
+    const submenuWidth = 160;
+    const viewportWidth = window.innerWidth;
+    const spaceOnRight = viewportWidth - rect.right;
+    
+    // If not enough space on the right, position submenu to the left
+    return { right: spaceOnRight < submenuWidth };
+  };
 
   const handleAddEmail = async () => {
     const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -217,7 +234,7 @@ export default function FileComponent({
         timer = setTimeout(() => fn(...args), delay);
       };
     })(fetchEmailSuggestions, 400);
-  }
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(
@@ -286,13 +303,14 @@ export default function FileComponent({
 
                 {/* Organize with submenu */}
                 <li
+                  ref={organizeRef}
                   className="relative flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
                   onMouseEnter={() => {
                     if (organizeTimeout) clearTimeout(organizeTimeout);
                     setIsOrganizeOpen(true);
                   }}
                   onMouseLeave={() => {
-                    const timeout = setTimeout(() => setIsOrganizeOpen(false), 1000);
+                    const timeout = setTimeout(() => setIsOrganizeOpen(false), 150);
                     setOrganizeTimeout(timeout);
                   }}
                 >
@@ -301,33 +319,35 @@ export default function FileComponent({
                     Organize
                   </div>
                   <span className="text-gray-500 text-xs">▶</span>
-
-                  {isOrganizeOpen && (
-                    <ul className="absolute left-full top-0 ml-1 w-32 bg-white border rounded-lg shadow-md">
-                      <li
-                        className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                        onClick={e => {
-                          e.stopPropagation();
-                          if (onMoveRequest) onMoveRequest(file);
-                          if (toggleMenu) toggleMenu(null); 
-                        }}
-                      >
-                        <Move size={16} className="text-gray-600" />
-                        Move
-                      </li>
-                    </ul>
-                  )}
+                   {isOrganizeOpen && (() => {
+                    const position = getSubmenuPosition(organizeRef);
+                    return (
+                      <ul className={`absolute top-0 ${position.right ? 'right-full mr-1' : 'left-full ml-1'} w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50`}>
+                        <li
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (onMoveRequest) onMoveRequest(folder);
+                            toggleMenu(index); // Close menu when opening move modal
+                          }}
+                        >
+                          <Move size={16} className="text-gray-600" /> Move
+                        </li>
+                      </ul>
+                    );
+                  })()}
                 </li>
 
                 {/* Share with submenu */}
                 <li
+                  ref={shareRef}
                   className="relative flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
                   onMouseEnter={() => {
                     if (shareTimeout) clearTimeout(shareTimeout);
                     setIsShareMenuOpen(true);
                   }}
                   onMouseLeave={() => {
-                    const timeout = setTimeout(() => setIsShareMenuOpen(false), 1000);
+                    const timeout = setTimeout(() => setIsShareMenuOpen(false), 150);
                     setShareTimeout(timeout);
                   }}
                 >
@@ -336,27 +356,38 @@ export default function FileComponent({
                     Share
                   </div>
                   <span className="text-gray-500 text-xs">▶</span>
-
-                  {isShareMenuOpen && (
-                    <ul className="absolute left-full top-0 ml-1 w-36 bg-white border rounded-lg shadow-md">
-                      <li
-                        className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsShareOpen(true);
-                          if (toggleMenu) toggleMenu(null);
+                  {isShareMenuOpen && (() => {
+                    const position = getSubmenuPosition(shareRef);
+                    return (
+                      <ul 
+                        className={`absolute top-0 ${position.right ? 'right-full mr-1' : 'left-full ml-1'} w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50`}
+                        onMouseEnter={() => {
+                          if (shareTimeout) clearTimeout(shareTimeout);
+                        }}
+                        onMouseLeave={() => {
+                          const timeout = setTimeout(() => setIsShareMenuOpen(false), 150);
+                          setShareTimeout(timeout);
                         }}
                       >
-                        <Share2 size={16} className="text-gray-600" /> Share
-                      </li>
-                      <li
-                        className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                        onClick={() => handleCopyLink()}
-                      >
-                        <Copy size={16} className="text-gray-600" /> Get Link
-                      </li>
-                    </ul>
-                  )}
+                        <li
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsShareOpen(true);
+                            toggleMenu(index); // Close menu when opening modal
+                          }}
+                        >
+                          <Share2 size={16} className="text-gray-600" /> Share
+                        </li>
+                        <li
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                          onClick={() => handleCopyLink()}
+                        >
+                          <Copy size={16} className="text-gray-600" /> Get Link
+                        </li>
+                      </ul>
+                    );
+                  })()}
                 </li>
 
                 <hr className="my-1" />
@@ -511,7 +542,7 @@ export default function FileComponent({
       {/* Share Modal */}
       {isShareOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[500px] max-w-full rounded-xl shadow-lg p-6 relative">
+          <div className="bg-white w-[500px] max-w-[95vw] rounded-xl shadow-lg p-6 relative">
             <button
               className="absolute top-3 right-3 text-gray-500 hover:text-black"
               onClick={() => setIsShareOpen(false)}
