@@ -174,29 +174,23 @@ export default function DepartmentHeadTemplates() {
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
             {/* Filters */}
-            <div className="flex items-center gap-2 mb-4">
-              <Dropdown
-                options={["All", ...Object.keys(schoolIdentifiers)]}
-                value={selectedSchool}
-                onChange={setSelectedSchool}
-                width="w-50"
-              />
-              <Dropdown
-                options={["Recent", "A-Z", "Z-A"]}
-                value={sortOrder}
-                onChange={setSortOrder}
-                width="w-36"
-              />
-              <div className="flex-1 flex justify-start m-2">
-                <div className="w-64">
-                  <SearchBar
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search templates..."
-                  />
+            <div className="flex items-center justify-end gap-2 mb-4">
+                 <Dropdown
+                   options={["All", ...Object.keys(schoolIdentifiers)]}
+                   value={selectedSchool}
+                   onChange={setSelectedSchool}
+                  width="w-50"
+                />
+                   <Dropdown
+                    options={["Recent", "A-Z", "Z-A"]}
+                    value={sortOrder}
+                    onChange={setSortOrder}
+                    width="w-36"
+               />
+                  <div className="w-64">
+                  <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
+                 </div>
                 </div>
-              </div>
-            </div>
 
             {/* Templates Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">

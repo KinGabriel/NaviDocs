@@ -171,7 +171,7 @@ export default function DeanTemplates() {
                 state: { from: "dean-templates", template: row },
               })
             }
-            className="text-white font-medium transition-colors rounded-sm bg-indigo-500 hover:bg-indigo-600 h-7 px-3"
+            className="text-white font-medium transition-colors rounded-sm bg-gray-500 hover:bg-gray-600 h-7 px-3"
           >
             Assign
           </button>

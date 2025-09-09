@@ -148,7 +148,7 @@ export default function DeanDocumentWorkflow() {
             </div>
 
             {/* Controls */}
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center justify-end gap-2 mb-1">
               <Dropdown
                 options={["Filter by", "All", "SAMCIS", "STELA", "University Wide"]}
                 value={"Filter by"}
@@ -165,7 +165,7 @@ export default function DeanDocumentWorkflow() {
                 width="w-36"
                 buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
               />
-              <div className="flex-1 md:ml-auto w-full md:w-96">
+                <div className="w-40 md:w-64">
                 <SearchBar
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
