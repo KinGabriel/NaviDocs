@@ -822,6 +822,7 @@ export const getOrphanFiles = async (req, res) => {
 export const moveFolder = async (req, res) => {
   try {
     const { folderId, newParentId } = req.body;
+    const userId = req.user?.id;
     if (!folderId) {
       return res.status(400).json({ message: 'folderId is required.' });
     }
@@ -829,6 +830,22 @@ export const moveFolder = async (req, res) => {
     const folder = await Storage.findById(folderId);
     if (!folder) {
       return res.status(404).json({ message: 'Folder not found.' });
+    }
+    // Permission check must be owner or editor of the destination (new parent) folder
+    if (newParentId) {
+      const newParent = await Storage.findById(newParentId);
+      if (!newParent) {
+        return res.status(404).json({ message: 'New parent folder not found.' });
+      }
+      let canMoveToTarget = false;
+      if (newParent.owner?.toString() === userId?.toString()) canMoveToTarget = true;
+      if (!canMoveToTarget && Array.isArray(newParent.allowedUsers)) {
+        const allowedUser = newParent.allowedUsers.find(u => u.userId?.toString() === userId?.toString() && u.role === 'editor');
+        if (allowedUser) canMoveToTarget = true;
+      }
+      if (!canMoveToTarget) {
+        return res.status(403).json({ message: 'Forbidden: no permission to move into the target folder.' });
+      }
     }
 
     //  Move physical folder on disk 
@@ -872,7 +889,15 @@ export const moveFolder = async (req, res) => {
       if (!fs.existsSync(newParentDir)) {
         fs.mkdirSync(newParentDir, { recursive: true });
       }
-      fs.renameSync(oldPath, newPath);
+      // Check if destination already exists
+      if (fs.existsSync(newPath)) {
+        return res.status(409).json({ message: 'A folder with the same name already exists in the target location.' });
+      }
+      try {
+        fs.renameSync(oldPath, newPath);
+      } catch (err) {
+        return res.status(500).json({ message: 'Failed to move folder on disk.', error: err.message });
+      }
     }
 
     await folder.save();
@@ -893,6 +918,7 @@ export const moveFolder = async (req, res) => {
 export const moveFile = async (req, res) => {
   try {
     const { fileId, newFolderId } = req.body;
+    const userId = req.user?.id;
     if (!fileId) {
       return res.status(400).json({ message: 'fileId is required.' });
     }
@@ -910,6 +936,23 @@ export const moveFile = async (req, res) => {
       fileDoc = oldFolder.files.find(f => f._id.toString() === fileId);
       if (!fileDoc) {
         return res.status(404).json({ message: 'File not found in folder.' });
+      }
+    }
+
+    // Permission check must be owner or editor of the destination (new folder) if moving into a folder
+    if (newFolderId) {
+      const newFolder = await Storage.findById(newFolderId);
+      if (!newFolder) {
+        return res.status(404).json({ message: 'Destination folder not found.' });
+      }
+      let canMoveToTarget = false;
+      if (newFolder.owner?.toString() === userId?.toString()) canMoveToTarget = true;
+      if (!canMoveToTarget && Array.isArray(newFolder.allowedUsers)) {
+        const allowedUser = newFolder.allowedUsers.find(u => u.userId?.toString() === userId?.toString() && u.role === 'editor');
+        if (allowedUser) canMoveToTarget = true;
+      }
+      if (!canMoveToTarget) {
+        return res.status(403).json({ message: 'Forbidden: no permission to move into the target folder.' });
       }
     }
 
