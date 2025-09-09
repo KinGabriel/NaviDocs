@@ -13,12 +13,23 @@ import cookieParser from 'cookie-parser';
 dotenv.config();
 
 const FRONTEND_URL = process.env.FRONTEND_URL;
-
+const PORT = process.env.PORT || 4000;
+const HOST = process.env.HOST || "127.0.0.1";
 async function startServer() {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
-  app.use(cors({ origin: FRONTEND_URL, credentials: true }));
+const allowedOrigins = process.env.FRONTEND_URL.split(",");
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true
+}));
 
   const server = new ApolloServer({ typeDefs: [adminDashboardType, templateDashboardType], resolvers });
   await server.start();
@@ -34,9 +45,9 @@ async function startServer() {
     })
   );
 
-  const PORT = process.env.PORT || 4000;
-  app.listen(PORT, () => {
-    console.log(`Analytics GraphQL server running at http://localhost:${PORT}/graphql`);
+
+  app.listen(PORT, HOST, () => {
+    console.log(`Analytics GraphQL server running at http://${HOST}:${PORT}/graphql`);
   });
 }
 

@@ -1,7 +1,12 @@
 // header for creating templates in document controller
 import { useNavigate } from 'react-router-dom';
 import naviLogo from '../assets/images/navilogo.png';
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URLS = rawUrls.split(",");
+
+const API_URL =
+  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];     
+
 export default function Header2({ title, setTitle, user, onSubmitForApproval, onApprove, onPublish, saving, lastSavedAt, dirty, templateStatus='draft', approvals=null, approvalMeta=null, approvers=[], loadingApprovers=false, reviewNotes=[], assignedIds=[] }) {
   const navigate = useNavigate();
   // Determine button presentation based on status

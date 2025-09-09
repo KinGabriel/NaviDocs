@@ -1,5 +1,10 @@
 import axios from "axios";
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URLS = rawUrls.split(",");
+
+const API_URL =
+  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];    
+
 /**
  * Logs in a user by sending credentials to the API.
  * @param {string} email - The user's email address.

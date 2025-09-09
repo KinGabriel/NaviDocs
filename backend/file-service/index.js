@@ -11,10 +11,17 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3004;
-
+const HOST = process.env.HOST || "127.0.0.1";
 // Middleware
+const allowedOrigins = process.env.FRONTEND_URL.split(",");
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -37,6 +44,6 @@ app.get('/health', (req, res) => {
   });
 });
 dbConnection();
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
   console.log(`File Service running on port ${PORT}`);
 });

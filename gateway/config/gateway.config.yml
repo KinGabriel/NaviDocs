@@ -1,9 +1,9 @@
 http:
   port: ${PORT}
 
+
 apiEndpoints:
   auth:
-    host: ${HOST}
     paths:
       - /api/auth/login
       - /api/auth/logout
@@ -11,7 +11,6 @@ apiEndpoints:
 
 
   users:
-    host: localhost
     paths:
       - /api/user/*
       - /api/admin/*
@@ -19,24 +18,20 @@ apiEndpoints:
 
 
   documents:
-    host: ${HOST}
     paths:
       - /api/documents/*
   
   files:
-    host: ${HOST}
     paths:
       - /api/files/*
       - /uploads/*
       - /api/storage/*
 
   templates:
-    host: ${HOST}
     paths:
       - /api/templates/*
 
   analytics-graphql:
-    host: localhost
     paths:
       - /graphql
 
@@ -67,12 +62,6 @@ pipelines:
     apiEndpoints:
       - auth
     policies:
-      - cors:
-          - action:
-              origin: ${FRONTEND_URL}
-              methods: "GET,PUT,OPTIONS"
-              credentials: true
-              allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
       - proxy:
           - action:
               serviceEndpoint: auth-service
@@ -82,12 +71,6 @@ pipelines:
     apiEndpoints:
       - users
     policies:
-      - cors:
-          - action:
-              origin: ${FRONTEND_URL}
-              methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
-              credentials: true
-              allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
       - proxy:
           - action:
               serviceEndpoint: user-service
@@ -96,14 +79,7 @@ pipelines:
   document-pipeline:
     apiEndpoints:
       - documents
-    policies:
-      - cors:
-          - action:
-              origin: ${FRONTEND_URL}
-              methods: "GET,POST,PUT,DELETE,OPTIONS"
-              credentials: true
-              allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-   
+    policies: 
       - proxy:
           - action:
               serviceEndpoint: document-service
@@ -112,14 +88,7 @@ pipelines:
   template-pipeline:
     apiEndpoints:
       - templates
-    policies:
-      - cors:
-          - action:
-              origin: ${FRONTEND_URL}
-              methods: "GET,POST,PUT,DELETE,OPTIONS"
-              credentials: true
-              allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-    
+    policies:    
       - proxy:
           - action:
               serviceEndpoint: template-service
@@ -129,12 +98,6 @@ pipelines:
       apiEndpoints:
         - files
       policies:
-        - cors:
-            - action:
-                origin: ${FRONTEND_URL}
-                methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
-                credentials: true
-                allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
         - proxy:
             - action:
                 serviceEndpoint: file-service
@@ -144,12 +107,6 @@ pipelines:
     apiEndpoints:
       - analytics-graphql
     policies:
-      - cors:
-          - action:
-              origin: ${FRONTEND_URL}
-              methods: "POST,OPTIONS"
-              credentials: true
-              allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
       - proxy:
           - action:
               serviceEndpoint: analytics-service

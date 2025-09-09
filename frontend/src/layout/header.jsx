@@ -4,7 +4,11 @@ import '../assets/css/global.css'
 import naviLogo from '../assets/images/navilogo.png';
 import notifIcon from '../assets/images/notif_icon.svg';
 import { logoutAPI } from '../api/authAPI.js';
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URLS = rawUrls.split(",");
+
+const API_URL =
+  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];  
 export default function Header({ user }) {
   const navigate = useNavigate();
 

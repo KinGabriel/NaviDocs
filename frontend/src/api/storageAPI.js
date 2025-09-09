@@ -1,8 +1,11 @@
 
 import axios from 'axios';
 
+const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URLS = rawUrls.split(",");
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_URL =
+  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];    
 
 /**
  * Create a new folder
