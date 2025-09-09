@@ -151,25 +151,25 @@ export default function DepartmentHeadDocumentWorkflow() {
               <div className="w-28 h-1 bg-yellow-400 mb-6 rounded" />
             </div>
 
-            {/* Controls */}
-             <div className="flex items-center gap-2 mb-4">
+           {/* Controls */}
+            <div className="flex items-center justify-end gap-2 mb-1">
               <Dropdown
-                options={["All", "SAMCIS", "STELA", "University Wide"]}
-                value={"All"}
+                options={["Filter by", "All", "SAMCIS", "STELA", "University Wide"]}
+                value={"Filter by"}
                 onChange={() => {}}
                 width="w-44"
-                label="Filter"
                 buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
               />
               <Dropdown
-                options={["Recent", "A-Z", "Z-A"]}
-                value={sortBy}
-                onChange={(v) => setSortBy(v)}
+                options={["Sort by", "Recent", "A-Z", "Z-A"]}
+                value={"Sort by"}
+                onChange={(v) => {
+                  if (v === "Recent" || v === "A-Z" || v === "Z-A") setSortBy(v);
+                }}
                 width="w-36"
-                label="Sort"
                 buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
               />
-              <div className="flex-1 md:ml-auto w-full md:w-96">
+                <div className="w-40 md:w-64">
                 <SearchBar
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}

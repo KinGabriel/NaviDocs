@@ -215,47 +215,48 @@ export default function DocumentControllerTemplates() {
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">TEMPLATES</h1>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
-            <div className="flex items-center gap-2 mb-4">
-              {/* School Filter */}
-              <Dropdown
-                options={["All", ...Object.keys(schoolIdentifiers)]}
-                value={selectedSchool}
-                onChange={setSelectedSchool}
-                width="w-50"
+          <div className="flex items-center justify-between gap-2 mb-4">
+          {/* Create Template Button */}
+          <button
+            onClick={handleCreateTemplate}
+            className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+            </svg>
+            Create Template
+          </button>
+
+          {/* Controls */}
+          
+          <div className="flex items-center gap-2">
+            {/* School Filter */}
+            <Dropdown
+              options={["All", ...Object.keys(schoolIdentifiers)]}
+              value={selectedSchool}
+              onChange={setSelectedSchool}
+              width="w-50"
+            />
+
+            {/* Sort Order */}
+            <Dropdown
+              options={["Recent", "A-Z", "Z-A"]}
+              value={sortOrder}
+              onChange={setSortOrder}
+              width="w-36"
+            />
+
+            {/* Search Bar */}
+            <div className="w-64">
+              <SearchBar
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search templates..."
               />
-
-              {/* Sort Order */}
-              <Dropdown
-                options={["Recent", "A-Z", "Z-A"]}
-                value={sortOrder}
-                onChange={setSortOrder}
-                width="w-36"
-              />
-
-              {/* Search Bar */}
-              <div className="flex-1 flex justify-start m-2">
-                <div className="w-64">
-                  <SearchBar 
-                    value={search} 
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search templates..."
-                  />
-                </div>
-              </div>
-
-              {/* Create Template Button */}
-              <div className="flex-1 flex justify-end">
-                <button 
-                  onClick={handleCreateTemplate}
-                  className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Create Template
-                </button>
-              </div>      
             </div>
+          </div>
+        </div>
 
             {/*  Status Toggle Buttons  */}
             <div className="flex gap-1 mb-4">

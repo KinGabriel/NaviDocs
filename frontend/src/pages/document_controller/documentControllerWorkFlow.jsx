@@ -141,8 +141,8 @@ export default function DocumentControllerWorkflow() {
               <div className="w-28 h-1 bg-yellow-400 mb-6 rounded" />
             </div>
 
-            {/* Controls using shared components */}
-            <div className="flex items-center gap-2 mb-4">
+            {/* Controls */}
+            <div className="flex items-center justify-end gap-2 mb-1">
               {/* People filter */}
               <Dropdown
                 options={peopleOptions}
@@ -164,7 +164,7 @@ export default function DocumentControllerWorkflow() {
               />
 
               {/* Search */}
-              <div className="flex-1 md:ml-auto w-full md:w-96">
+              <div className="w-40 md:w-64">
                 <SearchBar
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
