@@ -1,7 +1,6 @@
 import React from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import Header from "../layout/header";
-import Sidebar from "../layout/sidebar";
+import HeaderDocumentView from "../components/HeaderDocumentView";
 import useUser from "../hooks/useUser";
 
 /** Fallback placeholders (used if you navigate directly or state.doc is absent) */
@@ -28,11 +27,6 @@ export default function DocumentView() {
   const navigate = useNavigate();
   const { state } = useLocation();
 
-  // Pick sidebar label if provided (keeps the left nav highlight correct per module)
-  const sidebarActive =
-    state?.sidebarActive ||
-    "Documents"; 
-
   // Prefer the document passed from the list page; otherwise, fallback placeholders
   const d = state?.doc || {};
   const doc = {
@@ -57,81 +51,9 @@ export default function DocumentView() {
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
-      <Header user={user} />
-      <div className="flex flex-1">
-        <Sidebar user={user} active={sidebarActive} />
-
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+      <HeaderDocumentView user={user} />
+        <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
           <main className="p-8 flex-1 overflow-y-auto">
-            {/* Back + actions */}
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={handleBack}
-                className="inline-flex items-center gap-2 text-gray-700 hover:text-gray-900"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M15 6l-6 6 6 6" />
-                </svg>
-                <span className="font-medium">Back</span>
-              </button>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleDownload}
-                  className="inline-flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-4 py-2 rounded-lg shadow transition-colors"
-                >
-                  {/* correct orientation for download arrow */}
-                  <svg width="18" height="18" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M12 3v10.59l3.3-3.3l1.4 1.42L12 17.4l-4.7-4.7l1.4-1.42l3.3 3.3V3zM5 19h14v2H5z"
-                    />
-                  </svg>
-                  Download as PDF
-                </button>
-
-                <button
-                  onClick={handleEdit}
-                  className="inline-flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-4 py-2 rounded-lg shadow transition-colors"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm18-10.5a1.003 1.003 0 0 0 0-1.41l-2.34-2.34a1.003 1.003 0 0 0-1.41 0l-1.83 1.83l3.75 3.75L21 6.75z"
-                    />
-                  </svg>
-                  Edit
-                </button>
-
-                <button
-                  onClick={handleUnpublish}
-                  className="inline-flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-4 py-2 rounded-lg shadow transition-colors"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M19 13H5v-2h14v2Z"
-                    />
-                  </svg>
-                  Unpublish
-                </button>
-              </div>
-            </div>
-
-            {/* Title chip */}
-            <div className="bg-[#EFF3FF] text-gray-800 rounded-lg px-4 py-3 flex items-center gap-3 mb-6">
-              <div className="font-medium truncate">{doc.title}</div>
-              <div className="text-gray-500 text-sm flex items-center gap-1">
-                <svg width="16" height="16" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M12 8v5l4 2l.75-1.86L13 11.7V8zm0-6a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16z"
-                  />
-                </svg>
-                Updated {doc.updatedAgo}
-              </div>
-            </div>
-
             {/* Content grid */}
             <div className="grid grid-cols-12 gap-6">
               {/* Preview */}
@@ -173,7 +95,6 @@ export default function DocumentView() {
           </main>
         </div>
       </div>
-    </div>
   );
 }
 

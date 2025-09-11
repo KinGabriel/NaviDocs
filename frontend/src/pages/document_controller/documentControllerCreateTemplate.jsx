@@ -20,8 +20,7 @@ import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
 import DateFormatPanel from "../../layout/create_template/dateformatPanel";
-import FieldsPanel from "../../layout/create_template/fieldsPanel"; // ⬅ NEW
-
+import FieldsPanel from "../../layout/create_template/fieldsPanel";
 // Sidebar
 import TemplateSidebar from "../../layout/TemplateSidebar";
 
