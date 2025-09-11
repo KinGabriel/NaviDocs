@@ -1,4 +1,3 @@
-
 import axios from "axios";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -73,3 +72,16 @@ export const searchUsersByEmailAPI = async (query) => {
 		return [];
 	}
 };
+
+/**
+ * Fetch both document controllers and secretaries for the current user's school
+ */
+export async function fetchSchoolStaffAPI() {
+  try {
+    const res = await axios.get(`${API_URL}/api/user/getSchoolStaff`, { withCredentials: true });
+	console.log(res.data);
+    return res.data;
+  } catch (err) {
+    throw err.response?.data || { message: 'Failed to fetch school staff' };
+  }
+}

@@ -1,48 +1,65 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Dropdown3 from '../../components/dropdowns/dropdown3';
 import useUser from '../../hooks/useUser'; 
-
-// Example users, secretaries, and deans
-const users = [
-  { id: 'u1', name: 'Nichole Jhoy Escano' },
-  { id: 'u2', name: 'Gabriel Castiliano' },
-];
-const secretaries = [
-  { id: 's1', name: 'Michael Bay' },
-  { id: 's2', name: 'Jan Vin Malaluan' },
-];
-const deans = [
-  { id: 'd1', name: 'Dean John Doe' },
-  { id: 'd2', name: 'Dean Jane Smith' },
-];
-
-
+import { fetchSchoolStaffAPI } from '../../api/userAPI';
 
 export default function TaskAssignmentPanel({ onAssign }) {
   const user = useUser();
   const [title, setTitle] = useState('');
   const [instructions, setInstructions] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [assignedUsers, setAssignedUsers] = useState([users[0].id]);
+  const [assignedUsers, setAssignedUsers] = useState([]);
+  const [docControllers, setDocControllers] = useState([]);
+  const [secretaries, setSecretaries] = useState([]);
+  const [loadingStaff, setLoadingStaff] = useState(true);
+  const [assignedApprover, setAssignedApprover] = useState('');
+
+  // Fetch staff on mount
+  useEffect(() => {
+    setLoadingStaff(true);
+    fetchSchoolStaffAPI()
+      .then(({ docControllers, secretaries }) => {
+        setDocControllers(docControllers);
+        setSecretaries(secretaries);
+        // Do not preselect any user or approver on first load
+        setAssignedUsers([]);
+        setAssignedApprover('');
+      })
+      .catch(() => {
+        setDocControllers([]);
+        setSecretaries([]);
+        setAssignedUsers([]);
+        setAssignedApprover('');
+      })
+      .finally(() => setLoadingStaff(false));
+  }, []);
+
 
   // Determine role from user context
-  const userRole = user?.role.name === 'Secretary' ? 'Secretary' : 'Dean';
+  const userRole = user?.role?.name === 'Secretary' ? 'Secretary' : 'Dean';
 
-  // Dynamic options and label for approver/checker
-  const approverOptions = useMemo(() => {
-    return userRole === 'Dean'
-      ? secretaries.map(s => ({ value: s.id, label: s.name }))
-      : deans.map(d => ({ value: d.id, label: d.name }));
-  }, [userRole]);
+  // Approvers: if Dean, show secretaries; if Secretary, show deans
+  const assignUserOptions = docControllers;
+  const approverOptions = userRole === 'Dean' ? secretaries : [];
   const approverLabel = userRole === 'Dean' ? 'Secretary (Approver/Checker)' : 'Dean (Approver/Checker)';
   const approverPlaceholder = userRole === 'Dean' ? 'Select secretary...' : 'Select dean...';
-  const [assignedApprover, setAssignedApprover] = useState(approverOptions[0]?.value || '');
 
-  // Update assignedApprover if userRole changes
-  React.useEffect(() => {
-    setAssignedApprover(approverOptions[0]?.value || '');
+  // Update assignedApprover if approverOptions change
+  useEffect(() => {
+    // Only set if not already selected 
+    if (!assignedApprover && approverOptions.length > 0) {
+      setAssignedApprover('');
+    }
   }, [userRole, approverOptions]);
+
+  // Update assignedUsers if assignUserOptions change
+  useEffect(() => {
+    // Only set if not already selected 
+    if (assignedUsers.length === 0 && assignUserOptions.length > 0) {
+      setAssignedUsers([]);
+    }
+  }, [userRole, assignUserOptions]);
 
   const handleAssign = () => {
     if (title && assignedUsers.length > 0 && assignedApprover) {
@@ -56,10 +73,14 @@ export default function TaskAssignmentPanel({ onAssign }) {
       setTitle('');
       setInstructions('');
       setDueDate('');
-      setAssignedUsers([users[0].id]);
-      setAssignedApprover(approverOptions[0]?.value || '');
+      setAssignedUsers(docControllers.length > 0 ? [docControllers[0].id] : []);
+      setAssignedApprover(approverOptions.length > 0 ? approverOptions[0].id : '');
     }
   };
+
+  if (loadingStaff) {
+    return <div className="p-4">Loading staff...</div>;
+  }
 
   return (
     <div className="mb-6 p-4 bg-white border border-slate-200 rounded shadow flex flex-col gap-4 max-w-3xl">
@@ -88,7 +109,7 @@ export default function TaskAssignmentPanel({ onAssign }) {
           <div className="min-w-[180px]">
             <MultiSelectDropdown
               label="Assign User(s)"
-              options={users.map(u => ({ value: u.id, label: u.name }))}
+              options={assignUserOptions.map(u => ({ value: u.id, label: u.name }))}
               value={assignedUsers}
               onChange={setAssignedUsers}
               placeholder="Select user(s)..."
@@ -99,7 +120,7 @@ export default function TaskAssignmentPanel({ onAssign }) {
               label={approverLabel}
               value={assignedApprover}
               onChange={setAssignedApprover}
-              options={approverOptions}
+              options={approverOptions.map(u => ({ value: u.id, label: u.name }))}
               placeholder={approverPlaceholder}
             />
           </div>
