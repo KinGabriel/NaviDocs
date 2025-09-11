@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
-import Dropdown3 from '../../components/dropdown3';
+import Dropdown3 from '../../components/dropdowns/dropdown3';
 
 const users = [
   { id: 'u1', name: 'Nichole Jhoy Escano' },

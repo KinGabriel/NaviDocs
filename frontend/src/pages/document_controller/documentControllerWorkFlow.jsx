@@ -5,7 +5,7 @@ import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
 import usePagination from "../../hooks/usePagination";
 import Table from "../../components/table";
-import Dropdown from "../../components/dropdown";
+import Dropdown from "../../components/dropdowns/dropdown";
 import SearchBar from "../../components/searchBar";
 
 // --- placeholder docs (now with id) ---

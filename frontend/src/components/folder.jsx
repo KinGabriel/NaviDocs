@@ -4,7 +4,7 @@ import { deleteFolderByIDAPI,addAccessToFoldersAPI } from "../api/storageAPI";
 import { searchUsersByEmailAPI,getUserIdByEmailAPI } from "../api/userAPI";
 import React, { useState, Fragment,useEffect, useRef } from "react";
 import MultiSelectDropdown from './multiSelectDropdown';
-import Dropdown3 from './dropdown3';
+import Dropdown3 from './dropdowns/dropdown3';
 import useUser from '../hooks/useUser';
 
 import {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import Dropdown from "../../components/dropdown2";
+import Dropdown from "../../components/dropdowns/dropdown2";
 
 export default function PageSetupPanel({
   paperSize,

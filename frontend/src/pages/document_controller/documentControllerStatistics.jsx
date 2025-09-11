@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Header from '../../layout/header';
 import Sidebar from '../../layout/sidebar';
-import Dropdown from '../../components/dropdown';
+import Dropdown from '../../components/dropdowns/dropdown';
 import Table from '../../components/table';
 import SearchBar from '../../components/searchBar'; 
 import { Bar, Doughnut } from "react-chartjs-2";

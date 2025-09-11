@@ -3,7 +3,7 @@ import { normalizeName, canSaveUser, validateUserRoleFields } from "../../utils/
 import Header from '../../layout/header';
 import Sidebar from '../../layout/sidebar';
 import useUser from '../../hooks/useUser';
-import Dropdown2 from "../../components/dropdown2";
+import Dropdown2 from "../../components/dropdowns/dropdown2";
 import defaultProfile from '../../assets/images/profile_picture.png';
 import Loader from '../../components/loader';
 import { createUserAccountAPI } from '../../api/adminAPI'; 

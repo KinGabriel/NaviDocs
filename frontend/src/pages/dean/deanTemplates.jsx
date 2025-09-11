@@ -5,7 +5,7 @@ import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
 import SearchBar from "../../components/searchBar";
-import Dropdown from "../../components/dropdown";
+import Dropdown from "../../components/dropdowns/dropdown";
 import usePagination from "../../hooks/usePagination";
 import { formatDate, StatusBadge } from '../../utils/formatters.jsx';
 import Loader from '../../components/loader';

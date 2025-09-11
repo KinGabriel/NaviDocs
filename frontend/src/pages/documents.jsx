@@ -4,7 +4,7 @@ import Header from "../layout/header";
 import Sidebar from "../layout/sidebar";
 import useUser from "../hooks/useUser";
 import SearchBar from "../components/searchBar";
-import Dropdown from "../components/dropdown";
+import Dropdown from "../components/dropdowns/dropdown";
 import TemplateCard from "../components/templatecard";
 import usePagination from "../hooks/usePagination";
 import { fetchTemplatesAPI } from "../api/documentContollerAPI";

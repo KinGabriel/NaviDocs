@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
-import Dropdown3 from './dropdown3';
+import Dropdown3 from './dropdowns/dropdown3';
 import { deleteFileAPI, deleteFileFromFolderAPI, renameFileAPI, addAccessToFileAPI } from '../api/storageAPI';
 import { searchUsersByEmailAPI, getUserIdByEmailAPI } from '../api/userAPI';
 import useUser from '../hooks/useUser';

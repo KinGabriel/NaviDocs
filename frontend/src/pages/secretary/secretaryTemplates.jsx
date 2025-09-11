@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
 import useUser from "../../hooks/useUser";
-import Dropdown from "../../components/dropdown";
+import Dropdown from "../../components/dropdowns/dropdown";
 import SearchBar from "../../components/searchBar";
 import usePagination from "../../hooks/usePagination";
 import { fetchTemplatesAPI } from '../../api/documentContollerAPI';

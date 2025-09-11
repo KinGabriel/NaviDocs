@@ -10,7 +10,7 @@ import Sidebar from '../../layout/sidebar';
 import Header from '../../layout/header';
 import SearchBar from '../../components/searchBar';
 import Table from '../../components/table';
-import Dropdown from '../../components/dropdown';
+import Dropdown from '../../components/dropdowns/dropdown';
 import usePagination from '../../hooks/usePagination';
 import Loader from '../../components/loader';
 
