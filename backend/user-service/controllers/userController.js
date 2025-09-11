@@ -1,4 +1,3 @@
-
 import User from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -215,3 +214,29 @@ export const updateUserAccountSettings = async (req, res) => {
   }
 };
 
+/**
+ * Get both Document Controllers and Secretaries for the user's school
+ * @route GET /api/user/schoolStaff
+ * @access Private
+ */
+export const getSchoolStaff = async (req, res) => {
+  try {
+    const school = req.user?.role?.school;
+    if (!school) {
+      return res.status(400).json({ message: "School not found in user role." });
+    }
+    const [docControllers, secretaries] = await Promise.all([
+      User.find({ "role.name": "Document Controller", "role.school": school, is_deleted: false }).select('_id firstname lastname'),
+      User.find({ "role.name": { $in: ["secretary", "Secretary"] }, "role.school": school, is_deleted: false }).select('_id firstname lastname')
+    ]);
+    // Map to return only id and name (combine firstname and lastname)
+    const mapUser = u => ({ id: u._id, name: `${u.firstname} ${u.lastname}`.trim() });
+    res.json({
+      docControllers: docControllers.map(mapUser),
+      secretaries: secretaries.map(mapUser)
+    });
+  } catch (error) {
+    console.error("Error fetching school staff:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

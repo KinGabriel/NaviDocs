@@ -10,7 +10,7 @@ import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
 import { formatDate,StatusBadge } from '../../utils/formatters.jsx';
 import Loader from '../../components/loader';
 import { useNavigate } from "react-router-dom"; 
-
+import TaskAssignmentPanel from '../../layout/assignments/taskAssignmentPanel';
 export default function SecretaryTemplates() {
   const user = useUser();
   const [search, setSearch] = useState("");
@@ -172,6 +172,7 @@ export default function SecretaryTemplates() {
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-4 ">Templates</h1>
             <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
           </div>
+          <TaskAssignmentPanel />
           <div className="flex items-center justify-end gap-2 mb-4">
             <Dropdown
               options={["All", ...Object.keys(schoolIdentifiers)]}

@@ -1,9 +1,9 @@
-
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Dropdown3 from '../../components/dropdowns/dropdown3';
+import useUser from '../../hooks/useUser'; 
 
+// Example users, secretaries, and deans
 const users = [
   { id: 'u1', name: 'Nichole Jhoy Escano' },
   { id: 'u2', name: 'Gabriel Castiliano' },
@@ -12,28 +12,52 @@ const secretaries = [
   { id: 's1', name: 'Michael Bay' },
   { id: 's2', name: 'Jan Vin Malaluan' },
 ];
+const deans = [
+  { id: 'd1', name: 'Dean John Doe' },
+  { id: 'd2', name: 'Dean Jane Smith' },
+];
+
+
 
 export default function TaskAssignmentPanel({ onAssign }) {
+  const user = useUser();
   const [title, setTitle] = useState('');
   const [instructions, setInstructions] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [assignedUsers, setAssignedUsers] = useState([users[0].id]);
-  const [assignedSecretary, setAssignedSecretary] = useState(secretaries[0].id);
+
+  // Determine role from user context
+  const userRole = user?.role.name === 'Secretary' ? 'Secretary' : 'Dean';
+
+  // Dynamic options and label for approver/checker
+  const approverOptions = useMemo(() => {
+    return userRole === 'Dean'
+      ? secretaries.map(s => ({ value: s.id, label: s.name }))
+      : deans.map(d => ({ value: d.id, label: d.name }));
+  }, [userRole]);
+  const approverLabel = userRole === 'Dean' ? 'Secretary (Approver/Checker)' : 'Dean (Approver/Checker)';
+  const approverPlaceholder = userRole === 'Dean' ? 'Select secretary...' : 'Select dean...';
+  const [assignedApprover, setAssignedApprover] = useState(approverOptions[0]?.value || '');
+
+  // Update assignedApprover if userRole changes
+  React.useEffect(() => {
+    setAssignedApprover(approverOptions[0]?.value || '');
+  }, [userRole, approverOptions]);
 
   const handleAssign = () => {
-    if (title && assignedUsers.length > 0 && assignedSecretary) {
+    if (title && assignedUsers.length > 0 && assignedApprover) {
       onAssign?.({
         title,
         instructions,
         dueDate,
         assignedUsers,
-        assignedSecretary,
+        assignedApprover,
       });
       setTitle('');
       setInstructions('');
       setDueDate('');
       setAssignedUsers([users[0].id]);
-      setAssignedSecretary(secretaries[0].id);
+      setAssignedApprover(approverOptions[0]?.value || '');
     }
   };
 
@@ -72,11 +96,11 @@ export default function TaskAssignmentPanel({ onAssign }) {
           </div>
           <div className="min-w-[180px]">
             <Dropdown3
-              label="Secretary (Approver/Checker)"
-              value={assignedSecretary}
-              onChange={setAssignedSecretary}
-              options={secretaries.map(s => ({ value: s.id, label: s.name }))}
-              placeholder="Select secretary..."
+              label={approverLabel}
+              value={assignedApprover}
+              onChange={setAssignedApprover}
+              options={approverOptions}
+              placeholder={approverPlaceholder}
             />
           </div>
           <div>
@@ -93,7 +117,7 @@ export default function TaskAssignmentPanel({ onAssign }) {
           <button
             className="bg-blue-600 text-white px-5 py-2 rounded font-semibold hover:bg-blue-700"
             onClick={handleAssign}
-            disabled={!title || assignedUsers.length === 0 || !assignedSecretary}
+            disabled={!title || assignedUsers.length === 0 || !assignedApprover}
           >
             Assign
           </button>

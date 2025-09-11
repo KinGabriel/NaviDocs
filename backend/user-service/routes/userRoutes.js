@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from "multer";
-import {getUserEmail, getUserBasicInfo,getUserIdByEmail,updateUserAccountSettings,updateUserPassword, searchUsersByEmail } from '../controllers/userController.js';
+import {getUserEmail, getUserBasicInfo,getUserIdByEmail,updateUserAccountSettings,updateUserPassword, searchUsersByEmail,getSchoolStaff } from '../controllers/userController.js';
 import { authenticateJWT } from '../middleware/authenticationMiddleware.js';
 
 const router = express.Router();
@@ -19,6 +19,7 @@ const upload = multer({
     }
   }
 });
+router.get('/getSchoolStaff', authenticateJWT, getSchoolStaff);
 router.get('/getUserEmail/:id', authenticateJWT, getUserEmail);
 router.get('/getUserInfo/:id', authenticateJWT, getUserBasicInfo);
 router.get('/getUserIdByEmail/:email', authenticateJWT, getUserIdByEmail);
