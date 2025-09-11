@@ -225,15 +225,18 @@ export const getSchoolStaff = async (req, res) => {
     if (!school) {
       return res.status(400).json({ message: "School not found in user role." });
     }
-    const [docControllers, secretaries] = await Promise.all([
+    const [docControllers, secretaries, deans] = await Promise.all([
       User.find({ "role.name": "Document Controller", "role.school": school, is_deleted: false }).select('_id firstname lastname'),
-      User.find({ "role.name": { $in: ["secretary", "Secretary"] }, "role.school": school, is_deleted: false }).select('_id firstname lastname')
+      User.find({ "role.name": { $in: ["secretary", "Secretary"] }, "role.school": school, is_deleted: false }).select('_id firstname lastname'),
+      User.find({ "role.name": { $in: ["dean", "Dean"] }, "role.school": school, is_deleted: false }).select('_id firstname lastname')
     ]);
+    console.log(docControllers, secretaries, deans);
     // Map to return only id and name (combine firstname and lastname)
     const mapUser = u => ({ id: u._id, name: `${u.firstname} ${u.lastname}`.trim() });
     res.json({
       docControllers: docControllers.map(mapUser),
-      secretaries: secretaries.map(mapUser)
+      secretaries: secretaries.map(mapUser),
+      deans: deans.map(mapUser)
     });
   } catch (error) {
     console.error("Error fetching school staff:", error);

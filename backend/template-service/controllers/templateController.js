@@ -562,3 +562,132 @@ export const publishTemplate = async (req, res) => {
     return res.status(500).json({ success:false, message:'Failed to publish template' });
   }
 };
+
+/**
+ * @desc Assign users and set assigner/approver for a template
+ * @route POST /api/templates/assign
+ * @access Private
+ */
+export const assignUsersToCreateTemplate = async (req, res) => {
+  try {
+    const { assigned, approver, templateData, deadline } = req.body;
+    console.log("Assigning users to template:", { assigned, approver, deadline, templateData });
+    // Always create the template from templateData
+    if (!templateData) {
+      console.log('templateData missing:', req.body);
+      return res.status(400).json({ success: false, message: 'templateData is required' });
+    }
+
+    templateData.title = templateData.title ? templateData.title.trim() : 'Untitled Template';
+    delete templateData.document_code;
+    templateData.notes = templateData.notes || [];
+    templateData.notes.push({
+      added_by: req.user.id,
+      role_snapshot: req.user?.role?.name || '',
+      type: 'assignment',
+      message: `Assigned by ${req.user?.role?.name || 'User'}`,
+      created_at: new Date()
+    });
+    if (deadline) {
+      templateData.deadline = deadline;
+    }
+    if (!templateData.created_by) {
+      templateData.created_by = req.user.id;
+    }
+    // Minimal template creation logic (inline, not via req/res)
+    const { title, pages_json, body, created_by, notes } = templateData;
+    const template = new Template({
+      title: title && title.trim() !== '' ? title.trim() : 'Untitled Template',
+      pages_json: Array.isArray(pages_json) ? pages_json : [
+        {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: '' }] }
+          ]
+        }
+      ],
+      body: body || '',
+      created_by: created_by || req.user.id,
+      notes: Array.isArray(notes) ? notes : [],
+      deadline: deadline || undefined
+    });
+    await template.save();
+
+    if (!Array.isArray(assigned) || assigned.length === 0) {
+      console.log('assigned missing or empty:', assigned);
+      return res.status(400).json({ success: false, message: 'Assigned users array required' });
+    }
+
+    if (!approver) {
+      console.log('approver missing:', approver);
+      return res.status(400).json({ success: false, message: 'Approver is required' });
+    }
+
+    // Set assigned users
+    template.assigned = assigned;
+    // Set deadline if provided
+    if (deadline) {
+      template.deadline = deadline;
+    }
+    // Set status to 'assigned'
+    template.status = 'assigned';
+
+    // Set assigner (current user)
+    template.status_meta = template.status_meta || {};
+    template.status_meta.assigned_by = req.user.id;
+    template.status_meta.assigned_at = new Date();
+    // Add assignment note to existing template
+    if (template.notes) {
+      template.notes.push({
+        added_by: req.user.id,
+        role_snapshot: req.user?.role?.name || '',
+        type: 'assignment',
+        message: `Assigned by ${req.user?.role?.name || 'User'}`,
+        created_at: new Date()
+      });
+    } else {
+      template.notes = [{
+        added_by: req.user.id,
+        role_snapshot: req.user?.role?.name || '',
+        type: 'assignment',
+        message: `Assigned by ${req.user?.role?.name || 'User'}`,
+        created_at: new Date()
+      }];
+    }
+
+    // Set approver slot based on assigner's role
+    const role = req.user?.role?.name?.toLowerCase();
+    if (role === 'dean') {
+      template.status_meta.approvals = template.status_meta.approvals || {};
+      template.status_meta.approvals.secretary = {
+        assigned_to: approver,
+        isApproved: false,
+        approved_at: null
+      };
+      template.status_meta.approvals.dean = {
+        assigned_to: req.user.id,
+        isApproved: false,
+        approved_at: null
+      };
+    } else if (role === 'secretary') {
+      template.status_meta.approvals = template.status_meta.approvals || {};
+      template.status_meta.approvals.dean = {
+        assigned_to: approver,
+        isApproved: false ,
+        approved_at: null
+      };
+      template.status_meta.approvals.secretary = {
+        assigned_to: req.user.id,
+        isApproved: false,
+        approved_at: null
+      };
+    }
+
+    console.log('Saving template with assigned:', template.assigned);
+    await template.save();
+    res.json({ success: true, message: 'Users and approver assigned successfully', template });
+  } catch (error) {
+    console.error('Error assigning users/approver:', error);
+    res.status(500).json({ success: false, message: 'Failed to assign users/approver' });
+  }
+};

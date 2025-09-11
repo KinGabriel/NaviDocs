@@ -1,17 +1,20 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Dropdown3 from '../../components/dropdowns/dropdown3';
-import useUser from '../../hooks/useUser'; 
+import useUser from '../../hooks/useUser';
 import { fetchSchoolStaffAPI } from '../../api/userAPI';
+import { assignUsersToTemplate } from '../../api/assignmentAPI';
 
-export default function TaskAssignmentPanel({ onAssign }) {
+export default function TaskAssignmentPanel({ templateId, onAssign }) {
   const user = useUser();
   const [title, setTitle] = useState('');
   const [instructions, setInstructions] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [deadline, setDeadline] = useState('');
   const [assignedUsers, setAssignedUsers] = useState([]);
   const [docControllers, setDocControllers] = useState([]);
   const [secretaries, setSecretaries] = useState([]);
+  const [deans, setDeans] = useState([]);
   const [loadingStaff, setLoadingStaff] = useState(true);
   const [assignedApprover, setAssignedApprover] = useState('');
 
@@ -19,16 +22,17 @@ export default function TaskAssignmentPanel({ onAssign }) {
   useEffect(() => {
     setLoadingStaff(true);
     fetchSchoolStaffAPI()
-      .then(({ docControllers, secretaries }) => {
-        setDocControllers(docControllers);
-        setSecretaries(secretaries);
-        // Do not preselect any user or approver on first load
+      .then(({ docControllers, secretaries, deans }) => {
+        setDocControllers(docControllers || []);
+        setSecretaries(secretaries || []);
+        setDeans(deans || []);
         setAssignedUsers([]);
         setAssignedApprover('');
       })
       .catch(() => {
         setDocControllers([]);
         setSecretaries([]);
+        setDeans([]);
         setAssignedUsers([]);
         setAssignedApprover('');
       })
@@ -40,41 +44,60 @@ export default function TaskAssignmentPanel({ onAssign }) {
   const userRole = user?.role?.name === 'Secretary' ? 'Secretary' : 'Dean';
 
   // Approvers: if Dean, show secretaries; if Secretary, show deans
-  const assignUserOptions = docControllers;
-  const approverOptions = userRole === 'Dean' ? secretaries : [];
-  const approverLabel = userRole === 'Dean' ? 'Secretary (Approver/Checker)' : 'Dean (Approver/Checker)';
-  const approverPlaceholder = userRole === 'Dean' ? 'Select secretary...' : 'Select dean...';
+  let assignUserOptions = [];
+  let approverOptions = [];
+  let approverLabel = '';
+  let approverPlaceholder = '';
+
+  if (userRole === 'Dean') {
+    assignUserOptions = secretaries;
+    approverOptions = docControllers;
+    approverLabel = 'Document Controller (Approver/Checker)';
+    approverPlaceholder = 'Select document controller...';
+  } else {
+    assignUserOptions = docControllers;
+    approverOptions = deans;
+    approverLabel = 'Dean (Approver/Checker)';
+    approverPlaceholder = 'Select dean...';
+  }
 
   // Update assignedApprover if approverOptions change
+  // Set default assignedApprover when options change
   useEffect(() => {
-    // Only set if not already selected 
-    if (!assignedApprover && approverOptions.length > 0) {
+    if (approverOptions.length > 0) {
+      setAssignedApprover(approverOptions[0].id);
+    } else {
       setAssignedApprover('');
     }
   }, [userRole, approverOptions]);
 
-  // Update assignedUsers if assignUserOptions change
+  // Set default assignedUsers when options change
   useEffect(() => {
-    // Only set if not already selected 
-    if (assignedUsers.length === 0 && assignUserOptions.length > 0) {
+    if (assignUserOptions.length > 0) {
+      setAssignedUsers([assignUserOptions[0].id]);
+    } else {
       setAssignedUsers([]);
     }
   }, [userRole, assignUserOptions]);
 
-  const handleAssign = () => {
-    if (title && assignedUsers.length > 0 && assignedApprover) {
-      onAssign?.({
-        title,
-        instructions,
-        dueDate,
+  const handleAssign = async () => {
+    console.log("Assigning template:", { title, instructions, deadline, assignedUsers, assignedApprover, templateId });
+    if (title && assignedUsers.length > 0 && assignedApprover && deadline) {
+      // Prepare templateData (add instructions if needed)
+      const templateData = { title, instructions };
+      const result = await assignUsersToTemplate(
+        templateId,
         assignedUsers,
         assignedApprover,
-      });
-      setTitle('');
-      setInstructions('');
-      setDueDate('');
-      setAssignedUsers(docControllers.length > 0 ? [docControllers[0].id] : []);
-      setAssignedApprover(approverOptions.length > 0 ? approverOptions[0].id : '');
+        templateData,
+        deadline ? deadline : undefined
+      );
+      onAssign?.(result);
+  setTitle('');
+  setInstructions('');
+  setDeadline('');
+  setAssignedUsers(assignUserOptions.length > 0 ? [assignUserOptions[0].id] : []);
+  setAssignedApprover(approverOptions.length > 0 ? approverOptions[0].id : '');
     }
   };
 
@@ -129,8 +152,8 @@ export default function TaskAssignmentPanel({ onAssign }) {
             <input
               type="date"
               className="border rounded px-2 py-1"
-              value={dueDate}
-              onChange={e => setDueDate(e.target.value)}
+              value={deadline}
+              onChange={e => setDeadline(e.target.value)}
             />
           </div>
         </div>
