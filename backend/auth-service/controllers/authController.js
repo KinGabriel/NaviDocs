@@ -34,6 +34,7 @@ export const loginUser = async (req, res) => {
         id: user._id,
         email: user.email,
         role: user.role,
+        school: user.role.school,
       },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }

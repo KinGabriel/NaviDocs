@@ -13,28 +13,17 @@ const templateSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
-  page_no: {
-    type: Number,
-    default: 1
-  },
+  pageSetup: { type: mongoose.Schema.Types.Mixed, default: {} },
+//  fontSettings: { type: mongoose.Schema.Types.Mixed, default: {} },
+  dateFormat: { type: mongoose.Schema.Types.Mixed, default: {} },
+  fields: { type: [mongoose.Schema.Types.Mixed], default: [] },
   title: {
     type: String,
     required: true,
     trim: true
   },
-  document_size: {
-    type: String,
-  enum: ['letter','legal','A4'],
-  default: 'legal'
-  },
-  margin: {
-    top: { type: Number, default: 1 },
-    bottom: { type: Number, default: 1 },
-    left: { type: Number, default: 1 },
-    right: { type: Number, default: 1 }
-  },
   created_by: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'User' },
-  header: { type: mongoose.Schema.Types.Mixed, default: [] },
+  // header: { type: mongoose.Schema.Types.Mixed, default: [] },
   pages_json: {
     type: [mongoose.Schema.Types.Mixed],
     required: true,
@@ -53,7 +42,7 @@ const templateSchema = new mongoose.Schema({
     ]
   },
   body: { type: String, default: '' },
-  footer: { type: mongoose.Schema.Types.Mixed, default: [] },
+  // footer: { type: mongoose.Schema.Types.Mixed, default: [] },
   status: { type: String, enum: ['draft','pending','approved','published'], default: 'draft' },
   status_meta: {
     approved_at: { type: Date, default: null },

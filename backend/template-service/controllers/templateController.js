@@ -264,6 +264,11 @@ export const updateTemplate = async (req, res) => {
     }
 
     const updatePayload = { ...req.body };
+    // Map content (HTML) to body if present
+    if (typeof updatePayload.content === 'string') {
+      updatePayload.body = updatePayload.content;
+      delete updatePayload.content;
+    }
     // Accept only pages_json and body
     if (!Array.isArray(updatePayload.pages_json)) {
       updatePayload.pages_json = [
@@ -278,6 +283,7 @@ export const updateTemplate = async (req, res) => {
     if (!updatePayload.body) {
       updatePayload.body = '';
     }
+    // console.log(updatePayload);
     if (updatePayload.document_code) {
       delete updatePayload.document_code;
     }
@@ -294,7 +300,7 @@ export const updateTemplate = async (req, res) => {
       // Prevent full overwrite if notes array also sent
       delete updateOps.$set.notes;
     }
-
+console.log(updateOps);
     const updatedTemplate = await Template.findByIdAndUpdate(
       req.params.id,
       updateOps,
