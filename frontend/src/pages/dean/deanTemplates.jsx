@@ -9,7 +9,8 @@ import Dropdown from "../../components/dropdown";
 import usePagination from "../../hooks/usePagination";
 import { formatDate, StatusBadge } from '../../utils/formatters.jsx';
 import Loader from '../../components/loader';
-import { fetchTemplatesAPI as fetchDeanTemplatesAPI, approveTemplateAPI } from "../../api/documentContollerAPI";
+import { fetchTemplatesAPI as fetchDeanTemplatesAPI, approveTemplateAPI,createTemplateAPI } from "../../api/documentContollerAPI";
+import TaskAssignmentPanel from '../../layout/assignments/taskAssignmentPanel';
 
 export default function DeanTemplates() {
   const user = useUser();
@@ -193,7 +194,7 @@ export default function DeanTemplates() {
             </h1>
             <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
           </div>
-
+          <TaskAssignmentPanel />
           {/* Controls (right-aligned like Secretary) */}
           <div className="flex items-center justify-end gap-2 mb-4">
             <Dropdown

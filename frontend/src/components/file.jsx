@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
+import Dropdown3 from './dropdown3';
 import { deleteFileAPI, deleteFileFromFolderAPI, renameFileAPI, addAccessToFileAPI } from '../api/storageAPI';
 import { searchUsersByEmailAPI, getUserIdByEmailAPI } from '../api/userAPI';
 import useUser from '../hooks/useUser';
@@ -563,17 +564,18 @@ export default function FileComponent({
 
 
             {/* Visibility */}
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Visibility
-            </label>
-            <select
-              className="w-full border rounded-lg px-3 py-2 mb-3"
-              value={visibility}
-              onChange={e => setVisibility(e.target.value)}
-            >
-              <option value="private">Private</option>
-              <option value="public">Public</option>
-            </select>
+            <div className="mb-3">
+              <Dropdown3
+                label="Visibility"
+                value={visibility}
+                onChange={setVisibility}
+                options={[
+                  { value: 'private', label: 'Private' },
+                  { value: 'public', label: 'Public' },
+                ]}
+                placeholder="Select visibility..."
+              />
+            </div>
 
 
             {/* Add people */}
