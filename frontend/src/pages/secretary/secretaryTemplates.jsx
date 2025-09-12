@@ -10,7 +10,9 @@ import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
 import { formatDate,StatusBadge } from '../../utils/formatters.jsx';
 import Loader from '../../components/loader';
 import { useNavigate } from "react-router-dom"; 
-import TaskAssignmentPanel from '../../layout/assignments/taskAssignmentPanel';
+import TaskAssignmentModal from '../../components/modals/taskAssignmentModal.jsx';
+
+
 export default function SecretaryTemplates() {
   const user = useUser();
   const [search, setSearch] = useState("");
@@ -25,6 +27,8 @@ export default function SecretaryTemplates() {
   const pagination = usePagination(totalPages, 1);
   const tabs = ["All","Published", "Pending Approvals", "Approved", "On Going", "Late"];
   const navigate = useNavigate();
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
 
   // Map tabs to status values for API
   const tabToStatus = {
@@ -172,7 +176,17 @@ export default function SecretaryTemplates() {
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-4 ">Templates</h1>
             <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
           </div>
-          <TaskAssignmentPanel />
+
+        <TaskAssignmentModal 
+          templateId={selectedTemplateId}
+          isOpen={isAssignmentModalOpen}  
+          onClose={() => setIsAssignmentModalOpen(false)}  
+          onAssign={(result) => {
+            console.log('Assignment created:', result);
+            fetchTemplates();
+          }}
+        />
+
           <div className="flex items-center justify-end gap-2 mb-4">
             <Dropdown
               options={["All", ...Object.keys(schoolIdentifiers)]}
@@ -194,6 +208,14 @@ export default function SecretaryTemplates() {
             </div>
           </div>
           <div className="mb-6 border-b border-gray-200">
+
+         <button
+          onClick={() => setIsAssignmentModalOpen(true)}
+          className="px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA]font-semibold rounded-lg shadow hover:bg-blue-700 transition"
+        >
+          Assign Templates
+        </button>
+
             <div className="flex space-x-8">
               {tabs.map((tab) => (
                 <button
