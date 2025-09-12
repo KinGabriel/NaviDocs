@@ -12,7 +12,8 @@ const templateSchema = new mongoose.Schema({
   effectivity: {
     type: Date,
     default: null
-  },
+  },  
+  school: { type: String, default: '' },
   pageSetup: { type: mongoose.Schema.Types.Mixed, default: {} },
 //  fontSettings: { type: mongoose.Schema.Types.Mixed, default: {} },
   dateFormat: { type: mongoose.Schema.Types.Mixed, default: {} },

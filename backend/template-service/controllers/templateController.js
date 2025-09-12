@@ -76,6 +76,7 @@ export const createTemplate = async (req, res) => {
       ...templateData
     });
 
+    template.schoool = req.user?.school || '';
     // Remove transient / client-only fields
     delete template.school_identifier; // not stored separately
 
@@ -112,7 +113,13 @@ export const createTemplate = async (req, res) => {
 export const getTemplates = async (req, res) => {
   try {
     const { school, status, search, limit = 50, page = 1 } = req.query;
-    let query = {};
+
+    let query = {
+      $or: [
+        { created_by: req.user.id },
+        { assigned: req.user.id }
+      ]
+    };
 
     // School filtering
     if (school && school !== 'All') {
@@ -126,8 +133,8 @@ export const getTemplates = async (req, res) => {
     // Search
     if (search) {
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { document_code: { $regex: search, $options: 'i' } }
+        { $and: [ { $or: [ { created_by: req.user.id }, { assigned: req.user.id } ] }, { title: { $regex: search, $options: 'i' } } ] },
+        { $and: [ { $or: [ { created_by: req.user.id }, { assigned: req.user.id } ] }, { document_code: { $regex: search, $options: 'i' } } ] }
       ];
     }
 
@@ -150,9 +157,10 @@ export const getTemplates = async (req, res) => {
     }
     const withMeta = await Promise.all(templates.map(async t => {
       let createdByName = null;
+      let assignedNames = [];
       try {
+        // Fetch creator name
         if (t.created_by) {
-          console.log("Fetching user info for template:", t._id);
           const headers = {};
           if (token) {
             headers['Cookie'] = `token=${token}`;
@@ -165,13 +173,35 @@ export const getTemplates = async (req, res) => {
             createdByName = `${resp.data.firstname} ${resp.data.lastname}`;
           }
         }
+        // Fetch assigned user names
+        if (Array.isArray(t.assigned) && t.assigned.length > 0) {
+          assignedNames = await Promise.all(t.assigned.map(async userId => {
+            try {
+              const headers = {};
+              if (token) {
+                headers['Cookie'] = `token=${token}`;
+              }
+              const resp = await axios.get(
+                `${userServiceUrl}/api/user/getUserInfo/${userId}`,
+                { headers, withCredentials: true }
+              );
+              if (resp.data && resp.data.firstname && resp.data.lastname) {
+                return `${resp.data.firstname} ${resp.data.lastname}`;
+              }
+            } catch (err) {
+              return null;
+            }
+            return null;
+          }));
+        }
       } catch (err) {
         createdByName = null;
       }
       return {
         ...t.toObject(),
         approvalMeta: buildApprovalMeta(t, req.user?.id),
-        createdByName
+        createdByName,
+        assignedNames
       };
     }));
     res.status(200).json({
@@ -200,6 +230,107 @@ export const getTemplates = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching templates",
+    });
+  }
+};
+
+
+/**
+ * @desc Get all published templates visible to user (by school or FAA-VAA)
+ * @route GET /api/templates/published
+ * @access Private
+ */
+export const getPublishedVisibleTemplates = async (req, res) => {
+  try {
+    const { school, search, limit = 50, page = 1 } = req.query;
+    let schoolCode = school && school !== 'All' ? getSchoolCode(school) : (req.user?.school ? getSchoolCode(req.user.school) : null);
+
+    let query = {
+      status: 'published',
+      $or: []
+    };
+    if (schoolCode) {
+      query.$or.push({ document_code: { $regex: `^FM-${schoolCode}-\\d+$`, $options: 'i' } });
+    }
+    // FAA-VAA global templates
+    query.$or.push({ document_code: { $regex: '^FAA-VAA-\\d+$', $options: 'i' } });
+
+    // Search
+    if (search) {
+      query.$and = [
+        { $or: query.$or },
+        { $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { document_code: { $regex: search, $options: 'i' } }
+        ] }
+      ];
+      delete query.$or;
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const templates = await Template.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Template.countDocuments(query);
+
+    // Fetch creator names for each template
+    const userServiceUrl = process.env.USER_SERVICE_URL || "http://localhost:5002";
+    let token = null;
+    if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+    const withMeta = await Promise.all(templates.map(async t => {
+      let createdByName = null;
+      try {
+        if (t.created_by) {
+          const headers = {};
+          if (token) {
+            headers['Cookie'] = `token=${token}`;
+          }
+          const resp = await axios.get(
+            `${userServiceUrl}/api/user/getUserInfo/${t.created_by}`,
+            { headers, withCredentials: true }
+          );
+          if (resp.data && resp.data.firstname && resp.data.lastname) {
+            createdByName = `${resp.data.firstname} ${resp.data.lastname}`;
+          }
+        }
+      } catch (err) {
+        createdByName = null;
+      }
+      return {
+        ...t.toObject(),
+        approvalMeta: buildApprovalMeta(t, req.user?.id),
+        createdByName
+      };
+    }));
+    res.status(200).json({
+      success: true,
+      message: 'Published templates retrieved successfully',
+      data: {
+        templates: withMeta,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(total / parseInt(limit)),
+          total_templates: total,
+          has_next: skip + templates.length < total,
+          has_prev: parseInt(page) > 1,
+          per_page: parseInt(limit)
+        },
+        filters_applied: {
+          school: school || req.user?.school || 'All',
+          search: search || null
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching published visible templates:', error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching published visible templates",
     });
   }
 };
@@ -631,7 +762,7 @@ export const assignUsersToCreateTemplate = async (req, res) => {
     }
     // Set status to 'assigned'
     template.status = 'assigned';
-
+    template.school = req.user?.school || '';
     // Set assigner (current user)
     template.status_meta = template.status_meta || {};
     template.status_meta.assigned_by = req.user.id;
