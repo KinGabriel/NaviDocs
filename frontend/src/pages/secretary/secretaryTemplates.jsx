@@ -177,16 +177,6 @@ export default function SecretaryTemplates() {
             <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
           </div>
 
-        <TaskAssignmentModal 
-          templateId={selectedTemplateId}
-          isOpen={isAssignmentModalOpen}  
-          onClose={() => setIsAssignmentModalOpen(false)}  
-          onAssign={(result) => {
-            console.log('Assignment created:', result);
-            fetchTemplates();
-          }}
-        />
-
           <div className="flex items-center justify-end gap-2 mb-4">
             <Dropdown
               options={["All", ...Object.keys(schoolIdentifiers)]}
@@ -239,6 +229,8 @@ export default function SecretaryTemplates() {
           ) : (
             <Table columns={columns} data={currentData} />
           )}
+
+          {/* Pagination */}
           <div className="flex justify-center items-center mt-6 gap-2">
             <button
               onClick={pagination.handlePrev}
@@ -274,6 +266,23 @@ export default function SecretaryTemplates() {
           </div>
         </main>
       </div>
+      {/* Assignment Modal */}
+          {isAssignmentModalOpen && (
+            <div className="fixed inset-0 z-50 inset-0 bg-opacity-30 backdrop-blur-[2px] flex items-center justify-center">
+              <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                
+                <TaskAssignmentModal
+                  templateId={selectedTemplateId}
+                  isOpen={isAssignmentModalOpen}
+                  onClose={() => setIsAssignmentModalOpen(false)}
+                  onAssign={(result) => {
+                    console.log('Assignment created:', result);
+                    fetchTemplates();
+                  }}
+                />
+              </div>
+            </div>
+          )}
     </div>
   );
 }

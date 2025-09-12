@@ -149,7 +149,7 @@ export default function DeanTemplates() {
         if (row.status === "approved") type = "Approved";
         else if (row.status === "pending") type = "Pending";
         else if (row.status === "draft") type = "Draft";
-        else if (row.status === "published") type = "Published"; // may appear in data; not tabbed
+        else if (row.status === "published") type = "Published";
         return <StatusBadge type={type} />;
       },
     },
@@ -169,11 +169,10 @@ export default function DeanTemplates() {
             View
           </button>
           <button
-            onClick={() =>
-              navigate(`/dean/templates/${row._id || row.id || "placeholder"}/assign`, {
-                state: { from: "dean-templates", template: row },
-              })
-            }
+            onClick={() => {
+              setSelectedTemplateId(row._id || row.id);
+              setIsAssignmentModalOpen(true);
+            }}
             className="text-white font-medium transition-colors rounded-sm bg-gray-500 hover:bg-gray-600 h-7 px-3"
           >
             Assign
@@ -197,16 +196,6 @@ export default function DeanTemplates() {
             <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
           </div>
 
-           <TaskAssignmentModal 
-              templateId={selectedTemplateId}
-              isOpen={isAssignmentModalOpen}  
-              onClose={() => setIsAssignmentModalOpen(false)}  
-              onAssign={(result) => {
-                console.log('Assignment created:', result);
-                fetchTemplates();
-              }}
-            />
-          {/* Controls (right-aligned like Secretary) */}
           <div className="flex items-center justify-end gap-2 mb-4">
             <Dropdown
               options={["All", ...Object.keys(schoolIdentifiers)]}
@@ -227,13 +216,12 @@ export default function DeanTemplates() {
 
           {/* Dean-only tabs */}
           <div className="mb-6 border-b border-gray-200">
-
-          <button
-            onClick={() => setIsAssignmentModalOpen(true)}
-            className="px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA]font-semibold rounded-lg shadow hover:bg-blue-700 transition"
-          >
-            Assign Templates
-          </button>
+            <button
+              onClick={() => setIsAssignmentModalOpen(true)}
+              className="px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] font-semibold rounded-lg shadow transition"
+            >
+              Assign Templates
+            </button>
 
             <div className="flex space-x-8">
               {tabs.map((tab) => (
@@ -299,6 +287,24 @@ export default function DeanTemplates() {
           </div>
         </main>
       </div>
+
+      {/* Assignment Modal */}
+      {isAssignmentModalOpen && (
+        <div className="fixed inset-0 z-50 inset-0 bg-opacity-30 backdrop-blur-[2px] flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            
+            <TaskAssignmentModal
+              templateId={selectedTemplateId}
+              isOpen={isAssignmentModalOpen}
+              onClose={() => setIsAssignmentModalOpen(false)}
+              onAssign={(result) => {
+                console.log('Assignment created:', result);
+                fetchTemplates();
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,46 +1,84 @@
 import React, { useState, useEffect } from 'react';
-import MultiSelectDropdown from '../../components/MultiSelectDropdown';
-import Dropdown3 from '../../components/dropdowns/dropdown3';
+import {Users, CheckCircle, User, FileText, Clock, AlertCircle, X} from 'lucide-react';
 import useUser from '../../hooks/useUser';
 import { fetchSchoolStaffAPI } from '../../api/userAPI';
 import { assignUsersToTemplate } from '../../api/assignmentAPI';
+import MultiSelectDropdown from '../MultiSelectDropdown';
+import SingleSelectDropdown from '../SingleSelectDropdown';
+
+const ProgressSteps = ({ currentStep }) => {
+  const steps = [
+    { id: 1, name: 'Assignment Details', icon: FileText },
+    { id: 2, name: 'Assign People', icon: Users },
+    { id: 3, name: 'Review & Submit', icon: CheckCircle }
+  ];
+  
+  return (
+    <div className="flex items-center justify-between mb-8">
+      {steps.map((step, index) => (
+        <React.Fragment key={step.id}>
+          <div className="flex items-center">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+              step.id <= currentStep ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'
+            }`}>
+              <step.icon size={20} />
+            </div>
+            <div className="ml-3">
+              <p className={`text-sm font-medium ${
+                step.id <= currentStep ? 'text-blue-600' : 'text-gray-500'
+              }`}>
+                {step.name}
+              </p>
+            </div>
+          </div>
+          {index < steps.length - 1 && (
+            <div className={`flex-1 h-0.5 mx-4 ${
+              step.id < currentStep ? 'bg-blue-500' : 'bg-gray-200'
+            }`} />
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+};
 
 export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAssign }) {
   const user = useUser();
+  const [currentStep, setCurrentStep] = useState(1);
   const [title, setTitle] = useState('');
   const [instructions, setInstructions] = useState('');
   const [deadline, setDeadline] = useState('');
   const [assignedUsers, setAssignedUsers] = useState([]);
+  const [assignedApprover, setAssignedApprover] = useState('');
   const [docControllers, setDocControllers] = useState([]);
   const [secretaries, setSecretaries] = useState([]);
   const [deans, setDeans] = useState([]);
   const [loadingStaff, setLoadingStaff] = useState(true);
-  const [assignedApprover, setAssignedApprover] = useState('');
-  const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
 
+
+  if (!isOpen) return null;
   // Fetch staff when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setLoadingStaff(true);
-      fetchSchoolStaffAPI()
-        .then(({ docControllers, secretaries, deans }) => {
-          setDocControllers(docControllers || []);
-          setSecretaries(secretaries || []);
-          setDeans(deans || []);
-          setAssignedUsers([]);
-          setAssignedApprover('');
-        })
-        .catch(() => {
-          setDocControllers([]);
-          setSecretaries([]);
-          setDeans([]);
-          setAssignedUsers([]);
-          setAssignedApprover('');
-        })
-        .finally(() => setLoadingStaff(false));
-    }
-  }, [isOpen]);
+    setLoadingStaff(true);
+    fetchSchoolStaffAPI()
+      .then(({ docControllers, secretaries, deans }) => {
+        setDocControllers(docControllers || []);
+        setSecretaries(secretaries || []);
+        setDeans(deans || []);
+        setAssignedUsers([]);
+        setAssignedApprover('');
+      })
+      .catch(() => {
+        setDocControllers([]);
+        setSecretaries([]);
+        setDeans([]);
+        setAssignedUsers([]);
+        setAssignedApprover('');
+      })
+      .finally(() => setLoadingStaff(false));
+  }, []);
 
   // Determine role
   const userRole = user?.role?.name === 'Secretary' ? 'Secretary' : 'Dean';
@@ -81,29 +119,44 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
   }, [userRole, assignUserOptions]);
 
   // Validation
-  const validateForm = () => {
+  const validateStep = (step) => {
     const newErrors = {};
-    if (!title.trim()) newErrors.title = 'Assignment title is required';
-    if (!deadline) {
-      newErrors.deadline = 'Due date is required';
-    } else {
+    
+    if (step >= 1) {
+      if (!title.trim()) newErrors.title = 'Title is required';
+      if (!deadline) newErrors.deadline = 'Due date is required';
+      
+      // Check if deadline is in the past
       const today = new Date();
       const selectedDate = new Date(deadline);
-      if (selectedDate < today) newErrors.deadline = 'Due date cannot be in the past';
+      if (selectedDate < today) {
+        newErrors.deadline = 'Due date cannot be in the past';
+      }
     }
-    if (assignedUsers.length === 0) newErrors.assignedUsers = 'Please assign at least one user';
-    if (!assignedApprover) newErrors.assignedApprover = 'Please select an approver';
-
+    
+    if (step >= 2) {
+      if (assignedUsers.length === 0) newErrors.assignedUsers = 'At least one user must be assigned';
+      if (!assignedApprover) newErrors.assignedApprover = 'An approver must be selected';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const nextStep = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => Math.min(prev + 1, 3));
+    }
+  };
+
+  const prevStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
   // Handle assign
   const handleAssign = async () => {
-    if (!validateForm()) return;
-
-    setIsSubmitting(true);
-    try {
+    if (validateStep(3)) {
+      console.log("Assigning template:", { title, instructions, deadline, assignedUsers, assignedApprover, templateId });
       const templateData = { title, instructions };
       const result = await assignUsersToTemplate(
         templateId,
@@ -113,155 +166,265 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
         deadline ? deadline : undefined
       );
       onAssign?.(result);
-
+      
       // Reset form
       setTitle('');
       setInstructions('');
       setDeadline('');
       setAssignedUsers(assignUserOptions.length > 0 ? [assignUserOptions[0].id] : []);
       setAssignedApprover(approverOptions.length > 0 ? approverOptions[0].id : '');
-      setErrors({});
-      onClose?.();
-    } catch (error) {
-      console.error('Assignment failed:', error);
-      setErrors({ submit: 'Failed to create assignment. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
+      setCurrentStep(1);
+      onClose?.(); 
     }
   };
 
-  const handleClose = () => {
-    setTitle('');
-    setInstructions('');
-    setDeadline('');
-    setErrors({});
-    onClose?.();
-  };
-
-  if (!isOpen) return null;
+  if (loadingStaff) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-pulse text-gray-600">Loading staff...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 bg-opacity-30 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-      <div className="bg-white border border-gray-200 rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {loadingStaff ? (
-          <div className="flex items-center justify-center p-8">
-            <div className="flex items-center gap-3">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              <span className="text-gray-600">Loading staff...</span>
+  <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg border border-gray-200">
+      <div className="p-6 border-b border-gray-200 flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">Create Assignment</h2>
+          <p className="text-gray-600">Assign tasks to members</p>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600 transition-colors"
+          aria-label="Close"
+        >
+          <X size={24} />
+        </button>
+      </div>
+
+      <div className="p-6">
+        <ProgressSteps currentStep={currentStep} />
+        
+        {currentStep === 1 && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <FileText size={16} />
+                  Assignment Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className={`w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                    errors.title ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500'
+                  }`}
+                  placeholder="Enter assignment title"
+                  value={title}
+                  onChange={e => {
+                    setTitle(e.target.value);
+                    if (errors.title) {
+                      setErrors(prev => ({ ...prev, title: '' }));
+                    }
+                  }}
+                />
+                {errors.title && (
+                  <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.title}
+                  </p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Instructions <span className="text-gray-500 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-vertical"
+                  placeholder="Provide detailed instructions, expectations, or context for this assignment..."
+                  value={instructions}
+                  onChange={e => setInstructions(e.target.value)}
+                  rows={4}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <Clock size={16} />
+                    Due Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    className={`w-80 px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                      errors.deadline ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500'
+                    }`}
+                    value={deadline}
+                    onChange={e => {
+                      setDeadline(e.target.value);
+                      if (errors.deadline) {
+                        setErrors(prev => ({ ...prev, deadline: '' }));
+                      }
+                    }}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                  {errors.deadline && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.deadline}
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        ) : (
-          <>
-            {/* HEADER */}
-            <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-xl">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Create Assignment</h2>
-                    <p className="text-gray-600">Assign tasks to members</p>
-                  </div>
-                </div>
-                <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+        )}
+        
+        {currentStep === 2 && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className={errors.assignedUsers ? 'ring-2 ring-red-200 rounded-lg p-4 -m-4' : ''}>
+                <MultiSelectDropdown
+                  label={
+                    <span className="flex items-center gap-1">
+                      Assign User(s) <span className="text-red-500">*</span>
+                    </span>
+                  }
+                  icon={Users}
+                  options={assignUserOptions.map(u => ({
+                    value: u.id,
+                    label: u.name,
+                    email: u.email
+                  }))}
+                  value={assignedUsers}
+                  onChange={value => {
+                    setAssignedUsers(value);
+                    if (errors.assignedUsers) {
+                      setErrors(prev => ({ ...prev, assignedUsers: '' }));
+                    }
+                  }}
+                  placeholder="Select user(s)..."
+                />
+
+                {errors.assignedUsers && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.assignedUsers}
+                  </p>
+                )}
+              </div>
+              
+              <div className={errors.assignedApprover ? 'ring-2 ring-red-200 rounded-lg p-4 -m-4' : ''}>
+                <SingleSelectDropdown
+                  label={
+                    <span className="flex items-center gap-1">
+                      {approverLabel} <span className="text-red-500">*</span>
+                    </span>
+                  }
+                  icon={User}
+                  value={assignedApprover}
+                  onChange={value => {
+                    setAssignedApprover(value);
+                    if (errors.assignedApprover) {
+                      setErrors(prev => ({ ...prev, assignedApprover: '' }));
+                    }
+                  }}
+                  options={approverOptions.map(u => ({
+                    value: u.id,
+                    label: u.name,
+                    email: u.email
+                  }))}
+                  placeholder={approverPlaceholder}
+                />
+                {errors.assignedApprover && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.assignedApprover}
+                  </p>
+                )}
               </div>
             </div>
-
-            {/* FORM */}
-            <div className="p-6 space-y-8">
-              {/* Assignment Details */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  Assignment Details
-                </h3>
-                <div className="space-y-6">
+          </div>
+        )}
+        
+        {currentStep === 3 && (
+          <div className="space-y-6">
+            <div className="bg-gray-50 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Review Assignment Details</h3>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Assignment Title <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      className={`w-full px-4 py-3 text-base border rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.title ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 hover:border-gray-400 focus:border-blue-500'
-                      }`}
-                      placeholder="Enter assignment title"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                    />
-                    {errors.title && <p className="mt-2 text-sm text-red-600">{errors.title}</p>}
+                    <h4 className="text-sm font-medium text-gray-700">Title</h4>
+                    <p className="text-gray-900">{title}</p>
                   </div>
-
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Instructions <span className="font-normal text-xs text-gray-500">(optional)</span>
-                    </label>
-                    <textarea
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm"
-                      placeholder="Provide detailed instructions, expectations, or context for this assignment..."
-                      value={instructions}
-                      onChange={(e) => setInstructions(e.target.value)}
-                      rows={3}
-                    />
+                    <h4 className="text-sm font-medium text-gray-700">Due Date</h4>
+                    <p className="text-gray-900">{deadline ? new Date(deadline).toLocaleDateString() : 'Not set'}</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Assignment Config */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  Assign People
-                </h3>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <MultiSelectDropdown
-                    label="Assign User(s)" 
-                    options={assignUserOptions.map((u) => ({ value: u.id, label: u.name }))}
-                    value={assignedUsers}
-                    onChange={setAssignedUsers}
-                    placeholder="Select user(s)..."
-                    
-                  />
-                  <Dropdown3
-                    label={approverLabel}
-                    value={assignedApprover}
-                    onChange={setAssignedApprover}
-                    options={approverOptions.map((u) => ({ value: u.id, label: u.name }))}
-                    placeholder={approverPlaceholder}
-                  />
+                
+                {instructions && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Due Date <span className="text-red-500">*</span> </label> 
-                    <input
-                      type="date"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm"
-                      value={deadline}
-                      onChange={(e) => setDeadline(e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                    />
+                    <h4 className="text-sm font-medium text-gray-700">Instructions</h4>
+                    <p className="text-gray-900 whitespace-pre-wrap">{instructions}</p>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700">Assigned To</h4>
+                    <div className="mt-1">
+                      {assignUserOptions
+                        .filter(u => assignedUsers.includes(u.id))
+                        .map(user => (
+                          <div key={user.id} className="flex items-center gap-2 text-gray-900">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            {user.name}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700">Approver</h4>
+                    <p className="text-gray-900">
+                      {approverOptions.find(u => u.id === assignedApprover)?.name || 'Not selected'}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
-              <button onClick={handleClose} className="px-6 py-2 border rounded-lg">Cancel</button>
+          </div>
+        )}
+        
+        <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
+          <button
+            onClick={prevStep}
+            disabled={currentStep === 1}
+            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Previous
+          </button>
+          
+          <div className="flex gap-3">
+            {currentStep < 3 ? (
+              <button
+                onClick={nextStep}
+                className="px-8 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+              >
+                Continue
+              </button>
+            ) : (
               <button
                 onClick={handleAssign}
-                disabled={isSubmitting}
-                className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-8 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors flex items-center gap-2"
               >
-                {isSubmitting ? 'Creating...' : 'Assign'}
+                <CheckCircle size={18} />
+                Create Assignment
               </button>
-            </div>
-          </>
-        )}
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
