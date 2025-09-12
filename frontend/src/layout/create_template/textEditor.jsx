@@ -14,7 +14,7 @@ import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 
 import RichImage from "../../extensions/image/ImageNode";
-import ImageOptionsPanel from "../../layout/image/sidebar/ImageOptionsPanel";
+
 
 // Core schema & behavior
 import DocumentPages from "../../extensions/textEditor/DocumentPages";
@@ -200,11 +200,6 @@ export default function TextEditor({
           <div className="text-sm text-gray-500">Loading editor…</div>
         )}
       </div>
-
-      {/* Sidebar panel */}
-      {showImageOptions && editor && (
-        <ImageOptionsPanel editor={editor} />
-      )}
     </div>
   );
 }

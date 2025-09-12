@@ -1,3 +1,4 @@
+// src/layout/image/InlineImageToolbar.jsx
 import React from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,10 +14,9 @@ import {
   Replace,
   Image as ImageIcon,
   Move,
-  Settings,
 } from "lucide-react";
 
-export default function InlineImageToolbar({ editor, onOpenOptions, onReplace }) {
+export default function InlineImageToolbar({ editor, onReplace }) {
   if (!editor) return null;
 
   const setAlign = (value) => {
@@ -32,7 +32,7 @@ export default function InlineImageToolbar({ editor, onOpenOptions, onReplace })
   };
 
   return (
-    <div className="absolute z-50 bg-white shadow-md border rounded-lg p-2 flex gap-1">
+    <div className="bg-white shadow-md border rounded-lg p-2 flex gap-1">
       <Button size="icon" variant="ghost" onClick={() => setAlign("left")}>
         <AlignLeft size={16} />
       </Button>
@@ -72,10 +72,6 @@ export default function InlineImageToolbar({ editor, onOpenOptions, onReplace })
 
       <Button size="sm" variant="outline" onClick={onReplace}>
         <Replace className="mr-1" size={14} /> Replace
-      </Button>
-
-      <Button size="sm" onClick={onOpenOptions}>
-        <Settings className="mr-1" size={14} /> Image Options
       </Button>
     </div>
   );

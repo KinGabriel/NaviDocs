@@ -91,7 +91,6 @@ export default function ImageNodeView(props) {
       top = imgRect.top - tbRect.height - GAP;
     }
 
-    // if still outside top (tiny page), clamp inside
     top = clamp(top, pageRect.top + GAP, pageRect.bottom - tbRect.height - GAP);
 
     const centeredLeft = imgRect.left + (imgRect.width - tbRect.width) / 2;
@@ -293,12 +292,6 @@ export default function ImageNodeView(props) {
   const showFrame = selected && !attrs.isCropping;
   const showCrop = selected && attrs.isCropping;
 
-  // helper to open the sidebar through the extension option
-  const openImageOptions = () => {
-    const ext = editor?.extensionManager?.extensions?.find(e => e.name === 'richImage');
-    ext?.options?.onOpenImageOptions?.({ editor });
-  };
-
   const replaceFromUrl = async () => {
     const url = prompt('Paste image URL:');
     if (url) updateAttributes({ src: url });
@@ -327,7 +320,6 @@ export default function ImageNodeView(props) {
         >
           <InlineImageToolbar
             editor={editor}
-            onOpenOptions={openImageOptions}
             onReplace={() => fileRef.current?.click()}
           />
         </div>
@@ -351,9 +343,7 @@ export default function ImageNodeView(props) {
       {/* Context menu wrapper */}
       <ImageContextMenu
         onAction={(action, payload) => {
-          if (action === 'options') {
-            openImageOptions();
-          } else if (action === 'crop') {
+          if (action === 'crop') {
             updateAttributes({
               isCropping: true,
               crop: attrs.crop || { x: 0, y: 0, w: attrs.width || measured.w || 100, h: attrs.height || measured.h || 100 },
