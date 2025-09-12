@@ -9,7 +9,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 
-// ----- Placeholder template 
+// ----- Placeholder template and notes/members
 const PLACEHOLDER_TEMPLATE = {
   code: "T001",
   title: "Student Form",
@@ -18,7 +18,20 @@ const PLACEHOLDER_TEMPLATE = {
   effectivity: "2023-08-01",
   pages: 1,
   document_size: "8.5 x 13",
+  assignedNames: ["Nichole Jhoy Escano", "Austin Reeves"],
+  notes: [
+    { message: "Initial assignment.", added_by: "Nichole Jhoy Escano", created_at: "2023-08-01" },
+  ],
+  approvals: [
+    { role: "Dean", name: "Dean Gabriel", isApproved: false },
+    { role: "Secretary", name: "Nichole Jhoy Escano", isApproved: true },
+  ]
 };
+    approvals: [
+      { role: "Dean", name: "Dean Gabriel", isApproved: false },
+      { role: "Secretary", name: "Nichole Jhoy Escano", isApproved: true },
+    ]
+
 
 export default function SecretaryTemplateView() {
   const user = useUser();
@@ -157,20 +170,67 @@ export default function SecretaryTemplateView() {
                 </div>
               </section>
 
-              {/* Right: details card */}
+              {/* Right: notes and members card */}
               <aside className="col-span-12 lg:col-span-3">
                 <div className="bg-white border rounded-lg shadow-sm">
                   <div className="p-5">
-                    <h3 className="text-sm font-semibold tracking-widest text-gray-900 uppercase">
-                      Detailed Information
+                    <h3 className="text-base font-bold tracking-widest text-gray-900 uppercase font-sans">
+                      Assigned Members
                     </h3>
                     <div className="w-24 h-0.5 bg-yellow-400 mt-2 mb-4 rounded" />
-
-                    <DetailRow label="Document code" value={t.document_code} />
-                    <DetailRow label="Revision No." value={String(t.revision_no)} />
-                    <DetailRow label="Effectivity" value={t.effectivity} />
-                    <DetailRow label="Pages" value={String(t.pages)} />
-                    <DetailRow label="Document size" value={t.document_size} />
+                    <ul className="mb-6">
+                      {t.assignedNames && t.assignedNames.length > 0 ? (
+                        t.assignedNames.map((name, idx) => (
+                          <li key={idx} className="text-sm text-gray-800 mb-1 flex items-center">
+                            <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                            {name}
+                          </li>
+                        ))
+                      ) : (
+                        <li className="text-sm text-gray-400">No members assigned.</li>
+                      )}
+                    </ul>
+                    <h3 className="text-base font-bold tracking-widest text-gray-900 uppercase font-sans mt-6">
+                      To be approved by
+                    </h3>
+                    <div className="w-16 h-0.5 bg-yellow-400 mt-2 mb-4 rounded" />
+                    <ul className="mb-6">
+                      {t.approvals && t.approvals.length > 0 ? (
+                        t.approvals.map((approver, idx) => (
+                          <li key={idx} className="flex mb-2 text-sm">
+                            <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-1 flex-shrink-0"></span>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-gray-800 flex items-center">
+                                {approver.name} ({approver.role})
+                                {approver.isApproved ? (
+                                  <span className="ml-2 px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs">Approved</span>
+                                ) : (
+                                  <span className="ml-2 px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs">Pending</span>
+                                )}
+                              </span>
+                            </div>
+                          </li>
+                        ))
+                      ) : (
+                        <li className="text-sm text-gray-400">No approvers assigned.</li>
+                      )}
+                    </ul>
+                    <h3 className="text-base font-bold tracking-widest text-gray-900 uppercase font-sans mt-6">
+                      Notes
+                    </h3>
+                    <div className="w-16 h-0.5 bg-yellow-400 mt-2 mb-4 rounded" />
+                    <ul>
+                      {t.notes && t.notes.filter(note => note.type !== 'assignment').length > 0 ? (
+                        t.notes.filter(note => note.type !== 'assignment').map((note, idx) => (
+                          <li key={idx} className="mb-3">
+                            <div className="text-xs text-gray-500 mb-1 font-sans">{note.added_by?.name || note.added_by || ''} &middot; {note.created_at && (note.created_at.toLocaleString ? note.created_at.toLocaleString() : note.created_at)}</div>
+                            <div className="text-base text-gray-800 font-sans">{note.message}</div>
+                          </li>
+                        ))
+                      ) : (
+                        <li className="text-base text-gray-400 font-sans">No notes available.</li>
+                      )}
+                    </ul>
                   </div>
                 </div>
               </aside>
