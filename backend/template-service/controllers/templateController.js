@@ -240,7 +240,7 @@ export const getTemplates = async (req, res) => {
  * @route GET /api/templates/published
  * @access Private
  */
-export const getPublishedVisibleTemplates = async (req, res) => {
+export const getPublishedTemplates = async (req, res) => {
   try {
     const { school, search, limit = 50, page = 1 } = req.query;
     let schoolCode = school && school !== 'All' ? getSchoolCode(school) : (req.user?.school ? getSchoolCode(req.user.school) : null);

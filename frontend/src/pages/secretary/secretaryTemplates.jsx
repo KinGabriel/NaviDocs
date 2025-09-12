@@ -62,7 +62,9 @@ export default function SecretaryTemplates() {
         templatesArray = res;
         setTotalPages(1);
       }
-      // If the selected tab is Late, filter templates whose deadline is in the past && status is Draft.
+      // Hide drafts
+      templatesArray = templatesArray.filter((t) => t.status !== 'draft');
+    
       if (selectedStatus === 'Late') {
         const now = new Date();
         templatesArray = templatesArray.filter(t => {
@@ -91,37 +93,29 @@ export default function SecretaryTemplates() {
 
   useEffect(() => {
     fetchTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
-  const columns = [
+  // Table columns 
+   const columns = [
     { key: "title", label: "Template Name" },
-    { key: "document_code", label: "Document Code", render: row => row.document_code || "-" },
-    { key: "createdByName", label: "Created By", render: row => row.createdByName || row.created_by_name || "-" },
-    { key: "school", label: "School", render: row => {
-      // Extract school code from document_code 
-      const code = row.document_code || "";
-      const match = code.match(/^FM-([A-Z]+)-/);
-      if (match) {
-        const codePart = match[1];
-        // Find the school name by code
-        const schoolName = Object.keys(schoolIdentifiers).find(
-          key => schoolIdentifiers[key] === codePart
-        );
-        return schoolName || codePart;
-      }
-      return "-";
-    } },
+    { key: "createdByName", label: "Created By", render: row =>
+      Array.isArray(row.assignedNames) && row.assignedNames.length > 0
+        ? row.assignedNames.filter(Boolean).join(", ")
+        : row.createdByName || row.created_by_name || "-" },
     { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDate(row.deadline) : "No Deadline set" },
     {
       key: "status",
       label: "Status",
       render: row => {
-        const now = new Date();
         let type = "-";
-        if (row.status === "approved") type = "Approved";
-        else if (row.status === "pending") type = "Pending";
-        else if (row.status === "draft") {
+        if (row.status === "approved") {
+          type = "Approved";
+        } else if (row.status === "pending") {
+          type = "Pending";
+        } else if (row.status === "assigned") {
           if (row.deadline) {
+            const now = new Date();
             const deadlineDate = new Date(row.deadline);
             if (!isNaN(deadlineDate.getTime()) && deadlineDate < now) {
               type = "Late";
@@ -131,8 +125,7 @@ export default function SecretaryTemplates() {
           } else {
             type = "OnGoing";
           }
-        }
-        else if (row.status === "published") {
+        } else if (row.status === "published") {
           type = "Published";
         }
         return <StatusBadge type={type} />;

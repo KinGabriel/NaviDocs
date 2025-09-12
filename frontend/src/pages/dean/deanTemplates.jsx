@@ -70,6 +70,9 @@ export default function DeanTemplates() {
         setTotalPages(1);
       }
 
+      // Hide drafts
+      arr = arr.filter((t) => t.status !== 'draft');
+
       // Assigned tab: keep only templates with assignees (client-side)
       if (selectedStatus === "Assigned") {
         arr = arr.filter(
@@ -107,79 +110,56 @@ export default function DeanTemplates() {
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
   // Table columns (Secretary look; Dean actions)
-  const columns = [
+   const columns = [
     { key: "title", label: "Template Name" },
-    {
-      key: "document_code",
-      label: "Document Code",
-      render: (row) => row.document_code || "-",
-    },
-    {
-      key: "createdByName",
-      label: "Created By",
-      render: (row) => row.createdByName || row.created_by_name || "-",
-    },
-    {
-      key: "school",
-      label: "School",
-      render: (row) => {
-        const code = row.document_code || "";
-        const match = code.match(/^FM-([A-Z]+)-/);
-        if (match) {
-          const codePart = match[1];
-          const name = Object.keys(schoolIdentifiers).find(
-            (k) => schoolIdentifiers[k] === codePart
-          );
-          return name || codePart;
-        }
-        return "-";
-      },
-    },
-    {
-      key: "deadline",
-      label: "Deadline",
-      render: (row) => (row.deadline ? formatDate(row.deadline) : "No Deadline set"),
-    },
+    { key: "createdByName", label: "Created By", render: row =>
+      Array.isArray(row.assignedNames) && row.assignedNames.length > 0
+        ? row.assignedNames.filter(Boolean).join(", ")
+        : row.createdByName || row.created_by_name || "-" },
+    { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDate(row.deadline) : "No Deadline set" },
     {
       key: "status",
       label: "Status",
-      render: (row) => {
-        // Render friendly status; Dean monitors Pending/Approved best here
+      render: row => {
         let type = "-";
-        if (row.status === "approved") type = "Approved";
-        else if (row.status === "pending") type = "Pending";
-        else if (row.status === "draft") type = "Draft";
-        else if (row.status === "published") type = "Published";
+        if (row.status === "approved") {
+          type = "Approved";
+        } else if (row.status === "pending") {
+          type = "Pending";
+        } else if (row.status === "assigned") {
+          if (row.deadline) {
+            const now = new Date();
+            const deadlineDate = new Date(row.deadline);
+            if (!isNaN(deadlineDate.getTime()) && deadlineDate < now) {
+              type = "Late";
+            } else {
+              type = "OnGoing";
+            }
+          } else {
+            type = "OnGoing";
+          }
+        } else if (row.status === "published") {
+          type = "Published";
+        }
         return <StatusBadge type={type} />;
-      },
+      }
     },
     {
       key: "actions",
       label: "Actions",
       render: (row) => (
-        <div className="flex gap-2">
-          <button
-            onClick={() =>
-              navigate(`/dean/templates/${row._id || row.id || "placeholder"}`, {
-                state: { from: "dean-templates", template: row },
-              })
-            }
-            className="text-white font-medium transition-colors rounded-sm bg-blue-500 hover:bg-blue-600 h-7 px-3"
-          >
-            View
-          </button>
-          <button
-            onClick={() => {
-              setSelectedTemplateId(row._id || row.id);
-              setIsAssignmentModalOpen(true);
-            }}
-            className="text-white font-medium transition-colors rounded-sm bg-gray-500 hover:bg-gray-600 h-7 px-3"
-          >
-            Assign
-          </button>
-        </div>
-      ),
-    },
+        <button
+          onClick={() =>
+            navigate(`/secretary/templates/${row._id || row.id || "placeholder"}`, {
+              state: { from: "secretary-templates", doc: row },
+            })
+          }
+          className="text-white hover:text-white font-medium transition-colors rounded-sm bg-blue-500 h-7 w-15 duration-200"
+        >
+          View
+        </button>
+      )
+    }
   ];
 
   return (
