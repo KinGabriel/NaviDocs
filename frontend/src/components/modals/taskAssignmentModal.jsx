@@ -90,9 +90,9 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
   let approverPlaceholder = '';
 
   if (userRole === 'Dean') {
-    assignUserOptions = secretaries;
-    approverOptions = docControllers;
-    approverLabel = 'Document Controller (Approver/Checker)';
+    assignUserOptions = docControllers;
+    approverOptions = secretaries;
+    approverLabel = 'Secretary (Approver/Checker)';
     approverPlaceholder = 'Select document controller...';
   } else {
     assignUserOptions = docControllers;
