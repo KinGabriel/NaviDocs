@@ -207,8 +207,8 @@ export default function SecretaryTemplates() {
               />
             </div>
           </div>
-          <div className="mb-6 border-b border-gray-200">
-
+        
+        <div className="mb-6 border-b border-gray-200">
          <button
           onClick={() => setIsAssignmentModalOpen(true)}
           className="px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA]font-semibold rounded-lg shadow hover:bg-blue-700 transition"

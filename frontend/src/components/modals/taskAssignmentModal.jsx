@@ -217,7 +217,7 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  Assignment People
+                  Assign People
                 </h3>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <MultiSelectDropdown
@@ -236,7 +236,7 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
                     placeholder={approverPlaceholder}
                   />
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Due Date <span className="text-red-500">*</span> </label> 
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Due Date <span className="text-red-500">*</span> </label> 
                     <input
                       type="date"
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm"

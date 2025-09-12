@@ -10,7 +10,7 @@ import usePagination from "../../hooks/usePagination";
 import { formatDate, StatusBadge } from '../../utils/formatters.jsx';
 import Loader from '../../components/loader';
 import { fetchTemplatesAPI as fetchDeanTemplatesAPI, approveTemplateAPI,createTemplateAPI } from "../../api/documentContollerAPI";
-import TaskAssignmentPanel from '../../layout/assignments/taskAssignmentPanel';
+import TaskAssignmentModal from '../../components/modals/taskAssignmentModal';
 
 export default function DeanTemplates() {
   const user = useUser();
@@ -24,6 +24,8 @@ export default function DeanTemplates() {
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [sortOrder, setSortOrder] = useState("Recent");
   const tabs = ["All", "Assigned", "Pending Approvals", "Approved"];
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
 
   const tabToStatus = {
     "Pending Approvals": "Pending Approval",
@@ -194,7 +196,16 @@ export default function DeanTemplates() {
             </h1>
             <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
           </div>
-          <TaskAssignmentPanel />
+
+           <TaskAssignmentModal 
+              templateId={selectedTemplateId}
+              isOpen={isAssignmentModalOpen}  
+              onClose={() => setIsAssignmentModalOpen(false)}  
+              onAssign={(result) => {
+                console.log('Assignment created:', result);
+                fetchTemplates();
+              }}
+            />
           {/* Controls (right-aligned like Secretary) */}
           <div className="flex items-center justify-end gap-2 mb-4">
             <Dropdown
@@ -216,6 +227,14 @@ export default function DeanTemplates() {
 
           {/* Dean-only tabs */}
           <div className="mb-6 border-b border-gray-200">
+
+          <button
+            onClick={() => setIsAssignmentModalOpen(true)}
+            className="px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA]font-semibold rounded-lg shadow hover:bg-blue-700 transition"
+          >
+            Assign Templates
+          </button>
+
             <div className="flex space-x-8">
               {tabs.map((tab) => (
                 <button
