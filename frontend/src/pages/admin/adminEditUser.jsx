@@ -8,9 +8,13 @@ import useUser from "../../hooks/useUser";
 import Dropdown2 from "../../components/dropdowns/dropdown2";
 import defaultProfile from "../../assets/images/profile_picture.png";
 import { useNavigate } from "react-router-dom";
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 import { ROLE_OPTIONS, SCHOOL_OPTIONS, DEPARTMENT_OPTIONS, YEAR_OPTIONS } from "../../utils/options";
 import axios from "axios";
+const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URLS = rawUrls.split(",");
+
+const API_URL =
+  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];  
 
 
 export default function AdminEditUser() {
