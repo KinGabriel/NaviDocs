@@ -167,105 +167,108 @@ export default function DeanTemplates() {
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Templates" />
-        <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          {/* Header */}
-          <div className="flex-1 px-1 py-3">
-            <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-4">
-              Templates
-            </h1>
-            <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
-          </div>
+     <main className="flex-1 bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+        {/* Header */}
+        <div className="px-1 py-3">
+          <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-4">Templates</h1>
+          <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
+        </div>
 
-          <div className="flex items-center justify-end gap-2 mb-4">
-            <Dropdown
-              options={["All", ...Object.keys(schoolIdentifiers)]}
-              value={selectedSchool}
-              onChange={setSelectedSchool}
-              width="w-50"
+        <div className="flex items-center justify-end gap-2 mb-4">
+          <Dropdown
+            options={["All", ...Object.keys(schoolIdentifiers)]}
+            value={selectedSchool}
+            onChange={setSelectedSchool}
+            width="w-50"
+          />
+          <Dropdown
+            options={["Recent", "A-Z", "Z-A"]}
+            value={sortOrder}
+            onChange={setSortOrder}
+            width="w-36"
+          />
+          <div className="w-64">
+            <SearchBar
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
-            <Dropdown
-              options={["Recent", "A-Z", "Z-A"]}
-              value={sortOrder}
-              onChange={setSortOrder}
-              width="w-36"
-            />
-            <div className="w-64">
-              <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
-            </div>
           </div>
+        </div>
 
           {/* Dean-only tabs */}
-          <div className="mb-6 border-b border-gray-200">
-            <button
-              onClick={() => setIsAssignmentModalOpen(true)}
-              className="px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] font-semibold rounded-lg shadow transition"
-            >
-              Assign Templates
-            </button>
+         <div className="mb-6 border-b border-gray-200">
+          <button
+            onClick={() => setIsAssignmentModalOpen(true)}
+            className="px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] font-semibold rounded-lg shadow hover:bg-blue-700 transition"
+          >
+            Assign Templates
+          </button>
 
-            <div className="flex space-x-8">
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setSelectedStatus(tab)}
-                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                    selectedStatus === tab
-                      ? "border-[#003DA5] text-[#003DA5]"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+          <div className="flex space-x-8">
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setSelectedStatus(tab)}
+                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                  selectedStatus === tab
+                    ? "border-[#003DA5] text-[#003DA5]"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
+        </div>
 
           {/* Body */}
           {loading ? (
-            <Loader />
+            <div className="flex justify-center items-center py-20">
+              <Loader />
+            </div>
           ) : error ? (
-            <div className="flex justify-center items-center h-40 text-red-500">{error}</div>
+            <div className="flex justify-center items-center py-20 text-red-500">{error}</div>
           ) : (
-            <Table columns={columns} data={templates} />
+            <div className="mb-6">
+              <Table columns={columns} data={templates} />
+            </div>
           )}
 
           {/* Pagination */}
-          <div className="flex justify-center items-center mt-6 gap-2">
-            <button
-              onClick={pagination.handlePrev}
-              disabled={pagination.currentPage === 1}
-              className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-            >
-              Prev
-            </button>
-            {pagination.getPageNumbers().map((num, idx) =>
-              num === "..." ? (
-                <span key={idx} className="px-2 text-gray-400">
-                  ...
-                </span>
-              ) : (
-                <button
-                  key={num}
-                  onClick={() => pagination.handlePage(num)}
-                  className={`px-3 py-1 rounded border ${
-                    pagination.currentPage === num
-                      ? "bg-blue-600 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  {num}
-                </button>
-              )
-            )}
-            <button
-              onClick={pagination.handleNext}
-              disabled={pagination.currentPage === totalPages}
-              className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </main>
+            <div className="flex justify-center items-center gap-2 mt-auto pt-4">
+              <button
+                onClick={pagination.handlePrev}
+                disabled={pagination.currentPage === 1}
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              >
+                Prev
+              </button>
+              {pagination.getPageNumbers().map((num, idx) =>
+                num === "..." ? (
+                  <span key={idx} className="px-2 text-gray-400">...</span>
+                ) : (
+                  <button
+                    key={num}
+                    onClick={() => pagination.handlePage(num)}
+                    className={`px-3 py-1 rounded border ${
+                      pagination.currentPage === num
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    {num}
+                  </button>
+                )
+              )}
+              <button
+                onClick={pagination.handleNext}
+                disabled={pagination.currentPage === totalPages}
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </main>
       </div>
 
       {/* Assignment Modal */}
