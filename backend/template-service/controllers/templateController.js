@@ -691,7 +691,7 @@ export const getTemplateStats = async (req, res) => {
 
 /**
  * @desc Approve template as dean or secretary
- * @route POST /api/templates/:id/approve
+ * @route PATCH /api/templates/:id/approve
  */
 export const approveTemplate = async (req, res) => {
   try {
@@ -742,8 +742,100 @@ export const approveTemplate = async (req, res) => {
 };
 
 /**
+ * @desc Reject template as dean or secretary
+ * @route PATCH /api/templates/:id/reject
+ */
+export const rejectTemplate = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const role = req.user.role.name.toLowerCase();
+    if (!['dean','secretary'].includes(role)) {
+      return res.status(400).json({ success:false, message:'Invalid role' });
+    }
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    if (!['pending','draft','approved','assigned'].includes(template.status)) {
+      return res.status(400).json({ success:false, message:'Template not in rejectable state' });
+    }
+    // Add a rejection note
+    template.notes = template.notes || [];
+    template.notes.push({
+      added_by: req.user.id,
+      role_snapshot: req.user?.role?.name || '',
+      type: 'rejection',
+      message: reason || 'No Reason provided',
+      created_at: new Date()
+    });
+    template.status = 'rejected';
+    await template.save();
+    return res.status(200).json({ success:true, message:'Template rejected', template: template.toObject() });
+  } catch (err) {
+    console.error('Reject error', err);
+    return res.status(500).json({ success:false, message:'Failed to reject template' });
+  }
+};
+
+/**
+ * @desc Submit template for approval
+ * @route PATCH /api/templates/:id/submit
+ */
+export const submitTemplate = async (req, res) => {
+  try {
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    // Check if template is already submitted
+    if (template.status === 'pending') {
+      return res.status(400).json({ success:false, message:'Template already submitted for approval' });
+    }
+    template.status = 'pending';
+    await template.save();
+    return res.status(200).json({ success:true, message:'Template submitted for approval', template: template.toObject() });
+  } catch (err) {
+    console.error('Submit error', err);
+    return res.status(500).json({ success:false, message:'Failed to submit template for approval' });
+  }
+};
+
+/**
+ * @desc return the template
+ * @route PATCH /api/templates/:id/return
+ * 
+ */
+
+export const returnTemplate = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    // Check if template is already in returned state
+    if (template.status === 'returned') {
+      return res.status(400).json({ success:false, message:'Template already in returned state' });
+    }
+    if (!['pending','draft','approved','assigned'].includes(template.status)) {
+      return res.status(400).json({ success:false, message:'Template not in returnable state' });
+    }
+    // Add a change note
+    template.notes = template.notes || [];
+    template.notes.push({
+      added_by: req.user.id,
+      role_snapshot: req.user?.role?.name || '',
+      type: 'change',
+      message: reason || 'No Reason provided',
+      created_at: new Date()
+    });
+    template.status = 'returned';
+    await template.save();
+    return res.status(200).json({ success:true, message:'Template returned for changes', template: template.toObject() });
+  } catch (err) {
+    console.error('Return error', err);
+    return res.status(500).json({ success:false, message:'Failed to return template' });
+  }
+
+}
+
+/**
  * @desc Publish template (must be fully approved)
- * @route POST /api/templates/:id/publish
+ * @route PATCH /api/templates/:id/publish
  */
 export const publishTemplate = async (req, res) => {
   try {
