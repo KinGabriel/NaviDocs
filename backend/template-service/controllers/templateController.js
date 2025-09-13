@@ -343,7 +343,6 @@ export const getPublishedTemplates = async (req, res) => {
 export const getTemplateById = async (req, res) => {
   try {
     const template = await Template.findById(req.params.id);
-
     if (!template) {
       return res.status(404).json({ 
         success: false,
@@ -351,12 +350,82 @@ export const getTemplateById = async (req, res) => {
       });
     }
 
+    // User service URL and token
+    const userServiceUrl = process.env.USER_SERVICE_URL || "http://localhost:5002";
+    let token = null;
+    if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+    const headers = token ? { 'Cookie': `token=${token}` } : {};
+
+    // Helper to fetch user info by id
+    const fetchUserName = async (userId) => {
+      if (!userId) return null;
+      try {
+        const resp = await axios.get(
+          `${userServiceUrl}/api/user/getUserInfo/${userId}`,
+          { headers, withCredentials: true }
+        );
+        if (resp.data && resp.data.firstname && resp.data.lastname) {
+          return `${resp.data.firstname} ${resp.data.lastname}`;
+        }
+      } catch (err) {
+        return null;
+      }
+      return null;
+    };
+
+    const tObj = template.toObject();
+
+    // created_by
+    let createdByName = null;
+    if (tObj.created_by) {
+      createdByName = await fetchUserName(tObj.created_by);
+    }
+
+    // assigned (array of user ids)
+    let assignedNames = [];
+    if (Array.isArray(tObj.assigned) && tObj.assigned.length > 0) {
+      assignedNames = await Promise.all(tObj.assigned.map(uid => fetchUserName(uid)));
+    }
+
+    // status_meta.approvals.*.assigned_to
+    let approvals = null;
+    if (tObj.status_meta && tObj.status_meta.approvals) {
+      approvals = {};
+      for (const role of Object.keys(tObj.status_meta.approvals)) {
+        const appr = tObj.status_meta.approvals[role];
+        let assignedToName = appr.assigned_to ? await fetchUserName(appr.assigned_to) : null;
+        approvals[role] = {
+          ...appr,
+          assigned_to_name: assignedToName
+        };
+      }
+    }
+
+    // notes[].added_by
+    let notes = [];
+    if (Array.isArray(tObj.notes)) {
+      notes = await Promise.all(tObj.notes.map(async note => {
+        let addedByName = note.added_by ? await fetchUserName(note.added_by) : null;
+        return {
+          ...note,
+          added_by_name: addedByName
+        };
+      }));
+    }
+
+    // Compose response
     res.status(200).json({
       success: true,
       message: 'Template retrieved successfully',
       template: {
-        ...template.toObject(),
-        approvalMeta: buildApprovalMeta(template, req.user?.id)
+        ...tObj,
+        approvalMeta: buildApprovalMeta(template, req.user?.id),
+        createdByName,
+        assignedNames,
+        approvals,
+        notes
       }
     });
 
@@ -708,24 +777,27 @@ export const assignUsersToCreateTemplate = async (req, res) => {
       console.log('templateData missing:', req.body);
       return res.status(400).json({ success: false, message: 'templateData is required' });
     }
+    console.log(templateData.instructions);
 
     templateData.title = templateData.title ? templateData.title.trim() : 'Untitled Template';
+ 
     delete templateData.document_code;
     templateData.notes = templateData.notes || [];
-    templateData.notes.push({
-      added_by: req.user.id,
-      role_snapshot: req.user?.role?.name || '',
-      type: 'assignment',
-      message: `Assigned by ${req.user?.role?.name || 'User'}`,
-      created_at: new Date()
-    });
+      templateData.notes.push({
+        added_by: req.user.id,
+        role_snapshot: req.user?.role?.name || '',
+        type: 'assignment',
+        message: templateData.instructions || 'No instructions provided',
+        created_at: new Date()
+      });
+
     if (deadline) {
       templateData.deadline = deadline;
     }
     if (!templateData.created_by) {
       templateData.created_by = req.user.id;
     }
-    // Minimal template creation logic (inline, not via req/res)
+    // Minimal template creation logic 
     const { title, pages_json, body, created_by, notes } = templateData;
     const template = new Template({
       title: title && title.trim() !== '' ? title.trim() : 'Untitled Template',
@@ -767,25 +839,7 @@ export const assignUsersToCreateTemplate = async (req, res) => {
     template.status_meta = template.status_meta || {};
     template.status_meta.assigned_by = req.user.id;
     template.status_meta.assigned_at = new Date();
-    // Add assignment note to existing template
-    if (template.notes) {
-      template.notes.push({
-        added_by: req.user.id,
-        role_snapshot: req.user?.role?.name || '',
-        type: 'assignment',
-        message: `Assigned by ${req.user?.role?.name || 'User'}`,
-        created_at: new Date()
-      });
-    } else {
-      template.notes = [{
-        added_by: req.user.id,
-        role_snapshot: req.user?.role?.name || '',
-        type: 'assignment',
-        message: `Assigned by ${req.user?.role?.name || 'User'}`,
-        created_at: new Date()
-      }];
-    }
-
+    
     // Set approver slot based on assigner's role
     const role = req.user?.role?.name?.toLowerCase();
     if (role === 'dean') {

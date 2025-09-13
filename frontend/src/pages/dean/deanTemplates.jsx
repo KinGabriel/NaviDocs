@@ -112,7 +112,7 @@ export default function DeanTemplates() {
   // Table columns (Secretary look; Dean actions)
    const columns = [
     { key: "title", label: "Template Name" },
-    { key: "createdByName", label: "Created By", render: row =>
+    { key: "createdByName", label: "Assigned To", render: row =>
       Array.isArray(row.assignedNames) && row.assignedNames.length > 0
         ? row.assignedNames.filter(Boolean).join(", ")
         : row.createdByName || row.created_by_name || "-" },

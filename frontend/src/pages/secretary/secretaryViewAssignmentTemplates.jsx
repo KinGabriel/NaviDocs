@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/sidebar";
@@ -8,43 +9,60 @@ import {
   CheckCircle2,
   MessageSquare,
 } from "lucide-react";
-
-// ----- Placeholder template and notes/members
-const PLACEHOLDER_TEMPLATE = {
-  code: "T001",
-  title: "Student Form",
-  document_code: "FM-VAA-047",
-  revision_no: 0,
-  effectivity: "2023-08-01",
-  pages: 1,
-  document_size: "8.5 x 13",
-  assignedNames: ["Nichole Jhoy Escano", "Austin Reeves"],
-  notes: [
-    { message: "Initial assignment.", added_by: "Nichole Jhoy Escano", created_at: "2023-08-01" },
-  ],
-  approvals: [
-    { role: "Dean", name: "Dean Gabriel", isApproved: false },
-    { role: "Secretary", name: "Nichole Jhoy Escano", isApproved: true },
-  ]
-};
-    approvals: [
-      { role: "Dean", name: "Dean Gabriel", isApproved: false },
-      { role: "Secretary", name: "Nichole Jhoy Escano", isApproved: true },
-    ]
+import { getTemplateByIdAPI } from "../../api/documentContollerAPI";
+import { formatDate } from "../../utils/formatters";
 
 
 export default function SecretaryTemplateView() {
   const user = useUser();
   const navigate = useNavigate();
-  const { id } = useParams(); // ready for real API usage later
+  const { id } = useParams();
+  const [template, setTemplate] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Use placeholders 
-  const t = PLACEHOLDER_TEMPLATE;
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    getTemplateByIdAPI(id)
+      .then(res => {
+        console.log("Fetched template:", res);
+        setTemplate(res.template);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError("Failed to fetch template");
+        setLoading(false);
+      });
+  }, [id]);
 
   // Button handlers 
   const handleAssign = () => alert("Assign Members (placeholder)");
   const handleApprove = () => alert("Approve Template (placeholder)");
   const handleRequestChange = () => alert("Request Change (placeholder)");
+
+  // Use API data if loaded, else fallback to placeholder
+  const t = template || 'No assignments are instruction';
+
+  //  assigned members 
+  const assignedNames = t.assignedNames || [];
+  // deadline
+  const deadline = t.deadline ? formatDate(t.deadline) : null;
+
+  //  approvers 
+  let approvalsArr = [];
+  if (t.approvals && typeof t.approvals === 'object' && !Array.isArray(t.approvals)) {
+    approvalsArr = Object.entries(t.approvals).map(([role, appr]) => ({
+      role,
+      name: appr.assigned_to_name || appr.assigned_to || '',
+      isApproved: appr.isApproved,
+    }));
+  } else if (Array.isArray(t.approvals)) {
+    approvalsArr = t.approvals;
+  }
+
+  //  handle to prepare notes 
+  const notes = Array.isArray(t.notes) ? t.notes : [];
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -174,13 +192,21 @@ export default function SecretaryTemplateView() {
               <aside className="col-span-12 lg:col-span-3">
                 <div className="bg-white border rounded-lg shadow-sm">
                   <div className="p-5">
+                    {/* Deadline at the top */}
+                      <div className="mb-4">
+                       <h3 className="text-base font-bold tracking-widest text-gray-900 uppercase font-sans">
+                         Deadline
+                       </h3>
+                        <div className="w-16 h-0.5 bg-yellow-400 mt-2 mb-2 rounded" />
+                        <div className="text-base text-gray-900">{deadline}</div>
+                      </div>
                     <h3 className="text-base font-bold tracking-widest text-gray-900 uppercase font-sans">
                       Assigned Members
                     </h3>
                     <div className="w-24 h-0.5 bg-yellow-400 mt-2 mb-4 rounded" />
                     <ul className="mb-6">
-                      {t.assignedNames && t.assignedNames.length > 0 ? (
-                        t.assignedNames.map((name, idx) => (
+                      {assignedNames.length > 0 ? (
+                        assignedNames.map((name, idx) => (
                           <li key={idx} className="text-sm text-gray-800 mb-1 flex items-center">
                             <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
                             {name}
@@ -195,8 +221,8 @@ export default function SecretaryTemplateView() {
                     </h3>
                     <div className="w-16 h-0.5 bg-yellow-400 mt-2 mb-4 rounded" />
                     <ul className="mb-6">
-                      {t.approvals && t.approvals.length > 0 ? (
-                        t.approvals.map((approver, idx) => (
+                      {approvalsArr.length > 0 ? (
+                        approvalsArr.map((approver, idx) => (
                           <li key={idx} className="flex mb-2 text-sm">
                             <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-1 flex-shrink-0"></span>
                             <div className="flex flex-col">
@@ -220,10 +246,13 @@ export default function SecretaryTemplateView() {
                     </h3>
                     <div className="w-16 h-0.5 bg-yellow-400 mt-2 mb-4 rounded" />
                     <ul>
-                      {t.notes && t.notes.filter(note => note.type !== 'assignment').length > 0 ? (
-                        t.notes.filter(note => note.type !== 'assignment').map((note, idx) => (
+                      {notes.length > 0 ? (
+                        notes.map((note, idx) => (
                           <li key={idx} className="mb-3">
-                            <div className="text-xs text-gray-500 mb-1 font-sans">{note.added_by?.name || note.added_by || ''} &middot; {note.created_at && (note.created_at.toLocaleString ? note.created_at.toLocaleString() : note.created_at)}</div>
+                            <div className="text-xs text-gray-500 mb-1 font-sans">
+                              {note.added_by_name || note.added_by || ''} &middot; {formatDate(note.created_at)}
+                            </div>
+                            <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">{note.type || 'Note'}</div>
                             <div className="text-base text-gray-800 font-sans">{note.message}</div>
                           </li>
                         ))
