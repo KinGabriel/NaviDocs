@@ -695,13 +695,14 @@ export const getTemplateStats = async (req, res) => {
  */
 export const approveTemplate = async (req, res) => {
   try {
-    const { role } = req.body; // should be dean or secretary
+    const { document_code, effectivity, revision_no } = req.body;
+    const role = req.user.role.name.toLowerCase();
     if (!['dean','secretary'].includes(role)) {
       return res.status(400).json({ success:false, message:'Invalid role' });
     }
     const template = await Template.findById(req.params.id);
     if (!template) return res.status(404).json({ success:false, message:'Template not found' });
-    if (!['pending','draft','approved'].includes(template.status)) {
+    if (!['pending','draft','approved','assigned'].includes(template.status)) {
       return res.status(400).json({ success:false, message:'Template not in approvable state' });
     }
     template.status_meta = template.status_meta || {};
@@ -710,8 +711,16 @@ export const approveTemplate = async (req, res) => {
     if (slot.approved_at) {
       return res.status(400).json({ success:false, message: `${role} already approved` });
     }
-    slot.approved_by = req.user.id;
     slot.approved_at = new Date();
+    slot.isApproved = true;
+
+    // If dean, allow assigning document_code, effectivity, revision_no
+    if (role === 'dean') {
+      if (document_code) template.document_code = document_code;
+      if (effectivity) template.effectivity = effectivity;
+      if (revision_no !== undefined) template.revision_no = revision_no;
+    }
+
     // If both approved set overall approved
     const bothApproved = template.status_meta.approvals.dean?.approved_at && template.status_meta.approvals.secretary?.approved_at;
     if (bothApproved) {
@@ -724,8 +733,8 @@ export const approveTemplate = async (req, res) => {
       // keep pending until both
     }
     await template.save();
-  const approvalMeta = buildApprovalMeta(template, req.user?.id);
-  return res.status(200).json({ success:true, message:'Approval recorded', template: template.toObject(), approvalMeta });
+    const approvalMeta = buildApprovalMeta(template, req.user?.id);
+    return res.status(200).json({ success:true, message:'Approval recorded', template: template.toObject(), approvalMeta });
   } catch (err) {
     console.error('Approve error', err);
     return res.status(500).json({ success:false, message:'Failed to approve template' });
