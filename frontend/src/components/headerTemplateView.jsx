@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI } from "../api/documentContollerAPI";
 import { UserPlus, CheckCircle2, Calendar, FileText, ChevronDown } from "lucide-react";
 import naviLogo from "../assets/images/navilogo.png";
 import { useNavigate } from "react-router-dom";
@@ -18,20 +19,52 @@ export default function HeaderTemplateView({ template, user, handleAssign, onUpd
   // Approval Modal handlers
   const handleApproveClick = () => setIsApprovalModalOpen(true);
 
-  const handleModalApprove = (templateData, message) => {
-    console.log("Approved template:", templateData, message);
-    setIsApprovalModalOpen(false);
+  // Import your API functions at the top of the file:
+  // import { approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI } from "../api/documentControllerAPI";
+  // Optionally, import a toast/notification system for user feedback
+  // import { toast } from "react-toastify";
+
+  const handleModalApprove = async (templateData, message) => {
+    try {
+      await approveTemplateAPI(templateData._id, { note: message });
+      // toast.success("Template approved successfully");
+      console.log("Approved template:", templateData, message);
+    } catch (error) {
+      // toast.error("Failed to approve template");
+      console.error("Error approving template:", error);
+    } finally {
+      setIsApprovalModalOpen(false);
+    }
   };
 
-  const handleModalReject = (templateData, message) => {
-    console.log("Rejected template:", templateData, message);
-    setIsApprovalModalOpen(false);
+  const handleModalReject = async (templateData, message) => {
+    try {
+      await rejectTemplateAPI(templateData._id, message);
+      // toast.success("Template rejected successfully");
+      console.log("Rejected template:", templateData, message);
+    } catch (error) {
+      // toast.error("Failed to reject template");
+      console.error("Error rejecting template:", error);
+    } finally {
+      setIsApprovalModalOpen(false);
+    }
   };
 
-  const handleModalRequestChange = (templateData, message) => {
-    console.log("Requested changes:", templateData, message);
-    setIsApprovalModalOpen(false);
+  const handleModalReturn = async (templateData, message) => {
+    try {
+      await returnTemplateAPI(templateData._id, message);
+      // toast.success("Template returned successfully");
+      console.log("Returned template:", templateData, message);
+    } catch (error) {
+      // toast.error("Failed to return template");
+      console.error("Error returning template:", error);
+    } finally {
+      setIsApprovalModalOpen(false);
+    }
   };
+
+
+
 
   return (
     <>
@@ -153,7 +186,7 @@ export default function HeaderTemplateView({ template, user, handleAssign, onUpd
           user={user}
           onApprove={handleModalApprove}
           onReject={handleModalReject}
-          onRequestChange={handleModalRequestChange}
+          onReturn={handleModalReturn}
         />
       )}
     </>

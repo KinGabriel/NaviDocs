@@ -1,5 +1,6 @@
+
 import { useState } from "react";
-import { CheckCircle2, X, MessageSquare, AlertTriangle, User, Clock, Tag, FileText, Undo2 } from "lucide-react";
+import { CheckCircle2, X, AlertTriangle, User, Clock, Tag, FileText, Undo2 } from "lucide-react";
 import { formatDate } from "../../utils/formatters.jsx";
 
 export default function ApprovalModal({
@@ -9,7 +10,6 @@ export default function ApprovalModal({
   user,
   onApprove,
   onReject,
-  onRequestChange,
 }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -31,21 +31,12 @@ export default function ApprovalModal({
     onClose();
   };
 
-   const handleReturn = () => {
+  const handleReturn = () => {
     if (!message.trim()) {
       setError("Please provide a reason for returning the template.");
       return;
     }
     onReturn(template, message);
-    onClose();
-  };
-
-  const handleRequestChange = () => {
-    if (!message.trim()) {
-      setError("Please provide details for the requested changes.");
-      return;
-    }
-    onRequestChange(template, message);
     onClose();
   };
 
@@ -168,13 +159,7 @@ export default function ApprovalModal({
             Return
         </button>
 
-        <button
-            onClick={handleRequestChange}
-            className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-yellow-600 text-white hover:bg-yellow-700 hover:shadow-md font-medium transition-all min-w-[140px]"
-        >
-            <MessageSquare className="h-4 w-4" />
-            Request Changes
-        </button>
+
         </div>
 
           {/* Cancel */}

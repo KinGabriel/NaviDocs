@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import HeaderTemplateView from "../components/headerTemplateView";
 import useUser from "../hooks/useUser";
-import { getTemplateByIdAPI } from "../api/documentContollerAPI";
+import { getTemplateByIdAPI, approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI } from "../api/documentContollerAPI";
 import { formatDate } from "../utils/formatters";
 
 
@@ -31,8 +31,47 @@ export default function TemplateView() {
 
   // Button handlers 
   const handleAssign = () => alert("Assign Members (placeholder)");
-  const handleApprove = () => alert("Approve Template (placeholder)");
-  const handleRequestChange = () => alert("Request Change (placeholder)");
+
+  // Approval modal handlers
+  const handleApprove = async (templateData, message) => {
+    if (!templateData || !user) return;
+    try {
+      const payload = {};
+      const res = await approveTemplateAPI(templateData._id, payload);
+      setTemplate(res.template);
+    } catch (err) {
+      setError("Failed to approve template");
+    }
+  };
+
+  const handleReject = async (templateData, message) => {
+    if (!templateData || !user) return;
+    if (!message || !message.trim()) {
+      setError("Please provide a reason for rejection.");
+      return;
+    }
+    try {
+      const res = await rejectTemplateAPI(templateData._id, message);
+      setTemplate(res.template);
+    } catch (err) {
+      setError("Failed to reject template");
+    }
+  };
+
+  const handleReturn = async (templateData, message) => {
+    if (!templateData || !user) return;
+    if (!message || !message.trim()) {
+      setError("Please provide a reason for returning the template.");
+      return;
+    }
+    try {
+      const res = await returnTemplateAPI(templateData._id, message);
+      setTemplate(res.template);
+    } catch (err) {
+      setError("Failed to return template");
+    }
+  };
+
 
   // Use API data if loaded, else fallback to placeholder
   const t = template || 'No assignments are instruction';
@@ -64,7 +103,8 @@ export default function TemplateView() {
         user={user}
         handleAssign={handleAssign}
         handleApprove={handleApprove}
-        handleRequestChange={handleRequestChange}
+        handleReject={handleReject}
+        handleReturn={handleReturn}
       />
          <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
           <main className="p-8 flex-1 overflow-y-auto">

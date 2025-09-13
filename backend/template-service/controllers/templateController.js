@@ -805,6 +805,7 @@ export const submitTemplate = async (req, res) => {
 export const returnTemplate = async (req, res) => {
   try {
     const { reason } = req.body;
+    console.log("Return reason:", reason);
     const template = await Template.findById(req.params.id);
     if (!template) return res.status(404).json({ success:false, message:'Template not found' });
     // Check if template is already in returned state
