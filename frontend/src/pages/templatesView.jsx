@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Header from "../../layout/header";
-import Sidebar from "../../layout/sidebar";
-import useUser from "../../hooks/useUser";
+import Header from "../layout/header";
+import Sidebar from "../layout/sidebar";
+import useUser from "../hooks/useUser";
 import {
   ArrowLeft,
   UserPlus,
   CheckCircle2,
   MessageSquare,
 } from "lucide-react";
-import { getTemplateByIdAPI } from "../../api/documentContollerAPI";
-import { formatDate } from "../../utils/formatters";
+import { getTemplateByIdAPI } from "../api/documentContollerAPI";
+import { formatDate } from "../utils/formatters";
 
 
 export default function SecretaryTemplateView() {

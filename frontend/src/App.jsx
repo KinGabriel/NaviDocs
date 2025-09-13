@@ -20,7 +20,7 @@ import UnauthorizedPage from './pages/error_pages/UnauthorizedPage';
 import useUser from './hooks/useUser';
 import SecretaryDashboard from './pages/secretary/secretaryDashboard';
 import SecretaryTemplates from './pages/secretary/secretaryTemplates';
-import SecretaryViewTemplates from './pages/secretary/secretaryViewAssignmentTemplates';
+import TemplatesView from './pages/templatesView';
 import DeanDashboard from './pages/dean/deanDashboard';
 import DeanStatistics from './pages/dean/deanStatistics';
 import DeanDocumentWorkflow from './pages/dean/deanDocumentWorkflow';
@@ -160,15 +160,6 @@ function App() {
            </ProtectedRoute>
          }
        />
-       <Route
-         path="/secretary/templates/:id"
-         element={
-           <ProtectedRoute allowedRoles={["Secretary"]}>
-             <SecretaryViewTemplates />
-           </ProtectedRoute>
-         }
-       />
-
 
        {/* Dean Module */}
        <Route
@@ -303,6 +294,15 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+        <Route
+         path="/templates/:id"
+         element={
+           <ProtectedRoute allowedRoles={["Secretary", "Dean"]}>
+             <TemplatesView />
+           </ProtectedRoute>
+         }
+       />
       
        {/* Error Pages */}
        <Route path="*" element={<NotFoundPage />} />

@@ -150,7 +150,7 @@ export default function DeanTemplates() {
       render: (row) => (
         <button
           onClick={() =>
-            navigate(`/secretary/templates/${row._id || row.id || "placeholder"}`, {
+            navigate(`/templates/${row._id || row.id || "placeholder"}`, {
               state: { from: "secretary-templates", doc: row },
             })
           }
