@@ -117,7 +117,9 @@ export const getTemplates = async (req, res) => {
     let query = {
       $or: [
         { created_by: req.user.id },
-        { assigned: req.user.id }
+        { assigned: req.user.id },
+        { "status_meta.approvals.dean.assigned_to": req.user.id },
+        { "status_meta.approvals.secretary.assigned_to": req.user.id }
       ]
     };
 
@@ -133,8 +135,18 @@ export const getTemplates = async (req, res) => {
     // Search
     if (search) {
       query.$or = [
-        { $and: [ { $or: [ { created_by: req.user.id }, { assigned: req.user.id } ] }, { title: { $regex: search, $options: 'i' } } ] },
-        { $and: [ { $or: [ { created_by: req.user.id }, { assigned: req.user.id } ] }, { document_code: { $regex: search, $options: 'i' } } ] }
+        { $and: [ { $or: [
+          { created_by: req.user.id },
+          { assigned: req.user.id },
+          { "status_meta.approvals.dean.assigned_to": req.user.id },
+          { "status_meta.approvals.secretary.assigned_to": req.user.id }
+        ] }, { title: { $regex: search, $options: 'i' } } ] },
+        { $and: [ { $or: [
+          { created_by: req.user.id },
+          { assigned: req.user.id },
+          { "status_meta.approvals.dean.assigned_to": req.user.id },
+          { "status_meta.approvals.secretary.assigned_to": req.user.id }
+        ] }, { document_code: { $regex: search, $options: 'i' } } ] }
       ];
     }
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI } from "../api/documentContollerAPI";
 import { UserPlus, CheckCircle2, Calendar, FileText, ChevronDown } from "lucide-react";
+
 import naviLogo from "../assets/images/navilogo.png";
 import { useNavigate } from "react-router-dom";
 import ApprovalModal from "../components/modals/ApprovalModal"; 
@@ -12,6 +13,7 @@ const API_URL =
 
 export default function HeaderTemplateView({ template, user, handleAssign, onUpdateDeadline, onAddInstructions }) {
   const navigate = useNavigate();
+  const roleValue = user?.role?.name || user?.role;
   const t = template || {};
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -103,13 +105,18 @@ export default function HeaderTemplateView({ template, user, handleAssign, onUpd
             </button>
 
             {/* Approve Templates btn */}
-            <button
-              onClick={handleApproveClick}
-              className="inline-flex drop-shadow-md items-center gap-2 px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 transition"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              <span className="text-sm font-semibold">Approve Template</span>
-            </button>
+            {t.status === "pending" && (
+              (roleValue === "Dean" && t.status_meta?.approvals?.secretary?.isApproved !== false) ||
+              (roleValue === "Secretary" && t.status_meta?.approvals?.secretary?.isApproved !== true)
+            ) && (
+              <button
+                onClick={handleApproveClick}
+                className="inline-flex drop-shadow-md items-center gap-2 px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 transition"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="text-sm font-semibold">Approve Template</span>
+              </button>
+            )}
 
             {/*  Dropdown */}
             <div className="relative inline-block">

@@ -136,15 +136,50 @@ export default function TemplateView() {
 
               {/* Details*/}
              <aside className="col-span-12 lg:col-span-4">
-                <div className="bg-white border rounded-md shadow-sm">
-                  <div className="p-5">
-                      <div className="mb-4">
-                       <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
-                         Deadline
-                       </h3>
-                      
-                        <div className="text-base text-gray-900">{deadline}</div>
-                      </div>
+               {/* Template Status Panel */}
+               <div className="bg-white border rounded-md shadow-sm mb-4">
+                 <div className="p-5">
+                   <div className="mb-4">
+                     <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
+                       Template Status
+                     </h3>
+                     <div className="w-16 h-0.5 bg-yellow-400 mb-3 rounded" />
+                     <div className="text-base text-gray-900 font-sans">
+                       {t.status === 'assigned' && (
+                         <>Document controllers are still working on the template.</>
+                       )}
+                       {t.status === 'pending' && (
+                         ((user?.role?.name === "Dean" && t.status_meta?.approvals?.secretary?.isApproved !== false) ||
+                          (user?.role?.name === "Secretary" && t.status_meta?.approvals?.secretary?.isApproved !== true)) ? (
+                           <>Template is awaiting your approval.</>
+                         ) : (
+                           <>Template is awaiting approval from assigned approvers.</>
+                         )
+                       )}
+                       {t.status === 'approved' && (
+                         <>Template has been fully approved and is ready for publishing by the document controller.</>
+                       )}
+                       {t.status === 'published' && (
+                         <>Template is published and available for use.</>
+                       )}
+                       {t.status === 'rejected' && (
+                         <>Template was rejected.</>
+                       )}
+                       {t.status === 'returned' && (
+                         <>Template was returned for changes.</>
+                       )}
+                     </div>
+                   </div>
+                 </div>
+               </div>
+               <div className="bg-white border rounded-md shadow-sm">
+                 <div className="p-5">
+                   <div className="mb-4">
+                     <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
+                       Deadline
+                     </h3>
+                     <div className="text-base text-gray-900">{deadline}</div>
+                   </div>
                     <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
                       Assigned Members
                     </h3>
@@ -173,8 +208,10 @@ export default function TemplateView() {
                             <div className="flex flex-col">
                               <span className="font-medium text-gray-800 flex items-center">
                                 {approver.name} ({approver.role})
-                                {approver.isApproved ? (
+                                {approver.isApproved === true ? (
                                   <span className="ml-2 px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs">Approved</span>
+                                ) : approver.isApproved === false ? (
+                                  <span className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs">Rejected</span>
                                 ) : (
                                   <span className="ml-2 px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs">Pending</span>
                                 )}
