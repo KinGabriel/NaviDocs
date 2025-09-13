@@ -57,7 +57,7 @@ export default function DocumentView() {
             {/* Content grid */}
             <div className="grid grid-cols-12 gap-6">
               {/* Preview */}
-              <section className="col-span-12 lg:col-span-9">
+              <section className="col-span-12 lg:col-span-8">
                 <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
                   <div className="bg-gray-50 p-6">
                     <div
@@ -76,7 +76,7 @@ export default function DocumentView() {
               </section>
 
               {/* Details */}
-              <aside className="col-span-12 lg:col-span-3">
+              <aside className="col-span-12 lg:col-span-4">
                 <div className="bg-white border rounded-lg shadow-sm">
                   <div className="p-5">
                     <h3 className="text-sm font-semibold tracking-widest text-gray-900 uppercase">
