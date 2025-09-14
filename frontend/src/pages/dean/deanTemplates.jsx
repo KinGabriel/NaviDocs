@@ -7,7 +7,7 @@ import useUser from "../../hooks/useUser";
 import SearchBar from "../../components/searchBar";
 import Dropdown from "../../components/dropdowns/dropdown";
 import usePagination from "../../hooks/usePagination";
-import { formatDate, StatusBadge } from '../../utils/formatters.jsx';
+import { formatDate, StatusBadge ,formatDateTime} from '../../utils/formatters.jsx';
 import Loader from '../../components/loader';
 import { fetchTemplatesAPI as fetchDeanTemplatesAPI, approveTemplateAPI,createTemplateAPI } from "../../api/documentContollerAPI";
 import TaskAssignmentModal from '../../components/modals/taskAssignmentModal';
@@ -116,7 +116,7 @@ export default function DeanTemplates() {
       Array.isArray(row.assignedNames) && row.assignedNames.length > 0
         ? row.assignedNames.filter(Boolean).join(", ")
         : row.createdByName || row.created_by_name || "-" },
-    { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDate(row.deadline) : "No Deadline set" },
+    { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDateTime(row.deadline) : "No Deadline set" },
     {
       key: "status",
       label: "Status",

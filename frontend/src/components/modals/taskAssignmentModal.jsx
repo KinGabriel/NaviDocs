@@ -48,6 +48,7 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
   const [title, setTitle] = useState('');
   const [instructions, setInstructions] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [deadlineTime, setDeadlineTime] = useState('00:00'); // format: HH:mm, default to 12:00am
   const [assignedUsers, setAssignedUsers] = useState([]);
   const [assignedApprover, setAssignedApprover] = useState('');
   const [docControllers, setDocControllers] = useState([]);
@@ -78,6 +79,8 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
         setAssignedApprover('');
       })
       .finally(() => setLoadingStaff(false));
+    // Reset deadline time to 00:00 (12:00am) when modal opens
+    setDeadlineTime('00:00');
   }, []);
 
   // Determine role
@@ -121,24 +124,23 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
   // Validation
   const validateStep = (step) => {
     const newErrors = {};
-    
     if (step >= 1) {
       if (!title.trim()) newErrors.title = 'Title is required';
       if (!deadline) newErrors.deadline = 'Due date is required';
-      
+      if (!deadlineTime) newErrors.deadline = 'Due time is required';
       // Check if deadline is in the past
-      const today = new Date();
-      const selectedDate = new Date(deadline);
-      if (selectedDate < today) {
-        newErrors.deadline = 'Due date cannot be in the past';
+      if (deadline && deadlineTime) {
+        const now = new Date();
+        const selected = new Date(`${deadline}T${deadlineTime}`);
+        if (selected < now) {
+          newErrors.deadline = 'Due date/time cannot be in the past';
+        }
       }
     }
-    
     if (step >= 2) {
       if (assignedUsers.length === 0) newErrors.assignedUsers = 'At least one user must be assigned';
       if (!assignedApprover) newErrors.assignedApprover = 'An approver must be selected';
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -156,21 +158,34 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
   // Handle assign
   const handleAssign = async () => {
     if (validateStep(3)) {
-      console.log("Assigning template:", { title, instructions, deadline, assignedUsers, assignedApprover, templateId });
+      // Combine date and time for deadline, format as UTC ISO string with +00:00
+      let deadlineISO = '';
+      if (deadline && deadlineTime) {
+        // Create a Date object in local time
+        const localDate = new Date(`${deadline}T${deadlineTime}`);
+        // Convert to UTC and format as 'YYYY-MM-DDTHH:mm:00.000+00:00'
+        const y = localDate.getUTCFullYear();
+        const m = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(localDate.getUTCDate()).padStart(2, '0');
+        const hh = String(localDate.getUTCHours()).padStart(2, '0');
+        const mm = String(localDate.getUTCMinutes()).padStart(2, '0');
+        deadlineISO = `${y}-${m}-${d}T${hh}:${mm}:00.000+00:00`;
+      }
+      console.log("Assigning template:", { title, instructions, deadline: deadlineISO, assignedUsers, assignedApprover, templateId });
       const templateData = { title, instructions };
       const result = await assignUsersToTemplate(
         templateId,
         assignedUsers,
         assignedApprover,
         templateData,
-        deadline ? deadline : undefined
+        deadlineISO || undefined
       );
       onAssign?.(result);
-      
       // Reset form
       setTitle('');
       setInstructions('');
       setDeadline('');
+      setDeadlineTime('00:00');
       setAssignedUsers(assignUserOptions.length > 0 ? [assignUserOptions[0].id] : []);
       setAssignedApprover(approverOptions.length > 0 ? approverOptions[0].id : '');
       setCurrentStep(1);
@@ -254,20 +269,37 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
                     <Clock size={16} />
                     Due Date <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="date"
-                    className={`w-80 px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                      errors.deadline ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500'
-                    }`}
-                    value={deadline}
-                    onChange={e => {
-                      setDeadline(e.target.value);
-                      if (errors.deadline) {
-                        setErrors(prev => ({ ...prev, deadline: '' }));
-                      }
-                    }}
-                    min={new Date().toISOString().split('T')[0]}
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      className={`w-40 px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                        errors.deadline ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500'
+                      }`}
+                      value={deadline}
+                      onChange={e => {
+                        setDeadline(e.target.value);
+                        if (errors.deadline) {
+                          setErrors(prev => ({ ...prev, deadline: '' }));
+                        }
+                      }}
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                    <input
+                      type="time"
+                      className={`w-34 px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                        errors.deadline ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500'
+                      }`}
+                      value={deadlineTime}
+                      onChange={e => {
+                        setDeadlineTime(e.target.value);
+                        if (errors.deadline) {
+                          setErrors(prev => ({ ...prev, deadline: '' }));
+                        }
+                      }}
+                      min="00:00"
+                      max="23:59"
+                    />
+                  </div>
                   {errors.deadline && (
                     <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
                       <AlertCircle size={14} />
@@ -360,7 +392,11 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-gray-700">Due Date</h4>
-                    <p className="text-gray-900">{deadline ? new Date(deadline).toLocaleDateString() : 'Not set'}</p>
+                    <p className="text-gray-900">
+                      {deadline && deadlineTime
+                        ? new Date(`${deadline}T${deadlineTime}`).toLocaleString()
+                        : 'Not set'}
+                    </p>
                   </div>
                 </div>
                 

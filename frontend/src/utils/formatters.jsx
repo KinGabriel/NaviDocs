@@ -1,3 +1,42 @@
+/**
+ * Format a date value to a readable date and time string (e.g., Aug 21, 2025, 2:30 PM)
+ * @param {string|Date} dateValue
+ * @param {Object} [options] - Intl.DateTimeFormat options (optional)
+ * @returns {string}
+ */
+export function formatDateTime(dateValue, options) {
+  if (!dateValue) return "-";
+  const date = new Date(dateValue);
+  if (isNaN(date.getTime())) return dateValue;
+  // Default: e.g., Aug 21, 2025, 2:30 PM
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    ...options
+  });
+}
+/**
+ * Format a date value to a readable time string (e.g., 2:30 PM)
+ * @param {string|Date} dateValue
+ * @param {Object} [options] - Intl.DateTimeFormat options (optional)
+ * @returns {string}
+ */
+export function formatTime(dateValue, options) {
+  if (!dateValue) return "-";
+  const date = new Date(dateValue);
+  if (isNaN(date.getTime())) return dateValue;
+  // Default: hour:minute, 12-hour with AM/PM
+  return date.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    ...options
+  });
+}
 
 /**
  * Format a date value to a readable string (e.g., Aug 21, 2025)

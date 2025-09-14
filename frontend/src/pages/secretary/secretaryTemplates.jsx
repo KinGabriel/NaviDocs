@@ -7,7 +7,7 @@ import Dropdown from "../../components/dropdowns/dropdown";
 import SearchBar from "../../components/searchBar";
 import usePagination from "../../hooks/usePagination";
 import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
-import { formatDate,StatusBadge } from '../../utils/formatters.jsx';
+import { formatDate,StatusBadge,formatDateTime } from '../../utils/formatters.jsx';
 import Loader from '../../components/loader';
 import { useNavigate } from "react-router-dom"; 
 import TaskAssignmentModal from '../../components/modals/taskAssignmentModal.jsx';
@@ -103,7 +103,7 @@ export default function SecretaryTemplates() {
       Array.isArray(row.assignedNames) && row.assignedNames.length > 0
         ? row.assignedNames.filter(Boolean).join(", ")
         : row.createdByName || row.created_by_name || "-" },
-    { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDate(row.deadline) : "No Deadline set" },
+    { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDateTime(row.deadline) : "No Deadline set" },
     {
       key: "status",
       label: "Status",

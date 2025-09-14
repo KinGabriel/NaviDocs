@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import HeaderTemplateView from "../components/headerTemplateView";
 import useUser from "../hooks/useUser";
 import { getTemplateByIdAPI, approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI } from "../api/documentContollerAPI";
-import { formatDate } from "../utils/formatters";
+import { formatDateTime } from "../utils/formatters";
 
 
 export default function TemplateView() {
@@ -79,7 +79,7 @@ export default function TemplateView() {
   //  assigned members 
   const assignedNames = t.assignedNames || [];
   // deadline
-  const deadline = t.deadline ? formatDate(t.deadline) : null;
+  const deadline = t.deadline ? formatDateTime(t.deadline) : null;
 
   //  approvers 
   let approvalsArr = [];
@@ -210,7 +210,7 @@ export default function TemplateView() {
                                 {approver.name} ({approver.role})
                                 {approver.isApproved === true ? (
                                   <span className="ml-2 px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs">Approved</span>
-                                ) : approver.isApproved === false ? (
+                                ) : status === 'rejected' ? (
                                   <span className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs">Rejected</span>
                                 ) : (
                                   <span className="ml-2 px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs">Pending</span>
@@ -232,7 +232,7 @@ export default function TemplateView() {
                         notes.map((note, idx) => (
                           <li key={idx} className="mb-3">
                             <div className="text-xs text-gray-500 mb-1 font-sans">
-                              {note.added_by_name || note.added_by || ''} &middot; {formatDate(note.created_at)}
+                              {note.added_by_name || note.added_by || ''} &middot; {formatDateTime(note.created_at)}
                             </div>
                             <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-3">{note.type || 'Note'}</div>
                             <div className="text-base text-gray-800 font-sans">{note.message}</div>
