@@ -4,7 +4,7 @@ import HeaderTemplateView from "../components/headerTemplateView";
 import useUser from "../hooks/useUser";
 import { getTemplateByIdAPI, approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI } from "../api/documentContollerAPI";
 import { formatDateTime } from "../utils/formatters";
-
+import AssignMembersModal from "../components/modals/assignMembersModal";
 
 export default function TemplateView() {
   const user = useUser();
@@ -13,6 +13,13 @@ export default function TemplateView() {
   const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Assign modal state
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [faculty, setFaculty] = useState([]);
+  const [facultyLoading, setFacultyLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -29,8 +36,34 @@ export default function TemplateView() {
       });
   }, [id]);
 
-  // Button handlers 
-  const handleAssign = () => alert("Assign Members (placeholder)");
+  // Assign Members — open modal with preselected + fetch assignable faculty
+  const handleAssign = async () => {
+    if (!template) return;
+    // preselect assigned members (supports objects or ids or names)
+    const pluckIds = (arr) =>
+      (Array.isArray(arr) ? arr : [])
+        .map((u) => (u && (u._id || u.id || u.email || u.name)) || u)
+        .filter(Boolean);
+    const idsFromAssigned  = pluckIds(template.assigned);
+    const idsFromAssignees = pluckIds(template.assignees);
+    const idsFromNames     = (Array.isArray(template.assignedNames) ? template.assignedNames : []);
+    const preselected = Array.from(new Set([...idsFromAssigned, ...idsFromAssignees, ...idsFromNames]));
+    setSelectedIds(preselected);
+
+    setAssignOpen(true);
+    setFacultyLoading(true);
+    try {
+      const school = template?.school || template?.school_identifier || "All";
+      const res = await searchDeanAssigneesAPI({ school, q: "" });
+      const arr = res?.data?.users || res?.users || res?.data || (Array.isArray(res) ? res : []);
+      setFaculty(arr);
+    } catch (e) {
+      console.error("Failed to load faculty list", e);
+      setFaculty([]);
+    } finally {
+      setFacultyLoading(false);
+    }
+  };
 
   // Approval modal handlers
   const handleApprove = async (templateData, message) => {
@@ -248,6 +281,33 @@ export default function TemplateView() {
             </div>
           </main>
         </div>
+        {/* Assign Members Modal */}
+        <AssignMembersModal
+          open={assignOpen}
+          onClose={() => { setAssignOpen(false); setSelectedIds([]); }}
+          template={t}
+          faculty={faculty}
+          facultyLoading={facultyLoading}
+          selectedIds={selectedIds}
+          setSelectedIds={setSelectedIds}
+          submitting={assignSubmitting}
+          onAssign={async ({ assignees }) => {
+            if (!template?._id) return;
+            setAssignSubmitting(true);
+            try {
+              await assignDeanTemplateAPI(template._id, { assignees });
+              const refreshed = await getTemplateByIdAPI(template._id);
+              setTemplate(refreshed.template || refreshed.data || refreshed);
+              setAssignOpen(false);
+              setSelectedIds([]);
+            } catch (e) {
+              console.error(e);
+              setError("Failed to assign members.");
+            } finally {
+              setAssignSubmitting(false);
+            }
+          }}
+        />
       </div>
   );
 }
