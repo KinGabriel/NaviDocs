@@ -133,17 +133,49 @@ export default function ImageNodeView(props) {
 
   const containerStyle = useMemo(() => {
     const isBlock = attrs.wrapMode === 'break';
+    const align = attrs.align || 'left';
+
     return {
-      display: isBlock ? 'block' : 'inline-block',
+      position: 'relative',
+      maxWidth: '100%',
       marginTop: attrs.marginTop ?? 0,
       marginRight: attrs.marginRight ?? 0,
       marginBottom: attrs.marginBottom ?? 0,
       marginLeft: attrs.marginLeft ?? 0,
-      position: 'relative',
-      textAlign: isBlock && attrs.align === 'center' ? 'center' : undefined,
-      maxWidth: '100%',
+
+      ...(isBlock
+        ? {
+            display: 'block',
+            ...(align === 'center'
+              ? { marginLeft: 'auto', marginRight: 'auto' }
+              : align === 'right'
+                ? { marginLeft: 'auto' }
+                : {}),
+          }
+        : {
+            display: 'inline-block',
+            ...(align === 'right'
+              ? { float: 'right' }
+              : align === 'left'
+                ? { float: 'left' }
+                : align === 'center'
+                  ? {
+                      float: 'none',
+                      display: 'block',
+                      marginLeft: 'auto',
+                      marginRight: 'auto',
+                    }
+                  : {}),
+          }),
     };
-  }, [attrs]);
+  }, [
+    attrs.wrapMode,
+    attrs.align,
+    attrs.marginTop,
+    attrs.marginRight,
+    attrs.marginBottom,
+    attrs.marginLeft,
+  ]);
 
   const cropBox = attrs.crop; // {x,y,w,h} or null
 
@@ -336,7 +368,6 @@ export default function ImageNodeView(props) {
           if (!file) return;
           const objectUrl = URL.createObjectURL(file);
           updateAttributes({ src: objectUrl });
-          // Optional: revoke later after persisted
         }}
       />
 
@@ -389,27 +420,44 @@ export default function ImageNodeView(props) {
                 style={{
                   position: 'absolute',
                   inset: 0,
-                  outline: '1200px solid rgba(0,0,0,0.35)',
+                  outline: '1200px solid rgba(0,0,0,0.55)',
                   cursor: 'move',
+                  zIndex: 2,
                 }}
                 onPointerDown={(e) => onPointerDownCrop(e, 'move')}
               />
+
+              <div
+                className="nd-crop-frame"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  pointerEvents: 'none',
+                  zIndex: 3,
+                  boxShadow: 'inset 0 0 0 2px #ffffff, inset 0 0 0 4px #3b82f6',
+                  borderRadius: 0,
+                }}
+              />
+
               {['t','b','l','r','tl','tr','bl','br'].map(key => {
                 const base = {
                   position: 'absolute',
-                  width: ['t','b'].includes(key) ? '100%' : 8,
-                  height: ['l','r'].includes(key) ? '100%' : 8,
-                  background: ['tl','tr','bl','br'].includes(key) ? '#3b82f6' : 'transparent',
+                  width: 12,
+                  height: 12,
+                  background: '#3b82f6',
+                  borderRadius: 3,
+                  boxShadow: '0 0 0 2px #fff',
+                  zIndex: 4,
                 };
                 const pos = {
-                  t: { top: -3, left: 0, height: 6, cursor: 'ns-resize' },
-                  b: { bottom: -3, left: 0, height: 6, cursor: 'ns-resize' },
-                  l: { left: -3, top: 0, width: 6, cursor: 'ew-resize' },
-                  r: { right: -3, top: 0, width: 6, cursor: 'ew-resize' },
-                  tl: { top: -5, left: -5, width: 10, height: 10, cursor: 'nwse-resize' },
-                  tr: { top: -5, right: -5, width: 10, height: 10, cursor: 'nesw-resize' },
-                  bl: { bottom: -5, left: -5, width: 10, height: 10, cursor: 'nesw-resize' },
-                  br: { bottom: -5, right: -5, width: 10, height: 10, cursor: 'nwse-resize' },
+                  t:  { top: -6, left: '50%', marginLeft: -6, cursor: 'ns-resize' },
+                  b:  { bottom: -6, left: '50%', marginLeft: -6, cursor: 'ns-resize' },
+                  l:  { left: -6, top: '50%', marginTop: -6, cursor: 'ew-resize' },
+                  r:  { right: -6, top: '50%', marginTop: -6, cursor: 'ew-resize' },
+                  tl: { top: -6, left: -6, cursor: 'nwse-resize' },
+                  tr: { top: -6, right: -6, cursor: 'nesw-resize' },
+                  bl: { bottom: -6, left: -6, cursor: 'nesw-resize' },
+                  br: { bottom: -6, right: -6, cursor: 'nwse-resize' },
                 }[key];
                 return (
                   <div
@@ -480,6 +528,8 @@ export default function ImageNodeView(props) {
             </>
           )}
         </span>
+
+  
       </ImageContextMenu>
     </NodeViewWrapper>
   );

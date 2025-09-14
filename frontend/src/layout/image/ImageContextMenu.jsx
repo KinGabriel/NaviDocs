@@ -1,3 +1,4 @@
+// src/layout/image/ImageContextMenu.jsx
 import React from "react";
 import {
   ContextMenu,
@@ -9,7 +10,7 @@ import {
   ContextMenuSubTrigger,
   ContextMenuSubContent,
 } from "@/components/ui/context-menu";
-import { Crop, Replace, Undo2, Settings, Type } from "lucide-react";
+import { Crop, Replace, Undo2, Type } from "lucide-react";
 
 export default function ImageContextMenu({ children, onAction }) {
   return (
@@ -42,12 +43,6 @@ export default function ImageContextMenu({ children, onAction }) {
 
         <ContextMenuItem onClick={() => onAction?.("alt-text")}>
           <Type className="mr-2 h-4 w-4" /> Alt text
-        </ContextMenuItem>
-
-        <ContextMenuSeparator />
-
-        <ContextMenuItem onClick={() => onAction?.("options")}>
-          <Settings className="mr-2 h-4 w-4" /> Image options…
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
