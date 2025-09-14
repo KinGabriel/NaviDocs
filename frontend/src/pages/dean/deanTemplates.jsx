@@ -7,10 +7,11 @@ import useUser from "../../hooks/useUser";
 import SearchBar from "../../components/searchBar";
 import Dropdown from "../../components/dropdowns/dropdown";
 import usePagination from "../../hooks/usePagination";
-import { formatDate, StatusBadge } from '../../utils/formatters.jsx';
+import { formatDate, StatusBadge ,formatDateTime} from '../../utils/formatters.jsx';
 import Loader from '../../components/loader';
 import { fetchTemplatesAPI as fetchDeanTemplatesAPI, approveTemplateAPI,createTemplateAPI } from "../../api/documentContollerAPI";
 import TaskAssignmentModal from '../../components/modals/taskAssignmentModal';
+import {FileText} from "lucide-react";
 
 export default function DeanTemplates() {
   const user = useUser();
@@ -116,7 +117,7 @@ export default function DeanTemplates() {
       Array.isArray(row.assignedNames) && row.assignedNames.length > 0
         ? row.assignedNames.filter(Boolean).join(", ")
         : row.createdByName || row.created_by_name || "-" },
-    { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDate(row.deadline) : "No Deadline set" },
+    { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDateTime(row.deadline) : "No Deadline set" },
     {
       key: "status",
       label: "Status",
@@ -150,8 +151,8 @@ export default function DeanTemplates() {
       render: (row) => (
         <button
           onClick={() =>
-            navigate(`/templates/${row._id || row.id || "placeholder"}`, {
-              state: { from: "secretary-templates", doc: row },
+            navigate(`/dean/templates/${row._id || row.id}`, {
+              state: { from: "dean-templates", template: row },
             })
           }
           className="text-white hover:text-white font-medium transition-colors rounded-sm bg-blue-500 h-7 w-15 duration-200"
@@ -196,12 +197,13 @@ export default function DeanTemplates() {
         </div>
 
           {/* Dean-only tabs */}
-         <div className="mb-6 border-b border-gray-200">
+          <div className="mb-6 border-b border-gray-200">
           <button
             onClick={() => setIsAssignmentModalOpen(true)}
-            className="px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] font-semibold rounded-lg shadow hover:bg-blue-700 transition"
+            className="flex items-center px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] font-semibold rounded-lg shadow hover:bg-blue-700 transition gap-2"
           >
-            Assign Templates
+            <FileText className="h-5 w-5" />
+            <span>Assign Templates</span>
           </button>
 
           <div className="flex space-x-8">

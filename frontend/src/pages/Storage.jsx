@@ -242,7 +242,11 @@ useEffect(() => {
       }
     } else if (moveType === "file") {
       try {
-        await moveFileAPI(itemToMove._id, destinationId);
+        console.log(itemToMove._id);
+        console.log(destinationId);
+        // Pass current folderId if file is in a folder
+        const currentFolderId = selectedFolder ? selectedFolder._id : null;
+        await moveFileAPI(itemToMove._id, destinationId, currentFolderId);
         // Refetch orphan files and folder files after move
         if (!selectedFolder) {
           // If in root, refresh orphan files

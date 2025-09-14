@@ -328,7 +328,7 @@ export default function FileComponent({
                           className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
                           onClick={e => {
                             e.stopPropagation();
-                            if (onMoveRequest) onMoveRequest(folder);
+                            if (onMoveRequest) onMoveRequest(file);
                             toggleMenu(index); // Close menu when opening move modal
                           }}
                         >

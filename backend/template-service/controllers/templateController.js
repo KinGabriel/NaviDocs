@@ -1,3 +1,4 @@
+import e from "express";
 import Template from "../models/templateModel.js";
 import { validSchools, schoolMap, getSchoolCode, generateDocumentCode, buildApprovalMeta, statusQuery } from "../utils/templateUtils.js";
 import axios from "axios";
@@ -876,6 +877,59 @@ export const publishTemplate = async (req, res) => {
     return res.status(500).json({ success:false, message:'Failed to publish template' });
   }
 };
+
+/**
+ * @desc Adjust template deadline
+ * @route PATCH /api/templates/:id/deadline
+ * 
+ */
+export const adjustTemplateDeadline = async (req, res) => {
+  try {
+    const { deadline } = req.body;
+    if (!deadline) {
+      return res.status(400).json({ success:false, message:'Deadline is required' });
+    }
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    template.deadline = deadline;
+    await template.save();
+    return res.status(200).json({ success:true, message:'Template deadline updated', template: template.toObject() });
+  } catch (err) {
+    console.error('Deadline update error', err);
+    return res.status(500).json({ success:false, message:'Failed to update template deadline' });
+  }
+};
+
+/**
+ * @desc Add note to template
+ * @route PATCH /api/templates/:id/note
+ * 
+ */
+export const addTemplateNote = async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message) {
+      return res.status(400).json({ success:false, message:'Note message is required' });
+    }
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    template.notes = template.notes || [];
+    template.notes.push({
+      added_by: req.user.id,
+      role_snapshot: req.user?.role?.name || '',
+      type: 'general',
+      message: message,
+      created_at: new Date()
+    });
+    await template.save();
+    return res.status(200).json({ success:true, message:'Note added to template', template: template.toObject() });
+  } catch (err) {
+    console.error('Add note error', err);
+    return res.status(500).json({ success:false, message:'Failed to add note to template' });
+  }
+};
+
+
 
 /**
  * @desc Assign users and set assigner/approver for a template
