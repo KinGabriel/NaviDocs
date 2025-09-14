@@ -150,8 +150,8 @@ export default function DeanTemplates() {
       render: (row) => (
         <button
           onClick={() =>
-            navigate(`/templates/${row._id || row.id || "placeholder"}`, {
-              state: { from: "secretary-templates", doc: row },
+            navigate(`/dean/templates/${row._id || row.id}`, {
+              state: { from: "dean-templates", template: row },
             })
           }
           className="text-white hover:text-white font-medium transition-colors rounded-sm bg-blue-500 h-7 w-15 duration-200"
