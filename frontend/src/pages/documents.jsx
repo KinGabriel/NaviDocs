@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react"; // <-- add useState, useEffect
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Header from "../layout/header";
 import Sidebar from "../layout/sidebar";
@@ -8,6 +9,18 @@ import Dropdown from "../components/dropdowns/dropdown";
 import TemplateCard from "../components/templatecard";
 import usePagination from "../hooks/usePagination";
 import { fetchTemplatesAPI } from "../api/documentContollerAPI";
+import RenameDocumentModal from "../components/modals/RenameDocumentModal";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+async function renameDocumentAPI(id, title) {
+  const res = await axios.patch(
+    `${API_URL}/api/documents/${id}`,
+    { title },
+    { withCredentials: true }
+  );
+  return res.data;
+}
 
 export default function GlobalTemplates() {
   const user = useUser();
@@ -22,6 +35,12 @@ export default function GlobalTemplates() {
   const [sortOrder, setSortOrder] = useState("Recent");
 
   const navigate = useNavigate();
+
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameSubmitting, setRenameSubmitting] = useState(false);
+  const [renameError, setRenameError] = useState("");
+  const [activeDoc, setActiveDoc] = useState(null);
 
   const schoolIdentifiers = {
     "University Wide": "VAA",
@@ -76,6 +95,33 @@ export default function GlobalTemplates() {
   useEffect(() => {
     fetchTemplates();
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
+
+  const openRename = (doc) => {
+    setActiveDoc(doc);
+    setRenameError("");
+    setRenameOpen(true);
+  };
+
+  const handleRenameSubmit = async (newTitle) => {
+    if (!activeDoc?._id) return;
+    setRenameSubmitting(true);
+    setRenameError("");
+    try {
+      await renameDocumentAPI(activeDoc._id, newTitle);
+      // optimistic local update
+      setTemplates((prev) =>
+        prev.map((t) =>
+          (t._id || t.id) === activeDoc._id ? { ...t, title: newTitle } : t
+        )
+      );
+      setRenameOpen(false);
+      setActiveDoc(null);
+    } catch (e) {
+      setRenameError(e?.response?.data?.message || "Failed to rename document.");
+    } finally {
+      setRenameSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -145,23 +191,59 @@ export default function GlobalTemplates() {
                   <p className="text-gray-600">No templates found</p>
                 </div>
               ) : (
-                templates.map((template, i) => (
-                  <div
-                    key={template._id || i}
-                    onClick={() =>
-                      navigate(`/documents/${template._id || i}`, {
-                        state: {
-                          doc: template,
-                          sidebarActive: "Documents", // <-- set correctly
-                          backTo: "/documents",       // <-- set correctly
-                        },
-                      })
-                    }
-                    className="cursor-pointer"
-                  >
-                    <TemplateCard template={template} user={user} onSelect={() => {}} />
-                  </div>
-                ))
+                templates.map((template, i) => {
+                  const id = template._id || i;
+                  return (
+                    <div
+                      key={id}
+                      className="relative group"
+                      onClick={() =>
+                        navigate(`/documents/${id}`, {
+                          state: {
+                            doc: template,
+                            sidebarActive: "Documents",
+                            backTo: "/documents",
+                          },
+                        })
+                      }
+                    >
+                      {/* 3-dots button */}
+                      <button
+                        className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1.5 bg-white/90 shadow hover:bg-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId((cur) => (cur === id ? null : id));
+                        }}
+                        aria-label="Open menu"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 3a2 2 0 110 4 2 2 0 010-4zm0 5a2 2 0 110 4 2 2 0 010-4zm0 5a2 2 0 110 4 2 2 0 010-4z" />
+                        </svg>
+                      </button>
+
+                      {/* Context menu */}
+                      {openMenuId === id && (
+                        <div
+                          className="absolute right-2 top-9 z-20 w-40 rounded-md border bg-white shadow-md"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              openRename(template);
+                            }}
+                          >
+                            Rename
+                          </button>
+                          {/* add more menu items here if needed */}
+                        </div>
+                      )}
+
+                      <TemplateCard template={template} user={user} onSelect={() => {}} />
+                    </div>
+                  );
+                })
               )}
             </div>
 
@@ -204,6 +286,17 @@ export default function GlobalTemplates() {
           </div>
         </div>
       </div>
+
+      {/* Rename modal */}
+      <RenameDocumentModal
+        open={renameOpen}
+        onClose={() => { setRenameOpen(false); setActiveDoc(null); }}
+        currentTitle={activeDoc?.title}
+        submitting={renameSubmitting}
+        error={renameError}
+        onSubmit={handleRenameSubmit}
+      />
+      
     </div>
   );
 }
