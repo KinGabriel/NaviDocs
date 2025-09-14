@@ -10,7 +10,9 @@ import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
 import { formatDate,StatusBadge } from '../../utils/formatters.jsx';
 import Loader from '../../components/loader';
 import { useNavigate } from "react-router-dom"; 
-import TaskAssignmentPanel from '../../layout/assignments/taskAssignmentPanel';
+import TaskAssignmentModal from '../../components/modals/taskAssignmentModal.jsx';
+
+
 export default function SecretaryTemplates() {
   const user = useUser();
   const [search, setSearch] = useState("");
@@ -25,6 +27,8 @@ export default function SecretaryTemplates() {
   const pagination = usePagination(totalPages, 1);
   const tabs = ["All","Published", "Pending Approvals", "Approved", "On Going", "Late"];
   const navigate = useNavigate();
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
 
   // Map tabs to status values for API
   const tabToStatus = {
@@ -58,7 +62,9 @@ export default function SecretaryTemplates() {
         templatesArray = res;
         setTotalPages(1);
       }
-      // If the selected tab is Late, filter templates whose deadline is in the past && status is Draft.
+      // Hide drafts
+      templatesArray = templatesArray.filter((t) => t.status !== 'draft');
+    
       if (selectedStatus === 'Late') {
         const now = new Date();
         templatesArray = templatesArray.filter(t => {
@@ -87,37 +93,29 @@ export default function SecretaryTemplates() {
 
   useEffect(() => {
     fetchTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
-  const columns = [
+  // Table columns 
+   const columns = [
     { key: "title", label: "Template Name" },
-    { key: "document_code", label: "Document Code", render: row => row.document_code || "-" },
-    { key: "createdByName", label: "Created By", render: row => row.createdByName || row.created_by_name || "-" },
-    { key: "school", label: "School", render: row => {
-      // Extract school code from document_code 
-      const code = row.document_code || "";
-      const match = code.match(/^FM-([A-Z]+)-/);
-      if (match) {
-        const codePart = match[1];
-        // Find the school name by code
-        const schoolName = Object.keys(schoolIdentifiers).find(
-          key => schoolIdentifiers[key] === codePart
-        );
-        return schoolName || codePart;
-      }
-      return "-";
-    } },
+    { key: "createdByName", label: "Assigned To", render: row =>
+      Array.isArray(row.assignedNames) && row.assignedNames.length > 0
+        ? row.assignedNames.filter(Boolean).join(", ")
+        : row.createdByName || row.created_by_name || "-" },
     { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDate(row.deadline) : "No Deadline set" },
     {
       key: "status",
       label: "Status",
       render: row => {
-        const now = new Date();
         let type = "-";
-        if (row.status === "approved") type = "Approved";
-        else if (row.status === "pending") type = "Pending";
-        else if (row.status === "draft") {
+        if (row.status === "approved") {
+          type = "Approved";
+        } else if (row.status === "pending") {
+          type = "Pending";
+        } else if (row.status === "assigned") {
           if (row.deadline) {
+            const now = new Date();
             const deadlineDate = new Date(row.deadline);
             if (!isNaN(deadlineDate.getTime()) && deadlineDate < now) {
               type = "Late";
@@ -127,8 +125,7 @@ export default function SecretaryTemplates() {
           } else {
             type = "OnGoing";
           }
-        }
-        else if (row.status === "published") {
+        } else if (row.status === "published") {
           type = "Published";
         }
         return <StatusBadge type={type} />;
@@ -140,7 +137,7 @@ export default function SecretaryTemplates() {
       render: (row) => (
         <button
           onClick={() =>
-            navigate(`/secretary/templates/${row._id || row.id || "placeholder"}`, {
+            navigate(`/templates/${row._id || row.id || "placeholder"}`, {
               state: { from: "secretary-templates", doc: row },
             })
           }
@@ -167,91 +164,124 @@ export default function SecretaryTemplates() {
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Templates" />
-        <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <div className="flex-1 px-1 py-3">
-            <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-4 ">Templates</h1>
-            <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
-          </div>
-          <TaskAssignmentPanel />
-          <div className="flex items-center justify-end gap-2 mb-4">
-            <Dropdown
-              options={["All", ...Object.keys(schoolIdentifiers)]}
-              value={selectedSchool}
-              onChange={setSelectedSchool}
-              width="w-50"
+       <main className="flex-1 bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+        {/* Header */}
+        <div className="px-1 py-3">
+          <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-4">Templates</h1>
+          <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
+        </div>
+
+        {/* Controls Section */}
+        <div className="flex items-center justify-end gap-2 mb-4">
+          <Dropdown
+            options={["All", ...Object.keys(schoolIdentifiers)]}
+            value={selectedSchool}
+            onChange={setSelectedSchool}
+            width="w-50"
+          />
+          <Dropdown
+            options={["Recent", "A-Z", "Z-A"]}
+            value={sortOrder}
+            onChange={setSortOrder}
+            width="w-36"
+          />
+          <div className="w-64">
+            <SearchBar
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
-            <Dropdown
-              options={["Recent", "A-Z", "Z-A"]}
-              value={sortOrder}
-              onChange={setSortOrder}
-              width="w-36"
-            />
-            <div className="w-64">
-              <SearchBar
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
           </div>
-          <div className="mb-6 border-b border-gray-200">
-            <div className="flex space-x-8">
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setSelectedStatus(tab)}
-                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                    selectedStatus === tab
-                      ? "border-[#003DA5] text-[#003DA5]"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+        </div>
+
+        <div className="mb-6 border-b border-gray-200">
+          <button
+            onClick={() => setIsAssignmentModalOpen(true)}
+            className="px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] font-semibold rounded-lg shadow hover:bg-blue-700 transition"
+          >
+            Assign Templates
+          </button>
+
+          <div className="flex space-x-8">
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setSelectedStatus(tab)}
+                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                  selectedStatus === tab
+                    ? "border-[#003DA5] text-[#003DA5]"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
-          {loading ? (
+        </div>
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
             <Loader />
-          ) : error ? (
-            <div className="flex justify-center items-center h-40 text-red-500">{error}</div>
-          ) : (
-            <Table columns={columns} data={currentData} />
-          )}
-          <div className="flex justify-center items-center mt-6 gap-2">
-            <button
-              onClick={pagination.handlePrev}
-              disabled={pagination.currentPage === 1}
-              className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-            >
-              Prev
-            </button>
-            {pagination.getPageNumbers().map((num, idx) =>
-              num === "..." ? (
-                <span key={idx} className="px-2 text-gray-400">...</span>
-              ) : (
-                <button
-                  key={num}
-                  onClick={() => pagination.handlePage(num)}
-                  className={`px-3 py-1 rounded border ${
-                    pagination.currentPage === num
-                      ? "bg-blue-600 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  {num}
-                </button>
-              )
-            )}
-            <button
-              onClick={pagination.handleNext}
-              disabled={pagination.currentPage === totalPages}
-              className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-            >
-              Next
-            </button>
           </div>
-        </main>
+        ) : error ? (
+          <div className="flex justify-center items-center py-20 text-red-500">{error}</div>
+        ) : (
+          <div className="mb-6">
+            <Table columns={columns} data={templates} />
+          </div>
+        )}
+
+        {/* Pagination */}
+        <div className="flex justify-center items-center gap-2 mt-auto pt-4">
+          <button
+            onClick={pagination.handlePrev}
+            disabled={pagination.currentPage === 1}
+            className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          >
+            Prev
+          </button>
+          {pagination.getPageNumbers().map((num, idx) =>
+            num === "..." ? (
+              <span key={idx} className="px-2 text-gray-400">...</span>
+            ) : (
+              <button
+                key={num}
+                onClick={() => pagination.handlePage(num)}
+                className={`px-3 py-1 rounded border ${
+                  pagination.currentPage === num
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                {num}
+              </button>
+            )
+          )}
+          <button
+            onClick={pagination.handleNext}
+            disabled={pagination.currentPage === totalPages}
+            className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </main>
       </div>
+      {/* Assignment Modal */}
+          {isAssignmentModalOpen && (
+            <div className="fixed inset-0 z-50 inset-0 bg-opacity-30 backdrop-blur-[2px] flex items-center justify-center">
+              <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                
+                <TaskAssignmentModal
+                  templateId={selectedTemplateId}
+                  isOpen={isAssignmentModalOpen}
+                  onClose={() => setIsAssignmentModalOpen(false)}
+                  onAssign={(result) => {
+                    console.log('Assignment created:', result);
+                    fetchTemplates();
+                  }}
+                />
+              </div>
+            </div>
+          )}
     </div>
   );
 }

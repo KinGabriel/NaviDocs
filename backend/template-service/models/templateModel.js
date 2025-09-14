@@ -12,7 +12,8 @@ const templateSchema = new mongoose.Schema({
   effectivity: {
     type: Date,
     default: null
-  },
+  },  
+  school: { type: String, default: '' },
   pageSetup: { type: mongoose.Schema.Types.Mixed, default: {} },
 //  fontSettings: { type: mongoose.Schema.Types.Mixed, default: {} },
   dateFormat: { type: mongoose.Schema.Types.Mixed, default: {} },
@@ -43,7 +44,7 @@ const templateSchema = new mongoose.Schema({
   },
   body: { type: String, default: '' },
   // footer: { type: mongoose.Schema.Types.Mixed, default: [] },
-  status: { type: String, enum: ['assigned','draft','pending','approved','published'], default: 'draft' },
+  status: { type: String, enum: ['assigned','draft','pending','approved','published','returned','rejected'], default: 'draft' },
   status_meta: {
     approved_at: { type: Date, default: null },
     published_at: { type: Date, default: null },

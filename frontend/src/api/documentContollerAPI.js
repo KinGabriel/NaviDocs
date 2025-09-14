@@ -149,13 +149,63 @@ export const updateTemplateAPI = async (templateId, updateData) => {
  * Backend records approved_by & approved_at inside status_meta.approvals.<role>.
  * Returns updated template plus approvalMeta (helper summary).
  * @param {string} templateId - Template id.
- * @param {'dean'|'secretary'} role - Approver role.
+ * @param {Object} data - Approval payload (role, document_code, effectivity, revision_no, etc.).
  * @returns {Promise<{success:boolean,message:string,template:Object,approvalMeta:Object}>}
  */
-export const approveTemplateAPI = async (templateId, role) => {
-  const res = await axios.post(`${API_URL}/api/templates/${templateId}/approve`, { role }, { withCredentials: true });
+export const approveTemplateAPI = async (templateId, data) => {
+  const res = await axios.patch(
+    `${API_URL}/api/templates/${templateId}/approve`,
+    data,
+    { withCredentials: true }
+  );
   return res.data;
 };
+/**
+ * Reject a template for a specific role (dean or secretary).
+ * Backend will add a rejection note and set status to 'rejected'.
+ * @param {string} templateId - Template id.
+ * @param {string} reason - Reason for rejection.
+ * @returns {Promise<{success:boolean,message:string,template:Object}>}
+ */
+export const rejectTemplateAPI = async (templateId, reason) => {
+  const res = await axios.patch(
+    `${API_URL}/api/templates/${templateId}/reject`,
+    { reason },
+    { withCredentials: true }
+  );
+  return res.data;
+};
+
+/**
+ * Return a template for revision (change request).
+ * Backend will add a 'change' note and set status to 'returned'.
+ * @param {string} templateId - Template id.
+ * @param {string} reason - Reason for return/change request.
+ * @returns {Promise<{success:boolean,message:string,template:Object}>}
+ */
+export const returnTemplateAPI = async (templateId, reason) => {
+  const res = await axios.patch(
+    `${API_URL}/api/templates/${templateId}/return`,
+    { reason },
+    { withCredentials: true }
+  );
+  return res.data;
+};
+/**
+ * Submit a template for approval.
+ * Backend will set status to 'pending'.
+ * @param {string} templateId - Template id.
+ * @returns {Promise<{success:boolean,message:string,template:Object}>}
+ */
+export const submitTemplateAPI = async (templateId) => {
+  const res = await axios.patch(
+    `${API_URL}/api/templates/${templateId}/submit`,
+    {},
+    { withCredentials: true }
+  );
+  return res.data;
+};
+
 /**
  * Publish a fully approved template.
  * Server will elevate pending→approved first if both approvals exist, then set status to published.

@@ -76,6 +76,7 @@ export const createTemplate = async (req, res) => {
       ...templateData
     });
 
+    template.schoool = req.user?.school || '';
     // Remove transient / client-only fields
     delete template.school_identifier; // not stored separately
 
@@ -112,7 +113,15 @@ export const createTemplate = async (req, res) => {
 export const getTemplates = async (req, res) => {
   try {
     const { school, status, search, limit = 50, page = 1 } = req.query;
-    let query = {};
+
+    let query = {
+      $or: [
+        { created_by: req.user.id },
+        { assigned: req.user.id },
+        { "status_meta.approvals.dean.assigned_to": req.user.id },
+        { "status_meta.approvals.secretary.assigned_to": req.user.id }
+      ]
+    };
 
     // School filtering
     if (school && school !== 'All') {
@@ -126,8 +135,18 @@ export const getTemplates = async (req, res) => {
     // Search
     if (search) {
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { document_code: { $regex: search, $options: 'i' } }
+        { $and: [ { $or: [
+          { created_by: req.user.id },
+          { assigned: req.user.id },
+          { "status_meta.approvals.dean.assigned_to": req.user.id },
+          { "status_meta.approvals.secretary.assigned_to": req.user.id }
+        ] }, { title: { $regex: search, $options: 'i' } } ] },
+        { $and: [ { $or: [
+          { created_by: req.user.id },
+          { assigned: req.user.id },
+          { "status_meta.approvals.dean.assigned_to": req.user.id },
+          { "status_meta.approvals.secretary.assigned_to": req.user.id }
+        ] }, { document_code: { $regex: search, $options: 'i' } } ] }
       ];
     }
 
@@ -150,9 +169,10 @@ export const getTemplates = async (req, res) => {
     }
     const withMeta = await Promise.all(templates.map(async t => {
       let createdByName = null;
+      let assignedNames = [];
       try {
+        // Fetch creator name
         if (t.created_by) {
-          console.log("Fetching user info for template:", t._id);
           const headers = {};
           if (token) {
             headers['Cookie'] = `token=${token}`;
@@ -165,13 +185,35 @@ export const getTemplates = async (req, res) => {
             createdByName = `${resp.data.firstname} ${resp.data.lastname}`;
           }
         }
+        // Fetch assigned user names
+        if (Array.isArray(t.assigned) && t.assigned.length > 0) {
+          assignedNames = await Promise.all(t.assigned.map(async userId => {
+            try {
+              const headers = {};
+              if (token) {
+                headers['Cookie'] = `token=${token}`;
+              }
+              const resp = await axios.get(
+                `${userServiceUrl}/api/user/getUserInfo/${userId}`,
+                { headers, withCredentials: true }
+              );
+              if (resp.data && resp.data.firstname && resp.data.lastname) {
+                return `${resp.data.firstname} ${resp.data.lastname}`;
+              }
+            } catch (err) {
+              return null;
+            }
+            return null;
+          }));
+        }
       } catch (err) {
         createdByName = null;
       }
       return {
         ...t.toObject(),
         approvalMeta: buildApprovalMeta(t, req.user?.id),
-        createdByName
+        createdByName,
+        assignedNames
       };
     }));
     res.status(200).json({
@@ -204,6 +246,107 @@ export const getTemplates = async (req, res) => {
   }
 };
 
+
+/**
+ * @desc Get all published templates visible to user (by school or FAA-VAA)
+ * @route GET /api/templates/published
+ * @access Private
+ */
+export const getPublishedTemplates = async (req, res) => {
+  try {
+    const { school, search, limit = 50, page = 1 } = req.query;
+    let schoolCode = school && school !== 'All' ? getSchoolCode(school) : (req.user?.school ? getSchoolCode(req.user.school) : null);
+
+    let query = {
+      status: 'published',
+      $or: []
+    };
+    if (schoolCode) {
+      query.$or.push({ document_code: { $regex: `^FM-${schoolCode}-\\d+$`, $options: 'i' } });
+    }
+    // FAA-VAA global templates
+    query.$or.push({ document_code: { $regex: '^FAA-VAA-\\d+$', $options: 'i' } });
+
+    // Search
+    if (search) {
+      query.$and = [
+        { $or: query.$or },
+        { $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { document_code: { $regex: search, $options: 'i' } }
+        ] }
+      ];
+      delete query.$or;
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const templates = await Template.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Template.countDocuments(query);
+
+    // Fetch creator names for each template
+    const userServiceUrl = process.env.USER_SERVICE_URL || "http://localhost:5002";
+    let token = null;
+    if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+    const withMeta = await Promise.all(templates.map(async t => {
+      let createdByName = null;
+      try {
+        if (t.created_by) {
+          const headers = {};
+          if (token) {
+            headers['Cookie'] = `token=${token}`;
+          }
+          const resp = await axios.get(
+            `${userServiceUrl}/api/user/getUserInfo/${t.created_by}`,
+            { headers, withCredentials: true }
+          );
+          if (resp.data && resp.data.firstname && resp.data.lastname) {
+            createdByName = `${resp.data.firstname} ${resp.data.lastname}`;
+          }
+        }
+      } catch (err) {
+        createdByName = null;
+      }
+      return {
+        ...t.toObject(),
+        approvalMeta: buildApprovalMeta(t, req.user?.id),
+        createdByName
+      };
+    }));
+    res.status(200).json({
+      success: true,
+      message: 'Published templates retrieved successfully',
+      data: {
+        templates: withMeta,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(total / parseInt(limit)),
+          total_templates: total,
+          has_next: skip + templates.length < total,
+          has_prev: parseInt(page) > 1,
+          per_page: parseInt(limit)
+        },
+        filters_applied: {
+          school: school || req.user?.school || 'All',
+          search: search || null
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching published visible templates:', error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching published visible templates",
+    });
+  }
+};
+
 /**
  * @desc Get template by ID
  * @route GET /api/templates/:id
@@ -212,7 +355,6 @@ export const getTemplates = async (req, res) => {
 export const getTemplateById = async (req, res) => {
   try {
     const template = await Template.findById(req.params.id);
-
     if (!template) {
       return res.status(404).json({ 
         success: false,
@@ -220,12 +362,82 @@ export const getTemplateById = async (req, res) => {
       });
     }
 
+    // User service URL and token
+    const userServiceUrl = process.env.USER_SERVICE_URL || "http://localhost:5002";
+    let token = null;
+    if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+    const headers = token ? { 'Cookie': `token=${token}` } : {};
+
+    // Helper to fetch user info by id
+    const fetchUserName = async (userId) => {
+      if (!userId) return null;
+      try {
+        const resp = await axios.get(
+          `${userServiceUrl}/api/user/getUserInfo/${userId}`,
+          { headers, withCredentials: true }
+        );
+        if (resp.data && resp.data.firstname && resp.data.lastname) {
+          return `${resp.data.firstname} ${resp.data.lastname}`;
+        }
+      } catch (err) {
+        return null;
+      }
+      return null;
+    };
+
+    const tObj = template.toObject();
+
+    // created_by
+    let createdByName = null;
+    if (tObj.created_by) {
+      createdByName = await fetchUserName(tObj.created_by);
+    }
+
+    // assigned (array of user ids)
+    let assignedNames = [];
+    if (Array.isArray(tObj.assigned) && tObj.assigned.length > 0) {
+      assignedNames = await Promise.all(tObj.assigned.map(uid => fetchUserName(uid)));
+    }
+
+    // status_meta.approvals.*.assigned_to
+    let approvals = null;
+    if (tObj.status_meta && tObj.status_meta.approvals) {
+      approvals = {};
+      for (const role of Object.keys(tObj.status_meta.approvals)) {
+        const appr = tObj.status_meta.approvals[role];
+        let assignedToName = appr.assigned_to ? await fetchUserName(appr.assigned_to) : null;
+        approvals[role] = {
+          ...appr,
+          assigned_to_name: assignedToName
+        };
+      }
+    }
+
+    // notes[].added_by
+    let notes = [];
+    if (Array.isArray(tObj.notes)) {
+      notes = await Promise.all(tObj.notes.map(async note => {
+        let addedByName = note.added_by ? await fetchUserName(note.added_by) : null;
+        return {
+          ...note,
+          added_by_name: addedByName
+        };
+      }));
+    }
+
+    // Compose response
     res.status(200).json({
       success: true,
       message: 'Template retrieved successfully',
       template: {
-        ...template.toObject(),
-        approvalMeta: buildApprovalMeta(template, req.user?.id)
+        ...tObj,
+        approvalMeta: buildApprovalMeta(template, req.user?.id),
+        createdByName,
+        assignedNames,
+        approvals,
+        notes
       }
     });
 
@@ -491,17 +703,18 @@ export const getTemplateStats = async (req, res) => {
 
 /**
  * @desc Approve template as dean or secretary
- * @route POST /api/templates/:id/approve
+ * @route PATCH /api/templates/:id/approve
  */
 export const approveTemplate = async (req, res) => {
   try {
-    const { role } = req.body; // should be dean or secretary
+    const { document_code, effectivity, revision_no } = req.body;
+    const role = req.user.role.name.toLowerCase();
     if (!['dean','secretary'].includes(role)) {
       return res.status(400).json({ success:false, message:'Invalid role' });
     }
     const template = await Template.findById(req.params.id);
     if (!template) return res.status(404).json({ success:false, message:'Template not found' });
-    if (!['pending','draft','approved'].includes(template.status)) {
+    if (!['pending','draft','approved','assigned'].includes(template.status)) {
       return res.status(400).json({ success:false, message:'Template not in approvable state' });
     }
     template.status_meta = template.status_meta || {};
@@ -510,8 +723,16 @@ export const approveTemplate = async (req, res) => {
     if (slot.approved_at) {
       return res.status(400).json({ success:false, message: `${role} already approved` });
     }
-    slot.approved_by = req.user.id;
     slot.approved_at = new Date();
+    slot.isApproved = true;
+
+    // If dean, allow assigning document_code, effectivity, revision_no
+    if (role === 'dean') {
+      if (document_code) template.document_code = document_code;
+      if (effectivity) template.effectivity = effectivity;
+      if (revision_no !== undefined) template.revision_no = revision_no;
+    }
+
     // If both approved set overall approved
     const bothApproved = template.status_meta.approvals.dean?.approved_at && template.status_meta.approvals.secretary?.approved_at;
     if (bothApproved) {
@@ -524,8 +745,8 @@ export const approveTemplate = async (req, res) => {
       // keep pending until both
     }
     await template.save();
-  const approvalMeta = buildApprovalMeta(template, req.user?.id);
-  return res.status(200).json({ success:true, message:'Approval recorded', template: template.toObject(), approvalMeta });
+    const approvalMeta = buildApprovalMeta(template, req.user?.id);
+    return res.status(200).json({ success:true, message:'Approval recorded', template: template.toObject(), approvalMeta });
   } catch (err) {
     console.error('Approve error', err);
     return res.status(500).json({ success:false, message:'Failed to approve template' });
@@ -533,8 +754,101 @@ export const approveTemplate = async (req, res) => {
 };
 
 /**
+ * @desc Reject template as dean or secretary
+ * @route PATCH /api/templates/:id/reject
+ */
+export const rejectTemplate = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const role = req.user.role.name.toLowerCase();
+    if (!['dean','secretary'].includes(role)) {
+      return res.status(400).json({ success:false, message:'Invalid role' });
+    }
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    if (!['pending','draft','approved','assigned'].includes(template.status)) {
+      return res.status(400).json({ success:false, message:'Template not in rejectable state' });
+    }
+    // Add a rejection note
+    template.notes = template.notes || [];
+    template.notes.push({
+      added_by: req.user.id,
+      role_snapshot: req.user?.role?.name || '',
+      type: 'rejection',
+      message: reason || 'No Reason provided',
+      created_at: new Date()
+    });
+    template.status = 'rejected';
+    await template.save();
+    return res.status(200).json({ success:true, message:'Template rejected', template: template.toObject() });
+  } catch (err) {
+    console.error('Reject error', err);
+    return res.status(500).json({ success:false, message:'Failed to reject template' });
+  }
+};
+
+/**
+ * @desc Submit template for approval
+ * @route PATCH /api/templates/:id/submit
+ */
+export const submitTemplate = async (req, res) => {
+  try {
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    // Check if template is already submitted
+    if (template.status === 'pending') {
+      return res.status(400).json({ success:false, message:'Template already submitted for approval' });
+    }
+    template.status = 'pending';
+    await template.save();
+    return res.status(200).json({ success:true, message:'Template submitted for approval', template: template.toObject() });
+  } catch (err) {
+    console.error('Submit error', err);
+    return res.status(500).json({ success:false, message:'Failed to submit template for approval' });
+  }
+};
+
+/**
+ * @desc return the template
+ * @route PATCH /api/templates/:id/return
+ * 
+ */
+
+export const returnTemplate = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    console.log("Return reason:", reason);
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    // Check if template is already in returned state
+    if (template.status === 'returned') {
+      return res.status(400).json({ success:false, message:'Template already in returned state' });
+    }
+    if (!['pending','draft','approved','assigned'].includes(template.status)) {
+      return res.status(400).json({ success:false, message:'Template not in returnable state' });
+    }
+    // Add a change note
+    template.notes = template.notes || [];
+    template.notes.push({
+      added_by: req.user.id,
+      role_snapshot: req.user?.role?.name || '',
+      type: 'change',
+      message: reason || 'No Reason provided',
+      created_at: new Date()
+    });
+    template.status = 'returned';
+    await template.save();
+    return res.status(200).json({ success:true, message:'Template returned for changes', template: template.toObject() });
+  } catch (err) {
+    console.error('Return error', err);
+    return res.status(500).json({ success:false, message:'Failed to return template' });
+  }
+
+}
+
+/**
  * @desc Publish template (must be fully approved)
- * @route POST /api/templates/:id/publish
+ * @route PATCH /api/templates/:id/publish
  */
 export const publishTemplate = async (req, res) => {
   try {
@@ -577,24 +891,27 @@ export const assignUsersToCreateTemplate = async (req, res) => {
       console.log('templateData missing:', req.body);
       return res.status(400).json({ success: false, message: 'templateData is required' });
     }
+    console.log(templateData.instructions);
 
     templateData.title = templateData.title ? templateData.title.trim() : 'Untitled Template';
+ 
     delete templateData.document_code;
     templateData.notes = templateData.notes || [];
-    templateData.notes.push({
-      added_by: req.user.id,
-      role_snapshot: req.user?.role?.name || '',
-      type: 'assignment',
-      message: `Assigned by ${req.user?.role?.name || 'User'}`,
-      created_at: new Date()
-    });
+      templateData.notes.push({
+        added_by: req.user.id,
+        role_snapshot: req.user?.role?.name || '',
+        type: 'assignment',
+        message: templateData.instructions || 'No instructions provided',
+        created_at: new Date()
+      });
+
     if (deadline) {
       templateData.deadline = deadline;
     }
     if (!templateData.created_by) {
       templateData.created_by = req.user.id;
     }
-    // Minimal template creation logic (inline, not via req/res)
+    // Minimal template creation logic 
     const { title, pages_json, body, created_by, notes } = templateData;
     const template = new Template({
       title: title && title.trim() !== '' ? title.trim() : 'Untitled Template',
@@ -631,30 +948,12 @@ export const assignUsersToCreateTemplate = async (req, res) => {
     }
     // Set status to 'assigned'
     template.status = 'assigned';
-
+    template.school = req.user?.school || '';
     // Set assigner (current user)
     template.status_meta = template.status_meta || {};
     template.status_meta.assigned_by = req.user.id;
     template.status_meta.assigned_at = new Date();
-    // Add assignment note to existing template
-    if (template.notes) {
-      template.notes.push({
-        added_by: req.user.id,
-        role_snapshot: req.user?.role?.name || '',
-        type: 'assignment',
-        message: `Assigned by ${req.user?.role?.name || 'User'}`,
-        created_at: new Date()
-      });
-    } else {
-      template.notes = [{
-        added_by: req.user.id,
-        role_snapshot: req.user?.role?.name || '',
-        type: 'assignment',
-        message: `Assigned by ${req.user?.role?.name || 'User'}`,
-        created_at: new Date()
-      }];
-    }
-
+    
     // Set approver slot based on assigner's role
     const role = req.user?.role?.name?.toLowerCase();
     if (role === 'dean') {
