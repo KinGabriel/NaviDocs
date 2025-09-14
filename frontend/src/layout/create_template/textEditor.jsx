@@ -77,8 +77,6 @@ export default function TextEditor({
   const [showImageOptions, setShowImageOptions] = useState(false);
 
   // holds the lock toggler returned by the plugin factory
-  const setLockRef = useRef(null);
-
   const setPolicyRef = React.useRef(null);
 
   const applyCssVars = (d) => {
@@ -133,12 +131,12 @@ export default function TextEditor({
     editorProps: { attributes: { class: "nd-editor" } },
     onCreate: ({ editor }) => {
       // install lock plugin ONCE and keep a setter to flip it later
-      const { plugin, setLocked } = createLockOutsideFieldsPlugin({
-        initialLocked: mode === "document",
+      const { plugin, setPolicy } = createLockOutsideFieldsPlugin({
+        initialPolicy: mode === "document" ? "document" : "template", 
         nodeTypeName: "editableField",
         keyName: "lock-outside-fields",
       });
-      setLockRef.current = setLocked;
+      setPolicyRef.current = setPolicy;
       editor.registerPlugin(plugin);
 
       applyCssVars(dimsRef.current);
@@ -150,9 +148,8 @@ export default function TextEditor({
 
   // flip lock flag WITHOUT reconfiguring state or swapping plugins
   useEffect(() => {
-    if (setLockRef.current) {
-      setLockRef.current(mode === "document");
-    }
+    if (!setPolicyRef.current) return;
+    setPolicyRef.current(mode === "document" ? "document" : "template");
   }, [mode]);
 
   // Recompute page CSS vars on setup change

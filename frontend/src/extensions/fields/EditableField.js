@@ -5,34 +5,24 @@ export const EditableField = Node.create({
   name: "editableField",
   group: "inline",
   inline: true,
-
-  // For text fields we want editable text content; for image fields we render an <img> (atom-like).
-  // Keep content always "text*" so cursor can live inside for text-type.
   content: "text*",
-
   addAttributes() {
     return {
-      key: { default: null },                 // Field Name (unique key)
-      type: { default: "text" },              // "text" | "image"
-      placeholder: { default: "" },           // required
+      key: { default: null },
+      type: { default: "text" },      // "text" | "image"
+      placeholder: { default: "" },   // required
     };
   },
-
-  // Parse/render as <span data-field="key" data-type="text|image" data-ph="...">
   parseHTML() {
-    return [
-      {
-        tag: 'span[data-node="editable-field"]',
-        getAttrs: el => {
-          const key = el.getAttribute("data-field");
-          const type = el.getAttribute("data-type") || "text";
-          const placeholder = el.getAttribute("data-ph") || "";
-          return { key, type, placeholder };
-        },
-      },
-    ];
+    return [{
+      tag: 'span[data-node="editable-field"]',
+      getAttrs: el => ({
+        key: el.getAttribute("data-field"),
+        type: el.getAttribute("data-type") || "text",
+        placeholder: el.getAttribute("data-ph") || "",
+      }),
+    }];
   },
-
   renderHTML({ HTMLAttributes }) {
     const { key, type, placeholder } = HTMLAttributes;
     const attrs = {
@@ -41,51 +31,33 @@ export const EditableField = Node.create({
       "data-type": type,
       "data-ph": placeholder,
       class: `nd-editable-field nd-editable-field--${type}`,
-      // role & aria for accessibility
       role: "textbox",
       "aria-label": `Editable Field: ${key}`,
     };
-
     if (type === "image") {
-      // For image field we show an inline frame; the actual upload UI can target this node via selection.
-      // We keep the node text-content empty; the placeholder is visually represented.
       return [
         "span",
         attrs,
         ["span", { class: "nd-image-field-frame", "data-placeholder": "Upload image" }],
       ];
     }
-
-    // text field: render inline span with content hole (0) so user can type text
     return ["span", attrs, 0];
   },
-
   addCommands() {
     return {
       insertEditableField:
         ({ key, type = "text", placeholder }) =>
-        ({ chain, state }) => {
+        ({ chain }) => {
           if (!key || !placeholder) return false;
-          // For text fields: insert node with placeholder as initial text (you may choose empty)
-          if (type === "text") {
-            return chain()
-              .insertContent({
-                type: this.name,
-                attrs: { key, type, placeholder },
-                content: [{ type: "text", text: placeholder }], // start with placeholder text
-              })
-              .run();
-          }
-          // For image fields: insert as empty node (UI will handle upload)
+
+          // Insert the field, then a single space, so the caret ends *after* the box.
           return chain()
-            .insertContent({
-              type: this.name,
-              attrs: { key, type: "image", placeholder }, // placeholder holds dataURL or placeholder URL
-            })
+            .insertContent([
+              { type: this.name, attrs: { key, type, placeholder } },
+              { type: "text", text: " " },
+            ])
             .run();
         },
     };
   },
 });
-
-export default EditableField;
