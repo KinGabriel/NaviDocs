@@ -5,6 +5,7 @@ import UpdateDeadlineModal from "./modals/updateDeadlineModal";
 import naviLogo from "../assets/images/navilogo.png";
 import { useNavigate } from "react-router-dom";
 import ApprovalModal from "../components/modals/ApprovalModal"; 
+import AddInstructionsModal from "./modals/AddInstructionsModal";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -152,7 +153,7 @@ export default function HeaderTemplateView({ template, user, handleAssign, onUpd
                     
                     <button
                       onClick={() => {
-                        onAddInstructions();
+                        setInstructionsModalOpen(true);
                         setDropdownOpen(false);
                       }}
                       className="w-full text-left px-4 py-3 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 text-gray-800 flex items-center gap-3 transition-all duration-150 group"
