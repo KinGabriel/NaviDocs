@@ -10,6 +10,7 @@ export default function PageSetupPanel({
   setMargins,
   defaultOrientation = "Portrait",
   defaultMargins = { top: 1, bottom: 1, left: 1, right: 1 },
+  defaultPaperSize = "A4",
 }) {
   // Local draft state for editing before Apply
   const [draftPaperSize, setDraftPaperSize] = useState(paperSize);
@@ -23,6 +24,11 @@ export default function PageSetupPanel({
     setDraftMargins(margins);
   }, [paperSize, orientation, margins]);
 
+  const safe = (val, fallback = 1) => {
+    const n = Number(val);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+  };
+
   // Cancel: revert to last applied
   const handleCancel = () => {
     setDraftPaperSize(paperSize);
@@ -35,11 +41,22 @@ export default function PageSetupPanel({
     setPaperSize(draftPaperSize);
     setOrientation(draftOrientation);
     setMargins({
-      top: Number(draftMargins.top) || 1,
-      bottom: Number(draftMargins.bottom) || 1,
-      left: Number(draftMargins.left) || 1,
-      right: Number(draftMargins.right) || 1,
+      top: safe(draftMargins.top),
+      bottom: safe(draftMargins.bottom),
+      left: safe(draftMargins.left),
+      right: safe(draftMargins.right),
     });
+  };
+
+  // Reset: restore to defaults
+  const handleReset = () => {
+    setDraftPaperSize(defaultPaperSize);
+    setDraftOrientation(defaultOrientation);
+    setDraftMargins(defaultMargins);
+
+    setPaperSize(defaultPaperSize);
+    setOrientation(defaultOrientation);
+    setMargins(defaultMargins);
   };
 
   return (
@@ -82,9 +99,9 @@ export default function PageSetupPanel({
           value={draftPaperSize}
           onChange={setDraftPaperSize}
           options={[
-            { value: 'letter', label: 'Letter' },
-            { value: 'A4', label: 'A4' },
-            { value: 'legal', label: 'Legal' }
+            { value: "Letter", label: "Letter" },
+            { value: "A4", label: "A4" },
+            { value: "Legal", label: "Legal" },
           ]}
         />
       </div>
@@ -99,15 +116,18 @@ export default function PageSetupPanel({
           <span className="w-1/4 text-xs text-gray-700 text-left">Right</span>
         </div>
         <div className="flex gap-2">
-          {["top", "bottom", "left", "right"].map(side => (
+          {["top", "bottom", "left", "right"].map((side) => (
             <input
               key={side}
               type="number"
               className="w-1/4 border rounded px-2 py-1 text-center"
               value={draftMargins[side]}
-              onChange={e => setDraftMargins({ ...draftMargins, [side]: e.target.value })}
+              onChange={(e) =>
+                setDraftMargins({ ...draftMargins, [side]: e.target.value })
+              }
               min="0"
-              step="0.01"
+              step="0.25"
+              placeholder="1"
             />
           ))}
         </div>
@@ -115,6 +135,13 @@ export default function PageSetupPanel({
 
       {/* Action Buttons */}
       <div className="flex justify-end items-center gap-6 mt-20">
+        <button
+          className="text-[#063c8d] font-semibold hover:underline"
+          type="button"
+          onClick={handleReset}
+        >
+          Reset
+        </button>
         <button
           className="text-[#063c8d] font-semibold hover:underline"
           type="button"
