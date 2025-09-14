@@ -254,9 +254,9 @@ export const moveFolderAPI = async (folderId, newParentId) => {
  * @param {string|null} newFolderId
  * @returns {Promise<Object>}
  */
-export const moveFileAPI = async (fileId, newFolderId) => {
+export const moveFileAPI = async (fileId, newFolderId,folder_id) => {
 	try {
-		const payload = { fileId };
+		const payload = { fileId,folder_id };
 		if (newFolderId) payload.newFolderId = newFolderId;
 		const res = await axios.patch(
 			`${API_URL}/api/storage/files/move-file`,
@@ -265,6 +265,7 @@ export const moveFileAPI = async (fileId, newFolderId) => {
 		);
 		return res.data;
 	} catch (err) {
+		console.log(err);
 		throw err.response?.data || { message: err.message };
 	}
 };
