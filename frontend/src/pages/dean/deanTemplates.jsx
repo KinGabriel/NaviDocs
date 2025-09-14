@@ -150,7 +150,7 @@ export default function DeanTemplates() {
       render: (row) => (
         <button
           onClick={() =>
-            navigate(`/dean/templates/${row._id || row.id}`, {
+            navigate(`/templates/${row._id || row.id}`, {
               state: { from: "dean-templates", template: row },
             })
           }
