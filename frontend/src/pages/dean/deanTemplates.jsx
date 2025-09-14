@@ -11,6 +11,7 @@ import { formatDate, StatusBadge ,formatDateTime} from '../../utils/formatters.j
 import Loader from '../../components/loader';
 import { fetchTemplatesAPI as fetchDeanTemplatesAPI, approveTemplateAPI,createTemplateAPI } from "../../api/documentContollerAPI";
 import TaskAssignmentModal from '../../components/modals/taskAssignmentModal';
+import {FileText} from "lucide-react";
 
 export default function DeanTemplates() {
   const user = useUser();
@@ -196,12 +197,13 @@ export default function DeanTemplates() {
         </div>
 
           {/* Dean-only tabs */}
-         <div className="mb-6 border-b border-gray-200">
+          <div className="mb-6 border-b border-gray-200">
           <button
             onClick={() => setIsAssignmentModalOpen(true)}
-            className="px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] font-semibold rounded-lg shadow hover:bg-blue-700 transition"
+            className="flex items-center px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] font-semibold rounded-lg shadow hover:bg-blue-700 transition gap-2"
           >
-            Assign Templates
+            <FileText className="h-5 w-5" />
+            <span>Assign Templates</span>
           </button>
 
           <div className="flex space-x-8">
