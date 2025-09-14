@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI } from "../api/documentContollerAPI";
 import { UserPlus, CheckCircle2, Calendar, FileText, ChevronDown } from "lucide-react";
-
+import UpdateDeadlineModal from "./modals/updateDeadlineModal";
 import naviLogo from "../assets/images/navilogo.png";
 import { useNavigate } from "react-router-dom";
 import ApprovalModal from "../components/modals/ApprovalModal"; 
@@ -17,6 +17,8 @@ export default function HeaderTemplateView({ template, user, handleAssign, onUpd
   const t = template || {};
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isDeadlineModalOpen, setDeadlineModalOpen] = useState(false);
+  const [isInstructionsModalOpen, setInstructionsModalOpen] = useState(false);
 
   // Approval Modal handlers
   const handleApproveClick = () => setIsApprovalModalOpen(true);
@@ -134,13 +136,13 @@ export default function HeaderTemplateView({ template, user, handleAssign, onUpd
                   <div className="py-2">
                     <button
                       onClick={() => {
-                        onUpdateDeadline();
+                        setDeadlineModalOpen(true);
                         setDropdownOpen(false);
                       }}
-                      className="w-full text-left px-4 py-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 text-gray-800 flex items-center gap-3 transition-all duration-150 group"
+                      className="w-full text-left px-4 py-3 hover:bg-gradient-to-r hover:from-yellow-50 hover:to-amber-50 text-gray-800 flex items-center gap-3 transition-all duration-150 group"
                     >
-                      <div className="p-1.5 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-                        <Calendar className="h-4 w-4 text-blue-600" />
+                      <div className="p-1.5 bg-yellow-100 rounded-lg group-hover:bg-yellow-200 transition-colors">
+                        <Calendar className="h-4 w-4 text-yellow-600" />
                       </div>
                       <div>
                         <div className="text-sm font-medium">Update Deadline</div>
@@ -194,6 +196,25 @@ export default function HeaderTemplateView({ template, user, handleAssign, onUpd
           onApprove={handleModalApprove}
           onReject={handleModalReject}
           onReturn={handleModalReturn}
+        />
+      )}
+
+      {/* Update Deadline Modal */}
+      {isDeadlineModalOpen && (
+        <UpdateDeadlineModal
+          currentDeadline={template?.deadline}
+          isOpen={isDeadlineModalOpen}
+          onClose={() => setDeadlineModalOpen(false)}
+          templateId={template?._id}
+        />
+      )}
+
+      {/* Add Instructions Modal */}
+      {isInstructionsModalOpen && (
+        <AddInstructionsModal
+          isOpen={isInstructionsModalOpen}
+          onClose={() => setInstructionsModalOpen(false)}
+          templateId={template?._id}
         />
       )}
     </>

@@ -29,6 +29,7 @@ export default function SecretaryTemplates() {
   const navigate = useNavigate();
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
+  
 
   // Map tabs to status values for API
   const tabToStatus = {
