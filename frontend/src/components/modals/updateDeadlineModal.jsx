@@ -201,14 +201,14 @@ export default function UpdateDeadlineModal (
         <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
           <button
             onClick={handleClose}
-            className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-6 py-2 bg-yellow-700 text-white rounded-lg hover:bg-yellow-800 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-yellow-700 text-white rounded-lg hover:bg-yellow-800 rounded-md text-white font-medium transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
           >
             <Save size={16} />
             {isSubmitting ? 'Updating...' : 'Save'}
