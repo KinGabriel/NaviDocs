@@ -400,7 +400,7 @@ export default function ImageNodeView(props) {
           }
         }}
       >
-        {/* The crop container wraps the actual rendered image size */}
+        {/* ONLY ONE CHILD here (Radix requires it) */}
         <span className="nd-image-crop-container" style={cropContainerStyle}>
           <img
             ref={imgRef}
@@ -415,6 +415,7 @@ export default function ImageNodeView(props) {
           {/* CROP MODE UI */}
           {showCrop && (
             <>
+              {/* Darken outside area */}
               <div
                 className="nd-crop-overlay"
                 style={{
@@ -427,6 +428,7 @@ export default function ImageNodeView(props) {
                 onPointerDown={(e) => onPointerDownCrop(e, 'move')}
               />
 
+              {/* Visible crop frame */}
               <div
                 className="nd-crop-frame"
                 style={{
@@ -439,6 +441,7 @@ export default function ImageNodeView(props) {
                 }}
               />
 
+              {/* 8 visible handles */}
               {['t','b','l','r','tl','tr','bl','br'].map(key => {
                 const base = {
                   position: 'absolute',
@@ -470,7 +473,7 @@ export default function ImageNodeView(props) {
             </>
           )}
 
-          {/* FRAME + RESIZE HANDLES */}
+          {/* FRAME + RESIZE HANDLES (non-crop selection) */}
           {showFrame && (
             <>
               <span
@@ -528,9 +531,12 @@ export default function ImageNodeView(props) {
             </>
           )}
         </span>
-
-  
       </ImageContextMenu>
+
+      {/* Clearfix for inline/square/tight wrap modes (OUTSIDE ContextMenu) */}
+      {attrs.wrapMode !== 'break' && (
+        <span style={{ display: 'block', clear: 'both' }} />
+      )}
     </NodeViewWrapper>
   );
 }

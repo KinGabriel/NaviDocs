@@ -15,12 +15,14 @@ import TableCell from "@tiptap/extension-table-cell";
 
 import RichImage from "../../extensions/image/ImageNode";
 
-
 // Core schema & behavior
 import DocumentPages from "../../extensions/textEditor/DocumentPages";
 import Page from "../../extensions/textEditor/Page";
 import AutoPaginator from "../../extensions/textEditor/AutoPaginator";
 import BackspaceHandler from "../../extensions/textEditor/BackspaceHandler";
+
+// Editable fields + lock plugin (factory returns a plugin + setter)
+import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 
 const inchToPx = (inches) => Math.round(inches * 96);
 const DEFAULT_SETUP = {
@@ -69,9 +71,13 @@ export default function TextEditor({
   onEditorReady,
   onContentChange,
   className = "",
+  mode = "template", // "template" | "document"
 }) {
   const dimsRef = useRef(computeDims(pageSetup));
   const [showImageOptions, setShowImageOptions] = useState(false);
+
+  // holds the lock toggler returned by the plugin factory
+  const setPolicyRef = React.useRef(null);
 
   const applyCssVars = (d) => {
     const root = document.documentElement;
@@ -113,19 +119,26 @@ export default function TextEditor({
       TableHeader,
       TableCell,
 
-      // ⬇️ Register RichImage with callback
       RichImage.configure({
-        onOpenImageOptions: ({ editor: ed }) => {
-          setShowImageOptions(true);
-        },
+        onOpenImageOptions: () => setShowImageOptions(true),
       }),
 
+      EditableField,
       AutoPaginator,
       BackspaceHandler,
     ],
     content: normalizeInitialContent(content),
     editorProps: { attributes: { class: "nd-editor" } },
     onCreate: ({ editor }) => {
+      // install lock plugin ONCE and keep a setter to flip it later
+      const { plugin, setPolicy } = createLockOutsideFieldsPlugin({
+        initialPolicy: mode === "document" ? "document" : "template", 
+        nodeTypeName: "editableField",
+        keyName: "lock-outside-fields",
+      });
+      setPolicyRef.current = setPolicy;
+      editor.registerPlugin(plugin);
+
       applyCssVars(dimsRef.current);
       editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
       onEditorReady?.(editor);
@@ -133,6 +146,13 @@ export default function TextEditor({
     onUpdate: ({ editor }) => onContentChange?.(editor.getHTML()),
   });
 
+  // flip lock flag WITHOUT reconfiguring state or swapping plugins
+  useEffect(() => {
+    if (!setPolicyRef.current) return;
+    setPolicyRef.current(mode === "document" ? "document" : "template");
+  }, [mode]);
+
+  // Recompute page CSS vars on setup change
   useEffect(() => {
     const dims = computeDims(pageSetup);
     dimsRef.current = dims;
@@ -140,6 +160,7 @@ export default function TextEditor({
     editor?.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
   }, [editor, pageSetup]);
 
+  // Keep editor content in sync when external `content` changes
   useEffect(() => {
     if (!editor) return;
     if (typeof content === "string") {
@@ -186,6 +207,45 @@ export default function TextEditor({
           inset: 0;
           outline: 1px dashed #60a5fa;
           pointer-events: none;
+        }
+
+        /* ===== Editable Field visuals (inline box) ===== */
+        .nd-editable-field {
+          display: inline-flex;
+          align-items: center;
+          min-height: 1.75rem;
+          min-width: 1.25rem;
+          padding: 0 0.25rem;
+          border-radius: 0.375rem;
+          outline: 1px dashed rgba(99,102,241,.45);
+          background: rgba(99,102,241,.06);
+        }
+        .nd-editable-field--text {
+          color: #334155;
+        }
+        .nd-editable-field--text:empty::before {
+          content: attr(data-ph);
+          color: #94a3b8;
+        }
+        .nd-image-field-frame {
+          display: inline-flex;
+          width: 64px;
+          height: 48px;
+          border: 1px dashed #94a3b8;
+          border-radius: 0.375rem;
+          background: #f8fafc;
+          position: relative;
+        }
+        .nd-image-field-frame::after {
+          content: attr(data-placeholder);
+          font-size: 11px;
+          color: #94a3b8;
+          position: absolute;
+          inset: 0;
+          display: grid;
+          place-items: center;
+          text-align: center;
+          padding: 0 6px;
         }
       `}</style>
 

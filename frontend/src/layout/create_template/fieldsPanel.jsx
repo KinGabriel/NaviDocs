@@ -43,6 +43,15 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
     reader.readAsDataURL(file);
   };
 
+  const normalizeList = (list) =>
+    list.map((f) => ({
+      key: (f.key || "").trim(),
+      type: TYPES.includes(f.type) ? f.type : "text",
+      placeholder:
+        (f.type === "text" ? (f.placeholder || "").trim() : f.placeholder) || "",
+      _preview: f._preview,
+    }));
+
   const validateAll = (list) => {
     const errs = {};
     const seen = new Set();
@@ -60,34 +69,43 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
       }
     });
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    return { ok: Object.keys(errs).length === 0, errs };
   };
 
   const persist = () => {
-    const normalized = local.map((f) => ({
-      key: (f.key || "").trim(),
-      type: TYPES.includes(f.type) ? f.type : "text",
-      // placeholder: for text → trimmed string, for image → dataURL string
-      placeholder:
-        (f.type === "text" ? (f.placeholder || "").trim() : f.placeholder) || "",
-    }));
+    const normalized = normalizeList(local);
+    const { ok } = validateAll(normalized);
+    if (!ok) return;
+    onChange(normalized.map(({ key, type, placeholder }) => ({ key, type, placeholder })));
+  };
 
-    if (!validateAll(normalized)) return;
+  const validateRow = (row, index) => {
+    const list = normalizeList(local);
+    // uniqueness check for this row only
+    const dup = list.some((f, i) => i !== index && f.key === (row.key || "").trim());
+    if (!row.key?.trim()) return "Field name is required.";
+    if (dup) return "Field name must be unique.";
+    if (row.type === "text" && !row.placeholder?.trim()) return "Placeholder text is required.";
+    if (row.type === "image" && !row.placeholder) return "Placeholder image is required.";
+    return "";
+  };
 
-    // Drop volatile preview before emitting
-    onChange(
-      normalized.map(({ key, type, placeholder }) => ({ key, type, placeholder }))
-    );
+  const insertIntoEditor = (f) => {
+    if (!editor) return;
+    editor
+      .chain()
+      .focus()
+      .insertEditableField({
+        key: f.key.trim(),
+        type: f.type,
+        placeholder: f.placeholder,
+      })
+      .run();
   };
 
   const allValid = React.useMemo(() => {
-    const tmp = local.map((f) => ({
-      key: (f.key || "").trim(),
-      type: TYPES.includes(f.type) ? f.type : "text",
-      placeholder:
-        (f.type === "text" ? (f.placeholder || "").trim() : f.placeholder) || "",
-    }));
-    return validateAll(tmp);
+    const { ok } = validateAll(normalizeList(local));
+    return ok;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [local]);
 
@@ -109,13 +127,21 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
 
       <div className="space-y-2">
         {local.map((f, idx) => {
-          const err = errors[idx];
           const isImage = f.type === "image";
+          const rowErr = validateRow(
+            {
+              key: (f.key || "").trim(),
+              type: TYPES.includes(f.type) ? f.type : "text",
+              placeholder:
+                (f.type === "text" ? (f.placeholder || "").trim() : f.placeholder) || "",
+            },
+            idx
+          );
           return (
             <div
               key={idx}
               className={`rounded-lg border p-2 shadow-xs ${
-                err ? "border-red-300" : "border-slate-200"
+                rowErr ? "border-red-300" : "border-slate-200"
               }`}
             >
               <div className="mb-2 grid grid-cols-5 gap-2">
@@ -177,25 +203,42 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
                 </div>
               )}
 
-              {err ? (
+              {rowErr ? (
                 <div className="mb-2 rounded bg-red-50 px-2 py-1 text-xs text-red-700">
-                  {err}
+                  {rowErr}
                 </div>
               ) : null}
 
-              <div className="flex justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <button
                   onClick={() => removeField(idx)}
                   className="rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
                 >
                   Remove
                 </button>
-                <button
-                  onClick={persist}
-                  className="rounded-md border border-slate-300 px-3 py-1 text-xs hover:bg-slate-50"
-                >
-                  Save Fields
-                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => persist()}
+                    className="rounded-md border border-slate-300 px-3 py-1 text-xs hover:bg-slate-50"
+                  >
+                    Save Fields
+                  </button>
+                  <button
+                    onClick={() => insertIntoEditor(
+                      normalizeList(local)[idx] // safe trimmed object
+                    )}
+                    disabled={!!rowErr || !editor}
+                    className={`rounded-md px-3 py-1 text-xs ${
+                      !!rowErr || !editor
+                        ? "border border-slate-200 text-slate-400 cursor-not-allowed"
+                        : "border border-slate-300 hover:bg-slate-50"
+                    }`}
+                    title={rowErr || ""}
+                  >
+                    Insert
+                  </button>
+                </div>
               </div>
             </div>
           );

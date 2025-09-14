@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {Users, CheckCircle, User, FileText, Clock, AlertCircle, X} from 'lucide-react';
+import {Users, CheckCircle, User, FileText, Clock, AlertCircle, X, Calendar} from 'lucide-react';
 import useUser from '../../hooks/useUser';
 import { fetchSchoolStaffAPI } from '../../api/userAPI';
 import { assignUsersToTemplate } from '../../api/assignmentAPI';
@@ -263,53 +263,50 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
                 />
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                    <Clock size={16} />
-                    Due Date <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="date"
-                      className={`w-40 px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                        errors.deadline ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500'
-                      }`}
-                      value={deadline}
-                      onChange={e => {
-                        setDeadline(e.target.value);
-                        if (errors.deadline) {
-                          setErrors(prev => ({ ...prev, deadline: '' }));
-                        }
-                      }}
-                      min={new Date().toISOString().split('T')[0]}
-                    />
-                    <input
-                      type="time"
-                      className={`w-34 px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                        errors.deadline ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500'
-                      }`}
-                      value={deadlineTime}
-                      onChange={e => {
-                        setDeadlineTime(e.target.value);
-                        if (errors.deadline) {
-                          setErrors(prev => ({ ...prev, deadline: '' }));
-                        }
-                      }}
-                      min="00:00"
-                      max="23:59"
-                    />
-                  </div>
-                  {errors.deadline && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
-                      {errors.deadline}
-                    </p>
-                  )}
-                </div>
-              </div>
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <Clock size={16} />
+              Due Date <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-3 items-center">
+              <input
+                type="date"
+                className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-700 placeholder-gray-400 ${
+                  errors.deadline ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500'
+                }`}
+                value={deadline}
+                onChange={e => {
+                  setDeadline(e.target.value);
+                  if (errors.deadline) setErrors(prev => ({ ...prev, deadline: '' }));
+                }}
+                min={new Date().toISOString().split('T')[0]}
+              />
+              <span className="text-gray-400">at</span>
+              <input
+                type="time"
+                className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-700 placeholder-gray-400 ${
+                  errors.deadline ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500'
+                }`}
+                value={deadlineTime}
+                onChange={e => {
+                  setDeadlineTime(e.target.value);
+                  if (errors.deadline) setErrors(prev => ({ ...prev, deadline: '' }));
+                }}
+                min="00:00"
+                max="23:59"
+              />
             </div>
+            {errors.deadline && (
+              <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                <AlertCircle size={14} />
+                {errors.deadline}
+              </p>
+            )}
           </div>
+        </div>
+       </div>
+      </div>
         )}
         
         {currentStep === 2 && (

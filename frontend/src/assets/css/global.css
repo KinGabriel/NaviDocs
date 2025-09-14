@@ -181,3 +181,44 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* EDITABLE FIELD */
+/* inline field base */
+.nd-editable-field {
+  display: inline-flex;
+  align-items: center;
+  min-width: 1.5rem;
+  padding: 0 0.25rem;
+  border-radius: 0.375rem;
+  outline: 1px dashed rgba(99,102,241,.45); /* indigo-500/45 */
+  background: rgba(99,102,241,.06);
+}
+
+/* text fields show gray placeholder look until changed */
+.nd-editable-field--text {
+  color: #334155; /* slate-700 */
+}
+.nd-editable-field--text:is(:empty)::before {
+  content: attr(data-ph);
+  color: #94a3b8; /* slate-400 */
+}
+
+/* image fields render a small frame */
+.nd-image-field-frame {
+  display: inline-flex;
+  width: 64px;
+  height: 48px;
+  border: 1px dashed #94a3b8;
+  border-radius: 0.375rem;
+  background: #f8fafc;
+  position: relative;
+}
+.nd-image-field-frame::after {
+  content: attr(data-placeholder);
+  font-size: 11px;
+  color: #94a3b8;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
