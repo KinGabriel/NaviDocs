@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { addTemplateNoteAPI } from '../../api/documentContollerAPI';
 import { FileText, X, Plus, AlertCircle, MessageSquare } from 'lucide-react';
 
 export default function AddInstructionsModal ({ 
-    isOpen,
-    onClose, 
-    currentInstructions, 
-    onUpdate, 
-    templateTitle 
+  isOpen,
+  onClose, 
+  currentInstructions, 
+  onUpdate, 
+  templateTitle, 
+  templateId
  }){
   const [instructions, setInstructions] = useState('');
   const [errors, setErrors] = useState({});
@@ -37,10 +39,15 @@ export default function AddInstructionsModal ({
 
   const handleSubmit = async () => {
     if (!validateInstructions()) return;
-    
     setIsSubmitting(true);
     try {
-      await onUpdate(instructions.trim());
+      if (!templateId) {
+        throw new Error('Template ID is required to add instructions.');
+      }
+      const res = await addTemplateNoteAPI(templateId, instructions.trim());
+      if (typeof onUpdate === 'function') {
+        await onUpdate(res);
+      }
       onClose();
     } catch (error) {
       console.error('Error updating instructions:', error);

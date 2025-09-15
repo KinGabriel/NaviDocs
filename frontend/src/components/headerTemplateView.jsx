@@ -217,6 +217,9 @@ export default function HeaderTemplateView({ template, user, handleAssign, onUpd
           isOpen={isInstructionsModalOpen}
           onClose={() => setInstructionsModalOpen(false)}
           templateId={template?._id}
+          currentInstructions={template?.instructions || ''}
+          onUpdate={onAddInstructions}
+          templateTitle={template?.title}
         />
       )}
     </>

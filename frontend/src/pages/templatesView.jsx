@@ -109,6 +109,13 @@ export default function TemplateView() {
   //  handle to prepare notes 
   const notes = Array.isArray(t.notes) ? t.notes : [];
 
+  // Handler to refresh template after adding instructions
+  const handleAddInstructions = async () => {
+    if (!id) return;
+    const refreshed = await getTemplateByIdAPI(id);
+    setTemplate(refreshed.template || refreshed.data || refreshed);
+  };
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <HeaderTemplateView
@@ -123,6 +130,7 @@ export default function TemplateView() {
           const refreshed = await getTemplateByIdAPI(id);
           setTemplate(refreshed.template || refreshed.data || refreshed);
         }}
+        onAddInstructions={handleAddInstructions}
       />
          <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
           <main className="p-8 flex-1 overflow-y-auto">
