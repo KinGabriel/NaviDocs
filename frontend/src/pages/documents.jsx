@@ -10,9 +10,13 @@ import TemplateCard from "../components/templatecard";
 import usePagination from "../hooks/usePagination";
 import { fetchTemplatesAPI } from "../api/documentContollerAPI";
 import RenameDocumentModal from "../components/modals/RenameDocumentModal";
+import DeleteDocumentModal from "../components/modals/deleteDocumentModal";
+
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
+//to be adjusted when backend is ready (routes, auth, api, etc)
+/*
 async function renameDocumentAPI(id, title) {
   const res = await axios.patch(
     `${API_URL}/api/documents/${id}`,
@@ -21,6 +25,14 @@ async function renameDocumentAPI(id, title) {
   );
   return res.data;
 }
+
+async function deleteDocumentAPI(id) {
+  const res = await axios.delete(`${API_URL}/api/documents/${id}`, {
+    withCredentials: true,
+  });
+  return res.data;
+}
+*/
 
 export default function GlobalTemplates() {
   const user = useUser();
@@ -41,6 +53,10 @@ export default function GlobalTemplates() {
   const [renameSubmitting, setRenameSubmitting] = useState(false);
   const [renameError, setRenameError] = useState("");
   const [activeDoc, setActiveDoc] = useState(null);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const schoolIdentifiers = {
     "University Wide": "VAA",
@@ -120,6 +136,29 @@ export default function GlobalTemplates() {
       setRenameError(e?.response?.data?.message || "Failed to rename document.");
     } finally {
       setRenameSubmitting(false);
+    }
+  };
+
+  const openDelete = (doc) => {
+    setActiveDoc(doc);
+    setDeleteError("");
+    setDeleteOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!activeDoc?._id) return;
+    setDeleteSubmitting(true);
+    setDeleteError("");
+    try {
+      await deleteDocumentAPI(activeDoc._id);
+      // remove from grid
++      setTemplates((prev) => prev.filter((t) => (t._id || t.id) !== activeDoc._id));
+      setDeleteOpen(false);
+      setActiveDoc(null);
+    } catch (e) {
+      setDeleteError(e?.response?.data?.message || "Failed to delete document.");
+    } finally {
+      setDeleteSubmitting(false);
     }
   };
 
@@ -236,7 +275,15 @@ export default function GlobalTemplates() {
                           >
                             Rename
                           </button>
-                          {/* add more menu items here if needed */}
+                          <button
+                            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              openDelete(template);
+                            }}
+                          >
+                            Delete
+                          </button>
                         </div>
                       )}
 
@@ -296,7 +343,16 @@ export default function GlobalTemplates() {
         error={renameError}
         onSubmit={handleRenameSubmit}
       />
-      
+
+      {/* Delete modal */}
+      <DeleteDocumentModal
+        open={deleteOpen}
+        onClose={() => { setDeleteOpen(false); setActiveDoc(null); }}
+        documentTitle={activeDoc?.title}
+        submitting={deleteSubmitting}
+        error={deleteError}
+        onConfirm={handleDeleteConfirm}
+      />      
     </div>
   );
 }
