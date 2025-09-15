@@ -12,11 +12,14 @@ import { dashboardInfo,
         returnTemplate,
         rejectTemplate, 
         publishTemplate,
-        assignUsersToCreateTemplate } from "../controllers/templateController.js";
+        assignUsersToCreateTemplate,
+        assignControllersToTemplate } from "../controllers/templateController.js";
 import { authenticateJWT } from "../middleware/authenticationMiddleware.js"; 
 
 const router = express.Router();
 
+
+router.post("/assign-controllers", authenticateJWT, assignControllersToTemplate);
 router.post("/create-template", authenticateJWT, createTemplate);
 
 router.get("/", authenticateJWT, getTemplates);

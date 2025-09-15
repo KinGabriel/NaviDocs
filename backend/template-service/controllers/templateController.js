@@ -929,6 +929,28 @@ export const addTemplateNote = async (req, res) => {
   }
 };
 
+/**
+ * @desc Assign or add document controllers to a template
+ * @route POST /api/templates/assign-controllers
+ * 
+ */
+export const assignControllersToTemplate = async (req, res) => {
+  try {
+    const { templateId, controllers } = req.body;
+    if (!templateId || !Array.isArray(controllers) || controllers.length === 0) {
+      return res.status(400).json({ success:false, message:'templateId and controllers array are required' });
+    }
+    const template = await Template.findById(templateId);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    template.assigned = controllers;
+    await template.save();
+    return res.status(200).json({ success:true, message:'Controllers assigned to template', template: template.toObject() });
+  } catch (error) {
+    console.error('Error assigning controllers:', error);
+    return res.status(500).json({ success:false, message:'Failed to assign controllers to template' });
+  }
+}
+
 
 
 /**

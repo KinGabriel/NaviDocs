@@ -207,6 +207,49 @@ export const submitTemplateAPI = async (templateId) => {
 };
 
 /**
+ * Add a note to a template.
+ * @param {string} templateId - The template's Mongo ObjectId.
+ * @param {string} message - The note message to add.
+ * @returns {Promise<{success:boolean,message:string,template:Object}>}
+ */
+export const addTemplateNoteAPI = async (templateId, message) => {
+  const res = await axios.patch(
+    `${API_URL}/api/templates/${templateId}/add-note`,
+    { message },
+    { withCredentials: true }
+  );
+  return res.data;
+};
+
+/**
+ * Adjust the deadline of a template.
+ * @param {string} templateId - The template's Mongo ObjectId.
+ * @param {string|Date} deadline - The new deadline value.
+ * @returns {Promise<{success:boolean,message:string,template:Object}>}
+ */
+export const adjustTemplateDeadlineAPI = async (templateId, deadline) => {
+  const res = await axios.patch(
+    `${API_URL}/api/templates/${templateId}/adjust-deadline`,
+    { deadline },
+    { withCredentials: true }
+  );
+  return res.data;
+};
+/**
+ * Assigns document controllers to a template (replaces the assigned array).
+ * @param {string} templateId - The template's Mongo ObjectId.
+ * @param {string[]} controllers - Array of user IDs to assign as controllers.
+ * @returns {Promise<{success:boolean,message:string,template:Object}>}
+ */
+export const assignControllersToTemplateAPI = async (templateId, controllers) => {
+  const res = await axios.post(
+    `${API_URL}/api/templates/assign-controllers`,
+    { templateId, controllers },
+    { withCredentials: true }
+  );
+  return res.data;
+};
+/**
  * Publish a fully approved template.
  * Server will elevate pending→approved first if both approvals exist, then set status to published.
  * @param {string} templateId - Template id.
