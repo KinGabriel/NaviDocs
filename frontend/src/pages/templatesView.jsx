@@ -118,6 +118,11 @@ export default function TemplateView() {
         handleApprove={handleApprove}
         handleReject={handleReject}
         handleReturn={handleReturn}
+        onUpdateDeadline={async () => {
+          if (!id) return;
+          const refreshed = await getTemplateByIdAPI(id);
+          setTemplate(refreshed.template || refreshed.data || refreshed);
+        }}
       />
          <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
           <main className="p-8 flex-1 overflow-y-auto">

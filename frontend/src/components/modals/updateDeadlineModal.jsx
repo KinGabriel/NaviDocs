@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { adjustTemplateDeadlineAPI } from '../../api/documentContollerAPI';
 import { Calendar, Clock, X, Save, AlertCircle } from 'lucide-react';
 
 export default function UpdateDeadlineModal (
 { isOpen,
- onClose, 
- currentDeadline, 
- onUpdate, 
- templateTitle 
+  onClose,
+  currentDeadline,
+  onUpdate,
+  templateTitle,
+  templateId
 }) {
   const [deadline, setDeadline] = useState('');
   const [deadlineTime, setDeadlineTime] = useState('');
@@ -54,11 +56,12 @@ export default function UpdateDeadlineModal (
 
   const handleSubmit = async () => {
     if (!validateDeadline()) return;
-    
     setIsSubmitting(true);
     try {
       const newDeadline = new Date(`${deadline}T${deadlineTime}`);
-      await onUpdate(newDeadline.toISOString());
+      if (!templateId) throw new Error('No templateId provided');
+      await adjustTemplateDeadlineAPI(templateId, newDeadline.toISOString());
+      if (typeof onUpdate === 'function') await onUpdate(newDeadline.toISOString());
       onClose();
     } catch (error) {
       console.error('Error updating deadline:', error);

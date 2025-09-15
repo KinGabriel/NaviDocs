@@ -207,6 +207,7 @@ export default function HeaderTemplateView({ template, user, handleAssign, onUpd
           isOpen={isDeadlineModalOpen}
           onClose={() => setDeadlineModalOpen(false)}
           templateId={template?._id}
+          onUpdate={onUpdateDeadline}
         />
       )}
 
