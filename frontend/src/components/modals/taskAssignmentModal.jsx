@@ -196,7 +196,7 @@ export default function TaskAssignmentModal({ templateId, isOpen, onClose, onAss
   if (loadingStaff) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-pulse text-gray-600">Loading staff...</div>
+        <div className="animate-pulse text-gray-600 font-semibold">Loading...</div>
       </div>
     );
   }

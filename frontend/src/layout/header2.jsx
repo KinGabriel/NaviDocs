@@ -1,14 +1,19 @@
 // header for creating templates in document controller
 import { useNavigate } from 'react-router-dom';
 import naviLogo from '../assets/images/navilogo.png';
+import SubmitApprovalModal from '../components/modals/submitForApprovalModal'
+import React, { useState } from "react";
+
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
 const API_URL =
-  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];     
+  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
 export default function Header2({ title, setTitle, user, onSubmitForApproval, onApprove, onPublish, saving, lastSavedAt, dirty, templateStatus='draft', approvals=null, approvalMeta=null, approvers=[], loadingApprovers=false, reviewNotes=[], assignedIds=[] }) {
   const navigate = useNavigate();
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  
   // Determine button presentation based on status
   const statusConfig = () => {
   // Determine full approval independently of status field
@@ -18,7 +23,7 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
         return {
           label: 'Submit for Approval',
           disabled: saving,
-          onClick: onSubmitForApproval,
+          onClick: () => setIsSubmitModalOpen(true),
           className: 'bg-[#063c8d] hover:bg-[#052c6d] text-white',
           icon: (
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -82,6 +87,7 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
     }
   };
   const action = statusConfig();
+  
   return (
     <div>
       <div className="h-4 bg-[#063c8d] w-full" /> 
@@ -116,7 +122,7 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
         </div>
 
         {/* Action buttons */}
-  <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3">
            <div className="flex flex-col items-start">
             {lastSavedAt && (
               <span className="text-[10px] text-gray-500 leading-tight">Saved {lastSavedAt.toLocaleTimeString()}</span>
@@ -307,6 +313,17 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
           </div>
         </div>
       </div>
+
+      {/* Submit Approval Modal */}
+      {isSubmitModalOpen && (
+        <SubmitApprovalModal
+          isOpen={isSubmitModalOpen}
+          onClose={() => setIsSubmitModalOpen(false)}
+          status={templateStatus} // draft, assigned, submitted, publish
+          onSubmit={onSubmitForApproval}
+          onPublish={onPublish}
+        />
+      )}
     </div>
   );
 }

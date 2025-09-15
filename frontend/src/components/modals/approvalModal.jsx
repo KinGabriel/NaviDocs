@@ -116,10 +116,10 @@ export default function ApprovalModal({
             </div>
           </div>
 
-          {/* Message/Notes */}
+          {/* Instructions */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Message/Notes (Optional)
+              Instructions (Optional)
             </label>
             <textarea
               value={message}

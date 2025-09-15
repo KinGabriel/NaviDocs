@@ -9,7 +9,6 @@ import {
   publishTemplateAPI,
   createTemplateAPI,
 } from "../../api/documentContollerAPI";
-
 import useUser from "../../hooks/useUser";
 import Header from "../../layout/header2";
 
