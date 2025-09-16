@@ -15,25 +15,6 @@ import DeleteDocumentModal from "../components/modals/deleteDocumentModal";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-//to be adjusted when backend is ready (routes, auth, api, etc)
-/*
-async function renameDocumentAPI(id, title) {
-  const res = await axios.patch(
-    `${API_URL}/api/documents/${id}`,
-    { title },
-    { withCredentials: true }
-  );
-  return res.data;
-}
-
-async function deleteDocumentAPI(id) {
-  const res = await axios.delete(`${API_URL}/api/documents/${id}`, {
-    withCredentials: true,
-  });
-  return res.data;
-}
-*/
-
 export default function GlobalTemplates() {
   const user = useUser();
   const [search, setSearch] = useState("");
@@ -48,7 +29,6 @@ export default function GlobalTemplates() {
 
   const navigate = useNavigate();
 
-  const [openMenuId, setOpenMenuId] = useState(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameSubmitting, setRenameSubmitting] = useState(false);
   const [renameError, setRenameError] = useState("");
@@ -233,10 +213,11 @@ export default function GlobalTemplates() {
                 templates.map((template, i) => {
                   const id = template._id || i;
                   return (
-                    <div
+                    <TemplateCard
                       key={id}
-                      className="relative group"
-                      onClick={() =>
+                      template={template}
+                      user={user}
+                      onSelect={() =>
                         navigate(`/documents/${id}`, {
                           state: {
                             doc: template,
@@ -245,50 +226,9 @@ export default function GlobalTemplates() {
                           },
                         })
                       }
-                    >
-                      {/* 3-dots button */}
-                      <button
-                        className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1.5 bg-white/90 shadow hover:bg-white"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId((cur) => (cur === id ? null : id));
-                        }}
-                        aria-label="Open menu"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M10 3a2 2 0 110 4 2 2 0 010-4zm0 5a2 2 0 110 4 2 2 0 010-4zm0 5a2 2 0 110 4 2 2 0 010-4z" />
-                        </svg>
-                      </button>
-
-                      {/* Context menu */}
-                      {openMenuId === id && (
-                        <div
-                          className="absolute right-2 top-9 z-20 w-40 rounded-md border bg-white shadow-md"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              openRename(template);
-                            }}
-                          >
-                            Rename
-                          </button>
-                          <button
-                            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              openDelete(template);
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-
-                      <TemplateCard template={template} user={user} onSelect={() => {}} />
-                    </div>
+                      onRename={() => openRename(template)}
+                      onDelete={() => openDelete(template)}
+                    />
                   );
                 })
               )}
