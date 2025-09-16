@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function TemplateCard({ template, onSelect, user, onApprove, onPublish }) {
+export default function TemplateCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete }) {
   const [showMenu, setShowMenu] = useState(false);
 
   // Helper function to get template status
@@ -68,8 +68,9 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
     setShowMenu(false);
     
     switch (action) {
-      case 'edit':
-        onSelect();
+      case 'rename':
+        if (onRename) onRename(template);
+        else if (onSelect) onSelect(); 
         break;
       case 'duplicate':
         // Handle duplicate logic
@@ -77,7 +78,8 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
         break;
       case 'delete':
         // Handle delete logic
-        console.log('Delete template:', template._id);
+        if (onDelete) onDelete(template);
+        else console.log('Delete template:', template._id);
         break;
       default:
         break;
@@ -230,7 +232,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
                 <div className="absolute right-0 top-8 z-[9999] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
                   <button
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    onClick={(e) => handleMenuAction('edit', e)}
+                    onClick={(e) => handleMenuAction('rename', e)}
                   >
                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil-icon lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
                     Rename
