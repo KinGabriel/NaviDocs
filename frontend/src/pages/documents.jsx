@@ -11,7 +11,7 @@ import usePagination from "../hooks/usePagination";
 import { fetchTemplatesAPI } from "../api/documentContollerAPI";
 import RenameDocumentModal from "../components/modals/RenameDocumentModal";
 import DeleteDocumentModal from "../components/modals/deleteDocumentModal";
-
+import SelectTemplateModal from "../components/modals/SelectTemplateModal";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -37,6 +37,8 @@ export default function GlobalTemplates() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  const [selectOpen, setSelectOpen] = useState(false);
 
   const schoolIdentifiers = {
     "University Wide": "VAA",
@@ -158,7 +160,7 @@ export default function GlobalTemplates() {
              {/* Select Template Button */}
               <div className="flex-1 flex justify-start ml-1">
                 <button
-                  onClick={() => navigate("/templates")}
+                  onClick={() => setSelectOpen(true)}
                   className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
                 >
               {/* plus icon */}
@@ -292,7 +294,21 @@ export default function GlobalTemplates() {
         submitting={deleteSubmitting}
         error={deleteError}
         onConfirm={handleDeleteConfirm}
-      />      
+      />
+
+      {/* Select Template modal (Published templates) */}
+      <SelectTemplateModal
+        open={selectOpen}
+        onClose={() => setSelectOpen(false)}
+        user={user}
+        onPickTemplate={(tpl) => {
+          setSelectOpen(false);
+          // TODO: replace with your actual document creation route
+          // Pass the selected template along in route state
+          navigate("/documents/new", { state: { template: tpl, from: "select-template" } });
+        }}
+      />
+      
     </div>
   );
 }
