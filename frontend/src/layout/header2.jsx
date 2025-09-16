@@ -10,7 +10,7 @@ const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
-export default function Header2({ title, setTitle, user, onSubmitForApproval, onApprove, onPublish, saving, lastSavedAt, dirty, templateStatus='draft', approvals=null, approvalMeta=null, approvers=[], loadingApprovers=false, reviewNotes=[], assignedIds=[] }) {
+export default function Header2({ title, setTitle, user, onSubmitForApproval, onApprove, onPublish, saving, lastSavedAt, dirty, templateStatus='draft', approvals=null, approvalMeta=null, approvers=[], loadingApprovers=false, reviewNotes=[], assignedIds=[], templateId }) {
   const navigate = useNavigate();
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   
@@ -20,6 +20,7 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
   const fullyApproved = (approvalMeta && approvalMeta.isFullyApproved) || (approvals && approvals.dean?.approved_at && approvals.secretary?.approved_at);
     switch (templateStatus) {
       case 'draft':
+      case 'assigned':
         return {
           label: 'Submit for Approval',
           disabled: saving,
@@ -145,7 +146,7 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
           {/* status/action btn with hoverable detail */}
           <div className="relative group">
             <button 
-              disabled={action.disabled && templateStatus!=='draft'}
+              disabled={!(templateStatus === 'draft' || templateStatus === 'assigned')}
               onClick={action.onClick}
               className={`${action.className} rounded px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-70`}
             >
@@ -320,8 +321,11 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
           isOpen={isSubmitModalOpen}
           onClose={() => setIsSubmitModalOpen(false)}
           status={templateStatus} // draft, assigned, submitted, publish
+          approvers={approvers}
+          notes={reviewNotes}
           onSubmit={onSubmitForApproval}
           onPublish={onPublish}
+          templateId={templateId}
         />
       )}
     </div>

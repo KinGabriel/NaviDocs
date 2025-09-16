@@ -800,6 +800,20 @@ export const submitTemplate = async (req, res) => {
     if (template.status === 'pending') {
       return res.status(400).json({ success:false, message:'Template already submitted for approval' });
     }
+
+    // Ensure status_meta.approvals exists
+    template.status_meta = template.status_meta || {};
+    template.status_meta.approvals = template.status_meta.approvals || { dean: {}, secretary: {} };
+
+    // Set assigned_to for dean/secretary from request body if provided
+    const { dean_id, secretary_id } = req.body;
+    if (dean_id) {
+      template.status_meta.approvals.dean.assigned_to = dean_id;
+    }
+    if (secretary_id) {
+      template.status_meta.approvals.secretary.assigned_to = secretary_id;
+    }
+
     template.status = 'pending';
     await template.save();
     return res.status(200).json({ success:true, message:'Template submitted for approval', template: template.toObject() });

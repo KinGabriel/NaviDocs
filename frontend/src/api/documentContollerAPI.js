@@ -195,12 +195,17 @@ export const returnTemplateAPI = async (templateId, reason) => {
  * Submit a template for approval.
  * Backend will set status to 'pending'.
  * @param {string} templateId - Template id.
+ * @param {string} dean_id - Dean user id to assign as approver.
+ * @param {string} secretary_id - Secretary user id to assign as approver.
  * @returns {Promise<{success:boolean,message:string,template:Object}>}
  */
-export const submitTemplateAPI = async (templateId) => {
+export const submitTemplateAPI = async (templateId, dean_id, secretary_id) => {
+  const payload = {};
+  if (dean_id) payload.dean_id = dean_id;
+  if (secretary_id) payload.secretary_id = secretary_id;
   const res = await axios.patch(
     `${API_URL}/api/templates/${templateId}/submit`,
-    {},
+    payload,
     { withCredentials: true }
   );
   return res.data;

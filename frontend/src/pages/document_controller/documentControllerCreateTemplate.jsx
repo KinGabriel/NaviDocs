@@ -19,7 +19,8 @@ import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
 import DateFormatPanel from "../../layout/create_template/dateformatPanel";
-import FieldsPanel from "../../layout/create_template/fieldsPanel";
+import FieldsPanel from "../../layout/create_template/fieldsPanel"; // ⬅ NEW
+
 // Sidebar
 import TemplateSidebar from "../../layout/TemplateSidebar";
 
@@ -54,6 +55,8 @@ function useHeaderHeight() {
 
 // --- Component ---------------------------------------------------------------
 export default function DocumentControllerCreateTemplate() {
+  // Track template workflow status
+  const [status, setStatus] = useState("draft");
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useUser?.() ?? { user: null };
@@ -72,7 +75,14 @@ export default function DocumentControllerCreateTemplate() {
   const [fontSettings, setFontSettings] = useState({});
   const [headerFooter, setHeaderFooter] = useState({ header: {}, footer: {} });
   const [dateFormat, setDateFormat] = useState({ style: "numeric" });
-
+  
+  // Track last saved state for autosave/dirty
+  const [lastSavedContent, setLastSavedContent] = useState(null);
+  const [lastSavedTitle, setLastSavedTitle] = useState("");
+  const [lastSavedId, setLastSavedId] = useState(null);
+  const [dirty, setDirty] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+  
   // NEW: editable fields registry
   const [editableFields, setEditableFields] = useState([]); // [{key,type,required,placeholder,...}]
 
@@ -82,10 +92,15 @@ export default function DocumentControllerCreateTemplate() {
   const [saving, setSaving] = useState(false);
   const [approvers, setApprovers] = useState([]);
   const [error, setError] = useState("");
+  const [notes, setNotes] = useState([]);
+
+  // Parse templateId from query string
+  const params = new URLSearchParams(location.search);
+  const templateIdFromQuery = params.get("templateId");
 
   // Load existing template if navigated with an id
   useEffect(() => {
-    const id = location?.state?.templateId || null;
+    const id = templateIdFromQuery || null;
     if (!id) return;
     setTemplateId(id);
 
@@ -95,13 +110,57 @@ export default function DocumentControllerCreateTemplate() {
         setLoading(true);
         const res = await getTemplateByIdAPI(id);
         if (!res || cancelled) return;
-        if (res.title) setTemplateTitle(res.title);
-        if (res.content !== undefined) setTemplateContent(res.content);
-        if (res.pageSetup) setPageSetup(res.pageSetup);
-        if (res.fontSettings) setFontSettings(res.fontSettings);
-        if (res.headerFooter) setHeaderFooter(res.headerFooter);
-        if (res.dateFormat) setDateFormat(res.dateFormat);
-        if (Array.isArray(res.fields)) setEditableFields(res.fields); // ⬅ load fields
+        const tpl = res?.template || {};
+  if (tpl.title) setTemplateTitle(tpl.title);
+  // Set notes from API response (tpl.notes)
+  if (Array.isArray(tpl.notes)) setNotes(tpl.notes);
+        console.log("Fetched template data:", res);
+        // Set status from API, fallback to draft
+        setStatus(tpl.status || "draft");
+
+        // Extract approvers from approvals (prefer tpl.approvals, fallback to tpl.status_meta.approvals)
+        const approvalsObj = tpl.approvals || (tpl.status_meta && tpl.status_meta.approvals) || {};
+        const approversArr = [];
+        if (approvalsObj.dean && approvalsObj.dean.assigned_to) {
+          approversArr.push({
+            id: approvalsObj.dean.assigned_to,
+            name: approvalsObj.dean.assigned_to_name || 'Dean',
+            role: 'Dean',
+            ...approvalsObj.dean
+          });
+        }
+        if (approvalsObj.secretary && approvalsObj.secretary.assigned_to) {
+          approversArr.push({
+            id: approvalsObj.secretary.assigned_to,
+            name: approvalsObj.secretary.assigned_to_name || 'Secretary',
+            role: 'Secretary',
+            ...approvalsObj.secretary
+          });
+        }
+        setApprovers(approversArr);
+
+        // Prefer body (HTML) if present, else fallback to content
+        let html = null;
+        if (tpl.body !== undefined && tpl.body !== null) {
+          html = tpl.body;
+        } else if (tpl.content !== undefined) {
+          html = tpl.content;
+        }
+        // Remove unwanted header/footer fields from HTML before rendering
+        if (html) {
+          // Remove <header> elements containing any of the header fields (Full Name, Student ID, University, School)
+          html = html.replace(/<header[^>]*>\s*((Full Name|Student ID|University|School)[^<]*)+<\/header>/gi, '');
+          // Remove <footer> with only date or page number
+          html = html.replace(/<footer[^>]*>\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*<\/footer>/g, '');
+          html = html.replace(/<footer[^>]*>\s*Page \d+\s*<\/footer>/gi, '');
+          html = html.replace(/<footer[^>]*>\s*\d+\/\d+\s*<\/footer>/g, '');
+          setTemplateContent(html);
+        }
+        if (tpl.pageSetup) setPageSetup(tpl.pageSetup);
+        if (tpl.fontSettings) setFontSettings(tpl.fontSettings);
+        if (tpl.headerFooter) setHeaderFooter(tpl.headerFooter);
+        if (tpl.dateFormat) setDateFormat(tpl.dateFormat);
+        if (Array.isArray(tpl.fields)) setEditableFields(tpl.fields); 
       } catch (e) {
         console.error(e);
         setError("Failed to load template.");
@@ -111,15 +170,16 @@ export default function DocumentControllerCreateTemplate() {
     })();
 
     return () => { cancelled = true; };
-  }, [location]);
+  }, [templateIdFromQuery]);
 
   // Optional approvers fetch
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetchApproversAPI?.();
+        const res = await fetchApproversAPI();
         if (!cancelled && Array.isArray(res)) setApprovers(res);
+        console.log(res);
       } catch {}
     })();
     return () => { cancelled = true; };
@@ -130,29 +190,71 @@ export default function DocumentControllerCreateTemplate() {
     setEditorInstance(editor);
   };
 
+
+
+  // ---  HTML to JSON fallback for pages_json ---
+  const htmlToBasicJSON = (html) => {
+    if (!html) return { type: 'doc', content: [{ type: 'paragraph' }] };
+    const parts = html.split(/<\/p>/i)
+      .map(p => p.replace(/<[^>]+>/g, '').trim())
+      .filter(Boolean);
+    return {
+      type: 'doc',
+      content: parts.length
+        ? parts.map(t => ({ type: 'paragraph', content: t ? [{ type: 'text', text: t }] : [] }))
+        : [{ type: 'paragraph' }]
+    };
+  };
+
+  // Save handler matching backend expectations
   const handleSave = async () => {
     try {
       setSaving(true);
       const editor = editorRef.current;
       const content = editor ? editor.getHTML() : templateContent;
+      const rawPagesJson = editor ? editor.getJSON() : null;
+      // Always send pages_json as an array (even if only one page)
+      let pages_json = rawPagesJson ? [rawPagesJson] : [htmlToBasicJSON(content)];
+      // Apply headerFooter to all pages in pages_json
+      pages_json = pages_json.map(page => {
+        if (page && page.content && Array.isArray(page.content)) {
+          page.content = page.content.map(p => {
+            if (p && p.attrs) {
+              p.attrs = {
+                ...p.attrs,
+                headerFields: headerFooter.header || {},
+                footerFields: headerFooter.footer || {},
+              };
+            }
+            return p;
+          });
+        }
+        return page;
+      });
 
       const payload = {
         title: (templateTitle || "").trim() || "Untitled Template",
         content,
+        pages_json,
         pageSetup,
-        fontSettings,
-        headerFooter,
         dateFormat,
-        fields: editableFields, // ⬅ save fields to backend
+        fields: editableFields,
       };
 
+      let res;
       if (templateId) {
-        const res = await updateTemplateAPI(templateId, payload);
-        if (res?.id) setTemplateId(res.id);
+        res = await updateTemplateAPI(templateId, payload);
+        if (res?.template?._id) setTemplateId(res.template._id);
       } else {
-        const res = await createTemplateAPI(payload);
-        if (res?.id) setTemplateId(res.id);
+        res = await createTemplateAPI(payload);
+        if (res?.template?._id) setTemplateId(res.template._id);
       }
+      // Update last saved state
+      setLastSavedContent(content);
+      setLastSavedTitle(payload.title);
+      setLastSavedId(res?.template?._id || templateId);
+      setLastSavedAt(new Date());
+      setDirty(false);
     } catch (e) {
       console.error(e);
       setError("Failed to save template.");
@@ -160,6 +262,34 @@ export default function DocumentControllerCreateTemplate() {
       setSaving(false);
     }
   };
+
+  // Autosave: save after changes with debounce
+  useEffect(() => {
+    if (!templateId && !templateTitle && !templateContent) return;
+    // Mark dirty if content or title changed
+    const isDirty = templateContent !== lastSavedContent || templateTitle !== lastSavedTitle;
+    setDirty(isDirty);
+    if (!isDirty) return;
+    const timeout = setTimeout(() => {
+      handleSave();
+    }, 2000); // 2s debounce
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line
+  }, [templateContent, templateTitle]);
+
+  // Save on unmount/navigation if dirty
+  useEffect(() => {
+    const beforeUnload = (e) => {
+      if (dirty) {
+        handleSave();
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => window.removeEventListener('beforeunload', beforeUnload);
+    // eslint-disable-next-line
+  }, [dirty]);
 
   const handleApprove = async () => {
     if (!templateId) return;
@@ -224,7 +354,19 @@ export default function DocumentControllerCreateTemplate() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
-      <Header />
+      {/* App main header (sticky, global navigation) */}
+      <Header
+        title={templateTitle}
+        setTitle={setTemplateTitle}
+        user={user}
+        onApprove={handleApprove}
+        onPublish={handlePublish}
+        saving={saving}
+        approvers={approvers}
+        templateStatus={status}
+        reviewNotes={notes}
+        templateId={templateId || ""}
+      />
       <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
         <div className="flex gap-4">
           <TemplateSidebar

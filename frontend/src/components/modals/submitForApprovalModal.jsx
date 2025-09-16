@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { X, CheckCircle2, Clock, UserCheck, Send, FileText, Users, MessageCircle, AlertCircle } from "lucide-react";
 
+
+import { fetchSchoolStaffAPI } from '../../api/userAPI';
+import { submitTemplateAPI } from '../../api/documentContollerAPI';
+import SingleSelectDropdown from '../SingleSelectDropdown';
+
 export default function SubmitApprovalModal({
   isOpen,
   onClose,
@@ -9,40 +14,69 @@ export default function SubmitApprovalModal({
   approvalProgress = [],
   onSubmit,
   onPublish,
+  approvers: approversProp = [],
+  notes = [],
+  templateId,
 }) {
-  const [selectedApprovers, setSelectedApprovers] = useState([]);
+  const [selectedSecretary, setSelectedSecretary] = useState("");
+  const [selectedDean, setSelectedDean] = useState("");
+  const [secretaries, setSecretaries] = useState([]);
+  const [deans, setDeans] = useState([]);
   const [instructions, setInstructions] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  // In draft mode, selected approvers are the selected secretary and dean (if any)
+  const selectedApprovers = [
+    ...((selectedSecretary && secretaries.find(s => s.id === selectedSecretary)) ? [secretaries.find(s => s.id === selectedSecretary)] : []),
+    ...((selectedDean && deans.find(d => d.id === selectedDean)) ? [deans.find(d => d.id === selectedDean)] : []),
+  ];
 
   useEffect(() => {
     if (isOpen && status === "draft") {
-      setSelectedApprovers([]);
       setInstructions("");
+      setSelectedSecretary("");
+      setSelectedDean("");
+      fetchSchoolStaffAPI().then(({ secretaries = [], deans = [] }) => {
+        setSecretaries(secretaries);
+        setDeans(deans);
+        if (secretaries.length > 0) setSelectedSecretary(secretaries[0].id);
+        if (deans.length > 0) setSelectedDean(deans[0].id);
+      });
     }
     setIsSubmitting(false);
   }, [isOpen, status]);
 
   if (!isOpen) return null;
 
-  // Approvers list - FOR DEMO ONLY
-  const approvers = [
-    { id: "sec", name: "Secretary" },
-    { id: "dean", name: "Dean" },
-  ];
 
-  const toggleApprover = (id) => {
-    setSelectedApprovers((prev) =>
-      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
-    );
-  };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setSubmitSuccess(false);
     try {
       if (status === "draft") {
-        await onSubmit(selectedApprovers, instructions);
+        if (selectedDean && selectedSecretary && templateId) {
+          await submitTemplateAPI(templateId, selectedDean, selectedSecretary);
+          if (typeof onSubmit === 'function') {
+            await onSubmit([selectedSecretary, selectedDean], instructions);
+          }
+          setSubmitSuccess(true);
+          setTimeout(() => setSubmitSuccess(false), 1500);
+        }
       } else if (status === "assigned") {
-        await onSubmit(approvers.map((a) => a.id), instructionsFromAssignee || "");
+        if (templateId) {
+          await submitTemplateAPI(templateId, selectedDean, selectedSecretary);
+          if (typeof onSubmit === 'function') {
+            const allIds = [
+              ...secretaries.map(s => s.id),
+              ...deans.map(d => d.id)
+            ];
+            await onSubmit(allIds, instructionsFromAssignee || "");
+          }
+          setSubmitSuccess(true);
+          setTimeout(() => setSubmitSuccess(false), 1500);
+        }
       }
     } catch (error) {
       console.error("Submit error:", error);
@@ -54,7 +88,7 @@ export default function SubmitApprovalModal({
   const handlePublish = async () => {
     setIsSubmitting(true);
     try {
-      await onPublish();
+      await onPublish?.();
     } catch (error) {
       console.error("Publish error:", error);
     } finally {
@@ -67,11 +101,30 @@ export default function SubmitApprovalModal({
     const progress = approvalProgress.find(p => p.approverId === approverId);
     return progress ? progress.status : 'pending';
   };
+        useEffect(() => {
+          console.log("useEffect triggered with isOpen:", isOpen, "and status:", status);
+          if (isOpen && status === "draft") {
+            setInstructions("");
+            setSelectedSecretary("");
+            setSelectedDean("");
+            fetchSchoolStaffAPI().then(({ secretaries = [], deans = [] }) => {
+              setSecretaries(secretaries);
+              setDeans(deans);
+              if (secretaries.length > 0) setSelectedSecretary(secretaries[0].id);
+              if (deans.length > 0) setSelectedDean(deans[0].id);
+            });
+          }
+          setIsSubmitting(false);
+        }, [isOpen, status]);
 
-  const getApprovalDate = (approverId) => {
-    const progress = approvalProgress.find(p => p.approverId === approverId);
-    return progress ? progress.approvedDate : null;
-  };
+
+  // Build approvers for progress display
+  const approvers = status === 'assigned' && approversProp.length > 0
+    ? approversProp
+    : [
+        ...secretaries.map(s => ({ id: s.id, name: s.name, role: 'Secretary' })),
+        ...deans.map(d => ({ id: d.id, name: d.name, role: 'Dean' })),
+      ];
 
   const allApproved = approvers.every(approver => 
     getApprovalStatus(approver.id) === 'approved'
@@ -144,30 +197,22 @@ export default function SubmitApprovalModal({
                   </h3>
                 </div>
                 <div className="grid gap-3">
-                  {approvers.map((approver) => (
-                    <label
-                      key={approver.id}
-                      className={`flex items-center gap-4 p-4 rounded-lg border-2 transition-all cursor-pointer hover:bg-slate-50 ${
-                        selectedApprovers.includes(approver.id)
-                          ? 'border-blue-200 bg-blue-50 ring-1 ring-blue-200'
-                          : 'border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedApprovers.includes(approver.id)}
-                        onChange={() => toggleApprover(approver.id)}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-slate-900">{approver.name}</div>
-                        <div className="text-sm text-slate-500">{approver.role}</div>
-                      </div>
-                      <UserCheck className={`h-5 w-5 ${
-                        selectedApprovers.includes(approver.id) ? 'text-blue-600' : 'text-slate-300'
-                      }`} />
-                    </label>
-                  ))}
+                  <SingleSelectDropdown
+                    label={<span>Secretary <span className="text-red-500">*</span></span>}
+                    icon={UserCheck}
+                    options={secretaries.map(s => ({ value: s.id, label: s.name, email: s.email }))}
+                    value={selectedSecretary}
+                    onChange={setSelectedSecretary}
+                    placeholder="Select secretary..."
+                  />
+                  <SingleSelectDropdown
+                    label={<span>Dean <span className="text-red-500">*</span></span>}
+                    icon={UserCheck}
+                    options={deans.map(d => ({ value: d.id, label: d.name, email: d.email }))}
+                    value={selectedDean}
+                    onChange={setSelectedDean}
+                    placeholder="Select dean..."
+                  />
                 </div>
               </div>
 
@@ -194,13 +239,25 @@ export default function SubmitApprovalModal({
           {status === "assigned" && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-base font-medium text-slate-900 mb-3 flex items-center gap-2">
+
+                {notes && notes.length > 0 && (
+                  <div className="mt-4">
+                      <h3 className="text-base font-medium text-slate-900 mb-3 flex items-center gap-2">
                   <MessageCircle className="h-5 w-5 text-slate-500" />
                   Instructions from Assignor
                 </h3>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-slate-700 leading-relaxed">
-                  {instructionsFromAssignee || "No specific instructions provided."}
-                </div>
+                    <ul className="space-y-2">
+                      {notes.map((note, i) => (
+                        <li key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-slate-700">
+                          {note.message || note.note || (typeof note === 'string' ? note : '')}
+                          {note.added_by_name && (
+                            <span className="ml-2 text-xs text-slate-500 italic">- {note.added_by_name}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -366,36 +423,24 @@ export default function SubmitApprovalModal({
               {status === "publish" ? "Close" : "Cancel"}
             </button>
 
-            {status === "draft" && (
-              <button
-                onClick={handleSubmit}
-                disabled={selectedApprovers.length === 0 || isSubmitting}
-                className="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-sm"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    Submit
-                  </>
-                )}
-              </button>
-            )}
 
-            {status === "assigned" && (
+            {(status === "draft" || status === "assigned") && (
               <button
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={
+                  (status === "draft" && selectedApprovers.length === 0) || isSubmitting || submitSuccess
+                }
                 className="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-sm"
               >
                 {isSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                     Submitting...
+                  </>
+                ) : submitSuccess ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Submitted
                   </>
                 ) : (
                   <>
