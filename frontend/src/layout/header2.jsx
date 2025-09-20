@@ -10,7 +10,28 @@ const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
-export default function Header2({ title, setTitle, user, onSubmitForApproval, onApprove, onPublish, saving, lastSavedAt, dirty, templateStatus='draft', approvals=null, approvalMeta=null, approvers=[], loadingApprovers=false, reviewNotes=[], assignedIds=[], templateId }) {
+export default function Header2({ 
+  title,
+  setTitle, 
+  user, 
+  onSubmitForApproval, 
+  onApprove, 
+  onPublish, 
+  saving, 
+  lastSavedAt, 
+  dirty, 
+  templateStatus='draft', 
+  approvals=null, 
+  approvalMeta=null, 
+  approvers=[], 
+  loadingApprovers=false, 
+  reviewNotes=[], 
+  assignedIds=[], 
+  templateId,
+  onStatusUpdate,  
+  onApprovalsUpdate,
+  template = null}) {
+
   const navigate = useNavigate();
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   
@@ -33,18 +54,35 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
           )
         };
       case 'pending': {
-        // If both approvals are complete but status still pending, surface Publish action
-        if (fullyApproved) {
+      // If both approvals are complete but status still pending, surface Publish action
+      if (fullyApproved) {
+        return {
+          label: 'Publish',
+          disabled: saving,
+          onClick: onPublish,
+          className: 'bg-blue-600 hover:bg-blue-700 text-white',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+          )
+        };
+      }
+      
+        // show "View Progress" when not fully approved
+        const hasAnyApprovals = (approvals && (approvals.dean?.approved_at || approvals.secretary?.approved_at)) || 
+                              (approvalMeta && (approvalMeta.deanApproved || approvalMeta.secretaryApproved));
+        
+        if (hasAnyApprovals) {
           return {
-            label: 'Publish',
+            label: 'View Progress',
             disabled: saving,
-            onClick: onPublish,
-            className: 'bg-blue-600 hover:bg-blue-700 text-white',
+            onClick: () => setIsSubmitModalOpen(true),
+            className: 'bg-yellow-500 hover:bg-yellow-600 text-white',
             icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l3 3" /><circle cx="12" cy="12" r="9" strokeWidth="2" /></svg>
             )
           };
         }
+
         const role = user?.role?.name?.toLowerCase();
         const slotApproved = role && approvals && approvals[role]?.approved_at;
         const metaCanApprove = approvalMeta ? (!approvalMeta.hasApprovedCurrentUser && ['dean','secretary'].includes(role)) : null;
@@ -52,8 +90,8 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
         return {
           label: canApprove ? 'Approve' : 'Pending Approval',
           disabled: saving || !canApprove,
-          onClick: canApprove ? onApprove : undefined,
-          className: canApprove ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-yellow-500/90 text-white cursor-not-allowed',
+          onClick: canApprove ? onApprove : () => setIsSubmitModalOpen(true),
+          className: canApprove ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-yellow-500/90 text-white',
           icon: canApprove ? (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
           ) : (
@@ -88,7 +126,19 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
     }
   };
   const action = statusConfig();
-  
+
+  const handleSubmitSuccess = (newStatus, updatedApprovals, updatedApprovers) => {
+    // Update parent component state
+    if (onStatusUpdate) {
+      onStatusUpdate(newStatus);
+    }
+    if (onApprovalsUpdate) {
+      onApprovalsUpdate(updatedApprovals, updatedApprovers);
+    }
+    // Close modal
+    setIsSubmitModalOpen(false);
+  };
+
   return (
     <div>
       <div className="h-4 bg-[#063c8d] w-full" /> 
@@ -145,17 +195,17 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
         
           {/* status/action btn with hoverable detail */}
           <div className="relative group">
-            <button 
-              disabled={!(templateStatus === 'draft' || templateStatus === 'assigned')}
-              onClick={action.onClick}
-              className={`${action.className} rounded px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-70`}
-            >
-              {action.icon}
-              {action.label}
-              <svg className="w-3 h-3 text-white/80" viewBox="0 0 16 16" fill="currentColor"><path d="M8 11.5l-5-5h10l-5 5z"/></svg>
-            </button>
+           <button 
+            disabled={!(templateStatus === 'draft' || templateStatus === 'assigned' || templateStatus === 'pending')}
+            onClick={action.onClick}
+            className={`${action.className} rounded px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-70`}
+          >
+            {action.icon}
+            {action.label}
+            <svg className="w-3 h-3 text-white/80" viewBox="0 0 16 16" fill="currentColor"><path d="M8 11.5l-5-5h10l-5 5z"/></svg>
+          </button>
             {/* Popover */}
-            <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150 absolute right-0 mt-2 w-80 z-50">
+            <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150 absolute right-0 mt-2 w-96 z-50">
               <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 text-xs text-gray-700 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">Status Details</span>
@@ -173,89 +223,105 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
                 {templateStatus==='published' && (
                   <p className="text-[11px] leading-relaxed">Published. This version is live for use.</p>
                 )}
-                {/* Approvers */}
-                <div>
-                  <div className="font-medium mb-1 flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 11a4 4 0 100-8 4 4 0 000 8zm0 0c-4.418 0-8 2.239-8 5v2h9m8-9a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                    Approvers
-                  </div>
-                  {loadingApprovers && <div className="text-[11px] italic text-gray-500">Loading approvers...</div>}
-                  {!loadingApprovers && approvers.length===0 && <div className="text-[11px] italic text-gray-400">None found (Secretary / Dean)</div>}
-                  <div className="flex flex-col gap-1">
-                    {approvers.map(a => {
-                      const roleName = a?.role?.name || '';
-                      const r = roleName.toLowerCase().trim();
-                      const approvalsObj = approvals || {};
-                      // Prefer explicit match by approved_by user id regardless of role name accuracy
-                      let matchedSlotKey = null;
-                      let approvedAtRaw = null;
-                      ['dean','secretary'].forEach(k => {
-                        const slot = approvalsObj[k];
-                        if (!slot) return;
-                        if (slot.approved_by && slot.approved_by.toString() === a._id.toString()) {
-                          matchedSlotKey = k;
-                          approvedAtRaw = slot.approved_at;
-                        }
-                      });
-                      // If no direct user match, fallback to role-name based slot
-                      if (!matchedSlotKey && approvalsObj[r]?.approved_at) {
-                        matchedSlotKey = r;
-                        approvedAtRaw = approvalsObj[r].approved_at;
+               
+         {/* Approvers */}
+            <div>
+              <div className="font-medium mb-1 flex items-center gap-1">
+                <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 11a4 4 0 100-8 4 4 0 000 8zm0 0c-4.418 0-8 2.239-8 5v2h9m8-9a4 4 0 11-8 0 4 4 0 018 0z"/>
+                </svg>
+                Approvers
+              </div>
+              {loadingApprovers && <div className="text-[11px] italic text-gray-500">Loading approvers...</div>}
+              {!loadingApprovers && approvers.length===0 && <div className="text-[11px] italic text-gray-400">No approvers assigned</div>}
+              
+              <div className="flex flex-col gap-1">
+                {approvers.map(a => {
+                  const roleName = a?.role?.name || '';
+                  const r = roleName.toLowerCase().trim();
+                  const approvalsObj = approvals || {};
+                  
+                  //  explicit match by approved_by user id regardless of role name accuracy
+                  let matchedSlotKey = null;
+                  let approvedAtRaw = null;
+                  ['dean','secretary'].forEach(k => {
+                    const slot = approvalsObj[k];
+                    if (!slot) return;
+                    if (slot.approved_by && slot.approved_by.toString() === a._id.toString()) {
+                      matchedSlotKey = k;
+                      approvedAtRaw = slot.approved_at;
+                    }
+                  });
+                  
+                  // If no direct user match, fallback to role-name based slot
+                  if (!matchedSlotKey && approvalsObj[r]?.approved_at) {
+                    matchedSlotKey = r;
+                    approvedAtRaw = approvalsObj[r].approved_at;
+                  }
+                  
+                  // Derive done state using either matched slot or approvalMeta 
+                  let done = false;
+                  if (matchedSlotKey) {
+                    done = true;
+                  } else if (approvalMeta) {
+                    done = (r==='dean' && approvalMeta.deanApproved) || (r==='secretary' && approvalMeta.secretaryApproved);
+                  }
+                  
+                  const approvedAt = approvedAtRaw ? new Date(approvedAtRaw) : null;
+                  const timeStr = approvedAt ? approvedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+                  
+                  // Get the display name - prefer first/last name combination, fallback to name, then email
+                  const displayName = a.firstname && a.lastname 
+                    ? `${a.firstname} ${a.lastname}`
+                    : a.name || a.email || "Unknown Approver";
+                  
+                  return (
+                    <div key={a._id} className={`flex items-center justify-between bg-gray-50 border rounded px-2 py-1 ${done ? 'border-green-200' : 'border-gray-200'}`}>
+                      <div className="flex flex-col">
+                        <span className="font-medium text-[11px] flex items-center gap-1">
+                          {displayName}
+                          {done && <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>}
+                        </span>
+                        <span className="text-[9px] uppercase tracking-wide text-gray-500">{roleName}</span>
+                      </div>
+                      {done ? (
+                        <span title={approvedAt?.toLocaleString()} className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                          Approved{timeStr ? ` ${timeStr}` : ''}
+                        </span>
+                      ) : (
+                        <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 font-medium">Pending</span>
+                      )}
+                    </div>
+                  );
+                })}
+                
+                {(approvals || approvalMeta) && (
+                  <div className="mt-2">
+                    {(() => {
+                      const expected = ['secretary','dean'].filter(r => approvers.some(a=> (a?.role?.name || '').toLowerCase()===r));
+                      const total = expected.length || 2;
+                      let count;
+                      if (approvalMeta) {
+                        count = (approvalMeta.secretaryApproved?1:0) + (approvalMeta.deanApproved?1:0);
+                      } else {
+                        count = expected.filter(r=> approvals && approvals[r]?.approved_at).length;
                       }
-                      // Derive done state using either matched slot or approvalMeta flags
-                      let done = false;
-                      if (matchedSlotKey) {
-                        done = true;
-                      } else if (approvalMeta) {
-                        done = (r==='dean' && approvalMeta.deanApproved) || (r==='secretary' && approvalMeta.secretaryApproved);
-                      }
-                      const approvedAt = approvedAtRaw ? new Date(approvedAtRaw) : null;
-                      const timeStr = approvedAt ? approvedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+                      const pct = Math.round((count/total)*100);
                       return (
-                        <div key={a._id} className={`flex items-center justify-between bg-gray-50 border rounded px-2 py-1 ${done ? 'border-green-200' : 'border-gray-200'}`}>
-                          <div className="flex flex-col">
-                            <span className="font-medium text-[11px] flex items-center gap-1">
-                              {a.firstname} {a.lastname}
-                              {done && <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>}
-                            </span>
-                            <span className="text-[9px] uppercase tracking-wide text-gray-500">{roleName}</span>
+                        <div>
+                          <div className="w-full h-1.5 bg-gray-200 rounded overflow-hidden">
+                            <div className="h-1.5 bg-green-500" style={{width: pct+'%'}} />
                           </div>
-                          {done ? (
-                            <span title={approvedAt?.toLocaleString()} className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium flex items-center gap-1">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
-                              Approved{timeStr ? ` ${timeStr}` : ''}
-                            </span>
-                          ) : (
-                            <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 font-medium">Pending</span>
-                          )}
+                          <div className="text-[10px] mt-1 text-gray-500">Approval progress: {count}/{total}</div>
                         </div>
                       );
-                    })}
-                    {(approvals || approvalMeta) && (
-                      <div className="mt-2">
-                        {(() => {
-                          const expected = ['secretary','dean'].filter(r => approvers.some(a=> (a?.role?.name || '').toLowerCase()===r));
-                          const total = expected.length || 2;
-                          let count;
-                          if (approvalMeta) {
-                            count = (approvalMeta.secretaryApproved?1:0) + (approvalMeta.deanApproved?1:0);
-                          } else {
-                            count = expected.filter(r=> approvals && approvals[r]?.approved_at).length;
-                          }
-                          const pct = Math.round((count/total)*100);
-                          return (
-                            <div>
-                              <div className="w-full h-1.5 bg-gray-200 rounded overflow-hidden">
-                                <div className="h-1.5 bg-green-500" style={{width: pct+'%'}} />
-                              </div>
-                              <div className="text-[10px] mt-1 text-gray-500">Approval progress: {count}/{total}</div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
+                    })()}
                   </div>
-                </div>
+                )}
+              </div>
+            </div>
+                
                 {/* Review Notes */}
                 {reviewNotes && reviewNotes.length>0 && (
                   <div>
@@ -326,6 +392,10 @@ export default function Header2({ title, setTitle, user, onSubmitForApproval, on
           onSubmit={onSubmitForApproval}
           onPublish={onPublish}
           templateId={templateId}
+          template={template}
+          onSubmitSuccess={handleSubmitSuccess}
+          approvals={approvals}           
+          approvalMeta={approvalMeta}    
         />
       )}
     </div>

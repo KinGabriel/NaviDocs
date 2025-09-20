@@ -8,9 +8,10 @@ import {
   approveTemplateAPI,
   publishTemplateAPI,
   createTemplateAPI,
+  submitTemplateAPI,
 } from "../../api/documentContollerAPI";
 import useUser from "../../hooks/useUser";
-import Header from "../../layout/header2";
+import Header2 from "../../layout/header2";
 
 // Panels
 import FontPanel from "../../layout/create_template/fontPanel";
@@ -19,7 +20,7 @@ import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
 import DateFormatPanel from "../../layout/create_template/dateformatPanel";
-import FieldsPanel from "../../layout/create_template/fieldsPanel"; // ⬅ NEW
+import FieldsPanel from "../../layout/create_template/fieldsPanel";
 
 // Sidebar
 import TemplateSidebar from "../../layout/TemplateSidebar";
@@ -55,8 +56,6 @@ function useHeaderHeight() {
 
 // --- Component ---------------------------------------------------------------
 export default function DocumentControllerCreateTemplate() {
-  // Track template workflow status
-  const [status, setStatus] = useState("draft");
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useUser?.() ?? { user: null };
@@ -69,6 +68,12 @@ export default function DocumentControllerCreateTemplate() {
   const [templateId, setTemplateId] = useState(null);
   const [templateTitle, setTemplateTitle] = useState("Untitled Template");
   const [templateContent, setTemplateContent] = useState(DEFAULT_CONTENT);
+
+  const [status, setStatus] = useState("draft");
+  const [approvers, setApprovers] = useState([]);
+  const [approvals, setApprovals] = useState(null);
+  const [approvalMeta, setApprovalMeta] = useState(null);
+  const [template, setTemplate] = useState(null);
 
   // Layout/config state
   const [pageSetup, setPageSetup] = useState(DEFAULT_PAGE_SETUP);
@@ -83,14 +88,12 @@ export default function DocumentControllerCreateTemplate() {
   const [dirty, setDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   
-  // NEW: editable fields registry
-  const [editableFields, setEditableFields] = useState([]); // [{key,type,required,placeholder,...}]
+  const [editableFields, setEditableFields] = useState([]);
 
   // UI
   const [selectedPanel, setSelectedPanel] = useState("font");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [approvers, setApprovers] = useState([]);
   const [error, setError] = useState("");
   const [notes, setNotes] = useState([]);
 
@@ -98,101 +101,99 @@ export default function DocumentControllerCreateTemplate() {
   const params = new URLSearchParams(location.search);
   const templateIdFromQuery = params.get("templateId");
 
+  // template loading
+  const loadTemplate = async (id) => {
+    try {
+      setLoading(true);
+      const res = await getTemplateByIdAPI(id);
+      if (!res) return;
+      
+      const tpl = res?.template || {};
+      console.log("Fetched template data:", res);
+      
+      // Update all template-related state
+      if (tpl.title) setTemplateTitle(tpl.title);
+     // Set notes from API response (tpl.notes)
+      if (Array.isArray(tpl.notes)) setNotes(tpl.notes);
+      // Set status from API, fallback to draft
+      setStatus(tpl.status || "draft");
+      setTemplate(tpl);
+      setApprovals(tpl.approvals || null);
+      setApprovalMeta(tpl.approvalMeta || null);
+
+      // Extract approvers from approvals
+      const approvalsObj = tpl.approvals || (tpl.status_meta && tpl.status_meta.approvals) || {};
+      const approversArr = [];
+      
+      if (approvalsObj.dean && approvalsObj.dean.assigned_to) {
+        approversArr.push({
+          _id: approvalsObj.dean.assigned_to,
+          id: approvalsObj.dean.assigned_to,
+          name: approvalsObj.dean.assigned_to_name || 'Dean',
+          firstname: approvalsObj.dean.assigned_to_firstname,
+          lastname: approvalsObj.dean.assigned_to_lastname,
+          role: { name: 'Dean' },
+          ...approvalsObj.dean
+        });
+      }
+      
+      if (approvalsObj.secretary && approvalsObj.secretary.assigned_to) {
+        approversArr.push({
+          _id: approvalsObj.secretary.assigned_to,
+          id: approvalsObj.secretary.assigned_to,
+          name: approvalsObj.secretary.assigned_to_name || 'Secretary',
+          firstname: approvalsObj.secretary.assigned_to_firstname,
+          lastname: approvalsObj.secretary.assigned_to_lastname,
+          role: { name: 'Secretary' },
+          ...approvalsObj.secretary
+        });
+      }
+      
+      setApprovers(approversArr);
+
+      // Set content
+      let html = null;
+      if (tpl.body !== undefined && tpl.body !== null) {
+        html = tpl.body;
+      } else if (tpl.content !== undefined) {
+        html = tpl.content;
+      }
+      
+      if (html) {
+        html = html.replace(/<header[^>]*>\s*((Full Name|Student ID|University|School)[^<]*)+<\/header>/gi, '');
+        html = html.replace(/<footer[^>]*>\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*<\/footer>/g, '');
+        html = html.replace(/<footer[^>]*>\s*Page \d+\s*<\/footer>/gi, '');
+        html = html.replace(/<footer[^>]*>\s*\d+\/\d+\s*<\/footer>/g, '');
+        setTemplateContent(html);
+      }
+      
+      if (tpl.pageSetup) setPageSetup(tpl.pageSetup);
+      if (tpl.fontSettings) setFontSettings(tpl.fontSettings);
+      if (tpl.headerFooter) setHeaderFooter(tpl.headerFooter);
+      if (tpl.dateFormat) setDateFormat(tpl.dateFormat);
+      if (Array.isArray(tpl.fields)) setEditableFields(tpl.fields);
+      
+    } catch (e) {
+      console.error(e);
+      setError("Failed to load template.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Load existing template if navigated with an id
   useEffect(() => {
     const id = templateIdFromQuery || null;
     if (!id) return;
     setTemplateId(id);
-
-    let cancelled = false;
-    (async () => {
-      try {
-        setLoading(true);
-        const res = await getTemplateByIdAPI(id);
-        if (!res || cancelled) return;
-        const tpl = res?.template || {};
-  if (tpl.title) setTemplateTitle(tpl.title);
-  // Set notes from API response (tpl.notes)
-  if (Array.isArray(tpl.notes)) setNotes(tpl.notes);
-        console.log("Fetched template data:", res);
-        // Set status from API, fallback to draft
-        setStatus(tpl.status || "draft");
-
-        // Extract approvers from approvals (prefer tpl.approvals, fallback to tpl.status_meta.approvals)
-        const approvalsObj = tpl.approvals || (tpl.status_meta && tpl.status_meta.approvals) || {};
-        const approversArr = [];
-        if (approvalsObj.dean && approvalsObj.dean.assigned_to) {
-          approversArr.push({
-            id: approvalsObj.dean.assigned_to,
-            name: approvalsObj.dean.assigned_to_name || 'Dean',
-            role: 'Dean',
-            ...approvalsObj.dean
-          });
-        }
-        if (approvalsObj.secretary && approvalsObj.secretary.assigned_to) {
-          approversArr.push({
-            id: approvalsObj.secretary.assigned_to,
-            name: approvalsObj.secretary.assigned_to_name || 'Secretary',
-            role: 'Secretary',
-            ...approvalsObj.secretary
-          });
-        }
-        setApprovers(approversArr);
-
-        // Prefer body (HTML) if present, else fallback to content
-        let html = null;
-        if (tpl.body !== undefined && tpl.body !== null) {
-          html = tpl.body;
-        } else if (tpl.content !== undefined) {
-          html = tpl.content;
-        }
-        // Remove unwanted header/footer fields from HTML before rendering
-        if (html) {
-          // Remove <header> elements containing any of the header fields (Full Name, Student ID, University, School)
-          html = html.replace(/<header[^>]*>\s*((Full Name|Student ID|University|School)[^<]*)+<\/header>/gi, '');
-          // Remove <footer> with only date or page number
-          html = html.replace(/<footer[^>]*>\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*<\/footer>/g, '');
-          html = html.replace(/<footer[^>]*>\s*Page \d+\s*<\/footer>/gi, '');
-          html = html.replace(/<footer[^>]*>\s*\d+\/\d+\s*<\/footer>/g, '');
-          setTemplateContent(html);
-        }
-        if (tpl.pageSetup) setPageSetup(tpl.pageSetup);
-        if (tpl.fontSettings) setFontSettings(tpl.fontSettings);
-        if (tpl.headerFooter) setHeaderFooter(tpl.headerFooter);
-        if (tpl.dateFormat) setDateFormat(tpl.dateFormat);
-        if (Array.isArray(tpl.fields)) setEditableFields(tpl.fields); 
-      } catch (e) {
-        console.error(e);
-        setError("Failed to load template.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
+    loadTemplate(id);
   }, [templateIdFromQuery]);
-
-  // Optional approvers fetch
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetchApproversAPI();
-        if (!cancelled && Array.isArray(res)) setApprovers(res);
-        console.log(res);
-      } catch {}
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   const handleEditorReady = (editor) => {
     editorRef.current = editor;
     setEditorInstance(editor);
   };
 
-
-
-  // ---  HTML to JSON fallback for pages_json ---
   const htmlToBasicJSON = (html) => {
     if (!html) return { type: 'doc', content: [{ type: 'paragraph' }] };
     const parts = html.split(/<\/p>/i)
@@ -205,7 +206,6 @@ export default function DocumentControllerCreateTemplate() {
         : [{ type: 'paragraph' }]
     };
   };
-
   // Save handler matching backend expectations
   const handleSave = async () => {
     try {
@@ -263,7 +263,7 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
-  // Autosave: save after changes with debounce
+  // Autosave
   useEffect(() => {
     if (!templateId && !templateTitle && !templateContent) return;
     // Mark dirty if content or title changed
@@ -274,7 +274,6 @@ export default function DocumentControllerCreateTemplate() {
       handleSave();
     }, 2000); // 2s debounce
     return () => clearTimeout(timeout);
-    // eslint-disable-next-line
   }, [templateContent, templateTitle]);
 
   // Save on unmount/navigation if dirty
@@ -288,19 +287,82 @@ export default function DocumentControllerCreateTemplate() {
     };
     window.addEventListener('beforeunload', beforeUnload);
     return () => window.removeEventListener('beforeunload', beforeUnload);
-    // eslint-disable-next-line
   }, [dirty]);
 
+  // approval and publish handlers that refresh state
   const handleApprove = async () => {
     if (!templateId) return;
-    try { await approveTemplateAPI(templateId); }
-    catch (e) { console.error(e); setError("Failed to approve template."); }
+    try {
+      await approveTemplateAPI(templateId);
+      // Reload template to get updated state
+      await loadTemplate(templateId);
+    } catch (e) {
+      console.error(e);
+      setError("Failed to approve template.");
+    }
   };
 
   const handlePublish = async () => {
     if (!templateId) return;
-    try { await publishTemplateAPI(templateId); }
-    catch (e) { console.error(e); setError("Failed to publish template."); }
+    try {
+      await publishTemplateAPI(templateId);
+      // Update status immediately
+      setStatus("published");
+      // Reload template to get updated state
+      await loadTemplate(templateId);
+    } catch (e) {
+      console.error(e);
+      setError("Failed to publish template.");
+    }
+  };
+
+  // handle submission from modal
+  const handleSubmitForApproval = async (approverIds, instructions) => {
+    if (!templateId) return;
+    
+    try {
+      // submitTemplateAPI expects (templateId, deanId, secretaryId)
+      const deanId = approverIds.find(id => {
+        // Find dean ID from approvers list
+        return approvers.some(a => a.id === id && a.role?.name === 'Dean');
+      });
+      const secretaryId = approverIds.find(id => {
+        // Find secretary ID from approvers list  
+        return approvers.some(a => a.id === id && a.role?.name === 'Secretary');
+      });
+      
+      await submitTemplateAPI(templateId, deanId, secretaryId);
+      
+      // Update status immediately
+      setStatus("pending");
+      
+      // Reload template to get updated approval data
+      await loadTemplate(templateId);
+      
+    } catch (e) {
+      console.error("Failed to submit for approval:", e);
+      setError("Failed to submit for approval.");
+    }
+  };
+
+  // handle status updates from modal
+  const handleStatusUpdate = (newStatus) => {
+    setStatus(newStatus);
+  };
+
+  // handle approval updates from modal
+  const handleApprovalsUpdate = (updatedApprovals, updatedApprovers) => {
+    if (updatedApprovals) {
+      setApprovals(updatedApprovals);
+    }
+    if (updatedApprovers) {
+      setApprovers(updatedApprovers);
+    }
+    
+    // reload template to ensure we have the latest data
+    if (templateId) {
+      loadTemplate(templateId);
+    }
   };
 
   const renderPanel = () => {
@@ -339,7 +401,7 @@ export default function DocumentControllerCreateTemplate() {
             onChange={setHeaderFooter}
           />
         );
-      case "fields": // ⬅ NEW
+      case "fields":
         return (
           <FieldsPanel
             editor={editorInstance}
@@ -354,19 +416,29 @@ export default function DocumentControllerCreateTemplate() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
-      {/* App main header (sticky, global navigation) */}
-      <Header
+      <Header2
         title={templateTitle}
         setTitle={setTemplateTitle}
         user={user}
+        onSubmitForApproval={handleSubmitForApproval}
         onApprove={handleApprove}
         onPublish={handlePublish}
         saving={saving}
-        approvers={approvers}
+        lastSavedAt={lastSavedAt}
+        dirty={dirty}
         templateStatus={status}
+        approvals={approvals}
+        approvalMeta={approvalMeta}
+        approvers={approvers}
+        loadingApprovers={loading}
         reviewNotes={notes}
+        assignedIds={[]}
         templateId={templateId || ""}
+        onStatusUpdate={handleStatusUpdate}     
+        onApprovalsUpdate={handleApprovalsUpdate}
+        template={template}
       />
+      
       <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
         <div className="flex gap-4">
           <TemplateSidebar
@@ -378,11 +450,16 @@ export default function DocumentControllerCreateTemplate() {
             {renderPanel()}
           </TemplateSidebar>
 
-          {/* Editor area */}
           <main className="min-h-[60vh] flex-1">
             {error && (
               <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {error}
+                <button 
+                  onClick={() => setError("")}
+                  className="ml-2 text-red-500 hover:text-red-700"
+                >
+                  ×
+                </button>
               </div>
             )}
 
