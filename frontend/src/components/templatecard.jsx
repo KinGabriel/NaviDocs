@@ -1,7 +1,12 @@
 import { useState } from 'react';
+import AssignMembersModal from "./modals/AssignMembersModal";
+import DuplicateTemplateModal from "./modals/DuplicateTemplateModal";
 
 export default function TemplateCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete }) {
   const [showMenu, setShowMenu] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
 
   // Helper function to get template status
   const getTemplateStatus = (template) => {
@@ -252,7 +257,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
                   
                   <button
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    onClick={(e) => handleMenuAction('duplicate', e)}
+                     onClick={() => setDuplicateOpen(true)}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -274,7 +279,36 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
             )}
           </div>
         </div>
+       {/* Card Body */}
+        <p className="text-gray-600 text-sm line-clamp-3">
+          {template.description || "No description provided."}
+        </p>
       </div>
+
+      {/* 🔹 Assign Modal */}
+      <AssignMembersModal
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        template={template}
+        selectedIds={selectedIds}
+        setSelectedIds={setSelectedIds}
+        setTheDocController={(id) => console.log("Set controller:", id)}
+        onAssign={(data) => {
+          console.log("Assigned:", data);
+          setAssignOpen(false);
+        }}
+      />
+      <DuplicateTemplateModal
+        open={duplicateOpen}
+        onClose={() => setDuplicateOpen(false)}
+        template={template}
+        onDuplicate={(newTemplate) => {
+        console.log("Duplicated:", newTemplate);
+        setDuplicateOpen(false);
+        // TODO: Call API here to create the duplicate
+        
+        }}
+     />
     </div>
   );
 }
