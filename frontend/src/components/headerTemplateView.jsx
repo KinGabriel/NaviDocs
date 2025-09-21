@@ -12,7 +12,16 @@ const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
 
-export default function HeaderTemplateView({ template, user, handleAssign, onUpdateDeadline, onAddInstructions }) {
+export default function HeaderTemplateView({ 
+  template, 
+  user, 
+  handleAssign, 
+  onUpdateDeadline, 
+  onAddInstructions,
+  handleApprove,
+  handleReject,
+  handleReturn 
+}) {
   const navigate = useNavigate();
   const roleValue = user?.role?.name || user?.role;
   const t = template || {};
@@ -23,7 +32,6 @@ export default function HeaderTemplateView({ template, user, handleAssign, onUpd
 
   // Approval Modal handlers
   const handleApproveClick = () => setIsApprovalModalOpen(true);
-
   // Import your API functions at the top of the file:
   // import { approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI } from "../api/documentControllerAPI";
   // Optionally, import a toast/notification system for user feedback
@@ -31,45 +39,57 @@ export default function HeaderTemplateView({ template, user, handleAssign, onUpd
 
   const handleModalApprove = async (templateData, message) => {
     try {
-      await approveTemplateAPI(templateData._id, { note: message });
-      // toast.success("Template approved successfully");
-      console.log("Approved template:", templateData, message);
+      // call parent handler which will update state and refresh data
+      if (handleApprove) {
+        await handleApprove(templateData, message);
+      } else {
+        // fallback to direct API call if no parent handler
+        // toast.success("Template approved successfully");
+        await approveTemplateAPI(templateData._id, { note: message });
+      }
+      // close modal only after successful operation
+      setIsApprovalModalOpen(false);
     } catch (error) {
       // toast.error("Failed to approve template");
       console.error("Error approving template:", error);
-    } finally {
-      setIsApprovalModalOpen(false);
     }
   };
 
   const handleModalReject = async (templateData, message) => {
     try {
-      await rejectTemplateAPI(templateData._id, message);
-      // toast.success("Template rejected successfully");
-      console.log("Rejected template:", templateData, message);
+      // call parent handler which will update state and refresh data
+      if (handleReject) {
+        await handleReject(templateData, message);
+      } else {
+        // toast.success("Template rejected successfully");
+        // fallback to direct API call if no parent handler
+        await rejectTemplateAPI(templateData._id, message);
+      }
+      // close modal only after successful operation
+      setIsApprovalModalOpen(false);
     } catch (error) {
       // toast.error("Failed to reject template");
       console.error("Error rejecting template:", error);
-    } finally {
-      setIsApprovalModalOpen(false);
     }
   };
 
   const handleModalReturn = async (templateData, message) => {
     try {
-      await returnTemplateAPI(templateData._id, message);
-      // toast.success("Template returned successfully");
-      console.log("Returned template:", templateData, message);
+      // call parent handler which will update state and refresh data
+      if (handleReturn) {
+        await handleReturn(templateData, message);
+      } else {
+        // fallback to direct API call if no parent handler
+        await returnTemplateAPI(templateData._id, message);
+      }
+      // close modal only after successful operation
+     // toast.success("Template returned successfully");
+      setIsApprovalModalOpen(false);
     } catch (error) {
       // toast.error("Failed to return template");
       console.error("Error returning template:", error);
-    } finally {
-      setIsApprovalModalOpen(false);
     }
   };
-
-
-
 
   return (
     <>
@@ -117,7 +137,7 @@ export default function HeaderTemplateView({ template, user, handleAssign, onUpd
                 className="inline-flex drop-shadow-md items-center gap-2 px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 transition"
               >
                 <CheckCircle2 className="h-4 w-4" />
-                <span className="text-sm font-semibold">Approve Template</span>
+                <span className="text-sm font-semibold">Manage Template</span>
               </button>
             )}
 
