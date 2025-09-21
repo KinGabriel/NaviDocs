@@ -30,7 +30,8 @@ export default function SubmitApprovalModal({
   const [instructions, setInstructions] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [localApprovers, setLocalApprovers] = useState(approversProp); 
+  const [localApprovers, setLocalApprovers] = useState(approversProp);
+  const [error, setError] = useState(false);
 
    // In draft mode, selected approvers are the selected secretary and dean (if any)
   const selectedApprovers = [
@@ -43,6 +44,7 @@ export default function SubmitApprovalModal({
       setInstructions("");
       setSelectedSecretary("");
       setSelectedDean("");
+      setError(false);
       fetchSchoolStaffAPI().then(({ secretaries = [], deans = [] }) => {
         setSecretaries(secretaries);
         setDeans(deans);
@@ -53,7 +55,7 @@ export default function SubmitApprovalModal({
     setIsSubmitting(false);
   }, [isOpen, status]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (approversProp?.length > 0) {
       setLocalApprovers(approversProp);
     }
@@ -72,9 +74,24 @@ export default function SubmitApprovalModal({
     return false;
   };
 
+  // clear error when user starts typing
+  const handleInstructionsChange = (e) => {
+    setInstructions(e.target.value);
+    if (error && e.target.value.trim()) {
+      setError(false); // Clear error when user starts typing valid content
+    }
+  };
+
   const handleSubmit = async () => {
+    // Validate required field first
+    if (!instructions.trim()) {
+      setError(true);
+      return; // Stop submission
+    }
+
     setIsSubmitting(true);
     setSubmitSuccess(false);
+    setError(false);
 
     try {
       if (!templateId) return;
@@ -109,15 +126,20 @@ export default function SubmitApprovalModal({
       if (status === "assigned") {
         await submitTemplateAPI(templateId, selectedDean, selectedSecretary);
 
+        const updatedApprovers = [
+          secretaries.find(s => s.id === selectedSecretary),
+          deans.find(d => d.id === selectedDean)
+        ].filter(Boolean);
+
         setLocalApprovers(updatedApprovers);
 
         if (typeof onSubmit === "function") {
           const allIds = [...secretaries, ...deans].map(s => s.id);
-          await onSubmit(allIds, instructionsFromAssignee || "");
+          await onSubmit(allIds, instructions);
         }
 
         if (onSubmitSuccess) {
-          onSubmitSuccess("pending", instructionsFromAssignee || "", localApprovers);
+          onSubmitSuccess("pending", instructions, localApprovers);
         }
 
         setSubmitSuccess(true);
@@ -214,7 +236,7 @@ export default function SubmitApprovalModal({
     const approverId = approver._id || approver.id;
     const roleName = (approver?.role?.name || approver?.role || '').toLowerCase();
     
-    // Check template's status_meta first (most likely source)
+    // Check template's status_meta first
     if (template?.status_meta?.approvals) {
       const statusApprovals = template.status_meta.approvals;
       
@@ -233,7 +255,7 @@ export default function SubmitApprovalModal({
       if (approvals[approverId]?.approved_at || approvals[approverId]?.isApproved) return 'approved';
     }
     
-    // Check approvalMeta (legacy)
+    // Check approvalMeta
     if (approvalMeta) {
       if (roleName === 'dean' && approvalMeta.deanApproved) return 'approved';
       if (roleName === 'secretary' && approvalMeta.secretaryApproved) return 'approved';
@@ -265,6 +287,7 @@ export default function SubmitApprovalModal({
     return null;
   };
 
+  
   return (
     <div className="fixed inset-0 flex items-center justify-center g-opacity-50 backdrop-blur-[2px] z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
@@ -395,20 +418,52 @@ export default function SubmitApprovalModal({
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-5 w-5 text-slate-500" />
-                  <h3 className="text-base font-medium text-slate-900">
-                    Add Instructions
-                    <span className="text-sm font-normal text-slate-500 ml-2">(Optional)</span>
-                  </h3>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-5 w-5 text-slate-500" />
+                    <h3 className="text-base font-medium text-slate-900">
+                      Instructions for Approvers <span className="text-red-500">*</span>
+                    </h3>
+                  </div>
                 </div>
-                <textarea
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow"
-                  rows={3}
-                  placeholder="Add notes or specific instructions for the approvers..."
-                />
+
+                <div className="relative">
+                  <textarea
+                    value={instructions}
+                    onChange={(e) => {
+                      if (e.target.value.length <= 300) {
+                        handleInstructionsChange(e);
+                      }
+                    }}
+                    className={`w-full border rounded-lg p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all duration-200 pr-14 ${
+                      error
+                        ? "border-red-300 bg-red-50 focus:ring-red-500"
+                        : "border-slate-200"
+                    }`}
+                    rows={4}
+                    placeholder="Add notes or specific instructions for the approvers..."
+                  />
+                  {/* Character Counter */}
+                  <span
+                    className={`absolute bottom-2 right-3 text-xs ${
+                      instructions.length > 300 ? "text-red-500" : "text-slate-400"
+                    }`}
+                  >
+                    {instructions.length} / 300
+                  </span>
+                </div>
+
+                {error && (
+                  <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">
+                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Instructions are required</p>
+                      <p className="text-red-500 mt-1">
+                        Please provide clear instructions to help approvers understand what needs to be reviewed.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -456,6 +511,32 @@ export default function SubmitApprovalModal({
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Add instructions field*/}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-5 w-5 text-slate-500" />
+                  <h3 className="text-base font-medium text-slate-900">
+                    Add Instructions
+                     <span className="text-red-500">*</span>
+                  </h3>
+                </div>
+                <textarea
+                  value={instructions}
+                  onChange={handleInstructionsChange}
+                  className={`w-full border rounded-lg p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow ${
+                    error ? 'border-red-300 bg-red-50' : 'border-slate-200'
+                  }`}
+                  rows={3}
+                  placeholder="Add notes or specific instructions for the approvers..."
+                />
+                {error && (
+                  <div className="flex items-center gap-2 text-sm text-red-600">
+                    <AlertCircle className="h-4 w-4" />
+                    Instructions are required before submitting.
+                  </div>
+                )}
               </div>
             </div>
           )}
