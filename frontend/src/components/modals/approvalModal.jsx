@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { CheckCircle2, X, AlertTriangle, User, Clock, Tag, FileText, Undo2 } from "lucide-react";
 import { formatDate } from "../../utils/formatters.jsx";
@@ -10,34 +9,66 @@ export default function ApprovalModal({
   user,
   onApprove,
   onReject,
+  onReturn, 
 }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   if (!isOpen || !template) return null;
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
+    if (loading) return;
     setError("");
-    onApprove(template, message);
-    onClose();
+    setLoading(true);
+    
+    try {
+      await onApprove(template, message);
+      onClose();
+    } catch (err) {
+      setError("Failed to approve template.");
+      console.error("Error approving template:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
+    if (loading) return;
     if (!message.trim()) {
       setError("Please provide a reason for rejection.");
       return;
     }
-    onReject(template, message);
-    onClose();
+    setLoading(true);
+    
+    try {
+      await onReject(template, message);
+      onClose();
+    } catch (err) {
+      setError("Failed to reject template.");
+      console.error("Error rejecting template:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleReturn = () => {
+  const handleReturn = async () => {
+    if (loading) return;
     if (!message.trim()) {
       setError("Please provide a reason for returning the template.");
       return;
     }
-    onReturn(template, message);
-    onClose();
+    setLoading(true);
+    
+    try {
+      await onReturn(template, message);
+      onClose();
+    } catch (err) {
+      setError("Failed to return template.");
+      console.error("Error returning template:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,6 +82,7 @@ export default function ApprovalModal({
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            disabled={loading}
           >
             <X className="h-5 w-5 text-gray-500" />
           </button>
@@ -62,6 +94,14 @@ export default function ApprovalModal({
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
               <span className="text-red-700 text-sm">{error}</span>
+            </div>
+          )}
+
+          {/* Loading Indicator */}
+          {loading && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+              <span className="text-blue-700 text-sm">Processing...</span>
             </div>
           )}
 
@@ -108,6 +148,8 @@ export default function ApprovalModal({
                       if (template.status === "pending") return "Pending Approval";
                       if (template.status === "assigned") return "OnGoing";
                       if (template.status === "published") return "Published";
+                      if (template.status === "rejected") return "Rejected";
+                      if (template.status === "returned") return "Returned";
                       return "-";
                     })()}
                   </p>
@@ -130,43 +172,46 @@ export default function ApprovalModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows="3"
               placeholder="Add comments or notes..."
+              disabled={loading}
             />
           </div>
 
-     {/* Action Buttons */}
-        <div className="flex flex-wrap gap-3 justify-center">
-        <button
-            onClick={handleApprove}
-            className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-green-600 text-white hover:bg-green-700 hover:shadow-md font-medium transition-all min-w-[120px]"
-        >
-            <CheckCircle2 className="h-4 w-4" />
-            Approve
-        </button>
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button
+              onClick={handleApprove}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-green-600 text-white hover:bg-green-700 hover:shadow-md font-medium transition-all min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {loading ? "Processing..." : "Approve"}
+            </button>
 
-        <button
-            onClick={handleReject}
-            className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-red-600 text-white hover:bg-red-700 hover:shadow-md font-medium transition-all min-w-[120px]"
-        >
-            <X className="h-4 w-4" />
-            Reject
-        </button>
+            <button
+              onClick={handleReject}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-red-600 text-white hover:bg-red-700 hover:shadow-md font-medium transition-all min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <X className="h-4 w-4" />
+              {loading ? "Processing..." : "Reject"}
+            </button>
 
-        <button
-            onClick={handleReturn} 
-            className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-amber-600 text-white hover:bg-amber-700 hover:shadow-md font-medium transition-all min-w-[120px]"
-        >
-            <Undo2 className="h-4 w-4" />
-            Return
-        </button>
-
-
-        </div>
+            <button
+              onClick={handleReturn} 
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-amber-600 text-white hover:bg-amber-700 hover:shadow-md font-medium transition-all min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Undo2 className="h-4 w-4" />
+              {loading ? "Processing..." : "Return"}
+            </button>
+          </div>
 
           {/* Cancel */}
           <div className="flex justify-end pt-4 border-t border-gray-200">
             <button
               onClick={onClose}
-              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+              disabled={loading}
+              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
