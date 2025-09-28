@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle2, X, AlertTriangle, User, Clock, Tag, FileText, Undo2 } from "lucide-react";
 import { formatDate } from "../../utils/formatters.jsx";
 
@@ -9,11 +9,20 @@ export default function ApprovalModal({
   user,
   onApprove,
   onReject,
-  onReturn, 
+  onReturn,
 }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // clear local state whenever modal opens/closes or template changes
+  useEffect(() => {
+    if (isOpen) {
+      setMessage("");
+      setError("");
+      setLoading(false);
+    }
+  }, [isOpen, template?. _id]);
 
   if (!isOpen || !template) return null;
 
@@ -21,7 +30,6 @@ export default function ApprovalModal({
     if (loading) return;
     setError("");
     setLoading(true);
-    
     try {
       await onApprove(template, message);
       onClose();
@@ -39,8 +47,8 @@ export default function ApprovalModal({
       setError("Please provide a reason for rejection.");
       return;
     }
+    setError("");
     setLoading(true);
-    
     try {
       await onReject(template, message);
       onClose();
@@ -58,8 +66,8 @@ export default function ApprovalModal({
       setError("Please provide a reason for returning the template.");
       return;
     }
+    setError("");
     setLoading(true);
-    
     try {
       await onReturn(template, message);
       onClose();
@@ -76,14 +84,8 @@ export default function ApprovalModal({
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Template Approvals
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            disabled={loading}
-          >
+          <h2 className="text-xl font-semibold text-gray-900">Template Approvals</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" disabled={loading}>
             <X className="h-5 w-5 text-gray-500" />
           </button>
         </div>
@@ -132,9 +134,7 @@ export default function ApprovalModal({
                 <Clock className="h-5 w-5 text-gray-500" />
                 <div>
                   <p className="text-sm text-gray-700">Deadline</p>
-                  <p className="font-medium text-gray-900">
-                    {template.deadline ? formatDate(template.deadline) : "No deadline set"}
-                  </p>
+                  <p className="font-medium text-gray-900">{template.deadline ? formatDate(template.deadline) : "No deadline set"}</p>
                 </div>
               </div>
 
@@ -160,9 +160,7 @@ export default function ApprovalModal({
 
           {/* Instructions */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Instructions (Optional)
-            </label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Instructions (Optional)</label>
             <textarea
               value={message}
               onChange={(e) => {
@@ -197,7 +195,7 @@ export default function ApprovalModal({
             </button>
 
             <button
-              onClick={handleReturn} 
+              onClick={handleReturn}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-amber-600 text-white hover:bg-amber-700 hover:shadow-md font-medium transition-all min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
             >
