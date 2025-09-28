@@ -261,7 +261,7 @@ export const assignControllersToTemplateAPI = async (templateId, controllers) =>
  * @returns {Promise<{success:boolean,message:string,template:Object,approvalMeta:Object}>}
  */
 export const publishTemplateAPI = async (templateId) => {
-  const res = await axios.post(`${API_URL}/api/templates/${templateId}/publish`, {}, { withCredentials: true });
+  const res = await axios.patch(`${API_URL}/api/templates/${templateId}/publish`, {}, { withCredentials: true });
   return res.data;
 };
 /**

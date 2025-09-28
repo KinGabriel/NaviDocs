@@ -32,13 +32,16 @@ export default function Header2({
   onApprovalsUpdate,
   template = null}) {
 
+  // Local state for publish button loading
+  const [publishing, setPublishing] = useState(false);
+
   const navigate = useNavigate();
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   
   // Determine button presentation based on status
   const statusConfig = () => {
-  // Determine full approval independently of status field
-  const fullyApproved = (approvalMeta && approvalMeta.isFullyApproved) || (approvals && approvals.dean?.approved_at && approvals.secretary?.approved_at);
+    // Determine full approval independently of status field
+    const fullyApproved = (approvalMeta && approvalMeta.isFullyApproved) || (approvals && approvals.dean?.approved_at && approvals.secretary?.approved_at);
     switch (templateStatus) {
       case 'draft':
       case 'assigned':
@@ -102,11 +105,22 @@ export default function Header2({
       case 'approved': {
         const canPublish = approvalMeta ? approvalMeta.canPublish : true; // status already 'approved'
         return {
-          label: 'Publish',
-          disabled: saving || !canPublish,
-          onClick: canPublish ? onPublish : undefined,
-          className: canPublish ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-400 text-white cursor-not-allowed',
-          icon: (
+          label: publishing ? 'Publishing...' : 'Publish',
+          disabled: saving || !canPublish || publishing,
+          onClick: canPublish && !saving && !publishing ? async () => {
+            setPublishing(true);
+            try {
+              await onPublish();
+            } finally {
+              setPublishing(false);
+            }
+          } : undefined,
+          className: canPublish && !saving && !publishing
+            ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+            : 'bg-gray-400 text-white cursor-not-allowed',
+          icon: publishing ? (
+            <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" strokeWidth="4" className="opacity-25"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M4 12a8 8 0 018-8" className="opacity-75"/></svg>
+          ) : (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
           )
         };
@@ -142,7 +156,7 @@ export default function Header2({
   return (
     <div>
       <div className="h-4 bg-[#063c8d] w-full" /> 
-      <div className="flex items-center justify-between bg-[#f3f3f3] px-8 py-3 border-b border-gray-200">
+  <div className="flex items-center justify-between bg-[#f3f3f3] px-8 py-3 border-b border-gray-200">
         <div className="flex items-center gap-8">
           {/* Logo */}
           <img src={naviLogo} alt="Logo" className="w-15 h-10" onClick={() => navigate('/document-controller/templates')} />
@@ -196,7 +210,7 @@ export default function Header2({
           {/* status/action btn with hoverable detail */}
           <div className="relative group">
            <button 
-            disabled={!(templateStatus === 'draft' || templateStatus === 'assigned' || templateStatus === 'pending')}
+            disabled={action.disabled}
             onClick={action.onClick}
             className={`${action.className} rounded px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-70`}
           >

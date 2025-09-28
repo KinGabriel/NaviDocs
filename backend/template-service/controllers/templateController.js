@@ -868,6 +868,7 @@ export const returnTemplate = async (req, res) => {
 export const publishTemplate = async (req, res) => {
   try {
     const template = await Template.findById(req.params.id);
+    console.log("Publishing template:", template?._id);
     if (!template) return res.status(404).json({ success:false, message:'Template not found' });
     // Allow publishing if status is approved or pending but both approvals exist
     if (template.status !== 'approved') {
