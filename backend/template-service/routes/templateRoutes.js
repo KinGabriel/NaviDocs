@@ -1,30 +1,42 @@
 import express from "express";
-import { dashboardInfo, 
-        createTemplate, 
-        getTemplates, 
-        getTemplateById, 
-        updateTemplate, 
+import { authenticateJWT } from "../middleware/authenticationMiddleware.js";
+import {
+        createTemplate,
+        updateTemplate,
         deleteTemplate,
+        getTemplateById,
+        getTemplates,
+        getTemplatesByUser,
+        getPublishedTemplates
+} from "../controllers/templateFunctionalitiesController.js";
+
+import {
+        dashboardInfo,
+        getTemplateStats
+} from "../controllers/templateDataController.js";
+
+import {
+        assignUsersToCreateTemplate,
+        assignControllersToTemplate,
+        adjustTemplateDeadline,
         addTemplateNote,
-        adjustTemplateDeadline, 
         approveTemplate,
+        rejectTemplate,
         submitTemplate,
         returnTemplate,
-        rejectTemplate, 
-        publishTemplate,
-        assignUsersToCreateTemplate,
-        assignControllersToTemplate } from "../controllers/templateController.js";
-import { authenticateJWT } from "../middleware/authenticationMiddleware.js"; 
+        publishTemplate
+} from "../controllers/templateWorkflowController.js";
 
 const router = express.Router();
 
-
 router.post("/assign-controllers", authenticateJWT, assignControllersToTemplate);
 router.post("/create-template", authenticateJWT, createTemplate);
-
 router.get("/", authenticateJWT, getTemplates);
 router.post("/assign", authenticateJWT, assignUsersToCreateTemplate);
 router.get("/dashboard-info", authenticateJWT, dashboardInfo);
+router.get("/stats", authenticateJWT, getTemplateStats);
+router.get("/published", authenticateJWT, getPublishedTemplates);
+router.get("/user/:userId", authenticateJWT, getTemplatesByUser);
 router.get("/:id", authenticateJWT, getTemplateById);
 router.put("/:id", authenticateJWT, updateTemplate);
 router.patch("/:id/approve", authenticateJWT, approveTemplate);
@@ -35,6 +47,5 @@ router.patch("/:id/reject", authenticateJWT, rejectTemplate);
 router.patch("/:id/add-note", authenticateJWT, addTemplateNote);
 router.patch("/:id/adjust-deadline", authenticateJWT, adjustTemplateDeadline);
 router.delete("/:id", authenticateJWT, deleteTemplate);
-
 
 export default router;
