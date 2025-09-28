@@ -326,7 +326,7 @@ export const unsubmitTemplate = async (req, res) => {
     if (template.status !== 'pending') {
       return res.status(400).json({ success:false, message:'Only pending templates can be unsubmitted' });
     }
-    template.status = 'assigned';
+    template.status = 'returned';
     await template.save();
     return res.status(200).json({ success:true, message:'Template unsubmitted', template: template.toObject() });
   } catch (err) {
