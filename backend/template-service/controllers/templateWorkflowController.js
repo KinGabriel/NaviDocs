@@ -314,6 +314,28 @@ export const submitTemplate = async (req, res) => {
 };
 
 /**
+ * @desc Unsubmit template back to draft
+ * @route PATCH /api/templates/:id/unsubmit
+ */
+
+export const unsubmitTemplate = async (req, res) => {
+    try {
+    const template = await Template.findById(req.params.id);
+    console.log("Unsubmitting template:", template?._id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    if (template.status !== 'pending') {
+      return res.status(400).json({ success:false, message:'Only pending templates can be unsubmitted' });
+    }
+    template.status = 'draft';
+    await template.save();
+    return res.status(200).json({ success:true, message:'Template unsubmitted to draft', template: template.toObject() });
+  } catch (err) {
+    console.error('Unsubmit error', err);
+    return res.status(500).json({ success:false, message:'Failed to unsubmit template' });
+  } 
+};
+
+/**
  * @desc return the template
  * @route PATCH /api/templates/:id/return
  * 
@@ -382,3 +404,25 @@ export const publishTemplate = async (req, res) => {
     return res.status(500).json({ success:false, message:'Failed to publish template' });
   }
 };
+
+
+/**
+ * Unpublish a template
+ * @route PATCH /api/templates/:id/unpublish
+ */
+export const unpublishTemplate = async (req, res) => {
+    try {
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    if (template.status !== 'published') {
+      return res.status(400).json({ success:false, message:'Only published templates can be unpublished' });
+    }
+    template.status = 'approved';
+    await template.save();
+    return res.status(200).json({ success:true, message:'Template unpublished', template: template.toObject() });
+  } catch (err) {
+    console.error('Unpublish error', err);
+    return res.status(500).json({ success:false, message:'Failed to unpublish template' });
+  }
+};
+

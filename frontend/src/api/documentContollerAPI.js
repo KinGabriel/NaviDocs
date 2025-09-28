@@ -265,6 +265,25 @@ export const publishTemplateAPI = async (templateId) => {
   return res.data;
 };
 /**
+ * Unpublish a template (set status from published to approved)
+ * @param {string} templateId - Template id.
+ * @returns {Promise<{success:boolean,message:string,template:Object}>}
+ */
+export const unpublishTemplateAPI = async (templateId) => {
+  const res = await axios.patch(`${API_URL}/api/templates/${templateId}/unpublish`, {}, { withCredentials: true });
+  return res.data;
+};
+
+/**
+ * Unsubmit a template (set status from pending to draft)
+ * @param {string} templateId - Template id.
+ * @returns {Promise<{success:boolean,message:string,template:Object}>}
+ */
+export const unsubmitTemplateAPI = async (templateId) => {
+  const res = await axios.patch(`${API_URL}/api/templates/${templateId}/unsubmit`, {}, { withCredentials: true });
+  return res.data;
+};
+/**
  * Fetch approvers (Secretary & Dean) for a given school (used for displaying who can approve).
  * @param {string} [school] - School name or code (optional; if omitted backend may infer or return global list).
  * @returns {Promise<{success?:boolean,approvers?:Array}>}

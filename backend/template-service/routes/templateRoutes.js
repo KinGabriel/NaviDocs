@@ -23,8 +23,10 @@ import {
         approveTemplate,
         rejectTemplate,
         submitTemplate,
+        unsubmitTemplate,
         returnTemplate,
-        publishTemplate
+        publishTemplate,
+        unpublishTemplate
 } from "../controllers/templateWorkflowController.js";
 
 const router = express.Router();
@@ -41,7 +43,9 @@ router.get("/:id", authenticateJWT, getTemplateById);
 router.put("/:id", authenticateJWT, updateTemplate);
 router.patch("/:id/approve", authenticateJWT, approveTemplate);
 router.patch("/:id/publish", authenticateJWT, publishTemplate);
+router.patch("/:id/unpublish", authenticateJWT, unpublishTemplate);
 router.patch("/:id/submit", authenticateJWT, submitTemplate);
+router.patch("/:id/unsubmit", authenticateJWT, unsubmitTemplate);
 router.patch("/:id/return", authenticateJWT, returnTemplate);
 router.patch("/:id/reject", authenticateJWT, rejectTemplate);
 router.patch("/:id/add-note", authenticateJWT, addTemplateNote);
