@@ -32,6 +32,9 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'approved': return 'bg-green-100 text-green-800';
       case 'published': return 'bg-blue-100 text-blue-800';
+      case 'returned': return 'bg-orange-100 text-orange-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'assigned': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -279,10 +282,6 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
             )}
           </div>
         </div>
-       {/* Card Body */}
-        <p className="text-gray-600 text-sm line-clamp-3">
-          {template.description || "No description provided."}
-        </p>
       </div>
 
       {/* 🔹 Assign Modal */}
