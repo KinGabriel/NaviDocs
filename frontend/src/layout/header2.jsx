@@ -38,26 +38,33 @@ export default function Header2({
   const navigate = useNavigate();
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   
-  // Determine button presentation based on status
-  const statusConfig = () => {
+// Determine button presentation based on status
+const statusConfig = () => {
     // Determine full approval independently of status field
-    const fullyApproved = (approvalMeta && approvalMeta.isFullyApproved) || (approvals && approvals.dean?.approved_at && approvals.secretary?.approved_at);
-    switch (templateStatus) {
-      case 'draft':
-      case 'assigned':
-        return {
-          label: 'Submit for Approval',
-          disabled: saving,
-          onClick: () => setIsSubmitModalOpen(true),
-          className: 'bg-[#063c8d] hover:bg-[#052c6d] text-white',
-          icon: (
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          )
-        };
-      case 'pending': {
-      // If both approvals are complete but status still pending, surface Publish action
+  const fullyApproved =
+    (approvalMeta && approvalMeta.isFullyApproved) ||
+    (approvals && approvals.dean?.approved_at && approvals.secretary?.approved_at);
+
+  switch (templateStatus) {
+    case 'draft':
+    case 'assigned':
+      return {
+        label: 'Submit for Approval',
+        disabled: saving,
+        onClick: () => setIsSubmitModalOpen(true),
+        className: 'bg-[#063c8d] hover:bg-[#052c6d] text-white',
+        icon: (
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+              clipRule="evenodd"
+            />
+          </svg>
+        ),
+      };
+   // If both approvals are complete but status still pending, surface Publish action
+    case 'pending': {
       if (fullyApproved) {
         return {
           label: 'Publish',
@@ -65,80 +72,159 @@ export default function Header2({
           onClick: onPublish,
           className: 'bg-blue-600 hover:bg-blue-700 text-white',
           icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
-          )
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ),
         };
       }
-      
-        // show "View Progress" when not fully approved
-        const hasAnyApprovals = (approvals && (approvals.dean?.approved_at || approvals.secretary?.approved_at)) || 
-                              (approvalMeta && (approvalMeta.deanApproved || approvalMeta.secretaryApproved));
-        
-        if (hasAnyApprovals) {
-          return {
-            label: 'View Progress',
-            disabled: saving,
-            onClick: () => setIsSubmitModalOpen(true),
-            className: 'bg-yellow-500 hover:bg-yellow-600 text-white',
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l3 3" /><circle cx="12" cy="12" r="9" strokeWidth="2" /></svg>
-            )
-          };
-        }
+    // show "View Progress" when not fully approved
+      const hasAnyApprovals =
+        (approvals && (approvals.dean?.approved_at || approvals.secretary?.approved_at)) ||
+        (approvalMeta && (approvalMeta.deanApproved || approvalMeta.secretaryApproved));
 
-        const role = user?.role?.name?.toLowerCase();
-        const slotApproved = role && approvals && approvals[role]?.approved_at;
-        const metaCanApprove = approvalMeta ? (!approvalMeta.hasApprovedCurrentUser && ['dean','secretary'].includes(role)) : null;
-        const canApprove = metaCanApprove!==null ? metaCanApprove : (['dean','secretary'].includes(role) && !slotApproved);
+      if (hasAnyApprovals) {
         return {
-          label: canApprove ? 'Approve' : 'Pending Approval',
-          disabled: saving || !canApprove,
-          onClick: canApprove ? onApprove : () => setIsSubmitModalOpen(true),
-          className: canApprove ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-yellow-500/90 text-white',
-          icon: canApprove ? (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
-          ) : (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l3 3" /><circle cx="12" cy="12" r="9" strokeWidth="2" /></svg>
-          )
+          label: 'View Progress',
+          disabled: saving,
+          onClick: () => setIsSubmitModalOpen(true),
+          className: 'bg-yellow-500 hover:bg-yellow-600 text-white',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 6v6l3 3"
+              />
+              <circle cx="12" cy="12" r="9" strokeWidth="2" />
+            </svg>
+          ),
         };
       }
-      case 'approved': {
-        const canPublish = approvalMeta ? approvalMeta.canPublish : true; // status already 'approved'
-        return {
-          label: publishing ? 'Publishing...' : 'Publish',
-          disabled: saving || !canPublish || publishing,
-          onClick: canPublish && !saving && !publishing ? async () => {
-            setPublishing(true);
-            try {
-              await onPublish();
-            } finally {
-              setPublishing(false);
-            }
-          } : undefined,
-          className: canPublish && !saving && !publishing
+
+      const role = user?.role?.name?.toLowerCase();
+      const slotApproved = role && approvals && approvals[role]?.approved_at;
+      const metaCanApprove = approvalMeta
+        ? !approvalMeta.hasApprovedCurrentUser && ['dean', 'secretary'].includes(role)
+        : null;
+      const canApprove =
+        metaCanApprove !== null ? metaCanApprove : ['dean', 'secretary'].includes(role) && !slotApproved;
+
+      return {
+        label: canApprove ? 'Approve' : 'Pending Approval',
+        disabled: saving || !canApprove,
+        onClick: canApprove ? onApprove : () => setIsSubmitModalOpen(true),
+        className: canApprove
+          ? 'bg-green-600 hover:bg-green-700 text-white'
+          : 'bg-yellow-500/90 text-white',
+        icon: canApprove ? (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 6v6l3 3"
+            />
+            <circle cx="12" cy="12" r="9" strokeWidth="2" />
+          </svg>
+        ),
+      };
+    }
+
+    case 'approved': {
+      const canPublish = approvalMeta ? approvalMeta.canPublish : true;
+      return {
+        label: publishing ? 'Publishing...' : 'Publish',
+        disabled: saving || !canPublish || publishing,
+        onClick:
+          canPublish && !saving && !publishing
+            ? async () => {
+                setPublishing(true);
+                try {
+                  await onPublish();
+                } finally {
+                  setPublishing(false);
+                }
+              }
+            : undefined,
+        className:
+          canPublish && !saving && !publishing
             ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
             : 'bg-gray-400 text-white cursor-not-allowed',
-          icon: publishing ? (
-            <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" strokeWidth="4" className="opacity-25"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M4 12a8 8 0 018-8" className="opacity-75"/></svg>
-          ) : (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
-          )
-        };
-      }
-      case 'published':
-        return {
-          label: 'Published',
-          disabled: true,
-          onClick: undefined,
-          className: 'bg-blue-600 text-white cursor-default',
-          icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v8m4-4H8"/></svg>
-          )
-        };
-      default:
-        return { label: templateStatus, disabled: true, onClick: undefined, className: 'bg-gray-500 text-white', icon: null };
+        icon: publishing ? (
+          <svg
+            className="w-4 h-4 animate-spin"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="12" cy="12" r="10" strokeWidth="4" className="opacity-25" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="4"
+              d="M4 12a8 8 0 018-8"
+              className="opacity-75"
+            />
+          </svg>
+        ) : (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        ),
+      };
     }
-  };
+
+    case 'published':
+      return {
+        label: 'Published',
+        disabled: true,
+        onClick: undefined,
+        className: 'bg-blue-600 text-white cursor-default',
+        icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-check2-icon lucide-file-check-2"><path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m3 15 2 2 4-4"/></svg>
+        ),
+      };
+
+    case 'returned':
+      return {
+        label: 'Returned',
+        disabled: true,
+        onClick: undefined,
+        className: 'bg-orange-600 text-white cursor-default',
+        icon: (
+         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-undo2-icon lucide-undo-2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+        ),
+      };
+
+    case 'rejected':
+      return {
+        label: 'Rejected',
+        disabled: true,
+        onClick: undefined,
+        className: 'bg-red-600 text-white cursor-default',
+        icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x-icon lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+
+        ),
+      };
+
+    default:
+      return {
+        label: templateStatus,
+        disabled: true,
+        onClick: undefined,
+        className: 'bg-gray-500 text-white',
+        icon: null,
+      };
+  }
+};
+
   const action = statusConfig();
 
   const handleSubmitSuccess = (newStatus, updatedApprovals, updatedApprovers) => {
@@ -236,6 +322,15 @@ export default function Header2({
                 )}
                 {templateStatus==='published' && (
                   <p className="text-[11px] leading-relaxed">Published. This version is live for use.</p>
+                )}
+                {templateStatus==='returned' && (
+                  <p className="text-[11px] leading-relaxed"> This template was <strong>returned</strong> by an approver for revisions. Please review their feedback and resubmit for approval.</p>
+                )}
+                {templateStatus==='rejected' && (
+                  <p className="text-[11px] leading-relaxed"> This template was <strong>rejected</strong> during the approval process. Check the comments from the approver and submit a new version for review.</p>
+                )}
+                {templateStatus==='assigned' && (
+                  <p className="text-[11px] leading-relaxed"> Template assigned. Ready for drafting.</p>
                 )}
                
          {/* Approvers */}
