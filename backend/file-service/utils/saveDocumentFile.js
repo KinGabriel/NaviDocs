@@ -13,13 +13,20 @@ export async function saveDocumentFile({ file, documentId, owner, folderName }) 
   }
 
   const fileExtension = path.extname(file.originalname);
-  const fileName = `${documentId || 'doc'}_${Date.now()}${fileExtension}`;
+  // If the file is a thumbnail, use only the documentId for the filename
+  let fileName;
+  if (file.originalname.endsWith('.png') && folderName === 'thumbnail') {
+    fileName = `${documentId}${fileExtension}`;
+  } else {
+    fileName = `${documentId || 'doc'}_${Date.now()}${fileExtension}`;
+  }
   const baseDir = folderName
     ? path.join(process.cwd(), 'uploads', owner, folderName)
     : path.join(process.cwd(), 'uploads', owner);
   const filePath = path.join(baseDir, fileName);
 
   await fs.ensureDir(baseDir);
+  // Overwrite if exists (for thumbnails)
   await fs.writeFile(filePath, file.buffer);
 
   const relativePath = folderName

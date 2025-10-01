@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import AssignMembersModal from "./modals/AssignMembersModal";
 import DuplicateTemplateModal from "./modals/DuplicateTemplateModal";
+const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URLS = rawUrls.split(",");
 
+const API_URL =
+  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];  
 export default function TemplateCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete }) {
   const [showMenu, setShowMenu] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -138,28 +142,42 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
           )}
         </div>
 
-        {/*  Document Preview*/}
+        {/*  Document Preview or Thumbnail */}
         <div 
           className="w-full h-[310px] bg-gray-50 flex items-center justify-center border-b border-gray-300 hover:bg-gray-100 transition-colors rounded-t-lg"
           onClick={onSelect}
         >
-          <div className="text-center">
-            <svg 
-              className="mx-auto h-16 w-16 text-gray-300 mb-3" 
-              fill="none" 
-              viewBox="0 0 24 24" 
-              stroke="currentColor"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={1} 
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
-              />
-            </svg>
-            <span className="text-gray-400 text-sm">Document Preview</span>
-            <p className="text-xs text-gray-300 mt-1">{template.document_size || 'A4'}</p>
-          </div>
+          {template.thumbnailUrl ? (
+            <img
+              src={
+                template.thumbnailUrl.startsWith('http')
+                  ? template.thumbnailUrl
+                  : API_URL.replace(/\/$/, '') + (template.thumbnailUrl.startsWith('/') ? template.thumbnailUrl : '/' + template.thumbnailUrl)
+              }
+              alt="Template Thumbnail"
+              className="object-contain w-full h-full rounded-t-lg"
+              style={{ maxHeight: 310, maxWidth: 280, background: '#f9fafb' }}
+              loading="lazy"
+            />
+          ) : (
+            <div className="text-center">
+              <svg 
+                className="mx-auto h-16 w-16 text-gray-300 mb-3" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={1} 
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+                />
+              </svg>
+              <span className="text-gray-400 text-sm">Document Preview</span>
+              <p className="text-xs text-gray-300 mt-1">{template.document_size || 'A4'}</p>
+            </div>
+          )}
         </div>
 
         {/*  Footer with dynamic content */}

@@ -13,6 +13,7 @@ const templateSchema = new mongoose.Schema({
     type: Date,
     default: null
   },  
+  thumbnailUrl: { type: String, default: null },
   school: { type: String, default: '' },
   pageSetup: { type: mongoose.Schema.Types.Mixed, default: {} },
 //  fontSettings: { type: mongoose.Schema.Types.Mixed, default: {} },

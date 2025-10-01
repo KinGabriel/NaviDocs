@@ -1,6 +1,6 @@
 import Template from "../models/templateModel.js";
 import { getSchoolCode, buildApprovalMeta, statusQuery } from "../utils/templateUtils.js";
-import axios from "axios";
+import { generateTemplateThumbnail } from "../utils/thumbnailUtils.js";
 
 /**
  * @desc Create a new template
@@ -77,6 +77,8 @@ export const updateTemplate = async (req, res) => {
     const template = await Template.findById(req.params.id);
 
     if (!template) {
+
+
       return res.status(404).json({ 
         success: false,
         message: 'Template not found' 
@@ -147,7 +149,8 @@ console.log(updateOps);
       });
     }
     */
-
+    // Trigger thumbnail generation after save
+    await generateTemplateThumbnailInternal(template);
     res.status(200).json({
       success: true,
       message: 'Template updated successfully',
@@ -607,5 +610,20 @@ export const getPublishedTemplates = async (req, res) => {
       success: false,
       message: "Error fetching published visible templates",
     });
+  }
+};
+
+// Helper to generate and save thumbnail URL to template
+export const generateTemplateThumbnailInternal = async (template) => {
+  try {
+    const url = await generateTemplateThumbnail(template);
+    if (url) {
+      template.thumbnailUrl = url;
+      await template.save();
+    }
+    return url;
+  } catch (error) {
+    console.error("Error generating thumbnail (internal):", error);
+    return null;
   }
 };
