@@ -48,64 +48,18 @@ export default function DocumentControllerTemplates() {
 
   const handleModalSubmit = async (templateFormData) => {
     setLoading(true);
-    
-    if (!user || (!user._id && !user.id)) {
-      alert('User not logged in or user ID missing');
-      setLoading(false);
-      return;
-    }
-    
     try {
       const templateData = {
-        school_identifier: templateFormData.school_identifier,
-        revision_no: 0,
-        effectivity: null,
-        page_no: 1,
         title: templateFormData.title.trim(),
         document_size: templateFormData.document_size,
-        margin: {
-          top: 1,
-          bottom: 1,
-          left: 1,
-          right: 1
-        },
-        created_by: user._id || user.id,
-        created_at: new Date(),
-        header: [],
-        content: {
-          type: 'doc',
-          content: [
-            {
-              type: 'paragraph',
-              content: [
-                {
-                  type: 'text',
-                  text: 'Start typing your template content...'
-                }
-              ]
-            }
-          ]
-        },
-        footer: [],
-
-        approval_workflow: {
-          required_approvers: [],
-          current_step: 0,
-          completed_approvals: []
-        },
-        assigned: []
+        created_by: user._id || user.id,       
       };
-
-      const result = await createTemplateAPI(templateData, user);
-
+      const result = await createTemplateAPI(templateData);
       if (!result || !result.template) {
         throw new Error(result?.message || 'Failed to create template');
       }
-
       setShowCreateModal(false);
-      fetchTemplates();
       navigate(`/document-controller/create-template?templateId=${result.template._id}`);
-      
     } catch (error) {
       console.error('Full error details:', error);
       alert(`Failed to create template: ${error.message}`);

@@ -15,6 +15,10 @@ export const createTemplate = async (req, res) => {
       templateData.title = 'Untitled Template';
     }
 
+    if (!templateData.created_by) {
+      templateData.created_by =  req.user?.id;
+    }
+
     // Accept only pages_json (array of page JSONs) and body (HTML)
     if (!Array.isArray(templateData.pages_json)) {
       templateData.pages_json = [

@@ -107,72 +107,28 @@ export default function DocumentControllerCreateTemplate() {
       setLoading(true);
       const res = await getTemplateByIdAPI(id);
       if (!res) return;
-      
       const tpl = res?.template || {};
-      console.log("Fetched template data:", res);
-      
-      // Update all template-related state
-      if (tpl.title) setTemplateTitle(tpl.title);
-     // Set notes from API response (tpl.notes)
-      if (Array.isArray(tpl.notes)) setNotes(tpl.notes);
-      // Set status from API, fallback to draft
+
+      setTemplateTitle(tpl.title || "Untitled Template");
+      setNotes(Array.isArray(tpl.notes) ? tpl.notes : []);
       setStatus(tpl.status || "draft");
       setTemplate(tpl);
       setApprovals(tpl.approvals || null);
       setApprovalMeta(tpl.approvalMeta || null);
 
-      // Extract approvers from approvals
-      const approvalsObj = tpl.approvals || (tpl.status_meta && tpl.status_meta.approvals) || {};
-      const approversArr = [];
-      
-      if (approvalsObj.dean && approvalsObj.dean.assigned_to) {
-        approversArr.push({
-          _id: approvalsObj.dean.assigned_to,
-          id: approvalsObj.dean.assigned_to,
-          name: approvalsObj.dean.assigned_to_name || 'Dean',
-          firstname: approvalsObj.dean.assigned_to_firstname,
-          lastname: approvalsObj.dean.assigned_to_lastname,
-          role: { name: 'Dean' },
-          ...approvalsObj.dean
-        });
+      // Set content for editor from pages_json
+      if (tpl.pages_json && tpl.pages_json.length > 0) {
+        setTemplateContent(tpl.pages_json[0]); // Or hydrate editor directly
+      } else {
+        setTemplateContent(DEFAULT_CONTENT);
       }
-      
-      if (approvalsObj.secretary && approvalsObj.secretary.assigned_to) {
-        approversArr.push({
-          _id: approvalsObj.secretary.assigned_to,
-          id: approvalsObj.secretary.assigned_to,
-          name: approvalsObj.secretary.assigned_to_name || 'Secretary',
-          firstname: approvalsObj.secretary.assigned_to_firstname,
-          lastname: approvalsObj.secretary.assigned_to_lastname,
-          role: { name: 'Secretary' },
-          ...approvalsObj.secretary
-        });
-      }
-      
-      setApprovers(approversArr);
 
-      // Set content
-      let html = null;
-      if (tpl.body !== undefined && tpl.body !== null) {
-        html = tpl.body;
-      } else if (tpl.content !== undefined) {
-        html = tpl.content;
-      }
-      
-      if (html) {
-        html = html.replace(/<header[^>]*>\s*((Full Name|Student ID|University|School)[^<]*)+<\/header>/gi, '');
-        html = html.replace(/<footer[^>]*>\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*<\/footer>/g, '');
-        html = html.replace(/<footer[^>]*>\s*Page \d+\s*<\/footer>/gi, '');
-        html = html.replace(/<footer[^>]*>\s*\d+\/\d+\s*<\/footer>/g, '');
-        setTemplateContent(html);
-      }
-      
       if (tpl.pageSetup) setPageSetup(tpl.pageSetup);
       if (tpl.fontSettings) setFontSettings(tpl.fontSettings);
       if (tpl.headerFooter) setHeaderFooter(tpl.headerFooter);
       if (tpl.dateFormat) setDateFormat(tpl.dateFormat);
       if (Array.isArray(tpl.fields)) setEditableFields(tpl.fields);
-      
+
     } catch (e) {
       console.error(e);
       setError("Failed to load template.");
@@ -211,30 +167,12 @@ export default function DocumentControllerCreateTemplate() {
     try {
       setSaving(true);
       const editor = editorRef.current;
-      const content = editor ? editor.getHTML() : templateContent;
-      const rawPagesJson = editor ? editor.getJSON() : null;
-      // Always send pages_json as an array (even if only one page)
-      let pages_json = rawPagesJson ? [rawPagesJson] : [htmlToBasicJSON(content)];
-      // Apply headerFooter to all pages in pages_json
-      pages_json = pages_json.map(page => {
-        if (page && page.content && Array.isArray(page.content)) {
-          page.content = page.content.map(p => {
-            if (p && p.attrs) {
-              p.attrs = {
-                ...p.attrs,
-                headerFields: headerFooter.header || {},
-                footerFields: headerFooter.footer || {},
-              };
-            }
-            return p;
-          });
-        }
-        return page;
-      });
+      // Always get JSON from editor
+      const rawPagesJson = editor ? editor.getJSON() : htmlToBasicJSON(templateContent);
+      const pages_json = Array.isArray(rawPagesJson) ? rawPagesJson : [rawPagesJson];
 
       const payload = {
         title: (templateTitle || "").trim() || "Untitled Template",
-        content,
         pages_json,
         pageSetup,
         dateFormat,
@@ -249,8 +187,7 @@ export default function DocumentControllerCreateTemplate() {
         res = await createTemplateAPI(payload);
         if (res?.template?._id) setTemplateId(res.template._id);
       }
-      // Update last saved state
-      setLastSavedContent(content);
+      setLastSavedContent(editor ? editor.getHTML() : templateContent);
       setLastSavedTitle(payload.title);
       setLastSavedId(res?.template?._id || templateId);
       setLastSavedAt(new Date());

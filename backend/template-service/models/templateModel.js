@@ -42,7 +42,6 @@ const templateSchema = new mongoose.Schema({
       }
     ]
   },
-  body: { type: String, default: '' },
   // footer: { type: mongoose.Schema.Types.Mixed, default: [] },
   status: { type: String, enum: ['assigned','draft','pending','approved','published','returned','rejected'], default: 'draft' },
   status_meta: {
