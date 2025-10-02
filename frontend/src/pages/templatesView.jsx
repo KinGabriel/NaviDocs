@@ -1,15 +1,33 @@
+/**
+ * TemplatesView Component
+ * 
+ * Displays detailed view of a template with approval workflow management.
+ * Allows approvers (Dean/Secretary) to approve, reject, or return templates.
+ * Document controllers can assign members and set deadlines.
+ * 
+ * @component
+ */
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import HeaderTemplateView from "../components/headerTemplateView";
 import useUser from "../hooks/useUser";
-import { getTemplateByIdAPI,approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI, assignControllersToTemplateAPI } from "../api/documentContollerAPI";
+import { 
+  getTemplateByIdAPI,
+  approveTemplateAPI, 
+  rejectTemplateAPI, 
+  returnTemplateAPI, 
+  assignControllersToTemplateAPI 
+} from "../api/documentContollerAPI";
 import { formatDateTime } from "../utils/formatters";
 import AssignMembersModal from "../components/modals/assignMembersModal";
 
 export default function TemplatesView() {
-  const user = useUser();
+  // Hooks
+  const user = useUser(); // Current logged-in user
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id } = useParams(); // Template ID from URL
+  
+  // Template state
   const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -21,14 +39,20 @@ export default function TemplatesView() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [assignSubmitting, setAssignSubmitting] = useState(false);
 
-   // reusable function to reload template data
+  /**
+   * Fetches and updates template data from the API
+   * Handles different response structures (res.template, res.data, or direct response)
+   * 
+   * @param {string} templateId - The ID of the template to fetch (defaults to id from URL params)
+   */
   const refreshTemplate = async (templateId = id) => {
     if (!templateId) return;
+    
     try {
       const res = await getTemplateByIdAPI(templateId);
       console.log("Refreshed template:", res);
       
-      // Handle different response structures
+      // Handle different API response structures
       let updatedTemplate;
       if (res.template) {
         updatedTemplate = res.template;
@@ -46,30 +70,47 @@ export default function TemplatesView() {
     }
   };
 
-  // Initial load
+  /**
+   * Initial template load effect
+   * Runs once when component mounts or when template ID changes
+   */
   useEffect(() => {
     if (!id) return;
+    
     const loadTemplate = async () => {
       setLoading(true);
       await refreshTemplate(id);
       setLoading(false);
     };
+    
     loadTemplate();
   }, [id]);
 
-  // Assign Members 
+  /**
+   * Opens the assign members modal
+   * Pre-selects currently assigned members
+   */
   const handleAssign = async () => {
     if (!template) return;
-    // Preselect only the ids from template.assigned, matching by index with template.assignedNames
+    
+    // Preselect currently assigned member IDs
     const assigned = Array.isArray(template.assigned) ? template.assigned : [];
     setSelectedIds(assigned);
     setAssignOpen(true);
   };
 
-  // approve/reject/return with refresh after API
+  /**
+   * Approves a template
+   * Updates local state optimistically, then syncs with server
+   * 
+   * @param {Object} templateData - The template object to approve
+   * @param {string} message - Optional approval note/comment
+   * @throws {Error} If approval fails
+   */
   const handleApprove = async (templateData, message) => {
     if (!templateData || !user) return;
     
+    // Optimistic update: immediately update local state
     setTemplate(prev => {
       if (!prev) return prev;
       
@@ -78,6 +119,7 @@ export default function TemplatesView() {
       // Update approvals array if it exists
       if (Array.isArray(updated.approvals)) {
         updated.approvals = updated.approvals.map(approval => {
+          // Match by role or user ID
           if (approval.role?.toLowerCase() === user?.role?.name?.toLowerCase() ||
               approval.assigned_to === user?._id) {
             return {
@@ -95,7 +137,7 @@ export default function TemplatesView() {
         });
       }
       
-      // Update status_meta if it exists
+      // Update status_meta.approvals if it exists
       if (updated.status_meta?.approvals) {
         const userRole = user?.role?.name?.toLowerCase();
         if (updated.status_meta.approvals[userRole]) {
@@ -113,33 +155,47 @@ export default function TemplatesView() {
     });
     
     try {
+      // Send approval to server
       const payload = { note: message || "" };
       const res = await approveTemplateAPI(templateData._id, payload);
       console.log("Approve response:", res);
       
-      // Force refresh to get the latest data from server
+      // Refresh from server to get authoritative state
       await refreshTemplate(templateData._id);
       setError(null);
     } catch (err) {
       console.error("Approve error:", err);
       setError("Failed to approve template");
+      // Refresh to revert optimistic update
       await refreshTemplate(templateData._id);
       throw err;
     }
   };
 
+  /**
+   * Rejects a template
+   * Requires a rejection reason
+   * 
+   * @param {Object} templateData - The template object to reject
+   * @param {string} message - Required rejection reason
+   * @throws {Error} If rejection reason is not provided or if rejection fails
+   */
   const handleReject = async (templateData, message) => {
     if (!templateData || !user) return;
+    
+    // Validate rejection reason
     if (!message || !message.trim()) {
       setError("Please provide a reason for rejection.");
       throw new Error("Please provide a reason for rejection.");
     }
+    
+    // Optimistic update
     setTemplate(prev => {
       if (!prev) return prev;
       
       const updated = { ...prev, status: "rejected" };
       
-      // Update approvals array if it exists
+      // Update approvals array
       if (Array.isArray(updated.approvals)) {
         updated.approvals = updated.approvals.map(approval => {
           if (approval.role?.toLowerCase() === user?.role?.name?.toLowerCase() ||
@@ -160,7 +216,7 @@ export default function TemplatesView() {
         });
       }
       
-      // Update status_meta if it exists
+      // Update status_meta
       if (updated.status_meta?.approvals) {
         const userRole = user?.role?.name?.toLowerCase();
         if (updated.status_meta.approvals[userRole]) {
@@ -181,7 +237,6 @@ export default function TemplatesView() {
       const res = await rejectTemplateAPI(templateData._id, message);
       console.log("Reject response:", res);
       
-      // Force refresh to get the latest data from server
       await refreshTemplate(templateData._id);
       setError(null);
     } catch (err) {
@@ -192,18 +247,30 @@ export default function TemplatesView() {
     }
   };
 
+  /**
+   * Returns a template for revisions
+   * Requires a reason for returning
+   * 
+   * @param {Object} templateData - The template object to return
+   * @param {string} message - Required reason for returning the template
+   * @throws {Error} If return reason is not provided or if operation fails
+   */
   const handleReturn = async (templateData, message) => {
     if (!templateData || !user) return;
+    
+    // Validate return reason
     if (!message || !message.trim()) {
       setError("Please provide a reason for returning the template.");
       throw new Error("Please provide a reason for returning the template.");
     }
+    
+    // Optimistic update
     setTemplate(prev => {
       if (!prev) return prev;
       
       const updated = { ...prev, status: "returned" };
       
-      // Update approvals array if it exists
+      // Update approvals array
       if (Array.isArray(updated.approvals)) {
         updated.approvals = updated.approvals.map(approval => {
           if (approval.role?.toLowerCase() === user?.role?.name?.toLowerCase() ||
@@ -224,7 +291,7 @@ export default function TemplatesView() {
         });
       }
       
-      // Update status_meta if it exists
+      // Update status_meta
       if (updated.status_meta?.approvals) {
         const userRole = user?.role?.name?.toLowerCase();
         if (updated.status_meta.approvals[userRole]) {
@@ -245,7 +312,6 @@ export default function TemplatesView() {
       const res = await returnTemplateAPI(templateData._id, message);
       console.log("Return response:", res);
       
-      // Force refresh to get the latest data from server
       await refreshTemplate(templateData._id);
       setError(null);
     } catch (err) {
@@ -256,28 +322,40 @@ export default function TemplatesView() {
     }
   };
 
-  // handler to refresh template after updating deadline
+  /**
+   * Refreshes template data after deadline update
+   */
   const handleUpdateDeadline = async () => {
     await refreshTemplate(id);
   };
 
-  // handler to refresh template after adding instructions
+  /**
+   * Refreshes template data after adding instructions
+   */
   const handleAddInstructions = async () => {
     await refreshTemplate(id);
   };
 
-  // assign handler that refreshes state
+  /**
+   * Assigns document controllers to the template
+   * 
+   * @param {Object} params - Assignment parameters
+   * @param {Array<string>} params.assignees - Array of user IDs to assign
+   */
   const handleAssignMembers = async ({ assignees }) => {
     if (!template?._id) return;
+    
     setAssignSubmitting(true);
     try {
       await assignControllersToTemplateAPI(template._id, assignees);
-      // refresh template data to get updated assigned members
+      
+      // Refresh template to get updated assigned members
       await refreshTemplate(template._id);
-      // close modal and reset state
+      
+      // Close modal and reset state
       setAssignOpen(false);
       setSelectedIds([]);
-      setError(null); // clear any previous errors
+      setError(null);
     } catch (e) {
       console.error("Assign error:", e);
       setError("Failed to assign members.");
@@ -286,18 +364,24 @@ export default function TemplatesView() {
     }
   };
 
-  // Use API data if loaded, else fallback to placeholder
+  // Use template data or fallback to placeholder for loading state
   const t = template || { status: 'loading' };
 
-  // assigned members 
+  // Extract assigned members names
   const assignedNames = t.assignedNames || [];
-  // deadline
+  
+  // Format deadline for display
   const deadline = t.deadline ? formatDateTime(t.deadline) : null;
-  // handle to prepare notes 
+  
+  // Extract notes array
   const notes = Array.isArray(t.notes) ? t.notes : [];
 
-  // approvers array handling 
-  let approvalsArr = [];
+  /**
+   * Process approvals data into a consistent array format
+   * Handles both object and array structures from API
+
+   */
+ let approvalsArr = [];
   
   if (t.approvals && typeof t.approvals === 'object' && !Array.isArray(t.approvals)) {
     approvalsArr = Object.entries(t.approvals).map(([role, appr]) => ({
@@ -318,7 +402,11 @@ export default function TemplatesView() {
     }));
   }
 
-  // If template is rejected/returned but individual approvals don't reflect it, update based on notes
+  /**
+   * Sync approval statuses with template status
+   * If template is rejected/returned but individual approvals don't reflect it,
+   * update based on notes to identify who performed the action
+   */
   if ((t.status === 'rejected' || t.status === 'returned') && approvalsArr.length > 0) {
     console.log("Template status:", t.status);
     console.log("Notes array:", notes);
@@ -326,6 +414,7 @@ export default function TemplatesView() {
     
     let actionNote;
     
+    // Find the most recent rejection or return note
     if (t.status === 'rejected') {
       actionNote = notes
         .filter(note => {
@@ -347,6 +436,7 @@ export default function TemplatesView() {
     console.log("Found action note:", actionNote);
     
     if (actionNote) {
+      // Update the approver who performed the action
       const actorName = actionNote.added_by_name || actionNote.added_by;
       console.log("Actor name from note:", actorName);
       console.log("Current user:", user?.name);
@@ -365,7 +455,7 @@ export default function TemplatesView() {
         return approver;
       });
     } else {
-  
+      // Fallback: if no matching note found, try matching by current user's role
       console.log("No action note found, trying fallback with current user");
       if (user) {
         approvalsArr = approvalsArr.map(approver => {
@@ -386,7 +476,7 @@ export default function TemplatesView() {
     console.log("Final approvals after processing:", approvalsArr);
   }
 
-  // loading state
+  // Show loading spinner while template is being fetched
   if (loading && !template) {
     return (
       <div className="min-h-screen bg-gray-200 flex items-center justify-center">
@@ -398,8 +488,13 @@ export default function TemplatesView() {
     );
   }
 
+  // Add right after getting the template
+console.log("Raw approvals data:", t.approvals);
+
+  // Main render
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
+      {/* Header with action buttons */}
       <HeaderTemplateView
         template={t}
         user={user}
@@ -414,7 +509,7 @@ export default function TemplatesView() {
       
       <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
         <main className="p-8 flex-1 overflow-y-auto">
-          {/* display error message*/}
+          {/* Error message banner */}
           {error && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
               <div className="flex justify-between items-center">
@@ -431,6 +526,7 @@ export default function TemplatesView() {
                 <button
                   onClick={() => setError(null)}
                   className="text-red-400 hover:text-red-600"
+                  aria-label="Dismiss error"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -440,9 +536,9 @@ export default function TemplatesView() {
             </div>
           )}
           
-          {/* Content grid */}
+          {/* Two-column layout: preview and details */}
           <div className="grid grid-cols-12 gap-6">
-            {/* Template preview */}
+            {/* Left column: Template preview */}
             <section className="col-span-12 lg:col-span-8">
               <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
                 <div className="bg-gray-50 p-6">
@@ -450,7 +546,7 @@ export default function TemplatesView() {
                     className="mx-auto bg-white shadow border rounded-md w-full"
                     style={{ minHeight: 900 }}
                   >
-                    {/* Replace with <iframe src={...}/> or <img/> once available */}
+                    {/* TODO: Replace with actual template preview (PDF/image) */}
                     <div className="h-full w-full flex items-center justify-center text-gray-400">
                       <div className="text-center">
                         <div className="text-lg font-medium mb-1">
@@ -466,7 +562,7 @@ export default function TemplatesView() {
               </div>
             </section>
 
-            {/* Details*/}
+            {/* Right column: Template details and metadata */}
             <aside className="col-span-12 lg:col-span-4">
               {/* Template Status Panel */}
               <div className="bg-white border rounded-md shadow-sm mb-4">
@@ -477,6 +573,7 @@ export default function TemplatesView() {
                     </h3>
                     <div className="w-16 h-0.5 bg-yellow-400 mb-3 rounded" />
                     <div className="text-base text-gray-900 font-sans">
+                      {/* Status-specific messages */}
                       {t.status === 'assigned' && (
                         <>Document controllers are still working on the template.</>
                       )}
@@ -505,8 +602,10 @@ export default function TemplatesView() {
                 </div>
               </div>
               
+              {/* Details Panel */}
               <div className="bg-white border rounded-md shadow-sm">
                 <div className="p-5">
+                  {/* Deadline Section */}
                   <div className="mb-4">
                     <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
                       Deadline
@@ -514,6 +613,7 @@ export default function TemplatesView() {
                     <div className="text-base text-gray-900">{deadline || "No deadline set"}</div>
                   </div>
                   
+                  {/* Assigned Members Section */}
                   <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
                     Assigned Members
                   </h3>
@@ -522,7 +622,7 @@ export default function TemplatesView() {
                     {assignedNames.length > 0 ? (
                       assignedNames.map((name, idx) => (
                         <li key={idx} className="text-sm text-gray-800 mb-1 flex items-center">
-                          <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                          <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2" aria-hidden="true"></span>
                           {name}
                         </li>
                       ))
@@ -531,6 +631,7 @@ export default function TemplatesView() {
                     )}
                   </ul>
                   
+                  {/* Approvers Section */}
                   <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
                     To be approved by
                   </h3>
@@ -538,6 +639,7 @@ export default function TemplatesView() {
                   <ul className="mb-6">
                     {approvalsArr.length > 0 ? (
                       approvalsArr.map((approver, idx) => {
+                        // Determine status badge color and text
                         let statusBadge;
                         if (approver.isRejected) {
                           statusBadge = (
@@ -567,7 +669,7 @@ export default function TemplatesView() {
 
                         return (
                           <li key={idx} className="flex mb-2 text-sm">
-                            <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0"></span>
+                            <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0" aria-hidden="true"></span>
                             <div className="flex flex-col">
                               <span className="font-medium text-gray-800 flex items-center">
                                 {approver.name} ({approver.role})
@@ -582,6 +684,7 @@ export default function TemplatesView() {
                     )}
                   </ul>
                   
+                  {/* Notes Section */}
                   <h3 className="text-base font-bold tracking-widest text-gray-900 uppercase font-sans">
                     Notes
                   </h3>
@@ -590,12 +693,15 @@ export default function TemplatesView() {
                     {notes.length > 0 ? (
                       notes.map((note, idx) => (
                         <li key={idx} className="mb-3">
+                          {/* Note metadata */}
                           <div className="text-xs text-gray-500 mb-1 font-sans">
                             {note.added_by_name || note.added_by || ''} &middot; {formatDateTime(note.created_at)}
                           </div>
+                          {/* Note type */}
                           <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-3">
                             {note.type || 'Note'}
                           </div>
+                          {/* Note message */}
                           <div className="text-base text-gray-800 font-sans">{note.message}</div>
                         </li>
                       ))
@@ -613,7 +719,10 @@ export default function TemplatesView() {
       {/* Assign Members Modal */}
       <AssignMembersModal
         open={assignOpen}
-        onClose={() => { setAssignOpen(false); setSelectedIds([]);  }}
+        onClose={() => { 
+          setAssignOpen(false); 
+          setSelectedIds([]);  
+        }}
         template={t}
         faculty={faculty}
         facultyLoading={facultyLoading}
@@ -621,22 +730,23 @@ export default function TemplatesView() {
         setSelectedIds={setSelectedIds}
         submitting={assignSubmitting}
         onAssign={async ({ assignees }) => {
-            if (!template?._id) return;
-            setAssignSubmitting(true);
-            try {
-              await assignControllersToTemplateAPI(template._id, assignees);
-              const refreshed = await getTemplateByIdAPI(template._id);
-              setTemplate(refreshed.template || refreshed.data || refreshed);
-              setAssignOpen(false);
-              setSelectedIds([]);
-            } catch (e) {
-              console.error(e);
-              setError("Failed to assign members.");
-            } finally {
-              setAssignSubmitting(false);
-            }
-          }}
-        />
-      </div>
+          if (!template?._id) return;
+          
+          setAssignSubmitting(true);
+          try {
+            await assignControllersToTemplateAPI(template._id, assignees);
+            const refreshed = await getTemplateByIdAPI(template._id);
+            setTemplate(refreshed.template || refreshed.data || refreshed);
+            setAssignOpen(false);
+            setSelectedIds([]);
+          } catch (e) {
+            console.error(e);
+            setError("Failed to assign members.");
+          } finally {
+            setAssignSubmitting(false);
+          }
+        }}
+      />
+    </div>
   );
 }
