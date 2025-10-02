@@ -7,7 +7,7 @@
  * 
  * @component
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import HeaderTemplateView from "../components/headerTemplateView";
 import useUser from "../hooks/useUser";
@@ -20,6 +20,7 @@ import {
 } from "../api/documentContollerAPI";
 import { formatDateTime } from "../utils/formatters";
 import AssignMembersModal from "../components/modals/assignMembersModal";
+import TextEditor from "../layout/create_template/textEditor"; 
 
 export default function TemplatesView() {
   // Hooks
@@ -31,6 +32,26 @@ export default function TemplatesView() {
   const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Page control state
+  // Find all page nodes in pages_json[0].content
+  const [currentPage, setCurrentPage] = useState(0);
+  const pageNodes = useMemo(() => {
+    if (!template?.pages_json?.[0]?.content) return [];
+    return template.pages_json[0].content.filter(n => n.type === "page");
+  }, [template]);
+  const totalPages = pageNodes.length;
+  const currentPageNode = pageNodes[currentPage] || null;
+
+  // Build a document-shaped content object that contains only the current page.
+  // The create-template page passes the full pages_json[0] (a doc), so matching that
+  // shape helps the editor render consistently.
+  const contentForEditor = (() => {
+    if (!currentPageNode) return null;
+    const baseDoc = template?.pages_json?.[0] || { type: 'doc', content: [] };
+    // clone baseDoc but replace content with just the current page node
+    return { ...baseDoc, content: [currentPageNode] };
+  })();
 
   // Assign modal state
   const [assignOpen, setAssignOpen] = useState(false);
@@ -490,7 +511,7 @@ export default function TemplatesView() {
 
   // Add right after getting the template
 console.log("Raw approvals data:", t.approvals);
-
+console.log("Page setup data:", template?.pageSetup);
   // Main render
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -539,27 +560,44 @@ console.log("Raw approvals data:", t.approvals);
           {/* Two-column layout: preview and details */}
           <div className="grid grid-cols-12 gap-6">
             {/* Left column: Template preview */}
-            <section className="col-span-12 lg:col-span-8">
-              <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
-                <div className="bg-gray-50 p-6">
-                  <div
-                    className="mx-auto bg-white shadow border rounded-md w-full"
-                    style={{ minHeight: 900 }}
-                  >
-                    {/* TODO: Replace with actual template preview (PDF/image) */}
-                    <div className="h-full w-full flex items-center justify-center text-gray-400">
-                      <div className="text-center">
-                        <div className="text-lg font-medium mb-1">
-                          Template Preview
-                        </div>
-                        <div className="text-sm">
-                          This is a placeholder surface for the PDF/image.
-                        </div>
-                      </div>
+            <section className="col-span-12 lg:col-span-8  ">
+                    {/* Page Controls */}
+                    <div className="flex items-center justify-between ">
+                      <button
+                        className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                        disabled={currentPage === 0}
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        Page {currentPage + 1} of {totalPages}
+                      </span>
+                      <button
+                        className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                        disabled={currentPage === totalPages - 1}
+                      >
+                        Next
+                      </button>
                     </div>
-                  </div>
-                </div>
-              </div>
+                    {/* Document Plate with header/footer placeholders */}
+                    
+                     
+                      {/* Page content */}
+                      <div className="flex-1 w-full">
+                        {contentForEditor && (
+                          <TextEditor
+                            content={contentForEditor}
+                            pageSetup={template?.pageSetup}
+                            className="pointer-events-none opacity-100 w-full"
+                            onEditorReady={editor => {
+                              // Disable editing
+                              editor.setEditable(false);
+                            }}
+                          />
+                        )}
+                    </div>
             </section>
 
             {/* Right column: Template details and metadata */}
