@@ -1,6 +1,7 @@
 import Template from "../models/templateModel.js";
 import { getSchoolCode, buildApprovalMeta, statusQuery } from "../utils/templateUtils.js";
 import { generateTemplateThumbnail } from "../utils/thumbnailUtils.js";
+import axios from "axios";
 
 /**
  * @desc Create a new template
