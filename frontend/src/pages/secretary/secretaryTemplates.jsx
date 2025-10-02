@@ -110,6 +110,7 @@ export default function SecretaryTemplates() {
       label: "Status",
       render: row => {
         let type = "-";
+
         if (row.status === "approved") {
           type = "Approved";
         } else if (row.status === "pending") {
@@ -128,7 +129,14 @@ export default function SecretaryTemplates() {
           }
         } else if (row.status === "published") {
           type = "Published";
+        } 
+        else if (row.status === "rejected") {
+          type = "Rejected";
+        } 
+        else if (row.status === "returned") {
+          type = "Returned";
         }
+
         return <StatusBadge type={type} />;
       }
     },
