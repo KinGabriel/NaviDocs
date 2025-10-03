@@ -14,6 +14,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   // State for inline editing
   const [isEditing, setIsEditing] = useState(false);
   const [documentCode, setDocumentCode] = useState('');
+  const [revisionNumber, setRevisionNumber] = useState('');
   const [effectivityDate, setEffectivityDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -25,6 +26,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   // Handle opening edit mode
   const handleStartEdit = () => {
     setDocumentCode(template?.document_code || '');
+    setRevisionNumber(template?.revision_number || '');
     setEffectivityDate(template?.effectivity_date || '');
     setIsEditing(true);
   };
@@ -46,6 +48,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
     try {
       await onUpdateDocumentDetails({
         document_code: documentCode,
+        revision_number: revisionNumber,
         effectivity_date: effectivityDate
       });
       setIsEditing(false);
@@ -77,6 +80,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   // Handle cancel editing
   const handleCancel = () => {
     setDocumentCode(template?.document_code || '');
+    setRevisionNumber(template?.revision_number || '');
     setEffectivityDate(template?.effectivity_date || '');
     setIsEditing(false);
   };
@@ -125,6 +129,32 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
         </div>
         </div>
 
+          {/* Revision Number Section */}
+          <div className="mb-4">
+            <div className="flex items-start gap-2">
+              <FileText className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  Revision Number
+                </div>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={revisionNumber}
+                    onChange={(e) => setRevisionNumber(e.target.value)}
+                    placeholder="e.g., 00, 01, 02"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <div className="text-base text-gray-900">
+                    {(revisionNumber || template?.revision_number) || (
+                      <span className="text-gray-400 text-md italic">Not set</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* Effectivity Date Section */}
           <div className="mb-4">
