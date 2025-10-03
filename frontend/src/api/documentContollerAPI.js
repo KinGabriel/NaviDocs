@@ -167,6 +167,30 @@ export const approveTemplateAPI = async (templateId, data) => {
   );
   return res.data;
 };
+
+/**
+ * Insert / set document code, effectivity, and revision number (Dean-only action).
+ * @param {string} templateId
+ * @param {Object} params - { document_code, effectivity, revision_no }
+ * @returns {Promise<{success:boolean,message:string,template:Object,approvalMeta:Object}>}
+ */
+export const insertDocumentCodeAPI = async (templateId, params) => {
+  const payload = {};
+  if (params?.document_code !== undefined) payload.document_code = params.document_code;
+  if (params?.effectivity !== undefined) payload.effectivity = params.effectivity;
+  if (params?.revision_no !== undefined) payload.revision_no = params.revision_no;
+
+  try {
+    const res = await axios.patch(
+      `${API_URL}/api/templates/${templateId}/insert-document-code`,
+      payload,
+      { withCredentials: true }
+    );
+    return res.data;
+  } catch (err) {
+    throw err;
+  }
+};
 /**
  * Reject a template for a specific role (dean or secretary).
  * Backend will add a rejection note and set status to 'rejected'.

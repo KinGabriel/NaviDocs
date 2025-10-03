@@ -54,6 +54,27 @@ export function formatDate(dateValue) {
   });
 }
 
+/**
+ * Normalize various date representations to an ISO YYYY-MM-DD string for inputs.
+ * Accepts: ISO string, Date object, or { $date: 'ISO' }.
+ * Returns empty string on invalid input.
+ * @param {string|Date|Object} val
+ * @returns {string}
+ */
+export function toISODate(val) {
+  if (!val) return '';
+  try {
+    if (typeof val === 'object' && val !== null && ('$date' in val)) {
+      const d = new Date(val.$date);
+      return !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '';
+    }
+    const d = new Date(val);
+    return !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '';
+  } catch (e) {
+    return '';
+  }
+}
+
 /** FOR TEMPLATES
  * Renders a colored status badge with a dot and label for template/document status.
  * Supported types: Approved, Pending, Late, Returned, OnGoing, Published (case-insensitive).

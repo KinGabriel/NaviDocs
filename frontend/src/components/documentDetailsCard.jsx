@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, FileText, Shield, X, Check, Edit2 } from 'lucide-react';
-import { formatDate } from '../utils/formatters';
+import { insertDocumentCodeAPI } from '../api/documentContollerAPI';
+import { formatDate, toISODate } from '../utils/formatters';
 
 /**
  * DocumentDetailsCard 
@@ -15,9 +16,12 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   // State for inline editing
   const [isEditing, setIsEditing] = useState(false);
   const [documentCode, setDocumentCode] = useState('');
+  const [documentIdentifier, setDocumentIdentifier] = useState('VAA');
+  const [documentSerial, setDocumentSerial] = useState('');
   const [revisionNumber, setRevisionNumber] = useState('');
   const [effectivityDate, setEffectivityDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [conflictError, setConflictError] = useState(null);
 
   // State for ISO Code modal
   const [isISOModalOpen, setIsISOModalOpen] = useState(false);
@@ -27,16 +31,49 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   // Handle opening edit mode
   const handleStartEdit = () => {
     setDocumentCode(template?.document_code || '');
-    setRevisionNumber(template?.revision_number || '');
-    setEffectivityDate(template?.effectivity_date || '');
+    // support both revision_number and revision_no fields
+  // normalize revision to two-digit string
+  const rawRev = template?.revision_number ?? template?.revision_no ?? 0;
+  const revStr = String(rawRev ?? '').padStart(2, '0');
+  setRevisionNumber(revStr);
+    // effectivity may be ISO string, Date, or { $date: '...' }; normalize to YYYY-MM-DD
+  setEffectivityDate(toISODate(template?.effectivity ?? template?.effectivity_date));
+    // Parse document_code into FM-<ID>-<NO>
+    const existing = template?.document_code || '';
+    const match = typeof existing === 'string' ? existing.match(/^FM-([A-Z]{2,})-?(\d*)$/i) : null;
+    if (match) {
+      setDocumentIdentifier((match[1] || 'VAA').toUpperCase());
+      setDocumentSerial(match[2] || '');
+    } else {
+      // default identifier: VAA or mapped school
+      setDocumentSerial('');
+    }
     setIsEditing(true);
   };
+
+  // Helper to display revision no. into a zero-padded two-digit string or empty string
+  const displayRevisionNo = (t) => {
+    const raw = t?.revision_number ?? t?.revision_no;
+    if (raw === undefined || raw === null || raw === '') return '';
+    const num = Number(raw);
+    if (!Number.isNaN(num)) return String(num).padStart(2, '0');
+    return String(raw).padStart(2, '0');
+  };
+
+  // Keep revisionNumber state synchronized with incoming template when not actively editing
+  useEffect(() => {
+    if (!isEditing) {
+      setRevisionNumber(displayRevisionNo(template));
+    }
+  }, [template, isEditing]);
 
   // Handle opening ISO modal
   const handleOpenISOModal = () => {
     setIsoCode(template?.iso_code || '');
     setIsISOModalOpen(true);
   };
+
+
 
   // Handle saving document code and effectivity date
   const handleSave = async () => {
@@ -47,11 +84,46 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
 
     setIsSaving(true);
     try {
-      await onUpdateDocumentDetails({
-        document_code: documentCode,
-        revision_number: revisionNumber,
-        effectivity_date: effectivityDate
-      });
+      // Build document_code from parts: FM-<IDENT>-<SERIAL>
+      let finalDocumentCode = documentCode;
+      // If user edited using the new parts, prefer those
+      if ((documentIdentifier || documentSerial) && (!template?.document_code || documentCode === template?.document_code)) {
+        // Ensure identifier
+        const id = (documentIdentifier || 'VAA').toUpperCase();
+        const serial = documentSerial ? String(documentSerial).trim() : '';
+        finalDocumentCode = `FM-${id}${serial ? `-${serial}` : ''}`;
+      }
+
+      // Call API to insert document code (Dean-only)
+      if (template?._id) {
+        const payload = {
+          document_code: finalDocumentCode || undefined,
+          effectivity: effectivityDate || undefined,
+          revision_no: revisionNumber !== '' ? Number(revisionNumber) : undefined
+        };
+        try {
+          await insertDocumentCodeAPI(template._id, payload);
+          setConflictError(null);
+        } catch (apiErr) {
+          const resp = apiErr?.response;
+          if (resp && resp.status === 409) {
+            // store full response data so we have both message and conflict info
+            setConflictError(resp.data || { message: resp.data?.message || 'Conflict' });
+            setIsSaving(false);
+            return; // don't proceed to close editor
+          }
+          throw apiErr;
+        }
+      }
+
+      // Call parent updater to sync UI state if provided
+      if (typeof onUpdateDocumentDetails === 'function') {
+        await onUpdateDocumentDetails({
+          document_code: finalDocumentCode,
+          revision_number: revisionNumber,
+          effectivity_date: effectivityDate
+        });
+      }
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to save:', error);
@@ -81,15 +153,20 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   // Handle cancel editing
   const handleCancel = () => {
     setDocumentCode(template?.document_code || '');
-    setRevisionNumber(template?.revision_number || '');
-    setEffectivityDate(template?.effectivity_date || '');
+    const rawRevCancel = template?.revision_number ?? template?.revision_no ?? 0;
+    setRevisionNumber(String(rawRevCancel ?? '').padStart(2, '0'));
+  setEffectivityDate(toISODate(template?.effectivity ?? template?.effectivity_date));
+    // reset document code parts
+    setDocumentIdentifier('VAA');
+    setDocumentSerial('');
     setIsEditing(false);
   };
 
   // Format date for display
   const formatDateDisplay = (dateString) => {
-    if (!dateString) return 'Not set';
-    return formatDate(dateString);
+    const iso = toISODate(dateString);
+    if (!iso) return 'Not set';
+    return formatDate(iso);
   };
 
   return (
@@ -122,9 +199,49 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                 Document Code
             </div>
             <div className="text-base text-gray-900">
-                {template?.document_code || (
-                <span className="text-gray-400 text-md italic">Not set</span>
-                )}
+                    {isEditing ? (
+                      <div className="flex gap-2">
+                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-sm">FM-</span>
+                        <select
+                          value={documentIdentifier}
+                          onChange={(e) => { setDocumentIdentifier(e.target.value); setConflictError(null); }}
+                          className="px-3 py-2 border border-gray-300 text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {/* Always include VAA */}
+                          <option value="VAA">VAA</option>
+                          {/* Include template school identifier if present and not VAA */}
+                          {(() => {
+                            const schoolMap = {
+                              'University Wide': 'VAA',
+                              'SAMCIS': 'SMI',
+                              'STELA': 'STL',
+                            };
+                            const schoolId = schoolMap[template?.school] || template?.school?.toUpperCase?.();
+                            if (schoolId && schoolId !== 'VAA') {
+                              return <option value={schoolId}>{schoolId}</option>;
+                            }
+                            return null;
+                          })()}
+                        </select>
+                        <select
+                          value={documentSerial}
+                          onChange={(e) => { setDocumentSerial(e.target.value); setConflictError(null); }}
+                          className="w-full px-3 py-2 border-t border-b border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">--</option>
+                          {Array.from({ length: 999 }, (_, i) => i + 1).map(n => {
+                            const code = String(n).padStart(3, '0');
+                            return (
+                              <option key={code} value={code}>{code}</option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    ) : (
+                      (template?.document_code) || (
+                        <span className="text-gray-400 text-md italic">Not set</span>
+                      )
+                    )}
             </div>
             </div>
         </div>
@@ -138,24 +255,32 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                   Revision Number
                 </div>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={revisionNumber}
-                    onChange={(e) => setRevisionNumber(e.target.value)}
-                    placeholder="e.g., 00, 01, 02"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                ) : (
-                  <div className="text-base text-gray-900">
-                    {(revisionNumber || template?.revision_number) || (
-                      <span className="text-gray-400 text-md italic">Not set</span>
-                    )}
-                  </div>
-                )}
+                      {isEditing ? (
+                        <select
+                          value={revisionNumber}
+                          onChange={(e) => { setRevisionNumber(e.target.value); setConflictError(null); }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {Array.from({ length: 100 }, (_, i) => i).map(n => {
+                            const code = String(n).padStart(2, '0');
+                            return (
+                              <option key={code} value={code}>{code}</option>
+                            );
+                          })}
+                        </select>
+                      ) : (
+                        <div className="text-base text-gray-900">{(revisionNumber || template?.revision_number) || (<span className="text-gray-400 text-md italic">Not set</span>)}</div>
+                      )}
               </div>
             </div>
           </div>
+          {/* Inline conflict message for duplicate document_code+revision */}
+          {conflictError && (
+            <div className="text-sm text-red-600 mt-1">
+              {conflictError?.message || 'Conflict detected.'}
+              {conflictError?.conflict?.title ? ` — ${conflictError.conflict.title}` : ''}
+            </div>
+          )}
 
           {/* Effectivity Date Section */}
           <div className="mb-4">
@@ -174,7 +299,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                   />
                 ) : (
                   <div className="text-base text-gray-900">
-                    {formatDateDisplay(template?.effectivity_date)}
+                    {formatDateDisplay(template?.effectivity ?? template?.effectivity_date)}
                   </div>
                 )}
               </div>

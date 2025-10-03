@@ -26,7 +26,8 @@ import {
         unsubmitTemplate,
         returnTemplate,
         publishTemplate,
-        unpublishTemplate
+        unpublishTemplate,
+        insertDocumentCode
 } from "../controllers/templateWorkflowController.js";
 
 const router = express.Router();
@@ -51,5 +52,6 @@ router.patch("/:id/reject", authenticateJWT, rejectTemplate);
 router.patch("/:id/add-note", authenticateJWT, addTemplateNote);
 router.patch("/:id/adjust-deadline", authenticateJWT, adjustTemplateDeadline);
 router.delete("/:id", authenticateJWT, deleteTemplate);
+router.patch("/:id/insert-document-code", authenticateJWT, insertDocumentCode);
 
 export default router;

@@ -426,3 +426,92 @@ export const unpublishTemplate = async (req, res) => {
   }
 };
 
+/**
+ * @desc Insert a document code
+ * @route PATCH /api/templates/:id/insert-document-code
+ * @access Private (Dean)
+ */
+export const insertDocumentCode = async (req, res) => {
+  try {
+    const { document_code, effectivity, revision_no } = req.body;
+
+    // Only Dean is allowed to perform this action
+    const roleName = req.user?.role?.name ? String(req.user.role.name).toLowerCase() : null;
+    if (roleName !== 'dean') {
+      return res.status(403).json({ success: false, message: 'Only Dean is authorized to insert document code' });
+    }
+
+    if (!document_code || String(document_code).trim() === '') {
+      return res.status(400).json({ success: false, message: 'document_code is required' });
+    }
+
+    const template = await Template.findById(req.params.id);
+    if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+
+    // Normalize incoming values
+    const normalizedDocCode = String(document_code).trim();
+    const hasRevision = revision_no !== undefined && revision_no !== null && revision_no !== '';
+    const rn = hasRevision ? Number(revision_no) : undefined;
+
+    // If a different template already has the same document_code + revision_no, disallow
+    if (hasRevision && !Number.isNaN(rn)) {
+      const conflict = await Template.findOne({
+        document_code: normalizedDocCode,
+        revision_no: rn,
+        _id: { $ne: template._id }
+      }).lean();
+      if (conflict) {
+        return res.status(409).json({
+          success: false,
+          message: 'doc code and revision no. already exist',
+          conflict: { id: conflict._id, title: conflict.title }
+        });
+      }
+    }
+
+    // Set values on template
+    template.document_code = normalizedDocCode;
+    if (effectivity !== undefined && effectivity !== null && effectivity !== '') {
+      const dateVal = new Date(effectivity);
+      template.effectivity = isNaN(dateVal.getTime()) ? effectivity : dateVal;
+    }
+    if (hasRevision && !Number.isNaN(rn)) {
+      template.revision_no = rn;
+    }
+
+    // Add a change note
+    template.notes = template.notes || [];
+    template.notes.push({
+      added_by: req.user.id,
+      role_snapshot: req.user?.role?.name || '',
+      type: 'general',
+      message: `Document code set to ${template.document_code}${template.revision_no !== undefined ? `, revision ${template.revision_no}` : ''}`,
+      created_at: new Date()
+    });
+
+    try {
+      await template.save();
+    } catch (saveErr) {
+      if (saveErr && saveErr.code === 11000) {
+        // Attempt to find the conflicting document to provide helpful context
+        try {
+          const conflict = await Template.findOne({ document_code: template.document_code, revision_no: template.revision_no }).lean();
+          const conflictInfo = conflict ? { id: conflict._id, title: conflict.title } : undefined;
+          return res.status(409).json({ success:false, message:'doc code and revision no. already exist', conflict: conflictInfo });
+        } catch (innerErr) {
+          return res.status(409).json({ success:false, message:'Document code with this revision already exists' });
+        }
+      }
+      throw saveErr;
+    }
+
+    const approvalMeta = buildApprovalMeta(template, req.user?.id);
+    return res.status(200).json({ success:true, message:'Document code inserted', template: template.toObject(), approvalMeta });
+
+  } catch (err) {
+    console.error('Insert document code error', err);
+    return res.status(500).json({ success:false, message:'Failed to insert document code' });
+  }
+};
+
+
