@@ -95,6 +95,7 @@ export default function DocumentControllerCreateTemplate() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [notes, setNotes] = useState([]);
 
   // Parse templateId from query string
@@ -281,30 +282,63 @@ export default function DocumentControllerCreateTemplate() {
 
   // handle submission from modal
   const handleSubmitForApproval = async (approverIds, instructions) => {
-    if (!templateId) return;
+    if (!templateId) {
+      setError("Please save the template before submitting for approval.");
+      return;
+    }
     
     try {
-      // submitTemplateAPI expects (templateId, deanId, secretaryId)
-      const deanId = approverIds.find(id => {
-        // Find dean ID from approvers list
-        return approvers.some(a => a.id === id && a.role?.name === 'Dean');
-      });
-      const secretaryId = approverIds.find(id => {
-        // Find secretary ID from approvers list  
-        return approvers.some(a => a.id === id && a.role?.name === 'Secretary');
-      });
+      // Clear previous messages
+      setError("");
+      setSuccessMessage("");
+    
+      let deanId, secretaryId;
       
-      await submitTemplateAPI(templateId, deanId, secretaryId);
+      if (Array.isArray(approverIds)) {
+        // If it's an array, assume first is dean, second is secretary
+        [deanId, secretaryId] = approverIds;
+      } else if (typeof approverIds === 'object') {
+        // If it's an object, extract dean and secretary
+        deanId = approverIds.dean || approverIds.deanId;
+        secretaryId = approverIds.secretary || approverIds.secretaryId;
+      }
+      
+      // Validate if there's at least one approver
+      if (!deanId && !secretaryId) {
+        setError("Please select at least one approver.");
+        return;
+      }
+      
+      const response = await submitTemplateAPI(templateId, deanId, secretaryId);
       
       // Update status immediately
       setStatus("pending");
+      // Show success message
+      setSuccessMessage("Template successfully submitted for approval!");
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccessMessage(""), 5000);
       
       // Reload template to get updated approval data
       await loadTemplate(templateId);
       
     } catch (e) {
       console.error("Failed to submit for approval:", e);
-      setError("Failed to submit for approval.");
+      
+      // Handle specific error cases
+      const errorMsg = e.response?.data?.message || e.message || "Failed to submit for approval.";
+      
+      // Check if template is already submitted
+      if (e.response?.status === 400 && errorMsg.includes("already submitted")) {
+        // Show as info message instead of error
+        setSuccessMessage("This template has already been submitted for approval.");
+        setTimeout(() => setSuccessMessage(""), 5000);
+        
+        // Still reload to get latest state
+        await loadTemplate(templateId);
+      } else {
+        // Show actual errors
+        setError(errorMsg);
+      }
     }
   };
 
@@ -414,6 +448,18 @@ export default function DocumentControllerCreateTemplate() {
           </TemplateSidebar>
 
           <main className="min-h-[60vh] flex-1">
+            {successMessage && (
+              <div className="mb-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                {successMessage}
+                <button 
+                  onClick={() => setSuccessMessage("")}
+                  className="ml-2 text-green-500 hover:text-green-700"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            
             {error && (
               <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {error}
