@@ -9,8 +9,9 @@ import { formatDate } from '../utils/formatters';
  * @param {Object} props.template - Template object with document details
  * @param {Function} props.onUpdateDocumentDetails - Callback for updating doc code & effectivity
  * @param {Function} props.onUpdateISOCode - Callback for updating ISO code
+ * @param {boolean} props.canEdit - Whether the user can edit 
  */
-export default function DocumentDetailsCard({ template, onUpdateDocumentDetails, onUpdateISOCode }) {
+export default function DocumentDetailsCard({ template, onUpdateDocumentDetails, onUpdateISOCode, canEdit = false }) {
   // State for inline editing
   const [isEditing, setIsEditing] = useState(false);
   const [documentCode, setDocumentCode] = useState('');
@@ -100,7 +101,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
             <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans">
               Document Details
             </h3>
-            {!isEditing && (
+            {!isEditing && canEdit && (
               <button
                 onClick={handleStartEdit}
                 className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -204,23 +205,25 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
 
           {/* ISO Code Section - Clickable to open modal */}
           <div
-            onClick={handleOpenISOModal}
-            className="flex items-start gap-2 cursor-pointer p-3 -mx-3 rounded-md hover:bg-gray-50 transition-colors group"
+            onClick={canEdit ? handleOpenISOModal : undefined}
+            className={`flex items-start gap-2 p-3 -mx-3 rounded-md transition-colors group ${
+              canEdit ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'
+            }`}
           >
-            <Shield className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0 group-hover:text-blue-600" />
+            <Shield className={`w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0 ${canEdit ? 'group-hover:text-blue-600' : ''}`} />
             <div className="flex-1">
-              <div className="text-xs font-semibold text-gray-500 tracking-wider mb-1 group-hover:text-blue-600">
+              <div className={`text-xs font-semibold text-gray-500 tracking-wider mb-1 ${canEdit ? 'group-hover:text-blue-600' : ''}`}>
                 ISO Code (Optional) 
               </div>
               <div className="text-base text-gray-900">
                 {template?.iso_code || (
-                  <span className="text-gray-400 text-md italic group-hover:text-blue-500">
-                    Click to add ISO code
+                  <span className={`text-gray-400 text-md italic ${canEdit ? 'group-hover:text-blue-500' : ''}`}>
+                    {canEdit ? 'Click to add ISO code' : 'Not set'}
                   </span>
                 )}
               </div>
             </div>
-            <Edit2 className="w-4 h-4 text-gray-400 group-hover:text-blue-600 mt-0.5" />
+            {canEdit && <Edit2 className="w-4 h-4 text-gray-400 group-hover:text-blue-600 mt-0.5" />}
           </div>
         </div>
       </div>

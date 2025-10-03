@@ -454,9 +454,8 @@ const handleUpdateISOCode = async ({ iso_code }) => {
   /**
    * Process approvals data into a consistent array format
    * Handles both object and array structures from API
-
    */
- let approvalsArr = [];
+  let approvalsArr = [];
   
   if (t.approvals && typeof t.approvals === 'object' && !Array.isArray(t.approvals)) {
     approvalsArr = Object.entries(t.approvals).map(([role, appr]) => ({
@@ -694,12 +693,15 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                 </div>
               </div>
 
-              {/* DocumentDetailsCard*/}
-                <DocumentDetailsCard
-                template={template}
-                onUpdateDocumentDetails={handleUpdateDocumentDetails}
-                onUpdateISOCode={handleUpdateISOCode}
-              />
+              {/* DocumentDetailsCard - editable for Dean, non-editable for other modules */}
+              {template && (
+                <DocumentDetailsCard 
+                  template={template}
+                  onUpdateDocumentDetails={handleUpdateDocumentDetails}
+                  onUpdateISOCode={handleUpdateISOCode}
+                  canEdit={user?.role?.name === "Dean"}
+                />
+              )}
               
               {/* Details Panel */}
               <div className="bg-white border rounded-md shadow-sm">
