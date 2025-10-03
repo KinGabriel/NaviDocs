@@ -2,7 +2,9 @@
 import { useNavigate } from 'react-router-dom';
 import naviLogo from '../assets/images/navilogo.png';
 import SubmitApprovalModal from '../components/modals/submitForApprovalModal'
-import React, { useState } from "react";
+import AssignMembersModal from '../components/modals/AssignMembersModal';
+import React, { useState, useEffect } from "react";
+import { assignControllersToTemplateAPI } from '../api/documentContollerAPI';
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -27,6 +29,7 @@ export default function Header2({
   loadingApprovers=false, 
   reviewNotes=[], 
   assignedIds=[], 
+  onAssign,
   templateId,
   onStatusUpdate,  
   onApprovalsUpdate,
@@ -37,6 +40,19 @@ export default function Header2({
 
   const navigate = useNavigate();
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  // Assign modal state
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
+  const [selectedAssignIds, setSelectedAssignIds] = useState(() => Array.isArray(assignedIds) ? [...assignedIds] : []);
+
+  useEffect(() => {
+    setSelectedAssignIds(Array.isArray(assignedIds) ? [...assignedIds] : []);
+  }, [assignedIds]);
+
+  // Keep selectedAssignIds in sync if template prop updates (e.g., parent updated assigned list)
+  useEffect(() => {
+    setSelectedAssignIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
+  }, [template?.assigned, template?.assignees]);
   
 // Determine button presentation based on status
 const statusConfig = () => {
@@ -472,7 +488,7 @@ const statusConfig = () => {
             
             {/* share btn */}
             <div className="relative">
-              <button className="bg-[#063c8d] text-white rounded px-4 py-2 text-sm font-semibold hover:bg-[#052c6d] flex items-center gap-2">
+              <button onClick={() => setAssignOpen(true)} className="bg-[#063c8d] text-white rounded px-4 py-2 text-sm font-semibold hover:bg-[#052c6d] flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
                 </svg>
@@ -507,6 +523,40 @@ const statusConfig = () => {
           onSubmitSuccess={handleSubmitSuccess}
           approvals={approvals}           
           approvalMeta={approvalMeta}    
+        />
+      )}
+
+      {/* Assign modal triggered by Share */}
+      {assignOpen && (
+        <AssignMembersModal
+          open={assignOpen}
+          onClose={() => { setAssignOpen(false); setSelectedAssignIds(Array.isArray(assignedIds) ? [...assignedIds] : []); }}
+          template={template}
+          selectedIds={selectedAssignIds}
+          setSelectedIds={setSelectedAssignIds}
+          submitting={assignSubmitting}
+          onAssign={async (payload) => {
+            const controllers = Array.isArray(payload) ? payload : (payload && (payload.assignees || payload.controllers)) || [];
+            if (!templateId) { alert('Template ID missing'); return; }
+            if (!controllers || controllers.length === 0) { alert('Please select at least one controller'); return; }
+            setAssignSubmitting(true);
+            try {
+              const resp = await assignControllersToTemplateAPI(templateId, controllers);
+              if (resp && resp.success) {
+                // update local state
+                setSelectedAssignIds(Array.isArray(resp.template?.assigned) ? [...resp.template.assigned] : [...controllers]);
+                if (typeof onAssign === 'function') onAssign(resp.template || resp);
+              } else {
+                alert(resp?.message || 'Failed to assign controllers');
+              }
+            } catch (err) {
+              console.error('Assign error', err);
+              alert(err?.response?.data?.message || 'Error assigning controllers');
+            } finally {
+              setAssignSubmitting(false);
+              setAssignOpen(false);
+            }
+          }}
         />
       )}
     </>

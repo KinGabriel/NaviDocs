@@ -260,6 +260,9 @@ export default function DocumentControllerTemplates() {
                     onApprove={handleInlineApprove}
                     onPublish={handleInlinePublish}
                     onSelect={() => navigate(`/document-controller/create-template?templateId=${template._id}`)}
+                    onAssign={(updatedTemplate) => {
+                      setTemplates(prev => prev.map(t => (t._id === updatedTemplate._id ? { ...t, ...updatedTemplate } : t)));
+                    }}
                   />
                 ))
               )}

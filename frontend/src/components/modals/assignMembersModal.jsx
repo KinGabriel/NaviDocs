@@ -185,7 +185,7 @@ export default function AssignMembersModal({
             </button>
             <button
               onClick={handleDone}
-              disabled={submitting}
+              disabled={submitting || !Array.isArray(selectedIds) || selectedIds.length === 0}
               className="px-4 py-2 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
             >
               {submitting ? "Saving…" : "Done"}

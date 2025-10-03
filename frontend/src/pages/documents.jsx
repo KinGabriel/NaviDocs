@@ -230,6 +230,9 @@ export default function GlobalTemplates() {
                       }
                       onRename={() => openRename(template)}
                       onDelete={() => openDelete(template)}
+                      onAssign={(updatedTemplate) => {
+                        setTemplates(prev => prev.map(t => (t._id === updatedTemplate._id ? { ...t, ...updatedTemplate } : t)));
+                      }}
                     />
                   );
                 })

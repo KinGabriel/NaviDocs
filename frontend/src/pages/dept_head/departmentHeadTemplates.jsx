@@ -221,6 +221,9 @@ export default function DepartmentHeadTemplates() {
                         template={template}
                         user={user}
                         onSelect={() => {() => {}}}
+                        onAssign={(updatedTemplate) => {
+                          setTemplates(prev => prev.map(t => (t._id === updatedTemplate._id ? { ...t, ...updatedTemplate } : t)));
+                        }}
                     />
                     </div>
 

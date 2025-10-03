@@ -1,17 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AssignMembersModal from "./modals/AssignMembersModal";
 import DuplicateTemplateModal from "./modals/DuplicateTemplateModal";
-import { deleteTemplateAPI } from "../api/documentContollerAPI";
+import { deleteTemplateAPI, assignControllersToTemplateAPI } from "../api/documentContollerAPI";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];  
-export default function TemplateCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete }) {
+export default function TemplateCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete, onAssign }) {
   const [showMenu, setShowMenu] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [selectedIds, setSelectedIds] = useState([]);
+  // Initialize selectedIds with any existing assigned controllers from the template
+  const [selectedIds, setSelectedIds] = useState(() => {
+    try {
+      return Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []);
+    } catch (e) {
+      return [];
+    }
+  });
   const [duplicateOpen, setDuplicateOpen] = useState(false);
+
+  // Keep selectedIds in sync if template prop updates (e.g., parent updated assigned list)
+  useEffect(() => {
+    setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
+  }, [template?.assigned, template?.assignees]);
 
   // Helper function to get template status
   const getTemplateStatus = (template) => {
@@ -89,7 +101,13 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
         // Handle duplicate logic
         console.log('Duplicate template:', template._id);
         break;
-      case 'delete':
+      case 'assign':
+        // Open assign modal
+        // prefill selectedIds from template assigned list when opening
+        setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
+        setAssignOpen(true);
+        break;
+  case 'delete':
         // Handle delete logic
         (async () => {
           // TO DO: MODAL TO CONFIRM AND SHOW SERVER RESPONSE
@@ -331,9 +349,35 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
         selectedIds={selectedIds}
         setSelectedIds={setSelectedIds}
         setTheDocController={(id) => console.log("Set controller:", id)}
-        onAssign={(data) => {
-          console.log("Assigned:", data);
-          setAssignOpen(false);
+        onAssign={async (payload) => {
+          try {
+            // Normalize payload: modal sometimes returns { assignees: [...] },
+            // some callers may pass the array directly. Accept both.
+            const controllers = Array.isArray(payload)
+              ? payload
+              : (payload && (payload.assignees || payload.controllers)) || [];
+
+            const resp = await assignControllersToTemplateAPI(template._id, controllers);
+            if (resp && resp.success) {
+              // let parent handle UI update if provided
+              if (typeof onAssign === 'function') {
+                onAssign(resp.template || template);
+              } else if (typeof onDelete === 'function') {
+                // backward compatibility: call onDelete if present
+                onDelete(resp.template || template);
+              } else if (typeof window !== 'undefined') {
+                // fallback: reload to reflect changes
+                window.location.reload();
+              }
+            } else {
+              alert(resp?.message || 'Failed to assign controllers');
+            }
+          } catch (err) {
+            console.error('Assign controllers error', err);
+            alert(err.response?.data?.message || 'Error assigning controllers');
+          } finally {
+            setAssignOpen(false);
+          }
         }}
       />
       <DuplicateTemplateModal
