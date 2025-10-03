@@ -115,7 +115,33 @@ export default function DocumentControllerCreateTemplate() {
       setTemplate(tpl);
       setApprovals(tpl.approvals || null);
       setApprovalMeta(tpl.approvalMeta || null);
-
+    // Extract approvers from approvals
+      const approvalsObj = tpl.approvals || (tpl.status_meta && tpl.status_meta.approvals) || {};
+      const approversArr = [];
+      
+      if (approvalsObj.dean && approvalsObj.dean.assigned_to) {
+        approversArr.push({
+          _id: approvalsObj.dean.assigned_to,
+          id: approvalsObj.dean.assigned_to,
+          name: approvalsObj.dean.assigned_to_name || 'Dean',
+          firstname: approvalsObj.dean.assigned_to_firstname,
+          lastname: approvalsObj.dean.assigned_to_lastname,
+          role: { name: 'Dean' },
+          ...approvalsObj.dean
+        });
+      }
+      if (approvalsObj.secretary && approvalsObj.secretary.assigned_to) {
+        approversArr.push({
+          _id: approvalsObj.secretary.assigned_to,
+          id: approvalsObj.secretary.assigned_to,
+          name: approvalsObj.secretary.assigned_to_name || 'Secretary',
+          firstname: approvalsObj.secretary.assigned_to_firstname,
+          lastname: approvalsObj.secretary.assigned_to_lastname,
+          role: { name: 'Secretary' },
+          ...approvalsObj.secretary
+        });
+      }
+      setApprovers(approversArr);
       // Set content for editor from pages_json
       if (tpl.pages_json && tpl.pages_json.length > 0) {
         setTemplateContent(tpl.pages_json[0]); // Or hydrate editor directly
