@@ -29,7 +29,6 @@ export default function HeaderTemplateView({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isDeadlineModalOpen, setDeadlineModalOpen] = useState(false);
   const [isInstructionsModalOpen, setInstructionsModalOpen] = useState(false);
-
   // Approval Modal handlers
   const handleApproveClick = () => setIsApprovalModalOpen(true);
   // Import your API functions at the top of the file:
@@ -93,10 +92,11 @@ export default function HeaderTemplateView({
 
   return (
     <>
-      <div>
-        <div className="h-4 bg-[#063c8d] w-full" />
-        <div className="flex items-center justify-between bg-[#f3f3f3] px-8 py-3 border-b border-gray-200">
-          {/* Logo */}
+      <div className="sticky top-0 z-50 bg-[#f3f3f3] shadow-sm">
+        <div className="h-4 bg-[#063c8d] w-full" /> 
+        {/* Main header content */}
+        <div className="flex items-center justify-between px-8 py-3 border-b border-gray-200 bg-[#f3f3f3]">
+          {/* Logo and Title */}
           <div className="flex items-center gap-8">
             <img
               src={naviLogo}
@@ -111,12 +111,13 @@ export default function HeaderTemplateView({
             />
 
             {/* Title */}
-            <div className="flex items-center">
-              <div className="text-sm font-semibold">{t.code}</div>
-              <div className="text-base sm:text-lg font-medium">{t.title}</div>
+            <div className="flex items-center gap-2">
+              {t.code && <div className="text-sm font-semibold text-gray-600">{t.code}</div>}
+              <div className="text-base sm:text-lg font-medium text-gray-800">{t.title}</div>
             </div>
           </div>
 
+          {/* Action buttons */}
           <div className="flex items-center gap-3">
             {/* Assign Members btn */}
             <button
@@ -141,7 +142,7 @@ export default function HeaderTemplateView({
               </button>
             )}
 
-            {/*  Dropdown */}
+            {/* Actions Dropdown */}
             <div className="relative inline-block">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -152,7 +153,7 @@ export default function HeaderTemplateView({
                 <ChevronDown className="h-4 w-4" />
               </button>
 
-             {dropdownOpen && (
+              {dropdownOpen && (
                 <div className="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden backdrop-blur-sm">
                   <div className="py-2">
                     <button
