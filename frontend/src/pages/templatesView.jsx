@@ -773,7 +773,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                             <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0" aria-hidden="true"></span>
                             <div className="flex flex-col">
                               <span className="font-medium text-gray-800 flex items-center">
-                                {approver.name} ({approver.role})
+                                {approver.name} ({approver.role?.name || approver.role})
                                 {statusBadge}
                               </span>
                             </div>

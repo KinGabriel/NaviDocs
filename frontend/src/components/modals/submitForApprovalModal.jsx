@@ -124,6 +124,7 @@ export default function SubmitApprovalModal({
       }
 
       if (status === "assigned") {
+        // Submit using selected dean/secretary (if any)
         await submitTemplateAPI(templateId, selectedDean, selectedSecretary);
 
         const updatedApprovers = [
@@ -134,12 +135,16 @@ export default function SubmitApprovalModal({
         setLocalApprovers(updatedApprovers);
 
         if (typeof onSubmit === "function") {
-          const allIds = [...secretaries, ...deans].map(s => s.id);
-          await onSubmit(allIds, instructions);
+          // Prefer approvers provided by parent (approversProp) when present
+          const approverIdsToSend = (Array.isArray(approversProp) && approversProp.length > 0)
+            ? approversProp.map(a => a.id || a._id)
+            : updatedApprovers.map(a => a.id || a._id);
+
+          await onSubmit(approverIdsToSend, instructions);
         }
 
         if (onSubmitSuccess) {
-          onSubmitSuccess("pending", instructions, localApprovers);
+          onSubmitSuccess("pending", instructions, updatedApprovers);
         }
 
         setSubmitSuccess(true);
@@ -506,7 +511,7 @@ export default function SubmitApprovalModal({
                       <UserCheck className="h-5 w-5 text-blue-600" />
                       <div className="flex-1">
                         <div className="font-medium text-slate-900">{approver.name}</div>
-                        <div className="text-sm text-slate-500">{approver.role}</div>
+                        <div className="text-sm text-slate-500">{approver.role?.name || approver.role || "Approver"}</div>
                       </div>
                     </div>
                   ))}
