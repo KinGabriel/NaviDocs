@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import AssignMembersModal from "./modals/AssignMembersModal";
 import DuplicateTemplateModal from "./modals/DuplicateTemplateModal";
+import { deleteTemplateAPI } from "../api/documentContollerAPI";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
@@ -90,8 +91,28 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
         break;
       case 'delete':
         // Handle delete logic
-        if (onDelete) onDelete(template);
-        else console.log('Delete template:', template._id);
+        (async () => {
+          // TO DO: MODAL TO CONFIRM AND SHOW SERVER RESPONSE
+          const confirmed = window.confirm('Are you sure you want to delete this template? This action cannot be undone.');
+          if (!confirmed) return;
+          try {
+            const resp = await deleteTemplateAPI(template._id);
+            if (resp && resp.success) {
+              // If parent provided onDelete callback, let it handle UI update
+              if (onDelete) onDelete(resp.template || template);
+              else {
+                // Fallback: reload the page or log
+                console.log('Template delete response:', resp);
+                window.location.reload();
+              }
+            } else {
+              alert(resp?.message || 'Failed to delete template');
+            }
+          } catch (err) {
+            console.error('Delete template error', err);
+            alert(err.response?.data?.message || 'Error deleting template');
+          }
+        })();
         break;
       default:
         break;
@@ -293,7 +314,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    Delete
+                    Remove
                   </button>
                 </div>
               </>

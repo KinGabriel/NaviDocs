@@ -124,12 +124,6 @@ export const getTemplateByIdAPI = async (templateId) => {
   return res.data;
 };
 
-/**
- * Updates an existing template.
- * @param {string} templateId - ID of the template.
- * @param {Object} updateData - Data to update.
- * @returns {Promise<Object>} - Updated template response.
- */
 
 /**
  * Update a template by ID.
@@ -140,6 +134,19 @@ export const getTemplateByIdAPI = async (templateId) => {
  */
 export const updateTemplateAPI = async (templateId, updateData) => {
   const res = await axios.put(`${API_URL}/api/templates/${templateId}`, updateData, {
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+/**
+ * Delete a template by ID. If the current user is assigned (and allowed), this may return an updated template
+ * (removed from assigned); otherwise for owners/admins it deletes the template.
+ * @param {string} templateId - Template MongoDB ObjectId
+ * @returns {Promise<{success:boolean,message:string,template?:Object}>}
+ */
+export const deleteTemplateAPI = async (templateId) => {
+  const res = await axios.delete(`${API_URL}/api/templates/${templateId}`, {
     withCredentials: true,
   });
   return res.data;
