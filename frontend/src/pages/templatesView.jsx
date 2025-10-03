@@ -16,11 +16,12 @@ import {
   approveTemplateAPI, 
   rejectTemplateAPI, 
   returnTemplateAPI, 
-  assignControllersToTemplateAPI 
+  assignControllersToTemplateAPI,
 } from "../api/documentContollerAPI";
 import { formatDateTime } from "../utils/formatters";
 import AssignMembersModal from "../components/modals/assignMembersModal";
 import TextEditor from "../layout/create_template/textEditor"; 
+import DocumentDetailsCard from "../components/documentDetailsCard";
 
 export default function TemplatesView() {
   // Hooks
@@ -344,6 +345,59 @@ export default function TemplatesView() {
   };
 
   /**
+ * Updates document code and effectivity date
+ */
+const handleUpdateDocumentDetails = async ({ document_code, effectivity_date }) => {
+  if (!template?._id) return;
+  
+  try {
+    // TODO: Add API call
+    // await updateDocumentDetailsAPI(template._id, { document_code, effectivity_date });
+    
+    // For demo, update local state
+    setTemplate(prev => ({
+      ...prev,
+      document_code,
+      effectivity_date
+    }));
+    
+    // Refresh from server when API is ready
+    // await refreshTemplate(template._id);
+    setError(null);
+  } catch (err) {
+    console.error("Failed to update document details:", err);
+    setError("Failed to update document details");
+    throw err;
+  }
+};
+
+/**
+ * Updates ISO code
+ */
+const handleUpdateISOCode = async ({ iso_code }) => {
+  if (!template?._id) return;
+  
+  try {
+    // TODO: Add API call
+    // await updateISOCodeAPI(template._id, { iso_code });
+    
+    // For demo, update local state
+    setTemplate(prev => ({
+      ...prev,
+      iso_code
+    }));
+    
+    // Refresh from server when API is ready
+    // await refreshTemplate(template._id);
+    setError(null);
+  } catch (err) {
+    console.error("Failed to update ISO code:", err);
+    setError("Failed to update ISO code");
+    throw err;
+  }
+};
+
+  /**
    * Refreshes template data after deadline update
    */
   const handleUpdateDeadline = async () => {
@@ -509,9 +563,10 @@ export default function TemplatesView() {
     );
   }
 
-  // Add right after getting the template
-console.log("Raw approvals data:", t.approvals);
-console.log("Page setup data:", template?.pageSetup);
+  // debugging after getting the template
+    console.log("Raw approvals data:", t.approvals);
+    console.log("Page setup data:", template?.pageSetup);
+
   // Main render
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -557,12 +612,12 @@ console.log("Page setup data:", template?.pageSetup);
             </div>
           )}
           
-          {/* Two-column layout: preview and details */}
+          {/* preview and details */}
           <div className="grid grid-cols-12 gap-6">
-            {/* Left column: Template preview */}
+            {/* Template preview */}
             <section className="col-span-12 lg:col-span-8  ">
                     {/* Page Controls */}
-                    <div className="flex items-center justify-between ">
+                  <div className="flex items-center justify-between mb-2">
                       <button
                         className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
                         onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
@@ -582,7 +637,6 @@ console.log("Page setup data:", template?.pageSetup);
                       </button>
                     </div>
                     {/* Document Plate with header/footer placeholders */}
-                    
                      
                       {/* Page content */}
                       <div className="flex-1 w-full">
@@ -600,7 +654,7 @@ console.log("Page setup data:", template?.pageSetup);
                     </div>
             </section>
 
-            {/* Right column: Template details and metadata */}
+            {/* Template details and metadata */}
             <aside className="col-span-12 lg:col-span-4">
               {/* Template Status Panel */}
               <div className="bg-white border rounded-md shadow-sm mb-4">
@@ -639,6 +693,13 @@ console.log("Page setup data:", template?.pageSetup);
                   </div>
                 </div>
               </div>
+
+              {/* DocumentDetailsCard*/}
+                <DocumentDetailsCard
+                template={template}
+                onUpdateDocumentDetails={handleUpdateDocumentDetails}
+                onUpdateISOCode={handleUpdateISOCode}
+              />
               
               {/* Details Panel */}
               <div className="bg-white border rounded-md shadow-sm">
