@@ -31,15 +31,11 @@ export const createTemplate = async (req, res) => {
         }
       ];
     }
-    if (!templateData.body) {
-      templateData.body = '';
-    }
-
     const template = new Template({
       ...templateData
     });
 
-    template.schoool = req.user?.school || '';
+  template.school = req.user?.school || req.user?.role?.school || '';
     // Remove transient / client-only fields
     delete template.school_identifier; // not stored separately
 
