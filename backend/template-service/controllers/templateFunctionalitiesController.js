@@ -188,7 +188,62 @@ export const deleteTemplate = async (req, res) => {
       });
     }
 
+    // Determine requester relationship to template
+    const requesterId = req.user && req.user.id ? String(req.user.id) : null;
+    const isOwner = template.created_by && String(template.created_by) === requesterId;
+    const isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'Admin' || req.user.isAdmin);
+    const assignedIds = Array.isArray(template.assigned) ? template.assigned.map(a => String(a)) : [];
+    const isAssigned = requesterId ? assignedIds.includes(requesterId) : false;
+
+    // If requester is not owner but is in assigned list, treat DELETE as self-remove unless status === 'assigned'
+    if (!isOwner && !isAdmin) {
+      if (isAssigned) {
+        if (String(template.status) === 'assigned') {
+          return res.status(403).json({
+            success: false,
+            message: 'Not authorized to remove assignment while template is assigned'
+          });
+        }
+
+        // Remove requester from assigned array
+        const updated = await Template.findByIdAndUpdate(
+          req.params.id,
+          { $pull: { assigned: req.user.id } },
+          { new: true }
+        );
+
+        return res.status(200).json({
+          success: true,
+          message: 'Removed from assigned list',
+          template: {
+            ...updated.toObject(),
+            approvalMeta: buildApprovalMeta(updated, req.user?.id)
+          }
+        });
+      }
+
+      // Not owner/admin and not assigned -> forbidden to delete
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to delete this template'
+      });
+    }
+
+    // Owner proceed to delete
     await Template.findByIdAndDelete(req.params.id);
+
+    //  delete the thumbnail from the file-service if present
+    try {
+      const fileServerUrl = process.env.FILE_SERVICE_URL || 'http://localhost:5005';
+      if (template.thumbnailUrl) {
+        // file-service expects DELETE /api/files/delete with JSON body { filePath }
+        const filePath = template.thumbnailUrl;
+        await axios.delete(fileServerUrl + '/api/files/delete', { data: { filePath } });
+        console.log(`Thumbnail deleted from file-service: ${filePath}`);
+      }
+    } catch (err) {
+      console.error('Error deleting thumbnail from file-service:', err?.message || err);
+    }
     /** 
     // Emit socket event for real-time updates
     if (req.io) {
