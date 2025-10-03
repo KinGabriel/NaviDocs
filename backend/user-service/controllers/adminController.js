@@ -258,7 +258,11 @@ export const getUserById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-  
+  /**
+ * @desc Edit a user with optional profile picture update
+ * @route PATCH /api/admin/edit-user/:id
+ * @access Private (Admin only)
+   */
   export const editUser = async (req, res) => {
   try {
     const userId = req.params.id;

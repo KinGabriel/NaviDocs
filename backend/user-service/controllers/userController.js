@@ -7,7 +7,7 @@ import FormData from "form-data";
 
 /**
  * Get user email by user ID
- * @route POST /api/user/getUserMail
+ * @route POST /api/user/getUserEmail/:id
  * @access Private
  */
 
@@ -27,7 +27,7 @@ export const getUserEmail = async (req, res) => {
 
 /**
  * Convert email to user ID
- * @route GET /api/user/getUserId/:email
+ * @route GET /api/user/getUserIdByEmail/:email
  * @access Private
  */
 export const getUserIdByEmail = async (req, res) => {
@@ -45,7 +45,7 @@ export const getUserIdByEmail = async (req, res) => {
 };
 /**
  * Get basic user info (firstname and lastname) by user ID
- * @route GET /api/users/getUserInfo/:id'
+ * @route GET /api/users/getUserInfo/:id
  * @access Private
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
