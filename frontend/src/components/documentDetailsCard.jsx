@@ -191,96 +191,130 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
           <div className="w-16 h-0.5 bg-yellow-400 mb-4 rounded" />
 
         {/* Document Code Section */}
-        <div className="mb-4">
-        <div className="flex items-start gap-2">
+        <div className="mb-4 overflow-visible">
+          <div className="flex items-start gap-2">
             <FileText className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
             <div className="flex-1">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                 Document Code
-            </div>
-            <div className="text-base text-gray-900">
-                    {isEditing ? (
-                      <div className="flex gap-2">
-                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-sm">FM-</span>
-                        <select
-                          value={documentIdentifier}
-                          onChange={(e) => { setDocumentIdentifier(e.target.value); setConflictError(null); }}
-                          className="px-3 py-2 border border-gray-300 text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
+              </div>
+              <div className="text-base text-gray-900">
+                {isEditing ? (
+                  <div className="flex gap-2 relative z-50 overflow-visible">
+                    <span className="inline-flex items-center px-3 rounded-l-md border border-gray-300 bg-gray-50 text-sm">
+                      FM-
+                    </span>
+
+                    {/* Identifier dropdown */}
+                    <select
+                      value={documentIdentifier}
+                      onChange={(e) => {
+                        setDocumentIdentifier(e.target.value);
+                        setConflictError(null);
+                      }}
+                      className="px-3 py-2 border border-gray-300 text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
                           {/* Always include VAA */}
                           <option value="VAA">VAA</option>
                           {/* Include template school identifier if present and not VAA */}
                           {(() => {
                             const schoolMap = {
                               'University Wide': 'VAA',
-                              'SAMCIS': 'SMI',
-                              'STELA': 'STL',
+                              SAMCIS: 'SMI',
+                              STELA: 'STL',
                             };
-                            const schoolId = schoolMap[template?.school] || template?.school?.toUpperCase?.();
+                            const schoolId =
+                              schoolMap[template?.school] ||
+                              template?.school?.toUpperCase?.();
                             if (schoolId && schoolId !== 'VAA') {
                               return <option value={schoolId}>{schoolId}</option>;
                             }
                             return null;
                           })()}
                         </select>
-                        <select
-                          value={documentSerial}
-                          onChange={(e) => { setDocumentSerial(e.target.value); setConflictError(null); }}
-                          className="w-full px-3 py-2 border-t border-b border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">--</option>
-                          {Array.from({ length: 999 }, (_, i) => i + 1).map(n => {
-                            const code = String(n).padStart(3, '0');
-                            return (
-                              <option key={code} value={code}>{code}</option>
-                            );
-                          })}
-                        </select>
-                      </div>
-                    ) : (
-                      (template?.document_code) || (
-                        <span className="text-gray-400 text-md italic">Not set</span>
-                      )
-                    )}
-            </div>
-            </div>
-        </div>
-        </div>
 
-          {/* Revision Number Section */}
-          <div className="mb-4">
-            <div className="flex items-start gap-2">
-              <FileText className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                  Revision Number
-                </div>
-                      {isEditing ? (
-                        <select
-                          value={revisionNumber}
-                          onChange={(e) => { setRevisionNumber(e.target.value); setConflictError(null); }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          {Array.from({ length: 100 }, (_, i) => i).map(n => {
-                            const code = String(n).padStart(2, '0');
-                            return (
-                              <option key={code} value={code}>{code}</option>
-                            );
-                          })}
-                        </select>
-                      ) : (
-                        <div className="text-base text-gray-900">{(revisionNumber || template?.revision_number) || (<span className="text-gray-400 text-md italic">Not set</span>)}</div>
-                      )}
+                    {/* Serial number dropdown but typeable */}
+                    <input
+                      list="document-serial-options"
+                      value={documentSerial}
+                      onChange={(e) => {
+                        setDocumentSerial(e.target.value);
+                        setConflictError(null);
+                      }}
+                      placeholder="--"
+                      className="w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-r-md"
+                    />
+                    <datalist id="document-serial-options">
+                      {Array.from({ length: 999 }, (_, i) => i + 1).map((n) => {
+                        const code = String(n).padStart(3, '0');
+                        return (
+                          <option key={code} value={code}>
+                            {code}
+                          </option>
+                        );
+                      })}
+                    </datalist>
+                  </div>
+                ) : (
+                  template?.document_code || (
+                    <span className="text-gray-400 text-md italic">Not set</span>
+                  )
+                )}
               </div>
             </div>
           </div>
-          {/* Inline conflict message for duplicate document_code+revision */}
-          {conflictError && (
-            <div className="text-sm text-red-600 mt-1">
-              {conflictError?.message || 'Conflict detected.'}
-              {conflictError?.conflict?.title ? ` — ${conflictError.conflict.title}` : ''}
+        </div>
+
+        {/* Revision Number Section */}
+        <div className="mb-4 overflow-visible">
+          <div className="flex items-start gap-2">
+            <FileText className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                Revision Number
+              </div>
+              {isEditing ? (
+                <>
+                  <input
+                    list="revision-options"
+                    value={revisionNumber}
+                    onChange={(e) => {
+                      setRevisionNumber(e.target.value);
+                      setConflictError(null);
+                    }}
+                    placeholder="00"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <datalist id="revision-options">
+                    {Array.from({ length: 100 }, (_, i) => i).map((n) => {
+                      const code = String(n).padStart(2, '0');
+                      return (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      );
+                    })}
+                  </datalist>
+                </>
+              ) : (
+                <div className="text-base text-gray-900">
+                  {revisionNumber || template?.revision_number || (
+                    <span className="text-gray-400 text-md italic">Not set</span>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </div>
+        </div>
+
+        {/* Inline conflict message for duplicate document_code+revision */}
+        {conflictError && (
+          <div className="text-sm text-red-600 mt-1">
+            {conflictError?.message || 'Conflict detected.'}
+            {conflictError?.conflict?.title ? ` — ${conflictError.conflict.title}` : ''}
+          </div>
+        )}
+
 
           {/* Effectivity Date Section */}
           <div className="mb-4">
@@ -329,7 +363,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
           )}
 
           {/* ISO Code Section - Clickable to open modal */}
-          <div
+          {/* <div
             onClick={canEdit ? handleOpenISOModal : undefined}
             className={`flex items-start gap-2 p-3 -mx-3 rounded-md transition-colors group ${
               canEdit ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'
@@ -349,7 +383,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
               </div>
             </div>
             {canEdit && <Edit2 className="w-4 h-4 text-gray-400 group-hover:text-blue-600 mt-0.5" />}
-          </div>
+          </div> */}
         </div>
       </div>
 
