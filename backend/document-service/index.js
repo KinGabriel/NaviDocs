@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import { dbConnection } from "./config/db.js";
+import documentRoutes from "./routes/documentRoutes.js";
 
 dotenv.config();
 
@@ -21,6 +22,8 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+//  document routes
+app.use('/api/documents', documentRoutes);
 
 dbConnection();
 app.listen(PORT, HOST, () => console.log(`User Service running on port ${PORT}`));
