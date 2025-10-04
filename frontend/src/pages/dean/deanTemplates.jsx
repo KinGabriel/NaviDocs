@@ -141,6 +141,12 @@ export default function DeanTemplates() {
           }
         } else if (row.status === "published") {
           type = "Published";
+         } 
+        else if (row.status === "rejected") {
+          type = "Rejected";
+        } 
+        else if (row.status === "returned") {
+          type = "Returned";
         }
         return <StatusBadge type={type} />;
       }
