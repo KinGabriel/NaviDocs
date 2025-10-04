@@ -23,6 +23,8 @@ import AssignMembersModal from "../components/modals/assignMembersModal";
 import TextEditor from "../layout/create_template/textEditor"; 
 import DocumentDetailsCard from "../components/documentDetailsCard";
 
+import fetchAndNormalizeTemplate from "../utils/templateLoader";
+
 export default function TemplatesView() {
   // Hooks
   const user = useUser(); // Current logged-in user
@@ -71,21 +73,10 @@ export default function TemplatesView() {
     if (!templateId) return;
     
     try {
-      const res = await getTemplateByIdAPI(templateId);
-      console.log("Refreshed template:", res);
-      
-      // Handle different API response structures
-      let updatedTemplate;
-      if (res.template) {
-        updatedTemplate = res.template;
-      } else if (res.data) {
-        updatedTemplate = res.data;
-      } else {
-        updatedTemplate = res;
-      }
-      
-      setTemplate(updatedTemplate);
-      console.log("Template updated:", updatedTemplate);
+      const normalized = await fetchAndNormalizeTemplate(templateId);
+      console.log("Refreshed template (normalized):", normalized);
+      setTemplate(normalized.template);
+      // Optionally set other local state pieces if needed in this view
     } catch (err) {
       console.error("Failed to refresh template:", err);
       setError("Failed to fetch template");

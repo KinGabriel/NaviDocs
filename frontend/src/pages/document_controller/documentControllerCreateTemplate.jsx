@@ -2,7 +2,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  getTemplateByIdAPI,
   updateTemplateAPI,
   fetchApproversAPI,
   approveTemplateAPI,
@@ -10,6 +9,7 @@ import {
   createTemplateAPI,
   submitTemplateAPI,
 } from "../../api/documentContollerAPI";
+import fetchAndNormalizeTemplate from "../../utils/templateLoader";
 import useUser from "../../hooks/useUser";
 import Header2 from "../../layout/header2";
 
@@ -102,60 +102,26 @@ export default function DocumentControllerCreateTemplate() {
   const params = new URLSearchParams(location.search);
   const templateIdFromQuery = params.get("templateId");
 
-  // template loading
+  // template loading using shared loader
   const loadTemplate = async (id) => {
     try {
       setLoading(true);
-      const res = await getTemplateByIdAPI(id);
-      if (!res) return;
-      const tpl = res?.template || {};
+      const normalized = await fetchAndNormalizeTemplate(id);
 
-      setTemplateTitle(tpl.title || "Untitled Template");
-      setNotes(Array.isArray(tpl.notes) ? tpl.notes : []);
-      setStatus(tpl.status || "draft");
-      setTemplate(tpl);
-      setApprovals(tpl.approvals || null);
-      setApprovalMeta(tpl.approvalMeta || null);
-    // Extract approvers from approvals
-      const approvalsObj = tpl.approvals || (tpl.status_meta && tpl.status_meta.approvals) || {};
-      const approversArr = [];
-      
-      if (approvalsObj.dean && approvalsObj.dean.assigned_to) {
-        approversArr.push({
-          _id: approvalsObj.dean.assigned_to,
-          id: approvalsObj.dean.assigned_to,
-          name: approvalsObj.dean.assigned_to_name || 'Dean',
-          firstname: approvalsObj.dean.assigned_to_firstname,
-          lastname: approvalsObj.dean.assigned_to_lastname,
-          role: { name: 'Dean' },
-          ...approvalsObj.dean
-        });
-      }
-      if (approvalsObj.secretary && approvalsObj.secretary.assigned_to) {
-        approversArr.push({
-          _id: approvalsObj.secretary.assigned_to,
-          id: approvalsObj.secretary.assigned_to,
-          name: approvalsObj.secretary.assigned_to_name || 'Secretary',
-          firstname: approvalsObj.secretary.assigned_to_firstname,
-          lastname: approvalsObj.secretary.assigned_to_lastname,
-          role: { name: 'Secretary' },
-          ...approvalsObj.secretary
-        });
-      }
-      setApprovers(approversArr);
-      // Set content for editor from pages_json
-      if (tpl.pages_json && tpl.pages_json.length > 0) {
-        setTemplateContent(tpl.pages_json[0]); // Or hydrate editor directly
-      } else {
-        setTemplateContent(DEFAULT_CONTENT);
-      }
+      setTemplateTitle(normalized.templateTitle);
+      setNotes(normalized.notes);
+      setStatus(normalized.status);
+      setTemplate(normalized.template);
+      setApprovals(normalized.approvals);
+      setApprovalMeta(normalized.approvalMeta);
+      setApprovers(normalized.approvers);
+      setTemplateContent(normalized.templateContent || DEFAULT_CONTENT);
 
-      if (tpl.pageSetup) setPageSetup(tpl.pageSetup);
-      if (tpl.fontSettings) setFontSettings(tpl.fontSettings);
-      if (tpl.headerFooter) setHeaderFooter(tpl.headerFooter);
-      if (tpl.dateFormat) setDateFormat(tpl.dateFormat);
-      if (Array.isArray(tpl.fields)) setEditableFields(tpl.fields);
-
+      if (normalized.pageSetup) setPageSetup(normalized.pageSetup);
+      if (normalized.fontSettings) setFontSettings(normalized.fontSettings);
+      if (normalized.headerFooter) setHeaderFooter(normalized.headerFooter);
+      if (normalized.dateFormat) setDateFormat(normalized.dateFormat);
+      if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
     } catch (e) {
       console.error(e);
       setError("Failed to load template.");
