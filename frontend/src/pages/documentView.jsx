@@ -1,7 +1,7 @@
 /** FUTURE USE : DUPLICATED VERSION OF publishedTemplateView.jsx */
 import React from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import HeaderDocumentView from "../layout/headerPublishedTemplateView";
+import HeaderDocumentView from "../layout/headers/headerPublishedTemplateView";
 import useUser from "../hooks/useUser";
 import { getTemplateByIdAPI } from "../api/documentContollerAPI";
 import { useState, useEffect } from "react";

@@ -7,7 +7,7 @@ import {
 } from "../../api/adminAPI";
 import useUser from '../../hooks/useUser';
 import Sidebar from '../../layout/sidebar';
-import Header from '../../layout/header';
+import Header from '../../layout/headers/header';
 import SearchBar from '../../components/searchBar';
 import Table from '../../components/table';
 import Dropdown from '../../components/dropdowns/dropdown';

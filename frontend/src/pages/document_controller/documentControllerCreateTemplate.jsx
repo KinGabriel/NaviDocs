@@ -11,7 +11,7 @@ import {
 } from "../../api/documentContollerAPI";
 import fetchAndNormalizeTemplate from "../../utils/templateLoader";
 import useUser from "../../hooks/useUser";
-import Header2 from "../../layout/header2";
+import Header2 from "../../layout/headers/header2";
 
 // Panels
 import FontPanel from "../../layout/create_template/fontPanel";

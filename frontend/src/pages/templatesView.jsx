@@ -9,7 +9,7 @@
  */
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import HeaderTemplateView from "../layout/headerTemplateView";
+import HeaderTemplateView from "../layout/headers/headerTemplateView";
 import useUser from "../hooks/useUser";
 import { 
   getTemplateByIdAPI,

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeName, canSaveUser } from "../utils/validations.js";
-import Header from "../layout/header";
+import Header from "../layout/headers/header.jsx";
 import Sidebar from "../layout/sidebar";
 import useUser from "../hooks/useUser";
 import Loader from "../components/loader";
