@@ -3,7 +3,7 @@ import { SCHOOL_OPTIONS, DEPARTMENT_OPTIONS } from "../utils/options";
 import { deleteFolderByIDAPI,addAccessToFoldersAPI } from "../api/storageAPI";
 import { searchUsersByEmailAPI,getUserIdByEmailAPI } from "../api/userAPI";
 import React, { useState, Fragment,useEffect, useRef } from "react";
-import MultiSelectDropdown from './multiSelectDropdown';
+import MultiSelectDropdown from './dropdowns/multiSelectDropdown';
 import Dropdown3 from './dropdowns/dropdown3';
 import useUser from '../hooks/useUser';
 

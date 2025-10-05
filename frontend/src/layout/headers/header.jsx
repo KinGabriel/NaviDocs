@@ -1,9 +1,9 @@
 // This is the header component for the application, which includes a logo, title, notifications, and user profile information.
 import { useNavigate } from 'react-router-dom';
-import '../assets/css/global.css'
-import naviLogo from '../assets/images/navilogo.png';
-import notifIcon from '../assets/images/notif_icon.svg';
-import { logoutAPI } from '../api/authAPI.js';
+import '../../assets/css/global.css'
+import naviLogo from '../../assets/images/navilogo.png';
+import notifIcon from '../../assets/images/notif_icon.svg';
+import { logoutAPI } from '../../api/authAPI.js';
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 

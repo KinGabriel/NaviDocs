@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import naviLogo from "../assets/images/navilogo.png";
+import naviLogo from "../../assets/images/navilogo.png";
 
 import { Download, Pencil, X } from "lucide-react";
 

@@ -1,10 +1,10 @@
 // header for creating templates in document controller
 import { useNavigate } from 'react-router-dom';
-import naviLogo from '../assets/images/navilogo.png';
-import SubmitApprovalModal from '../components/modals/submitForApprovalModal';
-import AssignMembersModal from '../components/modals/AssignMembersModal';
+import naviLogo from '../../assets/images/navilogo.png';
+import SubmitApprovalModal from '../../components/modals/submitForApprovalModal';
+import AssignMembersModal from '../../components/modals/AssignMembersModal';
 import React, { useState, useEffect } from "react";
-import { assignControllersToTemplateAPI } from '../api/documentContollerAPI';
+import { assignControllersToTemplateAPI } from '../../api/documentContollerAPI';
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");

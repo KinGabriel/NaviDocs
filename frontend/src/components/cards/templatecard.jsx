@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import AssignMembersModal from "./modals/AssignMembersModal";
-import DuplicateTemplateModal from "./modals/DuplicateTemplateModal";
-import { deleteTemplateAPI, assignControllersToTemplateAPI } from "../api/documentContollerAPI";
+import AssignMembersModal from "../modals/AssignMembersModal";
+import DuplicateTemplateModal from "../modals/DuplicateTemplateModal";
+import { deleteTemplateAPI, assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
@@ -155,7 +155,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
   };
 
   return (
-    <div className="m-2">
+    <>
       <div className="relative w-[280px] bg-white rounded-lg shadow-md border border-gray-300 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer overflow-visible">
         <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
           <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
@@ -391,6 +391,6 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
         
         }}
      />
-    </div>
+    </>
   );
 }

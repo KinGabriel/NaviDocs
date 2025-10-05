@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import HeaderPublishedTemplateView from "../layout/headerPublishedTemplateView";
+import HeaderPublishedTemplateView from "../layout/headers/headerPublishedTemplateView";
 import useUser from "../hooks/useUser";
 import { getTemplateByIdAPI } from "../api/documentContollerAPI";
 import { createDocumentAPI } from "../api/documentsAPI";
