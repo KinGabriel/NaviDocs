@@ -5,7 +5,7 @@ import Sidebar from '../../layout/sidebars/sidebar';
 import useUser from '../../hooks/useUser';
 import SearchBar from '../../components/searchBar';
 import Dropdown from '../../components/dropdowns/dropdown';
-import TemplateCard from '../../components/templatecard';
+import TemplateCard from '../../components/cards/templatecard';
 import usePagination from '../../hooks/usePagination';
 import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
 import AssignTemplateModal from '../../components/modals/assignTemplateModal';

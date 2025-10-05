@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import TemplateCard from "../templatecard";
+import TemplateCard from "../cards/templatecard";
 import SearchBar from "../searchBar";
 import Dropdown from "../dropdowns/dropdown";
 import usePagination from "../../hooks/usePagination";

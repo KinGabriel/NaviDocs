@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import AssignMembersModal from "./modals/AssignMembersModal";
-import DuplicateTemplateModal from "./modals/DuplicateTemplateModal";
-import { deleteTemplateAPI, assignControllersToTemplateAPI } from "../api/documentContollerAPI";
+import AssignMembersModal from "../modals/AssignMembersModal";
+import DuplicateTemplateModal from "../modals/DuplicateTemplateModal";
+import { deleteTemplateAPI, assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 

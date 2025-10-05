@@ -6,7 +6,7 @@ import Sidebar from "../layout/sidebars/sidebar";
 import useUser from "../hooks/useUser";
 import SearchBar from "../components/searchBar";
 import Dropdown from "../components/dropdowns/dropdown";
-import DocumentCard from "../components/documentcard";
+import DocumentCard from "../components/cards/documentcard";
 import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";

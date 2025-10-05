@@ -21,7 +21,7 @@ import {
 import { formatDateTime } from "../utils/formatters";
 import AssignMembersModal from "../components/modals/assignMembersModal";
 import TextEditor from "../layout/create_template/textEditor"; 
-import DocumentDetailsCard from "../components/documentDetailsCard";
+import DocumentDetailsCard from "../components/cards/documentDetailsCard";
 
 import fetchAndNormalizeTemplate from "../utils/templateLoader";
 
