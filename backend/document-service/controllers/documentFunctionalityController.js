@@ -155,3 +155,30 @@ export const listDocuments = async (req, res) => {
     res.status(500).json({ message: "Failed to list documents", error: err.message });
   }
 };
+
+/**
+ * Patch/update document field values
+ * @route PATCH /api/documents/:id/field-values
+ */
+export const updateDocumentFieldValues = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'id required' });
+    const { field_values } = req.body;
+    if (!field_values || typeof field_values !== 'object') {
+      return res.status(400).json({ message: 'field_values object required' });
+    }
+
+    const doc = await Document.findById(id);
+    if (!doc) return res.status(404).json({ message: 'document not found' });
+
+    doc.field_values = Object.assign({}, doc.field_values || {}, field_values);
+
+    await doc.save();
+
+    return res.json({ success: true, message: 'Field values updated', document: doc });
+  } catch (err) {
+    console.error('updateDocumentFieldValues error', err);
+    return res.status(500).json({ message: 'Failed to update field values', error: err.message });
+  }
+};
