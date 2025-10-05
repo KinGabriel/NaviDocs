@@ -9,7 +9,7 @@
  */
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import HeaderTemplateView from "../layout/headerTemplateView";
+import HeaderTemplateView from "../layout/headers/headerTemplateView";
 import useUser from "../hooks/useUser";
 import { 
   getTemplateByIdAPI,
@@ -21,7 +21,7 @@ import {
 import { formatDateTime } from "../utils/formatters";
 import AssignMembersModal from "../components/modals/assignMembersModal";
 import TextEditor from "../layout/create_template/textEditor"; 
-import DocumentDetailsCard from "../components/documentDetailsCard";
+import DocumentDetailsCard from "../components/cards/documentDetailsCard";
 
 import fetchAndNormalizeTemplate from "../utils/templateLoader";
 

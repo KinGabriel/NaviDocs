@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { fetchSchoolStaffAPI } from '../../api/userAPI';
 import { submitTemplateAPI } from '../../api/documentContollerAPI';
-import SingleSelectDropdown from '../SingleSelectDropdown';
+import SingleSelectDropdown from '../dropdowns/singleSelectDropdown';
 
 export default function SubmitApprovalModal({
   isOpen,

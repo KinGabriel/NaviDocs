@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar, FileText, Shield, X, Check, Edit2 } from 'lucide-react';
-import { insertDocumentCodeAPI } from '../api/documentContollerAPI';
-import { formatDate, toISODate } from '../utils/formatters';
+import { insertDocumentCodeAPI } from '../../api/documentContollerAPI';
+import { formatDate, toISODate } from '../../utils/formatters';
 
 /**
  * DocumentDetailsCard 

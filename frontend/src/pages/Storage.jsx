@@ -1,8 +1,8 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI, moveFolderAPI, moveFileAPI } from "../api/storageAPI";
-import Header from "../layout/header";
-import Sidebar from "../layout/sidebar";
+import Header from "../layout/headers/header";
+import Sidebar from "../layout/sidebars/sidebar";
 import useUser from "../hooks/useUser";
 import FolderComponent from "../components/folder";
 import FileComponent from "../components/file";

@@ -3,8 +3,8 @@ import {Users, CheckCircle, User, FileText, Clock, AlertCircle, X, Calendar} fro
 import useUser from '../../hooks/useUser';
 import { fetchSchoolStaffAPI } from '../../api/userAPI';
 import { assignUsersToTemplate } from '../../api/assignmentAPI';
-import MultiSelectDropdown from '../MultiSelectDropdown';
-import SingleSelectDropdown from '../SingleSelectDropdown';
+import MultiSelectDropdown from '../dropdowns/multiSelectDropdown';
+import SingleSelectDropdown from '../dropdowns/singleSelectDropdown';
 
 const ProgressSteps = ({ currentStep }) => {
   const steps = [

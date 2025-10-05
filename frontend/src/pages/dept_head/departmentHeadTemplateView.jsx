@@ -1,7 +1,7 @@
 import React from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import Header from "../../layout/header";
-import Sidebar from "../../layout/sidebar";
+import Header from "../../layout/headers/header";
+import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
 
 const FALLBACK_TEMPLATE = {

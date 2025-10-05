@@ -1,11 +1,42 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import HeaderPublishedTemplateView from "../layout/headerPublishedTemplateView";
+import HeaderPublishedTemplateView from "../layout/headers/headerPublishedTemplateView";
 import useUser from "../hooks/useUser";
 import { getTemplateByIdAPI } from "../api/documentContollerAPI";
 import { createDocumentAPI } from "../api/documentsAPI";
 import CreateDocumentModal from "../components/modals/createDocumentModal";
 import TextEditor from "../layout/create_template/textEditor";
+import DownloadingModal from "../components/modals/downloadingModal";
+import axios from "axios";
+
+const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URLS = rawUrls.split(",");
+const API_URL =
+  API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
+
+async function downloadTemplatePDF({ id, title, pdfUrl }) {
+  if (pdfUrl && /^https?:\/\//i.test(pdfUrl)) {
+    const a = document.createElement("a");
+    a.href = pdfUrl;
+    a.download = `${(title || "template").replace(/\s+/g, "_")}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return;
+  }
+
+  const endpoint = `${API_URL.replace(/\/$/, "")}/api/templates/${id}/pdf`;
+  const response = await axios.get(endpoint, { responseType: "blob" });
+  const blob = new Blob([response.data], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${(title || "template").replace(/\s+/g, "_")}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 /** Fallback placeholders (used if you navigate directly or state.doc is absent) */
 const FALLBACK_DOC = {
@@ -26,6 +57,12 @@ export default function PublishedTemplateView() {
 
   const [fetchedDoc, setFetchedDoc] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const tpl = state?.doc || {};
+  const [template, setTemplate] = useState(tpl);
+
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
 
   useEffect(() => {
     if (!state?.doc && id) {
@@ -60,7 +97,24 @@ export default function PublishedTemplateView() {
     document_size: d.document_size || FALLBACK_DOC.document_size,
   };
 
-  const handleDownload = () => alert("Download as PDF (placeholder)");
+  const handleDownload = async () => {
+    setDownloadError("");
+    setDownloading(true);
+    try {
+      await downloadTemplatePDF({
+        id: template._id || template.id || id,
+        title: template.title || "Template",
+        pdfUrl: template.pdfUrl || template.pdf_url,
+      });
+      setDownloading(false);
+    } catch (err) {
+      console.error("Download failed:", err);
+      setDownloadError(
+        err?.response?.data?.message || "We couldn’t generate the PDF right now. Please try again."
+      );
+    }
+  };
+  
   const handleEdit = () => alert("Edit template (placeholder)");
   const handleUnpublish = () => alert("Unpublish template (placeholder)");
 
@@ -138,50 +192,49 @@ export default function PublishedTemplateView() {
           <div className="grid grid-cols-12 gap-6">
             <section className="col-span-12 lg:col-span-8">
               
-                    {/* Render template preview using TextEditor (read-only). Build a single-page doc from pages_json */}
-                    {d && (
-                      <div className="w-full">
-                        {/* Page controls */}
-                        {totalPages > 0 && (
-                          <div className="flex items-center justify-between mb-2">
-                      <button
-                        className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-                        disabled={currentPage === 0}
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-gray-600">
-                        Page {currentPage + 1} of {totalPages}
-                      </span>
-                      <button
-                        className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
-                        disabled={currentPage === totalPages - 1}
-                      >
-                        Next
-                      </button>
-                       </div>
-                        )}
+              {/* Render template preview using TextEditor (read-only). Build a single-page doc from pages_json */}
+              {d && (
+                <div className="w-full">
+                  {/* Page controls */}
+                  {totalPages > 0 && (
+                    <div className="flex items-center justify-between mb-2">
+                <button
+                  className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                <button
+                  className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage === totalPages - 1}
+                >
+                  Next
+                </button>
+                  </div>
+                  )}
 
-                        <TextEditor
-                          content={contentForEditor}
-                          pageSetup={d?.pageSetup}
-                          className="pointer-events-none opacity-100 w-full"
-                          onEditorReady={(editor) => editor && editor.setEditable(false)}
-                          mode="template"
-                        />
-                      </div>
-                    )}
-                    {!d && (
-                      <div className="h-full w-full flex items-center justify-center text-gray-400" style={{ minHeight: 400 }}>
-                        <div className="text-center">
-                          <div className="text-lg font-medium mb-1">Template Preview</div>
-                          <div className="text-sm">Loading preview…</div>
-                        </div>
-                      </div>
-                    )}
-
+                  <TextEditor
+                    content={contentForEditor}
+                    pageSetup={d?.pageSetup}
+                    className="pointer-events-none opacity-100 w-full"
+                    onEditorReady={(editor) => editor && editor.setEditable(false)}
+                    mode="template"
+                  />
+                </div>
+              )}
+              {!d && (
+                <div className="h-full w-full flex items-center justify-center text-gray-400" style={{ minHeight: 400 }}>
+                  <div className="text-center">
+                    <div className="text-lg font-medium mb-1">Template Preview</div>
+                    <div className="text-sm">Loading preview…</div>
+                  </div>
+                </div>
+              )}
             </section>
 
             <aside className="col-span-12 lg:col-span-4">
@@ -224,6 +277,16 @@ export default function PublishedTemplateView() {
         submitting={titleSubmitting}
         error={createError}
       />
+
+      <DownloadingModal
+        open={downloading || !!downloadError}
+        onClose={() => { setDownloading(false); setDownloadError(""); }}
+        isError={!!downloadError}
+        title="Downloading PDF…"
+        message={`"${template.title || "Template"}" is being prepared as a PDF. This may take a few seconds.`}
+        errorText={downloadError}
+      />
+
     </div>
   );
 }
