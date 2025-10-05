@@ -1,7 +1,10 @@
+/** FUTURE USE : DUPLICATED VERSION OF publishedTemplateView.jsx */
 import React from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import HeaderDocumentView from "../components/HeaderDocumentView";
+import HeaderDocumentView from "../layout/headerPublishedTemplateView";
 import useUser from "../hooks/useUser";
+import { getTemplateByIdAPI } from "../api/documentContollerAPI";
+import { useState, useEffect } from "react";
 
 /** Fallback placeholders (used if you navigate directly or state.doc is absent) */
 const FALLBACK_DOC = {
@@ -27,8 +30,32 @@ export default function DocumentView() {
   const navigate = useNavigate();
   const { state } = useLocation();
 
-  // Prefer the document passed from the list page; otherwise, fallback placeholders
-  const d = state?.doc || {};
+  const [fetchedDoc, setFetchedDoc] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // If no doc was passed in state, try fetching by URL id
+    if (!state?.doc && id) {
+      let ignore = false;
+      const load = async () => {
+        setLoading(true);
+        try {
+          const res = await getTemplateByIdAPI(id);
+          const tpl = res?.template || res;
+          if (!ignore) setFetchedDoc(tpl);
+        } catch (err) {
+          console.error('Failed to fetch template for view:', err);
+        } finally {
+          if (!ignore) setLoading(false);
+        }
+      };
+      load();
+      return () => { ignore = true; };
+    }
+  }, [id, state]);
+
+  // Prefer the document passed from the list page; otherwise use fetchedDoc or fallback placeholders
+  const d = state?.doc || fetchedDoc || {};
   const doc = {
     title: d.title || FALLBACK_DOC.title,
     updatedAgo: d.updatedAgo || FALLBACK_DOC.updatedAgo,

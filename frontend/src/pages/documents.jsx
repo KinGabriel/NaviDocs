@@ -6,7 +6,6 @@ import Sidebar from "../layout/sidebar";
 import useUser from "../hooks/useUser";
 import SearchBar from "../components/searchBar";
 import Dropdown from "../components/dropdowns/dropdown";
-import TemplateCard from "../components/templatecard";
 import DocumentCard from "../components/documentcard";
 import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
@@ -344,9 +343,15 @@ export default function GlobalTemplates() {
         user={user}
         onPickTemplate={(tpl) => {
           setSelectOpen(false);
-          // TODO: replace with your actual document creation route
-          // Pass the selected template along in route state
-          navigate("/documents/new", { state: { template: tpl, from: "select-template" } });
+          const id = tpl._id || tpl.id;
+          // Navigate to the published template view and pass the template as state
+          navigate(`/templates/published/${id}`, {
+            state: {
+              doc: tpl,
+              sidebarActive: "Templates",
+              backTo: "/documents",
+            },
+          });
         }}
       />
       

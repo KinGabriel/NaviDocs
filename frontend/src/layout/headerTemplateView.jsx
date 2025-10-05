@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI } from "../api/documentContollerAPI";
 import { UserPlus, CheckCircle2, Calendar, FileText, ChevronDown } from "lucide-react";
-import UpdateDeadlineModal from "./modals/updateDeadlineModal";
+import UpdateDeadlineModal from "../components/modals/updateDeadlineModal";
 import naviLogo from "../assets/images/navilogo.png";
 import { useNavigate } from "react-router-dom";
 import ApprovalModal from "../components/modals/ApprovalModal"; 
-import AddInstructionsModal from "./modals/AddInstructionsModal";
+import AddInstructionsModal from "../components/modals/AddInstructionsModal";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");

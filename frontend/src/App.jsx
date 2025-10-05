@@ -6,7 +6,7 @@ import AdminAccounts from './pages/admin/adminAccounts';
 import CreateUser from './pages/admin/adminCreateUser';
 import AccountSettings from "./pages/accountSettings";
 import Documents from "./pages/documents";
-import DocumentView from "./pages/documentView";
+import PublishedTemplateView from "./pages/publishedTemplateView";
 import AdminEditUser from "./pages/admin/adminEditUser";
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
@@ -287,10 +287,10 @@ function App() {
        />
 
        <Route
-        path="/documents/:id"
+        path="/templates/published/:id"
         element={
           <ProtectedRoute allowedRoles={["Document Controller","Dean","Department Head","Faculty", "Secretary"]}>
-            <DocumentView />
+            <PublishedTemplateView />
           </ProtectedRoute>
         }
       />
