@@ -1,18 +1,11 @@
 // This is the header component for the application, which includes a logo, title, notifications, and user profile information.
 import { useNavigate } from 'react-router-dom';
-<<<<<<< HEAD:frontend/src/layout/header.jsx
-import '../assets/css/global.css'
-import naviLogo from '../assets/images/navilogo.png';
-import notifIcon from '../assets/images/notif_icon.svg';
-import { logoutAPI } from '../api/authAPI.js';
 import React, { useState, useRef, useEffect } from "react";
-import NotificationDropdown from "../components/dropdowns/notificationDropdown";
-=======
+import NotificationDropdown from "../../components/dropdowns/notificationDropdown";
 import '../../assets/css/global.css'
 import naviLogo from '../../assets/images/navilogo.png';
 import notifIcon from '../../assets/images/notif_icon.svg';
 import { logoutAPI } from '../../api/authAPI.js';
->>>>>>> 6270c0e1f1086053c6ee8169fb0f0e7b31517acc:frontend/src/layout/headers/header.jsx
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
