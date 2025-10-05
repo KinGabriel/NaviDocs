@@ -3,7 +3,7 @@ import { normalizeName, canSaveUser, validateUserRoleFields } from "../../utils/
 import { useParams } from "react-router-dom";
 import { fetchUserAccountByIdAPI } from "../../api/adminAPI";
 import Header from "../../layout/headers/header";
-import Sidebar from "../../layout/sidebar";
+import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
 import Dropdown2 from "../../components/dropdowns/dropdown2";
 import defaultProfile from "../../assets/images/profile_picture.png";

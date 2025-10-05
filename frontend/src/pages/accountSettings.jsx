@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeName, canSaveUser } from "../utils/validations.js";
 import Header from "../layout/headers/header.jsx";
-import Sidebar from "../layout/sidebar";
+import Sidebar from "../layout/sidebars/sidebar.jsx";
 import useUser from "../hooks/useUser";
 import Loader from "../components/loader";
 import PasswordInput from "../components/passwordinput.jsx"; 

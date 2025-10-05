@@ -23,7 +23,7 @@ import DateFormatPanel from "../../layout/create_template/dateformatPanel";
 import FieldsPanel from "../../layout/create_template/fieldsPanel";
 
 // Sidebar
-import TemplateSidebar from "../../layout/TemplateSidebar";
+import TemplateSidebar from "../../layout/sidebars/templateSidebar";
 
 // Text editor
 import TextEditor from "../../layout/create_template/textEditor";

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../layout/headers/header";
-import Sidebar from "../../layout/sidebar";
+import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
 import Dropdown from "../../components/dropdowns/dropdown";
 import SearchBar from "../../components/searchBar";

@@ -6,7 +6,7 @@ import {
   unarchiveUserAccountAPI 
 } from "../../api/adminAPI";
 import useUser from '../../hooks/useUser';
-import Sidebar from '../../layout/sidebar';
+import Sidebar from '../../layout/sidebars/sidebar';
 import Header from '../../layout/headers/header';
 import SearchBar from '../../components/searchBar';
 import Table from '../../components/table';
