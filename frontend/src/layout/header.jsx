@@ -4,6 +4,8 @@ import '../assets/css/global.css'
 import naviLogo from '../assets/images/navilogo.png';
 import notifIcon from '../assets/images/notif_icon.svg';
 import { logoutAPI } from '../api/authAPI.js';
+import React, { useState, useRef, useEffect } from "react";
+import NotificationDropdown from "../components/dropdowns/notificationDropdown";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
@@ -11,6 +13,13 @@ const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];  
 export default function Header({ user }) {
   const navigate = useNavigate();
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [notifications] = useState([
+    { message: "Document approved", time: "2 min ago", unread: true },
+    { message: "New user registered", time: "10 min ago", unread: false },
+    { message: "Template updated", time: "1 hour ago", unread: true }
+  ]);
+  const bellRef = useRef();
 
   /**
    * @function handleLogout
@@ -22,9 +31,24 @@ export default function Header({ user }) {
     navigate('/');
   };
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (bellRef.current && !bellRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+    if (showDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showDropdown]);
+
   return (
     <>
-    {  /* Top Blue Header */}
+      {/* Top Blue Header */}
       <div className="h-4 bg-[#063c8d] w-full" />
       {/* Main Header */}
       <header className="bg-white px-6 py-3 flex items-center justify-between shadow-sm">
@@ -37,8 +61,38 @@ export default function Header({ user }) {
         {/* Notification & User Info */}
         <div className="flex items-center gap-3">
           {/* Notification Bell */}
-          <div className="bg-gray-100 rounded-lg px-3 py-2 flex items-center" style={{ height: '48px' }}>
+          <div
+            className="bg-gray-100 rounded-lg px-3 py-2 flex items-center relative"
+            style={{ height: '48px', cursor: 'pointer' }}
+            ref={bellRef}
+            onClick={() => setShowDropdown((prev) => !prev)}
+          >
             <img src={notifIcon} alt="Notifications" className="h-6 w-6" />
+            {/* Notification badge */}
+            {notifications.some(n => n.unread) && (
+              <span style={{
+                position: "absolute",
+                top: 6,
+                right: 6,
+                background: "red",
+                color: "#fff",
+                borderRadius: "50%",
+                width: 16,
+                height: 16,
+                fontSize: 10,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}>
+                {notifications.filter(n => n.unread).length}
+              </span>
+            )}
+            {showDropdown && (
+              <NotificationDropdown
+                notifications={notifications}
+                onClose={() => setShowDropdown(true)}
+              />
+            )}
           </div>
 
           {/* User Section */}
