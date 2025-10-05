@@ -58,7 +58,7 @@ function useHeaderHeight() {
 export default function DocumentControllerCreateTemplate() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useUser?.() ?? { user: null };
+  const user = useUser(); // Current logged-in user
 
   const editorRef = useRef(null);
   const [editorInstance, setEditorInstance] = useState(null);

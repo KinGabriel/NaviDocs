@@ -514,10 +514,14 @@ export default function Header2({
               </button>
             </div>
             
-            {/* profile picture*/}
+            {/* Profile picture */}
             <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
               <img
-                src={user && user.profile_picture ? `${API_URL}${user.profile_picture}` : '/default-avatar.png'}
+                src={
+                  user && user.profile_picture
+                    ? `${API_URL}${user.profile_picture}`
+                    : "/default-avatar.png"
+                }
                 alt="Profile"
                 className="w-full h-full object-cover"
               />
