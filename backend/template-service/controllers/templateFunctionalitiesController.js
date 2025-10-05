@@ -573,32 +573,45 @@ export const getTemplatesByUser = async (req, res) => {
 export const getPublishedTemplates = async (req, res) => {
   try {
     const { school, search, limit = 50, page = 1 } = req.query;
-    let schoolCode = school && school !== 'All' ? getSchoolCode(school) : (req.user?.school ? getSchoolCode(req.user.school) : null);
 
-    let query = {
-      status: 'published',
-      $or: []
-    };
-    if (schoolCode) {
-      query.$or.push({ document_code: { $regex: `^FM-${schoolCode}-\\d+$`, $options: 'i' } });
-    }
-    // FAA-VAA global templates
-    query.$or.push({ document_code: { $regex: '^FAA-VAA-\\d+$', $options: 'i' } });
+    // Base query: published templates
+    let query = { status: 'published' };
 
-    // Search
-    if (search) {
-      query.$and = [
-        { $or: query.$or },
-        { $or: [
+    // If a specific school is requested (and not 'All'), restrict by that school's document_code
+    // and include FAA-VAA global templates as well.
+    if (school && school !== 'All') {
+      const schoolCode = getSchoolCode(school);
+      // Match by document_code (FM-<code>-NN) OR by the `school` DB field (either name or code)
+      const docCodePattern = { document_code: { $regex: `^FM-${schoolCode}-\\d+$`, $options: 'i' } };
+      const schoolFieldPatternName = { school: { $regex: `^${school}$`, $options: 'i' } };
+      const schoolFieldPatternCode = { school: { $regex: `^${schoolCode}$`, $options: 'i' } };
+      const globalPattern = { document_code: { $regex: '^FAA-VAA-\\d+$', $options: 'i' } };
+
+      // Include templates that either have the FM document code for the school,
+      query.$or = [docCodePattern, schoolFieldPatternName, schoolFieldPatternCode, globalPattern];
+
+      // If search is present, combine the school-based $or with title/document_code search
+      if (search) {
+        query.$and = [
+          { $or: query.$or },
+          { $or: [
+            { title: { $regex: search, $options: 'i' } },
+            { document_code: { $regex: search, $options: 'i' } }
+          ] }
+        ];
+        delete query.$or;
+      }
+    } else {
+      // No specific school requested (or 'All'): return all published templates.
+      if (search) {
+        query.$or = [
           { title: { $regex: search, $options: 'i' } },
           { document_code: { $regex: search, $options: 'i' } }
-        ] }
-      ];
-      delete query.$or;
+        ];
+      }
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-
     const templates = await Template.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)

@@ -3,7 +3,7 @@ import TemplateCard from "../templatecard";
 import SearchBar from "../searchBar";
 import Dropdown from "../dropdowns/dropdown";
 import usePagination from "../../hooks/usePagination";
-import { fetchTemplatesAPI } from "../../api/documentContollerAPI";
+import { fetchPublishedTemplatesAPI } from "../../api/documentContollerAPI";
 
 export default function SelectTemplateModal({
   open,
@@ -29,19 +29,19 @@ export default function SelectTemplateModal({
   };
 
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open) return; 
     let ignore = false;
     const fetchPublished = async () => {
       setLoading(true);
       try {
-        const result = await fetchTemplatesAPI({
-          user,
-          selectedSchool,
-          selectedStatus: "Published",   // ← only published
-          search,
-          PAGE_SIZE,
-          currentPage: pagination.currentPage,
-        });
+        const params = {
+          limit: PAGE_SIZE,
+          page: pagination.currentPage,
+        };
+        if (selectedSchool && selectedSchool !== 'All') params.school = selectedSchool;
+        if (search && search.trim()) params.search = search.trim();
+
+        const result = await fetchPublishedTemplatesAPI(params);
 
         let arr = [];
         if (result?.success && result.data?.templates) {
@@ -77,7 +77,7 @@ export default function SelectTemplateModal({
     fetchPublished();
     return () => { ignore = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, user, selectedSchool, search, sortOrder, pagination.currentPage]);
+  }, [open, selectedSchool, search, sortOrder, pagination.currentPage]);
 
   if (!open) return null;
 

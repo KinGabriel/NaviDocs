@@ -108,9 +108,8 @@ export const fetchTemplatesAPI = async ({
 export const fetchPublishedTemplatesAPI = async ({ school, search, limit = 50, page = 1 } = {}) => {
   try {
     const params = { limit, page };
-    if (school && school !== 'All') params.school = school;
+    if (school !== 'All') params.school = school;
     if (search && search.trim()) params.search = search.trim();
-
     const res = await axios.get(`${API_URL}/api/templates/published`, {
       params,
       withCredentials: true,
