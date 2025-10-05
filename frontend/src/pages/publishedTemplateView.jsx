@@ -3,6 +3,8 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import HeaderPublishedTemplateView from "../layout/headerPublishedTemplateView";
 import useUser from "../hooks/useUser";
 import { getTemplateByIdAPI } from "../api/documentContollerAPI";
+import { createDocumentAPI } from "../api/documentsAPI";
+import CreateDocumentModal from "../components/modals/createDocumentModal";
 import TextEditor from "../layout/create_template/textEditor";
 
 /** Fallback placeholders (used if you navigate directly or state.doc is absent) */
@@ -62,6 +64,11 @@ export default function PublishedTemplateView() {
   const handleEdit = () => alert("Edit template (placeholder)");
   const handleUnpublish = () => alert("Unpublish template (placeholder)");
 
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState(null);
+  const [titleModalOpen, setTitleModalOpen] = useState(false);
+  const [titleSubmitting, setTitleSubmitting] = useState(false);
+
   // Page preview state: allow navigating pages in the template preview
   const [currentPage, setCurrentPage] = useState(0);
 
@@ -83,6 +90,38 @@ export default function PublishedTemplateView() {
     if (!pageNode) return baseDoc;
     return { ...baseDoc, content: [pageNode] };
   }, [d, pageNodes, currentPage]);
+
+  // Handler when user submits a title in the modal
+  const createWithTitle = async (title) => {
+    setTitleSubmitting(true);
+    setCreateError(null);
+    try {
+      const payload = {
+        title: title || d.title || "Untitled Document",
+        template_id: d._id || d.id,
+        pages_json: d.pages_json,
+        pageSetup: d.pageSetup,
+        field_values: d.field_values || {},
+      };
+
+      const res = await createDocumentAPI(payload);
+      const created = res?.document || res;
+      const createdId = created._id || created.id || created.document?._id;
+      if (!createdId) throw new Error("Invalid response from createDocumentAPI");
+
+      // Close modal then navigate
+      setTitleModalOpen(false);
+      navigate(`/documents/editable-fields/${createdId}`, {
+        state: { doc: created, sidebarActive: "Documents", backTo: "/documents" },
+      });
+    } catch (err) {
+      console.error("Failed to create document from template (modal):", err);
+      setCreateError(err?.message || "Failed to create document");
+      throw err;
+    } finally {
+      setTitleSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -161,11 +200,14 @@ export default function PublishedTemplateView() {
 
                   <div className="mt-4 pt-4 border-t flex gap-2">
                     <button
-                      onClick={() => navigate('/documents/new', { state: { template: d, from: 'published-template' } })}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold"
+                      onClick={() => setTitleModalOpen(true)}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold disabled:opacity-50"
                     >
                       Use Template
                     </button>
+                    {createError && (
+                      <div className="text-sm text-red-600 ml-2">{createError}</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -173,6 +215,15 @@ export default function PublishedTemplateView() {
           </div>
         </main>
       </div>
+      {/* Title modal for entering document name before creating */}
+      <CreateDocumentModal
+        open={titleModalOpen}
+        onClose={() => setTitleModalOpen(false)}
+        defaultTitle={""}
+        onCreate={createWithTitle}
+        submitting={titleSubmitting}
+        error={createError}
+      />
     </div>
   );
 }
