@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
 import AssignMembersModal from "../modals/AssignMembersModal";
 import DuplicateTemplateModal from "../modals/DuplicateTemplateModal";
-import { deleteTemplateAPI, assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
+import RenameModal from '../modals/renameModal';
+import { deleteTemplateAPI, assignControllersToTemplateAPI, renameTemplateAPI} from "../../api/documentContollerAPI";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];  
 export default function TemplateCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete, onAssign }) {
+
   const [showMenu, setShowMenu] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+
   // Initialize selectedIds with any existing assigned controllers from the template
   const [selectedIds, setSelectedIds] = useState(() => {
     try {
@@ -18,8 +23,8 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
       return [];
     }
   });
-  const [duplicateOpen, setDuplicateOpen] = useState(false);
 
+  
   // Keep selectedIds in sync if template prop updates (e.g., parent updated assigned list)
   useEffect(() => {
     setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
@@ -93,10 +98,9 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
     setShowMenu(false);
     
     switch (action) {
-      case 'rename':
-        if (onRename) onRename(template);
-        else if (onSelect) onSelect(); 
-        break;
+     case 'rename':
+      setRenameOpen(true);
+      break;
       case 'duplicate':
         // Handle duplicate logic
         console.log('Duplicate template:', template._id);
@@ -388,9 +392,33 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
         console.log("Duplicated:", newTemplate);
         setDuplicateOpen(false);
         // TODO: Call API here to create the duplicate
-        
-        }}
-     />
+      }}
+      />
+  <RenameModal
+  open={renameOpen}
+  onClose={() => setRenameOpen(false)}
+  currentTitle={template.title}
+  onSubmit={async (newTitle) => {
+    try {
+        //TODO: REPLACE WITH ACTUAL API CALL
+      const data = await renameTemplateAPI(template._id, newTitle);
+      
+      if (data.message || data.template || data.file) {
+        // Success
+        if (onRename) {
+          onRename(data.template || data.file || { ...template, title: newTitle });
+        }
+        setRenameOpen(false);
+        window.location.reload();
+      } else {
+        throw new Error("Failed to rename template");
+      }
+    } catch (err) {
+      console.error("Rename error:", err);
+      alert(err.message || "An error occurred while renaming.");
+    }
+  }}
+/>
     </>
   );
 }

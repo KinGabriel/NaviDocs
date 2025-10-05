@@ -10,7 +10,7 @@ import DocumentCard from "../components/cards/documentcard";
 import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";
-import RenameDocumentModal from "../components/modals/RenameDocumentModal";
+import RenameDocumentModal from "../components/modals/renameModal";
 import DeleteDocumentModal from "../components/modals/deleteDocumentModal";
 import SelectTemplateModal from "../components/modals/SelectTemplateModal";
 
