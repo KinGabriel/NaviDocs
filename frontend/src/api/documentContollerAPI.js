@@ -100,6 +100,29 @@ export const fetchTemplatesAPI = async ({
 };
 
 /**
+ * Fetch published templates (global) with optional school, search, and pagination filters.
+ * Calls backend: GET /api/templates/published
+ * @param {Object} params - { school, search, limit, page }
+ * @returns {Promise<{success:boolean,message:string,data:{templates:Array,pagination:Object,filters_applied:Object}}>} API response
+ */
+export const fetchPublishedTemplatesAPI = async ({ school, search, limit = 50, page = 1 } = {}) => {
+  try {
+    const params = { limit, page };
+    if (school && school !== 'All') params.school = school;
+    if (search && search.trim()) params.search = search.trim();
+
+    const res = await axios.get(`${API_URL}/api/templates/published`, {
+      params,
+      withCredentials: true,
+    });
+    console.log(res.data);
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to fetch published templates');
+  }
+};
+
+/**
  * Create a new template.
  * Expects backend to auto-generate document_code and default page structure if not provided.
  * @param {Object} templateData - Minimal template payload (title, created_by, school_identifier, etc.).

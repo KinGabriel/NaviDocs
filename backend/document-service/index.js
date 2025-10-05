@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import cookieParser from 'cookie-parser';
 import { dbConnection } from "./config/db.js";
 import documentRoutes from "./routes/documentRoutes.js";
 
@@ -22,6 +23,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+app.use(cookieParser());
 //  document routes
 app.use('/api/documents', documentRoutes);
 

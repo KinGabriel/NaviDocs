@@ -7,8 +7,10 @@ import useUser from "../hooks/useUser";
 import SearchBar from "../components/searchBar";
 import Dropdown from "../components/dropdowns/dropdown";
 import TemplateCard from "../components/templatecard";
+import DocumentCard from "../components/documentcard";
 import usePagination from "../hooks/usePagination";
-import { fetchTemplatesAPI } from "../api/documentContollerAPI";
+import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
+import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";
 import RenameDocumentModal from "../components/modals/RenameDocumentModal";
 import DeleteDocumentModal from "../components/modals/deleteDocumentModal";
 import SelectTemplateModal from "../components/modals/SelectTemplateModal";
@@ -39,6 +41,8 @@ export default function GlobalTemplates() {
   const [deleteError, setDeleteError] = useState("");
 
   const [selectOpen, setSelectOpen] = useState(false);
+  const [publishedLoading, setPublishedLoading] = useState(false);
+  const [publishedTemplatesCache, setPublishedTemplatesCache] = useState([]);
 
   const schoolIdentifiers = {
     "University Wide": "VAA",
@@ -53,22 +57,34 @@ export default function GlobalTemplates() {
     if (!user) return;
     setLoading(true);
     try {
-      const result = await fetchTemplatesAPI({
-        user,
-        selectedSchool,
-        selectedStatus,
-        search,
-        PAGE_SIZE,
-        currentPage: pagination.currentPage,
-      });
+      const params = {
+        limit: PAGE_SIZE,
+        page: pagination.currentPage
+      };
+      if (selectedSchool && selectedSchool !== 'All') params.school = selectedSchool;
+      if (selectedStatus && selectedStatus !== 'All') {
+        const statusMap = {
+          'Draft': 'draft',
+          'Pending Approval': 'pending',
+          'Approved': 'approved',
+          'Published': 'published'
+        };
+        params.status = statusMap[selectedStatus] || selectedStatus;
+      }
+      if (search && search.trim()) params.search = search.trim();
 
+      const result = await listDocumentsAPI(params);
+
+      // backend returns { documents: [...] } (and may include pagination fields)
       let templatesArray = [];
-      if (result.success && result.data?.templates) {
+      if (result && Array.isArray(result.documents)) {
+        templatesArray = result.documents;
+        // if backend includes pagination info, use it
+        if (result.pagination && result.pagination.total_pages) setTotalPages(result.pagination.total_pages);
+        else setTotalPages(1);
+      } else if (result && result.success && Array.isArray(result.data?.templates)) {
         templatesArray = result.data.templates;
-        setTotalPages(result.data.pagination.total_pages || 1);
-      } else if (result.templates) {
-        templatesArray = result.templates;
-        setTotalPages(1);
+        setTotalPages(result.data.pagination?.total_pages || 1);
       } else if (Array.isArray(result)) {
         templatesArray = result;
         setTotalPages(1);
@@ -160,7 +176,23 @@ export default function GlobalTemplates() {
              {/* Select Template Button */}
               <div className="flex-1 flex justify-start ml-1">
                 <button
-                  onClick={() => setSelectOpen(true)}
+                  onClick={async () => {
+                    // Trigger fetching published templates before opening modal
+                    try {
+                      setPublishedLoading(true);
+                      const res = await fetchPublishedTemplatesAPI({ limit: PAGE_SIZE, page: 1 });
+                      // Cache result for potential future use
+                      if (res?.success && res.data?.templates) setPublishedTemplatesCache(res.data.templates);
+                      else if (res?.templates) setPublishedTemplatesCache(res.templates);
+                      else if (Array.isArray(res)) setPublishedTemplatesCache(res);
+                    } catch (err) {
+                      // ignore errors for now; modal will still open
+                      console.error('Failed to fetch published templates:', err);
+                    } finally {
+                      setPublishedLoading(false);
+                      setSelectOpen(true);
+                    }
+                  }}
                   className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
                 >
               {/* plus icon */}
@@ -209,30 +241,36 @@ export default function GlobalTemplates() {
                 </div>
               ) : templates.length === 0 ? (
                 <div className="col-span-full text-center py-8">
-                  <p className="text-gray-600">No templates found</p>
+                  <p className="text-gray-600">No Documents found</p>
                 </div>
               ) : (
                 templates.map((template, i) => {
                   const id = template._id || i;
                   return (
-                    <TemplateCard
+                    <DocumentCard
                       key={id}
-                      template={template}
+                      document={template}
                       user={user}
-                      onSelect={() =>
-                        navigate(`/documents/${id}`, {
-                          state: {
-                            doc: template,
-                            sidebarActive: "Documents",
-                            backTo: "/documents",
-                          },
-                        })
-                      }
+                      onSelect={async () => {
+                        try {
+                          setLoading(true);
+                          const resp = await getDocumentByIdAPI(id);
+                          const doc = resp?.document || resp;
+                          navigate(`/documents/editable-fields/${id}`, {
+                            state: {
+                              doc,
+                              sidebarActive: "Documents",
+                              backTo: "/documents",
+                            },
+                          });
+                        } catch (err) {
+                          console.error('Failed to fetch document by id', err);                      
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
                       onRename={() => openRename(template)}
                       onDelete={() => openDelete(template)}
-                      onAssign={(updatedTemplate) => {
-                        setTemplates(prev => prev.map(t => (t._id === updatedTemplate._id ? { ...t, ...updatedTemplate } : t)));
-                      }}
                     />
                   );
                 })

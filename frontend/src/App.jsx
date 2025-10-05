@@ -260,7 +260,7 @@ function App() {
        />
 
         <Route
-         path="/editable-fields"
+         path="/documents/editable-fields/:id"
          element={
            <ProtectedRoute allowedRoles={["Document Controller","Secretary","Dean", "Department Head", "Faculty"]}>
              <EditableFields />

@@ -127,38 +127,31 @@ export const getDocumentById = async (req, res) => {
  */
 export const listDocuments = async (req, res) => {
   try {
-    const { user, assignedTo, mine, limit = 200, page = 1 } = req.query;
-    const q = {};
-
-    // If explicit user id provided, filter by creator
-    if (user) {
-      q.created_by = user;
+    if (!req.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    // If explicit assignedTo provided, filter by assigned array containing that user
-    if (assignedTo) {
-      // if creator filter already set, combine as OR
-      if (q.created_by) {
-        q.$or = [ { created_by: q.created_by }, { assigned: assignedTo } ];
-        delete q.created_by;
-      } else {
-        q.assigned = assignedTo;
-      }
-    }
+    const { limit = 200, page = 1 } = req.query;
+    const uid = req.user.id;
 
-    // If mine flag set, use authenticated user id to find created or assigned docs
-    if ((mine === 'true' || mine === true) && req.user && req.user.id) {
-      const uid = req.user.id;
-      q.$or = q.$or || [];
-      q.$or.push({ created_by: uid }, { assigned: uid });
-    }
+    const query = {
+      $or: [
+        { created_by: uid }, // documents created by user
+        { "from_template.assigned": uid } // documents assigned to user
+      ]
+    };
 
-    const numericLimit = Math.min(parseInt(limit, 10) || 200, 1000);
-    const numericPage = Math.max(parseInt(page, 10) || 1, 1);
-    const docs = await Document.find(q).limit(numericLimit).skip((numericPage - 1) * numericLimit).lean();
-    return res.json({ documents: docs });
+    const numericLimit = Math.min(Number(limit) || 200, 1000);
+    const numericPage = Math.max(Number(page) || 1, 1);
+
+    const documents = await Document.find(query)
+      .limit(numericLimit)
+      .skip((numericPage - 1) * numericLimit)
+      .lean();
+
+    res.json({ documents });
   } catch (err) {
-    console.error('listDocuments error', err);
-    return res.status(500).json({ message: 'Failed to list documents', error: err.message });
+    console.error("listDocuments error:", err);
+    res.status(500).json({ message: "Failed to list documents", error: err.message });
   }
 };

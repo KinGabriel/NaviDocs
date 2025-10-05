@@ -33,7 +33,7 @@ export default function EditableFieldsHeader({
             src={naviLogo} 
             alt="Logo" 
             className="w-15 h-10 cursor-pointer" 
-            onClick={() => navigate('/dashboard')} 
+            onClick={() => navigate('/documents')} 
           />
           
           {/* Title */}

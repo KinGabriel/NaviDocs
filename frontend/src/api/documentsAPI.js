@@ -33,6 +33,7 @@ export const listDocumentsAPI = async (params = {}) => {
 			params,
 			withCredentials: true,
 		});
+        console.log("listDocumentsAPI response:", res.data);
 		return res.data;
 	} catch (error) {
 		throw new Error(error.response?.data?.message || "Failed to list documents");
