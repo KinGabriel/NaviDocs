@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import RenameModal from '../modals/renameModal';
 import AssignMembersModal from '../modals/AssignMembersModal';
 import DuplicateTemplateModal from '../modals/DuplicateTemplateModal';
+import DeleteDocumentModal from '../modals/deleteDocumentModal';
 
 import {
   renameTemplateAPI,
@@ -99,6 +100,10 @@ export default function DocumentCard({
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
   // ---------- menu actions ----------
   const handleMenuAction = (action, e) => {
     e.stopPropagation();
@@ -189,6 +194,23 @@ export default function DocumentCard({
     } finally {
       setDuplicating(false);
     }
+  };
+
+  const confirmDelete = async () => {
+    try {
+      setDeleting(true);
+      setDeleteError("");
+      const resp = await deleteTemplateAPI(document._id);
+      if (resp && resp.success) {
+        if (typeof onDelete === 'function') onDelete(resp.template || document);
+        else window.location.reload();
+        setDeleteOpen(false);
+      } else {
+        setDeleteError(resp?.message || 'Failed to delete');
+      }
+    } catch (err) {
+      setDeleteError(err?.response?.data?.message || err?.message || 'Error deleting');
+    } finally { setDeleting(false); }
   };
 
   
@@ -373,6 +395,15 @@ export default function DocumentCard({
         template={document} // reuse
         submitting={duplicating}
         onDuplicate={handleDuplicate}
+      />
+
+      <DeleteDocumentModal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        documentTitle={title}
+        onConfirm={confirmDelete}
+        submitting={deleting}
+        error={deleteError}
       />
 
 
