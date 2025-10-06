@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from 'react-hot-toast';
 import { normalizeName, canSaveUser } from "../utils/validations.js";
 import Header from "../layout/headers/header.jsx";
 import Sidebar from "../layout/sidebars/sidebar.jsx";
@@ -125,21 +126,20 @@ export default function AdminAccountSettings() {
       localStorage.setItem("user", JSON.stringify(updatedUser));
       window.dispatchEvent(new Event("auth:change"));
 
-      
-    setInfoSuccess(true);
-    setInfoMessage("Profile updated successfully.");
-    setPhotoFile(null);
-    setFirstName(updatedUser.firstname);
-    setLastName(updatedUser.lastname);
-    // Only update photoPreview if a new image is returned, otherwise keep the current preview
-    if (response.data.profile_picture) {
-      let pic = response.data.profile_picture;
-      if (typeof pic === "string" && !pic.startsWith("http")) {
-        pic = `${API_URL}${pic.startsWith("/") ? "" : "/"}${pic}`;
+      toast.success("Profile updated successfully.");
+      setInfoSuccess(true);
+      setInfoMessage(null);
+      setPhotoFile(null);
+      setFirstName(updatedUser.firstname);
+      setLastName(updatedUser.lastname);
+      // Only update photoPreview if a new image is returned, otherwise keep the current preview
+      if (response.data.profile_picture) {
+        let pic = response.data.profile_picture;
+        if (typeof pic === "string" && !pic.startsWith("http")) {
+          pic = `${API_URL}${pic.startsWith("/") ? "" : "/"}${pic}`;
+        }
+        setPhotoPreview(pic);
       }
-      setPhotoPreview(pic);
-    }
-      
     } catch (err) {
       if (mountedRef.current) {
         setInfoSuccess(false);
@@ -160,14 +160,14 @@ export default function AdminAccountSettings() {
     setPwMessage("");
 
     try {
-      await updateUserPasswordAPI(user._id, currentPassword,newPassword);
+      await updateUserPasswordAPI(user._id, currentPassword, newPassword);
 
       setPwSuccess(true);
-      setPwMessage("Password updated successfully.");
+      setPwMessage("");
+      toast.success("Password updated successfully.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setTimeout(() => setPwMessage(""), 2000);
     } catch (err) {
       setPwSuccess(false);
       setPwMessage(
@@ -245,12 +245,7 @@ export default function AdminAccountSettings() {
                 {/* Personal Information */}
                 <div>
                   <h2 className="text-2xl font-semibold text-[#0035DA] mb-4">Personal Information: </h2>
-
-                  {infoMessage && (
-                    <div className={`mb-4 rounded border px-3 py-2 text-sm ${infoSuccess ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
-                      {infoMessage}
-                    </div>
-                  )}
+            
                   {!canSaveInfo && (
                     <div className="mb-4 rounded border px-3 py-2 text-sm bg-red-50 text-red-700 border-red-200">
                       Fill all required fields before saving.

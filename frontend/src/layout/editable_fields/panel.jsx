@@ -1,12 +1,11 @@
 import SectionHeader from "../../layout/editable_fields/sectionHeader";
 
-export default function Panel({ number, title, subtitle, color, fields, formData, onChange }) {
+export default function Panel({ number, title, color, fields, formData, onChange, onFocusField }) {
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm">
       <SectionHeader
         number={number}
         title={title}
-        subtitle={subtitle}
         color={color}
       />
 
@@ -20,6 +19,7 @@ export default function Panel({ number, title, subtitle, color, fields, formData
                   type="text"
                   value={formData[field.name] || ""}
                   onChange={(e) => onChange(field.name, e.target.value)}
+                  onFocus={() => onFocusField && onFocusField(field.name)}
                   className="w-full p-2 border border-gray-300 rounded"
                   placeholder={field.placeholder}
                 />
@@ -34,6 +34,7 @@ export default function Panel({ number, title, subtitle, color, fields, formData
                 <textarea
                   value={formData[field.name] || ""}
                   onChange={(e) => onChange(field.name, e.target.value)}
+                  onFocus={() => onFocusField && onFocusField(field.name)}
                   className="w-full p-2 border border-gray-300 rounded h-24 resize-none"
                   placeholder={field.placeholder}
                 />

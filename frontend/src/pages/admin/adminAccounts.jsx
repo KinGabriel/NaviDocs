@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { 
   fetchUsersAccountsAPI,
@@ -64,9 +65,10 @@ export default function AdminAccounts() {
       setArchiving(true);
       await archiveUserAccountAPI(targetUser._id);
       setUsers(prev => prev.map(u => u._id === targetUser._id ? { ...u, is_deleted: true } : u));
+      toast.success("User archived successfully");
       closeArchiveModal();
     } catch (err) {
-      alert(err.message || "Failed to archive user.");
+      toast.error(err.message || "Failed to archive user.");
       setArchiving(false);
     }
   };
@@ -91,9 +93,10 @@ export default function AdminAccounts() {
       setUnarchiving(true);
       await unarchiveUserAccountAPI(targetUserUnarchive._id);
       setUsers(prev => prev.map(u => u._id === targetUserUnarchive._id ? { ...u, is_deleted: false } : u));
+      toast.success("User unarchived successfully");
       closeUnarchiveModal();
     } catch (err) {
-      alert(err.message || "Failed to unarchive user.");
+      toast.error(err.message || "Failed to unarchive user.");
       setUnarchiving(false);
     }
   };
