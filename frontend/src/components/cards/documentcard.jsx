@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import RenameModal from '../modals/renameModal';
 import AssignMembersModal from '../modals/AssignMembersModal';
+import DuplicateTemplateModal from '../modals/DuplicateTemplateModal';
 
 import {
   renameTemplateAPI,
@@ -95,6 +96,9 @@ export default function DocumentCard({
     );
   }, [document?.assigned, document?.assignees, document?.collaborators]);
 
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+
   // ---------- menu actions ----------
   const handleMenuAction = (action, e) => {
     e.stopPropagation();
@@ -160,6 +164,30 @@ export default function DocumentCard({
       alert(err?.response?.data?.message || 'Error assigning members');
     } finally {
       setAssignOpen(false);
+    }
+  };
+
+  const handleDuplicate = async (newDoc) => {
+    try {
+      setDuplicating(true);
+      const newTitle = newDoc?.title || `${title} (Copy)`;
+      const resp = await duplicateDocumentAPI(document._id, newTitle);
+      if (resp && resp.success) {
+        // optional: navigate/open
+        setDuplicateOpen(false);
+        if (typeof onSelect === 'function') {
+          onSelect(resp.document || resp.data || document);
+        } else if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      } else {
+        alert(resp?.message || 'Failed to duplicate document');
+      }
+    } catch (err) {
+      console.error('Duplicate document error:', err);
+      alert(err?.response?.data?.message || err?.message || 'Error duplicating document');
+    } finally {
+      setDuplicating(false);
     }
   };
 
@@ -338,6 +366,15 @@ export default function DocumentCard({
         setTheDocController={() => {}}
         onAssign={handleAssign}
       />
+
+      <DuplicateTemplateModal
+        open={duplicateOpen}
+        onClose={() => setDuplicateOpen(false)}
+        template={document} // reuse
+        submitting={duplicating}
+        onDuplicate={handleDuplicate}
+      />
+
 
     </div>
   );
