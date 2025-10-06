@@ -26,8 +26,23 @@ export default function AdminAccounts() {
   const [sortBy, setSortBy] = useState(sortOptions[0]);
   const [search, setSearch] = useState(""); 
   const [loading, setLoading] = useState(true);
-
   const [deletingId, setDeletingId] = useState(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const data = await fetchUsersAccountsAPI();
+        setUsers(data);
+      } catch (err) {
+        console.error("Failed to fetch users:", err);
+        setUsers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, []);
+
   
   // --- Archive modal state ---
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -82,9 +97,7 @@ export default function AdminAccounts() {
       setUnarchiving(false);
     }
   };
-
- 
-const columns = [
+  const columns = [
   {
     key: "name",
     label: "Name",
@@ -272,46 +285,43 @@ const columns = [
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between mt-8">
+            <div className="flex justify-center items-center mt-6 gap-2">
               <button
-                className="text-gray-600 text-base flex items-center gap-1 px-3 py-2 rounded hover:bg-gray-100 disabled:opacity-50"
                 onClick={handlePrev}
                 disabled={currentPage === 1}
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
-                &larr; Previous
+                Prev
               </button>
-              <div className="flex items-center gap-1 text-base">
-                {getPageNumbers().map((n, i) =>
-                  n === "..." ? (
-                    <span key={i} className="px-2 text-gray-400">...</span>
-                  ) : (
-                    <button
-                      key={n}
-                      onClick={() => handlePage(n)}
-                      className={`px-4 py-2 rounded font-semibold ${
-                        n === currentPage
-                          ? "bg-gray-300 text-black shadow"
-                          : "bg-white border border-gray-300 text-black hover:bg-gray-100"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  )
-                )}
-              </div>
+              {getPageNumbers().map((num, idx) =>
+                num === "..." ? (
+                  <span key={idx} className="px-2 text-gray-400">...</span>
+                ) : (
+                  <button
+                    key={num}
+                    onClick={() => setCurrentPage(num)}
+                    className={`px-3 py-1 rounded border ${
+                      currentPage === num
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    {num}
+                  </button>
+                )
+              )}
               <button
-                className="text-gray-600 text-base flex items-center gap-1 px-3 py-2 rounded hover:bg-gray-100 disabled:opacity-50"
                 onClick={handleNext}
                 disabled={currentPage === totalPages}
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
-                Next &rarr;
+                Next
               </button>
             </div>
-            {/* End Pagination */}
           </div>
         </div>
       </div>
-      
+
       {/* ARCHIVE CONFIRMATION MODAL */}
       {archiveOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
@@ -329,8 +339,8 @@ const columns = [
             </button>
 
             {/* Icon */}
-            <div className="mx-auto mb-4 mt-2 flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-100">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-yellow-500">
+            <div className="mx-auto mb-4 mt-2 flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-red-500">
                 <path d="M9 3h6m-9 4h12m-1 0-.7 11.2a2 2 0 0 1-2 1.8H8.7a2 2 0 0 1-2-1.8L6 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M10 10v6M14 10v6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
               </svg>
@@ -422,7 +432,6 @@ const columns = [
         </div>
       )}
       {/* END UNARCHIVE MODAL */}
-
-    </div>
+     </div>
   );
 }
