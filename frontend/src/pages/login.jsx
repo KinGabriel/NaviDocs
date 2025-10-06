@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { loginAPI } from "../api/authAPI";
 import sluLogo from '../assets/images/slulogo.png';
@@ -9,48 +10,46 @@ import PasswordInput from '../components/passwordinput.jsx';
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [isLoading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
     if (!email || !password) {
-      setError("Please fill in all fields");
+      toast.error("Please fill in all fields");
       setLoading(false);
       return;
     }
     try {
       const data = await loginAPI(email, password);
-     // localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       const userRole = data.user.role.name;
+      toast.success("Login successful!");
       switch (userRole) {
-      case 'Admin':
-        navigate('/admin/dashboard');
-        break;
-      case 'Faculty':
-        navigate('/faculty/dashboard');
-        break;
-      case 'Dean':
-        navigate('/dean/dashboard');
-        break;
-      case 'Secretary':
-        navigate('/secretary/dashboard');
-        break;
-      case 'Document Controller':
-        navigate('/document-controller/dashboard');
-        break;
-      case 'Department Head':
-        navigate('/dept-head/dashboard');
-        break;
-      default:
-        setError("Unknown role");
-    }
+        case 'Admin':
+          navigate('/admin/dashboard');
+          break;
+        case 'Faculty':
+          navigate('/faculty/dashboard');
+          break;
+        case 'Dean':
+          navigate('/dean/dashboard');
+          break;
+        case 'Secretary':
+          navigate('/secretary/dashboard');
+          break;
+        case 'Document Controller':
+          navigate('/document-controller/dashboard');
+          break;
+        case 'Department Head':
+          navigate('/dept-head/dashboard');
+          break;
+        default:
+          toast.error("Unknown role");
+      }
     } catch (err) {
-      setError(err.message || "Login failed");
+      toast.error(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -70,9 +69,6 @@ export default function Login() {
         <h2 className="text-6xl font-bold text-yellow-400 mb-4">Welcome!</h2>
         <p className="mb-8 text-l text-gray-500">Please enter your details</p>
         <form className="w-[40rem] max-w-full" onSubmit={handleSubmit}>
-          {error && (
-            <div className="mb-4 text-red-500 text-center font-semibold">{error}</div>
-          )}
           <div className="mb-6 relative">
             <img
               src={userIcon}
@@ -89,34 +85,34 @@ export default function Login() {
             />
           </div>
           <div className="mb-6 relative">
-          {/* password input - if the users wants to check their pw */   }
-          <PasswordInput
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
+            {/* password input - if the users wants to check their pw */}
+            <PasswordInput
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
           <div className="text-right mb-4">
             <a href="#" className="text-base text-gray-400 hover:underline">
               Forgot Password?
             </a>
           </div>
-            <button
+          <button
             type="submit"
             className="w-full py-4 mt-10 rounded-lg bg-gradient-to-r from-blue-700 to-blue-400 text-white font-bold text-xl mb-3 shadow-lg
                         transition-all duration-200 ease-in-out active:scale-95 active:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isLoading}
-            >
+          >
             {isLoading ? (
-            <div className="flex justify-center items-center gap-2">
+              <div className="flex justify-center items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="18" cy="12" r="0" fill="#fff">
                   <animate attributeName="r" begin=".67" calcMode="spline" dur="1.5s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
                   <circle cx="12" cy="12" r="0" fill="#fff"><animate attributeName="r" begin=".33" calcMode="spline" dur="1.5s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
                   <circle cx="6" cy="12" r="0" fill="#fff"><animate attributeName="r" begin="0" calcMode="spline" dur="1.5s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
-                  </svg>
+                </svg>
                 Logging in...
-            </div>
+              </div>
             ) : "Login"}
-            </button>
+          </button>
         </form>
       </div>
     </div>
