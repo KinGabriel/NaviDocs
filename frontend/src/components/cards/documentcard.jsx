@@ -1,11 +1,27 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
+import RenameModal from '../modals/renameModal';
+
+import {
+  renameTemplateAPI,
+  duplicateTemplateAPI,
+  deleteTemplateAPI,
+  assignControllersToTemplateAPI,
+} from "../../api/documentContollerAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
+
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
-export default function DocumentCard({ document, onSelect, user, onRename, onDelete }) {
+export default function DocumentCard({ 
+  document, 
+  onSelect, 
+  user, 
+  onRename, 
+  onDelete, 
+}) {
+  
   // Helper to safely read DB-backed fields with common fallbacks
   const getTitle = (doc) => doc?.title || doc?.from_template?.title || 'Untitled Document';
 
@@ -50,6 +66,56 @@ export default function DocumentCard({ document, onSelect, user, onRename, onDel
   const creator = document?.created_by ? String(document.created_by) : (document?.created_by?._id ? String(document.created_by._id) : null);
   const title = getTitle(document);
 
+  // ---------- menu & modals state ----------
+  const [showMenu, setShowMenu] = useState(false);
+
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+
+  // ---------- menu actions ----------
+  const handleMenuAction = (action, e) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    switch (action) {
+      case 'rename':
+        setRenameOpen(true);
+        break;
+      case 'duplicate':
+        setDuplicateOpen(true);
+        break;
+      case 'delete':
+        setDeleteError("");
+        setDeleteOpen(true);
+        break;
+      default:
+        break;
+    }
+  };
+
+  // ---------- API handlers ----------
+  const handleRename = async (newTitle) => {
+    try {
+      setRenaming(true);
+      const resp = await renameDocumentAPI(document._id, newTitle);
+      if (resp && (resp.success || resp.document)) {
+        if (typeof onRename === 'function') {
+          onRename(resp.document || { ...document, title: newTitle });
+        } else if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+        setRenameOpen(false);
+      } else {
+        throw new Error(resp?.message || 'Failed to rename document');
+      }
+    } catch (err) {
+      console.error('Rename document error:', err);
+      alert(err?.response?.data?.message || err?.message || 'An error occurred while renaming.');
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  
   return (
     <div className="m-2">
       <div className="relative w-[280px] bg-white rounded-lg shadow-md border border-gray-300 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer overflow-visible">
@@ -137,20 +203,84 @@ export default function DocumentCard({ document, onSelect, user, onRename, onDel
             ) : null}
           </div>
 
-          {/* Menu */}
+          {/* 3-dot menu */}
           <div className="relative">
             <button
               className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-              onClick={(e) => { e.stopPropagation(); /* simple menu placeholder */ const confirmed = window.confirm('Rename document?'); if (confirmed && onRename) onRename(document); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}
               title="Actions"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 2a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm0 5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" />
               </svg>
             </button>
+
+            {showMenu && (
+              <>
+                {/* backdrop to close menu */}
+                <div
+                  className="fixed inset-0 z-[40]"
+                  onClick={() => setShowMenu(false)}
+                />
+                <div className="absolute right-0 top-8 z-[9999] w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={(e) => handleMenuAction('rename', e)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                    Rename
+                  </button>
+
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={(e) => handleMenuAction('assign', e)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 21a8 8 0 0 0-16 0"/>
+                      <circle cx="10" cy="8" r="5"/>
+                      <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/>
+                    </svg>
+                    Assign
+                  </button>
+
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={(e) => handleMenuAction('duplicate', e)}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Duplicate
+                  </button>
+
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    onClick={(e) => handleMenuAction('delete', e)}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Remove
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
+
+      {/* ------- Modals ------- */}
+      <RenameModal
+        open={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        currentTitle={title}
+        submitting={renaming}
+        onSubmit={handleRename}
+      />
+
     </div>
   );
 }
