@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from 'react-hot-toast';
 import { normalizeName, canSaveUser, validateUserRoleFields } from "../../utils/validations";
 import Header from '../../layout/headers/header';
 import Sidebar from '../../layout/sidebars/sidebar';
@@ -32,9 +33,6 @@ export default function CreateUser() {
 
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [alertMessage, setAlertMessage] = useState("");
-  const [alertType, setAlertType] = useState("error"); // 'success' or 'error'
-
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -56,7 +54,9 @@ export default function CreateUser() {
 
       const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|mil|biz|info|io|co|ph)$/i;
 
-      if (!emailRegex.test(newValue)) {
+      if (!newValue) {
+        setErrors(prev => ({ ...prev, email: 'Email is required.' }));
+      } else if (!emailRegex.test(newValue)) {
         setErrors(prev => ({ ...prev, email: 'Please enter a valid email (e.g. name@example.com).' }));
       } else {
         setErrors(prev => ({ ...prev, email: '' }));
@@ -98,13 +98,11 @@ export default function CreateUser() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isFormValid) {
-      setAlertMessage("Please correct the errors before submitting and ensure all required fields are filled.");
-      setAlertType("error");
+      toast.error("Please correct the errors before submitting and ensure all required fields are filled.");
       return;
     }
 
     setLoading(true);
-    setAlertMessage("");
 
     const data = new FormData();
     data.append('firstname', formData.firstname);
@@ -118,18 +116,13 @@ export default function CreateUser() {
     try {
       // Use the API function instead of direct fetch
       const result = await createUserAccountAPI(data);
-      setLoading(false);
       handleClear();
-      setAlertType("success");
-      setAlertMessage('User created successfully');
-      setTimeout(() => {
-        setAlertMessage("");
-      }, 5000);
+      toast.success('User created successfully');
     } catch (error) {
-      setLoading(false);
-      setAlertType("error");
-      setAlertMessage(error.message || 'Failed to create user');
+      toast.error(error.message || 'Failed to create user');
       console.error('Create user error:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -145,18 +138,7 @@ export default function CreateUser() {
           <div className="bg-white rounded-xl shadow-lg p-10">
             <h2 className="text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">Create New User</h2>
             <div className="w-25 h-1 bg-yellow-500 mb-8"></div>
-            {(alertMessage && alertType === 'success') && (
-              <div className="mb-6 p-3 rounded border border-green-200 bg-green-50 text-green-700 text-base w-full transition-opacity duration-300">
-                {alertMessage}
-              </div>
-            )}
-            {(alertMessage && alertType === 'error') && (
-              <div className="mb-6 p-3 rounded border border-red-200 bg-red-50 text-red-700 text-base w-full transition-opacity duration-300">
-                {alertMessage}
-              </div>
-            )}
-           
-
+            
             {loading ? (
               <Loader message="Submitting..." />
             ) : (

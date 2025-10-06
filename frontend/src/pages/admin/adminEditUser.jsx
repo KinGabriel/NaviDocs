@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { toast } from 'react-hot-toast';
 import { normalizeName, canSaveUser, validateUserRoleFields } from "../../utils/validations";
 import { useParams } from "react-router-dom";
 import { fetchUserAccountByIdAPI } from "../../api/adminAPI";
@@ -122,8 +123,7 @@ export default function AdminEditUser() {
     e.preventDefault();
 
     if (!canSave) {
-      setAlertType("error");
-      setAlertMessage(extraError || "Fill all required fields before saving.");
+      toast.error(extraError || "Fill all required fields before saving.");
       return;
     }
 
@@ -146,16 +146,13 @@ export default function AdminEditUser() {
         withCredentials: true,
       });
 
-      setAlertType("success");
-      setAlertMessage("User updated successfully.");
+      toast.success("User updated successfully.");
       setTimeout(() => {
-        setAlertMessage("");
         navigate(-1);
       }, 1200);
     } catch (err) {
       console.error("Error updating user:", err?.response?.data || err?.message || err);
-      setAlertType("error");
-      setAlertMessage(err?.response?.data?.message || "Failed to update user.");
+      toast.error(err?.response?.data?.message || "Failed to update user.");
     }
   };
 
@@ -221,19 +218,6 @@ export default function AdminEditUser() {
               <span className="mt-2 inline-block h-1 w-25 bg-yellow-500 rounded" />
             </div>
           </div>
-
-          {/* Alerts */}
-          {!!alertMessage && (
-            <div
-              className={`mb-6 p-3 rounded border text-base w-full transition-opacity duration-300 ${
-                alertType === "success"
-                  ? "border-green-200 bg-green-50 text-green-700"
-                  : "border-red-200 bg-red-50 text-red-700"
-              }`}
-            >
-              {alertMessage}
-            </div>
-          )}
 
           <div className="flex flex-col lg:flex-row items-start gap-10">
             {/* Avatar picker — identical UX to Create User */}
