@@ -138,7 +138,6 @@ export default function TextEditor({
       });
       setPolicyRef.current = setPolicy;
       editor.registerPlugin(plugin);
-
       applyCssVars(dimsRef.current);
       editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
       onEditorReady?.(editor);
@@ -165,9 +164,33 @@ export default function TextEditor({
     if (!editor) return;
     if (typeof content === "string") {
       const html = normalizeInitialContent(content);
-      if (html !== editor.getHTML()) editor.commands.setContent(html, false);
+      if (html !== editor.getHTML()) {
+        console.debug('TextEditor: setContent (html) called');
+        try {
+          if (setPolicyRef.current) setPolicyRef.current('off');
+        } catch (e) {
+        }
+        try {
+          editor.commands.setContent(html, false);
+        } finally {
+          try {
+            if (setPolicyRef.current) setPolicyRef.current(mode === "document" ? "document" : "template");
+          } catch (e) {
+          }
+        }
+      }
     } else if (content && typeof content === "object") {
-      editor.commands.setContent(content, false);
+      console.debug('TextEditor: setContent (doc) called');
+      try {
+        if (setPolicyRef.current) setPolicyRef.current('off');
+      } catch (e) {}
+      try {
+        editor.commands.setContent(content, false);
+      } finally {
+        try {
+          if (setPolicyRef.current) setPolicyRef.current(mode === "document" ? "document" : "template");
+        } catch (e) {}
+      }
     }
   }, [editor, content]);
 

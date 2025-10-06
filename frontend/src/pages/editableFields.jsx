@@ -328,20 +328,7 @@ export default function EditableFields() {
       ...prev,
       [field]: value,
     }));
-    // apply immediately to editor if present
-    if (editorRef.current) {
-      try {
-        isApplyingRef.current = true;
-        applyFormDataToEditor(editorRef.current, { [field]: value });
-        // small timeout to avoid treating our programmatic update as user edit
-        setTimeout(() => { isApplyingRef.current = false; }, 50);
-      } catch (err) {
-        console.debug('editableFields: failed to apply change to editor', err);
-        isApplyingRef.current = false;
-      }
-    }
   };
-
   // Apply formData (or a partial map) into editor's editableField nodes
   const applyFormDataToEditor = (editor, partial = null) => {
     if (!editor) return;
