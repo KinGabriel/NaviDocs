@@ -68,6 +68,7 @@ pipelines:
               methods:
                 - GET
                 - POST
+                - PATCH
                 - PUT
                 - DELETE
                 - OPTIONS
@@ -89,7 +90,7 @@ pipelines:
       - cors:
           - action:
               origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
-              methods: [GET, POST, PUT, DELETE, OPTIONS]
+              methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
               credentials: true
       - proxy:
           - action:
@@ -103,7 +104,7 @@ pipelines:
       - cors:
           - action:
               origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
-              methods: [GET, POST, PUT, DELETE, OPTIONS]
+              methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
               credentials: true
       - proxy:
           - action:
@@ -117,7 +118,7 @@ pipelines:
       - cors:
           - action:
               origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
-              methods: [GET, POST, PUT, DELETE, OPTIONS]
+              methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
               credentials: true
       - proxy:
           - action:
@@ -131,7 +132,7 @@ pipelines:
       - cors:
           - action:
               origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
-              methods: [GET, POST, PUT, DELETE, OPTIONS]
+              methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
               credentials: true
       - proxy:
           - action:
@@ -145,7 +146,7 @@ pipelines:
       - cors:
           - action:
               origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
-              methods: [GET, POST, PUT, DELETE, OPTIONS]
+              methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
               credentials: true
       - proxy:
           - action:
