@@ -11,127 +11,6 @@ const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
-const SHOW_DEBUG = String(import.meta.env.VITE_SHOW_APPROVAL_DEBUG || '').toLowerCase() === 'true';
-
-/* ---------------------------------------------------------
- * Generic helpers + default resolver
- * --------------------------------------------------------- */
-
-const sameId = (a, b) => a != null && b != null && String(a) === String(b);
-const rkey = (s) => (s || "").toString().trim().toLowerCase();
-
-/** return first non-null */
-const pick = (...vals) => vals.find(v => v !== undefined && v !== null);
-
-/** Read a timestamp from multiple common field names */
-const ts = (obj, names) => {
-  if (!obj) return null;
-  for (const n of names) if (obj[n]) return obj[n];
-  return null;
-};
-
-/** Try to derive status from a single decision-like record */
-const statusFromRecord = (rec) => {
-  if (!rec || typeof rec !== 'object') return null;
-
-  const approvedAt = ts(rec, ['approved_at', 'approvedAt', 'approved']);
-  const returnedAt = ts(rec, ['returned_at', 'returnedAt', 'returned']);
-  const rejectedAt = ts(rec, ['rejected_at', 'rejectedAt', 'rejected']);
-
-  if (approvedAt) return { status: 'approved', at: approvedAt, _source: 'timestamps' };
-  if (returnedAt) return { status: 'returned', at: returnedAt, _source: 'timestamps' };
-  if (rejectedAt) return { status: 'rejected', at: rejectedAt, _source: 'timestamps' };
-
-  const s = rkey(rec.status);
-  if (s === 'approved') return { status: 'approved', at: ts(rec, ['updatedAt', 'decidedAt', 'decided_at']), _source: 'status-string' };
-  if (s === 'returned') return { status: 'returned', at: ts(rec, ['updatedAt', 'decidedAt', 'decided_at']), _source: 'status-string' };
-  if (s === 'rejected') return { status: 'rejected', at: ts(rec, ['updatedAt', 'decidedAt', 'decided_at']), _source: 'status-string' };
-
-  return null;
-};
-
-/** Deep search any object/array for a record matching this approver (by user id or role) */
-function findDecisionDeep(approvalsAny, approver) {
-  const id = approver?._id;
-  const role = rkey(approver?.role?.name);
-  let found = null;
-
-  const matchByUserOrRole = (node) => {
-    if (!node || typeof node !== 'object') return false;
-    const uid = pick(node.approved_by, node.user, node.approver, node.actor, node.user_id, node.userId, node.approver_id, node.approverId);
-    if (sameId(uid, id)) return true;
-    const roleStr = rkey(pick(node.role, node.role_name, node.roleName, node.position, node.title));
-    if (roleStr && role && roleStr === role) return true;
-    return false;
-  };
-
-  const visit = (node) => {
-    if (found) return;
-
-    if (Array.isArray(node)) {
-      for (const item of node) {
-        if (found) break;
-        if (matchByUserOrRole(item)) {
-          const v = statusFromRecord(item);
-          if (v) { found = { ...v, _node: item }; break; }
-        }
-        visit(item);
-      }
-      return;
-    }
-
-    if (node && typeof node === 'object') {
-      if (matchByUserOrRole(node)) {
-        const v = statusFromRecord(node);
-        if (v) { found = { ...v, _node: node }; return; }
-      }
-      // slots keyed by role, e.g. { dean: {...}, secretary: {...} }
-      if (role && node[role]) {
-        const v = statusFromRecord(node[role]);
-        if (v) { found = { ...v, _node: node[role], _slotKey: role }; return; }
-      }
-      for (const k of Object.keys(node)) {
-        if (found) break;
-        visit(node[k]);
-      }
-    }
-  };
-
-  visit(approvalsAny);
-  return found; // or null
-}
-
-/** Default resolver. Returns {status, at, debug} */
-function defaultResolveApproverStatus({ approver, approvalsAny, approvalMeta }) {
-  const deep = findDecisionDeep(approvalsAny, approver);
-  if (deep) {
-    return {
-      status: deep.status,
-      at: deep.at,
-      debug: { source: 'approvals', via: deep._source || 'unknown', slotKey: deep._slotKey || null, nodeSample: SHOW_DEBUG ? deep._node : undefined },
-    };
-  }
-
-  // Optional fallback to meta flags per role
-  const role = rkey(approver?.role?.name);
-  if (approvalMeta) {
-    if (role === 'dean') {
-      if (approvalMeta.deanApproved) return { status: 'approved', at: null, debug: { source: 'approvalMeta', flag: 'deanApproved' } };
-      if (approvalMeta.deanReturned) return { status: 'returned', at: null, debug: { source: 'approvalMeta', flag: 'deanReturned' } };
-      if (approvalMeta.deanRejected) return { status: 'rejected', at: null, debug: { source: 'approvalMeta', flag: 'deanRejected' } };
-    }
-    if (role === 'secretary') {
-      if (approvalMeta.secretaryApproved) return { status: 'approved', at: null, debug: { source: 'approvalMeta', flag: 'secretaryApproved' } };
-      if (approvalMeta.secretaryReturned) return { status: 'returned', at: null, debug: { source: 'approvalMeta', flag: 'secretaryReturned' } };
-      if (approvalMeta.secretaryRejected) return { status: 'rejected', at: null, debug: { source: 'approvalMeta', flag: 'secretaryRejected' } };
-    }
-  }
-
-  return { status: 'pending', at: null, debug: { source: 'none', reason: 'No per-approver decision found in payload by user id or role' } };
-}
-
-/* --------------------------------------------------------- */
-
 export default function Header2({ 
   title,
   setTitle, 
@@ -143,7 +22,7 @@ export default function Header2({
   lastSavedAt, 
   dirty, 
   templateStatus='draft', 
-  approvals=null, 
+  approvals=null,              // expect status_meta.approvals
   approvalMeta=null, 
   approvers=[], 
   loadingApprovers=false, 
@@ -153,9 +32,7 @@ export default function Header2({
   templateId,
   onStatusUpdate,  
   onApprovalsUpdate,
-  template = null,
-  /** Custom mapping function (approver, ctx) => { status, at } */
-  approvalStatusResolver = defaultResolveApproverStatus,
+  template = null
 }) {
 
   const [publishing, setPublishing] = useState(false);
@@ -175,7 +52,8 @@ export default function Header2({
       : (Array.isArray(template?.assignees) ? [...template.assignees] : [])
     );
   }, [template?.assigned, template?.assignees]);
-  
+
+  // -------- ACTION BUTTON (unchanged) ----------
   const statusConfig = () => {
     const fullyApproved =
       (approvalMeta && approvalMeta.isFullyApproved) ||
@@ -191,14 +69,11 @@ export default function Header2({
           className: 'bg-[#063c8d] hover:bg-[#052c6d] text-white',
           icon: (
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/>
             </svg>
           ),
         };
+
       case 'pending': {
         if (fullyApproved) {
           return {
@@ -226,7 +101,7 @@ export default function Header2({
             className: 'bg-yellow-500 hover:bg-yellow-600 text-white',
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l3 3"/>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l3 3" />
                 <circle cx="12" cy="12" r="9" strokeWidth="2" />
               </svg>
             ),
@@ -360,31 +235,33 @@ export default function Header2({
               />
               <svg 
                 className={`w-5 h-5 ${templateStatus==='draft' ? 'text-gray-500 cursor-pointer hover:text-gray-700' : 'text-gray-400 cursor-not-allowed'}`} 
-                fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Edit title"
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+                title="Edit title"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" 
+                />
               </svg>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-start">
-              {lastSavedAt && (
-                <span className="text-[10px] text-gray-500 leading-tight">Saved {lastSavedAt.toLocaleTimeString()}</span>
-              )}
-              {dirty && !saving && (
-                <span className="text-[10px] text-amber-600 leading-tight">Unsaved changes</span>
-              )}
-              {saving && (
-                <span className="text-[10px] text-blue-600 leading-tight">Saving...</span>
-              )}
+              {lastSavedAt && <span className="text-[10px] text-gray-500 leading-tight">Saved {lastSavedAt.toLocaleTimeString()}</span>}
+              {dirty && !saving && <span className="text-[10px] text-amber-600 leading-tight">Unsaved changes</span>}
+              {saving && <span className="text-[10px] text-blue-600 leading-tight">Saving...</span>}
             </div>
 
             <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded" title="History">
               <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="#7D7D7D" d="M12 21q-3.45 0-6.012-2.287T3.05 13H5.1q.35 2.6 2.313 4.3T12 19q2.925 0 4.963-2.037T19 12t-2.037-4.962T12 5q-1.725 0-3.225.8T6.25 8H9v2H3V4h2v2.35q1.275-1.6 3.113-2.475T12 3q1.875 0 3.513.713t2.85 1.924t1.925 2.85T21 12t-.712 3.513t-1.925 2.85t-2.85 1.925T12 21m2.8-4.8L11 12.4V7h2v4.6l3.2 3.2z"/></svg>
             </button>
           
-            {/* status/action btn with hoverable detail */}
+            {/* status/action button + popover */}
             <div className="relative group">
               <button 
                 disabled={action.disabled}
@@ -395,20 +272,21 @@ export default function Header2({
                 {action.label}
                 <svg className="w-3 h-3 text-white/80" viewBox="0 0 16 16" fill="currentColor"><path d="M8 11.5l-5-5h10l-5 5z"/></svg>
               </button>
-              {/* Popover */}
+
               <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150 absolute right-0 mt-2 w-96 z-[60]">
                 <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 text-xs text-gray-700 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">Status Details</span>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700">{templateStatus}</span>
                   </div>
-                  {templateStatus==='draft' && <p className="text-[11px] leading-relaxed">Draft mode. Make edits then submit for approval. Only you can see this draft.</p>}
-                  {templateStatus==='pending' && <p className="text-[11px] leading-relaxed">Awaiting approval from listed approvers. You will be notified when a decision is made.</p>}
-                  {templateStatus==='approved' && <p className="text-[11px] leading-relaxed">Fully approved. You can now publish this template.</p>}
-                  {templateStatus==='published' && <p className="text-[11px] leading-relaxed">Published. This version is live for use.</p>}
-                  {templateStatus==='returned' && <p className="text-[11px] leading-relaxed"> This template was <strong>returned</strong> for revisions. Please review their feedback and resubmit for approval.</p>}
-                  {templateStatus==='rejected' && <p className="text-[11px] leading-relaxed"> This template was <strong>rejected</strong> during the approval process. Check the comments and submit a new version for review.</p>}
-                  {templateStatus==='assigned' && <p className="text-[11px] leading-relaxed"> Template assigned. Ready for drafting.</p>}
+
+                  {templateStatus==='draft' && <p className="text-[11px]">Draft mode. Make edits then submit for approval. Only you can see this draft.</p>}
+                  {templateStatus==='pending' && <p className="text-[11px]">Awaiting approval from listed approvers. You will be notified when a decision is made.</p>}
+                  {templateStatus==='approved' && <p className="text-[11px]">Fully approved. You can now publish this template.</p>}
+                  {templateStatus==='published' && <p className="text-[11px]">Published. This version is live for use.</p>}
+                  {templateStatus==='returned' && <p className="text-[11px]">This template was <strong>returned</strong> for revisions. Please review feedback and resubmit.</p>}
+                  {templateStatus==='rejected' && <p className="text-[11px]">This template was <strong>rejected</strong> during the approval process.</p>}
+                  {templateStatus==='assigned' && <p className="text-[11px]">Template assigned. Ready for drafting.</p>}
                  
                   {/* Approvers */}
                   <div>
@@ -425,16 +303,61 @@ export default function Header2({
                     <div className="flex flex-col gap-1">
                       {approvers.map(a => {
                         const roleName = a?.role?.name || '';
-                        const res = approvalStatusResolver({
-                          approver: a,
-                          approvalsAny: approvals,
-                          approvalMeta,
-                          template,
-                        });
+                        const roleKey = roleName?.toLowerCase();
+                        const deanData = approvals?.dean || {};
+                        const secretaryData = approvals?.secretary || {};
 
-                        const itemStatus = res?.status || 'pending';
-                        const at = res?.at ? new Date(res.at) : null;
-                        const timeStr = at ? at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+                        // default
+                        let itemStatus = 'pending';
+                        let at = null;
+
+                        // optional timestamps if present
+                        const deanApprovedAt = deanData?.approved_at || deanData?.approvedAt || null;
+                        const secApprovedAt  = secretaryData?.approved_at || secretaryData?.approvedAt || null;
+
+                        // simple mapper
+                        const mapSimple = (rk) => {
+                          if (rk === 'dean') {
+                            if (deanData?.isApproved === true) return 'approved';
+                            if (deanData?.isApproved === false) return 'rejected';
+                            return 'pending';
+                          } else {
+                            if (secretaryData?.isApproved === true) return 'approved';
+                            if (secretaryData?.isApproved === false) return 'rejected';
+                            return 'pending';
+                          }
+                        };
+
+                        // ----- EXACT REQUESTED RULES -----
+                        if (templateStatus === 'rejected') {
+                          const deanRejected = deanData?.isApproved === false && secretaryData?.isApproved === true;
+                          const secretaryRejected = secretaryData?.isApproved === false; // regardless of dean
+
+                          if (secretaryRejected) {
+                            // Secretary rejected: Secretary = Rejected; Dean = Approved if approved, else Cancelled
+                            if (roleKey === 'secretary') {
+                              itemStatus = 'rejected';
+                            } else if (roleKey === 'dean') {
+                              itemStatus = (deanData?.isApproved === true) ? 'approved' : 'cancelled';
+                            }
+                          } else if (deanRejected) {
+                            // Dean rejected (old behavior): Dean = Rejected; Secretary = Approved
+                            if (roleKey === 'dean') itemStatus = 'rejected';
+                            if (roleKey === 'secretary') itemStatus = 'approved';
+                          } else {
+                            // Fallback to per-role values
+                            itemStatus = mapSimple(roleKey);
+                          }
+                        } else {
+                          // Non-rejected global status
+                          itemStatus = mapSimple(roleKey);
+                        }
+
+                        if (roleKey === 'dean') at = deanApprovedAt;
+                        if (roleKey === 'secretary') at = secApprovedAt;
+
+                        const atDate = at ? new Date(at) : null;
+                        const timeStr = atDate ? atDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
 
                         const displayName = a.firstname && a.lastname 
                           ? `${a.firstname} ${a.lastname}`
@@ -445,6 +368,7 @@ export default function Header2({
                             itemStatus === 'approved' ? 'border-green-200' :
                             itemStatus === 'returned' ? 'border-orange-200' :
                             itemStatus === 'rejected' ? 'border-red-200' :
+                            itemStatus === 'cancelled' ? 'border-gray-200' :
                             'border-gray-200'
                           }`}>
                             <div className="flex flex-col">
@@ -455,16 +379,10 @@ export default function Header2({
                                 )}
                               </span>
                               <span className="text-[9px] uppercase tracking-wide text-gray-500">{roleName}</span>
-
-                              {SHOW_DEBUG && res?.debug && (
-                                <span className="text-[9px] text-gray-400 mt-0.5">
-                                  debug: {res.debug.source}{res.debug.flag ? `/${res.debug.flag}` : ''}{res.debug.via ? `/${res.debug.via}` : ''}{res.debug.reason ? ` — ${res.debug.reason}` : ''}
-                                </span>
-                              )}
                             </div>
 
                             {itemStatus === 'approved' && (
-                              <span title={at?.toLocaleString()} className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium flex items-center gap-1">
+                              <span title={atDate?.toLocaleString()} className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium flex items-center gap-1">
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
                                 Approved{timeStr ? ` ${timeStr}` : ''}
                               </span>
@@ -479,6 +397,11 @@ export default function Header2({
                                 Rejected{timeStr ? ` ${timeStr}` : ''}
                               </span>
                             )}
+                            {itemStatus === 'cancelled' && (
+                              <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
+                                Cancelled
+                              </span>
+                            )}
                             {itemStatus === 'pending' && (
                               <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 font-medium">
                                 Pending
@@ -491,17 +414,21 @@ export default function Header2({
                       {(approvals || approvalMeta) && (
                         <div className="mt-2">
                           {(() => {
-                            // progress bar counts only APPROVED slots (keep behavior)
+                            // progress bar counts only approved slots
                             const expected = ['secretary','dean'].filter(r => 
                               approvers.some(a=> (a?.role?.name || '').toLowerCase()===r)
                             );
                             const total = expected.length || 2;
-                            let count;
-                            if (approvalMeta) {
-                              count = (approvalMeta.secretaryApproved?1:0) + (approvalMeta.deanApproved?1:0);
-                            } else {
-                              count = expected.filter(r=> approvals && (approvals[r]?.approved_at || approvals[r]?.approvedAt)).length;
+                            let count = 0;
+
+                            if (approvals?.secretary?.isApproved === true) count += 1;
+                            if (approvals?.dean?.isApproved === true) count += 1;
+
+                            if (count === 0) {
+                              if (approvals?.secretary?.approved_at) count += 1;
+                              if (approvals?.dean?.approved_at) count += 1;
                             }
+
                             const pct = Math.round((count/total)*100);
                             return (
                               <div>
@@ -514,18 +441,9 @@ export default function Header2({
                           })()}
                         </div>
                       )}
-
-                      {SHOW_DEBUG && (
-                        <div className="mt-3 p-2 rounded bg-gray-50 border border-dashed border-gray-300 text-[10px] text-gray-500">
-                          <div className="font-medium mb-1">Debug payload snapshot</div>
-                          <div className="max-h-40 overflow-auto">
-                            <pre className="whitespace-pre-wrap break-words">{JSON.stringify({ approvals, approvalMeta }, null, 2)}</pre>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
-                  
+
                   {/* Review Notes */}
                   {reviewNotes && reviewNotes.length>0 && (
                     <div>
@@ -543,6 +461,7 @@ export default function Header2({
                       </ul>
                     </div>
                   )}
+
                   {/* Assignment */}
                   {assignedIds && assignedIds.length>0 && (
                     <div>
@@ -551,19 +470,23 @@ export default function Header2({
                         Assigned Users
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {assignedIds.slice(0,6).map((id,i)=>(
-                          <span key={id} className="bg-blue-50 border border-blue-200 text-blue-700 rounded px-2 py-0.5 text-[10px]">{id.substring(0,6)}{id.length>6?'…':''}</span>
+                        {assignedIds.slice(0,6).map((id)=>(
+                          <span key={id} className="bg-blue-50 border border-blue-200 text-blue-700 rounded px-2 py-0.5 text-[10px]">
+                            {id.substring(0,6)}{id.length>6?'…':''}
+                          </span>
                         ))}
                         {assignedIds.length>6 && <span className="text-[10px] text-gray-500">+{assignedIds.length-6} more</span>}
                       </div>
                     </div>
                   )}
-                  <div className="text-[10px] text-gray-400 pt-1 border-t border-gray-100">Hover to view details. Actions appear based on status.</div>
+
+                  <div className="text-[10px] text-gray-400 pt-1 border-t border-gray-100">
+                    Hover to view details. Actions appear based on status.
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* share btn */}
             <div className="relative">
               <button onClick={() => setAssignOpen(true)} className="bg-[#063c8d] text-white rounded px-4 py-2 text-sm font-semibold hover:bg-[#052c6d] flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -572,8 +495,7 @@ export default function Header2({
                 Share
               </button>
             </div>
-            
-            {/* profile picture*/}
+
             <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
               <img
                 src={user && user.profile_picture ? `${API_URL}${user.profile_picture}` : '/default-avatar.png'}
@@ -603,7 +525,7 @@ export default function Header2({
         />
       )}
 
-      {/* Assign modal triggered by Share */}
+      {/* Assign modal */}
       {assignOpen && (
         <AssignMembersModal
           open={assignOpen}
