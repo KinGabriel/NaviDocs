@@ -66,6 +66,7 @@ export default function AdminAccounts() {
       await archiveUserAccountAPI(targetUser._id);
       setUsers(prev => prev.map(u => u._id === targetUser._id ? { ...u, is_deleted: true } : u));
       toast.success("User archived successfully");
+      setArchiving(false);
       closeArchiveModal();
     } catch (err) {
       toast.error(err.message || "Failed to archive user.");
@@ -94,6 +95,8 @@ export default function AdminAccounts() {
       await unarchiveUserAccountAPI(targetUserUnarchive._id);
       setUsers(prev => prev.map(u => u._id === targetUserUnarchive._id ? { ...u, is_deleted: false } : u));
       toast.success("User unarchived successfully");
+      // clear the unarchiving flag first so the modal close can proceed
+      setUnarchiving(false);
       closeUnarchiveModal();
     } catch (err) {
       toast.error(err.message || "Failed to unarchive user.");
