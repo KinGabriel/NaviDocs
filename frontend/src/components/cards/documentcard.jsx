@@ -72,9 +72,11 @@ export default function DocumentCard({
   // ---------- menu & modals state ----------
   const [showMenu, setShowMenu] = useState(false);
 
+  // Rename
   const [renameOpen, setRenameOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
 
+  // Assign
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => {
     try {
@@ -97,9 +99,11 @@ export default function DocumentCard({
     );
   }, [document?.assigned, document?.assignees, document?.collaborators]);
 
+  // Duplicate
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
 
+  // Delete
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -405,7 +409,6 @@ export default function DocumentCard({
         submitting={deleting}
         error={deleteError}
       />
-
 
     </div>
   );
