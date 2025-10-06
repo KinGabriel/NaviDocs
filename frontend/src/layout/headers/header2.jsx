@@ -1,10 +1,10 @@
 // header for creating templates in document controller
 import { useNavigate } from 'react-router-dom';
-import naviLogo from '../assets/images/navilogo.png';
-import SubmitApprovalModal from '../components/modals/submitForApprovalModal';
-import AssignMembersModal from '../components/modals/AssignMembersModal';
+import naviLogo from '../../assets/images/navilogo.png';
+import SubmitApprovalModal from '../../components/modals/submitForApprovalModal';
+import AssignMembersModal from '../../components/modals/AssignMembersModal';
 import React, { useState, useEffect } from "react";
-import { assignControllersToTemplateAPI } from '../api/documentContollerAPI';
+import { assignControllersToTemplateAPI } from '../../api/documentContollerAPI';
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -514,10 +514,14 @@ export default function Header2({
               </button>
             </div>
             
-            {/* profile picture*/}
+            {/* Profile picture */}
             <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
               <img
-                src={user && user.profile_picture ? `${API_URL}${user.profile_picture}` : '/default-avatar.png'}
+                src={
+                  user && user.profile_picture
+                    ? `${API_URL}${user.profile_picture}`
+                    : "/default-avatar.png"
+                }
                 alt="Profile"
                 className="w-full h-full object-cover"
               />

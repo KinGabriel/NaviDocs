@@ -173,6 +173,21 @@ export const deleteTemplateAPI = async (templateId) => {
   });
   return res.data;
 };
+
+/**
+ * Duplicate a template by ID with a new title.
+ * @param {string} templateId
+ * @param {string} title
+ * @returns {Promise<{success:boolean,message:string,template:Object}>}
+ */
+export const duplicateTemplateAPI = async (templateId, title) => {
+  const res = await axios.post(
+    `${API_URL}/api/templates/${templateId}/duplicate`,
+    { title },
+    { withCredentials: true }
+  );
+  return res.data;
+};
 /**
  * Approve a template for a specific role (dean or secretary).
  * Backend records approved_by & approved_at inside status_meta.approvals.<role>.
@@ -351,5 +366,27 @@ export const fetchApproversAPI = async (school) => {
     return res.data; 
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Failed to fetch approvers');
+  }
+};
+
+// REPLACE WITH ACTUAL BACKEND ENDPOINTS IF DIFFERENT - I TRIED LANG HEHE -KOLS
+/**
+ * Rename a template
+ * @param {string} templateId - The ID of the template to rename
+ * @param {string} newTitle - The new title for the template
+ * @returns {Promise<Object>}
+ */
+export const renameTemplateAPI = async (templateId, newTitle) => {
+  try {
+    const res = await axios.patch(
+      `${API_URL}/api/templates/${templateId}/rename`,
+      { newName: newTitle }, 
+      { withCredentials: true }
+    );
+
+    return res.data;
+  } catch (err) {
+    console.error("Rename template error:", err.response?.data || err.message);
+    throw err.response?.data || { message: err.message };
   }
 };

@@ -3,7 +3,9 @@ import { authenticateJWT } from '../../user-service/middleware/authenticationMid
 import {
   createDocument,
   getDocumentById,
-  listDocuments,
+  listDocuments,  
+  updateDocumentFieldValues
+
 } from '../controllers/documentFunctionalityController.js';
 
 const router = express.Router();
@@ -11,5 +13,5 @@ const router = express.Router();
 router.post('/create-document', authenticateJWT, createDocument);
 router.get('/', authenticateJWT, listDocuments);
 router.get('/:id', authenticateJWT, getDocumentById);
-
+router.patch('/:id/field-values', authenticateJWT, updateDocumentFieldValues);
 export default router;

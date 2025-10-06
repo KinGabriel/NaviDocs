@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { fetchSchoolStaffAPI } from '../../api/userAPI';
-import SingleSelectDropdown from "../SingleSelectDropdown";
+import SingleSelectDropdown from "../dropdowns/singleSelectDropdown";
 
 export default function AssignMembersModal({
   open,

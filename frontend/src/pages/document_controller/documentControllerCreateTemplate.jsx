@@ -11,7 +11,7 @@ import {
 } from "../../api/documentContollerAPI";
 import fetchAndNormalizeTemplate from "../../utils/templateLoader";
 import useUser from "../../hooks/useUser";
-import Header2 from "../../layout/header2";
+import Header2 from "../../layout/headers/header2";
 
 // Panels
 import FontPanel from "../../layout/create_template/fontPanel";
@@ -23,7 +23,7 @@ import DateFormatPanel from "../../layout/create_template/dateformatPanel";
 import FieldsPanel from "../../layout/create_template/fieldsPanel";
 
 // Sidebar
-import TemplateSidebar from "../../layout/TemplateSidebar";
+import TemplateSidebar from "../../layout/sidebars/templateSidebar";
 
 // Text editor
 import TextEditor from "../../layout/create_template/textEditor";
@@ -58,7 +58,7 @@ function useHeaderHeight() {
 export default function DocumentControllerCreateTemplate() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useUser?.() ?? { user: null };
+  const user = useUser(); // Current logged-in user
 
   const editorRef = useRef(null);
   const [editorInstance, setEditorInstance] = useState(null);

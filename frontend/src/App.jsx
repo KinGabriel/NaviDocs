@@ -33,6 +33,7 @@ import DepartmentHeadTemplateView from './pages/dept_head/departmentHeadTemplate
 import FacultyDashboard from './pages/faculty/facultyDashboard';
 import EditableFields from './pages/editableFields';
 import Storage from './pages/storage';
+import { Toaster } from 'react-hot-toast';
 
 /** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {
@@ -52,6 +53,8 @@ function LoginRoute() {
 
 function App() {
  return(
+  <>
+  <Toaster />
    <Router>
      <Routes>
        <Route path="/" element={<LoginRoute />} />
@@ -310,7 +313,9 @@ function App() {
        <Route path="/unauthorized" element={<UnauthorizedPage />} />
      </Routes>
    </Router>
- )
+ </>
+
+)
 }
 
 

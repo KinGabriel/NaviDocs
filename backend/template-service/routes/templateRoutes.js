@@ -7,8 +7,11 @@ import {
         getTemplateById,
         getTemplates,
         getTemplatesByUser,
-        getPublishedTemplates
+        getPublishedTemplates,
+        duplicateTemplate,
+        renameTemplate
 } from "../controllers/templateFunctionalitiesController.js";
+
 
 import {
         dashboardInfo,
@@ -53,5 +56,7 @@ router.patch("/:id/add-note", authenticateJWT, addTemplateNote);
 router.patch("/:id/adjust-deadline", authenticateJWT, adjustTemplateDeadline);
 router.delete("/:id", authenticateJWT, deleteTemplate);
 router.patch("/:id/insert-document-code", authenticateJWT, insertDocumentCode);
+router.patch("/:id/rename", authenticateJWT, renameTemplate);
+router.post("/:id/duplicate", authenticateJWT, duplicateTemplate);
 
 export default router;

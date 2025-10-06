@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import TemplateCard from "../templatecard";
+import TemplateCard from "../cards/templatecard";
 import SearchBar from "../searchBar";
 import Dropdown from "../dropdowns/dropdown";
 import usePagination from "../../hooks/usePagination";
@@ -87,7 +87,7 @@ export default function SelectTemplateModal({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       {/* Modal shell */}
-      <div className="relative w-full max-w-5xl bg-white rounded-xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-6xl bg-white rounded-xl shadow-2xl overflow-hidden mx-4">
         {/* Header */}
         <div className="px-6 py-4 border-b flex items-center justify-between">
           <div>
@@ -97,7 +97,7 @@ export default function SelectTemplateModal({
           <button onClick={onClose} className="p-2 rounded hover:bg-gray-100" aria-label="Close">✕</button>
         </div>
 
-        {/* Controls (match Documents look) */}
+        {/* Controls */}
         <div className="px-6 py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Dropdown
@@ -123,26 +123,26 @@ export default function SelectTemplateModal({
         </div>
 
         {/* Grid (same card feel as the Documents page) */}
-        <div className="px-6 pb-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
-            {loading ? (
-              <div className="col-span-full text-center py-10">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
-                <p className="mt-2 text-gray-600">Loading templates…</p>
-              </div>
-            ) : templates.length === 0 ? (
-              <div className="col-span-full text-center py-10">
-                <p className="text-gray-600">No published templates found</p>
-              </div>
-            ) : (
-              templates.map((t, i) => {
+        <div className="px-6 pb-4 max-h-[600px] overflow-y-auto">
+          {loading ? (
+            <div className="text-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
+              <p className="mt-2 text-gray-600">Loading templates…</p>
+            </div>
+          ) : templates.length === 0 ? (
+            <div className="text-center py-10">
+              <p className="text-gray-600">No published templates found</p>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-4 justify-start">
+              {templates.map((t, i) => {
                 const id = t._id || t.id || i;
                 return (
                   <div
                     key={id}
-                    className="relative"
+                    className="flex-shrink-0"
                     onClick={() => onPickTemplate?.(t)}   // pick on card click
-                  >
+                  >   
                     {/* You can also add a small “Use Template” button overlay if desired */}
                     <TemplateCard
                       template={t}
@@ -152,13 +152,13 @@ export default function SelectTemplateModal({
                     />
                   </div>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </div>
 
         {/* Pagination */}
-        <div className="px-6 pb-6 flex justify-center items-center gap-2">
+        <div className="px-6 py-4 border-t flex justify-center items-center gap-2">
           <button
             onClick={pagination.handlePrev}
             disabled={pagination.currentPage === 1}
