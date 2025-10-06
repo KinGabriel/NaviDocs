@@ -35,6 +35,7 @@ export async function fetchAndNormalizeDocument(id) {
   const fields = Array.isArray(doc.fields)
     ? doc.fields
     : (doc.from_template && Array.isArray(doc.from_template.fields) ? doc.from_template.fields : []);
+  const field_values = doc.field_values || {};
   const pages_json = Array.isArray(doc.pages_json)
     ? doc.pages_json
     : (doc.pages_json ? [doc.pages_json] : (doc.from_template && Array.isArray(doc.from_template.pages_json) ? doc.from_template.pages_json : []));
@@ -63,6 +64,7 @@ export async function fetchAndNormalizeDocument(id) {
     revision_no,
     effectivity,
     fields,
+  field_values,
     pages_json,
     pageSetup,
     dateFormat,

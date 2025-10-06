@@ -151,7 +151,50 @@ export default function EditableFields() {
           const html = normalized.document?.pages_html || normalized.document?.html || normalized.pages_html;
           normalized.pages_json = Array.isArray(html) ? html : [html];
         }
-        if (!ignore) setDocData(normalized);
+        if (!ignore) {
+          setDocData(normalized);
+          try {
+            // Initialize formData immediately from normalized field values so the left panel populates
+            const rawInitial = normalized.document?.field_values || normalized.field_values || {};
+            const initial = {};
+            Object.keys(rawInitial || {}).forEach((k) => { initial[k] = rawInitial[k]; });
+            let merged = { ...(initial || {}) };
+            if (normalized.from_template && Array.isArray(normalized.from_template.fields)) {
+              normalized.from_template.fields.forEach((f) => {
+                const orig = f.name || f.key || f._id || f.id;
+                const name = orig;
+                if (name && (merged[name] === undefined || merged[name] === null || merged[name] === '')) {
+                  if (f.default !== undefined) merged[name] = f.default;
+                  else if (f.value !== undefined) merged[name] = f.value;
+                  else merged[name] = merged[name] ?? '';
+                }
+              });
+            }
+            // ensure page keys exist
+            try {
+              const base = normalized.pages_json?.[0];
+              if (base && typeof base !== 'string') {
+                const page = (base.content || [])[0];
+                const walk = (node) => {
+                  if (!node) return;
+                  if (node.type === 'editableField') {
+                    const orig = node.attrs?.key || node.attrs?.name;
+                    if (!orig) return;
+                    const name = orig;
+                    if (name && (merged[name] === undefined || merged[name] === null)) merged[name] = '';
+                  }
+                  if (Array.isArray(node.content)) node.content.forEach(walk);
+                };
+                walk(page);
+              }
+            } catch (e) {
+              // ignore
+            }
+            setFormData(merged);
+          } catch (e) {
+            console.debug('editableFields: failed to init formData from normalized doc', e);
+          }
+        }
       } catch (err) {
         console.error(err);
         if (!ignore) setDocError(err?.message || "Failed to load document");
@@ -191,17 +234,20 @@ export default function EditableFields() {
       const base = docData.pages_json?.[0];
       if (base && typeof base !== 'string') {
         const page = (base.content || [])[docPage];
+        const pageKeys = [];
         const walk = (node) => {
           if (!node) return;
           if (node.type === 'editableField') {
             const orig = node.attrs?.key || node.attrs?.name;
             if (!orig) return;
             const name = orig;
+            pageKeys.push(name);
             if (name && (merged[name] === undefined || merged[name] === null)) merged[name] = '';
           }
           if (Array.isArray(node.content)) node.content.forEach(walk);
         };
         walk(page);
+        console.debug('editableFields:init page editable keys', pageKeys);
       }
     } catch (err) {
       // ignore
@@ -415,6 +461,50 @@ export default function EditableFields() {
     };
   }, [formData, docData]);
 
+  // When the visible document page changes, make sure formData contains keys for that page
+  // and apply current formData to the editor so the preview reflects the selected page's values.
+  useEffect(() => {
+    if (!docData) return;
+    try {
+      const base = docData.pages_json?.[0];
+      if (!base || typeof base === 'string') return;
+      const page = (base.content || [])[docPage];
+      if (!page) return;
+
+      // ensure formData has entries for each editableField on the page
+      const additions = {};
+      const walk = (node) => {
+        if (!node) return;
+        if (node.type === 'editableField') {
+          const orig = node.attrs?.key || node.attrs?.name;
+          if (orig && (formData[orig] === undefined || formData[orig] === null)) {
+            additions[orig] = '';
+          }
+        }
+        if (Array.isArray(node.content)) node.content.forEach(walk);
+      };
+      walk(page);
+
+      if (Object.keys(additions).length > 0) {
+        setFormData((prev) => ({ ...(prev || {}), ...additions }));
+      }
+
+      // apply current formData values to the editor for the new page
+      if (editorRef.current) {
+        try {
+          isApplyingRef.current = true;
+          applyFormDataToEditor(editorRef.current);
+        } catch (err) {
+          console.debug('editableFields: error applying formData on page change', err);
+        } finally {
+          setTimeout(() => { isApplyingRef.current = false; }, 50);
+        }
+      }
+    } catch (err) {
+      console.debug('editableFields: page change handling error', err);
+    }
+  }, [docPage, docData]);
+
   // Progress Navigation
   const ProgressNavigation = ({ panelsConfig, currentPage }) => {
     const currentPanels = panelsConfig.slice(currentPage * 2, (currentPage + 1) * 2);
@@ -453,31 +543,66 @@ export default function EditableFields() {
       <ProgressNavigation panelsConfig={panelsToUse} currentPage={currentPage} />
       <div className="flex flex-1">
         <div className="w-1/2 bg-gray-50 p-6 space-y-6">
-          {/* Render current panels */}
-          {currentPanels.map((panel, idx) => (
-            <Panel
-              key={idx}
-              number={panel.number}
-              title={panel.title}
-              subtitle={panel.subtitle}
-              color={panel.color}
-              fields={panel.fields}
-              formData={formData}
-              onChange={handleInputChange}
-            />
-          ))}
 
-          {/* Dot slider */}
+          {/* Render current panels or show a helpful message when the current page has no editable fields */}
+          {docData && docData.pages_json && typeof docData.pages_json[0] !== 'string' && editableCount === 0 ? (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <div className="space-y-2">
+                <div className="text-lg font-medium text-gray-700">No editable fields for this page</div>
+                <div className="text-sm text-gray-500">This page doesn’t contain any editable placeholders. Please go to another page to edit fields</div>
+              </div>
+            </div>
+          ) : (
+            currentPanels.map((panel, idx) => (
+              <Panel
+                key={idx}
+                number={panel.number}
+                title={panel.title}
+                subtitle={panel.subtitle}
+                color={panel.color}
+                fields={panel.fields}
+                formData={formData}
+                onChange={handleInputChange}
+              />
+            ))
+          )}
+
+          {/* Prev/Next page buttons (placed below panels) */}
+          <div className="flex items-center justify-end">
+            <div className="flex items-center space-x-3">
+              {docPage > 0 && (
+                <button
+                  onClick={() => setDocPage((p) => Math.max(p - 1, 0))}
+                  className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 border-2 border-gray-300 rounded-lg font-medium text-sm hover:border-[#003DA5] hover:text-[#003DA5] hover:shadow-md transition-all duration-200"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Previous
+                </button>
+              )}
+              {docPage < docTotalPages - 1 && (
+                <button
+                  onClick={() => setDocPage((p) => Math.min(p + 1, docTotalPages - 1))}
+                  className="inline-flex items-center px-6 py-2.5 bg-[#003DA5] text-white rounded-lg font-medium text-sm hover:bg-[#052c6d] transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Dot slider representing document pages (docTotalPages) - clicking jumps to that page */}
           <div className="flex items-center justify-center space-x-2 pt-4">
-            {Array.from({ length: totalPages }, (_, index) => (
+            {Array.from({ length: docTotalPages }, (_, index) => (
               <button
                 key={index}
-                onClick={() => setCurrentPage(index)}
+                onClick={() => setDocPage(index)}
                 className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                  index === currentPage
+                  index === docPage
                     ? "bg-[#003DA5] scale-125"
                     : "bg-gray-300 hover:bg-gray-400 hover:scale-110"
                 }`}
+                aria-label={`Go to page ${index + 1}`}
               />
             ))}
           </div>
@@ -531,7 +656,9 @@ export default function EditableFields() {
         <div className="w-1/2 p-6">
           <div className="bg-white rounded-lg shadow-sm p-6 h-full">
             <div className="flex items-center justify-between mb-4">
-              <div />
+              <div className="flex items-center space-x-3">
+                <div className="text-sm text-gray-700">Page {docPage + 1} of {docTotalPages}</div>
+              </div>
               <div className="text-sm text-gray-500 flex items-center space-x-3">
                 <div>Editable fields on page: <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">{editableCount}</span></div>
                 <div className="text-xs text-gray-500">
