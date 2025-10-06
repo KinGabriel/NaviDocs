@@ -164,7 +164,7 @@ export const updateDocumentFieldValues = async (req, res) => {
   try {
     const { id } = req.params;
     if (!id) return res.status(400).json({ message: 'id required' });
-    const { field_values } = req.body;
+    const { field_values, title } = req.body;
     if (!field_values || typeof field_values !== 'object') {
       return res.status(400).json({ message: 'field_values object required' });
     }
@@ -173,6 +173,11 @@ export const updateDocumentFieldValues = async (req, res) => {
     if (!doc) return res.status(404).json({ message: 'document not found' });
 
     doc.field_values = Object.assign({}, doc.field_values || {}, field_values);
+
+    // If caller provided a top-level title, persist it as well
+    if (typeof title === 'string' && title.trim() !== '') {
+      doc.title = title.trim();
+    }
 
     await doc.save();
 

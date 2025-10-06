@@ -308,23 +308,15 @@ export default function EditableFields() {
   const isApplyingRef = useRef(false);
   const updateTimerRef = useRef(null);
 
-  const handleSave = async () => {
-    if (!docData) return;
-    const idToUse = docData._id || docData.document?._id;
-    setSaving(true); setSaveError(null);
+  // whether formData differs from last saved values
+  const dirty = useMemo(() => {
     try {
-      // convert canonical keys back to original keys when possible
-      const payload = {};
-      Object.keys(formData || {}).forEach((k) => {
-        payload[k] = formData[k];
-      });
-      await updateDocumentFieldValuesAPI(idToUse, payload);
-      setLastSavedAt(new Date().toISOString());
-    } catch (err) {
-      console.error(err); setSaveError(err?.message || 'Save failed');
-    } finally { setSaving(false); }
-  };
-
+      return JSON.stringify(formData || {}) !== JSON.stringify(lastSavedRef.current || {});
+    } catch (e) {
+      return false;
+    }
+  }, [formData, lastSavedAt]);
+  
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
       ...prev,
@@ -374,7 +366,8 @@ export default function EditableFields() {
     if (initialLoadRef.current) {
       // first time we set formData from docData; mark as initialized but don't save
       initialLoadRef.current = false;
-      lastSavedRef.current = { ...formData };
+      // include title in lastSavedRef so future diffs consider it
+      lastSavedRef.current = { ...(formData || {}), __title: docData?.title };
       return;
     }
 
@@ -386,8 +379,13 @@ export default function EditableFields() {
       if (String(prev || '') !== String(cur || '')) changed[k] = cur;
     });
 
+    // check if title changed
+    const prevTitle = lastSavedRef.current?.__title;
+    const curTitle = docData?.title;
+    const titleChanged = String(prevTitle || '') !== String(curTitle || '');
+
     // nothing changed -> nothing to save
-    if (Object.keys(changed).length === 0) return;
+    if (Object.keys(changed).length === 0 && !titleChanged) return;
 
     // debounce saves
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
@@ -397,9 +395,12 @@ export default function EditableFields() {
       setSaving(true);
       setSaveError(null);
       try {
-        await updateDocumentFieldValuesAPI(idToUse, changed);
+        // include title when it changed (API will ignore if undefined)
+        const titleToSend = titleChanged ? curTitle : undefined;
+        await updateDocumentFieldValuesAPI(idToUse, changed, titleToSend);
         // mark as saved
         lastSavedRef.current = { ...(lastSavedRef.current || {}), ...changed };
+        if (titleChanged) lastSavedRef.current.__title = curTitle;
         setLastSavedAt(new Date().toISOString());
       } catch (err) {
         console.error('autosave error', err);
@@ -439,7 +440,14 @@ export default function EditableFields() {
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
-      <EditableFieldsHeader user={user} />
+      <EditableFieldsHeader
+        title={docData?.title || docData?.document?.title || 'Untitled Document'}
+        user={user}
+        setTitle={(t) => setDocData((d) => (d ? { ...d, title: t } : d))}
+        saving={saving}
+        lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : null}
+        dirty={dirty}
+      />
 
       {/* Progress Navigation */}
       <ProgressNavigation panelsConfig={panelsToUse} currentPage={currentPage} />

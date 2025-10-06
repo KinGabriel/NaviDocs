@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
 import naviLogo from '../../assets/images/navilogo.png';
 import { ChevronDown, Copy, Send, FileDown, MoreHorizontal } from "lucide-react";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -16,6 +17,39 @@ export default function EditableFieldsHeader({
   const navigate = useNavigate();
   const handleSave = () => {
     if (onSave) onSave();
+  };
+
+  // Inline title edit state
+  const [editing, setEditing] = useState(false);
+  const [localTitle, setLocalTitle] = useState(title || '');
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    setLocalTitle(title || '');
+  }, [title]);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const commitTitle = () => {
+    setEditing(false);
+    const t = (localTitle || '').trim();
+    if (setTitle) setTitle(t);
+  };
+
+  const onKeyDownTitle = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitTitle();
+      if (onSave) onSave();
+    } else if (e.key === 'Escape') {
+      setEditing(false);
+      setLocalTitle(title || '');
+    }
   };
 
     const handleArchive = () => {
@@ -38,9 +72,29 @@ export default function EditableFieldsHeader({
           {/* Title */}
           <div className="flex items-center gap-3">
             <div className="flex items-center">
-              <span className="text-xl font-medium text-gray-800">
-                {title}
-              </span>
+              {editing ? (
+                <input
+                  ref={inputRef}
+                  value={localTitle}
+                  onChange={(e) => setLocalTitle(e.target.value)}
+                  onBlur={commitTitle}
+                  onKeyDown={onKeyDownTitle}
+                  className="text-xl font-medium text-gray-800 border-b border-gray-300 focus:outline-none px-1 py-0.5"
+                />
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span className="text-xl font-medium text-gray-800">{title}</span>
+                  <button
+                    title="Edit title"
+                    onClick={() => setEditing(true)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 11l6-6 3 3-6 6H9v-3z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

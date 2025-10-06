@@ -61,11 +61,14 @@ export const getDocumentByIdAPI = async (documentId) => {
  * Backend endpoint is expected to accept { field_values } and validate them.
  * @param {string} documentId
  * @param {Object} fieldValues - key/value map of field ids to values
+ * @param {string} [title] - optional document title to persist alongside field values
  * @returns {Promise<Object>} - API response data
  */
-export const updateDocumentFieldValuesAPI = async (documentId, fieldValues) => {
+export const updateDocumentFieldValuesAPI = async (documentId, fieldValues, title) => {
 	try {
-		const res = await axios.patch(`${API_URL}/api/documents/${documentId}/field-values`, { field_values: fieldValues }, {
+		const body = { field_values: fieldValues };
+		if (title !== undefined && title !== null) body.title = title;
+		const res = await axios.patch(`${API_URL}/api/documents/${documentId}/field-values`, body, {
 			withCredentials: true,
 		});
 		return res.data;
