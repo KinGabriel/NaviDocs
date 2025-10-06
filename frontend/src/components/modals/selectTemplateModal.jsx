@@ -74,6 +74,7 @@ export default function SelectTemplateModal({
         if (!ignore) setLoading(false);
       }
     };
+
     fetchPublished();
     return () => { ignore = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -94,7 +95,13 @@ export default function SelectTemplateModal({
             <h2 className="text-lg font-semibold">Select Template</h2>
             <p className="text-xs text-gray-500">Choose a published template from Document Controller</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded hover:bg-gray-100" aria-label="Close">✕</button>
+          <button 
+            onClick={onClose}
+            className="p-2 rounded hover:bg-gray-100"
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Controls */}
@@ -138,17 +145,12 @@ export default function SelectTemplateModal({
               {templates.map((t, i) => {
                 const id = t._id || t.id || i;
                 return (
-                  <div
-                    key={id}
-                    className="flex-shrink-0"
-                    onClick={() => onPickTemplate?.(t)}   // pick on card click
-                  >   
-                    {/* You can also add a small “Use Template” button overlay if desired */}
+                  <div key={id} className="flex-shrink-0">   
                     <TemplateCard
                       template={t}
                       user={user}
                       onSelect={() => onPickTemplate?.(t)}
-                      // Optional: hide rename/delete in this modal by not passing onRename/onDelete
+                      
                     />
                   </div>
                 );

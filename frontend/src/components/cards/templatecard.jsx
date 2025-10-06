@@ -18,12 +18,21 @@ const API_URL =
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
 
+  // Delete modal state
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
  
   const [duplicating, setDuplicating] = useState(false);
   const [renaming, setRenaming] = useState(false);
+
+  // single flag to know if any modal is open (prevents click-through)
+  const isAnyModalOpen = renameOpen || assignOpen || duplicateOpen || deleteOpen;
+
+  // when any modal closes, ignore card clicks briefly (prevents click-through)
+  const [modalCloseTs, setModalCloseTs] = useState(0);
+  const justClosedModal = () => setModalCloseTs(Date.now());
+  const ignoreClickNow = () => (Date.now() - modalCloseTs) < 300;
 
   // Initialize selectedIds with any existing assigned controllers from the template
   const [selectedIds, setSelectedIds] = useState(() => {
@@ -161,6 +170,7 @@ const API_URL =
           window.location.reload();
         }
         setDeleteOpen(false);
+        justClosedModal();
       } else {
         setDeleteError(resp?.message || 'Failed to delete template');
       }
@@ -171,9 +181,29 @@ const API_URL =
     }
   };
 
+  // Reusable guards for the preview click area
+  const guardMouseDown = (e) => {
+    if (isAnyModalOpen || ignoreClickNow()) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+  const guardClick = (e) => {
+    if (isAnyModalOpen || ignoreClickNow()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (typeof onSelect === 'function') onSelect();
+  };
+
   return (
     <>
-      <div className="relative w-[280px] bg-white rounded-lg shadow-md border border-gray-300 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer overflow-visible">
+      <div
+        className={`relative w-[280px] bg-white rounded-lg shadow-md border border-gray-300 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer overflow-visible ${isAnyModalOpen ? 'pointer-events-none' : ''}`}
+        onMouseDown={guardMouseDown}
+        onClick={guardClick}
+      >
         <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
           <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
             {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -201,7 +231,8 @@ const API_URL =
         {/*  Document Preview or Thumbnail */}
         <div 
           className="w-full h-[310px] bg-gray-50 flex items-center justify-center border-b border-gray-300 hover:bg-gray-100 transition-colors rounded-t-lg"
-          onClick={onSelect}
+          onMouseDown={guardMouseDown}
+          onClick={guardClick}
         >
           {template.thumbnailUrl ? (
             <img
@@ -361,7 +392,7 @@ const API_URL =
       {/* Assign Modal */}
       <AssignMembersModal
         open={assignOpen}
-        onClose={() => setAssignOpen(false)}
+        onClose={() => { setAssignOpen(false); justClosedModal(); }}
         template={template}
         selectedIds={selectedIds}
         setSelectedIds={setSelectedIds}
@@ -394,12 +425,13 @@ const API_URL =
             alert(err.response?.data?.message || 'Error assigning controllers');
           } finally {
             setAssignOpen(false);
+            justClosedModal();
           }
         }}
       />
       <DuplicateTemplateModal
         open={duplicateOpen}
-        onClose={() => setDuplicateOpen(false)}
+        onClose={() => { setDuplicateOpen(false); justClosedModal(); }}
         template={template}
         submitting={duplicating}
         onDuplicate={async (newTemplate) => {
@@ -420,6 +452,7 @@ const API_URL =
               }
               // Close modal
               setDuplicateOpen(false);
+              justClosedModal();
               // Small UX: reload to show new template in list if parent didn't handle it
               if (!onSelect && !onRename && typeof window !== 'undefined') {
                 window.location.reload();
@@ -438,7 +471,7 @@ const API_URL =
 
       <RenameModal
       open={renameOpen}
-      onClose={() => setRenameOpen(false)}
+      onClose={() => { setRenameOpen(false); justClosedModal(); }}
       currentTitle={template.title}
       submitting={renaming}
       onSubmit={async (newTitle) => {
@@ -452,6 +485,7 @@ const API_URL =
               onRename(data.template || { ...template, title: newTitle });
             }
             setRenameOpen(false);
+            justClosedModal();
             // If parent didn't handle UI update, reload to reflect changes
             if (!onRename && typeof window !== 'undefined') {
               window.location.reload();
@@ -471,13 +505,13 @@ const API_URL =
     {/* Delete Modal */}
       <DeleteDocumentModal
         open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
+        onClose={() => { setDeleteOpen(false); justClosedModal(); }}
         documentTitle={template?.title || "this template"}
         onConfirm={confirmDelete}
         submitting={deleting}
         error={deleteError}
       />
-      
+
     </>
   );
 }
