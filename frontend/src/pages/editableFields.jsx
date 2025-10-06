@@ -26,7 +26,6 @@ export default function EditableFields() {
     {
       number: 1,
       title: "Hello World",
-      subtitle: "Basic course details and identifiers",
       color: "bg-blue-500",
       fields: [
         { type: "input", name: "courseName", label: "Course Name", placeholder: "Enter course name" },
@@ -37,7 +36,6 @@ export default function EditableFields() {
     {
       number: 2,
       title: "Institution",
-      subtitle: "Institution details and programs",
       color: "bg-green-500",
       fields: [
         { type: "input", name: "institution", label: "Institution", placeholder: "Enter institution name" },
@@ -48,7 +46,6 @@ export default function EditableFields() {
     {
       number: 3,
       title: "Course Requirements & Description",
-      subtitle: "Prerequisites, co-requisites, and course overview",
       color: "bg-purple-500",
       fields: [
         { type: "textarea", name: "prerequisites", label: "Pre-requisites", placeholder: "Enter prerequisites" },
@@ -103,7 +100,21 @@ export default function EditableFields() {
         const key = origKey;
         // avoid duplicates
         if (!extracted.find(f => f.name === key)) {
-          extracted.push({ type: type === 'text' ? 'input' : type, name: key, label: origKey, placeholder });
+          // Create a more user-friendly label from the key
+          const label = origKey
+            .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+            .replace(/[_-]/g, ' ') // Replace underscores and hyphens with spaces
+            .trim()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+          
+          extracted.push({ 
+            type: type === 'text' ? 'input' : type, 
+            name: key, 
+            label: label || origKey, 
+            placeholder 
+          });
         }
       }
       if (Array.isArray(node.content)) node.content.forEach(walk);
@@ -111,7 +122,7 @@ export default function EditableFields() {
     walk(page);
 
     if (extracted.length === 0) return null;
-    return [
+      return [
       {
         number: 1,
         title: docData.from_template?.title || 'Page Fields',
@@ -123,6 +134,7 @@ export default function EditableFields() {
   }, [docData, docPage]);
 
   const panelsToUse = panelsFromPage || panelsFromTemplate || panelsConfig;
+  const [currentField, setCurrentField] = useState(null);
   const sectionsPerPage = 2;
   const totalPages = Math.max(1, Math.ceil(panelsToUse.length / sectionsPerPage));
   const currentPanels = panelsToUse.slice(
@@ -505,24 +517,30 @@ export default function EditableFields() {
     }
   }, [docPage, docData]);
 
-  // Progress Navigation
-  const ProgressNavigation = ({ panelsConfig, currentPage }) => {
-    const currentPanels = panelsConfig.slice(currentPage * 2, (currentPage + 1) * 2);
+  // Progress Navigation - shows which document page is currently being edited
+  const ProgressNavigation = ({ docPage, docTotalPages, panelsConfig }) => {
+    // Get the panels for the current document page
+    const currentPanels = panelsConfig.slice(docPage * sectionsPerPage, (docPage + 1) * sectionsPerPage);
+    
     return (
       <div className="bg-white p-4 border-gray-200 border-b">
         <div className="flex items-center space-x-3">
           <span className="text-sm text-gray-500">Current:</span>
-          {currentPanels.map((panel, index) => (
-            <div key={panel.number} className="flex items-center">
-              <div className={`w-6 h-6 ${panel.color} rounded-full flex items-center justify-center text-white font-medium text-xs`}>
-                {panel.number}
+          {currentPanels.length > 0 ? (
+            currentPanels.map((panel, index) => (
+              <div key={panel.number} className="flex items-center">
+                <div className={`w-6 h-6 ${panel.color} rounded-full flex items-center justify-center text-white font-medium text-xs`}>
+                  {panel.number}
+                </div>
+                <span className="ml-2 text-sm font-medium text-gray-700">{panel.title}</span>
+                {index < currentPanels.length - 1 && (
+                  <ChevronRight className="w-4 h-4 text-gray-300 ml-3" />
+                )}
               </div>
-              <span className="ml-2 text-sm font-medium text-gray-700">{panel.title}</span>
-              {index < currentPanels.length - 1 && (
-                <ChevronRight className="w-4 h-4 text-gray-300 ml-3" />
-              )}
-            </div>
-          ))}
+            ))
+          ) : (
+            <span className="text-sm text-gray-500 italic">No editable sections on this page</span>
+          )}
         </div>
       </div>
     );
@@ -540,16 +558,38 @@ export default function EditableFields() {
       />
 
       {/* Progress Navigation */}
-      <ProgressNavigation panelsConfig={panelsToUse} currentPage={currentPage} />
+      <ProgressNavigation panelsConfig={panelsToUse} docPage={docPage} docTotalPages={docTotalPages} />
       <div className="flex flex-1">
         <div className="w-1/2 bg-gray-50 p-6 space-y-6">
+
+          {/* Clear All Button above panels */}
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={() => {
+                if (window.confirm("Are you sure you want to clear all form data? This action cannot be undone.")) {
+                  setFormData({});
+                }
+              }}
+              disabled={Object.keys(formData).length === 0}
+              className={`
+                inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200
+                ${Object.keys(formData).length > 0
+                  ? "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:border-red-300" 
+                  : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
+                }
+              `}
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Clear All
+            </button>
+          </div>
 
           {/* Render current panels or show a helpful message when the current page has no editable fields */}
           {docData && docData.pages_json && typeof docData.pages_json[0] !== 'string' && editableCount === 0 ? (
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <div className="space-y-2">
                 <div className="text-lg font-medium text-gray-700">No editable fields for this page</div>
-                <div className="text-sm text-gray-500">This page doesn’t contain any editable placeholders. Please go to another page to edit fields</div>
+                <div className="text-sm text-gray-500">This page doesn't contain any editable placeholders. Please go to another page to edit fields</div>
               </div>
             </div>
           ) : (
@@ -563,6 +603,7 @@ export default function EditableFields() {
                 fields={panel.fields}
                 formData={formData}
                 onChange={handleInputChange}
+                 onFocusField={(fieldName) => setCurrentField(fieldName)}
               />
             ))
           )}
@@ -610,25 +651,6 @@ export default function EditableFields() {
        {/* Action Buttons */}
           <div className="flex justify-end items-center pt-6">
             <div className="flex items-center space-x-3">
-              <button
-                onClick={() => {
-                  if (window.confirm("Are you sure you want to clear all form data? This action cannot be undone.")) {
-                    setFormData({});
-                  }
-                }}
-                disabled={Object.keys(formData).length === 0}
-                className={`
-                  inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200
-                  ${Object.keys(formData).length > 0
-                    ? "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:border-red-300" 
-                    : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
-                  }
-                `}
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Clear All
-              </button>
-
               {currentPage > 0 && (
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(p - 1, 0))}
@@ -653,88 +675,111 @@ export default function EditableFields() {
         </div>
 
         {/* Text Editor - Right Panel */}
-        <div className="w-1/2 p-6">
-          <div className="bg-white rounded-lg shadow-sm p-6 h-full">
+        <div className="w-1/2 p-6 bg-white shadow-md">
+          <div className="bg-white p-1 h-full flex flex-col">
+            {/* Header */}
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="text-sm text-gray-700">Page {docPage + 1} of {docTotalPages}</div>
+              
+              {/* Page Info */}
+              <div className="text-sm text-gray-700 font-medium">
+                Page <span className="font-semibold">{docPage + 1}</span> of <span className="font-semibold">{docTotalPages}</span>
               </div>
-              <div className="text-sm text-gray-500 flex items-center space-x-3">
-                <div>Editable fields on page: <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">{editableCount}</span></div>
-                <div className="text-xs text-gray-500">
+
+              {/* Status & Editable Fields */}
+              <div className="flex items-center space-x-4 text-sm">
+                {/* Editable Fields */}
+                <div className="flex items-center space-x-1">
+                  <span className="text-gray-500">Editable fields:</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
+                    {editableCount}
+                  </span>
+                </div>
+
+                {/* Save Status */}
+                <div className="flex items-center space-x-1 text-xs">
                   {saving ? (
-                    <span className="inline-flex items-center space-x-2"><svg className="animate-spin h-3 w-3 text-gray-600" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg><span>Saving…</span></span>
+                    <div className="flex items-center space-x-1 text-gray-600">
+                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                      <span>Saving…</span>
+                    </div>
                   ) : saveError ? (
-                    <span className="text-red-500">Save failed</span>
+                    <span className="text-red-500 font-medium">Save failed</span>
                   ) : lastSavedAt ? (
-                    <span>Saved {new Date(lastSavedAt).toLocaleTimeString()}</span>
+                    <span className="text-gray-500">Saved {new Date(lastSavedAt).toLocaleTimeString()}</span>
                   ) : (
                     <span className="text-gray-400">Not saved</span>
                   )}
                 </div>
               </div>
             </div>
-            {loadingDoc ? (
-              <div className="text-center py-12 text-gray-500">Loading document preview…</div>
-            ) : docError ? (
-              <div className="text-center py-12 text-red-600">{docError}</div>
-            ) : docData && contentForEditor ? (
-              <TextEditor
-                content={contentForEditor}
-                pageSetup={docData?.pageSetup}
-                mode="document"
-                onEditorReady={(editor) => {
-                  // capture editor instance
-                  editorRef.current = editor;
-                  // initial apply of formData into editor
-                  try {
-                    isApplyingRef.current = true;
-                    applyFormDataToEditor(editor);
-                  } catch (err) {
-                    console.debug('editableFields: error applying initial formData to editor', err);
-                  } finally {
-                    setTimeout(() => { isApplyingRef.current = false; }, 50);
-                  }
 
-                  // listen for updates from the editor (user edits)
-                  editor.on('update', () => {
-                    if (isApplyingRef.current) return;
-                    if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
-                    updateTimerRef.current = setTimeout(() => {
-                      try {
-                        const newValues = {};
-                        editor.state.doc.descendants((node) => {
-                          if (node.type && node.type.name === 'editableField') {
-                            const origKey = node.attrs?.key;
-                            if (!origKey) return;
-                            const key = origKey;
-                            const txt = node.textContent || '';
-                            newValues[key] = txt;
-                          }
-                        });
-                        // merge into formData only if changed
-                        setFormData((prev) => {
-                          let changed = false;
-                          const merged = { ...prev };
-                          Object.keys(newValues).forEach((k) => {
-                            if (merged[k] !== newValues[k]) {
-                              merged[k] = newValues[k];
-                              changed = true;
+            {/* Divider */}
+            <div className="border-b border-gray-200 mb-4"></div>
+
+            {/* Content / Editor */}
+            <div className="flex-1 overflow-auto">
+              {loadingDoc ? (
+                <div className="text-center py-12 text-gray-400 italic">Loading document preview…</div>
+              ) : docError ? (
+                <div className="text-center py-12 text-red-600 font-medium">{docError}</div>
+              ) : docData && contentForEditor ? (
+                <TextEditor
+                  content={contentForEditor}
+                  pageSetup={docData?.pageSetup}
+                  mode="document"
+                  onEditorReady={(editor) => {
+                  // capture editor instance
+                    editorRef.current = editor;
+                  // initial apply of formData into editor
+                    try {
+                      isApplyingRef.current = true;
+                      applyFormDataToEditor(editor);
+                    } catch (err) {
+                      console.debug('editableFields: error applying initial formData to editor', err);
+                    } finally {
+                      setTimeout(() => { isApplyingRef.current = false; }, 50);
+                    }
+                    // listen for updates from the editor (user edits)
+                    editor.on('update', () => {
+                      if (isApplyingRef.current) return;
+                      if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
+                      updateTimerRef.current = setTimeout(() => {
+                        try {
+                          const newValues = {};
+                          editor.state.doc.descendants((node) => {
+                            if (node.type && node.type.name === 'editableField') {
+                              const origKey = node.attrs?.key;
+                              if (!origKey) return;
+                              newValues[origKey] = node.textContent || '';
                             }
                           });
-                          return changed ? merged : prev;
-                        });
-                      } catch (err) {
-                        console.debug('editableFields: error reading editableField from editor', err);
-                      }
-                    }, 150);
-                  });
-                }}
-                onContentChange={() => {}}
-              />
-            ) : (
-              <div className="text-center py-12 text-gray-500">No document preview available.</div>
-            )}
+                        // merge into formData only if changed
+                          setFormData((prev) => {
+                            let changed = false;
+                            const merged = { ...prev };
+                            Object.keys(newValues).forEach((k) => {
+                              if (merged[k] !== newValues[k]) {
+                                merged[k] = newValues[k];
+                                changed = true;
+                              }
+                            });
+                            return changed ? merged : prev;
+                          });
+                        } catch (err) {
+                          console.debug('editableFields: error reading editableField from editor', err);
+                        }
+                      }, 150);
+                    });
+                  }}
+                  onContentChange={() => {}}
+                />
+              ) : (
+                <div className="text-center py-12 text-gray-400 italic">No document preview available.</div>
+              )}
+            </div>
           </div>
         </div>
       </div>

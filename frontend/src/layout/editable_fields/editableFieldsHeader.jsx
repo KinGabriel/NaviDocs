@@ -82,16 +82,14 @@ export default function EditableFieldsHeader({
                   className="text-xl font-medium text-gray-800 border-b border-gray-300 focus:outline-none px-1 py-0.5"
                 />
               ) : (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-5">
                   <span className="text-xl font-medium text-gray-800">{title}</span>
                   <button
                     title="Edit title"
                     onClick={() => setEditing(true)}
                     className="text-gray-400 hover:text-gray-600"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 11l6-6 3 3-6 6H9v-3z" />
-                    </svg>
+                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square-pen-icon lucide-square-pen"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>
                   </button>
                 </div>
               )}
