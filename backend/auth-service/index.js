@@ -1,6 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
-import cors from "cors";
+// cors handled centrally by the gateway
 import cookieParser from "cookie-parser";
 import { dbConnection } from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -13,18 +13,6 @@ const app = express();
 const PORT = process.env.PORT || 4001;
 const HOST = process.env.HOST || "127.0.0.1";
 
-// handle multiple frontend URLs
-const allowedOrigins = process.env.FRONTEND_URL.split(",");
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true
-}));
 
 app.use(express.json());
 app.use(cookieParser());

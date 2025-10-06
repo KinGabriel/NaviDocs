@@ -6,7 +6,7 @@ import Sidebar from "../layout/sidebars/sidebar";
 import useUser from "../hooks/useUser";
 import FolderComponent from "../components/folder";
 import FileComponent from "../components/file";
-import SearchBar from "../components/searchBar";
+import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
 import MoveModal from "../components/modals/moveModal";
 import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ListFilter } from "lucide-react";

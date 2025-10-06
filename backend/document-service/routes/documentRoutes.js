@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateJWT } from '../../user-service/middleware/authenticationMiddleware.js';
+import { authenticateJWT } from '../middleware/authenticationMiddleware.js';
 import {
   createDocument,
   getDocumentById,

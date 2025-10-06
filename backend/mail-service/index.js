@@ -1,5 +1,4 @@
 import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
 import mailRoutes from './routes/mailRoutes.js';
 
@@ -8,8 +7,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3005;
 const HOST = process.env.HOST || "127.0.0.1";
-// Middleware
-app.use(cors());
+
 app.use(express.json());
 
 // Routes

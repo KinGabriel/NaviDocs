@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { 
   fetchUsersAccountsAPI,
@@ -8,7 +9,7 @@ import {
 import useUser from '../../hooks/useUser';
 import Sidebar from '../../layout/sidebars/sidebar';
 import Header from '../../layout/headers/header';
-import SearchBar from '../../components/searchBar';
+import SearchBar from '../../components/searchbar';
 import Table from '../../components/table';
 import Dropdown from '../../components/dropdowns/dropdown';
 import usePagination from '../../hooks/usePagination';
@@ -64,9 +65,10 @@ export default function AdminAccounts() {
       setArchiving(true);
       await archiveUserAccountAPI(targetUser._id);
       setUsers(prev => prev.map(u => u._id === targetUser._id ? { ...u, is_deleted: true } : u));
+      toast.success("User archived successfully");
       closeArchiveModal();
     } catch (err) {
-      alert(err.message || "Failed to archive user.");
+      toast.error(err.message || "Failed to archive user.");
       setArchiving(false);
     }
   };
@@ -91,9 +93,10 @@ export default function AdminAccounts() {
       setUnarchiving(true);
       await unarchiveUserAccountAPI(targetUserUnarchive._id);
       setUsers(prev => prev.map(u => u._id === targetUserUnarchive._id ? { ...u, is_deleted: false } : u));
+      toast.success("User unarchived successfully");
       closeUnarchiveModal();
     } catch (err) {
-      alert(err.message || "Failed to unarchive user.");
+      toast.error(err.message || "Failed to unarchive user.");
       setUnarchiving(false);
     }
   };

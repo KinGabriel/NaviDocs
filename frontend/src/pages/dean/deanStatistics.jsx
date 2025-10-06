@@ -3,7 +3,7 @@ import Header from '../../layout/headers/header';
 import Sidebar from '../../layout/sidebars/sidebar';
 import Dropdown from '../../components/dropdowns/dropdown';
 import Table from '../../components/table';
-import SearchBar from '../../components/searchBar'; 
+import SearchBar from '../../components/searchbar'; 
 import { Bar, Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
 
