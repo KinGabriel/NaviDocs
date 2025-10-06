@@ -22,7 +22,7 @@ export default function Header2({
   lastSavedAt, 
   dirty, 
   templateStatus='draft', 
-  approvals=null,              // expect status_meta.approvals
+  approvals=null,              
   approvalMeta=null, 
   approvers=[], 
   loadingApprovers=false, 
