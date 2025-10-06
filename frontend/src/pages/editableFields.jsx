@@ -303,6 +303,7 @@ export default function EditableFields() {
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [lastSavedAt, setLastSavedAt] = useState(null);
   const editorRef = useRef(null);
   const isApplyingRef = useRef(false);
   const updateTimerRef = useRef(null);
@@ -318,6 +319,7 @@ export default function EditableFields() {
         payload[k] = formData[k];
       });
       await updateDocumentFieldValuesAPI(idToUse, payload);
+      setLastSavedAt(new Date().toISOString());
     } catch (err) {
       console.error(err); setSaveError(err?.message || 'Save failed');
     } finally { setSaving(false); }
@@ -360,6 +362,57 @@ export default function EditableFields() {
       editor.view.dispatch(tr);
     }
   };
+
+  // Autosave formData to backend (debounced). Sends only changed keys to reduce payload
+  const autosaveTimerRef = useRef(null);
+  const lastSavedRef = useRef({});
+  const initialLoadRef = useRef(true);
+
+  useEffect(() => {
+    // don't auto-save until we've loaded the document and initialized formData
+    if (!docData) return;
+    if (initialLoadRef.current) {
+      // first time we set formData from docData; mark as initialized but don't save
+      initialLoadRef.current = false;
+      lastSavedRef.current = { ...formData };
+      return;
+    }
+
+    // compute diff between lastSavedRef and current formData
+    const changed = {};
+    Object.keys(formData || {}).forEach((k) => {
+      const prev = lastSavedRef.current?.[k];
+      const cur = formData[k];
+      if (String(prev || '') !== String(cur || '')) changed[k] = cur;
+    });
+
+    // nothing changed -> nothing to save
+    if (Object.keys(changed).length === 0) return;
+
+    // debounce saves
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(async () => {
+      const idToUse = docData._id || docData.document?._id || id;
+      if (!idToUse) return;
+      setSaving(true);
+      setSaveError(null);
+      try {
+        await updateDocumentFieldValuesAPI(idToUse, changed);
+        // mark as saved
+        lastSavedRef.current = { ...(lastSavedRef.current || {}), ...changed };
+        setLastSavedAt(new Date().toISOString());
+      } catch (err) {
+        console.error('autosave error', err);
+        setSaveError(err?.message || 'Autosave failed');
+      } finally {
+        setSaving(false);
+      }
+    }, 700);
+
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    };
+  }, [formData, docData]);
 
   // Progress Navigation
   const ProgressNavigation = ({ panelsConfig, currentPage }) => {
@@ -471,7 +524,20 @@ export default function EditableFields() {
           <div className="bg-white rounded-lg shadow-sm p-6 h-full">
             <div className="flex items-center justify-between mb-4">
               <div />
-              <div className="text-sm text-gray-500">Editable fields on page: <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">{editableCount}</span></div>
+              <div className="text-sm text-gray-500 flex items-center space-x-3">
+                <div>Editable fields on page: <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">{editableCount}</span></div>
+                <div className="text-xs text-gray-500">
+                  {saving ? (
+                    <span className="inline-flex items-center space-x-2"><svg className="animate-spin h-3 w-3 text-gray-600" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg><span>Saving…</span></span>
+                  ) : saveError ? (
+                    <span className="text-red-500">Save failed</span>
+                  ) : lastSavedAt ? (
+                    <span>Saved {new Date(lastSavedAt).toLocaleTimeString()}</span>
+                  ) : (
+                    <span className="text-gray-400">Not saved</span>
+                  )}
+                </div>
+              </div>
             </div>
             {loadingDoc ? (
               <div className="text-center py-12 text-gray-500">Loading document preview…</div>
