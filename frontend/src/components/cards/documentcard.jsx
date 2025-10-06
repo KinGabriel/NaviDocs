@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import RenameModal from '../modals/renameModal';
+import AssignMembersModal from '../modals/AssignMembersModal';
 
 import {
   renameTemplateAPI,
@@ -72,6 +73,28 @@ export default function DocumentCard({
   const [renameOpen, setRenameOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
 
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => {
+    try {
+      return Array.isArray(document?.assigned)
+        ? [...document.assigned]
+        : (Array.isArray(document?.assignees)
+            ? [...document.assignees]
+            : (Array.isArray(document?.collaborators) ? [...document.collaborators] : []));
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    setSelectedIds(
+      Array.isArray(document?.assigned)
+        ? [...document.assigned]
+        : (Array.isArray(document?.assignees)
+            ? [...document.assignees]
+            : (Array.isArray(document?.collaborators) ? [...document.collaborators] : []))
+    );
+  }, [document?.assigned, document?.assignees, document?.collaborators]);
+
   // ---------- menu actions ----------
   const handleMenuAction = (action, e) => {
     e.stopPropagation();
@@ -79,6 +102,9 @@ export default function DocumentCard({
     switch (action) {
       case 'rename':
         setRenameOpen(true);
+        break;
+      case 'assign':
+        setAssignOpen(true);
         break;
       case 'duplicate':
         setDuplicateOpen(true);
@@ -112,6 +138,28 @@ export default function DocumentCard({
       alert(err?.response?.data?.message || err?.message || 'An error occurred while renaming.');
     } finally {
       setRenaming(false);
+    }
+  };
+
+  const handleAssign = async (payload) => {
+    try {
+      const members = Array.isArray(payload)
+        ? payload
+        : (payload?.assignees || payload?.controllers || payload?.members || []);
+      const resp = await assignControllersToTemplateAPI(document._id, members);
+      if (resp && resp.success) {
+        const updated = resp.template || document;
+        if (onAssign) onAssign(updated);
+        else if (onRename) onRename(updated); // bubble up if parent manages list
+        else window.location.reload();
+      } else {
+        alert(resp?.message || 'Failed to assign members');
+      }
+    } catch (err) {
+      console.error('Assign error:', err);
+      alert(err?.response?.data?.message || 'Error assigning members');
+    } finally {
+      setAssignOpen(false);
     }
   };
 
@@ -279,6 +327,16 @@ export default function DocumentCard({
         currentTitle={title}
         submitting={renaming}
         onSubmit={handleRename}
+      />
+
+      <AssignMembersModal
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        template={document} // reuse: component just needs an object
+        selectedIds={selectedIds}
+        setSelectedIds={setSelectedIds}
+        setTheDocController={() => {}}
+        onAssign={handleAssign}
       />
 
     </div>
