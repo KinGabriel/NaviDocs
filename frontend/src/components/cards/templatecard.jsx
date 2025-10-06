@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import AssignMembersModal from "../modals/AssignMembersModal";
 import DuplicateTemplateModal from "../modals/DuplicateTemplateModal";
 import RenameModal from '../modals/renameModal';
-import { deleteTemplateAPI, assignControllersToTemplateAPI, renameTemplateAPI} from "../../api/documentContollerAPI";
+import { deleteTemplateAPI, assignControllersToTemplateAPI, renameTemplateAPI, duplicateTemplateAPI } from "../../api/documentContollerAPI";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
@@ -14,6 +14,8 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
   const [assignOpen, setAssignOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+  const [renaming, setRenaming] = useState(false);
 
   // Initialize selectedIds with any existing assigned controllers from the template
   const [selectedIds, setSelectedIds] = useState(() => {
@@ -388,34 +390,68 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
         open={duplicateOpen}
         onClose={() => setDuplicateOpen(false)}
         template={template}
-        onDuplicate={(newTemplate) => {
-        console.log("Duplicated:", newTemplate);
-        setDuplicateOpen(false);
-        // TODO: Call API here to create the duplicate
-      }}
+        submitting={duplicating}
+        onDuplicate={async (newTemplate) => {
+          try {
+            setDuplicating(true);
+            const title = newTemplate?.title || template?.title || '';
+            const resp = await duplicateTemplateAPI(template._id, title);
+            if (resp && resp.success) {
+              // Notify parent if provided so it can refresh list or navigate
+              if (typeof onSelect === 'function') {
+                // If parent wants to select the newly created template, call onSelect with new template id
+                onSelect(resp.template);
+              }
+              // Optionally call onDuplicate callback if provided by parent
+              if (typeof onRename === 'function') {
+                // reuse onRename as a generic change handler if present
+                onRename(resp.template);
+              }
+              // Close modal
+              setDuplicateOpen(false);
+              // Small UX: reload to show new template in list if parent didn't handle it
+              if (!onSelect && !onRename && typeof window !== 'undefined') {
+                window.location.reload();
+              }
+            } else {
+              alert(resp?.message || 'Failed to duplicate template');
+            }
+          } catch (err) {
+            console.error('Duplicate template error', err);
+            alert(err.response?.data?.message || err.message || 'Error duplicating template');
+          } finally {
+            setDuplicating(false);
+          }
+        }}
       />
   <RenameModal
   open={renameOpen}
   onClose={() => setRenameOpen(false)}
   currentTitle={template.title}
+  submitting={renaming}
   onSubmit={async (newTitle) => {
     try {
-        //TODO: REPLACE WITH ACTUAL API CALL
+      setRenaming(true);
       const data = await renameTemplateAPI(template._id, newTitle);
-      
-      if (data.message || data.template || data.file) {
-        // Success
+
+      if (data && (data.template || data.success)) {
+        // Success - prefer calling parent handler
         if (onRename) {
-          onRename(data.template || data.file || { ...template, title: newTitle });
+          onRename(data.template || { ...template, title: newTitle });
         }
         setRenameOpen(false);
-        window.location.reload();
+        // If parent didn't handle UI update, reload to reflect changes
+        if (!onRename && typeof window !== 'undefined') {
+          window.location.reload();
+        }
       } else {
-        throw new Error("Failed to rename template");
+        throw new Error(data?.message || 'Failed to rename template');
       }
     } catch (err) {
-      console.error("Rename error:", err);
-      alert(err.message || "An error occurred while renaming.");
+      console.error('Rename error:', err);
+      alert(err.response?.data?.message || err.message || 'An error occurred while renaming.');
+    } finally {
+      setRenaming(false);
     }
   }}
 />

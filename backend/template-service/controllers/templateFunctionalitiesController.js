@@ -678,6 +678,81 @@ export const getPublishedTemplates = async (req, res) => {
   }
 };
 
+/**
+ * @desc Rename  template's title 
+ * @route PATCH /api/templates/:id/rename
+ * @param {*} template 
+ * @returns 
+ */
+export const renameTemplate = async (req, res) => {
+  try {
+    const template = await Template.findById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ success: false, message: 'Template not found' });
+    }
+    const newName = (req.body && (typeof req.body.newName === 'string' ? req.body.newName : req.body.title)) || '';
+    const finalTitle = newName && newName.trim() !== '' ? newName.trim() : 'Untitled Template';
+
+    template.title = finalTitle;
+    await template.save();
+    return res.status(200).json({ success: true, message: 'Template renamed successfully', template });
+  } catch (error) {
+    console.error('Error renaming template:', error);
+    return res.status(500).json({ success: false, message: 'Failed to rename template', error:  'Internal server error' });
+  }
+};
+
+
+/**
+ * @desc Duplicate a template by id — only copies pages_json, pageSetup, dateFormat, fields.
+ * @route POST /api/templates/:id/duplicate
+ * @access Private
+ */
+export const duplicateTemplate = async (req, res) => {
+  try {
+    const template = await Template.findById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ success: false, message: 'Template not found' });
+    }
+
+    // Accept new title from client
+    const requestedTitle = (req.body && typeof req.body.title === 'string') ? req.body.title.trim() : '';
+    const newTitle = requestedTitle && requestedTitle.length > 0 ? requestedTitle : `Copy of ${template.title}`;
+
+    // Build minimal payload copying only the allowed template parts
+    const newTemplateData = {
+      title: newTitle,
+      pages_json: Array.isArray(template.pages_json) && template.pages_json.length ? template.pages_json : [
+        { type: 'doc', content: [ { type: 'paragraph', content: [ { type: 'text', text: '' } ] } ] }
+      ],
+      pageSetup: template.pageSetup || {},
+      dateFormat: template.dateFormat || {},
+      fields: Array.isArray(template.fields) ? template.fields : [],
+      // Set sensible defaults 
+      status: 'draft',
+      thumbnailUrl: null
+    };
+
+    // created_by is the requester
+    if (req.user && req.user.id) newTemplateData.created_by = req.user.id;
+    // copy school from requester
+    newTemplateData.school = req.user?.school || req.user?.role?.school || '';
+
+    // Ensure not to copy document_code/revision_no or other identifying fields
+    delete newTemplateData.document_code;
+    delete newTemplateData.revision_no;
+
+    const newTemplate = new Template(newTemplateData);
+    // Save
+    await newTemplate.save();
+
+    return res.status(201).json({ success: true, message: 'Template duplicated successfully', template: newTemplate });
+  } catch (error) {
+    console.error('Error duplicating template by id:', error);
+    return res.status(500).json({ success: false, message: 'Failed to duplicate template', error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
+  }
+};
+
 // Helper to generate and save thumbnail URL to template
 export const generateTemplateThumbnailInternal = async (template) => {
   try {

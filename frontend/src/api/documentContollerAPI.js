@@ -173,6 +173,21 @@ export const deleteTemplateAPI = async (templateId) => {
   });
   return res.data;
 };
+
+/**
+ * Duplicate a template by ID with a new title.
+ * @param {string} templateId
+ * @param {string} title
+ * @returns {Promise<{success:boolean,message:string,template:Object}>}
+ */
+export const duplicateTemplateAPI = async (templateId, title) => {
+  const res = await axios.post(
+    `${API_URL}/api/templates/${templateId}/duplicate`,
+    { title },
+    { withCredentials: true }
+  );
+  return res.data;
+};
 /**
  * Approve a template for a specific role (dean or secretary).
  * Backend records approved_by & approved_at inside status_meta.approvals.<role>.
