@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "../layout/headers/header";
 import Sidebar from "../layout/sidebars/sidebar";
 import useUser from "../hooks/useUser";
-import SearchBar from "../components/searchBar";
+import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
 import DocumentCard from "../components/cards/documentcard";
 import usePagination from "../hooks/usePagination";
@@ -12,7 +12,7 @@ import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";
 import RenameDocumentModal from "../components/modals/renameModal";
 import DeleteDocumentModal from "../components/modals/deleteDocumentModal";
-import SelectTemplateModal from "../components/modals/SelectTemplateModal";
+import SelectTemplateModal from "../components/modals/selectTemplateModal";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 

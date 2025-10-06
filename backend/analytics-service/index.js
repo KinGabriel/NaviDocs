@@ -1,12 +1,11 @@
 import express from 'express';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
-import cors from 'cors';
 import dotenv from 'dotenv';
 import { adminDashboardType } from './schemas/adminDashboardSchema.js';
 import { templateDashboardType } from './schemas/templateDashboardSchema.js';
 import { resolvers } from './resolvers/aggregator.js';
-import { authenticateJWT } from "../user-service/middleware/authenticationMiddleware.js";
+import { authenticateJWT } from "./middleware/authenticationMiddleware.js";
 import cookieParser from 'cookie-parser';
 
 
@@ -19,17 +18,6 @@ async function startServer() {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
-const allowedOrigins = process.env.FRONTEND_URL.split(",");
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true
-}));
 
   const server = new ApolloServer({ typeDefs: [adminDashboardType, templateDashboardType], resolvers });
   await server.start();

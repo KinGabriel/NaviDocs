@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import TemplateCard from "../cards/templatecard";
-import SearchBar from "../searchBar";
+import SearchBar from "../searchbar";
 import Dropdown from "../dropdowns/dropdown";
 import usePagination from "../../hooks/usePagination";
 import { fetchPublishedTemplatesAPI } from "../../api/documentContollerAPI";

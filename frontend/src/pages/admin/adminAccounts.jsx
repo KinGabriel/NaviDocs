@@ -8,7 +8,7 @@ import {
 import useUser from '../../hooks/useUser';
 import Sidebar from '../../layout/sidebars/sidebar';
 import Header from '../../layout/headers/header';
-import SearchBar from '../../components/searchBar';
+import SearchBar from '../../components/searchbar';
 import Table from '../../components/table';
 import Dropdown from '../../components/dropdowns/dropdown';
 import usePagination from '../../hooks/usePagination';

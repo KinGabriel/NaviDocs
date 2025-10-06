@@ -16,7 +16,7 @@ import DocumentControllerStatistics from './pages/document_controller/documentCo
 import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
-import UnauthorizedPage from './pages/error_pages/UnauthorizedPage';
+import UnauthorizedPage from './pages/error_pages/unauthorizedPage';
 import useUser from './hooks/useUser';
 import SecretaryDashboard from './pages/secretary/secretaryDashboard';
 import SecretaryTemplates from './pages/secretary/secretaryTemplates';
@@ -32,7 +32,7 @@ import DepartmentHeadTemplates from './pages/dept_head/departmentHeadTemplates';
 import DepartmentHeadTemplateView from './pages/dept_head/departmentHeadTemplateView';
 import FacultyDashboard from './pages/faculty/facultyDashboard';
 import EditableFields from './pages/editableFields';
-import Storage from './pages/storage';
+import Storage from './pages/Storage';
 import { Toaster } from 'react-hot-toast';
 
 /** Redirect logged-in users by role; otherwise show Login */

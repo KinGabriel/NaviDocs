@@ -1,0 +1,146 @@
+services:
+  gateway:
+    build:
+      context: ./gateway
+      args:
+        PORT: ${GATEWAY_PORT:-8000}
+    env_file:
+      - ./gateway/.env
+    ports:
+      - "${GATEWAY_HOST:-0.0.0.0}:${GATEWAY_PORT:-8000}:8000"
+    environment:
+      - PORT=${GATEWAY_PORT:-8000}
+      - HOST=${GATEWAY_HOST:-0.0.0.0}
+    depends_on:
+      - auth-service
+      - user-service
+      - template-service
+      - file-service
+    restart: unless-stopped
+    networks:
+      - navidocs
+
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      args:
+        PORT: ${AUTH_SERVICE_PORT:-5006}
+    env_file:
+      - ./backend/auth-service/.env
+    ports:
+      - "${AUTH_SERVICE_PORT:-5006}:${AUTH_SERVICE_PORT:-5006}"
+    environment:
+      - PORT=${AUTH_SERVICE_PORT:-5006}
+      
+    restart: unless-stopped
+    networks:
+      - navidocs
+
+  user-service:
+    build:
+      context: ./backend/user-service
+      args:
+        PORT: ${USER_SERVICE_PORT:-5001}
+    env_file:
+      - ./backend/user-service/.env
+    ports:
+      - "${USER_SERVICE_PORT:-5001}:${USER_SERVICE_PORT:-5001}"
+    environment:
+      - PORT=${USER_SERVICE_PORT:-5001}
+    restart: unless-stopped
+    networks:
+      - navidocs
+
+  template-service:
+    build:
+      context: ./backend/template-service
+      args:
+        PORT: ${TEMPLATE_SERVICE_PORT:-5002}
+    env_file:
+      - ./backend/template-service/.env
+    ports:
+      - "${TEMPLATE_SERVICE_PORT:-5002}:${TEMPLATE_SERVICE_PORT:-5002}"
+    environment:
+      - PORT=${TEMPLATE_SERVICE_PORT:-5002}
+    restart: unless-stopped
+    networks:
+      - navidocs
+
+  file-service:
+    build:
+      context: ./backend/file-service
+      args:
+        PORT: ${FILE_SERVICE_PORT:-5004}
+    env_file:
+      - ./backend/file-service/.env
+    ports:
+      - "${FILE_SERVICE_PORT:-5004}:${FILE_SERVICE_PORT:-5004}"
+    volumes:
+      - ./backend/file-service/uploads:/app/uploads
+    restart: unless-stopped
+    networks:
+      - navidocs
+    environment:
+      - PORT=${FILE_SERVICE_PORT:-5004}
+
+  document-service:
+    build:
+      context: ./backend/document-service
+      args:
+        PORT: ${DOCUMENT_SERVICE_PORT:-5003}
+    env_file:
+      - ./backend/document-service/.env
+    ports:
+      - "${DOCUMENT_SERVICE_PORT:-5003}:${DOCUMENT_SERVICE_PORT:-5003}"
+    environment:
+      - PORT=${DOCUMENT_SERVICE_PORT:-5003}
+    restart: unless-stopped
+    networks:
+      - navidocs
+
+  mail-service:
+    build:
+      context: ./backend/mail-service
+      args:
+        PORT: ${MAIL_SERVICE_PORT:-5005}
+    env_file:
+      - ./backend/mail-service/.env
+    ports:
+      - "${MAIL_SERVICE_PORT:-5005}:${MAIL_SERVICE_PORT:-5005}"
+    environment:
+      - PORT=${MAIL_SERVICE_PORT:-5005}
+    restart: unless-stopped
+    networks:
+      - navidocs
+
+  analytics-service:
+    build:
+      context: ./backend/analytics-service
+      args:
+        PORT: ${ANALYTICS_SERVICE_PORT:-5007}
+    env_file:
+      - ./backend/analytics-service/.env
+    ports:
+      - "${ANALYTICS_SERVICE_PORT:-5007}:${ANALYTICS_SERVICE_PORT:-5007}"
+    environment:
+      - PORT=${ANALYTICS_SERVICE_PORT:-5007}
+    restart: unless-stopped
+    networks:
+      - navidocs
+
+  frontend:
+    build:
+      context: ./frontend
+    env_file:
+      - ./frontend/.env
+    environment:
+      - PORT=${FRONTEND_PORT:-5173}
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    restart: unless-stopped
+    networks:
+      - navidocs
+
+networks:
+  navidocs:
+    driver: bridge

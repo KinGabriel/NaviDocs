@@ -1,22 +1,15 @@
 import { useState, useEffect } from 'react';
-import AssignMembersModal from "../modals/assignMembersModal";
-import DuplicateTemplateModal from "../modals/DuplicateTemplateModal";
-import RenameModal from '../modals/renameModal';
-import { deleteTemplateAPI, assignControllersToTemplateAPI, renameTemplateAPI, duplicateTemplateAPI } from "../../api/documentContollerAPI";
+import AssignMembersModal from "./modals/AssignMembersModal";
+import DuplicateTemplateModal from "./modals/DuplicateTemplateModal";
+import { deleteTemplateAPI, assignControllersToTemplateAPI } from "../api/documentContollerAPI";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];  
 export default function TemplateCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete, onAssign }) {
-
   const [showMenu, setShowMenu] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [duplicateOpen, setDuplicateOpen] = useState(false);
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [duplicating, setDuplicating] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-
   // Initialize selectedIds with any existing assigned controllers from the template
   const [selectedIds, setSelectedIds] = useState(() => {
     try {
@@ -25,8 +18,8 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
       return [];
     }
   });
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
 
-  
   // Keep selectedIds in sync if template prop updates (e.g., parent updated assigned list)
   useEffect(() => {
     setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
@@ -100,9 +93,10 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
     setShowMenu(false);
     
     switch (action) {
-     case 'rename':
-      setRenameOpen(true);
-      break;
+      case 'rename':
+        if (onRename) onRename(template);
+        else if (onSelect) onSelect(); 
+        break;
       case 'duplicate':
         // Handle duplicate logic
         console.log('Duplicate template:', template._id);
@@ -161,7 +155,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
   };
 
   return (
-    <>
+    <div className="m-2">
       <div className="relative w-[280px] bg-white rounded-lg shadow-md border border-gray-300 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer overflow-visible">
         <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
           <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
@@ -390,71 +384,13 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
         open={duplicateOpen}
         onClose={() => setDuplicateOpen(false)}
         template={template}
-        submitting={duplicating}
-        onDuplicate={async (newTemplate) => {
-          try {
-            setDuplicating(true);
-            const title = newTemplate?.title || template?.title || '';
-            const resp = await duplicateTemplateAPI(template._id, title);
-            if (resp && resp.success) {
-              // Notify parent if provided so it can refresh list or navigate
-              if (typeof onSelect === 'function') {
-                // If parent wants to select the newly created template, call onSelect with new template id
-                onSelect(resp.template);
-              }
-              // Optionally call onDuplicate callback if provided by parent
-              if (typeof onRename === 'function') {
-                // reuse onRename as a generic change handler if present
-                onRename(resp.template);
-              }
-              // Close modal
-              setDuplicateOpen(false);
-              // Small UX: reload to show new template in list if parent didn't handle it
-              if (!onSelect && !onRename && typeof window !== 'undefined') {
-                window.location.reload();
-              }
-            } else {
-              alert(resp?.message || 'Failed to duplicate template');
-            }
-          } catch (err) {
-            console.error('Duplicate template error', err);
-            alert(err.response?.data?.message || err.message || 'Error duplicating template');
-          } finally {
-            setDuplicating(false);
-          }
+        onDuplicate={(newTemplate) => {
+        console.log("Duplicated:", newTemplate);
+        setDuplicateOpen(false);
+        // TODO: Call API here to create the duplicate
+        
         }}
-      />
-  <RenameModal
-  open={renameOpen}
-  onClose={() => setRenameOpen(false)}
-  currentTitle={template.title}
-  submitting={renaming}
-  onSubmit={async (newTitle) => {
-    try {
-      setRenaming(true);
-      const data = await renameTemplateAPI(template._id, newTitle);
-
-      if (data && (data.template || data.success)) {
-        // Success - prefer calling parent handler
-        if (onRename) {
-          onRename(data.template || { ...template, title: newTitle });
-        }
-        setRenameOpen(false);
-        // If parent didn't handle UI update, reload to reflect changes
-        if (!onRename && typeof window !== 'undefined') {
-          window.location.reload();
-        }
-      } else {
-        throw new Error(data?.message || 'Failed to rename template');
-      }
-    } catch (err) {
-      console.error('Rename error:', err);
-      alert(err.response?.data?.message || err.message || 'An error occurred while renaming.');
-    } finally {
-      setRenaming(false);
-    }
-  }}
-/>
-    </>
+     />
+    </div>
   );
 }

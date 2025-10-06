@@ -62,6 +62,21 @@ pipelines:
     apiEndpoints:
       - auth
     policies:
+      - cors:
+          - action:
+              origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Content-Type
+                - Authorization
+                - X-Requested-With
+                - Accept
+              credentials: true
       - proxy:
           - action:
               serviceEndpoint: auth-service
@@ -71,6 +86,11 @@ pipelines:
     apiEndpoints:
       - users
     policies:
+      - cors:
+          - action:
+              origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
+              methods: [GET, POST, PUT, DELETE, OPTIONS]
+              credentials: true
       - proxy:
           - action:
               serviceEndpoint: user-service
@@ -79,7 +99,12 @@ pipelines:
   document-pipeline:
     apiEndpoints:
       - documents
-    policies: 
+    policies:
+      - cors:
+          - action:
+              origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
+              methods: [GET, POST, PUT, DELETE, OPTIONS]
+              credentials: true
       - proxy:
           - action:
               serviceEndpoint: document-service
@@ -88,25 +113,40 @@ pipelines:
   template-pipeline:
     apiEndpoints:
       - templates
-    policies:    
+    policies:
+      - cors:
+          - action:
+              origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
+              methods: [GET, POST, PUT, DELETE, OPTIONS]
+              credentials: true
       - proxy:
           - action:
               serviceEndpoint: template-service
-              changeOrigin: true  
+              changeOrigin: true
 
   file-pipeline:
-      apiEndpoints:
-        - files
-      policies:
-        - proxy:
-            - action:
-                serviceEndpoint: file-service
-                changeOrigin: true
+    apiEndpoints:
+      - files
+    policies:
+      - cors:
+          - action:
+              origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
+              methods: [GET, POST, PUT, DELETE, OPTIONS]
+              credentials: true
+      - proxy:
+          - action:
+              serviceEndpoint: file-service
+              changeOrigin: true
 
   analytics-graphql-pipeline:
     apiEndpoints:
       - analytics-graphql
     policies:
+      - cors:
+          - action:
+              origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
+              methods: [GET, POST, PUT, DELETE, OPTIONS]
+              credentials: true
       - proxy:
           - action:
               serviceEndpoint: analytics-service

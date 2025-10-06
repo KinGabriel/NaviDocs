@@ -1,6 +1,6 @@
 import { createFolder, getFolder, addAccessToFolders,addAccessToFile, getFolderByID, deleteFolderByID, addDocuments, deleteFile, addOrphanFile, getOrphanFiles, moveFolder, moveFile, renameFolder, renameFile } from "../controllers/storageController.js";
 import { authenticateJWT } from "../middleware/authenticationMiddleware.js";
-import { upload } from "../middleware/uploadmiddleware.js";
+import { upload } from "../middleware/uploadMiddleware.js";
 import { canModifyFolder, canModifyFile } from "../middleware/authorizationMiddleware.js";
 import express from "express";
 
