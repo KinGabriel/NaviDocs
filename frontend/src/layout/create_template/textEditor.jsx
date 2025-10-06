@@ -71,7 +71,7 @@ export default function TextEditor({
   onEditorReady,
   onContentChange,
   className = "",
-  mode = "template", // "template" | "document"
+  mode = "template", 
 }) {
   const dimsRef = useRef(computeDims(pageSetup));
   const [showImageOptions, setShowImageOptions] = useState(false);
