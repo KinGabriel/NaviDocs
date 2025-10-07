@@ -7,9 +7,11 @@ import StatusBadge from "../../components/statusBadge";
 import Greeting from "../../components/greeting";
 import UpcomingDeadlines from "../../components/upcomingDeadlines";
 import { Clock, AlertCircle, FileText, CheckCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function SecretaryDashboard() {
   const user = useUser();
+  const navigate = useNavigate();
 
   function formatDate(dateValue) {
     if (!dateValue) return "-";
@@ -39,7 +41,10 @@ export default function SecretaryDashboard() {
       label: "Action",
       render: (row) =>
         row.status === "Returned" || row.status === "Pending" ? (
-          <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">
+          <button
+          onClick={() => navigate("/secretary/templates")}
+          className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+          >
             Review
           </button>
         ) : null,
@@ -121,7 +126,10 @@ export default function SecretaryDashboard() {
                     <h2 className="font-bold text-sm text-gray-800 tracking-wide">TEMPLATES RECEIVED</h2>
                     <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                   </div>
-                  <button className="mr-4 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F]">
+                  <button
+                  onClick={() => navigate("/secretary/templates")}
+                  className="mr-4 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F]"
+                  >
                     View All
                   </button>
                 </div>
