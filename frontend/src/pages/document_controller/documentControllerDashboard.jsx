@@ -6,9 +6,11 @@ import Table from "../../components/table";
 import Greeting from "../../components/greeting";
 import UpcomingDeadlines from "../../components/upcomingDeadlines";
 import { FileText, CheckCircle, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function DocumentControllerDashboard() {
   const user = useUser();
+  const navigate = useNavigate();
 
   function formatDate(dateValue) {
     if (!dateValue) return "-";
@@ -44,9 +46,12 @@ export default function DocumentControllerDashboard() {
       key: "action",
       label: "Action",
       render: () => (
-        <button className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200">
-          Review
-        </button>
+      <button
+      onClick={() => navigate("/document-controller/templates")}
+      className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+      >
+        Review
+      </button>
       ),
     },
   ];
@@ -60,10 +65,13 @@ export default function DocumentControllerDashboard() {
     {
       key: "action",
       label: "Action",
-      render: () => (
-        <button className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200">
-          Review
-        </button>
+      render: (row) => (
+      <button
+      onClick={() => navigate("/documents")}
+      className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+      >
+        Review
+      </button>
       ),
     },
   ];
