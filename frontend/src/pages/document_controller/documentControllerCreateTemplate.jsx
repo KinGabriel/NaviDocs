@@ -1,5 +1,6 @@
 // src/pages/documentControllerCreateTemplate.jsx
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { toast } from 'react-hot-toast';
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   updateTemplateAPI,
@@ -95,7 +96,6 @@ export default function DocumentControllerCreateTemplate() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [notes, setNotes] = useState([]);
 
   // Parse templateId from query string
@@ -124,7 +124,7 @@ export default function DocumentControllerCreateTemplate() {
       if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
     } catch (e) {
       console.error(e);
-      setError("Failed to load template.");
+      toast.error("Failed to load template.");
     } finally {
       setLoading(false);
     }
@@ -176,9 +176,11 @@ export default function DocumentControllerCreateTemplate() {
       if (templateId) {
         res = await updateTemplateAPI(templateId, payload);
         if (res?.template?._id) setTemplateId(res.template._id);
+        toast.success("Template updated successfully.");
       } else {
         res = await createTemplateAPI(payload);
         if (res?.template?._id) setTemplateId(res.template._id);
+        toast.success("Template created successfully.");
       }
       setLastSavedContent(editor ? editor.getHTML() : templateContent);
       setLastSavedTitle(payload.title);
@@ -187,7 +189,7 @@ export default function DocumentControllerCreateTemplate() {
       setDirty(false);
     } catch (e) {
       console.error(e);
-      setError("Failed to save template.");
+      toast.error("Failed to save template.");
     } finally {
       setSaving(false);
     }
@@ -224,11 +226,12 @@ export default function DocumentControllerCreateTemplate() {
     if (!templateId) return;
     try {
       await approveTemplateAPI(templateId);
+      toast.success("Template approved successfully.");
       // Reload template to get updated state
       await loadTemplate(templateId);
     } catch (e) {
       console.error(e);
-      setError("Failed to approve template.");
+      toast.error("Failed to approve template.");
     }
   };
 
@@ -236,28 +239,27 @@ export default function DocumentControllerCreateTemplate() {
     if (!templateId) return;
     try {
       await publishTemplateAPI(templateId);
+      toast.success("Template published successfully.");
       // Update status immediately
       setStatus("published");
       // Reload template to get updated state
       await loadTemplate(templateId);
     } catch (e) {
       console.error(e);
-      setError("Failed to publish template.");
+      toast.error("Failed to publish template.");
     }
   };
 
   // handle submission from modal
   const handleSubmitForApproval = async (approverIds, instructions) => {
     if (!templateId) {
-      setError("Please save the template before submitting for approval.");
+      toast.error("Please save the template before submitting for approval.");
       return;
     }
     
     try {
       // Clear previous messages
       setError("");
-      setSuccessMessage("");
-    
       let deanId, secretaryId;
       
       if (Array.isArray(approverIds)) {
@@ -271,7 +273,7 @@ export default function DocumentControllerCreateTemplate() {
       
       // Validate if there's at least one approver
       if (!deanId && !secretaryId) {
-        setError("Please select at least one approver.");
+        toast.error("Please select at least one approver.");
         return;
       }
       
@@ -279,11 +281,7 @@ export default function DocumentControllerCreateTemplate() {
       
       // Update status immediately
       setStatus("pending");
-      // Show success message
-      setSuccessMessage("Template successfully submitted for approval!");
-      // Clear success message after 5 seconds
-      setTimeout(() => setSuccessMessage(""), 5000);
-      
+      toast.success("Template successfully submitted for approval!");
       // Reload template to get updated approval data
       await loadTemplate(templateId);
       
@@ -295,15 +293,11 @@ export default function DocumentControllerCreateTemplate() {
       
       // Check if template is already submitted
       if (e.response?.status === 400 && errorMsg.includes("already submitted")) {
-        // Show as info message instead of error
-        setSuccessMessage("This template has already been submitted for approval.");
-        setTimeout(() => setSuccessMessage(""), 5000);
-        
+        toast.success("This template has already been submitted for approval.");
         // Still reload to get latest state
         await loadTemplate(templateId);
       } else {
-        // Show actual errors
-        setError(errorMsg);
+        toast.error(errorMsg);
       }
     }
   };
@@ -414,30 +408,7 @@ export default function DocumentControllerCreateTemplate() {
           </TemplateSidebar>
 
           <main className="min-h-[60vh] flex-1">
-            {successMessage && (
-              <div className="mb-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-                {successMessage}
-                <button 
-                  onClick={() => setSuccessMessage("")}
-                  className="ml-2 text-green-500 hover:text-green-700"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-            
-            {error && (
-              <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {error}
-                <button 
-                  onClick={() => setError("")}
-                  className="ml-2 text-red-500 hover:text-red-700"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-
+           
             <TextEditor
               content={templateContent}
               pageSetup={pageSetup}

@@ -9,6 +9,7 @@ import TemplateCard from '../../components/cards/templatecard';
 import CreateTemplateModal from '../../components/modals/createTemplateModal';
 import usePagination from '../../hooks/usePagination';
 import { fetchTemplatesAPI, createTemplateAPI, approveTemplateAPI, publishTemplateAPI } from '../../api/documentContollerAPI';
+import toast from 'react-hot-toast';
 
 export default function DocumentControllerTemplates() {
   const user = useUser();
@@ -52,17 +53,18 @@ export default function DocumentControllerTemplates() {
       const templateData = {
         title: templateFormData.title.trim(),
         document_size: templateFormData.document_size,
-        created_by: user._id || user.id,       
+        created_by: user._id || user.id,
       };
       const result = await createTemplateAPI(templateData);
       if (!result || !result.template) {
         throw new Error(result?.message || 'Failed to create template');
       }
+      toast.success('Template created successfully!');
       setShowCreateModal(false);
       navigate(`/document-controller/create-template?templateId=${result.template._id}`);
     } catch (error) {
       console.error('Full error details:', error);
-      alert(`Failed to create template: ${error.message}`);
+      toast.error(`Failed to create template: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -120,11 +122,11 @@ export default function DocumentControllerTemplates() {
     if (!['secretary','dean'].includes(role)) return;
     try {
       const res = await approveTemplateAPI(template._id, role);
-      // Update the specific template in list
       setTemplates(prev => prev.map(t => t._id === template._id ? { ...t, ...res.template, approvalMeta: res.approvalMeta || res.template?.approvalMeta } : t));
+      toast.success('Template approved!');
     } catch (e) {
       console.error('Approve failed', e);
-      alert(e.response?.data?.message || 'Approve failed');
+      toast.error(e.response?.data?.message || 'Approve failed');
     }
   };
 
@@ -133,9 +135,10 @@ export default function DocumentControllerTemplates() {
     try {
       const res = await publishTemplateAPI(template._id);
       setTemplates(prev => prev.map(t => t._id === template._id ? { ...t, ...res.template, approvalMeta: res.approvalMeta || res.template?.approvalMeta } : t));
+      toast.success('Template published!');
     } catch (e) {
       console.error('Publish failed', e);
-      alert(e.response?.data?.message || 'Publish failed');
+      toast.error(e.response?.data?.message || 'Publish failed');
     }
   };
 
