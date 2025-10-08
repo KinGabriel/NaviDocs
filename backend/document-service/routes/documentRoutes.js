@@ -7,8 +7,13 @@ import {
   updateDocumentFieldValues
 
 } from '../controllers/documentFunctionalityController.js';
+import { saveFieldSuggestion, getFieldSuggestions } from '../controllers/documentFunctionalityController.js';
 
 const router = express.Router();
+
+// Field suggestion endpoints (store and retrieve user inputs for reuse)
+router.post('/field-suggestions', authenticateJWT, saveFieldSuggestion);
+router.get('/field-suggestions', authenticateJWT, getFieldSuggestions);
 
 router.post('/create-document', authenticateJWT, createDocument);
 router.get('/', authenticateJWT, listDocuments);
