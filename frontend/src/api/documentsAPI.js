@@ -16,7 +16,18 @@ export const createDocumentAPI = async (documentData) => {
 		const res = await axios.post(`${API_URL}/api/documents/create-document`, documentData, {
 			withCredentials: true,
 		});
-		return res.data;
+		const data = res.data;
+
+		// If client provided suggestions to save alongside creation, persist them now as best-effort.
+		if (Array.isArray(documentData.saveSuggestions) && documentData.saveSuggestions.length) {
+			try {
+				await Promise.allSettled(documentData.saveSuggestions.map(s => saveFieldSuggestionAPI(s)));
+			} catch (e) {
+				console.warn('Failed to persist some suggestions after createDocument', e);
+			}
+		}
+
+		return data;
 	} catch (error) {
 		throw new Error(error.response?.data?.message || "Failed to create document");
 	}
@@ -64,15 +75,64 @@ export const getDocumentByIdAPI = async (documentId) => {
  * @param {string} [title] - optional document title to persist alongside field values
  * @returns {Promise<Object>} - API response data
  */
-export const updateDocumentFieldValuesAPI = async (documentId, fieldValues, title) => {
+export const updateDocumentFieldValuesAPI = async (documentId, fieldValues, title, saveSuggestions = []) => {
 	try {
 		const body = { field_values: fieldValues };
 		if (title !== undefined && title !== null) body.title = title;
+		if (Array.isArray(saveSuggestions) && saveSuggestions.length) body.saveSuggestions = saveSuggestions;
 		const res = await axios.patch(`${API_URL}/api/documents/${documentId}/field-values`, body, {
+			withCredentials: true,
+		});
+		const data = res.data;
+
+		// If caller passed saveSuggestions, persist them now as best-effort.
+		if (Array.isArray(saveSuggestions) && saveSuggestions.length) {
+			try {
+				await Promise.allSettled(saveSuggestions.map(s => saveFieldSuggestionAPI(s)));
+			} catch (e) {
+				console.warn('Failed to persist some suggestions after updateDocumentFieldValues', e);
+			}
+		}
+
+		return data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || "Failed to update document field values");
+	}
+};
+
+/**
+ * Persist a single field suggestion.
+ * suggestion: { key, value, scope }
+ */
+export const saveFieldSuggestionAPI = async (suggestion) => {
+	try {
+		const res = await axios.post(`${API_URL}/api/documents/field-suggestions`, suggestion, {
 			withCredentials: true,
 		});
 		return res.data;
 	} catch (error) {
-		throw new Error(error.response?.data?.message || "Failed to update document field values");
+		// Throw so Promise.allSettled can capture failure, but don't crash the main flow.
+		throw new Error(error.response?.data?.message || 'Failed to save field suggestion');
+	}
+};
+
+/**
+ * Fetch suggestions for a given field key.
+ * @param {string} key - field key
+ * @param {string} [scope] - optional scope ('user'|'school')
+ * @param {number} [limit] - optional limit
+ */
+export const getFieldSuggestionsAPI = async (key, scope, limit = 10) => {
+	try {
+		const params = { key };
+		if (scope) params.scope = scope;
+		if (limit) params.limit = limit;
+		const res = await axios.get(`${API_URL}/api/documents/field-suggestions`, {
+			params,
+			withCredentials: true,
+		});
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to fetch field suggestions');
 	}
 };

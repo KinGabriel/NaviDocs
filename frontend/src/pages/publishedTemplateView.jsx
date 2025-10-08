@@ -163,10 +163,13 @@ export default function PublishedTemplateView() {
       const createdId = created._id || created.id || created.document?._id;
       if (!createdId) throw new Error("Invalid response from createDocumentAPI");
 
-      // Close modal then navigate
+      // Ask user if they'd like to autofill the document from saved suggestions
+      const wantAutofill = window.confirm('Autofill this document with your saved field suggestions where possible? Click OK to autofill, Cancel to skip.');
+
+      // Close modal then navigate; include flag in state so editableFields can perform autofill
       setTitleModalOpen(false);
       navigate(`/documents/editable-fields/${createdId}`, {
-        state: { doc: created, sidebarActive: "Documents", backTo: "/documents" },
+        state: { doc: created, sidebarActive: "Documents", backTo: "/documents", autoFillFromSuggestions: !!wantAutofill },
       });
     } catch (err) {
       console.error("Failed to create document from template (modal):", err);

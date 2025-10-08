@@ -5,14 +5,15 @@ import useUser from "../hooks/useUser";
 import Panel from "../layout/editable_fields/panel";
 import TextEditor from "../layout/create_template/textEditor";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
-import { updateDocumentFieldValuesAPI } from "../api/documentsAPI";
-import { useParams } from "react-router-dom";
+import { updateDocumentFieldValuesAPI, getFieldSuggestionsAPI } from "../api/documentsAPI";
+import { useParams, useLocation } from "react-router-dom";
 
 export default function EditableFields() {
   const user = useUser();
   const [currentPage, setCurrentPage] = useState(0);
   const [formData, setFormData] = useState({});
   const routeParams = useParams();
+  const { state: navState } = useLocation();
   const id = routeParams.id || routeParams.documentId || routeParams.document_id || routeParams.docId || routeParams._id;
 
   const [loadingDoc, setLoadingDoc] = useState(false);
@@ -267,7 +268,57 @@ export default function EditableFields() {
     setFormData(merged);
     setCurrentPage(0);
     setDocPage(0);
+    // If navigation requested autofill, do it once after doc data initializes
+    (async () => {
+      try {
+        if (navState && navState.autoFillFromSuggestions) {
+          await autofillFromSuggestions(panelsToUse);
+        }
+      } catch (err) {
+        console.debug('autofill on nav state failed', err);
+      }
+    })();
   }, [docData]);
+
+  // Autofill helper: fetch suggestions for each field and fill empty ones
+  const autofillFromSuggestions = async (fieldsToUse) => {
+    if (!fieldsToUse || !Array.isArray(fieldsToUse)) return;
+    try {
+      const keys = fieldsToUse.flatMap(p => (p.fields || []).map(f => f.name));
+      const updates = {};
+      await Promise.all(keys.map(async (key) => {
+        // only fill if current value is empty
+        if (formData?.[key] !== undefined && formData[key] !== '') return;
+        try {
+          const resp = await getFieldSuggestionsAPI(key);
+          // backend returns { suggestions: [...] } but helper may return array in some cases
+          const suggestions = Array.isArray(resp) ? resp : (resp && resp.suggestions) ? resp.suggestions : [];
+          if (Array.isArray(suggestions) && suggestions.length > 0) {
+            // suggestions are documents with a `value` property
+            const first = suggestions[0];
+            updates[key] = first?.value ?? first;
+          }
+        } catch (err) {
+          // ignore individual fetch failures
+          console.debug('autofill: failed to fetch suggestions for', key, err);
+        }
+      }));
+      if (Object.keys(updates).length > 0) {
+        setFormData(prev => ({ ...(prev || {}), ...updates }));
+        // also persist these filled values immediately
+        const idToUse = docData?._id || docData?.document?._id || id;
+        if (idToUse) {
+          try {
+            await updateDocumentFieldValuesAPI(idToUse, updates);
+          } catch (err) {
+            console.warn('autofill: failed to persist autofilled values', err);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('autofillFromSuggestions error', err);
+    }
+  };
 
   // page nodes: if pages_json contains ProseMirror doc object, extract page nodes
   const pageNodes = useMemo(() => {
@@ -582,6 +633,18 @@ export default function EditableFields() {
               <RotateCcw className="w-4 h-4 mr-2" />
               Clear All
             </button>
+            {/* Autofill button: fetch saved suggestions and populate empty fields */}
+            <button
+              onClick={async () => {
+                if (!window.confirm('Autofill empty fields from saved suggestions?')) return;
+                // prefer page panels (currentPanels) when present
+                const panels = panelsToUse;
+                await autofillFromSuggestions(panels);
+              }}
+              className="ml-3 inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-sm bg-green-50 text-green-700 border border-green-100 hover:bg-green-100"
+            >
+              Autofill
+            </button>
           </div>
 
           {/* Render current panels or show a helpful message when the current page has no editable fields */}
@@ -603,7 +666,8 @@ export default function EditableFields() {
                 fields={panel.fields}
                 formData={formData}
                 onChange={handleInputChange}
-                 onFocusField={(fieldName) => setCurrentField(fieldName)}
+                onFocusField={(fieldName) => setCurrentField(fieldName)}
+                user={user}
               />
             ))
           )}
