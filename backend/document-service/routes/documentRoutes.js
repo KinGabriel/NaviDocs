@@ -7,7 +7,7 @@ import {
   updateDocumentFieldValues
 
 } from '../controllers/documentFunctionalityController.js';
-import { saveFieldSuggestion, getFieldSuggestions } from '../controllers/documentFunctionalityController.js';
+import { saveFieldSuggestion, getFieldSuggestions } from '../controllers/fieldSuggestionController.js';
 
 const router = express.Router();
 
