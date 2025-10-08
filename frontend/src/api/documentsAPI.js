@@ -136,3 +136,49 @@ export const getFieldSuggestionsAPI = async (key, scope, limit = 10) => {
 		throw new Error(error.response?.data?.message || 'Failed to fetch field suggestions');
 	}
 };
+
+/**
+ * Fetch the canonical list of suggestion-able fields for the current user.
+ * Returns { fields: [{ name, label }, ...] }
+ */
+export const listAllSuggestionFieldsAPI = async () => {
+	try {
+		const res = await axios.get(`${API_URL}/api/documents/field-suggestions/fields`, {
+			withCredentials: true,
+		});
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to list suggestion fields');
+	}
+};
+
+/**
+ * Update a saved field suggestion
+ * @param {string} id - suggestion id
+ * @param {Object} updates - fields to update (e.g., { value, count })
+ */
+export const updateFieldSuggestionAPI = async (id, updates = {}) => {
+	try {
+		const res = await axios.patch(`${API_URL}/api/documents/field-suggestions/${id}`, updates, {
+			withCredentials: true,
+		});
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to update field suggestion');
+	}
+};
+
+/**
+ * Delete a saved field suggestion
+ * @param {string} id - suggestion id
+ */
+export const deleteFieldSuggestionAPI = async (id) => {
+	try {
+		const res = await axios.delete(`${API_URL}/api/documents/field-suggestions/${id}`, {
+			withCredentials: true,
+		});
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to delete field suggestion');
+	}
+};
