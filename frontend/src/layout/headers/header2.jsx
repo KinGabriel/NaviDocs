@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import naviLogo from '../../assets/images/navilogo.png';
 import SubmitApprovalModal from '../../components/modals/submitForApprovalModal';
+import VersionHistory from '../../pages/version_history/versionHistory';
 import AssignMembersModal from '../../components/modals/assignMembersModal';
 import React, { useState, useEffect } from "react";
 import { assignControllersToTemplateAPI } from '../../api/documentContollerAPI';
@@ -35,6 +36,7 @@ export default function Header2({
   template = null
 }) {
 
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -243,6 +245,19 @@ export default function Header2({
               {saving && <span className="text-[10px] text-blue-600 leading-tight">Saving...</span>}
             </div>
 
+            { /* Version History btn*/} 
+            <button 
+              onClick={() => setShowVersionHistory(true)}
+              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded" 
+              title="History"
+            > 
+              <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24">
+                <path fill="#7D7D7D" 
+                  d="M12 21q-3.45 0-6.012-2.287T3.05 13H5.1q.35 2.6 2.313 4.3T12 19q2.925 0 4.963-2.037T19 12t-2.037-4.962T12 5q-1.725 0-3.225.8T6.25 8H9v2H3V4h2v2.35q1.275-1.6 3.113-2.475T12 3q1.875 0 3.513.713t2.85 1.924t1.925 2.85T21 12t-.712 3.513t-1.925 2.85t-2.85 1.925T12 21m2.8-4.8L11 12.4V7h2v4.6l3.2 3.2z"
+                />
+              </svg> 
+            </button>
+
             {/* status/action */}
             <div className="relative group">
               <button disabled={action.disabled} onClick={action.onClick} className={`${action.className} rounded px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-70`}>
@@ -258,6 +273,14 @@ export default function Header2({
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700">{templateStatus}</span>
                   </div>
 
+                  {templateStatus==='draft' && <p className="text-[11px]">Draft mode. Make edits then submit for approval. Only you can see this draft.</p>}
+                  {templateStatus==='pending' && <p className="text-[11px]">Awaiting approval from listed approvers. You will be notified when a decision is made.</p>}
+                  {templateStatus==='approved' && <p className="text-[11px]">Fully approved. You can now publish this template.</p>}
+                  {templateStatus==='published' && <p className="text-[11px]">Published. This version is live for use.</p>}
+                  {templateStatus==='returned' && <p className="text-[11px]">This template was <strong>returned</strong> for revisions. Please review feedback and resubmit.</p>}
+                  {templateStatus==='rejected' && <p className="text-[11px]">This template was <strong>rejected</strong> during the approval process.</p>}
+                  {templateStatus==='assigned' && <p className="text-[11px]">Template assigned. Ready for drafting.</p>}
+
                   {/* APPROVERS */}
                   <div>
                     <div className="font-medium mb-1 flex items-center gap-1">
@@ -267,92 +290,167 @@ export default function Header2({
                       Approvers
                     </div>
 
+                    {loadingApprovers && <div className="text-[11px] italic text-gray-500">Loading approvers...</div>}
+                    {!loadingApprovers && approvers.length===0 && <div className="text-[11px] italic text-gray-400">No approvers assigned</div>}
+
+
                     <div className="flex flex-col gap-1">
-                      {approvers.map(a => {
-                        const roleName = a?.role?.name || '';
-                        const roleKey = roleName?.toLowerCase();
-                        const deanData = approvals?.dean || {};
-                        const secretaryData = approvals?.secretary || {};
+                   {approvers.map(a => {
+                    const roleName = a?.role?.name || '';
+                    const roleKey = roleName?.toLowerCase();
+                    const deanData = approvals?.dean || {};
+                    const secretaryData = approvals?.secretary || {};
 
-                        let itemStatus = 'pending';
-                        const deanApproved = deanData?.isApproved === true;
-                        const deanRejected = deanData?.isApproved === false;
-                        const secApproved = secretaryData?.isApproved === true;
-                        const secRejected = secretaryData?.isApproved === false;
+                    let itemStatus = 'pending';
+                    const deanApproved = deanData?.isApproved === true;
+                    const deanRejected = deanData?.isApproved === false;
+                    const secApproved = secretaryData?.isApproved === true;
+                    const secRejected = secretaryData?.isApproved === false;
 
-                        // Map per-user state
-                        const mapSimple = (rk) => {
-                          if (templateStatus === 'rejected') {
-                            return 'pending';
-                          }
-                          // while NOT rejected globally:
-                          if (rk === 'dean') {
-                            if (deanApproved) return 'approved';
-                            // treat false as "pending" while not globally rejected
-                            return 'pending';
-                          } else {
-                            if (secApproved) return 'approved';
-                            return 'pending';
-                          }
-                        };
+                    // Get timestamp data and calculate relative time
+                    let atDate = null;
+                    let timeStr = '';
+                    
+                    const getRelativeTime = (date) => {
+                      const now = new Date();
+                      const diff = now - date;
+                      const seconds = Math.floor(diff / 1000);
+                      const minutes = Math.floor(seconds / 60);
+                      const hours = Math.floor(minutes / 60);
+                      const days = Math.floor(hours / 24);
+                      
+                      if (seconds < 60) return 'just now';
+                      if (minutes < 60) return `${minutes}m ago`;
+                      if (hours < 24) return `${hours}h ago`;
+                      if (days < 7) return `${days}d ago`;
+                      return date.toLocaleDateString();
+                    };
+                    
+                    if (roleKey === 'dean' && deanData?.approved_at) {
+                      atDate = new Date(deanData.approved_at);
+                      timeStr = getRelativeTime(atDate);
+                    } else if (roleKey === 'secretary' && secretaryData?.approved_at) {
+                      atDate = new Date(secretaryData.approved_at);
+                      timeStr = getRelativeTime(atDate);
+                    }
 
-                        // Final status decision
-                        if (templateStatus === 'rejected') {
-                          if (secRejected) {
-                            if (roleKey === 'secretary') itemStatus = 'rejected';
-                            else if (roleKey === 'dean') itemStatus = deanApproved ? 'approved' : 'cancelled';
-                          } else if (deanRejected && secApproved) {
-                            if (roleKey === 'dean') itemStatus = 'rejected';
-                            if (roleKey === 'secretary') itemStatus = 'approved';
-                          } else {
-                            // fallback inside rejected state 
-                            itemStatus = (roleKey === 'dean')
-                              ? (deanApproved ? 'approved' : 'pending')
-                              : (secApproved ? 'approved' : 'pending');
-                          }
-                        } else {
-                          // Not globally rejected → show true per-user state (no rejected/cancel)
-                          itemStatus = mapSimple(roleKey);
-                        }
+                    // Map per-user state
+                    const mapSimple = (rk) => {
+                      if (templateStatus === 'rejected') {
+                        return 'pending';
+                      }
+                      if (rk === 'dean') {
+                        if (deanApproved) return 'approved';
+                        return 'pending';
+                      } else {
+                        if (secApproved) return 'approved';
+                        return 'pending';
+                      }
+                    };
 
-                        const displayName = a.firstname && a.lastname 
-                          ? `${a.firstname} ${a.lastname}`
-                          : a.name || a.email || "Unknown Approver";
+                    // Final status decision
+                    if (templateStatus === 'rejected') {
+                      if (secRejected) {
+                        if (roleKey === 'secretary') itemStatus = 'rejected';
+                        else if (roleKey === 'dean') itemStatus = deanApproved ? 'approved' : 'cancelled';
+                      } else if (deanRejected && secApproved) {
+                        if (roleKey === 'dean') itemStatus = 'rejected';
+                        if (roleKey === 'secretary') itemStatus = 'approved';
+                      } else {
+                        itemStatus = (roleKey === 'dean')
+                          ? (deanApproved ? 'approved' : 'pending')
+                          : (secApproved ? 'approved' : 'pending');
+                      }
+                    } else {
+                      itemStatus = mapSimple(roleKey);
+                    }
 
-                        return (
-                          <div key={a._id} className={`flex items-center justify-between bg-gray-50 border rounded px-2 py-1 ${
-                            itemStatus === 'approved' ? 'border-green-200' :
-                            itemStatus === 'rejected' ? 'border-red-200' :
-                            itemStatus === 'cancelled' ? 'border-gray-200' :
-                            'border-gray-200'
-                          }`}>
-                            <div className="flex flex-col">
-                              <span className="font-medium text-[11px] flex items-center gap-1">
-                                {displayName}
-                                {itemStatus === 'approved' && (
-                                  <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
-                                  </svg>
-                                )}
-                              </span>
-                              <span className="text-[9px] uppercase tracking-wide text-gray-500">{roleName}</span>
-                            </div>
+                    const displayName = a.firstname && a.lastname 
+                      ? `${a.firstname} ${a.lastname}`
+                      : a.name || a.email || "Unknown Approver";
 
+                    return (
+                      <div key={a._id} className={`flex items-center justify-between bg-gray-50 border rounded px-2 py-1 ${
+                        itemStatus === 'approved' ? 'border-green-200' :
+                        itemStatus === 'returned' ? 'border-orange-200' :
+                        itemStatus === 'rejected' ? 'border-red-200' :
+                        itemStatus === 'cancelled' ? 'border-gray-200' :
+                        'border-gray-200'
+                      }`}>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-[11px] flex items-center gap-1">
+                            {displayName}
                             {itemStatus === 'approved' && (
-                              <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Approved</span>
+                              <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
+                              </svg>
                             )}
-                            {itemStatus === 'rejected' && (
-                              <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Rejected</span>
-                            )}
-                            {itemStatus === 'cancelled' && (
-                              <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">Cancelled</span>
-                            )}
-                            {itemStatus === 'pending' && (
-                              <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 font-medium">Pending</span>
-                            )}
-                          </div>
-                        );
-                      })}
+                          </span>
+                          <span className="text-[9px] uppercase tracking-wide text-gray-500">{roleName}</span>
+                        </div>
+
+                        {itemStatus === 'approved' && (
+                          <span title={atDate?.toLocaleString()} className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
+                            </svg>
+                            Approved{timeStr ? ` ${timeStr}` : ''}
+                          </span>
+                        )}
+                        {itemStatus === 'returned' && (
+                          <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                            Returned{timeStr ? ` ${timeStr}` : ''}
+                          </span>
+                        )}
+                        {itemStatus === 'rejected' && (
+                          <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
+                            Rejected{timeStr ? ` ${timeStr}` : ''}
+                          </span>
+                        )}
+                        {itemStatus === 'cancelled' && (
+                          <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
+                            Cancelled
+                          </span>
+                        )}
+                        {itemStatus === 'pending' && (
+                          <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 font-medium">
+                            Pending
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                       {(approvals || approvalMeta) && (
+                        <div className="mt-2">
+                          {(() => {
+                            // progress bar counts only approved slots
+                            const expected = ['secretary','dean'].filter(r => 
+                              approvers.some(a=> (a?.role?.name || '').toLowerCase()===r)
+                            );
+                            const total = expected.length || 2;
+                            let count = 0;
+
+                            if (approvals?.secretary?.isApproved === true) count += 1;
+                            if (approvals?.dean?.isApproved === true) count += 1;
+
+                            if (count === 0) {
+                              if (approvals?.secretary?.approved_at) count += 1;
+                              if (approvals?.dean?.approved_at) count += 1;
+                            }
+
+                            const pct = Math.round((count/total)*100);
+                            return (
+                              <div>
+                                <div className="w-full h-1.5 bg-gray-200 rounded overflow-hidden">
+                                  <div className="h-1.5 bg-green-500" style={{width: pct+'%'}} />
+                                </div>
+                                <div className="text-[10px] mt-1 text-gray-500">Approval progress: {count}/{total}</div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -399,15 +497,13 @@ export default function Header2({
               </div>
             </div>
 
-            {/* Share */}
-            <div className="relative">
-              <button onClick={() => setAssignOpen(true)} className="bg-[#063c8d] text-white rounded px-4 py-2 text-sm font-semibold hover:bg-[#052c6d] flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367-2.684z" />
-                </svg>
-                Share
-              </button>
-            </div>
+            {/* share btn */} 
+            <div className="relative"> <button onClick={() => setAssignOpen(true)} 
+            className="bg-[#063c8d] text-white rounded px-4 py-2 text-sm font-semibold hover:bg-[#052c6d] flex items-center gap-2"> 
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-share2-icon lucide-share-2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
+              Share 
+             </button> 
+             </div>
 
             {/* Avatar */}
             <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
@@ -437,6 +533,13 @@ export default function Header2({
           approvals={approvals}
           approvalMeta={approvalMeta}
         />
+      )}
+
+      {/* Version History Full Screen Overlay */}
+      {showVersionHistory && (
+        <div className="fixed inset-0 z-[100] bg-white">
+          <VersionHistory onClose={() => setShowVersionHistory(false)} />
+        </div>
       )}
 
       {/* Assign modal */}
