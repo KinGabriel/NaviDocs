@@ -4,12 +4,25 @@ export default function CreateDocumentModal({
   open,
   onClose,
   defaultTitle = "",
-  onCreate, 
+  onCreate,
   submitting = false,
   error = "",
+  user = null,
 }) {
   const [title, setTitle] = useState(defaultTitle || "");
   const [localError, setLocalError] = useState("");
+  const [autoFill, setAutoFill] = useState(true);
+  const [autoFillScope, setAutoFillScope] = useState("user");
+
+  const allowSchoolScope = (u) => {
+    if (!u) return false;
+    if (u === 'Document Controller') return true;
+    if (typeof u === 'object') {
+      if (u.role && (u.role === 'Document Controller' || u.role.name === 'Document Controller')) return true;
+      if (Array.isArray(u.roles) && u.roles.some(r => r && r.name === 'Document Controller')) return true;
+    }
+    return false;
+  };
 
   useEffect(() => {
     if (open) {
@@ -26,7 +39,9 @@ export default function CreateDocumentModal({
       setLocalError("Document name is required.");
       return;
     }
-    await onCreate(trimmed);
+    // pass autofill preference as second argument: false | 'user' | 'school'
+    const scope = autoFill ? (autoFillScope || 'user') : false;
+    await onCreate(trimmed, scope);
   };
 
   return (
@@ -47,6 +62,26 @@ export default function CreateDocumentModal({
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
             placeholder="Untitled Document"
           />
+          <div className="flex items-center space-x-2 mt-2">
+            <input id="autofill" type="checkbox" checked={autoFill} onChange={(e) => setAutoFill(e.target.checked)} className="h-4 w-4" />
+            <label htmlFor="autofill" className="text-sm text-gray-700">Autofill empty fields from my saved suggestions</label>
+          </div>
+          {autoFill && (
+            <div className="mt-3">
+              <label className="block text-sm font-medium mb-1">Autofill scope</label>
+              <div className="flex items-center space-x-3">
+                <label className="inline-flex items-center">
+                  <input type="radio" name="autofillScope" value="user" checked={autoFillScope === 'user'} onChange={() => setAutoFillScope('user')} className="h-4 w-4" />
+                  <span className="ml-2 text-sm">Mine (user)</span>
+                </label>
+                <label className="inline-flex items-center">
+                  <input type="radio" name="autofillScope" value="school" checked={autoFillScope === 'school'} onChange={() => setAutoFillScope('school')} className="h-4 w-4" />
+                  <span className={`ml-2 text-sm`}>School</span>
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Selecting <strong>School</strong> will use school-level suggestions for autofill. Note: only document controllers can save suggestions at the school level; choosing School does not grant you that permission.</p>
+            </div>
+          )}
           {(localError || error) && (
             <p className="text-sm text-red-600">{localError || error}</p>
           )}

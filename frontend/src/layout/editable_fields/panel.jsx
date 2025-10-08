@@ -4,15 +4,21 @@ import { saveFieldSuggestionAPI } from "../../api/documentsAPI";
 
 export default function Panel({ number, title, color, fields, formData, onChange, onFocusField, user }) {
   // saving state and messages per field
-  const [savingState, setSavingState] = useState({}); // { [fieldName]: boolean }
-  const [saveMessage, setSaveMessage] = useState({}); // { [fieldName]: { type: 'success'|'error', text } }
+  const [savingState, setSavingState] = useState({});
+  const [saveMessage, setSaveMessage] = useState({}); 
+  const [selectedScopes, setSelectedScopes] = useState({}); 
 
   const allowSchoolScope = (user) => {
     if (!user) return false;
-    // Accept either a single role string or roles array. Assume 'Document Controller' identifies the role.
-    if (user.role.name && String(user.role.name) === "Document Controller") return true;
-    if (Array.isArray(user.roles) && user.roles.includes("Document Controller")) return true;
+    // Accept various shapes: role string, role object, or roles array
+    if (typeof user.role === 'string' && user.role.toLowerCase() === 'document_controller') return true;
+    if (user.role && typeof user.role === 'object' && ((user.role.name && String(user.role.name).toLowerCase() === 'document controller') || (user.role.slug && String(user.role.slug).toLowerCase() === 'document_controller'))) return true;
+    if (Array.isArray(user.roles) && (user.roles.includes('Document Controller') || user.roles.includes('document_controller'))) return true;
     return false;
+  };
+
+  const handleScopeChange = (fieldName, value) => {
+    setSelectedScopes((s) => ({ ...s, [fieldName]: value }));
   };
 
   const handleSaveSuggestion = async (fieldName) => {
@@ -23,7 +29,7 @@ export default function Panel({ number, title, color, fields, formData, onChange
       return;
     }
 
-    const scope = allowSchoolScope(user) ? (window.confirm('Save for this field at the SCHOOL level? OK = school, Cancel = user') ? 'school' : 'user') : 'user';
+    const scope = allowSchoolScope(user) ? (selectedScopes[fieldName] || 'user') : 'user';
 
     try {
       setSavingState((s) => ({ ...s, [fieldName]: true }));
@@ -81,16 +87,26 @@ export default function Panel({ number, title, color, fields, formData, onChange
                   {savingState[field.name] ? 'Saving…' : 'Save field'}
                 </button>
 
+                {/* If user can save at school scope, show a small selector to pick scope per-field */}
+                {allowSchoolScope(user) ? (
+                  <select
+                    value={selectedScopes[field.name] || 'user'}
+                    onChange={(e) => handleScopeChange(field.name, e.target.value)}
+                    className="text-sm border rounded px-2 py-1"
+                  >
+                    <option value="user">Save to me</option>
+                    <option value="school">Save to school</option>
+                  </select>
+                ) : (
+                  <span className="text-xs text-gray-400">(saves to you)</span>
+                )}
+
                 <div className="text-sm">
                   {saveMessage[field.name] ? (
                     <span className={saveMessage[field.name].type === 'success' ? 'text-green-600' : 'text-red-600'}>
                       {saveMessage[field.name].text}
                     </span>
-                  ) : allowSchoolScope(user) ? (
-                    <span className="text-gray-500">You can save for School or User (click Save to pick)</span>
-                  ) : (
-                    <span className="text-gray-400">Saves only to your account</span>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>

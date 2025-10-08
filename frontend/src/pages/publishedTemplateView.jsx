@@ -146,7 +146,8 @@ export default function PublishedTemplateView() {
   }, [d, pageNodes, currentPage]);
 
   // Handler when user submits a title in the modal
-  const createWithTitle = async (title) => {
+  // now accepts autofill flag (boolean) as second arg
+  const createWithTitle = async (title, autoFill = false) => {
     setTitleSubmitting(true);
     setCreateError(null);
     try {
@@ -163,13 +164,12 @@ export default function PublishedTemplateView() {
       const createdId = created._id || created.id || created.document?._id;
       if (!createdId) throw new Error("Invalid response from createDocumentAPI");
 
-      // Ask user if they'd like to autofill the document from saved suggestions
-      const wantAutofill = window.confirm('Autofill this document with your saved field suggestions where possible? Click OK to autofill, Cancel to skip.');
-
-      // Close modal then navigate; include flag in state so editableFields can perform autofill
+      // Close modal then navigate; include flag and scope in state so editableFields can perform autofill
       setTitleModalOpen(false);
+      const autofillFlag = !!autoFill;
+      const autoFillScope = autofillFlag && typeof autoFill === 'string' ? autoFill : (autofillFlag ? 'user' : false);
       navigate(`/documents/editable-fields/${createdId}`, {
-        state: { doc: created, sidebarActive: "Documents", backTo: "/documents", autoFillFromSuggestions: !!wantAutofill },
+        state: { doc: created, sidebarActive: "Documents", backTo: "/documents", autoFillFromSuggestions: autofillFlag, autoFillScope },
       });
     } catch (err) {
       console.error("Failed to create document from template (modal):", err);
@@ -277,6 +277,7 @@ export default function PublishedTemplateView() {
         onClose={() => setTitleModalOpen(false)}
         defaultTitle={""}
         onCreate={createWithTitle}
+        user={user}
         submitting={titleSubmitting}
         error={createError}
       />

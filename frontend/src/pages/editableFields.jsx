@@ -5,11 +5,21 @@ import useUser from "../hooks/useUser";
 import Panel from "../layout/editable_fields/panel";
 import TextEditor from "../layout/create_template/textEditor";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
-import { updateDocumentFieldValuesAPI, getFieldSuggestionsAPI } from "../api/documentsAPI";
+import { updateDocumentFieldValuesAPI, getFieldSuggestionsAPI, saveFieldSuggestionAPI } from "../api/documentsAPI";
+import AutofillModal from "../components/modals/autofillModal";
 import { useParams, useLocation } from "react-router-dom";
 
 export default function EditableFields() {
   const user = useUser();
+  const allowSchoolScope = (u) => {
+    if (!u) return false;
+    if (u === 'Document Controller') return true;
+    if (typeof u === 'object') {
+      if (u.role && (u.role === 'Document Controller' || u.role.name === 'Document Controller')) return true;
+      if (Array.isArray(u.roles) && u.roles.some(r => r && r.name === 'Document Controller')) return true;
+    }
+    return false;
+  };
   const [currentPage, setCurrentPage] = useState(0);
   const [formData, setFormData] = useState({});
   const routeParams = useParams();
@@ -272,7 +282,9 @@ export default function EditableFields() {
     (async () => {
       try {
         if (navState && navState.autoFillFromSuggestions) {
-          await autofillFromSuggestions(panelsToUse);
+          // allow navigation to include a preferred scope: 'user' | 'school'
+          const scope = navState.autoFillScope || 'user';
+          await autofillFromSuggestions(panelsToUse, scope);
         }
       } catch (err) {
         console.debug('autofill on nav state failed', err);
@@ -281,7 +293,7 @@ export default function EditableFields() {
   }, [docData]);
 
   // Autofill helper: fetch suggestions for each field and fill empty ones
-  const autofillFromSuggestions = async (fieldsToUse) => {
+  const autofillFromSuggestions = async (fieldsToUse, scope = 'user') => {
     if (!fieldsToUse || !Array.isArray(fieldsToUse)) return;
     try {
       const keys = fieldsToUse.flatMap(p => (p.fields || []).map(f => f.name));
@@ -290,7 +302,7 @@ export default function EditableFields() {
         // only fill if current value is empty
         if (formData?.[key] !== undefined && formData[key] !== '') return;
         try {
-          const resp = await getFieldSuggestionsAPI(key);
+          const resp = await getFieldSuggestionsAPI(key, scope, 1);
           // backend returns { suggestions: [...] } but helper may return array in some cases
           const suggestions = Array.isArray(resp) ? resp : (resp && resp.suggestions) ? resp.suggestions : [];
           if (Array.isArray(suggestions) && suggestions.length > 0) {
@@ -317,6 +329,57 @@ export default function EditableFields() {
       }
     } catch (err) {
       console.error('autofillFromSuggestions error', err);
+    }
+  };
+
+  // fetch a preview suggestion (first suggestion value) for a field key
+  const fetchPreview = async (key, scope) => {
+    try {
+      const resp = await getFieldSuggestionsAPI(key, scope, 1);
+      const suggestions = Array.isArray(resp) ? resp : (resp && resp.suggestions) ? resp.suggestions : [];
+      if (suggestions && suggestions.length) return suggestions[0]?.value ?? suggestions[0];
+      return undefined;
+    } catch (err) {
+      return undefined;
+    }
+  };
+
+  const handleApplyAutofill = async (items) => {
+    // items: [{ key, value, scope }]
+    if (!Array.isArray(items) || items.length === 0) {
+      setAutofillOpen(false);
+      return;
+    }
+    const updates = {};
+    items.forEach(i => { if (i && i.key && i.value !== undefined) updates[i.key] = i.value; });
+    if (Object.keys(updates).length === 0) {
+      setAutofillOpen(false);
+      return;
+    }
+
+    setAutofillApplying(true);
+    try {
+      setFormData(prev => ({ ...(prev || {}), ...updates }));
+      const idToUse = docData?._id || docData?.document?._id || id;
+      if (idToUse) await updateDocumentFieldValuesAPI(idToUse, updates);
+
+      // Best-effort: persist applied suggestions with chosen scope so future autofill can reuse them
+      try {
+        await Promise.allSettled(items.map(it => {
+          if (!it || !it.key || it.value === undefined) return Promise.resolve();
+          // prevent saving at school scope unless user is allowed; fall back to 'user'
+          const desired = it.scope || 'user';
+          const finalScope = desired === 'school' && !allowSchoolScope(user) ? 'user' : desired;
+          return saveFieldSuggestionAPI({ key: it.key, value: it.value, scope: finalScope });
+        }));
+      } catch (err) {
+        console.warn('Failed to persist some autofill suggestions', err);
+      }
+    } catch (err) {
+      console.error('autofill apply failed', err);
+    } finally {
+      setAutofillApplying(false);
+      setAutofillOpen(false);
     }
   };
 
@@ -413,6 +476,8 @@ export default function EditableFields() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [autofillOpen, setAutofillOpen] = useState(false);
+  const [autofillApplying, setAutofillApplying] = useState(false);
   const editorRef = useRef(null);
   const isApplyingRef = useRef(false);
   const updateTimerRef = useRef(null);
@@ -635,12 +700,7 @@ export default function EditableFields() {
             </button>
             {/* Autofill button: fetch saved suggestions and populate empty fields */}
             <button
-              onClick={async () => {
-                if (!window.confirm('Autofill empty fields from saved suggestions?')) return;
-                // prefer page panels (currentPanels) when present
-                const panels = panelsToUse;
-                await autofillFromSuggestions(panels);
-              }}
+              onClick={() => setAutofillOpen(true)}
               className="ml-3 inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-sm bg-green-50 text-green-700 border border-green-100 hover:bg-green-100"
             >
               Autofill
@@ -847,6 +907,16 @@ export default function EditableFields() {
           </div>
         </div>
       </div>
+      {/* Autofill modal */}
+      <AutofillModal
+        open={autofillOpen}
+        onClose={() => setAutofillOpen(false)}
+        fields={panelsToUse ? panelsToUse.flatMap(p => p.fields || []) : []}
+        fetchPreview={fetchPreview}
+        onApply={handleApplyAutofill}
+        applying={autofillApplying}
+        user={user}
+      />
     </div>
   );
 }
