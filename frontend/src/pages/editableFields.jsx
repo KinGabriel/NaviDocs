@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { ChevronRight, ChevronLeft, RotateCcw } from "lucide-react";
+import { ChevronRight, ChevronLeft, RotateCcw, X } from "lucide-react";
 import EditableFieldsHeader from "../layout/editable_fields/editableFieldsHeader";
 import useUser from "../hooks/useUser";
 import Panel from "../layout/editable_fields/panel";
@@ -25,7 +25,7 @@ export default function EditableFields() {
   const routeParams = useParams();
   const { state: navState } = useLocation();
   const id = routeParams.id || routeParams.documentId || routeParams.document_id || routeParams.docId || routeParams._id;
-
+  const [showClearModal, setShowClearModal] = useState(false);
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [docData, setDocData] = useState(null);
   const [docError, setDocError] = useState(null);
@@ -678,34 +678,78 @@ export default function EditableFields() {
       <div className="flex flex-1">
         <div className="w-1/2 bg-gray-50 p-6 space-y-6">
 
-          {/* Clear All Button above panels */}
-          <div className="flex justify-end mb-4">
+      {/* Clear All & Autofill Buttons */}
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => setShowClearModal(true)}
+          disabled={Object.keys(formData).length === 0}
+          className={`inline-flex items-center px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 shadow-sm active:scale-95 ${
+            Object.keys(formData).length > 0
+              ? "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:border-red-300"
+              : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
+          }`}
+        >
+          <RotateCcw className="w-4 h-4 mr-2" />
+          Clear All
+        </button>
+
+        {/* Autofill button: fetch saved suggestions and populate empty fields */}
+        <button
+          onClick={() => setAutofillOpen(true)}
+          className="ml-3 shadow-sm inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-sm bg-green-50 text-green-700 border border-green-100 hover:bg-green-100"
+        >
+          Autofill
+        </button>
+      </div>
+
+      {/* Clear All Modal */}
+      {showClearModal && (
+        <div
+          className="fixed inset-0  backdrop-blur-[2px] flex items-center justify-center z-50 p-4"
+          onClick={() => setShowClearModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full border border-gray-200 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={() => {
-                if (window.confirm("Are you sure you want to clear all form data? This action cannot be undone.")) {
+              onClick={() => setShowClearModal(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200 active:scale-95"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mb-4 border border-red-100 mx-auto">
+              <RotateCcw className="w-7 h-7 text-red-600" />
+            </div>
+
+            <h2 className="text-lg font-semibold text-gray-800 text-center mb-3">
+              Clear All Form Data
+            </h2>
+            <p className="text-gray-600 text-center text-sm mb-6">
+              Are you sure you want to clear all form data? This action cannot be undone.
+            </p>
+
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => setShowClearModal(false)}
+                className="px-5 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200 active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
                   setFormData({});
-                }
-              }}
-              disabled={Object.keys(formData).length === 0}
-              className={`
-                inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200
-                ${Object.keys(formData).length > 0
-                  ? "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:border-red-300" 
-                  : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
-                }
-              `}
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Clear All
-            </button>
-            {/* Autofill button: fetch saved suggestions and populate empty fields */}
-            <button
-              onClick={() => setAutofillOpen(true)}
-              className="ml-3 inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-sm bg-green-50 text-green-700 border border-green-100 hover:bg-green-100"
-            >
-              Autofill
-            </button>
+                  setShowClearModal(false);
+                }}
+                className="px-5 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-all duration-200 active:scale-95"
+              >
+                Clear All
+              </button>
+            </div>
           </div>
+        </div>
+      )}
 
           {/* Render current panels or show a helpful message when the current page has no editable fields */}
           {docData && docData.pages_json && typeof docData.pages_json[0] !== 'string' && editableCount === 0 ? (
