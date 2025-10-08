@@ -13,6 +13,7 @@ import {
 import fetchAndNormalizeTemplate from "../../utils/templateLoader";
 import useUser from "../../hooks/useUser";
 import Header2 from "../../layout/headers/header2";
+import VersionHistory from "../version_history/versionHistory";
 
 // Panels
 import FontPanel from "../../layout/create_template/fontPanel";
@@ -88,7 +89,7 @@ export default function DocumentControllerCreateTemplate() {
   const [lastSavedId, setLastSavedId] = useState(null);
   const [dirty, setDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
-  
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [editableFields, setEditableFields] = useState([]);
 
   // UI
@@ -371,53 +372,64 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
-  return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
-      <Header2
-        title={templateTitle}
-        setTitle={setTemplateTitle}
-        user={user}
-        onSubmitForApproval={handleSubmitForApproval}
-        onApprove={handleApprove}
-        onPublish={handlePublish}
-        saving={saving}
-        lastSavedAt={lastSavedAt}
-        dirty={dirty}
-        templateStatus={status}
-        approvals={approvals}
-        approvalMeta={approvalMeta}
-        approvers={approvers}
-        loadingApprovers={loading}
-        reviewNotes={notes}
-        assignedIds={[]}
-        templateId={templateId || ""}
-        onStatusUpdate={handleStatusUpdate}     
-        onApprovalsUpdate={handleApprovalsUpdate}
-        template={template}
+return (
+  <div>
+    {showVersionHistory ? (
+      <VersionHistory
+        onClose={() => setShowVersionHistory(false)}
+        documentId={templateId}
+        currentContent={templateContent}
+        pageSetup={pageSetup}
+        TextEditor={TextEditor}
       />
-      
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
-        <div className="flex gap-4">
-          <TemplateSidebar
-            selectedPanel={selectedPanel}
-            onSelectPanel={setSelectedPanel}
-            topOffsetPx={110}
-            bottomOffsetPx={16}
-          >
-            {renderPanel()}
-          </TemplateSidebar>
+    ) : (
+      <div className="flex min-h-screen flex-col bg-slate-50">
+        <Header2
+          title={templateTitle}
+          setTitle={setTemplateTitle}
+          user={user}
+          onSubmitForApproval={handleSubmitForApproval}
+          onApprove={handleApprove}
+          onPublish={handlePublish}
+          saving={saving}
+          lastSavedAt={lastSavedAt}
+          dirty={dirty}
+          templateStatus={status}
+          approvals={approvals}
+          approvalMeta={approvalMeta}
+          approvers={approvers}
+          loadingApprovers={loading}
+          reviewNotes={notes}
+          assignedIds={[]}
+          templateId={templateId || ""}
+          onStatusUpdate={handleStatusUpdate}
+          onApprovalsUpdate={handleApprovalsUpdate}
+          template={template}
+          onShowVersionHistory={() => setShowVersionHistory(true)}
+        />
 
-          <main className="min-h-[60vh] flex-1">
-           
-            <TextEditor
-              content={templateContent}
-              pageSetup={pageSetup}
-              onEditorReady={handleEditorReady}
-              onContentChange={setTemplateContent}
-            />
-          </main>
+        <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
+          <div className="flex gap-4">
+            <TemplateSidebar
+              selectedPanel={selectedPanel}
+              onSelectPanel={setSelectedPanel}
+              topOffsetPx={110}
+              bottomOffsetPx={16}
+            >
+              {renderPanel()}
+            </TemplateSidebar>
+
+            <main className="min-h-[60vh] flex-1">
+              <TextEditor
+                content={templateContent}
+                pageSetup={pageSetup}
+                onEditorReady={handleEditorReady}
+                onContentChange={setTemplateContent}
+              />
+            </main>
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
+    )}
+  </div>
+)};
