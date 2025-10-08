@@ -7,13 +7,22 @@ import {
   updateDocumentFieldValues
 
 } from '../controllers/documentFunctionalityController.js';
-import { saveFieldSuggestion, getFieldSuggestions } from '../controllers/fieldSuggestionController.js';
+import { 
+  saveFieldSuggestion, 
+  getFieldSuggestions,
+  updateFieldSuggestion,
+  deleteFieldSuggestion,
+  listAllFieldsForUser } 
+  from '../controllers/fieldSuggestionController.js';
 
 const router = express.Router();
 
-// Field suggestion endpoints (store and retrieve user inputs for reuse)
+
 router.post('/field-suggestions', authenticateJWT, saveFieldSuggestion);
 router.get('/field-suggestions', authenticateJWT, getFieldSuggestions);
+router.get('/field-suggestions/fields', authenticateJWT, listAllFieldsForUser);
+router.patch('/field-suggestions/:id', authenticateJWT, updateFieldSuggestion);
+router.delete('/field-suggestions/:id', authenticateJWT, deleteFieldSuggestion);
 
 router.post('/create-document', authenticateJWT, createDocument);
 router.get('/', authenticateJWT, listDocuments);

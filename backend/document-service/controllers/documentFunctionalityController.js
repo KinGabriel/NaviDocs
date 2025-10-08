@@ -149,7 +149,11 @@ export const listDocuments = async (req, res) => {
       .skip((numericPage - 1) * numericLimit)
       .lean();
 
-    res.json({ documents });
+    // also compute total count so the frontend can paginate
+    const totalCount = await Document.countDocuments(query);
+    const totalPages = Math.max(1, Math.ceil(totalCount / numericLimit));
+
+    res.json({ documents, pagination: { total_count: totalCount, total_pages: totalPages, page: numericPage, limit: numericLimit } });
   } catch (err) {
     console.error("listDocuments error:", err);
     res.status(500).json({ message: "Failed to list documents", error: err.message });

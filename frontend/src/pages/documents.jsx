@@ -13,6 +13,7 @@ import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";
 import RenameDocumentModal from "../components/modals/renameModal";
 import DeleteDocumentModal from "../components/modals/deleteDocumentModal";
 import SelectTemplateModal from "../components/modals/selectTemplateModal";
+import ManageSuggestionsModal from "../components/modals/manageSuggestionsModal";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -42,6 +43,9 @@ export default function GlobalTemplates() {
   const [selectOpen, setSelectOpen] = useState(false);
   const [publishedLoading, setPublishedLoading] = useState(false);
   const [publishedTemplatesCache, setPublishedTemplatesCache] = useState([]);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [documentsCache, setDocumentsCache] = useState([]);
+  const [documentsCacheLoading, setDocumentsCacheLoading] = useState(false);
 
   const schoolIdentifiers = {
     "University Wide": "VAA",
@@ -159,6 +163,61 @@ export default function GlobalTemplates() {
     }
   };
 
+  // Aggregate fields across all known templates (both listed and published cache).
+  // This ensures the Manage modal sees every field even if that field isn't present in the currently-selected template.
+  const extractFieldsFromDoc = (doc) => {
+    if (!doc) return [];
+    // Prefer an explicit fields array if present
+    const fromFields = doc?.from_template?.fields || doc?.fields || doc?.template?.fields;
+    if (Array.isArray(fromFields) && fromFields.length > 0) {
+      return fromFields.map((f) => {
+        if (!f) return null;
+        if (typeof f === 'string') return { name: f, label: f };
+        return { name: f.name || f.key || f.id || f.field || String(f), label: f.label || f.title || f.name || f.key || String(f) };
+      }).filter(Boolean);
+    }
+
+    // Fallback: try to walk pages_json for editableField nodes
+    const out = [];
+    const addIfValid = (name, label) => {
+      if (!name) return;
+      out.push({ name: String(name), label: label || String(name) });
+    };
+
+    try {
+      const pages = doc?.pages_json || doc?.pages || null;
+      if (pages && Array.isArray(pages)) {
+        const walk = (node) => {
+          if (!node) return;
+          if (node.type === 'editableField') {
+            addIfValid(node.name || node.key || node.field || node.id, node.label || node.title || node.placeholder);
+          }
+          if (Array.isArray(node.content)) node.content.forEach(walk);
+          if (Array.isArray(node.pages)) node.pages.forEach(walk);
+          if (Array.isArray(node.fields)) node.fields.forEach(walk);
+        };
+        pages.forEach((p) => walk(p));
+      }
+    } catch (e) {
+      // ignore and return what we gathered
+    }
+
+    return out;
+  };
+
+  // Aggregate published templates, currently-listed templates, and user's documents
+  const allTemplates = [...(publishedTemplatesCache || []), ...(templates || []), ...(documentsCache || [])];
+  const map = new Map();
+  allTemplates.forEach((tpl) => {
+    const list = extractFieldsFromDoc(tpl) || [];
+    list.forEach((f) => {
+      if (!f || !f.name) return;
+      const key = String(f.name);
+      if (!map.has(key)) map.set(key, { name: key, label: f.label || key });
+    });
+  });
+  const fields = Array.from(map.values());
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
@@ -179,6 +238,7 @@ export default function GlobalTemplates() {
                     // Trigger fetching published templates before opening modal
                     try {
                       setPublishedLoading(true);
+
                       const res = await fetchPublishedTemplatesAPI({ limit: PAGE_SIZE, page: 1 });
                       // Cache result for potential future use
                       if (res?.success && res.data?.templates) setPublishedTemplatesCache(res.data.templates);
@@ -199,6 +259,40 @@ export default function GlobalTemplates() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   Select Template
+                </button>
+                <button
+                  onClick={async () => {
+                    // Prefetch both published templates and user's documents (larger slice)
+                    try {
+                      setPublishedLoading(true);
+                      setDocumentsCacheLoading(true);
+
+                      const [pubRes, docsRes] = await Promise.all([
+                        fetchPublishedTemplatesAPI({ limit: PAGE_SIZE, page: pagination.currentPage }),
+                        listDocumentsAPI({ limit: PAGE_SIZE, page: pagination.currentPage })
+                      ]);
+
+                      // cache published templates
+                      if (pubRes?.success && pubRes.data?.templates) setPublishedTemplatesCache(pubRes.data.templates);
+                      else if (pubRes?.templates) setPublishedTemplatesCache(pubRes.templates);
+                      else if (Array.isArray(pubRes)) setPublishedTemplatesCache(pubRes);
+
+                      // cache documents (for field extraction)
+                      if (docsRes && Array.isArray(docsRes.documents)) setDocumentsCache(docsRes.documents);
+                      else if (docsRes && docsRes.success && Array.isArray(docsRes.data?.documents)) setDocumentsCache(docsRes.data.documents);
+                      else if (Array.isArray(docsRes)) setDocumentsCache(docsRes);
+
+                    } catch (err) {
+                      console.error('Failed to prefetch published templates or documents:', err);
+                    } finally {
+                      setPublishedLoading(false);
+                      setDocumentsCacheLoading(false);
+                      setManageOpen(true);
+                    }
+                  }}
+                  className="ml-3 flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 font-semibold px-4 py-2 rounded shadow transition-colors border"
+                >
+                  Manage saved values
                 </button>
               </div>
 
@@ -354,6 +448,7 @@ export default function GlobalTemplates() {
           });
         }}
       />
+      <ManageSuggestionsModal open={manageOpen} onClose={() => setManageOpen(false)} fields={fields} user={user} />
       
     </div>
   );
