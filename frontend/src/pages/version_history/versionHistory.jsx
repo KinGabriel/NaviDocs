@@ -1,14 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy} from 'lucide-react';
+import { listTemplateVersionsAPI, getTemplateVersionAPI, restoreTemplateVersionAPI } from '../../api/documentContollerAPI';
 
 
 export default function VersionHistory({ 
   onClose, 
-  documentId,
+  templateId,
+  documentId, 
   currentContent,
   pageSetup,
   TextEditorComponent 
 }) {
+  const id = templateId || documentId; // use whichever is provided
   const [versions, setVersions] = useState([]);
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [highlightChanges, setHighlightChanges] = useState(true);
@@ -18,116 +21,112 @@ export default function VersionHistory({
   const [filterType, setFilterType] = useState('all'); // 'all' or 'named'
   const [menuOpen, setMenuOpen] = useState(null);
   const menuRef = useRef(null);
+  const [rawResponse, setRawResponse] = useState(null);
+  const [showDebug, setShowDebug] = useState(false);
 
-  // ---------------------------------------------------------------------
-  // DUMMY VERSIONS FOR DEMO PURPOSES
-  const generateDummyVersions = () => {
-    const now = new Date();
-    const versions = [];
-    const authors = ['Joaquin Jokic', 'Oliver Smith', 'Lebron James', 'Luka Doncic', 'Nichole Escano'];
-  
-    //  Dummy versions across different time periods
-    const timeOffsets = [
-      { hours: 2 },           // Today - 2 hours ago
-      { hours: 5 },           // Today - 5 hours ago
-      { days: 0, hours: 8 },  // Today - 8 hours ago
-      { days: 1, hours: 3 },  // Yesterday
-      { days: 1, hours: 10 }, // Yesterday
-      { days: 3 },            // This week
-      { days: 5 },            // This week
-      { days: 9 },            // Last week
-      { days: 12 },           // Last week
-      { days: 18 },           // This month
-      { days: 25 },           // This month
-      { days: 35 },           // Last month
-      { days: 50 },           // Last month
-    ];
-
-    timeOffsets.forEach((offset, index) => {
-      const versionDate = new Date(now);
-      if (offset.days) versionDate.setDate(versionDate.getDate() - offset.days);
-      if (offset.hours) versionDate.setHours(versionDate.getHours() - offset.hours);
-      
-      versions.push({
-        id: `version-${index + 1}`,
-        created_at: versionDate.toISOString(),
-        is_current: index === 0,
-        author: authors[index % authors.length],
-        content: currentContent,
-        changes: Array.from({ length: Math.floor(Math.random() * 10) + 1 }, (_, i) => ({
-          type: ['added', 'modified', 'deleted'][Math.floor(Math.random() * 3)],
-          description: `Change ${i + 1}`
-        }))
-      });
-    });
-
-    return versions;
-  };
-
-  // Fetch version history from actual API 
+  // Fetch version history from API
   useEffect(() => {
     const fetchVersions = async () => {
       setLoading(true);
+      let data = null;
       try {
-        // Try to fetch from API if documentId exists
-        if (documentId) {
-          const response = await fetch(`/api/documents/${documentId}/versions`);
-          const data = await response.json();
+        if (id) {
+          // primary: template-service
+          data = await listTemplateVersionsAPI(id);
+          console.debug('listTemplateVersionsAPI response', data);
+
+          // Support multiple shapes: array, { versions: [...] }, or nested
+          let rawVersions = Array.isArray(data)
+            ? data
+            : Array.isArray(data.versions)
+              ? data.versions
+              : Array.isArray(data.data && data.data.versions)
+                ? data.data.versions
+                : [];
+
           
-          if (data.versions && data.versions.length > 0) {
-            // Group versions by date
-            const grouped = groupVersionsByDate(data.versions);
-            setVersions(grouped);
-            
-            // Set the most recent version as selected by default
-            const latest = data.versions[0];
-            setSelectedVersion(latest.id);
-            setVersionContent(latest.content || currentContent);
-            
-            // Expand all date groups by default
-            const expanded = {};
-            grouped.forEach(group => {
-              expanded[group.date] = true;
+
+          if (rawVersions && rawVersions.length > 0) {
+            const normalized = rawVersions.map(v => {
+              // parse created_at: accept { $date: ... }, ISO string, or numeric timestamp
+              let createdAt = null;
+              if (v?.created_at) {
+                if (typeof v.created_at === 'string' || typeof v.created_at === 'number') createdAt = v.created_at;
+                else if (v.created_at.$date) createdAt = v.created_at.$date;
+              } else if (v?.createdAt) {
+                if (typeof v.createdAt === 'string' || typeof v.createdAt === 'number') createdAt = v.createdAt;
+                else if (v.createdAt.$date) createdAt = v.createdAt.$date;
+              } else if (v.timestamp) {
+                createdAt = v.timestamp;
+              }
+
+              // parse created_by: accept { $oid: '...' }, populated object with name, or raw id string
+              let author = 'Unknown';
+              if (v?.created_by) {
+                if (typeof v.created_by === 'string') author = v.created_by;
+                else if (v.created_by.$oid) author = v.created_by.$oid;
+                else if (v.created_by._id) author = String(v.created_by._id);
+                else if (v.created_by.id) author = String(v.created_by.id);
+                else if (v.created_by.name) author = v.created_by.name;
+              } else if (v.author) {
+                author = v.author;
+              }
+
+              return {
+                ...v,
+                id: v._id || v.id,
+                created_at: createdAt,
+                content: v.snapshot?.pages_json || v.content || null,
+                author,
+                versionName: v.name || v.note || ''
+              };
             });
+
+            const grouped = groupVersionsByDate(normalized);
+            setVersions(grouped);
+
+            const latestFromGroup = grouped?.[0]?.items?.[0] || normalized[0];
+            if (latestFromGroup) {
+              setSelectedVersion(latestFromGroup.id);
+              setVersionContent(latestFromGroup.content || currentContent);
+            }
+
+            const expanded = {};
+            grouped.forEach(group => { expanded[group.date] = true; });
             setExpandedDates(expanded);
-            
+
+            setRawResponse(data || null);
             setLoading(false);
             return;
           }
         }
       } catch (error) {
-        console.log('API not available, using dummy data');
+        console.error('Failed to fetch versions', error);
       }
-      
-      // Use dummy data if API fails or no documentId
-      const dummyVersions = generateDummyVersions();
-      const grouped = groupVersionsByDate(dummyVersions);
-      setVersions(grouped);
-      
-      // Set the most recent version as selected
-      if (dummyVersions.length > 0) {
-        setSelectedVersion(dummyVersions[0].id);
-        setVersionContent(currentContent);
-      }
-      
-      // Expand all date groups by default
-      const expanded = {};
-      grouped.forEach(group => {
-        expanded[group.date] = true;
-      });
-      setExpandedDates(expanded);
-      
+
+      // No versions returned or API failed — set to empty (UI shows 'No versions found')
+      setRawResponse(data || null);
+      setVersions([]);
+      setSelectedVersion(null);
+      setVersionContent(null);
+      setExpandedDates({});
       setLoading(false);
     };
 
     fetchVersions();
-  }, [documentId, currentContent]);
+  }, [templateId, documentId, currentContent]);
+
+  // debug: log versions when they change
+  useEffect(() => {
+    console.debug('VersionHistory - versions state updated:', versions);
+  }, [versions]);
 // ---------------------------------------------------------------------
 
   // Group versions by relative date
   const groupVersionsByDate = (versionList) => {
     const grouped = {};
     const now = new Date();
+    
     
     versionList.forEach(version => {
       const versionDate = new Date(version.created_at || version.timestamp);
@@ -145,7 +144,7 @@ export default function VersionHistory({
         author: version.created_by?.name || version.author || 'Unknown',
         content: version.content,
         fieldValues: version.field_values,
-        versionName: version.name,
+        versionName: version.versionName || version.name || version.note || '',
         changes: version.changes || []
       });
     });
@@ -196,10 +195,7 @@ export default function VersionHistory({
 
   // Toggle date group expansion
   const toggleDate = (date) => {
-    setExpandedDates(prev => ({
-      ...prev,
-      [date]: !prev[date]
-    }));
+    setExpandedDates(prev => ({ ...prev, [date]: !prev[date] }));
   };
 
   // Handle version selection
@@ -211,9 +207,8 @@ export default function VersionHistory({
       setVersionContent(version.content);
     } else {
       try {
-        const response = await fetch(`/api/documents/${documentId}/versions/${version.id}`);
-        const data = await response.json();
-        setVersionContent(data.content);
+  const data = await getTemplateVersionAPI(id, version.id);
+        setVersionContent(data.version?.snapshot?.pages_json || currentContent);
       } catch (error) {
         console.error('Failed to fetch version content:', error);
         // Fallback to current content
@@ -274,6 +269,9 @@ export default function VersionHistory({
               <span className="font-medium text-gray-900">
                 {currentVersionDetails?.time || 'Select a version'}
               </span>
+              {!loading && totalVersions > 0 && (
+                <span className="ml-2 text-xs text-gray-500">Loaded {totalVersions} {totalVersions === 1 ? 'version' : 'versions'}</span>
+              )}
               {currentVersionDetails?.isCurrent && (
                 <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
                   Current
@@ -282,12 +280,31 @@ export default function VersionHistory({
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
             <div className="text-sm text-gray-600 flex items-center gap-2">
               <span>Total: {totalVersions} {totalVersions === 1 ? 'version' : 'versions'}</span>
             </div>
             
-            <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <button
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={async () => {
+                if (!selectedVersion) return window.alert('No version selected');
+                const ok = window.confirm('Restore this template to the selected version? This will create a new version capturing the restore.');
+                if (!ok) return;
+                try {
+                  const resp = await restoreTemplateVersionAPI(id, selectedVersion);
+                  if (resp?.success) {
+                    window.alert('Template restored');
+                    onClose && onClose();
+                    return;
+                  }
+                  window.alert(resp?.message || 'Restore response received');
+                } catch (e) {
+                  console.error('Restore failed', e);
+                  window.alert('Failed to restore template version');
+                }
+              }}
+            >
               Restore this version
             </button>
           </div>
@@ -391,6 +408,9 @@ export default function VersionHistory({
                               <span className="text-sm font-medium text-gray-900 truncate">
                                 {version.time}
                               </span>
+                              {version.versionName && (
+                                <span className="block text-xs text-gray-500 truncate">{version.versionName}</span>
+                              )}
                             </div>
                             
                             {version.isCurrent && (

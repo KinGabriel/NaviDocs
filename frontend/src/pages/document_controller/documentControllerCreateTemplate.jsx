@@ -377,7 +377,7 @@ return (
     {showVersionHistory ? (
       <VersionHistory
         onClose={() => setShowVersionHistory(false)}
-        documentId={templateId}
+        templateId={templateId}
         currentContent={templateContent}
         pageSetup={pageSetup}
         TextEditor={TextEditor}
