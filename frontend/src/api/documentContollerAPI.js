@@ -390,3 +390,63 @@ export const renameTemplateAPI = async (templateId, newTitle) => {
     throw err.response?.data || { message: err.message };
   }
 };
+
+/**
+ * List template versions (history) for a template
+ * @param {string} templateId - Template ObjectId
+ * @returns {Promise<{success:boolean,versions:Array}>}
+ */
+export const listTemplateVersionsAPI = async (templateId) => {
+  try {
+    const res = await axios.get(`${API_URL}/api/templates/${templateId}/versions`, { withCredentials: true });
+    return res.data;
+  } catch (err) {
+    throw new Error(err.response?.data?.message || 'Failed to list template versions');
+  }
+};
+
+/**
+ * Get a specific template version
+ * @param {string} templateId
+ * @param {string} versionId
+ * @returns {Promise<{success:boolean,version:Object}>}
+ */
+export const getTemplateVersionAPI = async (templateId, versionId) => {
+  try {
+    const res = await axios.get(`${API_URL}/api/templates/${templateId}/versions/${versionId}`, { withCredentials: true });
+    return res.data;
+  } catch (err) {
+    throw new Error(err.response?.data?.message || 'Failed to fetch template version');
+  }
+};
+
+/**
+ * Update the note on a template version
+ * @param {string} templateId
+ * @param {string} versionId
+ * @param {string} note
+ * @returns {Promise<{success:boolean,version:Object}>}
+ */
+export const updateTemplateVersionNoteAPI = async (templateId, versionId, note) => {
+  try {
+    const res = await axios.patch(`${API_URL}/api/templates/${templateId}/versions/${versionId}/note`, { note }, { withCredentials: true });
+    return res.data;
+  } catch (err) {
+    throw new Error(err.response?.data?.message || 'Failed to update version note');
+  }
+};
+
+/**
+ * Restore a template from a version
+ * @param {string} templateId
+ * @param {string} versionId
+ * @returns {Promise<{success:boolean,message:string,template:Object}>}
+ */
+export const restoreTemplateVersionAPI = async (templateId, versionId) => {
+  try {
+    const res = await axios.post(`${API_URL}/api/templates/${templateId}/versions/${versionId}/restore`, {}, { withCredentials: true });
+    return res.data;
+  } catch (err) {
+    throw new Error(err.response?.data?.message || 'Failed to restore template version');
+  }
+};

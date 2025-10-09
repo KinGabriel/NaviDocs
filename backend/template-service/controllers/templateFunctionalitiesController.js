@@ -2,6 +2,7 @@ import Template from "../models/templateModel.js";
 import { getSchoolCode, buildApprovalMeta, statusQuery } from "../utils/templateUtils.js";
 import { generateTemplateThumbnail } from "../utils/thumbnailUtils.js";
 import axios from "axios";
+import { createTemplateVersion } from './templateVersionController.js';
 
 /**
  * @desc Create a new template
@@ -40,6 +41,13 @@ export const createTemplate = async (req, res) => {
     delete template.school_identifier; // not stored separately
 
     await template.save();
+
+    // Create initial version for the newly created template (non-blocking)
+    try {
+      await createTemplateVersion({ templateId: template._id, snapshot: template.toObject(), userId: req.user?.id, note: 'Initial version' });
+    } catch (e) {
+      console.error('Failed to create initial template version', e);
+    }
 
     res.status(201).json({
       success: true,

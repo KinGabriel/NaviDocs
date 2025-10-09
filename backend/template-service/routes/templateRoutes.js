@@ -33,6 +33,13 @@ import {
         insertDocumentCode
 } from "../controllers/templateWorkflowController.js";
 
+import {
+        listTemplateVersions,
+        getTemplateVersion,
+        updateTemplateVersionNote,
+        restoreTemplateVersion
+} from '../controllers/templateVersionController.js';
+
 const router = express.Router();
 
 router.post("/assign-controllers", authenticateJWT, assignControllersToTemplate);
@@ -44,6 +51,10 @@ router.get("/stats", authenticateJWT, getTemplateStats);
 router.get("/published", authenticateJWT, getPublishedTemplates);
 router.get("/user/:userId", authenticateJWT, getTemplatesByUser);
 router.get("/:id", authenticateJWT, getTemplateById);
+router.get('/:id/versions', authenticateJWT, listTemplateVersions);
+router.get('/:id/versions/:versionId', authenticateJWT, getTemplateVersion);
+router.patch('/:id/versions/:versionId/note', authenticateJWT, updateTemplateVersionNote);
+router.post('/:id/versions/:versionId/restore', authenticateJWT, restoreTemplateVersion);
 router.put("/:id", authenticateJWT, updateTemplate);
 router.patch("/:id/approve", authenticateJWT, approveTemplate);
 router.patch("/:id/publish", authenticateJWT, publishTemplate);
