@@ -42,6 +42,16 @@ export default function DocumentCard({
     }
   };
 
+  {/* Get creator/Owner name */}
+    const getCreatorName = () => {
+      if (!user) return "Unknown";
+      if (user.firstname && user.lastname) {
+        return `${user.firstname} ${user.lastname}`;
+      }
+      // Try name or username as fallback
+      return user.name || user.username || "Unknown";
+    };
+
   const getStatus = (doc) => {
     if (!doc) return 'draft';
     if (typeof doc.status === 'string') return doc.status;
@@ -66,7 +76,6 @@ export default function DocumentCard({
   const status = getStatus(document);
   const notesCount = Array.isArray(document.notes) ? document.notes.length : 0;
   const school = document?.school || document?.from_template?.school || '';
-  const creator = document?.created_by ? String(document.created_by) : (document?.created_by?._id ? String(document.created_by._id) : null);
   const title = getTitle(document);
 
   // ---------- menu & modals state ----------
@@ -271,6 +280,7 @@ export default function DocumentCard({
               {title}
             </p>
 
+            {/* Created date */}
             <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -280,29 +290,33 @@ export default function DocumentCard({
               </svg>
               <span>Created {formatDate(document.createdAt || document.created_at)}</span>
             </div>
+
+            {/* Notes count */}
             <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h12a2 2 0 012 2z" />
               </svg>
               <span>{notesCount} note{notesCount !== 1 ? 's' : ''}</span>
             </div>
-            {school ? (
+
+            {/* School */}
+            {school && (
               <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 6 2-7L2 9h7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l9-5-9-5-9 5 9 5z"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
                 </svg>
                 <span>{school}</span>
               </div>
-            ) : null}
+            )}
 
-            {creator ? (
-              <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM6 20v-1a4 4 0 014-4h4a4 4 0 014 4v1" />
-                </svg>
-                <span>By {creator.length > 8 ? creator.slice(0,8) + '...' : creator}</span>
-              </div>
-            ) : null}
+            {/* Creator/Owner */}
+            <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <span>By {getCreatorName()}</span>
+            </div>
           </div>
 
           {/* 3-dot menu */}
@@ -386,7 +400,7 @@ export default function DocumentCard({
       <AssignMembersModal
         open={assignOpen}
         onClose={() => setAssignOpen(false)}
-        template={document} // reuse: component just needs an object
+        template={document}
         selectedIds={selectedIds}
         setSelectedIds={setSelectedIds}
         setTheDocController={() => {}}
