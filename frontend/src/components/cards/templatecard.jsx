@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import AssignMembersModal from "../modals/assignMembersModal";
-import DuplicateTemplateModal from "../modals/DuplicateTemplateModal";
+import DuplicateModal from "../modals/duplicateModal";
 import RenameModal from '../modals/renameModal';
-import DeleteDocumentModal from '../modals/deleteDocumentModal';
+import DeleteModal from '../modals/deleteModal';
 import { deleteTemplateAPI, assignControllersToTemplateAPI, renameTemplateAPI, duplicateTemplateAPI } from "../../api/documentContollerAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
 const API_URL =
-  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];  
+  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
-  export default function TemplateCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete, onAssign }) {
+export default function TemplateCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete, onAssign }) {
 
   const [showMenu, setShowMenu] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -346,7 +346,7 @@ const API_URL =
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                     onClick={(e) => handleMenuAction('rename', e)}
                   >
-                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil-icon lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
                     Rename
                   </button>
                   
@@ -379,7 +379,7 @@ const API_URL =
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    Remove
+                    Delete  
                   </button>
                 </div>
               </>
@@ -428,7 +428,8 @@ const API_URL =
           }
         }}
       />
-      <DuplicateTemplateModal
+      
+      <DuplicateModal
         open={duplicateOpen}
         onClose={() => { setDuplicateOpen(false); justClosedModal(); }}
         type="template"
@@ -470,48 +471,47 @@ const API_URL =
       />
 
       <RenameModal
-      open={renameOpen}
-      onClose={() => { setRenameOpen(false); justClosedModal(); }}
-      currentTitle={template.title}
-      submitting={renaming}
-      onSubmit={async (newTitle) => {
-        try {
-          setRenaming(true);
-          const data = await renameTemplateAPI(template._id, newTitle);
+        open={renameOpen}
+        onClose={() => { setRenameOpen(false); justClosedModal(); }}
+        currentTitle={template.title}
+        submitting={renaming}
+        onSubmit={async (newTitle) => {
+          try {
+            setRenaming(true);
+            const data = await renameTemplateAPI(template._id, newTitle);
 
-          if (data && (data.template || data.success)) {
-            // Success - prefer calling parent handler
-            if (onRename) {
-              onRename(data.template || { ...template, title: newTitle });
+            if (data && (data.template || data.success)) {
+              // Success - prefer calling parent handler
+              if (onRename) {
+                onRename(data.template || { ...template, title: newTitle });
+              }
+              setRenameOpen(false);
+              justClosedModal();
+              // If parent didn't handle UI update, reload to reflect changes
+              if (!onRename && typeof window !== 'undefined') {
+                window.location.reload();
+              }
+            } else {
+              throw new Error(data?.message || 'Failed to rename template');
             }
-            setRenameOpen(false);
-            justClosedModal();
-            // If parent didn't handle UI update, reload to reflect changes
-            if (!onRename && typeof window !== 'undefined') {
-              window.location.reload();
-            }
-          } else {
-            throw new Error(data?.message || 'Failed to rename template');
+          } catch (err) {
+            console.error('Rename error:', err);
+            alert(err.response?.data?.message || err.message || 'An error occurred while renaming.');
+          } finally {
+            setRenaming(false);
           }
-        } catch (err) {
-          console.error('Rename error:', err);
-          alert(err.response?.data?.message || err.message || 'An error occurred while renaming.');
-        } finally {
-          setRenaming(false);
-        }
-      }}
-    />
+        }}
+      />
 
-    {/* Delete Modal */}
-      <DeleteDocumentModal
+      {/* Delete Modal */}
+      <DeleteModal
         open={deleteOpen}
         onClose={() => { setDeleteOpen(false); justClosedModal(); }}
-        documentTitle={template?.title || "this template"}
+        itemType="template"
+        itemTitle={template.title}
         onConfirm={confirmDelete}
         submitting={deleting}
         error={deleteError}
       />
-
     </>
-  );
-}
+  )};

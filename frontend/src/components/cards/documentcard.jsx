@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import RenameModal from '../modals/renameModal';
 import AssignMembersModal from '../modals/AssignMembersModal';
-import DuplicateTemplateModal from '../modals/DuplicateTemplateModal';
-import DeleteDocumentModal from '../modals/deleteDocumentModal';
+import DuplicateModal from '../modals/DuplicateModal';
+import DeleteModal from '../modals/DeleteModal';
 
 import {
   renameTemplateAPI,
@@ -379,7 +379,7 @@ export default function DocumentCard({
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    Remove
+                    Delete  
                   </button>
                 </div>
               </>
@@ -388,7 +388,8 @@ export default function DocumentCard({
         </div>
       </div>
 
-      {/* ------- Modals ------- */}
+      {/* Modals */}
+      {/* Rename Modal */}
       <RenameModal
         open={renameOpen}
         onClose={() => setRenameOpen(false)}
@@ -397,6 +398,7 @@ export default function DocumentCard({
         onSubmit={handleRename}
       />
 
+      {/* Assign Modal */}
       <AssignMembersModal
         open={assignOpen}
         onClose={() => setAssignOpen(false)}
@@ -407,7 +409,8 @@ export default function DocumentCard({
         onAssign={handleAssign}
       />
 
-      <DuplicateTemplateModal
+      {/* Duplicate Modal */} 
+      <DuplicateModal
         open={duplicateOpen}
         onClose={() => setDuplicateOpen(false)}
         type="document"
@@ -416,15 +419,16 @@ export default function DocumentCard({
         onDuplicate={handleDuplicate}
       />
 
-      <DeleteDocumentModal
+      {/* Delete Modal */}
+      <DeleteModal
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
-        documentTitle={title}
+        itemType="document"
+        itemTitle={title}
         onConfirm={confirmDelete}
         submitting={deleting}
         error={deleteError}
       />
-
     </div>
   );
 }

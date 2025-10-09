@@ -10,8 +10,8 @@ import DocumentCard from "../components/cards/documentcard";
 import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";
-import RenameDocumentModal from "../components/modals/renameModal";
-import DeleteDocumentModal from "../components/modals/deleteDocumentModal";
+import RenameModal from "../components/modals/renameModal";
+import DeleteModal from "../components/modals/deleteModal";
 import SelectTemplateModal from "../components/modals/selectTemplateModal";
 import ManageSuggestionsModal from "../components/modals/manageSuggestionsModal";
 
@@ -410,8 +410,8 @@ export default function GlobalTemplates() {
         </div>
       </div>
 
-      {/* Rename modal */}
-      <RenameDocumentModal
+      Rename modal
+      <RenameModal
         open={renameOpen}
         onClose={() => { setRenameOpen(false); setActiveDoc(null); }}
         currentTitle={activeDoc?.title}
@@ -421,7 +421,7 @@ export default function GlobalTemplates() {
       />
 
       {/* Delete modal */}
-      <DeleteDocumentModal
+      <DeleteModal
         open={deleteOpen}
         onClose={() => { setDeleteOpen(false); setActiveDoc(null); }}
         documentTitle={activeDoc?.title}
