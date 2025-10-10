@@ -25,6 +25,7 @@ import TemplatesView from './pages/templatesView';
 import DeanDashboard from './pages/dean/deanDashboard';
 import DeanStatistics from './pages/dean/deanStatistics';
 import DeanDocumentWorkflow from './pages/dean/deanDocumentWorkflow';
+import DeanDocumentWorkflowView from './pages/dean/deanDocumentWorkflowView';
 import DeanTemplates from "./pages/dean/deanTemplates.jsx";
 import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
 import DepartmentHeadDocumentWorkflow from './pages/dept_head/departmentHeadDocumentWorkflow';
@@ -204,6 +205,14 @@ function App() {
            </ProtectedRoute>
           }
         />  
+        <Route 
+         path="/dean/document-workflow/:id" 
+         element={<DeanDocumentWorkflowView />}
+       />
+       <Route 
+         path="/dean/documents/:id" 
+         element={<DeanDocumentWorkflowView />}
+       />
 
        {/* Department Head Module */}
        <Route
