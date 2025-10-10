@@ -14,6 +14,7 @@ import DocumentControllerCreateTemplate from './pages/document_controller/docume
 import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
 import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
+import DocumentControllerWorkflowView from './pages/document_controller/documentControllerWorkflowView';
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/unauthorizedPage';
@@ -137,6 +138,10 @@ function App() {
              <DocumentControllerWorkFlow />
            </ProtectedRoute>
          }
+       />
+       <Route
+         path="/document-controller/document-workflow/:id"
+         element={<DocumentControllerWorkflowView />}
        />
 
        {/* Secretary Module */}
