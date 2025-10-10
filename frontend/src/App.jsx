@@ -33,6 +33,7 @@ import DepartmentHeadTemplateView from './pages/dept_head/departmentHeadTemplate
 import FacultyDashboard from './pages/faculty/facultyDashboard';
 import EditableFields from './pages/editableFields';
 import Storage from './pages/Storage';
+import SelectTemplate from './pages/selectTemplate'; 
 import { Toaster } from 'react-hot-toast';
 
 /** Redirect logged-in users by role; otherwise show Login */
@@ -306,7 +307,15 @@ function App() {
            </ProtectedRoute>
          }
        />
-      
+
+       <Route path="/select-template"
+       element={
+       <ProtectedRoute allowedRoles={["Document Controller","Dean","Department Head","Faculty", "Secretary"]}>
+           <SelectTemplate />
+      </ProtectedRoute>
+       }
+      />
+
        {/* Error Pages */}
        <Route path="*" element={<NotFoundPage />} />
        <Route path="/server-error" element={<ServerErrorPage />} />

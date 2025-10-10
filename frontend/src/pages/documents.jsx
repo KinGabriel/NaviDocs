@@ -12,7 +12,7 @@ import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";
 import RenameModal from "../components/modals/renameModal";
 import DeleteModal from "../components/modals/deleteModal";
-import SelectTemplateModal from "../components/modals/selectTemplateModal";
+import SelectTemplate from "./selectTemplate";
 import ManageSuggestionsModal from "../components/modals/manageSuggestionsModal";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -234,32 +234,26 @@ export default function GlobalTemplates() {
              {/* Select Template Button */}
               <div className="flex-1 flex justify-start ml-1">
                 <button
-                  onClick={async () => {
-                    // Trigger fetching published templates before opening modal
-                    try {
-                      setPublishedLoading(true);
-
-                      const res = await fetchPublishedTemplatesAPI({ limit: PAGE_SIZE, page: 1 });
-                      // Cache result for potential future use
-                      if (res?.success && res.data?.templates) setPublishedTemplatesCache(res.data.templates);
-                      else if (res?.templates) setPublishedTemplatesCache(res.templates);
-                      else if (Array.isArray(res)) setPublishedTemplatesCache(res);
-                    } catch (err) {
-                      // ignore errors for now; modal will still open
-                      console.error('Failed to fetch published templates:', err);
-                    } finally {
-                      setPublishedLoading(false);
-                      setSelectOpen(true);
-                    }
-                  }}
+                  onClick={() => navigate("/select-template")}
                   className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
                 >
-              {/* plus icon */}
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
                   </svg>
                   Select Template
                 </button>
+             {/* Manage Suggestions Button */}
                 <button
                   onClick={async () => {
                     // Prefetch both published templates and user's documents (larger slice)
@@ -410,7 +404,7 @@ export default function GlobalTemplates() {
         </div>
       </div>
 
-      Rename modal
+      {/* Rename modal */}
       <RenameModal
         open={renameOpen}
         onClose={() => { setRenameOpen(false); setActiveDoc(null); }}
@@ -430,26 +424,11 @@ export default function GlobalTemplates() {
         onConfirm={handleDeleteConfirm}
       />
 
-      {/* Select Template modal (Published templates) */}
-      <SelectTemplateModal
-        open={selectOpen}
-        onClose={() => setSelectOpen(false)}
-        user={user}
-        onPickTemplate={(tpl) => {
-          setSelectOpen(false);
-          const id = tpl._id || tpl.id;
-          // Navigate to the published template view and pass the template as state
-          navigate(`/templates/published/${id}`, {
-            state: {
-              doc: tpl,
-              sidebarActive: "Templates",
-              backTo: "/documents",
-            },
-          });
-        }}
-      />
-      <ManageSuggestionsModal open={manageOpen} onClose={() => setManageOpen(false)} fields={fields} user={user} />
-      
+      <ManageSuggestionsModal 
+      open={manageOpen} 
+      onClose={() => setManageOpen(false)}
+      fields={fields} 
+      user={user} />
     </div>
   );
 }
