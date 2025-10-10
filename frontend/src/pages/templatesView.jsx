@@ -646,6 +646,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
 
             {/* Template details and metadata */}
             <aside className="col-span-12 lg:col-span-4">
+              
               {/* Template Status Panel */}
               <div className="bg-white border rounded-md shadow-sm mb-4">
                 <div className="p-5">
