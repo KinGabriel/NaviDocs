@@ -73,8 +73,6 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
     setIsISOModalOpen(true);
   };
 
-
-
   // Handle saving document code and effectivity date
   const handleSave = async () => {
     if (!effectivityDate) {
@@ -107,11 +105,15 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
         } catch (apiErr) {
           const resp = apiErr?.response;
           if (resp && resp.status === 409) {
-            // store full response data so we have both message and conflict info
-            setConflictError(resp.data || { message: resp.data?.message || 'Conflict' });
-            setIsSaving(false);
-            return; // don't proceed to close editor
-          }
+          const existingCode = resp.data?.existing?.document_code || payload.document_code;
+          const existingRev = resp.data?.existing?.revision_no ?? payload.revision_no;
+
+          setConflictError({
+            message: `A document with code "${existingCode}" and revision number "${String(existingRev).padStart(2, '0')}" already exists. Please use a different revision number or code.`,
+          });
+          setIsSaving(false);
+          return; // stop save
+        }
           throw apiErr;
         }
       }
@@ -168,6 +170,17 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
     if (!iso) return 'Not set';
     return formatDate(iso);
   };
+
+  // timer for conflict message
+  useEffect(() => {
+  if (conflictError) {
+    const timer = setTimeout(() => {
+      setConflictError(null);
+    }, 5000); // disappears after 5 seconds
+    return () => clearTimeout(timer);
+  }
+}, [conflictError]);
+
 
   return (
     <>
@@ -309,11 +322,13 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
 
         {/* Inline conflict message for duplicate document_code+revision */}
         {conflictError && (
-          <div className="text-sm text-red-600 mt-1">
-            {conflictError?.message || 'Conflict detected.'}
-            {conflictError?.conflict?.title ? ` — ${conflictError.conflict.title}` : ''}
-          </div>
-        )}
+        <div
+          className="text-sm text-red-600 mt-2 mb-5 bg-red-50 border border-red-200 p-2 rounded-md transition-opacity duration-500 ease-in-out"
+        >
+          <strong>Conflict:</strong> {conflictError.message}
+        </div>
+      )}
+
 
 
           {/* Effectivity Date Section */}
