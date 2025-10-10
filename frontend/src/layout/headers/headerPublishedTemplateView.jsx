@@ -19,7 +19,7 @@ export default function HeaderPublishedTemplateView({
   const navigate = useNavigate();
 
   return (
-    <div>
+     <div className="sticky top-0 z-50 bg-[#f3f3f3] shadow-sm">
       <div className="h-4 bg-[#063c8d] w-full" />
       <div className="flex items-center justify-between bg-[#f3f3f3] px-8 py-3 border-b border-gray-200">
         <div className="flex items-center gap-8">
