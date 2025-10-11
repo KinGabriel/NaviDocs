@@ -15,9 +15,15 @@ export default function ApprovalModal({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Mini-modal (overlay) state
+  // Mini-modal (overlay) state  - APPROVE
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [approvedDone, setApprovedDone] = useState(false);
+
+  // Mini-modal (overlay) state — REJECT
+  const [confirmRejectOpen, setConfirmRejectOpen] = useState(false);
+  const [rejectDone, setRejectDone] = useState(false);
+  const [rejectError, setRejectError] = useState("");
+
 
   // Clear local state whenever modal opens/closes or template changes
   useEffect(() => {
@@ -25,8 +31,14 @@ export default function ApprovalModal({
       setMessage("");
       setError("");
       setLoading(false);
+
+      //reset all overlays
       setConfirmOpen(false);
       setApprovedDone(false);
+
+      setConfirmRejectOpen(false);
+      setRejectDone(false);
+      setRejectError("");
     }
   }, [isOpen, template?._id]);
 
@@ -192,8 +204,9 @@ export default function ApprovalModal({
               {loading ? "Processing..." : "Approve"}
             </button>
 
+            {/* Reject (opens confirmation overlay) */}
             <button
-              onClick={handleReject}
+              onClick={() => setConfirmRejectOpen(true)}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-red-600 text-white hover:bg-red-700 hover:shadow-md font-medium transition-all min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -314,6 +327,119 @@ export default function ApprovalModal({
                         setConfirmOpen(false);
                         setApprovedDone(false);
                         onClose(); // close the parent modal after acknowledging success
+                      }}
+                      className="ml-auto px-4 py-2 rounded-md border text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Close
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Reject Confirmation Mini-Modal Overlay */}
+          {confirmRejectOpen && (
+            <div
+              className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="reject-confirm-title"
+            >
+              <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+                {/* Header */}
+                <div className="px-5 py-4 border-b">
+                  <h3 id="reject-confirm-title" className="text-lg font-semibold">
+                    {rejectDone ? "Template Rejected" : "Reject Template"}
+                  </h3>
+                </div>
+
+                {/* Body */}
+                <div className="px-5 py-4">
+                  {!rejectDone ? (
+                    <>
+                      <p className="text-sm text-gray-700">
+                        Are you sure you want to reject this template?
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        A reason is required. Current reason: <span className="font-medium">{message?.trim() || "—"}</span>
+                      </p>
+                      {rejectError && (
+                        <div className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+                          {rejectError}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <svg className="h-6 w-6 text-red-600 mt-1" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20Zm-1-6h2v2h-2v-2Zm0-8h2v6h-2V8Z" />
+                      </svg>
+                      <div>
+                        <p className="text-base font-medium text-gray-900">
+                          This template has been rejected.
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Your action has been recorded and the status is now <span className="font-semibold">Rejected</span>.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer — No (left) and Yes (right) */}
+                <div className="px-5 py-4 border-t flex items-center justify-between">
+                  {!rejectDone ? (
+                    <>
+                      {/* No (left) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmRejectOpen(false);
+                          setRejectDone(false);
+                          setRejectError("");
+                        }}
+                        className="px-4 py-2 rounded-md border text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-60"
+                        disabled={loading}
+                      >
+                        No
+                      </button>
+
+                      {/* Yes (right) */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (loading) return;
+                          setRejectError("");
+                          if (!message.trim()) {
+                            setRejectError("Please provide a reason for rejection.");
+                            return;
+                          }
+                          setLoading(true);
+                          try {
+                            await onReject(template, message);
+                            setRejectDone(true);
+                          } catch (e) {
+                            setRejectError("Failed to reject template.");
+                            console.error("Error rejecting template:", e);
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        className="px-4 py-2 rounded-md text-white bg-red-600 hover:bg-red-700 disabled:opacity-60"
+                        disabled={loading}
+                      >
+                        {loading ? "Rejecting..." : "Yes"}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfirmRejectOpen(false);
+                        setRejectDone(false);
+                        setRejectError("");
+                        onClose(); // close parent modal after acknowledging success
                       }}
                       className="ml-auto px-4 py-2 rounded-md border text-gray-700 bg-white hover:bg-gray-50"
                     >
