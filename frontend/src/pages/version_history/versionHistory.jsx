@@ -129,7 +129,7 @@ export default function VersionHistory({
     
     
     versionList.forEach(version => {
-      const versionDate = new Date(version.created_at || version.timestamp);
+      const versionDate = new Date(version.last_activity_at || version.upupdated || version.created_at);
       const dateKey = getRelativeDate(versionDate, now);
       
       if (!grouped[dateKey]) {

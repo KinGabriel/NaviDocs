@@ -11,7 +11,8 @@ const templateHistorySchema = new mongoose.Schema({
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   note: { type: String, default: '' },
   version_no: { type: Number, required: true },
-}, { timestamps: { createdAt: 'created_at', updatedAt: false } });
+  last_activity_at: { type: Date, default: null },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 // Index by template_id + version_no for fast retrieval
 templateHistorySchema.index({ template_id: 1, version_no: -1 });

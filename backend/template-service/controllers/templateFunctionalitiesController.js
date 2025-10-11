@@ -142,6 +142,24 @@ console.log(updateOps);
       { new: true, runValidators: true }
     );
 
+    // Create a version for the update (non-blocking). Use provided version_note or fallback to empty.
+    try {
+      const note = (req.body && typeof req.body.version_note === 'string') ? req.body.version_note : '';
+      // Provide a snapshot object with only allowed keys to let createTemplateVersion decide
+      const snapshot = {
+        pages_json: updatedTemplate.pages_json,
+        fields: updatedTemplate.fields,
+        pageSetup: updatedTemplate.pageSetup,
+        dateFormat: updatedTemplate.dateFormat
+      };
+      // fire-and-forget; createTemplateVersion contains its own try/catch where necessary
+      createTemplateVersion({ templateId: updatedTemplate._id, snapshot, userId: req.user?.id, note }).catch(e => {
+        console.error('Non-blocking createTemplateVersion failed:', e);
+      });
+    } catch (e) {
+      console.error('Failed to enqueue createTemplateVersion', e);
+    }
+
     /** 
     // Emit socket event for real-time updates
     if (req.io) {
