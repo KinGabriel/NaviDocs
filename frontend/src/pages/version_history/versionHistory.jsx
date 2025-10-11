@@ -71,16 +71,27 @@ export default function VersionHistory({
                 else if (v.lastActivityAt.$date) lastActivity = v.lastActivityAt.$date;
               }
 
-              // parse created_by: accept { $oid: '...' }, populated object with name, or raw id string
+              // parse created_by: prioritize name over ID
               let author = 'Unknown';
               if (v?.created_by) {
-                if (typeof v.created_by === 'string') author = v.created_by;
-                else if (v.created_by.$oid) author = v.created_by.$oid;
-                else if (v.created_by._id) author = String(v.created_by._id);
-                else if (v.created_by.id) author = String(v.created_by.id);
-                else if (v.created_by.name) author = v.created_by.name;
+                // First check if it's a populated object with name
+                if (typeof v.created_by === 'object' && v.created_by.name) {
+                  author = v.created_by.name;
+                } else if (typeof v.created_by === 'object' && (v.created_by.first_name || v.created_by.last_name)) {
+                  author = [v.created_by.first_name, v.created_by.last_name].filter(Boolean).join(' ');
+                } else if (typeof v.created_by === 'object' && v.created_by.email) {
+                  author = v.created_by.email.split('@')[0]; // Use email username as fallback
+                } else if (typeof v.created_by === 'string') {
+                  // If it's a string ID, keep as Unknown rather than showing ID
+                  author = 'Unknown';
+                } else if (v.created_by.$oid || v.created_by._id || v.created_by.id) {
+                  // If it's an unpopulated reference, show Unknown
+                  author = 'Unknown';
+                }
               } else if (v.author) {
                 author = v.author;
+              } else if (v.created_by_name) {
+                author = v.created_by_name;
               }
 
               // prefer the first page from pages_json (TextEditor expects a single doc/page)
@@ -157,7 +168,11 @@ export default function VersionHistory({
         time: formatDateTime(versionDate),
         timestamp: versionDate,
         isCurrent: version.is_current || false,
-        author: version.created_by?.name || version.author || 'Unknown',
+        author: version.created_by?.name || 
+                version.created_by?.first_name && version.created_by?.last_name 
+                  ? `${version.created_by.first_name} ${version.created_by.last_name}`.trim()
+                  : version.created_by?.email?.split('@')[0] || 
+                    version.author || 'Unknown',
         content: version.content,
         fieldValues: version.field_values,
         versionName: version.versionName || version.name || version.note || '',
@@ -264,11 +279,26 @@ export default function VersionHistory({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // --------------------------------------------------------------------
+  // TODO: IMPLEMENT API CALLS
   const handleCopyVersion = (version) => {
     // Implement copy functionality here
     console.log('Copying version:', version.id);
     setMenuOpen(null);
   };
+
+  const handleBookmarkVersion = (version) => {
+    const bookmarks = JSON.parse(localStorage.getItem('bookmarkedVersions') || '[]');
+    if (!bookmarks.some(v => v.id === version.id)) {
+      bookmarks.push(version);
+      localStorage.setItem('bookmarkedVersions', JSON.stringify(bookmarks));
+      alert(`Version ${version.version_no || version.id} bookmarked!`);
+    } else {
+      alert('This version is already bookmarked.');
+    }
+  };
+
+  
 
   return (
     <div className="flex h-full bg-gray-50">
@@ -424,11 +454,11 @@ export default function VersionHistory({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium text-gray-900 truncate">
-                                {version.time}
-                              </span>
-                              {version.versionName && (
-                                <span className="block text-xs text-gray-500 truncate">{version.versionName}</span>
-                              )}
+                                  {version.time}
+                                </span>
+                                {version.versionName && (
+                                  <span className="block text-xs text-gray-500 truncate">{version.versionName}</span>
+                                )}
                             </div>
                             
                             {version.isCurrent && (
@@ -437,9 +467,24 @@ export default function VersionHistory({
                               </span>
                             )}
                             
-                            <div className="mt-1 flex items-center gap-2">
-                              <span className="text-xs text-gray-600 truncate">{version.author}</span>
+                            <div className="mt-2 flex items-center gap-2">
+                            {/* Creator Avatar (initials) with gradient */}
+                            <div className="w-6 h-6 flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-bold rounded-full shadow-sm ring-2 ring-white">
+                              {version.author
+                                ? version.author
+                                    .split(' ')
+                                    .map(word => word[0])
+                                    .join('')
+                                    .slice(0, 2)
+                                    .toUpperCase()
+                                : 'U'}
                             </div>
+
+                            {/* Author Name with hover effect */}
+                            <span className="text-xs text-gray-600 font-medium truncate hover:text-gray-900 transition-colors">
+                              {version.author || 'Unknown User'}
+                            </span>
+                          </div>
 
                             {version.changes && version.changes.length > 0 && (
                               <div className="mt-2 text-xs text-gray-500">
@@ -460,21 +505,47 @@ export default function VersionHistory({
                               <MoreVertical className="w-4 h-4 text-gray-400" />
                             </button>
 
-                            {/* Dropdown Menu */}
-                            {menuOpen === version.id && (
-                              <div className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-lg border border-gray-200 z-50">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleCopyVersion(version);
-                                  }}
-                                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+                           {/* Dropdown Menu */}
+                          {menuOpen === version.id && (
+                            <div className="absolute right-0 mt-2 w-45 bg-white shadow-lg rounded-lg border border-gray-200 z-50">
+                              {/* Make a Copy */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyVersion(version);
+                                }}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg transition-all"
+                              >
+                                <Copy className="w-4 h-4 mr-2 text-gray-500" />
+                                Make a Copy
+                              </button>
+
+                              {/* Bookmark Version */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleBookmarkVersion(version); 
+                                }}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-lg transition-all"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="w-4 h-4 mr-2 text-gray-500"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
                                 >
-                                  <Copy className="w-4 h-4 mr-2 text-gray-500" />
-                                  Make a Copy
-                                </button>
-                              </div>
-                            )}
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M5 5v14l7-5 7 5V5a2 2 0 00-2-2H7a2 2 0 00-2 2z"
+                                  />
+                                </svg>
+                                Bookmark Version
+                              </button>
+                            </div>
+                          )}
                           </div>
                         </div>
                       </div>
