@@ -71,7 +71,8 @@ export default function TextEditor({
   onEditorReady,
   onContentChange,
   className = "",
-  mode = "template", 
+  mode = "template",
+  readOnly = false,
 }) {
   const dimsRef = useRef(computeDims(pageSetup));
   const [showImageOptions, setShowImageOptions] = useState(false);
@@ -140,10 +141,18 @@ export default function TextEditor({
       editor.registerPlugin(plugin);
       applyCssVars(dimsRef.current);
       editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
+      // honor readOnly flag by toggling editor's editable state
+      try { editor.setEditable(!readOnly); } catch (e) {}
       onEditorReady?.(editor);
     },
     onUpdate: ({ editor }) => onContentChange?.(editor.getHTML()),
   });
+
+  // update editable state when readOnly prop changes
+  useEffect(() => {
+    if (!editor) return;
+    try { editor.setEditable(!readOnly); } catch (e) {}
+  }, [editor, readOnly]);
 
   // flip lock flag WITHOUT reconfiguring state or swapping plugins
   useEffect(() => {

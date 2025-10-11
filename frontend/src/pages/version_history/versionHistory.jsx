@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy} from 'lucide-react';
 import { listTemplateVersionsAPI, getTemplateVersionAPI, restoreTemplateVersionAPI } from '../../api/documentContollerAPI';
+import TextEditor from '../../layout/create_template/textEditor';
 
 
 export default function VersionHistory({ 
@@ -9,7 +10,6 @@ export default function VersionHistory({
   documentId, 
   currentContent,
   pageSetup,
-  TextEditorComponent 
 }) {
   const id = templateId || documentId; // use whichever is provided
   const [versions, setVersions] = useState([]);
@@ -22,7 +22,8 @@ export default function VersionHistory({
   const [menuOpen, setMenuOpen] = useState(null);
   const menuRef = useRef(null);
   const [rawResponse, setRawResponse] = useState(null);
-  const [showDebug, setShowDebug] = useState(false);
+ 
+
 
   // Fetch version history from API
   useEffect(() => {
@@ -60,6 +61,16 @@ export default function VersionHistory({
                 createdAt = v.timestamp;
               }
 
+              // parse last_activity_at: accept { $date: ... } or ISO string
+              let lastActivity = null;
+              if (v?.last_activity_at) {
+                if (typeof v.last_activity_at === 'string' || typeof v.last_activity_at === 'number') lastActivity = v.last_activity_at;
+                else if (v.last_activity_at.$date) lastActivity = v.last_activity_at.$date;
+              } else if (v?.lastActivityAt) {
+                if (typeof v.lastActivityAt === 'string' || typeof v.lastActivityAt === 'number') lastActivity = v.lastActivityAt;
+                else if (v.lastActivityAt.$date) lastActivity = v.lastActivityAt.$date;
+              }
+
               // parse created_by: accept { $oid: '...' }, populated object with name, or raw id string
               let author = 'Unknown';
               if (v?.created_by) {
@@ -72,11 +83,17 @@ export default function VersionHistory({
                 author = v.author;
               }
 
+              // prefer the first page from pages_json (TextEditor expects a single doc/page)
+              const firstPage = Array.isArray(v.snapshot?.pages_json) && v.snapshot.pages_json.length > 0
+                ? v.snapshot.pages_json[0]
+                : null;
+
               return {
                 ...v,
                 id: v._id || v.id,
                 created_at: createdAt,
-                content: v.snapshot?.pages_json || v.content || null,
+                last_activity_at: lastActivity,
+                content: firstPage || v.content || null,
                 author,
                 versionName: v.name || v.note || ''
               };
@@ -86,11 +103,10 @@ export default function VersionHistory({
             setVersions(grouped);
 
             const latestFromGroup = grouped?.[0]?.items?.[0] || normalized[0];
-            if (latestFromGroup) {
-              setSelectedVersion(latestFromGroup.id);
-              setVersionContent(latestFromGroup.content || currentContent);
-            }
-
+            setSelectedVersion(latestFromGroup.id);
+            setVersionContent(latestFromGroup.content);
+              
+          
             const expanded = {};
             grouped.forEach(group => { expanded[group.date] = true; });
             setExpandedDates(expanded);
@@ -205,10 +221,14 @@ export default function VersionHistory({
     // If version has content, use it; otherwise fetch it
     if (version.content) {
       setVersionContent(version.content);
-    } else {
+      } else {
       try {
-  const data = await getTemplateVersionAPI(id, version.id);
-        setVersionContent(data.version?.snapshot?.pages_json || currentContent);
+        const data = await getTemplateVersionAPI(id, version.id);
+        // unwrap pages_json array to the first element for editor
+        const fetchedFirst = Array.isArray(data?.version?.snapshot?.pages_json) && data.version.snapshot.pages_json.length > 0
+          ? data.version.snapshot.pages_json[0]
+          : null;
+        setVersionContent(fetchedFirst || data.version?.snapshot || currentContent);
       } catch (error) {
         console.error('Failed to fetch version content:', error);
         // Fallback to current content
@@ -310,9 +330,8 @@ export default function VersionHistory({
           </div>
         </div>
 
-        {/* Document Preview */}
+        {/* Template Preview */}
         <div className="flex-1 overflow-auto p-8 bg-gray-100">
-          <div className="max-w-4xl mx-auto bg-white shadow-lg min-h-full">
             {loading ? (
               <div className="flex items-center justify-center h-96">
                 <div className="text-center">
@@ -320,8 +339,8 @@ export default function VersionHistory({
                   <p className="text-gray-500">Loading version...</p>
                 </div>
               </div>
-            ) : TextEditorComponent ? (
-              <TextEditorComponent
+            ) : TextEditor ? (
+              <TextEditor
                 content={versionContent || currentContent}
                 pageSetup={pageSetup}
                 readOnly={true}
@@ -337,7 +356,6 @@ export default function VersionHistory({
               </div>
             )}
           </div>
-        </div>
       </div>
 
       {/* Version History Sidebar */}
