@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy} from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy, RotateCcw} from 'lucide-react';
 import { listTemplateVersionsAPI, getTemplateVersionAPI, restoreTemplateVersionAPI } from '../../api/documentContollerAPI';
 import TextEditor from '../../layout/create_template/textEditor';
 
@@ -48,7 +48,7 @@ export default function VersionHistory({
           
 
           if (rawVersions && rawVersions.length > 0) {
-            const normalized = rawVersions.map(v => {
+            const normalized = rawVersions.map((v, index) => {
               // parse created_at: accept { $date: ... }, ISO string, or numeric timestamp
               let createdAt = null;
               if (v?.created_at) {
@@ -94,6 +94,13 @@ export default function VersionHistory({
                 author = v.created_by_name;
               }
 
+              // Determine if this is the current version
+              // Check multiple indicators: is_current flag, isCurrent, or if it's the first/latest version
+              const isCurrent = v.is_current === true || 
+                               v.isCurrent === true || 
+                               v.current === true ||
+                               index === 0; // Fallback: treat first version as current
+
               // prefer the first page from pages_json (TextEditor expects a single doc/page)
               const firstPage = Array.isArray(v.snapshot?.pages_json) && v.snapshot.pages_json.length > 0
                 ? v.snapshot.pages_json[0]
@@ -106,7 +113,8 @@ export default function VersionHistory({
                 last_activity_at: lastActivity,
                 content: firstPage || v.content || null,
                 author,
-                versionName: v.name || v.note || ''
+                versionName: v.name || v.note || '',
+                is_current: isCurrent
               };
             });
 
@@ -279,10 +287,10 @@ export default function VersionHistory({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --------------------------------------------------------------------
+  // ------------------------------------------------------------------------------------------------
   // TODO: IMPLEMENT API CALLS
   const handleCopyVersion = (version) => {
-    // Implement copy functionality here
+    // Implement copy functionality
     console.log('Copying version:', version.id);
     setMenuOpen(null);
   };
@@ -292,10 +300,11 @@ export default function VersionHistory({
     if (!bookmarks.some(v => v.id === version.id)) {
       bookmarks.push(version);
       localStorage.setItem('bookmarkedVersions', JSON.stringify(bookmarks));
-      alert(`Version ${version.version_no || version.id} bookmarked!`);
+      alert(`Version bookmarked successfully!`);
     } else {
       alert('This version is already bookmarked.');
     }
+    setMenuOpen(null);
   };
 
   
@@ -319,11 +328,11 @@ export default function VersionHistory({
               <span className="font-medium text-gray-900">
                 {currentVersionDetails?.time || 'Select a version'}
               </span>
-              {!loading && totalVersions > 0 && (
+              {/* {!loading && totalVersions > 0 && (
                 <span className="ml-2 text-xs text-gray-500">Loaded {totalVersions} {totalVersions === 1 ? 'version' : 'versions'}</span>
-              )}
+              )} */}
               {currentVersionDetails?.isCurrent && (
-                <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                <span className="px-2 py-0.5 text-xs font-medium bg-teal-100 text-teal-700 rounded-full">
                   Current
                 </span>
               )}
@@ -336,26 +345,34 @@ export default function VersionHistory({
             </div>
             
             <button
-              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              disabled={!selectedVersion}
               onClick={async () => {
-                if (!selectedVersion) return window.alert('No version selected');
-                const ok = window.confirm('Restore this template to the selected version? This will create a new version capturing the restore.');
+                if (!selectedVersion) return;
+                const ok = window.confirm(
+                  'Are you sure you want to restore this template to the selected version? This will create a new version capturing the restore.'
+                );
                 if (!ok) return;
                 try {
                   const resp = await restoreTemplateVersionAPI(id, selectedVersion);
                   if (resp?.success) {
-                    window.alert('Template restored');
+                    window.alert('Template restored successfully!');
                     onClose && onClose();
-                    return;
+                  } else {
+                    window.alert(resp?.message || 'Restore response received');
                   }
-                  window.alert(resp?.message || 'Restore response received');
                 } catch (e) {
                   console.error('Restore failed', e);
-                  window.alert('Failed to restore template version');
+                  window.alert('Failed to restore template version.');
                 }
               }}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg shadow-sm transition-all
+                ${selectedVersion
+                  ? 'text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] active:scale-95'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
             >
-              Restore this version
+              <RotateCcw className="w-4 h-4" />
+              {selectedVersion ? 'Restore this version' : 'Select a version to restore'}
             </button>
           </div>
         </div>
@@ -399,7 +416,7 @@ export default function VersionHistory({
             onChange={(e) => setFilterType(e.target.value)}
           >
             <option value="all">All versions</option>
-            <option value="named">Named versions only</option>
+            <option value="named">Named versions</option>
           </select>
         </div>
 
@@ -443,12 +460,13 @@ export default function VersionHistory({
                             : 'hover:bg-gray-50'
                         }`}
                       >
-                        {/* Timeline dot */}
-                        <div
-                          className={`absolute left-3 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white ${
-                            version.isCurrent ? 'bg-green-500' : 'bg-blue-500'
+
+                      {/* Timeline dot - TEAl for current version, BLUE for others */}
+                      <div
+                          className={`absolute left-3 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
+                            version.isCurrent ? 'bg-teal-500' : 'bg-blue-500'
                           }`}
-                        />
+                      />
 
                         <div className="flex items-start justify-between ml-2">
                           <div className="flex-1 min-w-0">
@@ -461,14 +479,15 @@ export default function VersionHistory({
                                 )}
                             </div>
                             
+                            {/* Current Version Label - Only shows for current version */}
                             {version.isCurrent && (
-                              <span className="block text-xs text-green-600 font-medium mt-1">
+                              <span className="block text-xs text-teal-600 font-medium mt-1">
                                 Current version
                               </span>
                             )}
                             
                             <div className="mt-2 flex items-center gap-2">
-                            {/* Creator Avatar (initials) with gradient */}
+                            {/* Creator Avatar (initials) */}
                             <div className="w-6 h-6 flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-bold rounded-full shadow-sm ring-2 ring-white">
                               {version.author
                                 ? version.author
@@ -480,7 +499,7 @@ export default function VersionHistory({
                                 : 'U'}
                             </div>
 
-                            {/* Author Name with hover effect */}
+                            {/* Author Name */}
                             <span className="text-xs text-gray-600 font-medium truncate hover:text-gray-900 transition-colors">
                               {version.author || 'Unknown User'}
                             </span>
