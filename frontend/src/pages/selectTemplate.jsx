@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom";
+import Header from "../layout/headers/header.jsx"; 
+import useUser from "../hooks/useUser";
 import TemplateCard from "../components/cards/templatecard";
 import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
@@ -7,8 +9,9 @@ import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import { History, FileText, RotateCcw, Filter } from "lucide-react";
 
-export default function SelectTemplate({ user }) {
-  const navigate = useNavigate(); 
+export default function SelectTemplate() {
+  const navigate = useNavigate();
+  const user = useUser();
 
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState("Recent");
@@ -140,8 +143,11 @@ export default function SelectTemplate({ user }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <div className="bg-white border-b shadow-sm">
+      {/* Global App Header */}
+      <Header user={user} />
+
+      {/* Page Subheader */}
+      <div className="bg-white border-b shadow-sm mt-4 md:mt-6">
         <div className="px-8 py-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -161,13 +167,13 @@ export default function SelectTemplate({ user }) {
               Back
             </button>
 
-            <div className="border-l border-gray-300 h-8"></div>
+            <div className="border-l border-gray-300 h-8" />
 
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold text-gray-900">Select Template</h1>
               </div>
-              <p className="text-sm text-gray-600 ">
+              <p className="text-sm text-gray-600">
                 Choose a published template from Document Controller
               </p>
             </div>
