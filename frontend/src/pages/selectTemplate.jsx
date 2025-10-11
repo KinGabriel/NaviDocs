@@ -335,11 +335,6 @@ export default function SelectTemplate({ user }) {
             Showing <span className="font-semibold text-gray-900">{filteredTemplates.length}</span> of{" "}
             <span className="font-semibold text-gray-900">{templates.length}</span> templates
           </div>
-          {filteredTemplates.length !== templates.length && (
-            <div className="text-blue-600 font-medium">
-              Filtered results active
-            </div>
-          )}
         </div>
       </div>
 
