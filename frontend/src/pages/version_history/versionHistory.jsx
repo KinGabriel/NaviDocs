@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy, RotateCcw} from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy, RotateCcw, X} from 'lucide-react';
 import { listTemplateVersionsAPI, getTemplateVersionAPI, restoreTemplateVersionAPI } from '../../api/documentContollerAPI';
 import TextEditor from '../../layout/create_template/textEditor';
 
@@ -22,9 +22,9 @@ export default function VersionHistory({
   const [menuOpen, setMenuOpen] = useState(null);
   const menuRef = useRef(null);
   const [rawResponse, setRawResponse] = useState(null);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
  
-
-
   // Fetch version history from API
   useEffect(() => {
     const fetchVersions = async () => {
@@ -288,6 +288,30 @@ export default function VersionHistory({
   }, []);
 
   // ------------------------------------------------------------------------------------------------
+  // Handle restore version
+  const handleRestoreVersion = async () => {
+    if (!selectedVersion) return;
+    
+    setIsRestoring(true);
+    try {
+      const resp = await restoreTemplateVersionAPI(id, selectedVersion);
+      if (resp?.success) {
+        setShowRestoreModal(false);
+        // Show success feedback
+        setTimeout(() => {
+          onClose && onClose();
+        }, 500);
+      } else {
+        alert(resp?.message || 'Restore response received');
+      }
+    } catch (e) {
+      console.error('Restore failed', e);
+      alert('Failed to restore template version.');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   // TODO: IMPLEMENT API CALLS
   const handleCopyVersion = (version) => {
     // Implement copy functionality
@@ -346,25 +370,7 @@ export default function VersionHistory({
             
             <button
               disabled={!selectedVersion}
-              onClick={async () => {
-                if (!selectedVersion) return;
-                const ok = window.confirm(
-                  'Are you sure you want to restore this template to the selected version? This will create a new version capturing the restore.'
-                );
-                if (!ok) return;
-                try {
-                  const resp = await restoreTemplateVersionAPI(id, selectedVersion);
-                  if (resp?.success) {
-                    window.alert('Template restored successfully!');
-                    onClose && onClose();
-                  } else {
-                    window.alert(resp?.message || 'Restore response received');
-                  }
-                } catch (e) {
-                  console.error('Restore failed', e);
-                  window.alert('Failed to restore template version.');
-                }
-              }}
+              onClick={() => setShowRestoreModal(true)}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg shadow-sm transition-all
                 ${selectedVersion
                   ? 'text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] active:scale-95'
@@ -461,7 +467,7 @@ export default function VersionHistory({
                         }`}
                       >
 
-                      {/* Timeline dot - TEAl for current version, BLUE for others */}
+                      {/* Timeline dot - TEAL for current version, BLUE for others */}
                       <div
                           className={`absolute left-3 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
                             version.isCurrent ? 'bg-teal-500' : 'bg-blue-500'
@@ -589,6 +595,84 @@ export default function VersionHistory({
           </label>
         </div>
       </div>
+
+      {/* Restore Confirmation Modal */}
+      {showRestoreModal && (
+        <div className="fixed inset-0 backdrop-blur-[2px] bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div>
+                  <h1 className="text-xl font-semibold text-gray-900">Restore Version</h1>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRestoreModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="mb-6 space-y-3">
+              <p className="text-md text-gray-700">
+                Are you sure you want to restore the template to this version?
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">
+                    {currentVersionDetails?.time}
+                  </span>
+                </div>
+                {currentVersionDetails?.versionName && (
+                  <p className="text-xs text-blue-700 ml-6">
+                    {currentVersionDetails.versionName}
+                  </p>
+                )}
+                <p className="text-xs text-blue-600 ml-6 mt-1">
+                  By {currentVersionDetails?.author || 'Unknown User'}
+                </p>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs text-amber-800">
+                  <strong>Note:</strong> This action will create a new version capturing the restore. Your current version will be preserved in history.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRestoreModal(false)}
+                disabled={isRestoring}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRestoreVersion}
+                disabled={isRestoring}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isRestoring ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Restoring...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    Restore
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
