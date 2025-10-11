@@ -24,6 +24,10 @@ export default function ApprovalModal({
   const [rejectDone, setRejectDone] = useState(false);
   const [rejectError, setRejectError] = useState("");
 
+  // Mini-modal (overlay) state — RETURN
+  const [confirmReturnOpen, setConfirmReturnOpen] = useState(false);
+  const [returnDone, setReturnDone] = useState(false);
+  const [returnError, setReturnError] = useState("");
 
   // Clear local state whenever modal opens/closes or template changes
   useEffect(() => {
@@ -39,6 +43,10 @@ export default function ApprovalModal({
       setConfirmRejectOpen(false);
       setRejectDone(false);
       setRejectError("");
+
+      setConfirmReturnOpen(false);
+      setReturnDone(false);
+      setReturnError("");
     }
   }, [isOpen, template?._id]);
 
@@ -214,8 +222,9 @@ export default function ApprovalModal({
               {loading ? "Processing..." : "Reject"}
             </button>
 
+            {/* Return (opens confirmation overlay) */}
             <button
-              onClick={handleReturn}
+              onClick={() => setConfirmReturnOpen(true)}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-amber-600 text-white hover:bg-amber-700 hover:shadow-md font-medium transition-all min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -439,6 +448,119 @@ export default function ApprovalModal({
                         setConfirmRejectOpen(false);
                         setRejectDone(false);
                         setRejectError("");
+                        onClose(); // close parent modal after acknowledging success
+                      }}
+                      className="ml-auto px-4 py-2 rounded-md border text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Close
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Return Confirmation Mini-Modal Overlay */}
+          {confirmReturnOpen && (
+            <div
+              className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="return-confirm-title"
+            >
+              <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+                {/* Header */}
+                <div className="px-5 py-4 border-b">
+                  <h3 id="return-confirm-title" className="text-lg font-semibold">
+                    {returnDone ? "Template Returned" : "Return Template"}
+                  </h3>
+                </div>
+
+                {/* Body */}
+                <div className="px-5 py-4">
+                  {!returnDone ? (
+                    <>
+                      <p className="text-sm text-gray-700">
+                        Are you sure you want to return this template for changes?
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        A reason is required. Current reason: <span className="font-medium">{message?.trim() || "—"}</span>
+                      </p>
+                      {returnError && (
+                        <div className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+                          {returnError}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <svg className="h-6 w-6 text-amber-600 mt-1" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 4a8 8 0 0 0-8 8H2l3.5 3.5L9 12H6a6 6 0 1 1 6 6v2a8 8 0 0 0 0-16Z" />
+                      </svg>
+                      <div>
+                        <p className="text-base font-medium text-gray-900">
+                          This template has been returned for changes.
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Your action has been recorded and the status is now <span className="font-semibold">Returned</span>.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer — No (left) and Yes (right) */}
+                <div className="px-5 py-4 border-t flex items-center justify-between">
+                  {!returnDone ? (
+                    <>
+                      {/* No (left) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmReturnOpen(false);
+                          setReturnDone(false);
+                          setReturnError("");
+                        }}
+                        className="px-4 py-2 rounded-md border text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-60"
+                        disabled={loading}
+                      >
+                        No
+                      </button>
+
+                      {/* Yes (right) */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (loading) return;
+                          setReturnError("");
+                          if (!message.trim()) {
+                            setReturnError("Please provide a reason for returning the template.");
+                            return;
+                          }
+                          setLoading(true);
+                          try {
+                            await onReturn(template, message);
+                            setReturnDone(true);
+                          } catch (e) {
+                            setReturnError("Failed to return template.");
+                            console.error("Error returning template:", e);
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        className="px-4 py-2 rounded-md text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60"
+                        disabled={loading}
+                      >
+                        {loading ? "Returning..." : "Yes"}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfirmReturnOpen(false);
+                        setReturnDone(false);
+                        setReturnError("");
                         onClose(); // close parent modal after acknowledging success
                       }}
                       className="ml-auto px-4 py-2 rounded-md border text-gray-700 bg-white hover:bg-gray-50"
