@@ -13,7 +13,7 @@ import {
 import fetchAndNormalizeTemplate from "../../utils/templateLoader";
 import useUser from "../../hooks/useUser";
 import Header2 from "../../layout/headers/header2";
-import VersionHistory from "../version_history/versionHistory";
+import VersionHistory from "../version_history/templateVersionHistory";
 
 // Panels
 import FontPanel from "../../layout/create_template/fontPanel";

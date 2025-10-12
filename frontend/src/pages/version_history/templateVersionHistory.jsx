@@ -4,7 +4,7 @@ import { listTemplateVersionsAPI, getTemplateVersionAPI, restoreTemplateVersionA
 import TextEditor from '../../layout/create_template/textEditor';
 
 
-export default function VersionHistory({ 
+export default function TemplateVersionHistory({ 
   onClose, 
   templateId,
   documentId, 
