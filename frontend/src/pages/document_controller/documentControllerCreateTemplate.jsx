@@ -376,6 +376,7 @@ return (
         currentContent={templateContent}
         pageSetup={pageSetup}
         TextEditor={TextEditor}
+        previousName={templateTitle}
       />
     ) : (
       <div className="flex min-h-screen flex-col bg-slate-50">

@@ -538,7 +538,7 @@ export default function Header2({
       {/* Version History Full Screen Overlay */}
       {showVersionHistory && (
         <div className="fixed inset-0 z-[100] bg-white">
-          <VersionHistory onClose={() => setShowVersionHistory(false)} templateId={templateId} />
+          <VersionHistory onClose={() => setShowVersionHistory(false)} templateId={templateId} previousName={title} />
         </div>
       )}
 
