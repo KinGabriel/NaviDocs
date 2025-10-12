@@ -201,6 +201,35 @@ export const updateTemplateVersionNote = async (req, res) => {
 };
 
 /**
+ * @desc Update bookmark fields for a template version (isBookmarked + bookmark_name)
+ * @route PATCH /api/templates/:id/versions/:versionId/bookmark
+ */
+export const updateTemplateVersionBookmark = async (req, res) => {
+  try {
+    const { id, versionId } = req.params;
+    const { isBookmarked, note } = req.body;
+    if (!id || !versionId) return res.status(400).json({ success: false, message: 'template id & version id required' });
+
+    const v = await TemplateHistory.findOne({ _id: versionId, template_id: id });
+    if (!v) return res.status(404).json({ success: false, message: 'version not found' });
+
+  if (typeof isBookmarked === 'boolean') v.isBookmarked = isBookmarked;
+  // If unbookmarks, clear the note to remove bookmark 
+  if (typeof isBookmarked === 'boolean' && isBookmarked === false) {
+    v.note = '';
+  } else if (typeof note === 'string') {
+    v.note = note;
+  }
+
+    await v.save();
+    return res.json({ success: true, version: v });
+  } catch (err) {
+    console.error('updateTemplateVersionBookmark error', err);
+    return res.status(500).json({ success: false, message: 'Failed to update version bookmark' });
+  }
+};
+
+/**
  * @desc Restore a template to a given version (creates a new version capturing the restore)
  * @route POST /api/templates/:id/versions/:versionId/restore
  */

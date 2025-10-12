@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy, RotateCcw, X} from 'lucide-react';
-import { listTemplateVersionsAPI, getTemplateVersionAPI, restoreTemplateVersionAPI } from '../../api/documentContollerAPI';
+import { listTemplateVersionsAPI, getTemplateVersionAPI, restoreTemplateVersionAPI, updateTemplateVersionBookmarkAPI } from '../../api/documentContollerAPI';
 import TextEditor from '../../layout/create_template/textEditor';
+import BookmarkModal from './bookmarkModal';
 
 
 export default function VersionHistory({ 
@@ -24,6 +25,10 @@ export default function VersionHistory({
   const [rawResponse, setRawResponse] = useState(null);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  // Bookmark modal state
+  const [showBookmarkModal, setShowBookmarkModal] = useState(false);
+  const [bookmarkTarget, setBookmarkTarget] = useState(null);
+  const [bookmarkName, setBookmarkName] = useState('');
  
   // Fetch version history from API
   useEffect(() => {
@@ -106,6 +111,9 @@ export default function VersionHistory({
                 ? v.snapshot.pages_json[0]
                 : null;
 
+              // bookmark flag support (various shapes)
+              const isBookmarked = v.isBookmarked === true || v.is_bookmarked === true || v.bookmarked === true || false;
+
               return {
                 ...v,
                 id: v._id || v.id,
@@ -113,6 +121,7 @@ export default function VersionHistory({
                 last_activity_at: lastActivity,
                 content: firstPage || v.content || null,
                 author,
+                isBookmarked,
                 versionName: v.name || v.note || '',
                 is_current: isCurrent
               };
@@ -164,7 +173,7 @@ export default function VersionHistory({
     
     
     versionList.forEach(version => {
-      const versionDate = new Date(version.last_activity_at || version.upupdated || version.created_at);
+      const versionDate = new Date(version.last_activity_at || version.updated_at || version.created_at || version.createdAt || Date.now());
       const dateKey = getRelativeDate(versionDate, now);
       
       if (!grouped[dateKey]) {
@@ -183,6 +192,7 @@ export default function VersionHistory({
                     version.author || 'Unknown',
         content: version.content,
         fieldValues: version.field_values,
+        isBookmarked: !!version.isBookmarked,
         versionName: version.versionName || version.name || version.note || '',
         changes: version.changes || []
       });
@@ -192,7 +202,14 @@ export default function VersionHistory({
     return Object.entries(grouped)
       .map(([date, items]) => ({
         date,
-        items: items.sort((a, b) => b.timestamp - a.timestamp)
+        items: items.sort((a, b) => {
+          // bookmarked items first
+          if ((a.isBookmarked ? 1 : 0) !== (b.isBookmarked ? 1 : 0)) {
+            return (b.isBookmarked ? 1 : 0) - (a.isBookmarked ? 1 : 0);
+          }
+          // then newest first by timestamp
+          return new Date(b.timestamp) - new Date(a.timestamp);
+        })
       }))
       .sort((a, b) => {
         const order = ['Today', 'Yesterday', 'This Week', 'Last Week', 'This Month', 'Last Month'];
@@ -320,15 +337,96 @@ export default function VersionHistory({
   };
 
   const handleBookmarkVersion = (version) => {
-    const bookmarks = JSON.parse(localStorage.getItem('bookmarkedVersions') || '[]');
-    if (!bookmarks.some(v => v.id === version.id)) {
-      bookmarks.push(version);
-      localStorage.setItem('bookmarkedVersions', JSON.stringify(bookmarks));
-      alert(`Version bookmarked successfully!`);
-    } else {
-      alert('This version is already bookmarked.');
+    // If already bookmarked -> unbookmark immediately
+    if (version.isBookmarked) {
+      (async () => {
+        try {
+          const resp = await updateTemplateVersionBookmarkAPI(id, version.id, { isBookmarked: false });
+          if (resp?.success) {
+            const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? '';
+            updateLocalBookmark(version.id, false, returnedNote);
+            alert('Version unbookmarked');
+          } else {
+            alert(resp?.message || 'Unbookmark failed');
+          }
+        } catch (e) {
+          console.error('Failed to unbookmark', e);
+          alert('Failed to unbookmark version');
+        } finally {
+          setMenuOpen(null);
+        }
+      })();
+      return;
     }
+
+    // Not bookmarked yet -> open modal to prompt for bookmark name
+    setBookmarkTarget(version);
+    setBookmarkName(version.versionName || '');
+    setShowBookmarkModal(true);
     setMenuOpen(null);
+  };
+
+  // update local bookmark state and reorder items (bookmarked first)
+  const updateLocalBookmark = (versionId, isBookmarked, note) => {
+    setVersions(prev => prev.map(group => {
+      if (!group.items.some(item => item.id === versionId)) return group;
+      const items = group.items.map(item => item.id === versionId
+        ? { ...item, isBookmarked: !!isBookmarked, versionName: (typeof note !== 'undefined' ? note : item.versionName) }
+        : item
+      );
+
+      items.sort((a, b) => {
+        if ((a.isBookmarked ? 1 : 0) !== (b.isBookmarked ? 1 : 0)) {
+          return (b.isBookmarked ? 1 : 0) - (a.isBookmarked ? 1 : 0);
+        }
+        return new Date(b.timestamp) - new Date(a.timestamp);
+      });
+
+      return { ...group, items };
+    }));
+  };
+
+  const confirmBookmark = async () => {
+    if (!bookmarkTarget) return;
+    try {
+      const resp = await updateTemplateVersionBookmarkAPI(id, bookmarkTarget.id, { isBookmarked: true, note: bookmarkName });
+      if (resp?.success) {
+        const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? bookmarkName;
+        updateLocalBookmark(bookmarkTarget.id, true, returnedNote);
+        setShowBookmarkModal(false);
+        setBookmarkTarget(null);
+        setBookmarkName('');
+        alert('Version bookmarked');
+      } else {
+        alert(resp?.message || 'Bookmark failed');
+      }
+    } catch (e) {
+      console.error('Bookmark confirm failed', e);
+      alert('Failed to bookmark version');
+    }
+  };
+
+  // Inline edit state for notes per version
+  const [editingNoteFor, setEditingNoteFor] = useState(null);
+  const [editingNoteValue, setEditingNoteValue] = useState('');
+
+  const saveNoteForVersion = async (versionId) => {
+    if (!versionId) return;
+    try {
+      const resp = await updateTemplateVersionBookmarkAPI(id, versionId, { note: editingNoteValue });
+      if (resp?.success) {
+        setVersions(prev => prev.map(group => ({
+          ...group,
+          items: group.items.map(item => item.id === versionId ? { ...item, versionName: resp.version.note || editingNoteValue } : item)
+        })));
+        setEditingNoteFor(null);
+      } else {
+        alert(resp?.message || 'Failed to save note');
+      }
+    } catch (e) {
+      console.error('Failed to save note', e);
+      alert('Failed to save note');
+    }
   };
 
   
@@ -518,8 +616,25 @@ export default function VersionHistory({
                             )}
                           </div>
                           
-                          {/* 3-dot button */}
-                          <div className="relative" ref={menuOpen === version.id ? menuRef : null}>
+                          {/* Bookmark star + 3-dot button */}
+                          <div className="relative flex items-center gap-2" ref={menuOpen === version.id ? menuRef : null}>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleBookmarkVersion(version); }}
+                              className="p-1 hover:bg-gray-100 rounded transition-colors"
+                              aria-label={version.isBookmarked ? 'Unbookmark version' : 'Bookmark version'}
+                              title={version.isBookmarked ? 'Bookmarked' : 'Bookmark'}
+                            >
+                              {version.isBookmarked ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.163c.969 0 1.371 1.24.588 1.81l-3.37 2.455a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.37-2.455a1 1 0 00-1.176 0l-3.37 2.455c-.784.57-1.838-.197-1.539-1.118l1.286-3.957a1 1 0 00-.364-1.118L2.06 9.384c-.783-.57-.38-1.81.588-1.81h4.163a1 1 0 00.95-.69l1.287-3.957z" />
+                                </svg>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5v14l7-5 7 5V5a2 2 0 00-2-2H7a2 2 0 00-2 2z" />
+                                </svg>
+                              )}
+                            </button>
+
                             <button
                               className="p-1 hover:bg-gray-200 rounded transition-colors"
                               onClick={(e) => {
@@ -597,6 +712,15 @@ export default function VersionHistory({
       </div>
 
       {/* Restore Confirmation Modal */}
+      {/* Bookmark Modal (extracted) */}
+      <BookmarkModal
+        show={showBookmarkModal}
+        onClose={() => { setShowBookmarkModal(false); setBookmarkTarget(null); }}
+        bookmarkName={bookmarkName}
+        setBookmarkName={setBookmarkName}
+        onConfirm={confirmBookmark}
+      />
+
       {showRestoreModal && (
         <div className="fixed inset-0 backdrop-blur-[2px] bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
