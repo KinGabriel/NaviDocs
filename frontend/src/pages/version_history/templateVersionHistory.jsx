@@ -44,7 +44,7 @@ export default function TemplateVersionHistory({
       if (id) {
         // primary: template-service
         data = await listTemplateVersionsAPI(id);
-        console.debug('listTemplateVersionsAPI response', data);
+
 
         // Support multiple shapes: array, { versions: [...] }, or nested
         let rawVersions = Array.isArray(data)
@@ -79,28 +79,26 @@ export default function TemplateVersionHistory({
               else if (v.lastActivityAt.$date) lastActivity = v.lastActivityAt.$date;
             }
 
-            // parse created_by: prioritize name over ID
+            // parse created_by / author: prefer backend-normalized fields first
             let author = 'Unknown';
-            if (v?.created_by) {
-              // First check if it's a populated object with name
-              if (typeof v.created_by === 'object' && v.created_by.name) {
-                author = v.created_by.name;
-              } else if (typeof v.created_by === 'object' && (v.created_by.first_name || v.created_by.last_name)) {
-                author = [v.created_by.first_name, v.created_by.last_name].filter(Boolean).join(' ');
-              } else if (typeof v.created_by === 'object' && v.created_by.email) {
-                author = v.created_by.email.split('@')[0]; // Use email username as fallback
-              } else if (typeof v.created_by === 'string') {
-                // If it's a string ID, keep as Unknown rather than showing ID
-                author = 'Unknown';
-              } else if (v.created_by.$oid || v.created_by._id || v.created_by.id) {
-                // If it's an unpopulated reference, show Unknown
+            if (v?.author) {
+              author = v.author;
+            } else if (v?.created_by_name) {
+              author = v.created_by_name;
+            } else if (v?.created_by) {
+              const cb = v.created_by;
+              if (typeof cb === 'object' && cb !== null) {
+                if (cb.name) author = String(cb.name).trim();
+                else if (cb.first_name || cb.last_name) author = [cb.first_name, cb.last_name].filter(Boolean).join(' ').trim();
+                else if (cb.firstname || cb.lastname) author = [cb.firstname, cb.lastname].filter(Boolean).join(' ').trim();
+                else if (cb.email) author = String(cb.email).split('@')[0];
+                else author = 'Unknown';
+              } else if (typeof cb === 'string') {
+                // Unpopulated ID — prefer not to show raw ID
                 author = 'Unknown';
               }
-            } else if (v.author) {
-              author = v.author;
-            } else if (v.created_by_name) {
-              author = v.created_by_name;
             }
+         
 
             // Determine if this is the current version
             // Check multiple indicators: is_current flag, isCurrent, or if it's the first/latest version
