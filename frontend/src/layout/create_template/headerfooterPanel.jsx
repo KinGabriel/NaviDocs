@@ -9,10 +9,14 @@ import React, { useMemo, useState } from "react";
  *   3. School Name
  *   4. Title
  *   5. Document Stamp (4x2)
+ * Footer:
+ *   - Page Number (toggle)
+ *   - Date (toggle)
+ *   - Alignment (left/center/right/justify)
  * Includes:
  *   - Inline configuration via "← Back"
  *   - Global header/footer margin settings
- *   - Auto sync to TipTap editor
+ *   - Auto sync to TipTap editor via `applyHeaderFooterToAllPages`
  */
 export default function HeaderFooterPanel({ editor, value, onChange }) {
   const initial = useMemo(
@@ -45,8 +49,11 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
         margins: value?.header?.margins ?? { top: 12, bottom: 12 },
       },
       footer: value?.footer ?? {
-        fields: { pageNumber: true, date: true },
-        align: "center",
+        fields: {
+          pageNumber: value?.footer?.fields?.pageNumber ?? true,
+          date: value?.footer?.fields?.date ?? true,
+        },
+        align: value?.footer?.align ?? "center",
         margins: value?.footer?.margins ?? { top: 12, bottom: 12 },
       },
     }),
@@ -156,10 +163,10 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
         </div>
       ))}
 
-      {/* Global header/footer margins */}
+      {/* Header margins */}
       <div className="mt-4 border-t pt-3">
         <h4 className="text-xs font-semibold text-gray-700 mb-2">Header Margins (px)</h4>
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-2 gap-3">
           {["top", "bottom"].map((side) => (
             <div key={side}>
               <label className="block text-xs text-gray-500 capitalize">{side}</label>
@@ -180,7 +187,72 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
 
+  // ---------------- Footer Component List ----------------
+  const FooterList = () => (
+    <div className="px-4 pt-4 pb-6 space-y-4">
+      <h3 className="text-sm font-semibold text-gray-700">Footer Components</h3>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+          <Checkbox
+            label="Page Number"
+            checked={!!cfg.footer.fields.pageNumber}
+            onChange={(v) =>
+              patch({
+                ...cfg,
+                footer: {
+                  ...cfg.footer,
+                  fields: { ...cfg.footer.fields, pageNumber: v },
+                },
+              })
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+          <Checkbox
+            label="Date"
+            checked={!!cfg.footer.fields.date}
+            onChange={(v) =>
+              patch({
+                ...cfg,
+                footer: {
+                  ...cfg.footer,
+                  fields: { ...cfg.footer.fields, date: v },
+                },
+              })
+            }
+          />
+        </div>
+      </div>
+
+      {/* Alignment */}
+      <div className="border-t pt-3">
+        <h4 className="text-xs font-semibold text-gray-700 mb-2">Alignment</h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {["left", "center", "right", "justify"].map((a) => (
+            <AlignTile
+              key={a}
+              label={a.charAt(0).toUpperCase() + a.slice(1)}
+              align={a}
+              active={(cfg.footer.align || "center") === a}
+              onClick={() =>
+                patch({
+                  ...cfg,
+                  footer: { ...cfg.footer, align: a },
+                })
+              }
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Footer margins (px) */}
+      <div className="border-t pt-3">
         <h4 className="text-xs font-semibold text-gray-700 mb-2">Footer Margins (px)</h4>
         <div className="grid grid-cols-2 gap-3">
           {["top", "bottom"].map((side) => (
@@ -202,6 +274,22 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
               />
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Tiny live text preview */}
+      <div className="border-t pt-3">
+        <h4 className="text-xs font-semibold text-gray-700 mb-2">Preview</h4>
+        <div
+          className="w-full border rounded p-3 text-xs text-slate-700 bg-white"
+          style={{ textAlign: cfg.footer.align || "center" }}
+        >
+          {[
+            cfg.footer.fields.pageNumber ? "Page 1" : null,
+            cfg.footer.fields.date ? new Date().toLocaleDateString() : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || "—"}
         </div>
       </div>
     </div>
@@ -365,7 +453,10 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
           {["header", "footer"].map((key) => (
             <button
               key={key}
-              onClick={() => setTab(key)}
+              onClick={() => {
+                setSelectedConfig(null);
+                setTab(key);
+              }}
               className={`pb-2 ${
                 tab === key
                   ? "text-gray-900 font-semibold border-b-2 border-gray-900"
@@ -383,9 +474,7 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
         ? selectedConfig
           ? <ConfigView />
           : <HeaderList />
-        : <div className="p-4 text-sm text-gray-600">
-            <p>Footer configuration options (page number, date, etc.) will appear here soon.</p>
-          </div>}
+        : <FooterList />}
     </div>
   );
 }

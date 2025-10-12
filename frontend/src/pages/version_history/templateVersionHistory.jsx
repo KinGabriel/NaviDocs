@@ -5,7 +5,7 @@ import TextEditor from '../../layout/create_template/textEditor';
 import BookmarkModal from './bookmarkModal';
 
 
-export default function VersionHistory({ 
+export default function TemplateVersionHistory({ 
   onClose, 
   templateId,
   documentId, 
