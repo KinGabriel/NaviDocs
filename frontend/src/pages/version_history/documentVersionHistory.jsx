@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy, RotateCcw, X, FileText, User } from 'lucide-react';
+import BookmarkModal from './bookmarkModal';
+import { updateTemplateVersionBookmarkAPI } from '../../api/documentContollerAPI';
 
 export default function DocumentVersionHistory({ 
   onClose, 
@@ -17,13 +19,18 @@ export default function DocumentVersionHistory({
   const [highlightChanges, setHighlightChanges] = useState(true);
   const menuRef = useRef(null);
 
-// TODO: Implement API Calls
+  // Bookmark modal state
+  const [showBookmarkModal, setShowBookmarkModal] = useState(false);
+  const [bookmarkTarget, setBookmarkTarget] = useState(null);
+  const [bookmarkName, setBookmarkName] = useState('');
+  
+  // TODO: Implement API Calls
   useEffect(() => {
     const fetchVersions = async () => {
       console.log('Fetching versions for documentId:', documentId);
       setLoading(true);
 
-    // DUMMY DATA - FOR DEMO PURPOSES
+      // DUMMY DATA - FOR DEMO PURPOSES
       try {
         await new Promise(resolve => setTimeout(resolve, 1000));
         
@@ -34,6 +41,7 @@ export default function DocumentVersionHistory({
             author: 'Lebron James',
             versionName: 'Initial setup',
             is_current: true,
+            isBookmarked: false,
             changes: [
               { field: 'School Year', oldValue: '', newValue: '2025', type: 'added' },
               { field: 'Course', oldValue: '', newValue: 'Information Technology', type: 'added' },
@@ -53,6 +61,7 @@ export default function DocumentVersionHistory({
             author: 'Nikol Jokic',
             versionName: '',
             is_current: false,
+            isBookmarked: false,
             changes: [
               { field: 'Course Overview', oldValue: 'This course covers basic...', newValue: 'This course blabla', type: 'modified' }
             ],
@@ -69,6 +78,7 @@ export default function DocumentVersionHistory({
             author: 'Luka Doncic',
             versionName: 'Units updated',
             is_current: false,
+            isBookmarked: true,
             changes: [
               { field: 'Units', oldValue: '20', newValue: '23', type: 'modified' }
             ],
@@ -85,6 +95,7 @@ export default function DocumentVersionHistory({
             author: 'Nichs Escano',
             versionName: '',
             is_current: false,
+            isBookmarked: false,
             changes: [
               { field: 'Course', oldValue: 'Computer Science', newValue: 'Information Technology', type: 'modified' }
             ],
@@ -101,6 +112,7 @@ export default function DocumentVersionHistory({
             author: 'Kin Gabriel',
             versionName: 'First draft',
             is_current: false,
+            isBookmarked: false,
             changes: [
               { field: 'School Year', oldValue: '', newValue: '2025', type: 'added' },
               { field: 'Course', oldValue: '', newValue: 'Computer Science', type: 'added' },
@@ -116,7 +128,7 @@ export default function DocumentVersionHistory({
           }
         ];
 
-// Groups version entries by time categories like Today, Yesterday, etc.
+        // Groups version entries by time categories like Today, Yesterday, etc.
         const grouped = groupVersionsByDate(mockVersions);
         setVersions(grouped);
         
@@ -159,7 +171,14 @@ export default function DocumentVersionHistory({
     return Object.entries(grouped)
       .map(([date, items]) => ({
         date,
-        items: items.sort((a, b) => b.timestamp - a.timestamp)
+        items: items.sort((a, b) => {
+          // Bookmarked items first
+          if ((a.isBookmarked ? 1 : 0) !== (b.isBookmarked ? 1 : 0)) {
+            return (b.isBookmarked ? 1 : 0) - (a.isBookmarked ? 1 : 0);
+          }
+          // Then newest first by timestamp
+          return new Date(b.timestamp) - new Date(a.timestamp);
+        })
       }))
       .sort((a, b) => {
         const order = ['Today', 'Yesterday', 'This Week', 'Last Week', 'This Month', 'Last Month'];
@@ -172,7 +191,7 @@ export default function DocumentVersionHistory({
       });
   };
 
-// Determines relative date group name (e.g., Today, This Week)
+  // Determines relative date group name (e.g., Today, This Week)
   const getRelativeDate = (date, now) => {
     const diffTime = now - date;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -187,7 +206,7 @@ export default function DocumentVersionHistory({
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
-   // Formats date and time into a readable string
+  // Formats date and time into a readable string
   const formatDateTime = (date) => {
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
@@ -204,9 +223,86 @@ export default function DocumentVersionHistory({
     setExpandedDates(prev => ({ ...prev, [date]: !prev[date] }));
   };
 
-   // Sets the currently selected version for preview
+  // Sets the currently selected version for preview
   const handleVersionSelect = (version) => {
     setSelectedVersion(version.id);
+  };
+
+   // TODO: IMPLEMENT API CALL FOR COPY --------------------------------------------------------
+  const handleCopyVersion = (version) => {
+    console.log('Copying version:', version);
+    setMenuOpen(null);
+    alert('Version copied!');
+  };
+
+  const handleBookmarkVersion = (version) => {
+    // If already bookmarked -> unbookmark immediately
+    if (version.isBookmarked) {
+      (async () => {
+        try {
+          const resp = await updateTemplateVersionBookmarkAPI(documentId, version.id, { isBookmarked: false });
+          if (resp?.success) {
+            const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? '';
+            updateLocalBookmark(version.id, false, returnedNote);
+            alert('Version unbookmarked');
+          } else {
+            alert(resp?.message || 'Unbookmark failed');
+          }
+        } catch (e) {
+          console.error('Failed to unbookmark', e);
+          alert('Failed to unbookmark version');
+        } finally {
+          setMenuOpen(null);
+        }
+      })();
+      return;
+    }
+
+    // Not bookmarked yet -> open modal to prompt for bookmark name
+    setBookmarkTarget(version);
+    setBookmarkName(version.versionName || '');
+    setShowBookmarkModal(true);
+    setMenuOpen(null);
+  };
+
+  // Update local bookmark state and reorder items (bookmarked first)
+  const updateLocalBookmark = (versionId, isBookmarked, note) => {
+    setVersions(prev => prev.map(group => {
+      if (!group.items.some(item => item.id === versionId)) return group;
+      const items = group.items.map(item => item.id === versionId
+        ? { ...item, isBookmarked: !!isBookmarked, versionName: (typeof note !== 'undefined' ? note : item.versionName) }
+        : item
+      );
+
+      items.sort((a, b) => {
+        if ((a.isBookmarked ? 1 : 0) !== (b.isBookmarked ? 1 : 0)) {
+          return (b.isBookmarked ? 1 : 0) - (a.isBookmarked ? 1 : 0);
+        }
+        return new Date(b.timestamp) - new Date(a.timestamp);
+      });
+
+      return { ...group, items };
+    }));
+  };
+
+  const confirmBookmark = async () => {
+    if (!bookmarkTarget) return;
+    try {
+      const resp = await updateTemplateVersionBookmarkAPI(documentId, bookmarkTarget.id, { isBookmarked: true, note: bookmarkName });
+      if (resp?.success) {
+        const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? bookmarkName;
+        updateLocalBookmark(bookmarkTarget.id, true, returnedNote);
+        setShowBookmarkModal(false);
+        setBookmarkTarget(null);
+        setBookmarkName('');
+        alert('Version bookmarked');
+      } else {
+        alert(resp?.message || 'Bookmark failed');
+      }
+    } catch (e) {
+      console.error('Bookmark confirm failed', e);
+      alert('Failed to bookmark version');
+    }
   };
 
   const filteredVersions = versions.map(group => ({
@@ -243,52 +339,52 @@ export default function DocumentVersionHistory({
   return (
     <div className="flex h-screen bg-white">
       {/* Main Content */}
-         <div className="flex-1 flex flex-col">
-              {/* Top Bar */}
-              <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <button 
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                    onClick={onClose}
-                    aria-label="Close version history"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-gray-500" />
-                    <span className="font-medium text-gray-900">
-                      {currentVersionDetails?.time || 'Select a version'}
-                    </span>
-                    {/* {!loading && totalVersions > 0 && (
+      <div className="flex-1 flex flex-col">
+        {/* Top Bar */}
+        <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button 
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              onClick={onClose}
+              aria-label="Close version history"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-gray-500" />
+              <span className="font-medium text-gray-900">
+                {currentVersionDetails?.time || 'Select a version'}
+              </span>
+               {/* {!loading && totalVersions > 0 && (
                       <span className="ml-2 text-xs text-gray-500">Loaded {totalVersions} {totalVersions === 1 ? 'version' : 'versions'}</span>
-                    )} */}
-                    {currentVersionDetails?.isCurrent && (
-                      <span className="px-2 py-0.5 text-xs font-medium bg-teal-100 text-teal-700 rounded-full">
-                        Current
-                      </span>
-                    )}
-                  </div>
-                </div>
-                
-                  <div className="flex items-center gap-3">
-                  <div className="text-sm text-gray-600 flex items-center gap-2">
-                    <span>Total: {totalVersions} {totalVersions === 1 ? 'version' : 'versions'}</span>
-                  </div>
-                  
-                  <button
-                    disabled={!selectedVersion}
-                    onClick={() => setShowRestoreModal(true)}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg shadow-sm transition-all
-                      ${selectedVersion
-                        ? 'text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] active:scale-95'
-                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      }`}
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    {selectedVersion ? 'Restore this version' : 'Select a version to restore'}
-                  </button>
-                </div>
-              </div>
+                )} */}
+              {currentVersionDetails?.is_current && (
+                <span className="px-2 py-0.5 text-xs font-medium bg-teal-100 text-teal-700 rounded-full">
+                  Current
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-gray-600 flex items-center gap-2">
+              <span>Total: {totalVersions} {totalVersions === 1 ? 'version' : 'versions'}</span>
+            </div>
+            
+            <button
+              disabled={!selectedVersion}
+              onClick={() => setShowRestoreModal(true)}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg shadow-sm transition-all
+                ${selectedVersion
+                  ? 'text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] active:scale-95'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
+            >
+              <RotateCcw className="w-4 h-4" />
+              {selectedVersion ? 'Restore this version' : 'Select a version to restore'}
+            </button>
+          </div>
+        </div>
 
         {/* Editable Fields Preview */}
         <div className="flex-1 overflow-auto bg-gray-50">
@@ -319,11 +415,6 @@ export default function DocumentVersionHistory({
                       )}
                     </div>
                   </div>
-                  {currentVersionDetails.is_current && (
-                    <span className="px-3 py-1 text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200 rounded">
-                      Current Version
-                    </span>
-                  )}
                 </div>
                 
                 {currentVersionDetails.changes.length > 0 && (
@@ -335,62 +426,41 @@ export default function DocumentVersionHistory({
                 )}
               </div>
 
-              {/* Field Values - SHOULD BE DYNAMIC; still static for demo purposes */}
+              {/* Field Values - Dynamic based on version data */}
               <div className="space-y-4 mb-6">
                 <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Field Values</h3>
                 
                 <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
-                  {/* School Year */}
-                  <div className={`p-5 ${highlightChanges && currentVersionDetails.changes.some(c => c.field === 'School Year') ? 'bg-amber-50' : ''}`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">School Year</label>
-                        <p className="text-base text-gray-900">{currentVersionDetails.fields.schoolYear || '—'}</p>
+                  {Object.entries(currentVersionDetails.fields).map(([fieldKey, fieldValue]) => {
+                    // Convert camelCase to Title Case for display
+                    const fieldLabel = fieldKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                    const isModified = currentVersionDetails.changes.some(c => 
+                      c.field.toLowerCase().replace(/\s+/g, '') === fieldKey.toLowerCase()
+                    );
+                    
+                    return (
+                      <div 
+                        key={fieldKey}
+                        className={`p-5 ${highlightChanges && isModified ? 'bg-amber-50' : ''}`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {fieldLabel}
+                            </label>
+                            <p className="text-base text-gray-900 whitespace-pre-wrap">
+                              {fieldValue || '—'}
+                            </p>
+                          </div>
+                          {highlightChanges && isModified && (
+                            <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                              Modified
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {highlightChanges && currentVersionDetails.changes.some(c => c.field === 'School Year') && (
-                        <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">Modified</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Course */}
-                  <div className={`p-5 ${highlightChanges && currentVersionDetails.changes.some(c => c.field === 'Course') ? 'bg-amber-50' : ''}`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Course</label>
-                        <p className="text-base text-gray-900">{currentVersionDetails.fields.course || '—'}</p>
-                      </div>
-                      {highlightChanges && currentVersionDetails.changes.some(c => c.field === 'Course') && (
-                        <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">Modified</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Units */}
-                  <div className={`p-5 ${highlightChanges && currentVersionDetails.changes.some(c => c.field === 'Units') ? 'bg-amber-50' : ''}`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Units</label>
-                        <p className="text-base text-gray-900">{currentVersionDetails.fields.units || '—'}</p>
-                      </div>
-                      {highlightChanges && currentVersionDetails.changes.some(c => c.field === 'Units') && (
-                        <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">Modified</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Course Overview */}
-                  <div className={`p-5 ${highlightChanges && currentVersionDetails.changes.some(c => c.field === 'Course Overview') ? 'bg-amber-50' : ''}`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Course Overview</label>
-                        <p className="text-base text-gray-900 whitespace-pre-wrap">{currentVersionDetails.fields.courseOverview || '—'}</p>
-                      </div>
-                      {highlightChanges && currentVersionDetails.changes.some(c => c.field === 'Course Overview') && (
-                        <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">Modified</span>
-                      )}
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -463,286 +533,299 @@ export default function DocumentVersionHistory({
         </div>
       </div>
 
-    {/* Version History Sidebar */}
-          <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
-            {/* Sidebar Header */}
-            <div className="p-4 border-b border-gray-200 space-y-3">
-              <h2 className="font-semibold text-gray-900">Version history</h2>
-              <select 
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-              >
-                <option value="all">All versions</option>
-                <option value="named">Named versions</option>
-              </select>
+      {/* Version History Sidebar */}
+      <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+        {/* Sidebar Header */}
+        <div className="p-4 border-b border-gray-200 space-y-3">
+          <h2 className="font-semibold text-gray-900">Version history</h2>
+          <select 
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+          >
+            <option value="all">All versions</option>
+            <option value="named">Named versions</option>
+          </select>
+        </div>
+
+        {/* Version List */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="p-4 text-center text-gray-500">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+              <p className="text-sm">Loading versions...</p>
             </div>
-    
-            {/* Version List */}
-            <div className="flex-1 overflow-y-auto">
-              {loading ? (
-                <div className="p-4 text-center text-gray-500">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-sm">Loading versions...</p>
-                </div>
-              ) : filteredVersions.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">
-                  <p className="text-sm">No versions found</p>
-                </div>
-              ) : (
-                filteredVersions.map((group) => (
-                  <div key={group.date}>
-                    {/* Date Header */}
-                    <button
-                      onClick={() => toggleDate(group.date)}
-                      className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                    >
-                      <span className="text-sm font-medium text-gray-900">{group.date}</span>
-                      {expandedDates[group.date] ? (
-                        <ChevronDown className="w-4 h-4 text-gray-500" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-gray-500" />
-                      )}
-                    </button>
-    
-                    {/* Version Items */}
-                    {expandedDates[group.date] && (
-                      <div className="border-l-2 border-gray-200 ml-4">
-                        {group.items.map((version) => (
-                          <div
-                            key={version.id}
-                            onClick={() => handleVersionSelect(version)}
-                            className={`relative px-4 py-3 cursor-pointer transition-colors ${
-                              selectedVersion === version.id 
-                                ? 'bg-blue-50 border-l-2 border-blue-500 -ml-0.5' 
-                                : 'hover:bg-gray-50'
-                            }`}
-                          >
-    
-                          {/* Timeline dot - TEAL for current version, BLUE for others */}
-                          <div
-                              className={`absolute left-3 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
-                                version.isCurrent ? 'bg-teal-500' : 'bg-blue-500'
-                              }`}
-                          />
-    
-                            <div className="flex items-start justify-between ml-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-gray-900 truncate">
-                                      {version.time}
-                                    </span>
-                                    {version.versionName && (
-                                      <span className="block text-xs text-gray-500 truncate">{version.versionName}</span>
-                                    )}
-                                </div>
-                                
-                                {/* Current Version Label - Only shows for current version */}
-                                {version.isCurrent && (
-                                  <span className="block text-xs text-teal-600 font-medium mt-1">
-                                    Current version
-                                  </span>
-                                )}
-                                
-                                <div className="mt-2 flex items-center gap-2">
-                                {/* Creator Avatar (initials) */}
-                                <div className="w-6 h-6 flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-bold rounded-full shadow-sm ring-2 ring-white">
-                                  {version.author
-                                    ? version.author
-                                        .split(' ')
-                                        .map(word => word[0])
-                                        .join('')
-                                        .slice(0, 2)
-                                        .toUpperCase()
-                                    : 'U'}
-                                </div>
-    
-                                {/* Author Name */}
-                                <span className="text-xs text-gray-600 font-medium truncate hover:text-gray-900 transition-colors">
-                                  {version.author || 'Unknown User'}
-                                </span>
+          ) : filteredVersions.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">
+              <p className="text-sm">No versions found</p>
+            </div>
+          ) : (
+            filteredVersions.map((group) => (
+              <div key={group.date}>
+                {/* Date Header */}
+                <button
+                  onClick={() => toggleDate(group.date)}
+                  className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                >
+                  <span className="text-sm font-medium text-gray-900">{group.date}</span>
+                  {expandedDates[group.date] ? (
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                  )}
+                </button>
+
+                {/* Version Items */}
+                {expandedDates[group.date] && (
+                  <div className="border-l-2 border-gray-200 ml-4">
+                    {group.items.map((version) => (
+                      <div
+                        key={version.id}
+                        onClick={() => handleVersionSelect(version)}
+                        className={`relative px-4 py-3 cursor-pointer transition-colors ${
+                          selectedVersion === version.id 
+                            ? 'bg-blue-50 border-l-2 border-blue-500 -ml-0.5' 
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+
+                        {/* Timeline dot - TEAL for current version, BLUE for others */}
+                        <div
+                          className={`absolute left-3 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
+                            version.is_current ? 'bg-teal-500' : 'bg-blue-500'
+                          }`}
+                        />
+
+                        <div className="flex items-start justify-between ml-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-900 truncate">
+                                {version.time}
+                              </span>
+                              {version.versionName && (
+                                <span className="block text-xs text-gray-500 truncate">{version.versionName}</span>
+                              )}
+                            </div>
+                            
+                            {/* Current Version Label - Only shows for current version */}
+                            {version.is_current && (
+                              <span className="block text-xs text-teal-600 font-medium mt-1">
+                                Current version
+                              </span>
+                            )}
+                            
+                            <div className="mt-2 flex items-center gap-2">
+                              {/* Creator Avatar (initials) */}
+                              <div className="w-6 h-6 flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-bold rounded-full shadow-sm ring-2 ring-white">
+                                {version.author
+                                  ? version.author
+                                      .split(' ')
+                                      .map(word => word[0])
+                                      .join('')
+                                      .slice(0, 2)
+                                      .toUpperCase()
+                                  : 'U'}
                               </div>
-    
-                                {version.changes && version.changes.length > 0 && (
-                                  <div className="mt-2 text-xs text-gray-500">
-                                    {version.changes.length} {version.changes.length === 1 ? 'change' : 'changes'}
-                                  </div>
-                                )}
+
+                              {/* Author Name */}
+                              <span className="text-xs text-gray-600 font-medium truncate hover:text-gray-900 transition-colors">
+                                {version.author || 'Unknown User'}
+                              </span>
+                            </div>
+
+                            {version.changes && version.changes.length > 0 && (
+                              <div className="mt-2 text-xs text-gray-500">
+                                {version.changes.length} {version.changes.length === 1 ? 'change' : 'changes'}
                               </div>
-                              
-                              {/* Bookmark star + 3-dot button */}
-                              <div className="relative flex items-center gap-2" ref={menuOpen === version.id ? menuRef : null}>
+                            )}
+                          </div>
+                          
+                          {/* Bookmark star + 3-dot button */}
+                          <div className="relative flex items-center gap-2" ref={menuOpen === version.id ? menuRef : null}>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleBookmarkVersion(version); }}
+                              className="p-1 hover:bg-gray-100 rounded transition-colors"
+                              aria-label={version.isBookmarked ? 'Unbookmark version' : 'Bookmark version'}
+                              title={version.isBookmarked ? 'Bookmarked' : 'Bookmark'}
+                            >
+                              {version.isBookmarked ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.163c.969 0 1.371 1.24.588 1.81l-3.37 2.455a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.37-2.455a1 1 0 00-1.176 0l-3.37 2.455c-.784.57-1.838-.197-1.539-1.118l1.286-3.957a1 1 0 00-.364-1.118L2.06 9.384c-.783-.57-.38-1.81.588-1.81h4.163a1 1 0 00.95-.69l1.287-3.957z" />
+                                </svg>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5v14l7-5 7 5V5a2 2 0 00-2-2H7a2 2 0 00-2 2z" />
+                                </svg>
+                              )}
+                            </button>
+
+                            <button
+                              className="p-1 hover:bg-gray-200 rounded transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuOpen(menuOpen === version.id ? null : version.id);
+                              }}
+                            >
+                              <MoreVertical className="w-4 h-4 text-gray-400" />
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            {menuOpen === version.id && (
+                              <div className="absolute right-0 mt-2 w-45 bg-white shadow-lg rounded-lg border border-gray-200 z-50">
+                                {/* Make a Copy */}
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); handleBookmarkVersion(version); }}
-                                  className="p-1 hover:bg-gray-100 rounded transition-colors"
-                                  aria-label={version.isBookmarked ? 'Unbookmark version' : 'Bookmark version'}
-                                  title={version.isBookmarked ? 'Bookmarked' : 'Bookmark'}
-                                >
-                                  {version.isBookmarked ? (
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
-                                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.163c.969 0 1.371 1.24.588 1.81l-3.37 2.455a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.37-2.455a1 1 0 00-1.176 0l-3.37 2.455c-.784.57-1.838-.197-1.539-1.118l1.286-3.957a1 1 0 00-.364-1.118L2.06 9.384c-.783-.57-.38-1.81.588-1.81h4.163a1 1 0 00.95-.69l1.287-3.957z" />
-                                    </svg>
-                                  ) : (
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5v14l7-5 7 5V5a2 2 0 00-2-2H7a2 2 0 00-2 2z" />
-                                    </svg>
-                                  )}
-                                </button>
-    
-                                <button
-                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setMenuOpen(menuOpen === version.id ? null : version.id);
+                                    handleCopyVersion(version);
                                   }}
+                                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg transition-all"
                                 >
-                                  <MoreVertical className="w-4 h-4 text-gray-400" />
+                                  <Copy className="w-4 h-4 mr-2 text-gray-500" />
+                                  Make a Copy
                                 </button>
-    
-                               {/* Dropdown Menu */}
-                              {menuOpen === version.id && (
-                                <div className="absolute right-0 mt-2 w-45 bg-white shadow-lg rounded-lg border border-gray-200 z-50">
-                                  {/* Make a Copy */}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleCopyVersion(version);
-                                    }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg transition-all"
+
+                                {/* Bookmark Version */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleBookmarkVersion(version); 
+                                  }}
+                                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-lg transition-all"
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="w-4 h-4 mr-2 text-gray-500"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
                                   >
-                                    <Copy className="w-4 h-4 mr-2 text-gray-500" />
-                                    Make a Copy
-                                  </button>
-    
-                                  {/* Bookmark Version */}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleBookmarkVersion(version); 
-                                    }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-lg transition-all"
-                                  >
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="w-4 h-4 mr-2 text-gray-500"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M5 5v14l7-5 7 5V5a2 2 0 00-2-2H7a2 2 0 00-2 2z"
-                                      />
-                                    </svg>
-                                    Bookmark Version
-                                  </button>
-                                </div>
-                              )}
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 5v14l7-5 7 5V5a2 2 0 00-2-2H7a2 2 0 00-2 2z"
+                                    />
+                                  </svg>
+                                  Bookmark Version
+                                </button>
                               </div>
-                            </div>
+                            )}
                           </div>
-                        ))}
+                        </div>
                       </div>
-                    )}
+                    ))}
                   </div>
-                ))
-              )}
-            </div>
-    
-            {/* Highlight Changes Toggle */}
-            <div className="p-4 border-t border-gray-200">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={highlightChanges}
-                  onChange={(e) => setHighlightChanges(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
-                />
-                <span className="text-sm text-gray-700">Highlight changes</span>
-              </label>
-            </div>
-          </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Highlight Changes Toggle */}
+        <div className="p-4 border-t border-gray-200">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={highlightChanges}
+              onChange={(e) => setHighlightChanges(e.target.checked)}
+              className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+            />
+            <span className="text-sm text-gray-700">Highlight changes</span>
+          </label>
+        </div>
+      </div>
+
+      {/* Bookmark Modal */}
+      <BookmarkModal
+        show={showBookmarkModal}
+        onClose={() => { 
+          setShowBookmarkModal(false); 
+          setBookmarkTarget(null); 
+          setBookmarkName('');
+        }}
+        bookmarkName={bookmarkName}
+        setBookmarkName={setBookmarkName}
+        onConfirm={confirmBookmark}
+      />
           
-    {/* Restore Confirmation Modal */}
-    {showRestoreModal && (
-    <div className="fixed inset-0 backdrop-blur-[2px] bg-black/40 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-            <div>
-                <h1 className="text-xl font-semibold text-gray-900">Restore Version</h1>
+      {/* Restore Confirmation Modal */}
+      {showRestoreModal && (
+        <div className="fixed inset-0 backdrop-blur-[2px] bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div>
+                  <h1 className="text-xl font-semibold text-gray-900">Restore Version</h1>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRestoreModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
             </div>
-            </div>
-            <button
-            onClick={() => setShowRestoreModal(false)}
-            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-            <X className="w-5 h-5 text-gray-400" />
-            </button>
-        </div>
 
-        {/* Content */}
-        <div className="mb-6 space-y-3">
-            <p className="text-md text-gray-700">
-            Are you sure you want to restore this document to this version?
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-2">
-                <Clock className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-900">
-                {currentVersionDetails?.time}
-                </span>
-            </div>
-            {currentVersionDetails?.versionName && (
-                <p className="text-xs text-blue-700 ml-6">
-                {currentVersionDetails.versionName}
+            {/* Content */}
+            <div className="mb-6 space-y-3">
+              <p className="text-md text-gray-700">
+                Are you sure you want to restore this document to this version?
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">
+                    {currentVersionDetails?.time}
+                  </span>
+                </div>
+                {currentVersionDetails?.versionName && (
+                  <p className="text-xs text-blue-700 ml-6">
+                    {currentVersionDetails.versionName}
+                  </p>
+                )}
+                <p className="text-xs text-blue-600 ml-6 mt-1">
+                  By {currentVersionDetails?.author || "Unknown User"}
                 </p>
-            )}
-            <p className="text-xs text-blue-600 ml-6 mt-1">
-                By {currentVersionDetails?.author || "Unknown User"}
-            </p>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs text-amber-800">
+                  <strong>Note:</strong> This action will create a new version capturing the restore.
+                  Your current version will still be preserved in the version history.
+                </p>
+              </div>
             </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <p className="text-xs text-amber-800">
-                <strong>Note:</strong> This action will create a new version capturing the restore.
-                Your current version will still be preserved in the version history.
-            </p>
-            </div>
-        </div>
 
-        {/* Actions */}
-        <div className="flex gap-3">
-            <button
-            onClick={() => setShowRestoreModal(false)}
-            disabled={isRestoring}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-            Cancel
-            </button>
-            <button
-            onClick={handleRestoreVersion}
-            disabled={isRestoring}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-            {isRestoring ? (
-                <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                Restoring...
-                </>
-            ) : (
-                <>
-                <RotateCcw className="w-4 h-4" />
-                Restore
-                </>
-            )}
-            </button>
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRestoreModal(false)}
+                disabled={isRestoring}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRestoreVersion}
+                disabled={isRestoring}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isRestoring ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Restoring...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    Restore
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
-     </div>
-    )}
-  </div>
+      )}
+    </div>
   );
 }
