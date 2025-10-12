@@ -1,28 +1,26 @@
+// src/layout/create_template/PageSetupPanel.jsx
 import { useState, useEffect } from "react";
 import Dropdown from "../../components/dropdowns/dropdown2";
 
 export default function PageSetupPanel({
-  paperSize,
-  setPaperSize,
-  orientation,
-  setOrientation,
-  margins,
-  setMargins,
+  pageSetup,
+  onApply,
   defaultOrientation = "Portrait",
   defaultMargins = { top: 1, bottom: 1, left: 1, right: 1 },
   defaultPaperSize = "A4",
 }) {
   // Local draft state for editing before Apply
-  const [draftPaperSize, setDraftPaperSize] = useState(paperSize);
-  const [draftOrientation, setDraftOrientation] = useState(orientation);
-  const [draftMargins, setDraftMargins] = useState(margins);
+  const [draftPaperSize, setDraftPaperSize] = useState(pageSetup.paperSize);
+  const [draftOrientation, setDraftOrientation] = useState(pageSetup.orientation);
+  const [draftMargins, setDraftMargins] = useState(pageSetup.margins);
 
-  // Reset draft state when panel opens or parent changes
+  // Sync when parent updates
   useEffect(() => {
-    setDraftPaperSize(paperSize);
-    setDraftOrientation(orientation);
-    setDraftMargins(margins);
-  }, [paperSize, orientation, margins]);
+    if (!pageSetup) return;
+    setDraftPaperSize(pageSetup.paperSize);
+    setDraftOrientation(pageSetup.orientation);
+    setDraftMargins(pageSetup.margins);
+  }, [pageSetup]);
 
   const safe = (val, fallback = 1) => {
     const n = Number(val);
@@ -31,32 +29,37 @@ export default function PageSetupPanel({
 
   // Cancel: revert to last applied
   const handleCancel = () => {
-    setDraftPaperSize(paperSize);
-    setDraftOrientation(orientation);
-    setDraftMargins(margins);
+    setDraftPaperSize(pageSetup.paperSize);
+    setDraftOrientation(pageSetup.orientation);
+    setDraftMargins(pageSetup.margins);
   };
 
-  // Apply: update parent state
+  // Apply: send full pageSetup object to parent
   const handleApply = () => {
-    setPaperSize(draftPaperSize);
-    setOrientation(draftOrientation);
-    setMargins({
-      top: safe(draftMargins.top),
-      bottom: safe(draftMargins.bottom),
-      left: safe(draftMargins.left),
-      right: safe(draftMargins.right),
-    });
+    const newSetup = {
+      paperSize: draftPaperSize,
+      orientation: draftOrientation,
+      margins: {
+        top: safe(draftMargins.top),
+        bottom: safe(draftMargins.bottom),
+        left: safe(draftMargins.left),
+        right: safe(draftMargins.right),
+      },
+    };
+    onApply(newSetup);
   };
 
   // Reset: restore to defaults
   const handleReset = () => {
+    const resetSetup = {
+      paperSize: defaultPaperSize,
+      orientation: defaultOrientation,
+      margins: defaultMargins,
+    };
     setDraftPaperSize(defaultPaperSize);
     setDraftOrientation(defaultOrientation);
     setDraftMargins(defaultMargins);
-
-    setPaperSize(defaultPaperSize);
-    setOrientation(defaultOrientation);
-    setMargins(defaultMargins);
+    onApply(resetSetup);
   };
 
   return (

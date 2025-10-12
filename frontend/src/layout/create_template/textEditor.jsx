@@ -25,11 +25,17 @@ import BackspaceHandler from "../../extensions/textEditor/BackspaceHandler";
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 
 const inchToPx = (inches) => Math.round(inches * 96);
+
 const DEFAULT_SETUP = {
   paperSize: "A4",
   orientation: "Portrait",
   margins: { top: 1, bottom: 1, left: 1, right: 1 },
+  // Optional (used for visual spacing helpers; Page.js does the real offset logic)
+  headerHeight: 1.0, // in
+  footerHeight: 0.6, // in
+  contentOffsets: { top: 0, bottom: 0 }, // px; Page.js can override by inline styles
 };
+
 const PRESETS = {
   A4: { w: 8.27, h: 11.69 },
   Letter: { w: 8.5, h: 11 },
@@ -43,6 +49,11 @@ function computeDims(pageSetup) {
   const wIn = portrait ? base.w : base.h;
   const hIn = portrait ? base.h : base.w;
   const m = p.margins || DEFAULT_SETUP.margins;
+
+  const headerHeightIn = p.headerHeight ?? DEFAULT_SETUP.headerHeight;
+  const footerHeightIn = p.footerHeight ?? DEFAULT_SETUP.footerHeight;
+  const contentOffsets = p.contentOffsets ?? DEFAULT_SETUP.contentOffsets;
+
   return {
     widthPx: inchToPx(wIn),
     heightPx: inchToPx(hIn),
@@ -50,6 +61,10 @@ function computeDims(pageSetup) {
     marginBottomPx: inchToPx(m.bottom),
     marginLeftPx: inchToPx(m.left),
     marginRightPx: inchToPx(m.right),
+    headerHeightPx: inchToPx(headerHeightIn),
+    footerHeightPx: inchToPx(footerHeightIn),
+    contentTopOffsetPx: contentOffsets.top ?? 0,
+    contentBottomOffsetPx: contentOffsets.bottom ?? 0,
   };
 }
 
@@ -82,12 +97,19 @@ export default function TextEditor({
 
   const applyCssVars = (d) => {
     const root = document.documentElement;
+    // Page dimensions & outer margins
     root.style.setProperty("--nd-page-width", `${d.widthPx}px`);
     root.style.setProperty("--nd-page-height", `${d.heightPx}px`);
     root.style.setProperty("--nd-margin-top", `${d.marginTopPx}px`);
     root.style.setProperty("--nd-margin-bottom", `${d.marginBottomPx}px`);
     root.style.setProperty("--nd-margin-left", `${d.marginLeftPx}px`);
     root.style.setProperty("--nd-margin-right", `${d.marginRightPx}px`);
+    // Visual helpers for header/footer zones (optional; Page.js handles real spacing)
+    root.style.setProperty("--nd-header-height", `${d.headerHeightPx || 100}px`);
+    root.style.setProperty("--nd-footer-height", `${d.footerHeightPx || 60}px`);
+    // Default content offsets (Page.js can set inline styles for precise offsets)
+    root.style.setProperty("--nd-content-top-offset", `${d.contentTopOffsetPx || 0}px`);
+    root.style.setProperty("--nd-content-bottom-offset", `${d.contentBottomOffsetPx || 0}px`);
   };
 
   const editor = useEditor({
@@ -133,16 +155,23 @@ export default function TextEditor({
     onCreate: ({ editor }) => {
       // install lock plugin ONCE and keep a setter to flip it later
       const { plugin, setPolicy } = createLockOutsideFieldsPlugin({
-        initialPolicy: mode === "document" ? "document" : "template", 
+        initialPolicy: mode === "document" ? "document" : "template",
         nodeTypeName: "editableField",
         keyName: "lock-outside-fields",
       });
       setPolicyRef.current = setPolicy;
       editor.registerPlugin(plugin);
+
       applyCssVars(dimsRef.current);
+
+      // trigger first reflow for paginator
       editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
+
       // honor readOnly flag by toggling editor's editable state
-      try { editor.setEditable(!readOnly); } catch (e) {}
+      try {
+        editor.setEditable(!readOnly);
+      } catch (e) {}
+
       onEditorReady?.(editor);
     },
     onUpdate: ({ editor }) => onContentChange?.(editor.getHTML()),
@@ -151,7 +180,9 @@ export default function TextEditor({
   // update editable state when readOnly prop changes
   useEffect(() => {
     if (!editor) return;
-    try { editor.setEditable(!readOnly); } catch (e) {}
+    try {
+      editor.setEditable(!readOnly);
+    } catch (e) {}
   }, [editor, readOnly]);
 
   // flip lock flag WITHOUT reconfiguring state or swapping plugins
@@ -174,34 +205,32 @@ export default function TextEditor({
     if (typeof content === "string") {
       const html = normalizeInitialContent(content);
       if (html !== editor.getHTML()) {
-        console.debug('TextEditor: setContent (html) called');
         try {
-          if (setPolicyRef.current) setPolicyRef.current('off');
-        } catch (e) {
-        }
+          if (setPolicyRef.current) setPolicyRef.current("off");
+        } catch (e) {}
         try {
           editor.commands.setContent(html, false);
         } finally {
           try {
-            if (setPolicyRef.current) setPolicyRef.current(mode === "document" ? "document" : "template");
-          } catch (e) {
-          }
+            if (setPolicyRef.current)
+              setPolicyRef.current(mode === "document" ? "document" : "template");
+          } catch (e) {}
         }
       }
     } else if (content && typeof content === "object") {
-      console.debug('TextEditor: setContent (doc) called');
       try {
-        if (setPolicyRef.current) setPolicyRef.current('off');
+        if (setPolicyRef.current) setPolicyRef.current("off");
       } catch (e) {}
       try {
         editor.commands.setContent(content, false);
       } finally {
         try {
-          if (setPolicyRef.current) setPolicyRef.current(mode === "document" ? "document" : "template");
+          if (setPolicyRef.current)
+            setPolicyRef.current(mode === "document" ? "document" : "template");
         } catch (e) {}
       }
     }
-  }, [editor, content]);
+  }, [editor, content, mode]);
 
   useEffect(() => () => editor?.destroy(), [editor]);
 
@@ -215,7 +244,16 @@ export default function TextEditor({
           --nd-margin-bottom: ${dimsRef.current.marginBottomPx}px;
           --nd-margin-left: ${dimsRef.current.marginLeftPx}px;
           --nd-margin-right: ${dimsRef.current.marginRightPx}px;
+
+          /* Visual helpers (editor-level) */
+          --nd-header-height: ${dimsRef.current.headerHeightPx}px;
+          --nd-footer-height: ${dimsRef.current.footerHeightPx}px;
+
+          /* Content offsets: Page.js can override via inline styles on .nd-content */
+          --nd-content-top-offset: ${dimsRef.current.contentTopOffsetPx}px;
+          --nd-content-bottom-offset: ${dimsRef.current.contentBottomOffsetPx}px;
         }
+
         .nd-page {
           box-sizing: border-box;
           width: var(--nd-page-width);
@@ -227,18 +265,36 @@ export default function TextEditor({
           border: 1px solid rgba(0,0,0,0.06);
           box-shadow: 0 6px 18px rgba(0,0,0,0.08);
           overflow: hidden;
+
+          /* Allow header/content/footer stacking */
+          display: flex;
+          flex-direction: column;
         }
+
         .nd-editor { outline: none; }
         .ProseMirror:focus { outline: none; }
-        .nd-image-wrapper { position: relative; }
-        .nd-image-crop-container img { display: block; }
-        .nd-frame { pointer-events: none; }
-        .nd-crop-overlay::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          outline: 1px dashed #60a5fa;
-          pointer-events: none;
+
+        /* Header / Content / Footer structure */
+        .nd-header {
+          position: relative;
+          z-index: 2;
+          /* Optionally visualize header area height while designing:
+             min-height: var(--nd-header-height); */
+        }
+        .nd-content {
+          position: relative;
+          z-index: 1;
+          flex: 1;
+          /* Offsets ensure body text respects header/footer when active.
+             Page.js may set inline padding-top/bottom dynamically; these are safe defaults. */
+          padding-top: var(--nd-content-top-offset, 0px);
+          padding-bottom: var(--nd-content-bottom-offset, 0px);
+        }
+        .nd-footer {
+          position: relative;
+          z-index: 2;
+          /* Optionally visualize footer area height while designing:
+             min-height: var(--nd-footer-height); */
         }
 
         /* ===== Editable Field visuals (inline box) ===== */
@@ -259,6 +315,17 @@ export default function TextEditor({
           content: attr(data-ph);
           color: #94a3b8;
         }
+        .nd-image-wrapper { position: relative; }
+        .nd-image-crop-container img { display: block; }
+        .nd-frame { pointer-events: none; }
+        .nd-crop-overlay::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          outline: 1px dashed #60a5fa;
+          pointer-events: none;
+        }
+
         .nd-image-field-frame {
           display: inline-flex;
           width: 64px;

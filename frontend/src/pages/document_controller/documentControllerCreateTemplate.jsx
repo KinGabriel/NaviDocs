@@ -341,12 +341,7 @@ export default function DocumentControllerCreateTemplate() {
         return (
           <PageSetupPanel
             pageSetup={pageSetup}
-            paperSize={pageSetup.paperSize}
-            setPaperSize={(v) => setPageSetup({ ...pageSetup, paperSize: v })}
-            orientation={pageSetup.orientation}
-            setOrientation={(v) => setPageSetup({ ...pageSetup, orientation: v })}
-            margins={pageSetup.margins}
-            setMargins={(m) => setPageSetup({ ...pageSetup, margins: m })}
+            onApply={(newSetup) => setPageSetup({ ...newSetup })}
           />
         );
       case "dateformat":
