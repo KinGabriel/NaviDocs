@@ -2,7 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import naviLogo from '../../assets/images/navilogo.png';
 import SubmitApprovalModal from '../../components/modals/submitForApprovalModal';
-import VersionHistory from '../../pages/version_history/templateVersionHistory';
+import TemplateVersionHistory from '../../pages/version_history/templateVersionHistory';
 import AssignMembersModal from '../../components/modals/assignMembersModal';
 import React, { useState, useEffect } from "react";
 import { assignControllersToTemplateAPI } from '../../api/documentContollerAPI';
@@ -538,7 +538,7 @@ export default function Header2({
       {/* Version History Full Screen Overlay */}
       {showVersionHistory && (
         <div className="fixed inset-0 z-[100] bg-white">
-          <VersionHistory onClose={() => setShowVersionHistory(false)} templateId={templateId} previousName={title} />
+          <TemplateVersionHistory onClose={() => setShowVersionHistory(false)} templateId={templateId} previousName={title} />
         </div>
       )}
 

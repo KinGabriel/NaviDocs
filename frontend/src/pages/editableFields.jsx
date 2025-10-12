@@ -671,6 +671,7 @@ export default function EditableFields() {
         saving={saving}
         lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : null}
         dirty={dirty}
+        documentId={id}
       />
 
       {/* Progress Navigation */}
