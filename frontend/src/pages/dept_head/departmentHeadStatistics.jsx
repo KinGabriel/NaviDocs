@@ -57,17 +57,40 @@ export default function DepartmentHeadStatistics() {
     { faculty: "Prof. Lea Gonzales", submitted: 15, approved: 12, pending: 3, completionRate: "80%" }
   ];
 
+  // Search filter for the table
+  const filteredTableData = tableData.filter((row) =>
+    row.faculty.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // --- BAR CHART LOGIC (same as document controller/dean) ---
+  const baseDepartments = [
+    { name: "IT", submission: 80 },
+    { name: "CS", submission: 65 },
+    { name: "FINMAN", submission: 40 },
+    { name: "ACCT", submission: 70 },
+    { name: "MMA", submission: 90 },
+    { name: "HM", submission: 45 },
+    { name: "ENTREP", submission: 50 },
+    { name: "BA", submission: 60 },
+  ];
+
+  const sortedDepartments = [...baseDepartments].sort((a, b) => {
+    if (sortOrder === "A-Z") return a.name.localeCompare(b.name);
+    if (sortOrder === "Z-A") return b.name.localeCompare(a.name);
+    return 0;
+  });
+
   const barData = {
-  labels: ["Prof. Mark Santos", "Prof. Anna Rivera", "Prof. Daniel Cruz", "Prof. Lea Gonzales", "Prof. Mark Santos", "Prof. Anna Rivera", "Prof. Daniel Cruz", "Prof. Lea Gonzales "],
-  datasets: [
-    {
-      label: "Submission %",
-      data: [88, 94, 95, 80, 48, 74, 95, 84], // completion/submission percentages per faculty
-      backgroundColor: "#1E40AF",
-      borderRadius: 5,
-    },
-  ],
-};
+    labels: sortedDepartments.map((d) => d.name),
+    datasets: [
+      {
+        label: "Submission %",
+        data: sortedDepartments.map((d) => d.submission),
+        backgroundColor: "#1E40AF",
+        borderRadius: 5,
+      },
+    ],
+  };
 
 const barOptions = {
   responsive: true,
@@ -380,7 +403,7 @@ const LateSubmissionsContent = ({ data }) => {
                  Faculty Performance Overview
                 </h2>
                 <div className="w-30 h-0.5 bg-yellow-400 mb-4 rounded" />
-                <Table columns={tableColumns} data={tableData} />
+                <Table columns={tableColumns} data={filteredTableData} />
               </div>
 
               {/* Pie chart */}
