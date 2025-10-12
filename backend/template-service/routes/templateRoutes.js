@@ -37,6 +37,7 @@ import {
         listTemplateVersions,
         getTemplateVersion,
         updateTemplateVersionNote,
+        updateTemplateVersionBookmark,
         restoreTemplateVersion
 } from '../controllers/templateVersionController.js';
 
@@ -54,6 +55,7 @@ router.get("/:id", authenticateJWT, getTemplateById);
 router.get('/:id/versions', authenticateJWT, listTemplateVersions);
 router.get('/:id/versions/:versionId', authenticateJWT, getTemplateVersion);
 router.patch('/:id/versions/:versionId/note', authenticateJWT, updateTemplateVersionNote);
+router.patch('/:id/versions/:versionId/bookmark', authenticateJWT, updateTemplateVersionBookmark);
 router.post('/:id/versions/:versionId/restore', authenticateJWT, restoreTemplateVersion);
 router.put("/:id", authenticateJWT, updateTemplate);
 router.patch("/:id/approve", authenticateJWT, approveTemplate);

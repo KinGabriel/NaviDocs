@@ -437,6 +437,22 @@ export const updateTemplateVersionNoteAPI = async (templateId, versionId, note) 
 };
 
 /**
+ * Update bookmark state and note for a template version
+ * @param {string} templateId
+ * @param {string} versionId
+ * @param {Object} payload - { isBookmarked?: boolean, note?: string }
+ * @returns {Promise<{success:boolean,version:Object}>}
+ */
+export const updateTemplateVersionBookmarkAPI = async (templateId, versionId, payload) => {
+  try {
+    const res = await axios.patch(`${API_URL}/api/templates/${templateId}/versions/${versionId}/bookmark`, payload, { withCredentials: true });
+    return res.data;
+  } catch (err) {
+    throw new Error(err.response?.data?.message || 'Failed to update version bookmark');
+  }
+};
+
+/**
  * Restore a template from a version
  * @param {string} templateId
  * @param {string} versionId

@@ -10,6 +10,7 @@ const templateHistorySchema = new mongoose.Schema({
   },
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   note: { type: String, default: '' },
+  isBookmarked: { type: Boolean, default: false, index: true },
   version_no: { type: Number, required: true },
   last_activity_at: { type: Date, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });

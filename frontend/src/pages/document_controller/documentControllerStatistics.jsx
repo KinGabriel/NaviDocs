@@ -50,12 +50,34 @@ export default function DocumentControllerStatistics() {
     { name: "BS HM", head: "Maria Lopez", submitted: 74, assigned: 68, pending: 6 },
   ];
 
+  const filteredTableData = tableData.filter((row) =>
+    row.name.toLowerCase().includes(search.toLowerCase()) ||
+    row.head.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const baseDepartments = [
+    { name: "IT", submission: 80 },
+    { name: "CS", submission: 65 },
+    { name: "FINMAN", submission: 40 },
+    { name: "ACCT", submission: 70 },
+    { name: "MMA", submission: 90 },
+    { name: "HM", submission: 45 },
+    { name: "ENTREP", submission: 50 },
+    { name: "BA", submission: 60 },
+  ];
+
+  const sortedDepartments = [...baseDepartments].sort((a, b) => {
+    if (sortOrder === "A-Z") return a.name.localeCompare(b.name);
+    if (sortOrder === "Z-A") return b.name.localeCompare(a.name);
+    return 0;
+  });
+
   const barData = {
-    labels: ["IT", "CS", "FINMAN", "ACCT", "MMA", "HM", "ENTREP", "BA"],
+    labels: sortedDepartments.map((d) => d.name),
     datasets: [
       {
         label: "Submission %",
-        data: [80, 65, 40, 70, 90, 45, 50, 60],
+        data: sortedDepartments.map((d) => d.submission),
         backgroundColor: "#1E40AF",
         borderRadius: 5,
       },
@@ -247,7 +269,7 @@ export default function DocumentControllerStatistics() {
                   Department Performance Overview
                 </h2>
                 <div className="w-30 h-0.5 bg-yellow-400 mb-4 rounded" />
-                <Table columns={tableColumns} data={tableData} />
+                <Table columns={tableColumns} data={filteredTableData} />
               </div>
 
               {/* Pie chart */}
