@@ -143,11 +143,12 @@ export default function SelectTemplate() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Global App Header */}
+      {/* Global App Header
+       <div className="sticky top-0 z-50 bg-[#f3f3f3] shadow-sm">
       <Header user={user} />
-
+        </div> */}
       {/* Page Subheader */}
-      <div className="bg-white border-b shadow-sm mt-4 md:mt-6">
+      <div className="bg-white border-b shadow-sm mt-4 md:mt-6 sticky top-0 z-50">
         <div className="px-8 py-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
