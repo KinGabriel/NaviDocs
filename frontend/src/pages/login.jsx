@@ -12,6 +12,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [isLoading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [errorMessage, setErrorMessage] = useState("");
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,7 +51,11 @@ export default function Login() {
           toast.error("Unknown role");
       }
     } catch (err) {
+      if (err.response?.status === 404 || err.message.includes("not found")) {
+      toast.error("The email you entered isn’t connected to an account.");
+    } else {
       toast.error(err.message || "Login failed");
+    }
     } finally {
       setLoading(false);
     }
@@ -91,6 +97,7 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+          
           <div className="text-right mb-4">
             <a href="#" className="text-base text-gray-400 hover:underline">
               Forgot Password?
