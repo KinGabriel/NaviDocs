@@ -9,15 +9,65 @@ import { Plugin } from "prosemirror-state";
  *   whose content is that block (no placeholder empty page).
  * - Requires overflow to persist ≥2 frames unless overflow ≥32px.
  * - Cleans empty trailing pages. No state reconfigure; no history spam.
+ *
+ * Added:
+ * - [HF] New pages inherit header/footer attrs from (a) the page they split from,
+ *        or (b) editor.storage.headerFooter.current (active panel config), or (c) safe defaults.
  */
 export const AutoPaginator = Extension.create({
   name: "autoPaginator",
 
   addProseMirrorPlugins() {
+    const editor = this.editor; // [HF] access active editor storage
+
     const rafIdByView = new WeakMap();            // per-view RAF id
     const running = new WeakSet();                // per-view reentrancy guard
     const overflowCountsByView = new WeakMap();   // per-view Map<pagePos, count>
     const bootSkips = new WeakMap();              // per-view initial update skips
+
+    // [HF] safe defaults if nothing is configured yet
+    const DEFAULT_HF = {
+      header: {
+        showLogo: false,
+        logoUrl: "",
+        showTitle: false,
+        titleText: "",
+        showDate: false,
+        dateFormat: "MMMM d, yyyy",
+      },
+      footer: {
+        showPageNumber: true,
+        showEmail: false,
+        showDate: false,
+        dateFormat: "MMMM d, yyyy",
+      },
+    };
+
+    // [HF] read current panel config from editor storage
+    const getActiveHF = () =>
+      editor?.storage?.headerFooter?.current || DEFAULT_HF;
+
+    // [HF] build attrs for a new/normalized page
+    const buildPageAttrs = (baseAttrs, fromPageAttrs) => {
+      const active = getActiveHF();
+      const next = { ...(baseAttrs || {}) };
+
+      next.header = {
+        ...DEFAULT_HF.header,
+        ...(active.header || {}),
+        ...(fromPageAttrs?.header || {}),
+        ...(baseAttrs?.header || {}),
+      };
+
+      next.footer = {
+        ...DEFAULT_HF.footer,
+        ...(active.footer || {}),
+        ...(fromPageAttrs?.footer || {}),
+        ...(baseAttrs?.footer || {}),
+      };
+
+      return next;
+    };
 
     const ensureCounts = (view) => {
       let m = overflowCountsByView.get(view);
@@ -46,6 +96,8 @@ export const AutoPaginator = Extension.create({
      * Move the LAST block of the page at `pagePos` to a NEW page inserted
      * immediately after the current page. The new page's content is that block
      * (no empty paragraph placeholder). Returns the updated transaction.
+     *
+     * [HF] The new page inherits header/footer attrs (priority: source page attrs → active panel → defaults).
      */
     const moveLastBlockToNewPage = (state, tr, pagePos) => {
       const { schema } = state;
@@ -76,7 +128,9 @@ export const AutoPaginator = Extension.create({
       const insertPos = mappedPagePos + pageAfterDelete.nodeSize; // sibling position
 
       // 3) Build a new page node with the moved block as its only child
-      const newPage = schema.nodes.page.create({}, blockSlice.content);
+      // [HF] inherit attrs from the source page (pageAfterDelete reflects the same page after deletion)
+      const inheritedAttrs = buildPageAttrs({}, pageAfterDelete.attrs);
+      const newPage = schema.nodes.page.create(inheritedAttrs, blockSlice.content);
 
       // 4) Insert the new page as a sibling after the current page
       tr = tr.insert(clamp(tr.doc, insertPos), newPage);
@@ -103,7 +157,11 @@ export const AutoPaginator = Extension.create({
         const pages0 = listPages(state.doc);
         if (state.doc.content.size === 0 && pages0.length === 0) {
           const p = state.schema.nodes.paragraph.create();
-          const firstPage = state.schema.nodes.page.create({}, [p]);
+
+          // [HF] seed first page with active HF attrs
+          const seedAttrs = buildPageAttrs({}, null);
+          const firstPage = state.schema.nodes.page.create(seedAttrs, [p]);
+
           const tr0 = state.tr.insert(0, firstPage).setMeta("addToHistory", false);
           view.dispatch(tr0.setMeta("autoPaginator", "init"));
           counts.clear();
@@ -198,7 +256,29 @@ export const AutoPaginator = Extension.create({
           // Reflow trigger (e.g., pageSetup change)
           const reflow = trs.some(t => t.getMeta("paginatorReflow"));
           if (!reflow) return null;
-          return newState.tr; // no-op, causes a view.update -> scheduled paginate
+
+          // [HF] Normalize any page missing header/footer (e.g., after external paste)
+          const { schema } = newState;
+          const pageType = schema.nodes.page;
+          if (!pageType) return newState.tr;
+
+          let tr = newState.tr;
+          let changed = false;
+          const active = getActiveHF();
+
+          newState.doc.descendants((node, pos) => {
+            if (node.type === pageType) {
+              const hasHeader = !!node.attrs?.header;
+              const hasFooter = !!node.attrs?.footer;
+              if (!hasHeader || !hasFooter) {
+                const attrs = buildPageAttrs(node.attrs, node.attrs);
+                tr = tr.setNodeMarkup(pos, pageType, attrs, node.marks);
+                changed = true;
+              }
+            }
+          });
+
+          return changed ? tr : newState.tr; // still returns a no-op to force view.update -> schedule
         },
       }),
     ];
