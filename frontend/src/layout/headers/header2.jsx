@@ -2,7 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import naviLogo from '../../assets/images/navilogo.png';
 import SubmitApprovalModal from '../../components/modals/submitForApprovalModal';
-import VersionHistory from '../../pages/version_history/templateVersionHistory';
+import TemplateVersionHistory from '../../pages/version_history/templateVersionHistory';
 import AssignMembersModal from '../../components/modals/assignMembersModal';
 import React, { useState, useEffect } from "react";
 import { assignControllersToTemplateAPI } from '../../api/documentContollerAPI';

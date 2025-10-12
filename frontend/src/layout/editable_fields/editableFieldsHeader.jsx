@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import naviLogo from '../../assets/images/navilogo.png';
+import DocumentVersionHistory from '../../pages/version_history/documentVersionHistory';
 import { ChevronDown, Copy, Send, FileDown, MoreHorizontal } from "lucide-react";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -13,11 +14,14 @@ export default function EditableFieldsHeader({
   saving = false, 
   lastSavedAt, 
   dirty = false,
+  documentId,
 }) {
   const navigate = useNavigate();
   const handleSave = () => {
     if (onSave) onSave();
   };
+
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
 
   // Inline title edit state
   const [editing, setEditing] = useState(false);
@@ -118,15 +122,18 @@ export default function EditableFieldsHeader({
             )}
           </div>
 
-          {/* Version History btn */}
-          <button 
-            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded"
-            title="Version History"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24">
-              <path fill="#7D7D7D" d="M12 21q-3.45 0-6.012-2.287T3.05 13H5.1q.35 2.6 2.313 4.3T12 19q2.925 0 4.963-2.037T19 12t-2.037-4.962T12 5q-1.725 0-3.225.8T6.25 8H9v2H3V4h2v2.35q1.275-1.6 3.113-2.475T12 3q1.875 0 3.513.713t2.85 1.924t1.925 2.85T21 12t-.712 3.513t-1.925 2.85t-2.85 1.925T12 21m2.8-4.8L11 12.4V7h2v4.6l3.2 3.2z"/>
-            </svg>
-          </button>
+          { /* Version History btn*/} 
+            <button 
+              onClick={() => setShowVersionHistory(true)}
+              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded" 
+              title="History"
+            > 
+              <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24">
+                <path fill="#7D7D7D" 
+                  d="M12 21q-3.45 0-6.012-2.287T3.05 13H5.1q.35 2.6 2.313 4.3T12 19q2.925 0 4.963-2.037T19 12t-2.037-4.962T12 5q-1.725 0-3.225.8T6.25 8H9v2H3V4h2v2.35q1.275-1.6 3.113-2.475T12 3q1.875 0 3.513.713t2.85 1.924t1.925 2.85T21 12t-.712 3.513t-1.925 2.85t-2.85 1.925T12 21m2.8-4.8L11 12.4V7h2v4.6l3.2 3.2z"
+                />
+              </svg> 
+            </button>
 
           {/* Save/Action btn*/}
           <div className="relative group">
@@ -229,6 +236,15 @@ export default function EditableFieldsHeader({
             </div>
         </div>
       </div>
+
+      {/* Version History Full Screen Overlay */}
+            {showVersionHistory && (
+              <div className="fixed inset-0 z-[100] bg-white">
+                <DocumentVersionHistory onClose={() => setShowVersionHistory(false)} documentId={documentId} />
+              </div>
+            )}
+
     </div>
+    
   );
 }
