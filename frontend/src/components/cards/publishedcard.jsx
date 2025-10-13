@@ -1,40 +1,28 @@
 import { useState, useEffect } from 'react';
 import AssignMembersModal from "../modals/assignMembersModal";
-import DuplicateModal from "../modals/duplicateModal";
-import RenameModal from '../modals/renameModal';
-import DeleteModal from '../modals/deleteModal';
-import { deleteTemplateAPI, assignControllersToTemplateAPI, renameTemplateAPI, duplicateTemplateAPI } from "../../api/documentContollerAPI";
+import UnpublishModal from '../modals/unpublishModal';
+import { assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
-
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
-export default function PublishedCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete, onAssign }) {
+export default function PublishedCard({ template, onSelect, user, onApprove, onPublish, onAssign }) {
 
   const [showMenu, setShowMenu] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [duplicateOpen, setDuplicateOpen] = useState(false);
-  const [renameOpen, setRenameOpen] = useState(false);
 
-  // Delete modal state
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
- 
-  const [duplicating, setDuplicating] = useState(false);
-  const [renaming, setRenaming] = useState(false);
+  const [unpublishOpen, setUnpublishOpen] = useState(false);
+  const [unpublishing, setUnpublishing] = useState(false);
+  const [unpublishError, setUnpublishError] = useState("");
 
-  // single flag to know if any modal is open (prevents click-through)
-  const isAnyModalOpen = renameOpen || assignOpen || duplicateOpen || deleteOpen;
+  const isAnyModalOpen = assignOpen || unpublishOpen;
 
-  // when any modal closes, ignore card clicks briefly (prevents click-through)
   const [modalCloseTs, setModalCloseTs] = useState(0);
   const justClosedModal = () => setModalCloseTs(Date.now());
   const ignoreClickNow = () => (Date.now() - modalCloseTs) < 300;
 
-  // Initialize selectedIds with any existing assigned controllers from the template
   const [selectedIds, setSelectedIds] = useState(() => {
     try {
       return Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []);
@@ -43,16 +31,12 @@ export default function PublishedCard({ template, onSelect, user, onApprove, onP
     }
   });
 
-  
-  // Keep selectedIds in sync if template prop updates (e.g., parent updated assigned list)
   useEffect(() => {
     setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
   }, [template?.assigned, template?.assignees]);
 
-  // Helper function to get template status
   const getTemplateStatus = (template) => {
     if (typeof template.status === 'string') {
-      // Treat fully approved "pending" as approved for clearer UX in grid
       if (template.status === 'pending' && template.approvalMeta?.isFullyApproved) return 'approved';
       return template.status;
     }
@@ -66,7 +50,6 @@ export default function PublishedCard({ template, onSelect, user, onApprove, onP
     return 'draft';
   };
 
-  // Helper function to get status badge color
   const getStatusBadgeColor = (status) => {
     switch (status) {
       case 'draft': return 'bg-gray-100 text-gray-800';
@@ -80,7 +63,6 @@ export default function PublishedCard({ template, onSelect, user, onApprove, onP
     }
   };
 
-  // Helper function to extract school from document code
   const extractSchoolFromCode = (documentCode) => {
     if (!documentCode) return 'Unknown';
     const parts = documentCode.split('-');
@@ -96,7 +78,6 @@ export default function PublishedCard({ template, onSelect, user, onApprove, onP
     return 'Unknown';
   };
 
-  //  Format date helper
   const formatDate = (dateString) => {
     if (!dateString) return 'No date';
     try {
@@ -111,27 +92,18 @@ export default function PublishedCard({ template, onSelect, user, onApprove, onP
     }
   };
 
-  // Handle menu actions
   const handleMenuAction = (action, e) => {
-    e.stopPropagation(); // Prevent card click
+    e.stopPropagation(); 
     setShowMenu(false);
     
     switch (action) {
-     case 'rename':
-      setRenameOpen(true);
-      break;
-      case 'duplicate':
-      setDuplicateOpen(true);
-        break;
       case 'assign':
-        // Open assign modal
-        // prefill selectedIds from template assigned list when opening
         setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
         setAssignOpen(true);
         break;
-  case 'delete':
-        setDeleteError("");
-        setDeleteOpen(true);
+      case 'unpublish':
+        setUnpublishError("");
+        setUnpublishOpen(true);
         break;
       default:
         break;
@@ -155,32 +127,20 @@ export default function PublishedCard({ template, onSelect, user, onApprove, onP
     if (onPublish) onPublish(template);
   };
 
-  const confirmDelete = async () => {
+  const confirmUnpublish = async () => {
     try {
-      setDeleting(true);
-      setDeleteError("");
-      const resp = await deleteTemplateAPI(template._id);
-      if (resp && resp.success) {
-        // Prefer parent callback to update the UI/list
-        if (typeof onDelete === 'function') {
-          onDelete(resp.template || template);
-        } else if (typeof window !== 'undefined') {
-          // Fallback
-          window.location.reload();
-        }
-        setDeleteOpen(false);
-        justClosedModal();
-      } else {
-        setDeleteError(resp?.message || 'Failed to delete template');
-      }
+      setUnpublishing(true);
+      setUnpublishError("");
+      console.log("Unpublishing template:", template._id);
+      setUnpublishOpen(false);
+      justClosedModal();
     } catch (err) {
-      setDeleteError(err?.response?.data?.message || err?.message || 'Error deleting template');
+      setUnpublishError(err?.message || 'Error unpublishing template');
     } finally {
-      setDeleting(false);
+      setUnpublishing(false);
     }
   };
 
-  // Reusable guards for the preview click area
   const guardMouseDown = (e) => {
     if (isAnyModalOpen || ignoreClickNow()) {
       e.preventDefault();
@@ -355,10 +315,10 @@ export default function PublishedCard({ template, onSelect, user, onApprove, onP
           Assign
         </button>
 
-        {/* Unpublish */}
+{/* Unpublish */}
 <button
   className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-  onClick={(e) => handleMenuAction('delete', e)}
+  onClick={(e) => handleMenuAction('unpublish', e)} // <-- fix here
 >
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
     <path d="M16 16l-4 4-4-4" />     
@@ -367,6 +327,7 @@ export default function PublishedCard({ template, onSelect, user, onApprove, onP
   </svg>
   Unpublish
 </button>
+
       </div>
     </>
   )}
@@ -385,15 +346,12 @@ export default function PublishedCard({ template, onSelect, user, onApprove, onP
         setTheDocController={(id) => console.log("Set controller:", id)}
         onAssign={async (payload) => {
           try {
-            // Normalize payload: modal sometimes returns { assignees: [...] },
-            // some callers may pass the array directly. Accept both.
             const controllers = Array.isArray(payload)
               ? payload
               : (payload && (payload.assignees || payload.controllers)) || [];
 
             const resp = await assignControllersToTemplateAPI(template._id, controllers);
             if (resp && resp.success) {
-              // let parent handle UI update if provided
               if (typeof onAssign === 'function') {
                 onAssign(resp.template || template);
               } else if (typeof onDelete === 'function') {
@@ -416,89 +374,15 @@ export default function PublishedCard({ template, onSelect, user, onApprove, onP
         }}
       />
       
-      <DuplicateModal
-        open={duplicateOpen}
-        onClose={() => { setDuplicateOpen(false); justClosedModal(); }}
-        type="template"
-        item={template}
-        submitting={duplicating}
-        onDuplicate={async (newTemplate) => {
-          try {
-            setDuplicating(true);
-            const title = newTemplate?.title || template?.title || '';
-            const resp = await duplicateTemplateAPI(template._id, title);
-            if (resp && resp.success) {
-              // Notify parent if provided so it can refresh list or navigate
-              if (typeof onSelect === 'function') {
-                // If parent wants to select the newly created template, call onSelect with new template id
-                onSelect(resp.template);
-              }
-              // Optionally call onDuplicate callback if provided by parent
-              if (typeof onRename === 'function') {
-                // reuse onRename as a generic change handler if present
-                onRename(resp.template);
-              }
-              // Close modal
-              setDuplicateOpen(false);
-              justClosedModal();
-              // Small UX: reload to show new template in list if parent didn't handle it
-              if (!onSelect && !onRename && typeof window !== 'undefined') {
-                window.location.reload();
-              }
-            } else {
-              alert(resp?.message || 'Failed to duplicate template');
-            }
-          } catch (err) {
-            console.error('Duplicate template error', err);
-            alert(err.response?.data?.message || err.message || 'Error duplicating template');
-          } finally {
-            setDuplicating(false);
-          }
-        }}
-      />
-
-      <RenameModal
-        open={renameOpen}
-        onClose={() => { setRenameOpen(false); justClosedModal(); }}
-        currentTitle={template.title}
-        submitting={renaming}
-        onSubmit={async (newTitle) => {
-          try {
-            setRenaming(true);
-            const data = await renameTemplateAPI(template._id, newTitle);
-
-            if (data && (data.template || data.success)) {
-              // Success - prefer calling parent handler
-              if (onRename) {
-                onRename(data.template || { ...template, title: newTitle });
-              }
-              setRenameOpen(false);
-              justClosedModal();
-              // If parent didn't handle UI update, reload to reflect changes
-              if (!onRename && typeof window !== 'undefined') {
-                window.location.reload();
-              }
-            } else {
-              throw new Error(data?.message || 'Failed to rename template');
-            }
-          } catch (err) {
-            console.error('Rename error:', err);
-            alert(err.response?.data?.message || err.message || 'An error occurred while renaming.');
-          } finally {
-            setRenaming(false);
-          }
-        }}
-      />
-
-      {/* Delete Modal */}
-      <DeleteModal
-        open={deleteOpen}
-        onClose={() => { setDeleteOpen(false); justClosedModal(); }}
+      {/* Unpublish Modal */}
+      <UnpublishModal
+        open={unpublishOpen}
+        onClose={() => { setUnpublishOpen(false); justClosedModal(); }}
         itemType="template"
         itemTitle={template.title}
-        onConfirm={confirmDelete}
-        submitting={deleting}
-        error={deleteError}
+        onConfirm={confirmUnpublish}
+        submitting={unpublishing}
+        error={unpublishError}
       />
     </>
   )};
