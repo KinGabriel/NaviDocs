@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy, RotateCcw, X, FileText, User } from 'lucide-react';
 import BookmarkModal from './bookmarkModal';
-import { updateTemplateVersionBookmarkAPI } from '../../api/documentContollerAPI';
+import {
+  listVersionDataByDocumentAPI,
+  patchVersionBookmarkAPI,
+} from '../../api/documentsAPI';
 
 export default function DocumentVersionHistory({ 
   onClose, 
@@ -17,126 +20,80 @@ export default function DocumentVersionHistory({
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [highlightChanges, setHighlightChanges] = useState(true);
+  // UI refs / extra state used by this component
   const menuRef = useRef(null);
-
-  // Bookmark modal state
-  const [showBookmarkModal, setShowBookmarkModal] = useState(false);
   const [bookmarkTarget, setBookmarkTarget] = useState(null);
   const [bookmarkName, setBookmarkName] = useState('');
-  
-  // TODO: Implement API Calls
+  const [showBookmarkModal, setShowBookmarkModal] = useState(false);
+
   useEffect(() => {
     const fetchVersions = async () => {
-      console.log('Fetching versions for documentId:', documentId);
       setLoading(true);
-
-      // DUMMY DATA - FOR DEMO PURPOSES
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const mockVersions = [
-          {
-            id: '1',
-            timestamp: new Date('2025-10-12T14:30:00'),
-            author: 'Lebron James',
-            versionName: 'Initial setup',
-            is_current: true,
-            isBookmarked: false,
-            changes: [
-              { field: 'School Year', oldValue: '', newValue: '2025', type: 'added' },
-              { field: 'Course', oldValue: '', newValue: 'Information Technology', type: 'added' },
-              { field: 'Units', oldValue: '', newValue: '23', type: 'added' },
-              { field: 'Course Overview', oldValue: '', newValue: 'This course blabla', type: 'added' }
-            ],
-            fields: {
-              schoolYear: '2025',
-              course: 'Information Technology',
-              units: '23',
-              courseOverview: 'This course blabla'
-            }
-          },
-          {
-            id: '2',
-            timestamp: new Date('2025-10-12T10:15:00'),
-            author: 'Nikol Jokic',
-            versionName: '',
-            is_current: false,
-            isBookmarked: false,
-            changes: [
-              { field: 'Course Overview', oldValue: 'This course covers basic...', newValue: 'This course blabla', type: 'modified' }
-            ],
-            fields: {
-              schoolYear: '2025',
-              course: 'Information Technology',
-              units: '23',
-              courseOverview: 'This course covers basic...'
-            }
-          },
-          {
-            id: '3',
-            timestamp: new Date('2025-10-11T16:45:00'),
-            author: 'Luka Doncic',
-            versionName: 'Units updated',
-            is_current: false,
-            isBookmarked: true,
-            changes: [
-              { field: 'Units', oldValue: '20', newValue: '23', type: 'modified' }
-            ],
-            fields: {
-              schoolYear: '2025',
-              course: 'Information Technology',
-              units: '20',
-              courseOverview: 'This course covers basic...'
-            }
-          },
-          {
-            id: '4',
-            timestamp: new Date('2025-10-11T09:00:00'),
-            author: 'Nichs Escano',
-            versionName: '',
-            is_current: false,
-            isBookmarked: false,
-            changes: [
-              { field: 'Course', oldValue: 'Computer Science', newValue: 'Information Technology', type: 'modified' }
-            ],
-            fields: {
-              schoolYear: '2025',
-              course: 'Computer Science',
-              units: '20',
-              courseOverview: 'This course covers basic...'
-            }
-          },
-          {
-            id: '5',
-            timestamp: new Date('2025-10-10T14:20:00'),
-            author: 'Kin Gabriel',
-            versionName: 'First draft',
-            is_current: false,
-            isBookmarked: false,
-            changes: [
-              { field: 'School Year', oldValue: '', newValue: '2025', type: 'added' },
-              { field: 'Course', oldValue: '', newValue: 'Computer Science', type: 'added' },
-              { field: 'Units', oldValue: '', newValue: '20', type: 'added' },
-              { field: 'Course Overview', oldValue: '', newValue: 'This course covers basic...', type: 'added' }
-            ],
-            fields: {
-              schoolYear: '2025',
-              course: 'Computer Science',
-              units: '20',
-              courseOverview: 'This course covers basic...'
-            }
-          }
-        ];
+        const resp = await listVersionDataByDocumentAPI(documentId, { group: true });
 
-        // Groups version entries by time categories like Today, Yesterday, etc.
-        const grouped = groupVersionsByDate(mockVersions);
-        setVersions(grouped);
-        
-        const latest = grouped[0]?.items?.[0];
-        if (latest) {
-          setSelectedVersion(latest.id);
+        // Backend may return groupedVersions or items; prefer groupedVersions
+        let rawItems = [];
+        if (resp && resp.groupedVersions) {
+          // flatten groupedVersions -> items array preserving order
+          for (const g of resp.groupedVersions) {
+            rawItems.push(...(g.versions || []));
+          }
+        } else if (resp && resp.items) {
+          rawItems = resp.items;
         }
-        
+
+        // map backend shape to component shape
+        // rawItems are expected newest-first. We'll use `snapshot` (full state at the version)
+        // for display, and `field_values` as the delta describing what changed in that version.
+        const mapped = rawItems.map((v, idx) => {
+          const id = v.id || v._id || String(v.version_no || '');
+          const timestamp = v.created_at ? new Date(v.created_at) : (v.createdAt ? new Date(v.createdAt) : new Date());
+          const author = v.created_by_name || v.author || null;
+          const versionName = typeof v.note === 'string' ? v.note : (Array.isArray(v.notes) && v.notes.length ? (v.notes[0].message || '') : '');
+
+          // Determine the authoritative snapshot for this version. Prefer `snapshot`, fallback to
+          // applying the delta `field_values` onto an empty object if necessary.
+          const currentSnapshot = (v.snapshot && typeof v.snapshot === 'object') ? v.snapshot : (v.field_values && typeof v.field_values === 'object' ? v.field_values : {});
+
+          // Determine the previous snapshot (older version). rawItems is newest-first, so previous is at idx+1
+          const prevRaw = rawItems[idx + 1];
+          const prevSnapshot = prevRaw ? ((prevRaw.snapshot && typeof prevRaw.snapshot === 'object') ? prevRaw.snapshot : (prevRaw.field_values && typeof prevRaw.field_values === 'object' ? prevRaw.field_values : {})) : {};
+
+          // Compute changes from field_values (delta). Only keys present in field_values are considered changed.
+          const delta = v.field_values && typeof v.field_values === 'object' ? v.field_values : {};
+          const changeKeys = Object.keys(delta);
+          const changes = changeKeys.map(key => {
+            const newValue = currentSnapshot && Object.prototype.hasOwnProperty.call(currentSnapshot, key) ? currentSnapshot[key] : undefined;
+            const oldValue = prevSnapshot && Object.prototype.hasOwnProperty.call(prevSnapshot, key) ? prevSnapshot[key] : undefined;
+            let type = 'modified';
+            if ((oldValue === undefined || oldValue === null || oldValue === '') && (newValue !== undefined && newValue !== null && newValue !== '')) type = 'added';
+            else if ((newValue === undefined || newValue === null || newValue === '') && (oldValue !== undefined && oldValue !== null && oldValue !== '')) type = 'deleted';
+            else if (String(oldValue) === String(newValue)) type = 'modified';
+            return { field: key, oldValue, newValue, type };
+          });
+
+          return {
+            id,
+            timestamp,
+            author,
+            versionName,
+            is_current: false,
+            isBookmarked: !!v.isBookmarked,
+            changes,
+            // expose snapshot fields for display
+            fields: currentSnapshot || {}
+          };
+        });
+
+        // Small delay to keep UI feeling consistent
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // continue using existing grouping helper
+        const grouped = groupVersionsByDate(mapped);
+        setVersions(grouped);
+        const latest = grouped[0]?.items?.[0];
+        if (latest) setSelectedVersion(latest.id);
         const expanded = {};
         grouped.forEach(group => { expanded[group.date] = true; });
         setExpandedDates(expanded);
@@ -240,7 +197,7 @@ export default function DocumentVersionHistory({
     if (version.isBookmarked) {
       (async () => {
         try {
-          const resp = await updateTemplateVersionBookmarkAPI(documentId, version.id, { isBookmarked: false });
+          const resp = await patchVersionBookmarkAPI(version.id, { isBookmarked: false });
           if (resp?.success) {
             const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? '';
             updateLocalBookmark(version.id, false, returnedNote);
@@ -288,7 +245,7 @@ export default function DocumentVersionHistory({
   const confirmBookmark = async () => {
     if (!bookmarkTarget) return;
     try {
-      const resp = await updateTemplateVersionBookmarkAPI(documentId, bookmarkTarget.id, { isBookmarked: true, note: bookmarkName });
+  const resp = await patchVersionBookmarkAPI(bookmarkTarget.id, { isBookmarked: true, note: bookmarkName });
       if (resp?.success) {
         const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? bookmarkName;
         updateLocalBookmark(bookmarkTarget.id, true, returnedNote);

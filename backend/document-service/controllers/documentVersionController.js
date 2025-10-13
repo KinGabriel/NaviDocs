@@ -1,29 +1,27 @@
 import VersionData from '../models/documentVersionModel.js';
-// Minimum interval (ms) before treating an identical field_values update as a no-op and only bumping timestamps
+import Document from '../models/documentModel.js';
+import mongoose from 'mongoose';
+import { fetchUserInfoById } from '../utils/userServiceUtils.js';
+
+// Minimum interval (ms) before creating another version for the same document
 const MIN_TEMPLATE_VERSION_INTERVAL_MS = process.env.MIN_TEMPLATE_VERSION_INTERVAL_MS
   ? parseInt(process.env.MIN_TEMPLATE_VERSION_INTERVAL_MS, 10)
   : 5 * 60 * 1000; // default 5 minutes
 
-// Helper: compare field_values with a lightweight similarity heuristic
-const fieldValuesEqualHelper = (a, b) => {
-  try {
-    if (!a && !b) return true;
-    const norm = (x) => {
-      if (!x || typeof x !== 'object') return {};
-      return x;
-    };
-    const sa = JSON.stringify(norm(a));
-    const sb = JSON.stringify(norm(b));
-    if (sa === sb) return true;
-    const maxLen = Math.max(sa.length, sb.length) || 1;
-    const lenDiffRatio = Math.abs(sa.length - sb.length) / maxLen;
-    if (lenDiffRatio <= 0.05) {
-      if (sa.slice(0, 40) === sb.slice(0, 40)) return true;
-    }
-    return false;
-  } catch (e) {
-    return false;
+// helper to get epoch ms from various date shapes (Date, ISO string, number, or mongo $date wrapper)
+const getTimeMs = (v) => {
+  if (!v && v !== 0) return 0;
+  if (typeof v === 'number') return v;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'string') {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
   }
+  if (v && typeof v === 'object') {
+    if (v.$date) return getTimeMs(v.$date);
+    try { const d = new Date(v); return isNaN(d.getTime()) ? 0 : d.getTime(); } catch (e) { return 0; }
+  }
+  return 0;
 };
 
 const toIso = (val) => {
@@ -31,12 +29,30 @@ const toIso = (val) => {
   try { const d = new Date(val); return isNaN(d.getTime()) ? null : d.toISOString(); } catch (e) { return null; }
 };
 
+// Deep merge two plain objects (arrays are replaced). Returns a new object.
+const deepMerge = (target, source) => {
+  if (!source || typeof source !== 'object') return target;
+  if (!target || typeof target !== 'object') return source;
+  const out = Array.isArray(target) ? target.slice() : { ...target };
+  for (const k of Object.keys(source)) {
+    const sv = source[k];
+    const tv = out[k];
+    if (sv && typeof sv === 'object' && !Array.isArray(sv) && tv && typeof tv === 'object' && !Array.isArray(tv)) {
+      out[k] = deepMerge(tv, sv);
+    } else {
+      out[k] = sv;
+    }
+  }
+  return out;
+};
+
 const normalizeVersionData = (raw) => {
   if (!raw) return raw;
   const out = { ...raw };
   try {
     out.id = out._id ? String(out._id) : out.id || null;
-    out.version_id = out.version_id ? String(out.version_id) : (out.version_no !== undefined ? String(out.version_no) : null);
+  // no separate version_id field; expose version_no as string
+  out.version_id = out.version_no !== undefined ? String(out.version_no) : null;
     out.document_id = out.document_id ? String(out.document_id) : null;
     out.created_at = toIso(out.created_at || out.createdAt || null);
     out.updated_at = toIso(out.updated_at || out.updatedAt || null);
@@ -47,63 +63,130 @@ const normalizeVersionData = (raw) => {
   return out;
 };
 
-/**
- * @desc Create or upsert version data for a template version (per-document filled values)
- * @route POST /api/documents/version-data
- */
-export const createVersionData = async (req, res) => {
-  try {
-    const { version_id, field_values, notes, isBookmarked, last_activity_at, document_id } = req.body;
-    if (!version_id) return res.status(400).json({ success: false, message: 'version_id required' });
-
-    const exists = await VersionData.findOne({ version_id });
-    if (exists) {
-      const nowMs = Date.now();
-      const lastMs = exists.last_activity_at ? new Date(exists.last_activity_at).getTime() : (exists.created_at ? new Date(exists.created_at).getTime() : 0);
-      const similar = fieldValuesEqualHelper(exists.field_values, field_values || {});
-      const diffMs = nowMs - lastMs;
-      if (similar && diffMs < MIN_TEMPLATE_VERSION_INTERVAL_MS) {
-        const now = new Date();
-        exists.last_activity_at = now;
-        exists.updated_at = now;
-        await exists.save();
-        return res.json({ success: true, versionData: normalizeVersionData(exists.toObject()) });
-      }
-
-      if (field_values && typeof field_values === 'object') exists.field_values = field_values;
-      if (Array.isArray(notes)) exists.notes = notes;
-      if (typeof isBookmarked === 'boolean') exists.isBookmarked = isBookmarked;
-      if (last_activity_at) exists.last_activity_at = last_activity_at;
-      if (document_id) exists.document_id = document_id;
-      await exists.save();
-      return res.json({ success: true, versionData: normalizeVersionData(exists.toObject()) });
-    }
-
-    const doc = new VersionData({ version_id, field_values: field_values || {}, notes: notes || [], isBookmarked: !!isBookmarked, last_activity_at: last_activity_at || null, document_id: document_id || null });
-    await doc.save();
-    return res.status(201).json({ success: true, versionData: normalizeVersionData(doc.toObject()) });
-  } catch (err) {
-    console.error('createVersionData error', err);
-    return res.status(500).json({ success: false, message: 'Failed to create version data' });
-  }
-};
-
+// small helper to detect ObjectId-like strings
 const isObjectIdString = (s) => typeof s === 'string' && /^[a-fA-F0-9]{24}$/.test(s);
 
 /**
- * @desc Get version data by version id (supports version_id, _id, or version_no)
+ * @desc Create a new version row for a document or merge updates into the latest recent version
+ *       according to the interval-only suppression policy.
+ * @route INTERNAL
+ * @param {string|ObjectId|Object} document_id - Document id or document-like object (id/_id/document_id)
+ * @param {Object} field_values - Delta of field values for this version
+ * @param {Object} [opts] - Options: { userId, note, isBookmarked, last_activity_at, snapshot }
+ * @returns {Promise<Object|null>} created or updated version object, or null on error
+ *
+ */
+export const createVersionData = async (document_id, field_values = {}, opts = {}) => {
+  try {
+    // normalize document id
+    let docIdRaw = document_id;
+    if (document_id && typeof document_id === 'object') {
+      if (document_id._id) docIdRaw = document_id._id;
+      else if (document_id.document_id) docIdRaw = document_id.document_id;
+      else if (document_id.documentId) docIdRaw = document_id.documentId;
+      else if (document_id.id) docIdRaw = document_id.id;
+      else return null;
+    }
+    if (!docIdRaw) return null;
+    const docId = isObjectIdString(docIdRaw) ? new mongoose.Types.ObjectId(String(docIdRaw)) : docIdRaw;
+
+    // find latest version
+    const latest = await VersionData.findOne({ document_id: docId }).sort({ version_no: -1 });
+
+    // Determine snapshot: prefer opts.snapshot, else attempt to load current document and use its field_values
+    let snapshotObj = null;
+    if (opts.snapshot && typeof opts.snapshot === 'object') {
+      snapshotObj = opts.snapshot;
+    } else {
+      try {
+        const docForSnapshot = await Document.findById(docId).lean();
+        if (docForSnapshot) snapshotObj = docForSnapshot.field_values || {};
+      } catch (e) {
+        // ignore snapshot fetch failure; we'll default to empty object below
+        snapshotObj = null;
+      }
+    }
+
+    if (latest) {
+      const lastMs = getTimeMs(latest.last_activity_at || latest.updated_at || latest.created_at);
+      const diffMs = Date.now() - lastMs;
+      if (diffMs < MIN_TEMPLATE_VERSION_INTERVAL_MS) {
+        // suppress: update latest (merge delta into existing field_values and update snapshot)
+        const now = new Date();
+        const existingFV = latest.field_values && typeof latest.field_values === 'object' ? latest.field_values : {};
+        const mergedFV = deepMerge(existingFV, field_values || {});
+        const updatedFields = { field_values: mergedFV, last_activity_at: now, updated_at: now };
+        if (snapshotObj !== null) updatedFields.snapshot = snapshotObj;
+        const updated = await VersionData.findByIdAndUpdate(latest._id, { $set: updatedFields }, { new: true }).lean();
+        return updated || (latest.toObject ? latest.toObject() : latest);
+      }
+    }
+
+    // prepare note string
+    let noteString = '';
+    if (typeof opts.note === 'string') noteString = opts.note;
+    else if (Array.isArray(opts.notes) && opts.notes.length) {
+      if (typeof opts.notes[0] === 'string') noteString = opts.notes.join('\n');
+      else noteString = opts.notes.map(n => (n && n.message) ? String(n.message) : String(n)).join('\n');
+    }
+    const isBookmarked = !!opts.isBookmarked;
+    const last_activity_at = opts.last_activity_at ? new Date(opts.last_activity_at) : new Date();
+
+    // allocate version_no with retry loop
+    const MAX_RETRIES = 5;
+    let attempt = 0;
+    while (attempt < MAX_RETRIES) {
+      attempt += 1;
+      try {
+        const latestForInsert = await VersionData.findOne({ document_id: docId }).sort({ version_no: -1 });
+        const nextVersionNo = latestForInsert ? (Number(latestForInsert.version_no || 0) + 1) : 1;
+        const toInsert = {
+          document_id: docId,
+          version_no: nextVersionNo,
+          // delta changes for this version
+          field_values: field_values || {},
+          // full snapshot at this version (may be null -> DB will store empty object via default)
+          snapshot: snapshotObj || {},
+          note: noteString,
+          isBookmarked,
+          last_activity_at
+        };
+        const created = await VersionData.create(toInsert);
+        return created.toObject ? created.toObject() : created;
+      } catch (e) {
+        if (e && e.code === 11000) {
+          // duplicate key (race) — retry
+          // small backoff
+          await new Promise(r => setTimeout(r, 20 * attempt));
+          continue;
+        }
+        console.error('createVersionData error', e);
+        return null;
+      }
+    }
+    console.error('createVersionData - could not allocate version_no after retries');
+    return null;
+  } catch (e) {
+    console.error('createVersionData top-level error', e);
+    return null;
+  }
+};
+
+/**
+ * @desc Get a single version data record by either its Mongo `_id` or by `version_no`.
  * @route GET /api/documents/version-data/:versionId
  */
 export const getVersionData = async (req, res) => {
   try {
     const { versionId } = req.params;
     if (!versionId) return res.status(400).json({ success: false, message: 'versionId required' });
-    const or = [{ version_id: versionId }];
-    if (isObjectIdString(versionId)) or.push({ _id: versionId });
-    const verNo = Number(versionId);
-    if (!Number.isNaN(verNo)) or.push({ version_no: verNo });
-    const query = { $or: or };
-    const v = await VersionData.findOne(query).lean();
+  const or = [];
+  if (isObjectIdString(versionId)) or.push({ _id: versionId });
+  const verNo = Number(versionId);
+  if (!Number.isNaN(verNo)) or.push({ version_no: verNo });
+  // fallback: if versionId is not objectId nor number, match _id string
+  if (or.length === 0) or.push({ _id: versionId });
+    const v = await VersionData.findOne({ $or: or }).lean();
     if (!v) return res.status(404).json({ success: false, message: 'version data not found' });
     return res.json({ success: true, versionData: normalizeVersionData(v) });
   } catch (err) {
@@ -113,63 +196,33 @@ export const getVersionData = async (req, res) => {
 };
 
 /**
- * @desc Patch field_values for a version (updates last_activity_at and may bump timestamps when near-duplicate)
- * @route PATCH /api/documents/version-data/:versionId/field-values
- */
-export const updateVersionFieldValues = async (req, res) => {
-  try {
-    const { versionId } = req.params;
-    const { field_values } = req.body;
-    if (!versionId) return res.status(400).json({ success: false, message: 'versionId required' });
-    if (!field_values || typeof field_values !== 'object') return res.status(400).json({ success: false, message: 'field_values object required' });
-  const or = [{ version_id: versionId }];
-  if (isObjectIdString(versionId)) or.push({ _id: versionId });
-  const verNo = Number(versionId);
-  if (!Number.isNaN(verNo)) or.push({ version_no: verNo });
-  const query = { $or: or };
-    const vdoc = await VersionData.findOne(query);
-    if (!vdoc) return res.status(404).json({ success: false, message: 'version data not found' });
-
-    const nowMs = Date.now();
-    const lastMs = vdoc.last_activity_at ? new Date(vdoc.last_activity_at).getTime() : (vdoc.created_at ? new Date(vdoc.created_at).getTime() : 0);
-    const similar = fieldValuesEqualHelper(vdoc.field_values, field_values || {});
-    const diffMs = nowMs - lastMs;
-    if (similar && diffMs < MIN_TEMPLATE_VERSION_INTERVAL_MS) {
-      const now = new Date();
-      vdoc.last_activity_at = now;
-      vdoc.updated_at = now;
-      await vdoc.save();
-      return res.json({ success: true, versionData: normalizeVersionData(vdoc.toObject()) });
-    }
-
-    vdoc.field_values = field_values;
-    vdoc.last_activity_at = new Date();
-    await vdoc.save();
-    return res.json({ success: true, versionData: normalizeVersionData(vdoc.toObject()) });
-  } catch (err) {
-    console.error('patchVersionFieldValues error', err);
-    return res.status(500).json({ success: false, message: 'Failed to update field values' });
-  }
-};
-
-/**
- * @desc Patch bookmark/note for a version (adds notes, toggles isBookmarked)
+ * @desc Patch bookmark and note for a version data record. Normalizes `note` to a string.
  * @route PATCH /api/documents/version-data/:versionId/bookmark
  */
 export const patchVersionBookmark = async (req, res) => {
   try {
     const { versionId } = req.params;
-    const { isBookmarked, note } = req.body;
+  const { isBookmarked, note } = req.body;
     if (!versionId) return res.status(400).json({ success: false, message: 'versionId required' });
-  const or = [{ version_id: versionId }];
+  const or = [];
   if (isObjectIdString(versionId)) or.push({ _id: versionId });
   const verNo = Number(versionId);
   if (!Number.isNaN(verNo)) or.push({ version_no: verNo });
-  const query = { $or: or };
-  const v = await VersionData.findOne(query);
+  if (or.length === 0) or.push({ _id: versionId });
+    const v = await VersionData.findOne({ $or: or });
     if (!v) return res.status(404).json({ success: false, message: 'version data not found' });
     if (typeof isBookmarked === 'boolean') v.isBookmarked = isBookmarked;
-    if (typeof note === 'string') v.notes = v.notes.concat([{ added_by: req.user?.id || null, message: note, created_at: new Date() }]);
+    // Normalize note into a single string. The model expects `note: String` (not an array).
+    if (typeof note === 'string') {
+      v.note = note;
+    } else if (Array.isArray(note) && note.length) {
+      // Join string elements or extract `.message` where present
+      if (typeof note[0] === 'string') v.note = note.join('\n');
+      else v.note = note.map(n => (n && n.message) ? String(n.message) : String(n)).join('\n');
+    } else if (note !== undefined && note !== null) {
+      // Coerce other types to string
+      v.note = String(note);
+    }
     await v.save();
     return res.json({ success: true, versionData: normalizeVersionData(v.toObject()) });
   } catch (err) {
@@ -179,7 +232,7 @@ export const patchVersionBookmark = async (req, res) => {
 };
 
 /**
- * @desc List version data entries for a document (optionally grouped). Supports query params: group=true, group_interval_ms
+ * @desc List version data records for a document. Supports optional grouping by snapshot + interval.
  * @route GET /api/documents/version-data/document/:documentId
  */
 export const listVersionDataByDocument = async (req, res) => {
@@ -195,9 +248,21 @@ export const listVersionDataByDocument = async (req, res) => {
     const DEFAULT_GROUP_INTERVAL_MS = process.env.MIN_TEMPLATE_VERSION_INTERVAL_MS ? parseInt(process.env.MIN_TEMPLATE_VERSION_INTERVAL_MS, 10) : (5 * 60 * 1000);
     const groupIntervalMs = req.query.group_interval_ms ? parseInt(req.query.group_interval_ms, 10) : DEFAULT_GROUP_INTERVAL_MS;
 
-    const normFieldValues = (fv) => { if (!fv || typeof fv !== 'object') return {}; try { return JSON.stringify(fv); } catch (e) { return String(fv); } };
-    const fieldValuesEqualLocal = (a, b) => { try { return normFieldValues(a) === normFieldValues(b); } catch (e) { return false; } };
-    const getMs = (v) => { const raw = v?.created_at || v?.createdAt || v?.timestamp || v?.created_at?.$date || null; if (!raw) return 0; try { return new Date(raw).getTime(); } catch (e) { return 0; } };
+    // Use full snapshot for grouping if available; fallback to delta `field_values`.
+    const normSnapshot = (obj) => { if (!obj || typeof obj !== 'object') return {}; try { return JSON.stringify(obj); } catch (e) { return String(obj); } };
+    const snapshotsEqualLocal = (a, b) => {
+      try {
+        const aComp = a && a.snapshot ? a.snapshot : a && a.field_values ? a.field_values : a || {};
+        const bComp = b && b.snapshot ? b.snapshot : b && b.field_values ? b.field_values : b || {};
+        return normSnapshot(aComp) === normSnapshot(bComp);
+      } catch (e) { return false; }
+    };
+    // Prefer last_activity_at as the time anchor, then updated/created
+    const getMs = (v) => {
+      const raw = v?.last_activity_at || v?.updated_at || v?.updatedAt || v?.created_at || v?.createdAt || null;
+      if (!raw) return 0;
+      try { return new Date(raw).getTime(); } catch (e) { return 0; }
+    };
 
     const grouped = [];
     for (const v of items) {
@@ -205,7 +270,7 @@ export const listVersionDataByDocument = async (req, res) => {
       const lastGroup = grouped[grouped.length - 1];
       const lastRep = lastGroup.representative;
       const diff = Math.abs(getMs(lastRep) - getMs(v));
-      if (fieldValuesEqualLocal(lastRep.field_values, v.field_values) && diff <= groupIntervalMs) {
+      if (snapshotsEqualLocal(lastRep, v) && diff <= groupIntervalMs) {
         lastGroup.count += 1; lastGroup.versions.push(v);
       } else { grouped.push({ representative: v, count: 1, versions: [v] }); }
     }

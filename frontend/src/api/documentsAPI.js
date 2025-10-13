@@ -182,3 +182,48 @@ export const deleteFieldSuggestionAPI = async (id) => {
 		throw new Error(error.response?.data?.message || 'Failed to delete field suggestion');
 	}
 };
+
+
+
+/**
+ * Get version data by id (version_id, _id or version_no supported on server).
+ * @param {string} versionId
+ */
+export const getVersionDataAPI = async (versionId) => {
+	try {
+		const res = await axios.get(`${API_URL}/api/documents/version-data/${versionId}`, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to fetch version data');
+	}
+};
+
+
+
+/**
+ * Patch bookmark/note for a version
+ * @param {string} versionId
+ * @param {Object} payload - { isBookmarked?: boolean, note?: string }
+ */
+export const patchVersionBookmarkAPI = async (versionId, payload) => {
+	try {
+		const res = await axios.patch(`${API_URL}/api/documents/version-data/${versionId}/bookmark`, payload, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to patch version bookmark');
+	}
+};
+
+/**
+ * List version data records for a document, optional grouping.
+ * @param {string} documentId
+ * @param {Object} params - optional query params: { group: true, group_interval_ms: number }
+ */
+export const listVersionDataByDocumentAPI = async (documentId, params = {}) => {
+	try {
+		const res = await axios.get(`${API_URL}/api/documents/version-data/document/${documentId}`, { params, withCredentials: true });
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to list version data for document');
+	}
+};

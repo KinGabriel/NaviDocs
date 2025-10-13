@@ -8,9 +8,7 @@ import {
 
 } from '../controllers/documentFunctionalityController.js';
 import {
-  createVersionData,
   getVersionData,
-  updateVersionFieldValues,
   patchVersionBookmark,
   listVersionDataByDocument
 } from '../controllers/documentVersionController.js';
@@ -36,9 +34,7 @@ router.get('/', authenticateJWT, listDocuments);
 router.get('/:id', authenticateJWT, getDocumentById);
 router.patch('/:id/field-values', authenticateJWT, updateDocumentFieldValues);
 
-router.post('/version-data', authenticateJWT, createVersionData);
 router.get('/version-data/:versionId', authenticateJWT, getVersionData);
-router.patch('/version-data/:versionId/field-values', authenticateJWT, updateVersionFieldValues);
 router.patch('/version-data/:versionId/bookmark', authenticateJWT, patchVersionBookmark);
 router.get('/version-data/document/:documentId', authenticateJWT, listVersionDataByDocument);
 export default router;
