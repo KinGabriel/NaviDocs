@@ -807,23 +807,25 @@ export default function TemplateVersionHistory({
               >
                 Cancel
               </button>
-              <button
-                onClick={handleRestoreVersion}
-                disabled={isRestoring}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isRestoring ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    Restoring...
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="w-4 h-4" />
-                    Restore
-                  </>
-                )}
-              </button>
+             <button
+              disabled={
+                !selectedVersion || currentVersionDetails?.isCurrent
+              }
+              onClick={() => setShowRestoreModal(true)}
+              className={`flex-1 px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium rounded-lg shadow-sm transition-all
+                ${
+                  !selectedVersion || currentVersionDetails?.isCurrent
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] active:scale-95'
+                }`}
+            >
+              <RotateCcw className="w-4 h-4" />
+              {currentVersionDetails?.isCurrent
+                ? 'Current version'
+                : selectedVersion
+                ? 'Restore'
+                : 'Select a version to restore'}
+            </button>
             </div>
           </div>
         </div>
