@@ -37,6 +37,22 @@ export default function DocumentVersionHistory({
   const [showBookmarkModal, setShowBookmarkModal] = useState(false);
   const [bookmarkTarget, setBookmarkTarget] = useState(null);
   const [bookmarkName, setBookmarkName] = useState('');
+  // Helper: format a raw field key into a human label (Title Case)
+  const formatFieldLabel = (key) => {
+    if (!key) return '';
+    // convert camelCase or snake_case to Title Case
+    const spaced = key.replace(/([A-Z])/g, ' $1').replace(/[_\-]/g, ' ');
+    return spaced.replace(/^./, s => s.toUpperCase());
+  };
+
+  // Helper: normalize keys for stable comparison (removes separators, lowercases)
+  const normalizeKey = (k) => {
+    if (!k && k !== 0) return '';
+    const s = String(k);
+    // Replace underscores/dashes with spaces, insert spaces before capitals, remove non-alphanum, then lowercase
+    const withSpaces = s.replace(/[_\-]/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
+    return withSpaces.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  };
 
   // Load the actual document data
   useEffect(() => {
@@ -98,7 +114,19 @@ export default function DocumentVersionHistory({
         // map backend shape to component shape
         // rawItems are expected newest-first. We'll use `snapshot` (full state at the version)
         // for display, and `field_values` as the delta describing what changed in that version.
-        const mapped = rawItems.map((v, idx) => {
+              // Ensure items are sorted newest-first. Prefer numeric version_no, fallback to created_at.
+              rawItems.sort((a, b) => {
+                const aNo = Number(a.version_no || a.versionNo || a.version || NaN);
+                const bNo = Number(b.version_no || b.versionNo || b.version || NaN);
+                if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) return bNo - aNo;
+                const aMs = a.created_at ? new Date(a.created_at).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+                const bMs = b.created_at ? new Date(b.created_at).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+                return bMs - aMs;
+              });
+
+              // use component-scope helpers formatFieldLabel and normalizeKey
+
+              const mapped = rawItems.map((v, idx) => {
           const id = v.id || v._id || String(v.version_no || '');
           const timestamp = v.created_at ? new Date(v.created_at) : (v.createdAt ? new Date(v.createdAt) : new Date());
           const author = v.created_by_name || v.author || null;
@@ -122,7 +150,7 @@ export default function DocumentVersionHistory({
             if ((oldValue === undefined || oldValue === null || oldValue === '') && (newValue !== undefined && newValue !== null && newValue !== '')) type = 'added';
             else if ((newValue === undefined || newValue === null || newValue === '') && (oldValue !== undefined && oldValue !== null && oldValue !== '')) type = 'deleted';
             else if (String(oldValue) === String(newValue)) type = 'modified';
-            return { field: key, oldValue, newValue, type };
+            return { field: formatFieldLabel(key), key, oldValue, newValue, type };
           });
 
           return {
@@ -501,9 +529,21 @@ return (
                   {Object.entries(currentVersionDetails.fields).map(([fieldKey, fieldValue]) => {
                     // Convert camelCase to Title Case for display
                     const fieldLabel = fieldKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                    const isModified = currentVersionDetails.changes.some(c => 
-                      c.field.toLowerCase().replace(/\s+/g, '') === fieldKey.toLowerCase()
-                    );
+                    // Find a matching change entry by original key or formatted field label
+                    const changeEntry = (currentVersionDetails?.changes || []).find(c => {
+                      const ck = normalizeKey(c.key || c.field || '');
+                      const fk = normalizeKey(fieldKey);
+                      return ck === fk;
+                    });
+                    const badgeType = changeEntry?.type;
+                    const badgeClass = badgeType === 'added'
+                      ? 'text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded'
+                      : badgeType === 'modified'
+                      ? 'text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded'
+                      : badgeType === 'deleted'
+                      ? 'text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded'
+                      : '';
+                    const isModified = badgeType === 'modified';
                     
                     return (
                       <div 
@@ -519,9 +559,9 @@ return (
                               {fieldValue || '—'}
                             </p>
                           </div>
-                          {highlightChanges && isModified && (
-                            <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">
-                              Modified
+                          {highlightChanges && badgeType && (
+                            <span className={badgeClass}>
+                              {badgeType === 'added' ? 'Added' : badgeType === 'modified' ? 'Modified' : 'Deleted'}
                             </span>
                           )}
                         </div>
