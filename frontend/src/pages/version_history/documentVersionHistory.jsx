@@ -530,48 +530,6 @@ return (
             ) : currentVersionDetails ? (
               <div className="space-y-6 pb-20">
 
-                {/* Version Info Header
-                <div className="bg-white border border-gray-200 rounded-lg p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h3 className="text-base font-semibold text-gray-900">
-                        {currentVersionDetails.time}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
-                        <User className="w-3.5 h-3.5" />
-                        <span>{currentVersionDetails.author}</span>
-                        {currentVersionDetails.versionName && (
-                          <>
-                            <span>•</span>
-                            <span className="font-medium">{currentVersionDetails.versionName}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {currentVersionDetails.changes.length > 0 && (
-                    <div className="pt-3 border-t border-gray-200">
-                      <p className="text-sm text-gray-600">
-                        {currentVersionDetails.changes.length} field
-                        {currentVersionDetails.changes.length !== 1 ? 's' : ''} modified
-                      </p>
-                    </div>
-                  )}
-                  <div className="mt-4">
-                    <button
-                      disabled={currentVersionDetails.is_current}
-                      onClick={() => setShowRestoreModal(true)}
-                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded transition-all ${
-                        !currentVersionDetails.is_current
-                          ? 'text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA]'
-                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      }`}
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      {currentVersionDetails.is_current ? 'Current Version' : 'Restore Version'}
-                    </button>
-                  </div>
-                </div> */}
 
               {/* Field Values - Dynamic based on version data */}
               <div className="space-y-4 mb-6">
@@ -954,23 +912,25 @@ return (
               >
                 Cancel
               </button>
-              <button
-                onClick={handleRestoreVersion}
-                disabled={isRestoring}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isRestoring ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    Restoring...
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="w-4 h-4" />
-                    Restore
-                  </>
-                )}
-              </button>
+             <button
+            disabled={!selectedVersion || currentVersionDetails?.is_current}
+            onClick={() => setShowRestoreModal(true)}
+            className={`flex-1 px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium rounded-lg shadow-sm transition-all
+              ${
+                !selectedVersion
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : currentVersionDetails?.is_current
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] active:scale-95"
+              }`}
+          >
+            <RotateCcw className="w-4 h-4" />
+            {!selectedVersion
+              ? "Select a version to restore"
+              : currentVersionDetails?.is_current
+              ? "Current Version"
+              : "Restore"}
+          </button>
             </div>
           </div>
         </div>
