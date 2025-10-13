@@ -1,12 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy, RotateCcw, X, FileText, User } from 'lucide-react';
+import TextEditor from "../../layout/create_template/textEditor";
+import fetchAndNormalizeDocument from "../../utils/documentLoader";
 import BookmarkModal from './bookmarkModal';
 import { updateTemplateVersionBookmarkAPI } from '../../api/documentContollerAPI';
 
 export default function DocumentVersionHistory({ 
   onClose, 
   documentId,
-  currentFields = {}
+  currentFields = {},
+  currentContent = null,
+  pageSetup = null
 }) {
   const [versions, setVersions] = useState([]);
   const [selectedVersion, setSelectedVersion] = useState(null);
@@ -17,19 +21,61 @@ export default function DocumentVersionHistory({
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [highlightChanges, setHighlightChanges] = useState(true);
+  const [versionContent, setVersionContent] = useState(null);
+  const [docData, setDocData] = useState(null);
+  const [loadingDoc, setLoadingDoc] = useState(false);
+  const [docError, setDocError] = useState(null);
+  const [docPage, setDocPage] = useState(0);
   const menuRef = useRef(null);
-
+  const editorRef = useRef(null);
+  const isApplyingRef = useRef(false);
   // Bookmark modal state
   const [showBookmarkModal, setShowBookmarkModal] = useState(false);
   const [bookmarkTarget, setBookmarkTarget] = useState(null);
   const [bookmarkName, setBookmarkName] = useState('');
-  
-  // TODO: Implement API Calls
+
+  // Load the actual document data
+  useEffect(() => {
+    if (!documentId) return;
+    
+    let ignore = false;
+    const load = async () => {
+      setLoadingDoc(true);
+      setDocError(null);
+      try {
+        const normalized = await fetchAndNormalizeDocument(documentId);
+        console.debug('DocumentVersionHistory: fetched normalized document', normalized);
+        
+        // Fallback logic for pages_json
+        if ((!normalized.pages_json || normalized.pages_json.length === 0) && normalized.document && normalized.document.pages_json) {
+          normalized.pages_json = Array.isArray(normalized.document.pages_json) ? normalized.document.pages_json : [normalized.document.pages_json];
+        }
+        
+        if ((!normalized.pages_json || normalized.pages_json.length === 0) && (normalized.document?.pages_html || normalized.document?.html || normalized.pages_html)) {
+          const html = normalized.document?.pages_html || normalized.document?.html || normalized.pages_html;
+          normalized.pages_json = Array.isArray(html) ? html : [html];
+        }
+        
+        if (!ignore) {
+          setDocData(normalized);
+        }
+      } catch (err) {
+        console.error('Failed to load document:', err);
+        if (!ignore) setDocError(err?.message || "Failed to load document");
+      } finally {
+        if (!ignore) setLoadingDoc(false);
+      }
+    };
+    
+    load();
+    return () => { ignore = true; };
+  }, [documentId]);
+
+ // TODO: Implement API Calls
   useEffect(() => {
     const fetchVersions = async () => {
       console.log('Fetching versions for documentId:', documentId);
       setLoading(true);
-
       // DUMMY DATA - FOR DEMO PURPOSES
       try {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -58,7 +104,7 @@ export default function DocumentVersionHistory({
           {
             id: '2',
             timestamp: new Date('2025-10-12T10:15:00'),
-            author: 'Nikol Jokic',
+            author: 'Nikola Jokic',
             versionName: '',
             is_current: false,
             isBookmarked: false,
@@ -128,13 +174,14 @@ export default function DocumentVersionHistory({
           }
         ];
 
-        // Groups version entries by time categories like Today, Yesterday, etc.
+    // Groups version entries by time categories like Today, Yesterday, etc.
         const grouped = groupVersionsByDate(mockVersions);
         setVersions(grouped);
         
         const latest = grouped[0]?.items?.[0];
         if (latest) {
           setSelectedVersion(latest.id);
+          setVersionContent(latest.fields);
         }
         
         const expanded = {};
@@ -217,7 +264,6 @@ export default function DocumentVersionHistory({
       hour12: true
     });
   };
-
   // Toggles visibility of date sections
   const toggleDate = (date) => {
     setExpandedDates(prev => ({ ...prev, [date]: !prev[date] }));
@@ -226,6 +272,43 @@ export default function DocumentVersionHistory({
   // Sets the currently selected version for preview
   const handleVersionSelect = (version) => {
     setSelectedVersion(version.id);
+    setVersionContent(version.fields);
+    
+    // Update editor with new version content
+    if (editorRef.current && version.fields) {
+      try {
+        isApplyingRef.current = true;
+        const editor = editorRef.current;
+        const state = editor.state;
+        const tr = state.tr;
+        let changed = false;
+
+        state.doc.descendants((node, pos) => {
+          if (node.type && node.type.name === 'editableField') {
+            const origKey = node.attrs?.key;
+            if (!origKey) return;
+            
+            const newVal = version.fields[origKey] ?? '';
+            const existing = node.textContent || '';
+            
+            if (String(existing) !== String(newVal)) {
+              const from = pos + 1;
+              const to = pos + node.nodeSize - 1;
+              tr.replaceWith(from, to, state.schema.text(String(newVal)));
+              changed = true;
+            }
+          }
+        });
+
+        if (changed) {
+          editor.view.dispatch(tr);
+        }
+      } catch (err) {
+        console.debug('Error updating editor with version content:', err);
+      } finally {
+        setTimeout(() => { isApplyingRef.current = false; }, 50);
+      }
+    }
   };
 
    // TODO: IMPLEMENT API CALL FOR COPY --------------------------------------------------------
@@ -318,6 +401,52 @@ export default function DocumentVersionHistory({
 
   const totalVersions = filteredVersions.reduce((sum, group) => sum + group.items.length, 0);
 
+  // Extract page nodes from document
+  const pageNodes = useMemo(() => {
+    const base = docData?.pages_json?.[0];
+    if (!base) return [];
+    if (typeof base === 'string') return [];
+    return (base.content || []).filter(n => n.type === 'page');
+  }, [docData]);
+
+  // Apply version field values to document content for preview
+  const contentForEditor = useMemo(() => {
+    if (!docData || !versionContent) return null;
+    
+    const base = docData?.pages_json?.[0];
+    
+    // Handle HTML string format
+    if (typeof base === 'string') {
+      return base.replace(/\{\{([A-Za-z0-9_\-]+)\}\}/g, (_, key) => {
+        const v = versionContent[key];
+        return v === undefined || v === null ? '' : String(v);
+      });
+    }
+    
+    // Handle ProseMirror/TipTap format
+    const pageNode = pageNodes[docPage] || (base && (base.content || []).find(n => n.type === 'page'));
+    if (!pageNode) return base || { type: 'doc', content: [] };
+    
+    // Deep clone and inject version values
+    const cloned = JSON.parse(JSON.stringify(pageNode));
+    const walk = (node) => {
+      if (!node) return;
+      if (node.type === 'editableField') {
+        const origKey = node.attrs?.key;
+        const val = versionContent?.[origKey];
+        if (val !== undefined && val !== null && String(val) !== '') {
+          node.content = [{ type: 'text', text: String(val) }];
+        } else {
+          node.content = node.content || [];
+        }
+      }
+      if (Array.isArray(node.content)) node.content.forEach(walk);
+    };
+    walk(cloned);
+    
+    return { type: 'doc', content: [cloned] };
+  }, [docData, pageNodes, docPage, versionContent]);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -336,29 +465,29 @@ export default function DocumentVersionHistory({
     alert('Version restored successfully!');
   };
 
-  return (
-    <div className="flex h-screen bg-white">
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Top Bar */}
-        <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button 
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              onClick={onClose}
-              aria-label="Close version history"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-gray-500" />
-              <span className="font-medium text-gray-900">
-                {currentVersionDetails?.time || 'Select a version'}
-              </span>
-               {/* {!loading && totalVersions > 0 && (
+return (
+  <div className="flex h-screen bg-white overflow-hidden">
+    {/* Main Content */}
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Top Bar */}
+      <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+        <div className="flex items-center gap-4">
+          <button
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            onClick={onClose}
+            aria-label="Close version history"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-gray-500" />
+            <span className="font-medium text-gray-900">
+              {currentVersionDetails?.time || 'Select a version'}
+            </span>
+                {/* {!loading && totalVersions > 0 && (
                       <span className="ml-2 text-xs text-gray-500">Loaded {totalVersions} {totalVersions === 1 ? 'version' : 'versions'}</span>
                 )} */}
-              {currentVersionDetails?.is_current && (
+               {currentVersionDetails?.is_current && (
                 <span className="px-2 py-0.5 text-xs font-medium bg-teal-100 text-teal-700 rounded-full">
                   Current
                 </span>
@@ -386,45 +515,63 @@ export default function DocumentVersionHistory({
           </div>
         </div>
 
-        {/* Editable Fields Preview */}
-        <div className="flex-1 overflow-auto bg-gray-50">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300 border-t-blue-600 mx-auto mb-4"></div>
-                <p className="text-sm text-gray-600">Loading version history...</p>
+      {/* Editable Fields Preview - Scrollable Main Body */}
+      <div className="flex flex-1 pt-[57px] overflow-hidden">
+        {/* Left Panel */}
+        <div className="w-96 flex flex-col border-r border-gray-200 bg-gray-50 overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300 border-t-blue-600 mx-auto mb-4"></div>
+                  <p className="text-sm text-gray-600">Loading version history...</p>
+                </div>
               </div>
-            </div>
-          ) : currentVersionDetails ? (
-            <div className="max-w-5xl mx-auto p-8">
-              {/* Version Info Header */}
-              <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900">{currentVersionDetails.time}</h2>
-                    <div className="flex items-center gap-3 mt-2 text-sm text-gray-600">
-                      <div className="flex items-center gap-1.5">
-                        <User className="w-4 h-4" />
+            ) : currentVersionDetails ? (
+              <div className="space-y-6 pb-20">
+
+                {/* Version Info Header
+                <div className="bg-white border border-gray-200 rounded-lg p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">
+                        {currentVersionDetails.time}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
+                        <User className="w-3.5 h-3.5" />
                         <span>{currentVersionDetails.author}</span>
+                        {currentVersionDetails.versionName && (
+                          <>
+                            <span>•</span>
+                            <span className="font-medium">{currentVersionDetails.versionName}</span>
+                          </>
+                        )}
                       </div>
-                      {currentVersionDetails.versionName && (
-                        <>
-                          <span>•</span>
-                          <span className="font-medium">{currentVersionDetails.versionName}</span>
-                        </>
-                      )}
                     </div>
                   </div>
-                </div>
-                
-                {currentVersionDetails.changes.length > 0 && (
-                  <div className="pt-4 border-t border-gray-200">
-                    <p className="text-sm text-gray-600">
-                      {currentVersionDetails.changes.length} field{currentVersionDetails.changes.length !== 1 ? 's' : ''} modified
-                    </p>
+                  {currentVersionDetails.changes.length > 0 && (
+                    <div className="pt-3 border-t border-gray-200">
+                      <p className="text-sm text-gray-600">
+                        {currentVersionDetails.changes.length} field
+                        {currentVersionDetails.changes.length !== 1 ? 's' : ''} modified
+                      </p>
+                    </div>
+                  )}
+                  <div className="mt-4">
+                    <button
+                      disabled={currentVersionDetails.is_current}
+                      onClick={() => setShowRestoreModal(true)}
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded transition-all ${
+                        !currentVersionDetails.is_current
+                          ? 'text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA]'
+                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      {currentVersionDetails.is_current ? 'Current Version' : 'Restore Version'}
+                    </button>
                   </div>
-                )}
-              </div>
+                </div> */}
 
               {/* Field Values - Dynamic based on version data */}
               <div className="space-y-4 mb-6">
@@ -464,74 +611,83 @@ export default function DocumentVersionHistory({
                 </div>
               </div>
 
-              {/* Changes */}
-              {currentVersionDetails.changes.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Changes Made</h3>
-                  <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
-                    {currentVersionDetails.changes.map((change, idx) => (
-                      <div key={idx} className="p-5">
-                        <div className="flex items-start justify-between mb-3">
-                          <span className="font-medium text-gray-900">{change.field}</span>
-                          <span className={`text-xs font-medium px-2 py-1 rounded
-                            ${change.type === 'added' ? 'bg-green-100 text-green-700' : ''}
-                            ${change.type === 'modified' ? 'bg-blue-100 text-blue-700' : ''}
-                            ${change.type === 'deleted' ? 'bg-red-100 text-red-700' : ''}
-                          `}>
-                            {change.type === 'added' ? 'Added' : change.type === 'modified' ? 'Modified' : 'Deleted'}
-                          </span>
+                {/* Changes */}
+                {currentVersionDetails.changes.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
+                      Changes Made
+                    </h3>
+                    <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
+                      {currentVersionDetails.changes.map((change, idx) => (
+                        <div key={idx} className="p-5">
+                          <div className="flex items-start justify-between mb-3">
+                            <span className="font-medium text-gray-900">{change.field}</span>
+                            <span
+                              className={`text-xs font-medium px-2 py-1 rounded ${
+                                change.type === 'added'
+                                  ? 'bg-green-100 text-green-700'
+                                  : change.type === 'modified'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-red-100 text-red-700'
+                              }`}
+                            >
+                              {change.type === 'added'
+                                ? 'Added'
+                                : change.type === 'modified'
+                                ? 'Modified'
+                                : 'Deleted'}
+                            </span>
+                          </div>
                         </div>
-                        
-                        {change.type === 'modified' && (
-                          <div className="space-y-3">
-                            <div>
-                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Previous</p>
-                              <p className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded border border-gray-200">
-                                {change.oldValue || '(empty)'}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Updated</p>
-                              <p className="text-sm text-gray-900 bg-blue-50 px-3 py-2 rounded border border-blue-200">
-                                {change.newValue}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {change.type === 'added' && (
-                          <div>
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">New Value</p>
-                            <p className="text-sm text-gray-900 bg-green-50 px-3 py-2 rounded border border-green-200">
-                              {change.newValue}
-                            </p>
-                          </div>
-                        )}
-                        
-                        {change.type === 'deleted' && (
-                          <div>
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Removed Value</p>
-                            <p className="text-sm text-gray-600 bg-red-50 px-3 py-2 rounded border border-red-200 line-through">
-                              {change.oldValue}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-sm text-gray-600">Select a version to view details</p>
+                )}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-sm text-gray-600">
+                    Select a version to view details
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+
+        {/* Document Preview */}
+        <div className="flex-1 flex flex-col border-r border-gray-200 overflow-hidden">
+          {/* <div className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0">
+            <h2 className="text-sm font-semibold text-gray-900">Document Preview</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Viewing {currentVersionDetails?.is_current ? 'current' : 'historical'} version
+            </p>
+          </div> */}
+          <div className="flex-1 overflow-y-auto p-6 bg-gray-100 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+            {loadingDoc ? (
+              <div className="text-center py-12 text-gray-400 italic">
+                Loading document preview…
+              </div>
+            ) : docError ? (
+              <div className="text-center py-12 text-red-600 font-medium">{docError}</div>
+            ) : docData && contentForEditor ? (
+              <TextEditor
+                content={contentForEditor}
+                pageSetup={docData?.pageSetup || pageSetup}
+                mode="document"
+                editable={false}
+                onEditorReady={(editor) => (editorRef.current = editor)}
+                onContentChange={() => {}}
+              />
+            ) : (
+              <div className="text-center py-12 text-gray-400 italic">
+                No document preview available.
+              </div>
+            )}
+          </div>
+        </div>
 
       {/* Version History Sidebar */}
       <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
@@ -606,8 +762,7 @@ export default function DocumentVersionHistory({
                                 <span className="block text-xs text-gray-500 truncate">{version.versionName}</span>
                               )}
                             </div>
-                            
-                            {/* Current Version Label - Only shows for current version */}
+                          {/* Current Version Label - Only shows for current version */}
                             {version.is_current && (
                               <span className="block text-xs text-teal-600 font-medium mt-1">
                                 Current version
@@ -759,12 +914,6 @@ export default function DocumentVersionHistory({
                   <h1 className="text-xl font-semibold text-gray-900">Restore Version</h1>
                 </div>
               </div>
-              <button
-                onClick={() => setShowRestoreModal(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
             </div>
 
             {/* Content */}
@@ -827,5 +976,7 @@ export default function DocumentVersionHistory({
         </div>
       )}
     </div>
+  </div>
+  </div>
   );
 }
