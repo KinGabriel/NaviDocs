@@ -292,14 +292,34 @@ export const listVersionDataByDocument = async (req, res) => {
  */
 export const restoreDocumentVersion = async (req, res) => {
   try {
-    const { id, versionId } = req.params;
+    // Accept id/versionId from request body (preferred) or params (fallback)
+    let id;
+    let versionId;
+    if (req.body && Object.keys(req.body).length) {
+      ({ id, versionId } = req.body);
+    }
+    if ((!id || !versionId) && req.params) {
+      id = id || req.params.id;
+      versionId = versionId || req.params.versionId;
+    }
     const requesterId = req.user?.id ? String(req.user.id) : null;
-    if (!id || !versionId) return res.status(400).json({ success: false, message: 'template id & version id required' });
-  
-    const version = await VersionData.findOne({_id: versionId, document_id: id}).lean();
+    if (!id || !versionId) return res.status(400).json({ success: false, message: 'document id & version id required' });
+
+    // Try to find version by _id and document_id first
+    let version = null;
+    if (isObjectIdString(versionId)) {
+      version = await VersionData.findOne({ _id: versionId, document_id: id }).lean();
+    }
+    // Fallback: if versionId is numeric, try matching version_no
+    if (!version) {
+      const verNo = Number(versionId);
+      if (!Number.isNaN(verNo)) {
+        version = await VersionData.findOne({ version_no: verNo, document_id: id }).lean();
+      }
+    }
     if (!version) return res.status(404).json({ success: false, message: 'version not found' });
 
-    const document = await Document.findById(id);
+  const document = await Document.findById(id);
     if (!document) return res.status(404).json({ success: false, message: 'document not found' });
 
       // permission: allow owner or admin
@@ -310,10 +330,12 @@ export const restoreDocumentVersion = async (req, res) => {
 */
     // structural snapshot is stored in version.snapshot
     const snap = version.snapshot || {};
-      const allowedKeys = ['field_values'];
-      allowedKeys.forEach((k) => {
-        if (snap[k] !== undefined) document[k] = snap[k];
-      });
+    // The snapshot may either contain a `field_values` object, or it may be the field-values
+    // object itself (stored at the snapshot root). Normalize to `field_values`.
+    const snapshotFieldValues = (snap && typeof snap === 'object')
+      ? (snap.field_values && typeof snap.field_values === 'object' ? snap.field_values : snap)
+      : {};
+    document.field_values = snapshotFieldValues;
       //add a note about the restore
      document.notes = document.notes || [];
      document.notes.push({

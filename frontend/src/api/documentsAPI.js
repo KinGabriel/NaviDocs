@@ -227,3 +227,20 @@ export const listVersionDataByDocumentAPI = async (documentId, params = {}) => {
 		throw new Error(error.response?.data?.message || 'Failed to list version data for document');
 	}
 };
+
+
+/**
+ * Restore a document to a specific version.
+ * Sends { id, versionId } in the request body to the server.
+ * @param {string} documentId
+ * @param {string} versionId
+ */
+export const restoreDocumentVersionAPI = async (documentId, versionId) => {
+	try {
+		const body = { id: documentId, versionId };
+		const res = await axios.post(`${API_URL}/api/documents/version-data/restore`, body, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to restore document version');
+	}
+};

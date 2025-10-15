@@ -6,6 +6,7 @@ import BookmarkModal from './bookmarkModal';
 import {
   listVersionDataByDocumentAPI,
   patchVersionBookmarkAPI,
+  restoreDocumentVersionAPI,
 } from '../../api/documentsAPI';
 
 export default function DocumentVersionHistory({ 
@@ -91,101 +92,85 @@ export default function DocumentVersionHistory({
     return () => { ignore = true; };
   }, [documentId]);
 
- // TODO: Implement API Calls
-  useEffect(() => {
-    const fetchVersions = async () => {
-      setLoading(true);
+  // Fetch versions helper (used on mount and after restore)
+  const fetchVersions = async () => {
+    setLoading(true);
+    try {
+      const resp = await listVersionDataByDocumentAPI(documentId, { group: true });
 
-      try {
-        const resp = await listVersionDataByDocumentAPI(documentId, { group: true });
-
-        // Backend may return groupedVersions or items; prefer groupedVersions
-        let rawItems = [];
-        if (resp && resp.groupedVersions) {
-          // flatten groupedVersions -> items array preserving order
-          for (const g of resp.groupedVersions) {
-            rawItems.push(...(g.versions || []));
-          }
-        } else if (resp && resp.items) {
-          rawItems = resp.items;
-
+      // Backend may return groupedVersions or items; prefer groupedVersions
+      let rawItems = [];
+      if (resp && resp.groupedVersions) {
+        for (const g of resp.groupedVersions) {
+          rawItems.push(...(g.versions || []));
         }
+      } else if (resp && resp.items) {
+        rawItems = resp.items;
+      }
 
-        // map backend shape to component shape
-        // rawItems are expected newest-first. We'll use `snapshot` (full state at the version)
-        // for display, and `field_values` as the delta describing what changed in that version.
-              // Ensure items are sorted newest-first. Prefer numeric version_no, fallback to created_at.
-              rawItems.sort((a, b) => {
-                const aNo = Number(a.version_no || a.versionNo || a.version || NaN);
-                const bNo = Number(b.version_no || b.versionNo || b.version || NaN);
-                if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) return bNo - aNo;
-                const aMs = a.created_at ? new Date(a.created_at).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
-                const bMs = b.created_at ? new Date(b.created_at).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-                return bMs - aMs;
-              });
+      // Ensure items are sorted newest-first. Prefer numeric version_no, fallback to created_at.
+      rawItems.sort((a, b) => {
+        const aNo = Number(a.version_no || a.versionNo || a.version || NaN);
+        const bNo = Number(b.version_no || b.versionNo || b.version || NaN);
+        if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) return bNo - aNo;
+        const aMs = a.created_at ? new Date(a.created_at).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const bMs = b.created_at ? new Date(b.created_at).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return bMs - aMs;
+      });
 
-              // use component-scope helpers formatFieldLabel and normalizeKey
+      const mapped = rawItems.map((v, idx) => {
+        const id = v.id || v._id || String(v.version_no || '');
+        const timestamp = v.created_at ? new Date(v.created_at) : (v.createdAt ? new Date(v.createdAt) : new Date());
+        const author = v.created_by_name || v.author || null;
+        const versionName = typeof v.note === 'string' ? v.note : (Array.isArray(v.notes) && v.notes.length ? (v.notes[0].message || '') : '');
 
-              const mapped = rawItems.map((v, idx) => {
-          const id = v.id || v._id || String(v.version_no || '');
-          const timestamp = v.created_at ? new Date(v.created_at) : (v.createdAt ? new Date(v.createdAt) : new Date());
-          const author = v.created_by_name || v.author || null;
-          const versionName = typeof v.note === 'string' ? v.note : (Array.isArray(v.notes) && v.notes.length ? (v.notes[0].message || '') : '');
+        const currentSnapshot = (v.snapshot && typeof v.snapshot === 'object') ? v.snapshot : (v.field_values && typeof v.field_values === 'object' ? v.field_values : {});
+        const prevRaw = rawItems[idx + 1];
+        const prevSnapshot = prevRaw ? ((prevRaw.snapshot && typeof prevRaw.snapshot === 'object') ? prevRaw.snapshot : (prevRaw.field_values && typeof prevRaw.field_values === 'object' ? prevRaw.field_values : {})) : {};
 
-          // Determine the authoritative snapshot for this version. Prefer `snapshot`, fallback to
-          // applying the delta `field_values` onto an empty object if necessary.
-          const currentSnapshot = (v.snapshot && typeof v.snapshot === 'object') ? v.snapshot : (v.field_values && typeof v.field_values === 'object' ? v.field_values : {});
-
-          // Determine the previous snapshot (older version). rawItems is newest-first, so previous is at idx+1
-          const prevRaw = rawItems[idx + 1];
-          const prevSnapshot = prevRaw ? ((prevRaw.snapshot && typeof prevRaw.snapshot === 'object') ? prevRaw.snapshot : (prevRaw.field_values && typeof prevRaw.field_values === 'object' ? prevRaw.field_values : {})) : {};
-
-          // Compute changes from field_values (delta). Only keys present in field_values are considered changed.
-          const delta = v.field_values && typeof v.field_values === 'object' ? v.field_values : {};
-          const changeKeys = Object.keys(delta);
-          const changes = changeKeys.map(key => {
-            const newValue = currentSnapshot && Object.prototype.hasOwnProperty.call(currentSnapshot, key) ? currentSnapshot[key] : undefined;
-            const oldValue = prevSnapshot && Object.prototype.hasOwnProperty.call(prevSnapshot, key) ? prevSnapshot[key] : undefined;
-            let type = 'modified';
-            if ((oldValue === undefined || oldValue === null || oldValue === '') && (newValue !== undefined && newValue !== null && newValue !== '')) type = 'added';
-            else if ((newValue === undefined || newValue === null || newValue === '') && (oldValue !== undefined && oldValue !== null && oldValue !== '')) type = 'deleted';
-            else if (String(oldValue) === String(newValue)) type = 'modified';
-            return { field: formatFieldLabel(key), key, oldValue, newValue, type };
-          });
-
-          return {
-            id,
-            timestamp,
-            author,
-            versionName,
-            is_current: false,
-            isBookmarked: !!v.isBookmarked,
-            changes,
-            // expose snapshot fields for display
-            fields: currentSnapshot || {}
-          };
+        const delta = v.field_values && typeof v.field_values === 'object' ? v.field_values : {};
+        const changeKeys = Object.keys(delta);
+        const changes = changeKeys.map(key => {
+          const newValue = currentSnapshot && Object.prototype.hasOwnProperty.call(currentSnapshot, key) ? currentSnapshot[key] : undefined;
+          const oldValue = prevSnapshot && Object.prototype.hasOwnProperty.call(prevSnapshot, key) ? prevSnapshot[key] : undefined;
+          let type = 'modified';
+          if ((oldValue === undefined || oldValue === null || oldValue === '') && (newValue !== undefined && newValue !== null && newValue !== '')) type = 'added';
+          else if ((newValue === undefined || newValue === null || newValue === '') && (oldValue !== undefined && oldValue !== null && oldValue !== '')) type = 'deleted';
+          else if (String(oldValue) === String(newValue)) type = 'modified';
+          return { field: formatFieldLabel(key), key, oldValue, newValue, type };
         });
 
-        // Small delay to keep UI feeling consistent
-        await new Promise(resolve => setTimeout(resolve, 200));
+        return {
+          id,
+          timestamp,
+          author,
+          versionName,
+          is_current: false,
+          isBookmarked: !!v.isBookmarked,
+          changes,
+          fields: currentSnapshot || {}
+        };
+      });
 
-        // continue using existing grouping helper
-        const grouped = groupVersionsByDate(mapped);
-        setVersions(grouped);
-        const latest = grouped[0]?.items?.[0];
-        if (latest) setSelectedVersion(latest.id);
-        const expanded = {};
-        grouped.forEach(group => { expanded[group.date] = true; });
-        setExpandedDates(expanded);
-      } catch (error) {
-        console.error('Error loading versions:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      // Small delay to keep UI feeling consistent
+      await new Promise(resolve => setTimeout(resolve, 200));
 
-    fetchVersions();
-  }, [documentId]);
+      const grouped = groupVersionsByDate(mapped);
+      setVersions(grouped);
+      const latest = grouped[0]?.items?.[0];
+      if (latest) setSelectedVersion(latest.id);
+      const expanded = {};
+      grouped.forEach(group => { expanded[group.date] = true; });
+      setExpandedDates(expanded);
+    } catch (error) {
+      console.error('Error loading versions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // run on mount / documentId change
+  useEffect(() => { if (documentId) fetchVersions(); }, [documentId]);
 
   const groupVersionsByDate = (versionList) => {
     const grouped = {};
@@ -448,11 +433,25 @@ export default function DocumentVersionHistory({
   }, []);
 
   const handleRestoreVersion = async () => {
+    if (!selectedVersion) return;
     setIsRestoring(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsRestoring(false);
-    setShowRestoreModal(false);
-    alert('Version restored successfully!');
+    try {
+      const resp = await restoreDocumentVersionAPI(documentId, selectedVersion);
+      if (resp && resp.success) {
+        // Refresh versions and document preview
+        try { await fetchVersions(); } catch (e) { console.warn('Failed to refresh versions after restore', e); }
+        try { const normalized = await fetchAndNormalizeDocument(documentId); setDocData(normalized); } catch (e) { console.warn('Failed to reload document after restore', e); }
+        setShowRestoreModal(false);
+        alert('Version restored successfully!');
+      } else {
+        alert(resp?.message || 'Failed to restore version');
+      }
+    } catch (e) {
+      console.error('Restore failed', e);
+      alert(e?.message || 'Failed to restore version');
+    } finally {
+      setIsRestoring(false);
+    }
   };
 
 return (
@@ -915,8 +914,8 @@ return (
                 Cancel
               </button>
              <button
-            disabled={!selectedVersion || currentVersionDetails?.is_current}
-            onClick={() => setShowRestoreModal(true)}
+            disabled={!selectedVersion || currentVersionDetails?.is_current || isRestoring}
+            onClick={handleRestoreVersion}
             className={`flex-1 px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium rounded-lg shadow-sm transition-all
               ${
                 !selectedVersion
@@ -927,11 +926,13 @@ return (
               }`}
           >
             <RotateCcw className="w-4 h-4" />
-            {!selectedVersion
-              ? "Select a version to restore"
-              : currentVersionDetails?.is_current
-              ? "Current Version"
-              : "Restore"}
+            {isRestoring ? 'Restoring…' : (
+              !selectedVersion
+                ? 'Select a version to restore'
+                : currentVersionDetails?.is_current
+                ? 'Current Version'
+                : 'Restore'
+            )}
           </button>
             </div>
           </div>
