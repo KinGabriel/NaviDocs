@@ -121,7 +121,9 @@ export default function DocumentVersionHistory({
 
       const mapped = rawItems.map((v, idx) => {
         const id = v.id || v._id || String(v.version_no || '');
-        const timestamp = v.created_at ? new Date(v.created_at) : (v.createdAt ? new Date(v.createdAt) : new Date());
+        // Prefer last_activity_at, then created_at, then createdAt, else now
+        const rawTs = v.last_activity_at || v.created_at || v.createdAt || null;
+        const timestamp = rawTs ? new Date(rawTs) : new Date();
         const author = v.created_by_name || v.author || null;
         const versionName = typeof v.note === 'string' ? v.note : (Array.isArray(v.notes) && v.notes.length ? (v.notes[0].message || '') : '');
 

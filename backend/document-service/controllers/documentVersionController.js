@@ -85,10 +85,15 @@ export const createVersionData = async (document_id, field_values = {}, opts = {
       else if (document_id.document_id) docIdRaw = document_id.document_id;
       else if (document_id.documentId) docIdRaw = document_id.documentId;
       else if (document_id.id) docIdRaw = document_id.id;
-      else return null;
+      else if (typeof document_id.toString === 'function') {
+        // handles Mongoose ObjectId or similar by using its string representation
+        docIdRaw = document_id.toString();
+      } else {
+        return null;
+      }
     }
     if (!docIdRaw) return null;
-    const docId = isObjectIdString(docIdRaw) ? new mongoose.Types.ObjectId(String(docIdRaw)) : docIdRaw;
+    const docId = isObjectIdString(String(docIdRaw)) ? new mongoose.Types.ObjectId(String(docIdRaw)) : docIdRaw;
 
     // find latest version
     const latest = await VersionData.findOne({ document_id: docId }).sort({ version_no: -1 });
@@ -107,7 +112,19 @@ export const createVersionData = async (document_id, field_values = {}, opts = {
       }
     }
 
-    if (latest) {
+    // prepare note string early so callers that passed a note force a new version
+    let noteString = '';
+    if (typeof opts.note === 'string') noteString = opts.note;
+    else if (Array.isArray(opts.notes) && opts.notes.length) {
+      if (typeof opts.notes[0] === 'string') noteString = opts.notes.join('\n');
+      else noteString = opts.notes.map(n => (n && n.message) ? String(n.message) : String(n)).join('\n');
+    }
+    const hasNote = !!(noteString && String(noteString).trim().length > 0);
+
+    // allow callers to force creation of a new version (skip interval-based suppression/update)
+    const forceNew = !!opts.forceNew || hasNote;
+
+    if (latest && !forceNew) {
       const lastMs = getTimeMs(latest.last_activity_at || latest.updated_at || latest.created_at);
       const diffMs = Date.now() - lastMs;
       if (diffMs < MIN_TEMPLATE_VERSION_INTERVAL_MS) {
@@ -121,14 +138,7 @@ export const createVersionData = async (document_id, field_values = {}, opts = {
         return updated || (latest.toObject ? latest.toObject() : latest);
       }
     }
-
-    // prepare note string
-    let noteString = '';
-    if (typeof opts.note === 'string') noteString = opts.note;
-    else if (Array.isArray(opts.notes) && opts.notes.length) {
-      if (typeof opts.notes[0] === 'string') noteString = opts.notes.join('\n');
-      else noteString = opts.notes.map(n => (n && n.message) ? String(n.message) : String(n)).join('\n');
-    }
+    // (noteString already prepared above)
     const isBookmarked = !!opts.isBookmarked;
     const last_activity_at = opts.last_activity_at ? new Date(opts.last_activity_at) : new Date();
 
@@ -211,20 +221,35 @@ export const patchVersionBookmark = async (req, res) => {
   if (or.length === 0) or.push({ _id: versionId });
     const v = await VersionData.findOne({ $or: or });
     if (!v) return res.status(404).json({ success: false, message: 'version data not found' });
-    if (typeof isBookmarked === 'boolean') v.isBookmarked = isBookmarked;
-    // Normalize note into a single string. The model expects `note: String` (not an array).
-    if (typeof note === 'string') {
-      v.note = note;
-    } else if (Array.isArray(note) && note.length) {
-      // Join string elements or extract `.message` where present
-      if (typeof note[0] === 'string') v.note = note.join('\n');
-      else v.note = note.map(n => (n && n.message) ? String(n.message) : String(n)).join('\n');
-    } else if (note !== undefined && note !== null) {
-      // Coerce other types to string
-      v.note = String(note);
-    }
-    await v.save();
-    return res.json({ success: true, versionData: normalizeVersionData(v.toObject()) });
+      // If a note is provided, create a new version row instead of updating the existing one
+      const normalizeNote = (n) => {
+        if (typeof n === 'string') return n;
+        if (Array.isArray(n) && n.length) {
+          if (typeof n[0] === 'string') return n.join('\n');
+          return n.map(x => (x && x.message) ? String(x.message) : String(x)).join('\n');
+        }
+        if (n !== undefined && n !== null) return String(n);
+        return '';
+      };
+
+      const noteString = normalizeNote(note);
+      if (noteString && String(noteString).trim().length > 0) {
+        // create a new version row capturing this note and bookmark flag
+        try {
+          const snapshotForNew = (v && v.snapshot) ? v.snapshot : (v && v.field_values ? v.field_values : {});
+          const created = await createVersionData(v.document_id || v.documentId || v.document || v.document_id, {}, { note: noteString, isBookmarked: !!isBookmarked, forceNew: true, snapshot: snapshotForNew });
+          if (!created) return res.status(500).json({ success: false, message: 'Failed to create version with note' });
+          return res.json({ success: true, versionData: normalizeVersionData(created) });
+        } catch (e) {
+          console.error('Failed to create version when note provided', e);
+          return res.status(500).json({ success: false, message: 'Failed to create version with note' });
+        }
+      }
+
+      // No note provided -> update existing version (bookmark toggle)
+      if (typeof isBookmarked === 'boolean') v.isBookmarked = isBookmarked;
+      await v.save();
+      return res.json({ success: true, versionData: normalizeVersionData(v.toObject()) });
   } catch (err) {
     console.error('patchVersionBookmark error', err);
     return res.status(500).json({ success: false, message: 'Failed to update bookmark' });
@@ -345,7 +370,8 @@ export const restoreDocumentVersion = async (req, res) => {
      await document.save();
 
      try {
-      await createVersionData(document._id, snap, { userId: requesterId, note: `Restored to version ${version.version_no || version._id || ''}` });
+      // When restoring we want to force creation of a new version row capturing this restore.
+      await createVersionData(document._id, snapshotFieldValues || {}, { forceNew: true, snapshot: snap, userId: requesterId, note: `Restored to version ${version.version_no || version._id || ''}` });
       } catch (e) {
         console.warn('Failed to create version after restore', e);
       }
