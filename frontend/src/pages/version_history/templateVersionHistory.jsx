@@ -4,6 +4,7 @@ import { listTemplateVersionsAPI, getTemplateVersionAPI, restoreTemplateVersionA
 import TextEditor from '../../layout/create_template/textEditor';
 import BookmarkModal from './bookmarkModal';
 import DuplicateModal from '../../components/modals/duplicateModal';
+import { toast } from 'react-hot-toast';
 
 
 export default function TemplateVersionHistory({ 
@@ -319,12 +320,12 @@ export default function TemplateVersionHistory({
         setTimeout(() => {
           onClose && onClose();
         }, 500);
-      } else {
-        alert(resp?.message || 'Restore response received');
+        } else {
+        toast.error(resp?.message || 'Restore response received');
       }
     } catch (e) {
       console.error('Restore failed', e);
-      alert('Failed to restore template version.');
+      toast.error('Failed to restore template version.');
     } finally {
       setIsRestoring(false);
     }
@@ -347,13 +348,13 @@ export default function TemplateVersionHistory({
           if (resp?.success) {
             const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? '';
             updateLocalBookmark(version.id, false, returnedNote);
-            alert('Version unbookmarked');
+            toast.success('Version unbookmarked');
           } else {
-            alert(resp?.message || 'Unbookmark failed');
+            toast.error(resp?.message || 'Unbookmark failed');
           }
         } catch (e) {
           console.error('Failed to unbookmark', e);
-          alert('Failed to unbookmark version');
+          toast.error('Failed to unbookmark version');
         } finally {
           setMenuOpen(null);
         }
@@ -398,13 +399,13 @@ export default function TemplateVersionHistory({
         setShowBookmarkModal(false);
         setBookmarkTarget(null);
         setBookmarkName('');
-        alert('Version bookmarked');
+        toast.success('Version bookmarked');
       } else {
-        alert(resp?.message || 'Bookmark failed');
+        toast.error(resp?.message || 'Bookmark failed');
       }
     } catch (e) {
       console.error('Bookmark confirm failed', e);
-      alert('Failed to bookmark version');
+      toast.error('Failed to bookmark version');
     }
   };
 
@@ -423,11 +424,11 @@ export default function TemplateVersionHistory({
         })));
         setEditingNoteFor(null);
       } else {
-        alert(resp?.message || 'Failed to save note');
+        toast.error(resp?.message || 'Failed to save note');
       }
     } catch (e) {
       console.error('Failed to save note', e);
-      alert('Failed to save note');
+      toast.error('Failed to save note');
     }
   };
 
@@ -739,13 +740,13 @@ export default function TemplateVersionHistory({
                 setDuplicateOpen(false);
                 setDuplicateItem(null);
                 await fetchVersions();
-                alert('Template duplicated successfully');
+                toast.success('Template duplicated successfully');
               } else {
-                alert(resp?.message || 'Failed to duplicate template');
+                toast.error(resp?.message || 'Failed to duplicate template');
               }
             } catch (err) {
               console.error('Duplicate failed', err);
-              alert('Failed to duplicate template');
+              toast.error('Failed to duplicate template');
             } finally {
               setDuplicating(false);
             }

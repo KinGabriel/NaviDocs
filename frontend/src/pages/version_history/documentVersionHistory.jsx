@@ -8,6 +8,7 @@ import {
   patchVersionBookmarkAPI,
   restoreDocumentVersionAPI,
 } from '../../api/documentsAPI';
+import { toast } from 'react-hot-toast';
 
 export default function DocumentVersionHistory({ 
   onClose, 
@@ -290,7 +291,7 @@ export default function DocumentVersionHistory({
   const handleCopyVersion = (version) => {
     console.log('Copying version:', version);
     setMenuOpen(null);
-    alert('Version copied!');
+    toast.success('Version copied!');
   };
 
   const handleBookmarkVersion = (version) => {
@@ -302,13 +303,13 @@ export default function DocumentVersionHistory({
           if (resp?.success) {
             const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? '';
             updateLocalBookmark(version.id, false, returnedNote);
-            alert('Version unbookmarked');
+                  toast.success('Version unbookmarked');
           } else {
-            alert(resp?.message || 'Unbookmark failed');
+                  toast.error(resp?.message || 'Unbookmark failed');
           }
         } catch (e) {
           console.error('Failed to unbookmark', e);
-          alert('Failed to unbookmark version');
+                toast.error('Failed to unbookmark version');
         } finally {
           setMenuOpen(null);
         }
@@ -353,13 +354,13 @@ export default function DocumentVersionHistory({
         setShowBookmarkModal(false);
         setBookmarkTarget(null);
         setBookmarkName('');
-        alert('Version bookmarked');
+        toast.success('Version bookmarked');
       } else {
-        alert(resp?.message || 'Bookmark failed');
+        toast.error(resp?.message || 'Bookmark failed');
       }
     } catch (e) {
       console.error('Bookmark confirm failed', e);
-      alert('Failed to bookmark version');
+      toast.error('Failed to bookmark version');
     }
   };
 
@@ -442,13 +443,13 @@ export default function DocumentVersionHistory({
         try { await fetchVersions(); } catch (e) { console.warn('Failed to refresh versions after restore', e); }
         try { const normalized = await fetchAndNormalizeDocument(documentId); setDocData(normalized); } catch (e) { console.warn('Failed to reload document after restore', e); }
         setShowRestoreModal(false);
-        alert('Version restored successfully!');
+        toast.success('Version restored successfully!');
       } else {
-        alert(resp?.message || 'Failed to restore version');
+        toast.error(resp?.message || 'Failed to restore version');
       }
     } catch (e) {
       console.error('Restore failed', e);
-      alert(e?.message || 'Failed to restore version');
+      toast.error(e?.message || 'Failed to restore version');
     } finally {
       setIsRestoring(false);
     }
