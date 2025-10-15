@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../layout/headers/header.jsx"; 
 import useUser from "../hooks/useUser";
-import PublishedCard from "../components/cards/publishedCard";
+import PublishedCard from "../components/cards/publishedCard.jsx";
 import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
 import usePagination from "../hooks/usePagination";

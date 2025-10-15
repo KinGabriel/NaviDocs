@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import AssignMembersModal from "../modals/assignMembersModal";
-import UnpublishModal from '../modals/unpublishModal';
+import AssignMembersModal from "../modals/AssignMembersModal";
+import UnpublishModal from '../modals/UnpublishModal';
 import { assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";

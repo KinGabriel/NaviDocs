@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import RenameModal from '../modals/renameModal';
-import AssignMembersModal from '../modals/AssignMembersModal';
-import DuplicateModal from '../modals/DuplicateModal';
-import DeleteModal from '../modals/DeleteModal';
+import AssignMembersModal from '../modals/assignMembersModal';
+import DuplicateModal from '../modals/duplicateModal';
+import DeleteModal from '../modals/deleteModal';
 
 import {
   renameTemplateAPI,
