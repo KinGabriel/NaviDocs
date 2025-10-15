@@ -10,7 +10,8 @@ import {
 import {
   getVersionData,
   patchVersionBookmark,
-  listVersionDataByDocument
+  listVersionDataByDocument,
+  restoreDocumentVersion,
 } from '../controllers/documentVersionController.js';
 import { 
   saveFieldSuggestion, 
@@ -37,4 +38,5 @@ router.patch('/:id/field-values', authenticateJWT, updateDocumentFieldValues);
 router.get('/version-data/:versionId', authenticateJWT, getVersionData);
 router.patch('/version-data/:versionId/bookmark', authenticateJWT, patchVersionBookmark);
 router.get('/version-data/document/:documentId', authenticateJWT, listVersionDataByDocument);
+router.post('/version-data/restore', authenticateJWT, restoreDocumentVersion);
 export default router;

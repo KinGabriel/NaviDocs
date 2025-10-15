@@ -284,3 +284,53 @@ export const listVersionDataByDocument = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to list version data' });
   }
 };
+
+/**
+ * @desc Restore a document to a specific version. Merges the version's snapshot into the current document.
+ * @route POST /api/documents/version-data/restore
+ * @returns 
+ */
+export const restoreDocumentVersion = async (req, res) => {
+  try {
+    const { id, versionId } = req.params;
+    const requesterId = req.user?.id ? String(req.user.id) : null;
+    if (!id || !versionId) return res.status(400).json({ success: false, message: 'template id & version id required' });
+  
+    const version = await VersionData.findOne({_id: versionId, document_id: id}).lean();
+    if (!version) return res.status(404).json({ success: false, message: 'version not found' });
+
+    const document = await Document.findById(id);
+    if (!document) return res.status(404).json({ success: false, message: 'document not found' });
+
+      // permission: allow owner or admin
+    /** 
+    const isOwner = template.created_by && requesterId && String(template.created_by) === requesterId;
+    const isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'Admin' || req.user.isAdmin);
+    if (!isOwner && !isAdmin) return res.status(403).json({ success: false, message: 'Not authorized to restore this template' });
+*/
+    // structural snapshot is stored in version.snapshot
+    const snap = version.snapshot || {};
+      const allowedKeys = ['field_values'];
+      allowedKeys.forEach((k) => {
+        if (snap[k] !== undefined) document[k] = snap[k];
+      });
+      //add a note about the restore
+     document.notes = document.notes || [];
+     document.notes.push({
+       message: `Document restored to version ${version.version_no || version._id || ''}`,
+       created_by: requesterId ? new mongoose.Types.ObjectId(requesterId) : null,
+     });
+     await document.save();
+
+     try {
+      await createVersionData(document._id, snap, { userId: requesterId, note: `Restored to version ${version.version_no || version._id || ''}` });
+      } catch (e) {
+        console.warn('Failed to create version after restore', e);
+      }
+
+      return res.json({ success: true, document: document.toObject ? document.toObject() : document });
+  } catch (err) {
+    console.error('restoreDocumentVersion error', err);
+    return res.status(500).json({ success: false, message: 'Failed to restore document version' });
+  }
+};
