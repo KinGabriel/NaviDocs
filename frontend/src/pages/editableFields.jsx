@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { ChevronRight, ChevronLeft, RotateCcw, X } from "lucide-react";
+import { ChevronRight, ChevronLeft, RotateCcw, X, Grid3x3, Plus, Trash2 } from "lucide-react";
 import EditableFieldsHeader from "../layout/editable_fields/editableFieldsHeader";
 import useUser from "../hooks/useUser";
 import Panel from "../layout/editable_fields/panel";
@@ -31,6 +31,235 @@ export default function EditableFields() {
   const [docError, setDocError] = useState(null);
   const [docPage, setDocPage] = useState(0);
 
+ const TableManager = ({ editor }) => {
+  const [showTableDialog, setShowTableDialog] = useState(false);
+  const [rows, setRows] = useState(3);
+  const [cols, setCols] = useState(3);
+
+  const isInTable = editor?.isActive('table');
+
+  const handleInsertTable = async () => {
+    if (!editor) {
+      console.warn('Editor not available');
+      return;
+    }
+
+    console.log('Inserting table:', rows, 'x', cols);
+
+    try {
+      // Method 1: Try direct insertion
+      const success = editor
+        .chain()
+        .focus()
+        .insertTable({ 
+          rows: Number(rows), 
+          cols: Number(cols), 
+          withHeaderRow: true 
+        })
+        .run();
+
+      if (success) {
+        console.log('Table inserted successfully');
+      } else {
+        console.log('Direct insertion failed, trying insertContent...');
+        
+        // Method 2: Build table HTML and insert it
+        let tableHTML = '<table><tbody>';
+        
+        // Header row
+        tableHTML += '<tr>';
+        for (let c = 0; c < Number(cols); c++) {
+          tableHTML += '<th><p></p></th>';
+        }
+        tableHTML += '</tr>';
+        
+        // Data rows
+        for (let r = 1; r < Number(rows); r++) {
+          tableHTML += '<tr>';
+          for (let c = 0; c < Number(cols); c++) {
+            tableHTML += '<td><p></p></td>';
+          }
+          tableHTML += '</tr>';
+        }
+        
+        tableHTML += '</tbody></table>';
+        
+        const htmlSuccess = editor
+          .chain()
+          .focus()
+          .insertContent(tableHTML)
+          .run();
+          
+        if (htmlSuccess) {
+          console.log('Table inserted via HTML');
+        } else {
+          console.error('Both insertion methods failed');
+        }
+      }
+      
+      // Force editor update
+      setTimeout(() => {
+        if (editor?.view) {
+          editor.view.dispatch(editor.state.tr);
+        }
+      }, 100);
+      
+    } catch (err) {
+      console.error('Error inserting table:', err);
+    }
+
+    setShowTableDialog(false);
+    setRows(3);
+    setCols(3);
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-700 flex items-center">
+          <Grid3x3 className="w-4 h-4 mr-2" />
+          Table Tools
+        </h3>
+        <button
+          onClick={() => setShowTableDialog(true)}
+          disabled={!editor}
+          className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+            editor
+              ? "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+              : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
+          }`}
+        >
+          <Plus className="w-4 h-4 mr-1" />
+          Insert Table
+        </button>
+      </div>
+
+      {editor && isInTable && (
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <p className="text-xs text-gray-500 mb-2">Table selected:</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => editor.chain().focus().addRowBefore().run()}
+              className="inline-flex items-center justify-center px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-100"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Row Before
+            </button>
+            <button
+              onClick={() => editor.chain().focus().addRowAfter().run()}
+              className="inline-flex items-center justify-center px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-100"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Row After
+            </button>
+            <button
+              onClick={() => editor.chain().focus().addColumnBefore().run()}
+              className="inline-flex items-center justify-center px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-100"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Column Before
+            </button>
+            <button
+              onClick={() => editor.chain().focus().addColumnAfter().run()}
+              className="inline-flex items-center justify-center px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-100"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Column After
+            </button>
+            <button
+              onClick={() => editor.chain().focus().deleteRow().run()}
+              className="inline-flex items-center justify-center px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100"
+            >
+              <Trash2 className="w-3 h-3 mr-1" />
+              Delete Row
+            </button>
+            <button
+              onClick={() => editor.chain().focus().deleteColumn().run()}
+              className="inline-flex items-center justify-center px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100"
+            >
+              <Trash2 className="w-3 h-3 mr-1" />
+              Delete Column
+            </button>
+            <button
+              onClick={() => editor.chain().focus().deleteTable().run()}
+              className="col-span-2 inline-flex items-center justify-center px-3 py-1.5 bg-red-600 text-white border border-red-700 rounded-lg text-xs font-medium hover:bg-red-700"
+            >
+              <Trash2 className="w-3 h-3 mr-1" />
+              Delete Table
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showTableDialog && (
+        <div
+          className="fixed inset-0 bg-opacity-30 backdrop-blur-[2px] flex items-center justify-center z-50 p-4"
+          onClick={() => setShowTableDialog(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full border border-gray-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Insert Table</h3>
+              <button
+                onClick={() => setShowTableDialog(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rows
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={rows}
+                  onChange={(e) => setRows(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Columns
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={cols}
+                  onChange={(e) => setCols(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setShowTableDialog(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleInsertTable}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                >
+                  Insert
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
   // dummy config for panels and fields - change as needed depending on the required editable fields 
   const panelsConfig = [
@@ -777,6 +1006,9 @@ export default function EditableFields() {
             ))
           )}
 
+          {/* Insertion of Table */}
+         {editorRef.current && <TableManager editor={editorRef.current} />}
+
           {/* Prev/Next page buttons (placed below panels) */}
           <div className="flex items-center justify-end">
             <div className="flex items-center space-x-3">
@@ -903,6 +1135,7 @@ export default function EditableFields() {
                   // capture editor instance
                     editorRef.current = editor;
                   // initial apply of formData into editor
+                   console.log('✅ Editor ready:', editor);
                     try {
                       isApplyingRef.current = true;
                       applyFormDataToEditor(editor);
