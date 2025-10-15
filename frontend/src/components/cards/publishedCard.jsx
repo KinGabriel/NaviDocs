@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import AssignMembersModal from "../modals/AssignMembersModal";
+import AssignMembersModal from "../modals/assignMembersModal";
 import UnpublishModal from '../modals/UnpublishModal';
 import { assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
 
