@@ -12,7 +12,7 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
-
+import '../../assets/css/global.css'  
 import RichImage from "../../extensions/image/ImageNode";
 
 // Core schema & behavior
@@ -346,6 +346,7 @@ export default function TextEditor({
           text-align: center;
           padding: 0 6px;
         }
+          
       `}</style>
 
       {/* Main editor */}
@@ -354,7 +355,7 @@ export default function TextEditor({
         style={{ maxWidth: `calc(var(--nd-page-width) + 4rem)` }}
       >
         {editor ? (
-          <EditorContent editor={editor} className="prose max-w-none" />
+         <EditorContent editor={editor} className="ProseMirror prose max-w-none" />
         ) : (
           <div className="text-sm text-gray-500">Loading editor…</div>
         )}
