@@ -36,6 +36,7 @@ export const fetchUserInfoById = async (userId, req = {}, opts = { basic: false 
     const endpoint =  'getUserInfo';
     const url = `${USER_SERVICE_URL}/api/user/${endpoint}/${encodeURIComponent(String(userId))}`;
     const resp = await axios.get(url, { headers, withCredentials: true });
+    console.log('fetchUserInfoById', userId, '->', resp?.data);
     return resp?.data || null;
   } catch (err) {
     // swallow errors and return null so callers can continue

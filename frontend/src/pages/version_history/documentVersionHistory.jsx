@@ -88,7 +88,7 @@ export default function DocumentVersionHistory({
         if (!ignore) setLoadingDoc(false);
       }
     };
-    
+    console
     load();
     return () => { ignore = true; };
   }, [documentId]);

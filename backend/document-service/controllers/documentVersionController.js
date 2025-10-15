@@ -150,6 +150,17 @@ export const createVersionData = async (document_id, field_values = {}, opts = {
       try {
         const latestForInsert = await VersionData.findOne({ document_id: docId }).sort({ version_no: -1 });
         const nextVersionNo = latestForInsert ? (Number(latestForInsert.version_no || 0) + 1) : 1;
+        // determine created_by from opts.userId (caller) to avoid relying on req in internal helper
+        let createdByVal = null;
+        if (opts && opts.userId) {
+          try {
+            const s = String(opts.userId);
+            createdByVal = isObjectIdString(s) ? new mongoose.Types.ObjectId(s) : s;
+          } catch (e) {
+            createdByVal = opts.userId;
+          }
+        }
+
         const toInsert = {
           document_id: docId,
           version_no: nextVersionNo,
@@ -157,6 +168,7 @@ export const createVersionData = async (document_id, field_values = {}, opts = {
           field_values: field_values || {},
           // full snapshot at this version (may be null -> DB will store empty object via default)
           snapshot: snapshotObj || {},
+          created_by: createdByVal || null,
           note: noteString,
           isBookmarked,
           last_activity_at
@@ -267,7 +279,42 @@ export const listVersionDataByDocument = async (req, res) => {
     const items = await VersionData.find({ document_id: documentId }).sort({ version_no: -1 }).lean();
 
     const doGroup = String(req.query.group || '').toLowerCase() === 'true' || !!req.query.group_interval_ms;
-    const normalizedAll = items.map(v => normalizeVersionData(v));
+    // normalize raw version doc and enrich created_by_name via user service
+    const normalizeVersionAsync = async (raw) => {
+      if (!raw) return raw;
+      const out = normalizeVersionData(raw);
+      try {
+        // normalize created_by (may be ObjectId or nested)
+        let cb = raw.created_by || raw.createdBy || out.created_by || out.createdBy || null;
+        if (cb && typeof cb === 'object') {
+          if (cb.$oid) cb = cb.$oid;
+          else if (cb._id) cb = String(cb._id);
+        }
+        out.created_by = cb ? String(cb) : null;
+        out.created_by_name = null;
+        if (out.created_by) {
+          try {
+            const user = await fetchUserInfoById(out.created_by, req);
+            if (user) {
+              const u = (user.user && typeof user.user === 'object') ? user.user : (user.data && typeof user.data === 'object' && user.data.user ? user.data.user : (user.data || user));
+              const first = (u && (u.firstname || u.first_name || u.firstName || u.given_name)) ? (u.firstname || u.first_name || u.firstName || u.given_name) : '';
+              const last = (u && (u.lastname || u.last_name || u.lastName || u.family_name)) ? (u.lastname || u.last_name || u.lastName || u.family_name) : '';
+              if (first || last) out.created_by_name = `${first} ${last}`.trim();
+              else if (u && (u.name || u.fullName || u.full_name)) out.created_by_name = u.name || u.fullName || u.full_name;
+              else if (u && u.email) out.created_by_name = String(u.email).split('@')[0];
+            }
+          } catch (e) {
+            // ignore user lookup failures
+          }
+        }
+      } catch (e) {
+        console.error('normalizeVersionAsync error', e);
+      }
+      return out;
+    };
+
+    // If not grouping, return normalized list
+    const normalizedAll = await Promise.all(items.map(v => normalizeVersionAsync(v)));
     if (!doGroup) return res.json({ success: true, items: normalizedAll });
 
     const DEFAULT_GROUP_INTERVAL_MS = process.env.MIN_TEMPLATE_VERSION_INTERVAL_MS ? parseInt(process.env.MIN_TEMPLATE_VERSION_INTERVAL_MS, 10) : (5 * 60 * 1000);
@@ -300,9 +347,29 @@ export const listVersionDataByDocument = async (req, res) => {
       } else { grouped.push({ representative: v, count: 1, versions: [v] }); }
     }
 
-    for (const g of grouped) { g.representative = normalizeVersionData(g.representative); g.versions = g.versions.map(v => normalizeVersionData(v)); }
+    // Async normalize representative and versions and enrich created_by_name using user service
+    for (const g of grouped) {
+      g.representative = await normalizeVersionAsync(g.representative);
+      g.versions = await Promise.all((g.versions || []).map(v => normalizeVersionAsync(v)));
+      // If representative lacks created_by, search any version in the group for one and copy it
+      let candidateId = null;
+      if (!g.representative.created_by) {
+        const found = (g.versions || []).find(v => v && v.created_by);
+        if (found) {
+          g.representative.created_by = found.created_by;
+          g.representative.created_by_name = found.created_by_name || 'Unknown User';
+          candidateId = found.created_by;
+        } else {
+          // no author info available in group
+          g.representative.created_by_name = g.representative.created_by_name || 'Unknown User';
+        }
+      } else {
+        // representative has created_by but ensure created_by_name is present (try to reuse from versions)
+        g.representative.created_by_name = g.representative.created_by_name || ((g.versions || []).find(v => v && String(v.created_by) === String(g.representative.created_by))?.created_by_name) || 'Unknown User';
+        candidateId = g.representative.created_by;
+      }
+    }
     const groupedVersions = grouped.map(g => ({ representative: g.representative, count: g.count, versions: g.versions }));
-
     return res.json({ success: true, items: normalizedAll, groupedVersions });
   } catch (err) {
     console.error('listVersionDataByDocument error', err);

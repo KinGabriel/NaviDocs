@@ -9,7 +9,8 @@ const VersionDataSchema = new Schema({
   snapshot: { type: mongoose.Schema.Types.Mixed, default: {} }, // full snapshot at this version
   note: { type: String, default: '' },
   isBookmarked: { type: Boolean, default: false },
-  last_activity_at: { type: Date, default: null }
+  last_activity_at: { type: Date, default: null },
+  created_by: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'User' },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 // allow multiple versions per document; enforce uniqueness per (document_id, version_no)
