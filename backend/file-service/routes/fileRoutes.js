@@ -1,5 +1,5 @@
 import express from 'express';
-import { upload, handleMulterError } from '../middleware/uploadMiddleware.js'; 
+import { upload, handleMulterError } from '../middleware/uploadMiddleware.js';
 import { uploadProfilePicture, uploadDocument, deleteFile, getFileInfo } from '../controllers/fileController.js';
 
 const router = express.Router();
