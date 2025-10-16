@@ -17,7 +17,7 @@ import VersionHistory from "../version_history/templateVersionHistory";
 
 // Panels
 import FontPanel from "../../layout/create_template/fontPanel";
-import PageSetupPanel from "../../layout/create_template/PageSetupPanel";
+import PageSetupPanel from "../../layout/create_template/pageSetupPanel";
 import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";

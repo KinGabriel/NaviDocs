@@ -3,14 +3,10 @@ import RenameModal from '../modals/renameModal';
 import AssignMembersModal from '../modals/assignMembersModal';
 import DuplicateModal from '../modals/duplicateModal';
 import DeleteModal from '../modals/deleteModal';
+import { toast } from 'react-hot-toast';
 
-import {
-  renameTemplateAPI,
-  duplicateTemplateAPI,
-  deleteTemplateAPI,
-  assignControllersToTemplateAPI,
-} from "../../api/documentContollerAPI";
-import { renameDocumentAPI, deleteDocumentAPI } from "../../api/documentsAPI";
+import { assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
+import { renameDocumentAPI, deleteDocumentAPI,duplicateDocumentAPI } from "../../api/documentsAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -23,7 +19,8 @@ export default function DocumentCard({
   onSelect, 
   user, 
   onRename, 
-  onDelete, 
+  onDelete,
+  onAssign,
 }) {
   
   // Helper to safely read DB-backed fields with common fallbacks
@@ -147,6 +144,7 @@ export default function DocumentCard({
       setRenaming(true);
       const resp = await renameDocumentAPI(document._id, newTitle);
       if (resp && (resp.success || resp.document)) {
+        toast.success('Document renamed');
         if (typeof onRename === 'function') {
           onRename(resp.document || { ...document, title: newTitle });
         } else if (typeof window !== 'undefined') {
@@ -171,16 +169,17 @@ export default function DocumentCard({
         : (payload?.assignees || payload?.controllers || payload?.members || []);
       const resp = await assignControllersToTemplateAPI(document._id, members);
       if (resp && resp.success) {
+        toast.success('Assigned members updated');
         const updated = resp.template || document;
-        if (onAssign) onAssign(updated);
-        else if (onRename) onRename(updated); // bubble up if parent manages list
+        if (typeof onAssign === 'function') onAssign(updated);
+        else if (typeof onRename === 'function') onRename(updated); // bubble up if parent manages list
         else window.location.reload();
       } else {
-        alert(resp?.message || 'Failed to assign members');
+        toast.error(resp?.message || 'Failed to assign members');
       }
-    } catch (err) {
+      } catch (err) {
       console.error('Assign error:', err);
-      alert(err?.response?.data?.message || 'Error assigning members');
+      toast.error(err?.response?.data?.message || 'Error assigning members');
     } finally {
       setAssignOpen(false);
     }
@@ -190,8 +189,9 @@ export default function DocumentCard({
     try {
       setDuplicating(true);
       const newTitle = newDoc?.title || `${title} (Copy)`;
-  const resp = await duplicateTemplateAPI(document._id, newTitle);
+  const resp = await duplicateDocumentAPI(document._id, newTitle);
       if (resp && resp.success) {
+        toast.success('Document duplicated');
         // optional: navigate/open
         setDuplicateOpen(false);
         if (typeof onSelect === 'function') {
@@ -200,11 +200,11 @@ export default function DocumentCard({
           window.location.reload();
         }
       } else {
-        alert(resp?.message || 'Failed to duplicate document');
+        toast.error(resp?.message || 'Failed to duplicate document');
       }
     } catch (err) {
       console.error('Duplicate document error:', err);
-      alert(err?.response?.data?.message || err?.message || 'Error duplicating document');
+      toast.error(err?.response?.data?.message || err?.message || 'Error duplicating document');
     } finally {
       setDuplicating(false);
     }
@@ -216,11 +216,13 @@ export default function DocumentCard({
       setDeleteError("");
   const resp = await deleteDocumentAPI(document._id);
       if (resp && resp.success) {
-        if (typeof onDelete === 'function') onDelete(resp.template || document);
+        toast.success('Document deleted');
+        if (typeof onDelete === 'function') onDelete({ _id: document._id || document.id });
         else window.location.reload();
         setDeleteOpen(false);
       } else {
         setDeleteError(resp?.message || 'Failed to delete');
+        toast.error(resp?.message || 'Failed to delete');
       }
     } catch (err) {
       setDeleteError(err?.response?.data?.message || err?.message || 'Error deleting');
