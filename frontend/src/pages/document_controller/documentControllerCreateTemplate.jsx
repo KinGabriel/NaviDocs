@@ -17,7 +17,7 @@ import VersionHistory from "../version_history/templateVersionHistory";
 
 // Panels
 import FontPanel from "../../layout/create_template/fontPanel";
-import PageSetupPanel from "../../layout/create_template/pageSetupPanel";
+import PageSetupPanel from "../../layout/create_template/PageSetupPanel";
 import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
@@ -426,7 +426,6 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
-<<<<<<< HEAD
   return (
     <div>
       {showVersionHistory ? (
@@ -436,43 +435,6 @@ export default function DocumentControllerCreateTemplate() {
           currentContent={templateContent}
           pageSetup={pageSetup}
           TextEditor={TextEditor}
-=======
-return (
-  <div>
-    {showVersionHistory ? (
-      <VersionHistory
-        onClose={() => setShowVersionHistory(false)}
-        templateId={templateId}
-        currentContent={templateContent}
-        pageSetup={pageSetup}
-        TextEditor={TextEditor}
-        previousName={templateTitle}
-      />
-    ) : (
-      <div className="flex min-h-screen flex-col bg-slate-50">
-        <Header2
-          title={templateTitle}
-          setTitle={setTemplateTitle}
-          user={user}
-          onSubmitForApproval={handleSubmitForApproval}
-          onApprove={handleApprove}
-          onPublish={handlePublish}
-          saving={saving}
-          lastSavedAt={lastSavedAt}
-          dirty={dirty}
-          templateStatus={status}
-          approvals={approvals}
-          approvalMeta={approvalMeta}
-          approvers={approvers}
-          loadingApprovers={loading}
-          reviewNotes={notes}
-          assignedIds={[]}
-          templateId={templateId || ""}
-          onStatusUpdate={handleStatusUpdate}
-          onApprovalsUpdate={handleApprovalsUpdate}
-          template={template}
-          onShowVersionHistory={() => setShowVersionHistory(true)}
->>>>>>> ef476fc6861318bb2ed6e614d05c1ab4269e3459
         />
       ) : (
         <div className="flex min-h-screen flex-col bg-slate-50">
