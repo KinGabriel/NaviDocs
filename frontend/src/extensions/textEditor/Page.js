@@ -48,8 +48,6 @@ const DEFAULT_FOOTER_CONFIG = {
  *
  * Fallback mapping (best-effort):
  *   editor.storage.headerFooter.current = { header: {...}, footer: {...} }
- *   where we map showPageNumber/showDate -> fields.pageNumber/fields.date
- *   and reuse DEFAULT_HEADER_CONFIG with title text if available.
  */
 function readActiveConfig(editor) {
   const pageHF = editor?.storage?.pageHF?.current;
@@ -77,30 +75,35 @@ function readActiveConfig(editor) {
 }
 
 function mapSimpleHeaderToRich(simpleHeader) {
-  // simpleHeader example: { showLogo, logoUrl, showTitle, titleText, showDate, dateFormat }
-  // We only map what we can confidently translate; keep the rest as defaults.
   const s = simpleHeader || {};
   const next = structuredClone(DEFAULT_HEADER_CONFIG);
 
-  // logo: if simple header showLogo=false, hide the slot; if true, keep visible (we don’t store URL here)
   if (typeof s.showLogo === "boolean") next.fields.sluLogo = s.showLogo;
-
-  // title block visibility & text
   if (typeof s.showTitle === "boolean") next.fields.title = s.showTitle;
   if (typeof s.titleText === "string" && s.titleText.trim()) {
     next.config.title.text = s.titleText.trim();
+  }
+  if (s.margins && (s.margins.top != null || s.margins.bottom != null)) {
+    next.margins = {
+      top: Number(s.margins.top ?? next.margins.top),
+      bottom: Number(s.margins.bottom ?? next.margins.bottom),
+    };
   }
   return next;
 }
 
 function mapSimpleFooterToRich(simpleFooter) {
-  // simpleFooter example: { showPageNumber, showEmail, showDate, dateFormat }
   const s = simpleFooter || {};
   const next = structuredClone(DEFAULT_FOOTER_CONFIG);
 
   if (typeof s.showPageNumber === "boolean") next.fields.pageNumber = s.showPageNumber;
   if (typeof s.showDate === "boolean") next.fields.date = s.showDate;
-  // we don’t render email in this rich footer; if you have one, add a field & renderer.
+  if (s.margins && (s.margins.top != null || s.margins.bottom != null)) {
+    next.margins = {
+      top: Number(s.margins.top ?? next.margins.top),
+      bottom: Number(s.margins.bottom ?? next.margins.bottom),
+    };
+  }
   return next;
 }
 
@@ -129,6 +132,11 @@ export const Page = Node.create({
     return {
       number: { default: null },
 
+      // Simple attrs (used by AutoPaginator + panel)
+      header: { default: null },
+      footer: { default: null },
+
+      // Rich attrs (for visual rendering)
       headerConfig: {
         default: DEFAULT_HEADER_CONFIG,
         parseHTML: el => {
@@ -152,6 +160,10 @@ export const Page = Node.create({
           "data-footer-config": JSON.stringify(attrs.footerConfig || DEFAULT_FOOTER_CONFIG),
         }),
       },
+
+      // Dimensions (useful for CSS var setup if needed)
+      widthPx: { default: 816 },   // ~8.5in @96dpi
+      heightPx: { default: 1056 }, // ~11in @96dpi (tweak for A4 if you want)
     };
   },
 
@@ -162,8 +174,15 @@ export const Page = Node.create({
   // -------------------------------------------------
   renderHTML({ node, HTMLAttributes }) {
     const number = node.attrs.number;
-    const headerConfig = node.attrs.headerConfig || DEFAULT_HEADER_CONFIG;
-    const footerConfig = node.attrs.footerConfig || DEFAULT_FOOTER_CONFIG;
+
+    // 1) Derive effective rich configs from either simple or rich attrs
+    const simpleH = node.attrs.header;
+    const simpleF = node.attrs.footer;
+    const richH = node.attrs.headerConfig || DEFAULT_HEADER_CONFIG;
+    const richF = node.attrs.footerConfig || DEFAULT_FOOTER_CONFIG;
+
+    const headerConfig = simpleH ? mapSimpleHeaderToRich(simpleH) : richH;
+    const footerConfig = simpleF ? mapSimpleFooterToRich(simpleF) : richF;
 
     const hFields = headerConfig.fields || {};
     const hCfg = headerConfig.config || {};
@@ -179,15 +198,10 @@ export const Page = Node.create({
     const hasFooter =
       !!(fFields && (fFields.pageNumber || fFields.date));
 
-    // conservative content-height estimates so body never collides with header/footer
-    const EST_HEADER_CONTENT = 80; // px
-    const EST_FOOTER_CONTENT = 50; // px
-
-    const headerOffsetPx = hasHeader ? headerMarginTop + EST_HEADER_CONTENT + headerMarginBottom : 0;
-    const footerOffsetPx = hasFooter ? footerMarginTop + EST_FOOTER_CONTENT + footerMarginBottom : 0;
+    const pageW = Number(node.attrs.widthPx || 816);
+    const pageH = Number(node.attrs.heightPx || 1056);
 
     // ---------- HEADER (flex row: left / center / right) ----------
-    // Left: SLU logo (placeholder)
     const leftCol = hFields.sluLogo
       ? [
           "div",
@@ -204,7 +218,6 @@ export const Page = Node.create({
         ]
       : ["div", { style: "width:72px;min-width:72px" }];
 
-    // Center: University / School / Title stack
     const centerStack = [];
 
     if (hFields.university) {
@@ -273,10 +286,7 @@ export const Page = Node.create({
         {},
         [
           "td",
-          {
-            style:
-              "padding:6px 10px;border:1px solid #cbd5e1;white-space:nowrap;font-weight:600;background:#f8fafc",
-          },
+          { style: "padding:6px 10px;border:1px solid #cbd5e1;white-space:nowrap;font-weight:600;background:#f8fafc" },
           label,
         ],
         [
@@ -292,18 +302,20 @@ export const Page = Node.create({
       ];
     }
 
-    const headerNode = [
-      "header",
-      {
-        class: "nd-header",
-        style:
-          "display:flex;align-items:flex-start;justify-content:space-between;gap:12px;" +
-          `margin-top:${headerMarginTop}px;margin-bottom:${headerMarginBottom}px;flex:0 0 auto`,
-      },
-      leftCol,
-      centerCol,
-      rightCol,
-    ];
+    const headerNode = hasHeader
+      ? [
+          "div",
+          {
+            class: "nd-page__header",
+            style:
+              "display:flex;align-items:flex-start;justify-content:space-between;gap:12px;" +
+              `margin-top:${headerMarginTop}px;margin-bottom:${headerMarginBottom}px;`,
+          },
+          leftCol,
+          centerCol,
+          rightCol,
+        ]
+      : ["div", { class: "nd-page__header", style: "display:none" }];
 
     // ---------- FOOTER ----------
     const fAlign = footerConfig.align || "center";
@@ -311,39 +323,42 @@ export const Page = Node.create({
     if (fFields.pageNumber && number != null) footerText.push(`Page ${number}`);
     if (fFields.date) footerText.push(new Date().toLocaleDateString());
 
-    const footerNode = [
-      "footer",
-      {
-        class: "nd-footer",
-        style:
-          `text-align:${fAlign};` +
-          `margin-top:${footerMarginTop}px;margin-bottom:${footerMarginBottom}px;flex:0 0 auto`,
-      },
-      footerText.join(" · "),
-    ];
+    const footerNode = hasFooter
+      ? [
+          "div",
+          {
+            class: "nd-page__footer",
+            style:
+              `text-align:${fAlign};` +
+              `margin-top:${footerMarginTop}px;margin-bottom:${footerMarginBottom}px;`,
+          },
+          footerText.join(" · "),
+        ]
+      : ["div", { class: "nd-page__footer", style: "display:none" }];
 
     // ---------- RETURN ----------
+    // Body wrapper is the ONLY place that holds block content (slot 0).
+    // AutoPaginator must measure .nd-page__body (no inner scrolling).
+    const styleVars = `--paper-width:${pageW}px;--paper-height:${pageH}px;`;
+
     return [
       "section",
       mergeAttributes(HTMLAttributes, {
         "data-type": "nd-page",
         class: "nd-page",
+        style: styleVars,
       }),
+      headerNode,
       [
         "div",
-        { class: "nd-page-inner" },
-        headerNode,
-        [
-          "div",
-          {
-            class: "nd-content",
-            // reserve space for header/footer so the body never overlaps them
-            style: `padding-top:${headerOffsetPx}px;padding-bottom:${footerOffsetPx}px`,
-          },
-          0,
-        ],
-        footerNode,
+        {
+          class: "nd-page__body pm-page-content",
+          "data-page-content": "true",
+          style: "overflow:visible;box-sizing:border-box;", // no inner scrollbar
+        },
+        0,
       ],
+      footerNode,
     ];
   },
 
@@ -359,7 +374,11 @@ export const Page = Node.create({
 
           const { headerConfig, footerConfig } = readActiveConfig(editor);
           const node = type.create(
-            { ...attrs, headerConfig, footerConfig },
+            {
+              ...attrs,
+              headerConfig,
+              footerConfig,
+            },
             state.schema.nodes.paragraph.create() // ensure non-empty content
           );
 
@@ -380,16 +399,22 @@ export const Page = Node.create({
           let transaction = tr;
           doc.descendants((n, pos) => {
             if (n.type.name === "page") {
+              // Keep both shapes in sync: simple + rich
+              const headerConfig = mapSimpleHeaderToRich(nextHeader);
+              const footerConfig = mapSimpleFooterToRich(nextFooter);
+
               transaction = transaction.setNodeMarkup(pos, undefined, {
                 ...n.attrs,
-                headerConfig: deepMerge(n.attrs.headerConfig || DEFAULT_HEADER_CONFIG, nextHeader),
-                footerConfig: deepMerge(n.attrs.footerConfig || DEFAULT_FOOTER_CONFIG, nextFooter),
+                header: nextHeader,
+                footer: nextFooter,
+                headerConfig: deepMerge(n.attrs.headerConfig || DEFAULT_HEADER_CONFIG, headerConfig),
+                footerConfig: deepMerge(n.attrs.footerConfig || DEFAULT_FOOTER_CONFIG, footerConfig),
               });
             }
           });
 
           if (dispatch) {
-            dispatch(transaction);
+            dispatch(transaction.setMeta("paginatorReflow", true));
             const pluginState = PageConfigKey.getState(state);
             if (pluginState) {
               pluginState.currentConfig = {
@@ -411,63 +436,51 @@ export const Page = Node.create({
         state: {
           init: () => ({ currentConfig: null }),
           apply(tr, value) {
-            // Keep any external state if needed
             return value;
           },
         },
-        appendTransaction(trs, oldState, newState) {
-          // Detect if document is empty and seed a first page with active config
-          if (oldState.doc.content.size === 0 && newState.doc.content.size === 0) return null;
-
+        // AutoPaginator remains the seeder; we just normalize attributes here.
+        appendTransaction(_trs, _old, newState) {
           const type = newState.schema.nodes.page;
           if (!type) return null;
 
           let tr = newState.tr;
           let changed = false;
 
-          // 1) Seed: if doc has no pages, insert one with active config
-          const hasPage = (() => {
-            let found = false;
-            newState.doc.descendants(n => {
-              if (n.type === type) { found = true; return false; }
-              return true;
-            });
-            return found;
-          })();
-
-          if (!hasPage) {
-            const editor = this.spec.editor; // bind editor via plugin factory below
-            const { headerConfig, footerConfig } = readActiveConfig(editor);
-            const firstPage = type.create(
-              { headerConfig, footerConfig },
-              newState.schema.nodes.paragraph.create()
-            );
-            tr = tr.insert(0, firstPage).setMeta("addToHistory", false);
-            changed = true;
-          }
-
-          // 2) Normalize: ensure every page has header/footer config
-          //    If missing, inherit from active config (or last seen page config).
           const editor = this.spec.editor;
           const active = readActiveConfig(editor);
 
           newState.doc.descendants((n, pos) => {
             if (n.type !== type) return;
 
-            const needsHeader = !n.attrs?.headerConfig;
-            const needsFooter = !n.attrs?.footerConfig;
+            const needsSimpleH = !n.attrs?.header;
+            const needsSimpleF = !n.attrs?.footer;
+            const needsRichH = !n.attrs?.headerConfig;
+            const needsRichF = !n.attrs?.footerConfig;
 
-            if (needsHeader || needsFooter) {
-              const nextHeader = needsHeader ? active.headerConfig : n.attrs.headerConfig;
-              const nextFooter = needsFooter ? active.footerConfig : n.attrs.footerConfig;
-              tr = tr.setNodeMarkup(pos, type, { ...n.attrs, headerConfig: nextHeader, footerConfig: nextFooter }, n.marks);
+            if (needsSimpleH || needsSimpleF || needsRichH || needsRichF) {
+              const header = needsSimpleH ? { margins: active.headerConfig.margins } : n.attrs.header;
+              const footer = needsSimpleF ? { margins: active.footerConfig.margins } : n.attrs.footer;
+
+              tr = tr.setNodeMarkup(
+                pos,
+                type,
+                {
+                  ...n.attrs,
+                  header,
+                  footer,
+                  headerConfig: needsRichH ? active.headerConfig : n.attrs.headerConfig,
+                  footerConfig: needsRichF ? active.footerConfig : n.attrs.footerConfig,
+                },
+                n.marks
+              );
               changed = true;
             }
           });
 
           return changed ? tr : null;
         },
-      }, { editor: this.editor }), // pass editor instance into plugin spec
+      }, { editor: this.editor }),
     ];
   },
 });

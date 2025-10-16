@@ -24,16 +24,14 @@ import BackspaceHandler from "../../extensions/textEditor/BackspaceHandler";
 // Editable fields + lock plugin (factory returns a plugin + setter)
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 
-const inchToPx = (inches) => Math.round(inches * 96);
+const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
 
 const DEFAULT_SETUP = {
   paperSize: "A4",
   orientation: "Portrait",
-  margins: { top: 1, bottom: 1, left: 1, right: 1 },
-  // Optional (used for visual spacing helpers; Page.js does the real offset logic)
+  margins: { top: 1, bottom: 1, left: 1, right: 1 }, // inches
   headerHeight: 1.0, // in
   footerHeight: 0.6, // in
-  contentOffsets: { top: 0, bottom: 0 }, // px; Page.js can override by inline styles
 };
 
 const PRESETS = {
@@ -50,10 +48,6 @@ function computeDims(pageSetup) {
   const hIn = portrait ? base.h : base.w;
   const m = p.margins || DEFAULT_SETUP.margins;
 
-  const headerHeightIn = p.headerHeight ?? DEFAULT_SETUP.headerHeight;
-  const footerHeightIn = p.footerHeight ?? DEFAULT_SETUP.footerHeight;
-  const contentOffsets = p.contentOffsets ?? DEFAULT_SETUP.contentOffsets;
-
   return {
     widthPx: inchToPx(wIn),
     heightPx: inchToPx(hIn),
@@ -61,10 +55,8 @@ function computeDims(pageSetup) {
     marginBottomPx: inchToPx(m.bottom),
     marginLeftPx: inchToPx(m.left),
     marginRightPx: inchToPx(m.right),
-    headerHeightPx: inchToPx(headerHeightIn),
-    footerHeightPx: inchToPx(footerHeightIn),
-    contentTopOffsetPx: contentOffsets.top ?? 0,
-    contentBottomOffsetPx: contentOffsets.bottom ?? 0,
+    headerHeightPx: inchToPx(p.headerHeight ?? DEFAULT_SETUP.headerHeight),
+    footerHeightPx: inchToPx(p.footerHeight ?? DEFAULT_SETUP.footerHeight),
   };
 }
 
@@ -92,24 +84,18 @@ export default function TextEditor({
   const dimsRef = useRef(computeDims(pageSetup));
   const [showImageOptions, setShowImageOptions] = useState(false);
 
-  // holds the lock toggler returned by the plugin factory
+  // lock policy setter from plugin factory
   const setPolicyRef = React.useRef(null);
 
-  const applyCssVars = (d) => {
-    const root = document.documentElement;
-    // Page dimensions & outer margins
-    root.style.setProperty("--nd-page-width", `${d.widthPx}px`);
-    root.style.setProperty("--nd-page-height", `${d.heightPx}px`);
-    root.style.setProperty("--nd-margin-top", `${d.marginTopPx}px`);
-    root.style.setProperty("--nd-margin-bottom", `${d.marginBottomPx}px`);
-    root.style.setProperty("--nd-margin-left", `${d.marginLeftPx}px`);
-    root.style.setProperty("--nd-margin-right", `${d.marginRightPx}px`);
-    // Visual helpers for header/footer zones (optional; Page.js handles real spacing)
-    root.style.setProperty("--nd-header-height", `${d.headerHeightPx || 100}px`);
-    root.style.setProperty("--nd-footer-height", `${d.footerHeightPx || 60}px`);
-    // Default content offsets (Page.js can set inline styles for precise offsets)
-    root.style.setProperty("--nd-content-top-offset", `${d.contentTopOffsetPx || 0}px`);
-    root.style.setProperty("--nd-content-bottom-offset", `${d.contentBottomOffsetPx || 0}px`);
+  // Push CSS vars into the editor/root using the extension command
+  const pushCssVars = (editor, d) => {
+    if (!editor?.commands?.setHeaderFooterCssVars) return;
+    editor.commands.setHeaderFooterCssVars({
+      paper:  { width: `${d.widthPx}px`, height: `${d.heightPx}px` },
+      margins:{ top: `${d.marginTopPx}px`, bottom: `${d.marginBottomPx}px`, left: `${d.marginLeftPx}px`, right: `${d.marginRightPx}px` },
+      header: { height: `${d.headerHeightPx}px` },
+      footer: { height: `${d.footerHeightPx}px` },
+    });
   };
 
   const editor = useEditor({
@@ -151,9 +137,9 @@ export default function TextEditor({
       BackspaceHandler,
     ],
     content: normalizeInitialContent(content),
-    editorProps: { attributes: { class: "nd-editor" } },
+    editorProps: { attributes: { class: "nd-editor-canvas" } },
     onCreate: ({ editor }) => {
-      // install lock plugin ONCE and keep a setter to flip it later
+      // Lock policy plugin
       const { plugin, setPolicy } = createLockOutsideFieldsPlugin({
         initialPolicy: mode === "document" ? "document" : "template",
         nodeTypeName: "editableField",
@@ -162,196 +148,77 @@ export default function TextEditor({
       setPolicyRef.current = setPolicy;
       editor.registerPlugin(plugin);
 
-      applyCssVars(dimsRef.current);
+      // Set initial CSS variables for paper/margins/header/footer
+      const d = dimsRef.current;
+      pushCssVars(editor, d);
 
-      // trigger first reflow for paginator
-      editor.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
+      // First reflow for paginator so it measures the body frame
+      editor.commands.reflowPages?.();
 
-      // honor readOnly flag by toggling editor's editable state
-      try {
-        editor.setEditable(!readOnly);
-      } catch (e) {}
+      // Respect readOnly prop
+      try { editor.setEditable(!readOnly); } catch {}
 
       onEditorReady?.(editor);
     },
     onUpdate: ({ editor }) => onContentChange?.(editor.getHTML()),
   });
 
-  // update editable state when readOnly prop changes
+  // keep editable state in sync
   useEffect(() => {
     if (!editor) return;
-    try {
-      editor.setEditable(!readOnly);
-    } catch (e) {}
+    try { editor.setEditable(!readOnly); } catch {}
   }, [editor, readOnly]);
 
-  // flip lock flag WITHOUT reconfiguring state or swapping plugins
+  // switch lock policy when mode changes
   useEffect(() => {
     if (!setPolicyRef.current) return;
     setPolicyRef.current(mode === "document" ? "document" : "template");
   }, [mode]);
 
-  // Recompute page CSS vars on setup change
+  // reflow and update CSS variables when pageSetup changes
   useEffect(() => {
-    const dims = computeDims(pageSetup);
-    dimsRef.current = dims;
-    applyCssVars(dims);
-    editor?.view.dispatch(editor.state.tr.setMeta("paginatorReflow", true));
+    if (!editor) return;
+    const d = computeDims(pageSetup);
+    dimsRef.current = d;
+    pushCssVars(editor, d);
+    editor.commands.reflowPages?.();
   }, [editor, pageSetup]);
 
-  // Keep editor content in sync when external `content` changes
+  // update content safely when prop changes
   useEffect(() => {
     if (!editor) return;
     if (typeof content === "string") {
       const html = normalizeInitialContent(content);
       if (html !== editor.getHTML()) {
-        try {
-          if (setPolicyRef.current) setPolicyRef.current("off");
-        } catch (e) {}
-        try {
-          editor.commands.setContent(html, false);
-        } finally {
-          try {
-            if (setPolicyRef.current)
-              setPolicyRef.current(mode === "document" ? "document" : "template");
-          } catch (e) {}
-        }
+        try { setPolicyRef.current?.("off"); } catch {}
+        try { editor.commands.setContent(html, false); }
+        finally { try { setPolicyRef.current?.(mode === "document" ? "document" : "template"); } catch {} }
+        editor.commands.reflowPages?.();
       }
     } else if (content && typeof content === "object") {
-      try {
-        if (setPolicyRef.current) setPolicyRef.current("off");
-      } catch (e) {}
-      try {
-        editor.commands.setContent(content, false);
-      } finally {
-        try {
-          if (setPolicyRef.current)
-            setPolicyRef.current(mode === "document" ? "document" : "template");
-        } catch (e) {}
-      }
+      try { setPolicyRef.current?.("off"); } catch {}
+      try { editor.commands.setContent(content, false); }
+      finally { try { setPolicyRef.current?.(mode === "document" ? "document" : "template"); } catch {} }
+      editor.commands.reflowPages?.();
     }
   }, [editor, content, mode]);
+
+  // optional: reflow on window resize (helps when container changes height)
+  useEffect(() => {
+    if (!editor) return;
+    const onResize = () => editor.commands.reflowPages?.();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [editor]);
 
   useEffect(() => () => editor?.destroy(), [editor]);
 
   return (
     <div className={`w-full flex ${className}`}>
-      <style>{`
-        :root {
-          --nd-page-width: ${dimsRef.current.widthPx}px;
-          --nd-page-height: ${dimsRef.current.heightPx}px;
-          --nd-margin-top: ${dimsRef.current.marginTopPx}px;
-          --nd-margin-bottom: ${dimsRef.current.marginBottomPx}px;
-          --nd-margin-left: ${dimsRef.current.marginLeftPx}px;
-          --nd-margin-right: ${dimsRef.current.marginRightPx}px;
-
-          /* Visual helpers (editor-level) */
-          --nd-header-height: ${dimsRef.current.headerHeightPx}px;
-          --nd-footer-height: ${dimsRef.current.footerHeightPx}px;
-
-          /* Content offsets: Page.js can override via inline styles on .nd-content */
-          --nd-content-top-offset: ${dimsRef.current.contentTopOffsetPx}px;
-          --nd-content-bottom-offset: ${dimsRef.current.contentBottomOffsetPx}px;
-        }
-
-        .nd-page {
-          box-sizing: border-box;
-          width: var(--nd-page-width);
-          min-height: var(--nd-page-height);
-          max-height: var(--nd-page-height);
-          padding: var(--nd-margin-top) var(--nd-margin-right) var(--nd-margin-bottom) var(--nd-margin-left);
-          margin: 1.25rem auto;
-          background: #fff;
-          border: 1px solid rgba(0,0,0,0.06);
-          box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-          overflow: hidden;
-
-          /* Allow header/content/footer stacking */
-          display: flex;
-          flex-direction: column;
-        }
-
-        .nd-editor { outline: none; }
-        .ProseMirror:focus { outline: none; }
-
-        /* Header / Content / Footer structure */
-        .nd-header {
-          position: relative;
-          z-index: 2;
-          /* Optionally visualize header area height while designing:
-             min-height: var(--nd-header-height); */
-        }
-        .nd-content {
-          position: relative;
-          z-index: 1;
-          flex: 1;
-          /* Offsets ensure body text respects header/footer when active.
-             Page.js may set inline padding-top/bottom dynamically; these are safe defaults. */
-          padding-top: var(--nd-content-top-offset, 0px);
-          padding-bottom: var(--nd-content-bottom-offset, 0px);
-        }
-        .nd-footer {
-          position: relative;
-          z-index: 2;
-          /* Optionally visualize footer area height while designing:
-             min-height: var(--nd-footer-height); */
-        }
-
-        /* ===== Editable Field visuals (inline box) ===== */
-        .nd-editable-field {
-          display: inline-flex;
-          align-items: center;
-          min-height: 1.75rem;
-          min-width: 1.25rem;
-          padding: 0 0.25rem;
-          border-radius: 0.375rem;
-          outline: 1px dashed rgba(99,102,241,.45);
-          background: rgba(99,102,241,.06);
-        }
-        .nd-editable-field--text {
-          color: #334155;
-        }
-        .nd-editable-field--text:empty::before {
-          content: attr(data-ph);
-          color: #94a3b8;
-        }
-        .nd-image-wrapper { position: relative; }
-        .nd-image-crop-container img { display: block; }
-        .nd-frame { pointer-events: none; }
-        .nd-crop-overlay::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          outline: 1px dashed #60a5fa;
-          pointer-events: none;
-        }
-
-        .nd-image-field-frame {
-          display: inline-flex;
-          width: 64px;
-          height: 48px;
-          border: 1px dashed #94a3b8;
-          border-radius: 0.375rem;
-          background: #f8fafc;
-          position: relative;
-        }
-        .nd-image-field-frame::after {
-          content: attr(data-placeholder);
-          font-size: 11px;
-          color: #94a3b8;
-          position: absolute;
-          inset: 0;
-          display: grid;
-          place-items: center;
-          text-align: center;
-          padding: 0 6px;
-        }
-      `}</style>
-
-      {/* Main editor */}
+      {/* Keep container narrow to a page stack; layout rules live in global.css */}
       <div
         className="flex-1 mx-auto my-6"
-        style={{ maxWidth: `calc(var(--nd-page-width) + 4rem)` }}
+        style={{ maxWidth: "calc(var(--paper-width, 816px) + 4rem)" }}
       >
         {editor ? (
           <EditorContent editor={editor} className="prose max-w-none" />
