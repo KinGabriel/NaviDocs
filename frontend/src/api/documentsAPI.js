@@ -286,3 +286,29 @@ export const duplicateDocumentAPI = async (documentId, newTitle) => {
 		throw new Error(error.response?.data?.message || 'Failed to duplicate document');
 	}
 };
+
+/**
+ * Duplicate a document from a specific version number or id.
+ * Accepts either a numeric versionNo (preferred) or a versionId string.
+ * @param {string} documentId
+ * @param {number|string} versionNoOrId - number for version_no, or string for versionId
+ * @param {string} [newTitle]
+ */
+export const duplicateDocumentFromVersionAPI = async (documentId, versionNoOrId, newTitle) => {
+	try {
+		const body = {};
+		if (typeof versionNoOrId === 'number' || (!isNaN(Number(versionNoOrId)) && String(versionNoOrId).trim() !== '')) {
+			body.version_no = Number(versionNoOrId);
+		} else if (typeof versionNoOrId === 'string') {
+			body.versionId = versionNoOrId;
+		} else {
+			throw new Error('versionNoOrId must be a number (version_no) or a versionId string');
+		}
+		if (newTitle !== undefined && newTitle !== null) body.newName = newTitle;
+
+		const res = await axios.post(`${API_URL}/api/documents/${documentId}/duplicate-version`, body, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to duplicate document from version');
+	}
+};

@@ -476,3 +476,131 @@ export const restoreDocumentVersion = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to restore document version' });
   }
 };
+
+
+
+/**
+ * @desc duplicate a document from a specific version snapshot
+ * @route POST /api/documents/:id/duplicate-version
+ * @param {*} req
+ */
+export const duplicateDocumentFromVersion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = req.body || {};
+    if (!id) return res.status(400).json({ message: 'id required' });
+
+    // Normalize accepted body keys: prefer numeric version_no (snake or camel), accept versionId/version_id as fallback
+    const verNumber = (body.version_no !== undefined && body.version_no !== null)
+      ? Number(body.version_no)
+      : ((body.versionNo !== undefined && body.versionNo !== null) ? Number(body.versionNo) : null);
+    const providedVersionId = body.versionId ?? body.version_id ?? null;
+    const providedNewName = body.newName ?? body.new_name ?? null;
+
+    let version = null;
+
+    if (verNumber !== null && !Number.isNaN(verNumber)) {
+      version = await VersionData.findOne({ version_no: verNumber, document_id: id }).lean();
+      if (!version) return res.status(404).json({ message: `version_no ${verNumber} not found for document` });
+    } else if (providedVersionId) {
+      // fallback: if caller provided versionId try treating it as number or as _id
+      const asNum = Number(providedVersionId);
+      if (!Number.isNaN(asNum)) {
+        version = await VersionData.findOne({ version_no: asNum, document_id: id }).lean();
+      }
+      if (!version && /^[0-9a-fA-F]{24}$/.test(String(providedVersionId))) {
+        version = await VersionData.findOne({ _id: providedVersionId, document_id: id }).lean();
+      }
+      if (!version) return res.status(404).json({ message: 'version not found for provided versionId' });
+    } else {
+      return res.status(400).json({ message: 'version_no (number) required in body' });
+    }
+
+    // Use snapshot (structural) and field_values from version to create new doc
+    const snap = version.snapshot || {};
+    const snapshotFieldValues = (snap && typeof snap === 'object')
+      ? (snap.field_values && typeof snap.field_values === 'object' ? snap.field_values : snap)
+      : {};
+
+    // Build payload similar to createDocument: prefer providedNewName, else derive from snapshot
+    const title = (typeof providedNewName === 'string' && providedNewName.trim() !== '') ? providedNewName.trim() : (snap.title && snap.title.trim() !== '' ? snap.title : `Copy of Document`);
+
+    // Ensure pages_json defaults like createDocument
+    const pagesJson = Array.isArray(snap.pages_json) && snap.pages_json.length ? snap.pages_json : [
+      {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: '' }] }
+        ]
+      }
+    ];
+
+  // Build a normalized `from_template` object using available snapshot fields (mirror createDocument's behavior)
+    const fromTemplateObj = {
+      id: snap._id || snap.id || (snap.from_template && (snap.from_template.id || snap.from_template._id)) || null,
+      title: snap.title || (snap.from_template && (snap.from_template.title || snap.from_template.name)) || null,
+      document_code: snap.document_code || (snap.from_template && snap.from_template.document_code) || null,
+      revision_no: snap.revision_no !== undefined && snap.revision_no !== null ? String(snap.revision_no) : (snap.from_template && (snap.from_template.revision_no !== undefined && snap.from_template.revision_no !== null) ? String(snap.from_template.revision_no) : null),
+      effectivity: snap.effectivity || (snap.from_template && snap.from_template.effectivity) || null,
+      fields: Array.isArray(snap.fields) && snap.fields.length ? snap.fields : (snap.from_template && Array.isArray(snap.from_template.fields) ? snap.from_template.fields : []),
+      pages_json: Array.isArray(snap.pages_json) && snap.pages_json.length ? snap.pages_json : (snap.from_template && Array.isArray(snap.from_template.pages_json) ? snap.from_template.pages_json : []),
+      pageSetup: snap.pageSetup || (snap.from_template && snap.from_template.pageSetup) || {},
+      status_meta: snap.status_meta || (snap.from_template && snap.from_template.status_meta) || {},
+      dateFormat: snap.dateFormat || (snap.from_template && snap.from_template.dateFormat) || {},
+      assigned: Array.isArray(snap.assigned) ? snap.assigned : (snap.from_template && Array.isArray(snap.from_template.assigned) ? snap.from_template.assigned : []),
+      snapshot_at: new Date()
+    };
+
+    // Prefer copying the exact `from_template` from the original document when possible.
+    // This preserves any richer shape the original document stored for from_template.
+    let originalDoc = null;
+    try {
+      originalDoc = await Document.findById(id).lean();
+    } catch (e) {
+      // ignore failure; we'll fall back to snapshot-based fromTemplateObj
+      originalDoc = null;
+    }
+    const fromTemplateExact = (originalDoc && originalDoc.from_template) ? originalDoc.from_template : fromTemplateObj;
+
+    // Build new document payload: mirror createDocument semantics but ensure field_values come from version snapshot
+    const newDocPayload = {
+      title,
+      created_by: req.user?.id || null,
+      // Prefer school from requesting user, fall back to original document's school, then snapshot
+      school: req.user?.school || (originalDoc && originalDoc.school) || snap.school || '',
+      // prefer template_id from the original document, then snapshot-derived template id
+      template_id: (originalDoc && (originalDoc.template_id || (originalDoc.from_template && originalDoc.from_template.id))) || snap.template_id || (fromTemplateExact && (fromTemplateExact.id || fromTemplateExact._id)) || null,
+      // Use the exact from_template from the original document when available
+      from_template: fromTemplateExact,
+      // use the snapshot's field_values (normalized above)
+      field_values: snapshotFieldValues || {},
+      pages_json: pagesJson,
+      status: 'draft',
+      notes: [],
+      thumbnailUrl: snap.thumbnailUrl || null,
+      status_meta: snap.status_meta || {},
+    };
+
+    const duplicateDoc = new Document(newDocPayload);
+    await duplicateDoc.save();
+
+    // Fire-and-forget: create initial version row for the duplicated document using its snapshot field values
+    try {
+      (async () => {
+        await createVersionData(String(duplicateDoc._id), duplicateDoc.field_values || {}, {
+          userId: req.user?.id || null,
+          note: 'Duplicated from version',
+          forceNew: true,
+          snapshot: snap
+        });
+      })();
+    } catch (e) {
+      console.warn('createVersionData for duplicate document failed', e);
+    }
+
+    return res.json({ success: true, message: 'Document duplicated from version successfully', document: duplicateDoc });
+  } catch (err) {
+    console.error('duplicateDocumentFromVersion error', err);
+    res.status(500).json({ message: 'Failed to duplicate document from version', error: err.message });
+  }
+};

@@ -1,6 +1,7 @@
 import Document from '../models/documentModel.js';
 import axios from 'axios';
 import { createVersionData,deleteAllVersionPerDocument } from './documentVersionController.js';
+import VersionData from '../models/documentVersionModel.js';
 
 /**
  * @desc Create a new document based on a template's essential content.
@@ -175,7 +176,9 @@ export const listDocuments = async (req, res) => {
     const numericLimit = Math.min(Number(limit) || 200, 1000);
     const numericPage = Math.max(Number(page) || 1, 1);
 
+    // Default sort: newest documents first. Prefer `createdAt` field, fall back to `created_at`.
     const documents = await Document.find(query)
+      .sort({ createdAt: -1, created_at: -1 })
       .limit(numericLimit)
       .skip((numericPage - 1) * numericLimit)
       .lean();

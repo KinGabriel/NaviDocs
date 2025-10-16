@@ -7,6 +7,7 @@ import {
   listVersionDataByDocumentAPI,
   patchVersionBookmarkAPI,
   restoreDocumentVersionAPI,
+  duplicateDocumentFromVersionAPI,
 } from '../../api/documentsAPI';
 import { toast } from 'react-hot-toast';
 
@@ -291,9 +292,30 @@ export default function DocumentVersionHistory({
 
    // TODO: IMPLEMENT API CALL FOR COPY --------------------------------------------------------
   const handleCopyVersion = (version) => {
-    console.log('Copying version:', version);
-    setMenuOpen(null);
-    toast.success('Version copied!');
+    (async () => {
+      try {
+        setMenuOpen(null);
+        // Prompt for a new document title
+        const suggested = version.versionName || `Copy of ${version.time}`;
+        const newName = window.prompt('Enter name for the copied document', suggested);
+        if (newName === null) return; // user cancelled
+
+        toast.loading('Creating copy...');
+        const resp = await duplicateDocumentFromVersionAPI(documentId, version.id, newName);
+        toast.dismiss();
+        if (resp && resp.success) {
+          toast.success('Document copy created');
+          console.debug('Duplicate result:', resp);
+          // Optionally, you could navigate to the new document here if your app has routing.
+        } else {
+          toast.error(resp?.message || 'Failed to create copy');
+        }
+      } catch (e) {
+        console.error('Copy version failed', e);
+        toast.dismiss();
+        toast.error(e?.message || 'Failed to create copy');
+      }
+    })();
   };
 
   const handleBookmarkVersion = (version) => {
