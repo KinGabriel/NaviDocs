@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from "react";
 import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI, moveFolderAPI, moveFileAPI } from "../api/storageAPI";
 import Header from "../layout/headers/header";
@@ -9,15 +8,17 @@ import FileComponent from "../components/file";
 import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
 import MoveModal from "../components/modals/moveModal";
+import Loader from "../components/loader";
 import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ListFilter } from "lucide-react";
-
 
 // root files initial (empty, will be fetched from backend)
 const ROOT_FILES_INITIAL = [];
 const FOLDER_FILES = [];
+
 export default function Storage() {
   // Orphan/root files state
   const [rootFiles, setRootFiles] = useState(ROOT_FILES_INITIAL);
+  const [loadingRootFiles, setLoadingRootFiles] = useState(true);
 
   const [uploadingOrphan, setUploadingOrphan] = useState(false);
   const [uploadOrphanError, setUploadOrphanError] = useState(null);
@@ -39,6 +40,7 @@ export default function Storage() {
 
   // state
   const [selectedFolder, setSelectedFolder] = useState(null);
+  const [loadingFolderDetails, setLoadingFolderDetails] = useState(false);
   const [openFolderMenu, setOpenFolderMenu] = useState(null);
   const [openFileMenu, setOpenFileMenu] = useState(null);
   // document upload state
@@ -73,23 +75,31 @@ export default function Storage() {
   // Fetch orphan files for the user and when status changes
   useEffect(() => {
     if (!user || !user._id) return;
+    setLoadingRootFiles(true);
     getOrphanFilesAPI(user._id, selectedStatus)
       .then((data) => {
         setRootFiles(data.files || []);
       })
       .catch((err) => {
         setRootFiles([]);
+      })
+      .finally(() => {
+        setLoadingRootFiles(false);
       });
   }, [user, selectedStatus]);
 
 // Refetch in-folder files when status changes and a folder is selected
 useEffect(() => {
   if (selectedFolder && selectedFolder._id && user && user._id) {
+    setLoadingFolderDetails(true);
     getFolderByIDAPI(selectedFolder._id, user._id, selectedStatus)
       .then((data) => {
         setSelectedFolder(data.folder);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        setLoadingFolderDetails(false);
+      });
   }
 }, [selectedStatus, selectedFolder?._id, user]);
   
@@ -250,12 +260,16 @@ useEffect(() => {
         // Refetch orphan files and folder files after move
         if (!selectedFolder) {
           // If in root, refresh orphan files
+          setLoadingRootFiles(true);
           const orphanRes = await getOrphanFilesAPI(user._id, selectedStatus);
           setRootFiles(orphanRes.files || []);
+          setLoadingRootFiles(false);
         } else {
           // If in folder, refresh folder files
+          setLoadingFolderDetails(true);
           const folderRes = await getFolderByIDAPI(selectedFolder._id, user?._id, selectedStatus);
           setSelectedFolder(folderRes.folder);
+          setLoadingFolderDetails(false);
         }
       } catch (err) {
         alert(err.message || "Failed to move file");
@@ -265,6 +279,10 @@ useEffect(() => {
       }
     }
   };
+
+  // Show main loader when initial data is loading
+  const isInitialLoading = loadingFolders && folders.length === 0;
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
@@ -397,12 +415,22 @@ useEffect(() => {
       </div>
       <div className="border-t border-gray-200 mb-4"></div>
 
+      {/* Show loader for initial loading */}
+      {isInitialLoading ? (
+        <Loader 
+        message="Loading storage..." 
+        />
+
+      ) : (
+        <>
         {/* Root view or folder view */}
             {!selectedFolder ? (
               <>
                 {/* Folders */}
                 <h3 className="text-lg font-semibold mb-3">Folders</h3>
-                {displayedFolders.length ? (
+                {loadingFolders ? (
+                  <Loader message="Loading folders..." />
+                ) : displayedFolders.length ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
                     {displayedFolders.map((folder, idx) => (
                       <FolderComponent
@@ -413,10 +441,13 @@ useEffect(() => {
                         toggleMenu={toggleFolderMenu}
                         onClick={async () => {
                           try {
+                            setLoadingFolderDetails(true);
                             const data = await getFolderByIDAPI(folder._id, user?._id, selectedStatus);
                             setSelectedFolder(data.folder);
                           } catch (err) {
                             alert('Failed to fetch folder details.');
+                          } finally {
+                            setLoadingFolderDetails(false);
                           }
                         }}
                         onMoveRequest={handleMoveFolder}
@@ -474,7 +505,9 @@ useEffect(() => {
 
                 {/* Files */}
                 <h3 className="text-lg font-semibold mb-3">Files</h3>
-                  {displayedFiles.length ? ( 
+                {loadingRootFiles ? (
+                  <Loader message="Loading files..." />
+                ) : displayedFiles.length ? ( 
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"> 
                       {displayedFiles.map((file, idx) => ( 
                         <FileComponent 
@@ -488,13 +521,17 @@ useEffect(() => {
                             // Refresh orphan/root files if not in a folder
                             if (!selectedFolder) {
                               if (user && user._id) {
+                                setLoadingRootFiles(true);
                                 const data = await getOrphanFilesAPI(user._id, selectedStatus);
                                 setRootFiles(data.files || []);
+                                setLoadingRootFiles(false);
                               }
                             } else {
                               console.log(selectedFolder._id);
+                              setLoadingFolderDetails(true);
                               const data = await getFolderByIDAPI(selectedFolder._id, user?._id, selectedStatus);
                               setSelectedFolder({ ...selectedFolder, dbfiles: data.folder.dbfiles, physicalFiles: data.folder.physicalFiles });
+                              setLoadingFolderDetails(false);
                             }
                           }}
                         />
@@ -508,7 +545,9 @@ useEffect(() => {
               <>
                 {/* Folders inside this folder */}
                 <h3 className="text-lg font-semibold mb-3">Folders</h3>
-                {displayedFolders.length ? (
+                {loadingFolders ? (
+                  <Loader message="Loading folders..." />
+                ) : displayedFolders.length ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
                     {displayedFolders.map((folder, idx) => (
                       <FolderComponent
@@ -519,10 +558,13 @@ useEffect(() => {
                         toggleMenu={toggleFolderMenu}
                         onClick={async () => {
                           try {
+                            setLoadingFolderDetails(true);
                             const data = await getFolderByIDAPI(folder._id, user?._id, selectedStatus);
                             setSelectedFolder(data.folder);
                           } catch (err) {
                             alert('Failed to fetch folder details.');
+                          } finally {
+                            setLoadingFolderDetails(false);
                           }
                         }}
                         onMoveRequest={handleMoveFolder}
@@ -578,8 +620,10 @@ useEffect(() => {
                 />
                 {uploading && <span className="text-blue-600 text-sm">Uploading...</span>}
                 {uploadError && <span className="text-red-600 text-sm">{uploadError}</span>}
-                {/* Always show 'No files found.' if there are no files */}
-                {selectedFolder.dbfiles && selectedFolder.dbfiles.length ? (
+                
+                {loadingFolderDetails ? (
+                  <Loader message="Loading folder contents..." />
+                ) : selectedFolder.dbfiles && selectedFolder.dbfiles.length ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     {selectedFolder.dbfiles.map((file, idx) => (
                       <FileComponent
@@ -591,8 +635,10 @@ useEffect(() => {
                         onMoveRequest={handleMoveFile}
                         parentFolderId={selectedFolder._id}
                         onDelete={async () => {
+                          setLoadingFolderDetails(true);
                           const data = await getFolderByIDAPI(selectedFolder._id, user?._id, selectedStatus);
                           setSelectedFolder({ ...selectedFolder, dbfiles: data.folder.dbfiles, physicalFiles: data.folder.physicalFiles });
+                          setLoadingFolderDetails(false);
                         }}
                       />
                     ))}
@@ -602,6 +648,8 @@ useEffect(() => {
                 )}
               </>
             )}
+        </>
+      )}
           </main>
         </div>
 
