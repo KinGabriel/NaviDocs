@@ -2,15 +2,18 @@
 import React, { useMemo, useState, useEffect } from "react";
 
 /**
- * HeaderFooterPanel — Modular header/footer builder (inch-based margins)
- * - Margins are edited/stored in inches (marginsInch) at 0.25in increments.
- * - Pixel margins (margins) are auto-derived for Page.js (96px = 1in).
- * - Panel pushes changes into:
- *     a) editor.storage.headerFooter.current  (read by paginator & Page)
- *     b) CSS variables via commands.setHeaderFooterCssVars()
- *     c) applyHeaderFooterToAllPages() + reflowPages() to re-measure
+ * HeaderFooterPanel — wired to Pagination Plus (FULL CODE)
+ * - Inch-based UI and rich config (logo/university/school/title/stamp).
+ * - This panel ONLY sets header/footer CONTENT on the editor.
+ *   (Band heights & page geometry are owned by textEditor.jsx)
+ * - Pagination Plus content setters expect TWO strings:
+ *     editor.chain()
+ *       .updateHeaderContent(left, right)
+ *       .updateFooterContent(left, right)
+ *       .run();
  */
 
+// ----- inch helpers (UI only; PP bands set elsewhere) -----
 const INCH_TO_PX = 96;
 const inchToPx = (v) => Math.round(Number(v || 0) * INCH_TO_PX);
 const pxToIn = (v) => +(Number(v || 0) / INCH_TO_PX).toFixed(2);
@@ -32,55 +35,26 @@ const DEFAULTS = {
         align: "right",
       },
     },
-    // store inches for UI + derived px for Page rendering
+    // UI-only margins for spacing controls (not used by PP directly)
     marginsInch: { top: 0.5, bottom: 0.5 },
-    margins: { top: inchToPx(0.5), bottom: inchToPx(0.5) },
   },
   footer: {
     fields: { pageNumber: true, date: true },
-    align: "center",
+    align: "center", // UI alignment; mapped to left/right strings on apply
     marginsInch: { top: 0.5, bottom: 0.5 },
-    margins: { top: inchToPx(0.5), bottom: inchToPx(0.5) },
   },
 };
 
-// Reasonable visual reserves for header/footer height in CSS (can be tuned)
-const DEFAULT_HEADER_HEIGHT_PX = 80;
-const DEFAULT_FOOTER_HEIGHT_PX = 60;
-
-// Ensure inches + px always exist and are consistent
+// Ensure inches always exist and are consistent
 function normalize(value) {
   const v = value ?? {};
   const h = v.header ?? {};
   const f = v.footer ?? {};
 
-  const ensureInchAndPx = (part, def) => {
+  const ensureInch = (part, def) => {
     const out = { ...def, ...(part || {}) };
-
-    // If only px given, derive inches
-    const hasInch = out.marginsInch && (out.marginsInch.top != null || out.marginsInch.bottom != null);
-    const hasPx = out.margins && (out.margins.top != null || out.margins.bottom != null);
-
-    if (!hasInch && hasPx) {
-      out.marginsInch = {
-        top: pxToIn(out.margins.top ?? def.margins.top),
-        bottom: pxToIn(out.margins.bottom ?? def.margins.bottom),
-      };
-    } else if (!hasInch && !hasPx) {
-      out.marginsInch = { ...def.marginsInch };
-    } else if (hasInch && !hasPx) {
-      out.margins = {
-        top: inchToPx(out.marginsInch.top ?? def.marginsInch.top),
-        bottom: inchToPx(out.marginsInch.bottom ?? def.marginsInch.bottom),
-      };
-    }
-
-    // Final sync: margins (px) from marginsInch
-    out.margins = {
-      top: inchToPx(out.marginsInch.top),
-      bottom: inchToPx(out.marginsInch.bottom),
-    };
-
+    const hasIn = out.marginsInch && (out.marginsInch.top != null || out.marginsInch.bottom != null);
+    if (!hasIn) out.marginsInch = { ...def.marginsInch };
     return out;
   };
 
@@ -94,15 +68,56 @@ function normalize(value) {
         title: { ...DEFAULTS.header.config.title, ...(h.config?.title ?? {}) },
         documentStamp: { ...DEFAULTS.header.config.documentStamp, ...(h.config?.documentStamp ?? {}) },
       },
-      ...ensureInchAndPx(h, DEFAULTS.header),
+      ...ensureInch(h, DEFAULTS.header),
     },
     footer: {
       ...DEFAULTS.footer,
       fields: { ...DEFAULTS.footer.fields, ...(f.fields ?? {}) },
       align: f.align ?? DEFAULTS.footer.align,
-      ...ensureInchAndPx(f, DEFAULTS.footer),
+      ...ensureInch(f, DEFAULTS.footer),
     },
   };
+}
+
+/** Build concise header strings (left/right) from toggles. */
+function buildHeaderParts(h) {
+  const lines = [];
+  if (h.fields.university) lines.push("Saint Louis University");
+  if (h.fields.schoolName) lines.push("School Name");
+
+  let title = "";
+  if (h.fields.title) {
+    const t = h.config.title?.text || "Document Title";
+    title = h.config.title?.uppercase ? String(t).toUpperCase() : t;
+  }
+
+  // Document stamp flattened as a compact string on the right
+  let stamp = "";
+  if (h.fields.documentStamp) {
+    const labels = h.config.documentStamp?.firstColumnFixed || [];
+    const values = h.config.documentStamp?.secondColumnEditable || [];
+    const pairs = labels.slice(0, 4).map((lab, i) => `${lab}: ${values[i] ?? ""}`.trim());
+    stamp = pairs.filter(Boolean).join(" | ");
+  }
+
+  // Place title + org lines on the left (joined), stamp on the right
+  const left = [lines.join(" · "), title].filter(Boolean).join(" · ");
+  const right = stamp;
+  return [left, right];
+}
+
+/** Build footer strings (left/right) based on alignment & tokens. */
+function buildFooterParts(f) {
+  const page = f.fields.pageNumber ? "{page}" : "";
+  const date = f.fields.date ? new Date().toLocaleDateString() : "";
+  const joined = [page, date].filter(Boolean).join(" · ");
+  const align = f.align || "center";
+
+  if (align === "left") return [joined, ""];
+  if (align === "right") return ["", joined];
+  if (align === "justify") return [page, date]; // split across sides
+  // center => put into right for consistent pagination visuals
+  return ["", joined];
 }
 
 export default function HeaderFooterPanel({ editor, value, onChange }) {
@@ -114,67 +129,26 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
   // Keep local in sync if parent value changes
   useEffect(() => setCfg(normalize(value)), [value]);
 
-  // Push CSS vars once on mount (defaults) to avoid FOUC
-  useEffect(() => {
-    if (!editor?.commands?.setHeaderFooterCssVars) return;
-    editor.commands.setHeaderFooterCssVars({
-      // These are "reserves" used by CSS layout to clamp the .nd-page__body
-      header: { height: DEFAULT_HEADER_HEIGHT_PX },
-      footer: { height: DEFAULT_FOOTER_HEIGHT_PX },
-      // Page margins are left as CSS defaults unless you have a separate panel
-    });
-    editor.commands.reflowPages?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor]);
-
-  // Send to parent + apply to editor (editor needs px margins)
+  /** Apply to Pagination Plus + notify parent (CONTENT ONLY) */
   const applyToEditor = (next) => {
-    // Derive px from inches (authoritative)
-    const toPx = (p, def) => {
-      const topIn = p.marginsInch?.top ?? def.marginsInch.top;
-      const bottomIn = p.marginsInch?.bottom ?? def.marginsInch.bottom;
-      return {
-        ...p,
-        marginsInch: { top: topIn, bottom: bottomIn },
-        margins: { top: inchToPx(topIn), bottom: inchToPx(bottomIn) },
-      };
-    };
+    const [hLeft, hRight] = buildHeaderParts(next.header);
+    const [fLeft, fRight] = buildFooterParts(next.footer);
 
-    const finalHeader = toPx(next.header, DEFAULTS.header);
-    const finalFooter = toPx(next.footer, DEFAULTS.footer);
-
-    // 1) Update storage (read by paginator, Page)
     try {
-      editor?.commands?.setActiveHeaderFooter?.({
-        header: finalHeader,
-        footer: finalFooter,
-      });
+      editor
+        ?.chain()
+        .updateHeaderContent(hLeft, hRight)
+        .updateFooterContent(fLeft, fRight)
+        .run();
     } catch {}
 
-    // 2) Sync CSS variables (header/footer "heights" + any future margins)
-    // NOTE: header/footer margins here are *inside* the header/footer block.
-    // Page margins (left/right/top/bottom) should be handled by a PageSetup panel.
-    try {
-      editor?.commands?.setHeaderFooterCssVars?.({
-        header: { height: DEFAULT_HEADER_HEIGHT_PX }, // tune or wire to a height slider later
-        footer: { height: DEFAULT_FOOTER_HEIGHT_PX },
-      });
-    } catch {}
-
-    // 3) Notify parent
-    onChange?.({ header: finalHeader, footer: finalFooter });
-
-    // 4) Apply to all pages + reflow pagination
-    try {
-      editor?.commands?.applyHeaderFooterToAllPages?.({
-        header: finalHeader,
-        footer: finalFooter,
-      });
-      editor?.commands?.reflowPages?.();
-    } catch {}
+    onChange?.({
+      header: next.header,
+      footer: next.footer,
+    });
   };
 
-  // Safe deep-merge patcher that keeps inch/px in sync
+  // Safe deep-merge patcher that keeps inches in sync
   const patch = (updater) => {
     setCfg((prev) => {
       const draft = typeof updater === "function" ? updater(prev) : updater;
@@ -270,7 +244,7 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
           </div>
         ))}
 
-        {/* Header margins (inches) */}
+        {/* Header margins (inches) — UI parity; PP bands are positioned by geometry elsewhere */}
         <div className="mt-4 border-t pt-3">
           <h4 className="text-xs font-semibold text-gray-700 mb-2">Header Margins (inches)</h4>
           <div className="grid grid-cols-2 gap-3">
@@ -285,10 +259,6 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
                       header: {
                         ...h,
                         marginsInch: { ...h.marginsInch, [side]: valIn },
-                        margins: {
-                          top: inchToPx(side === "top" ? valIn : h.marginsInch.top),
-                          bottom: inchToPx(side === "bottom" ? valIn : h.marginsInch.bottom),
-                        },
                       },
                     });
                   }}
@@ -300,11 +270,12 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
                     </option>
                   ))}
                 </select>
-                <div className="text-[11px] text-gray-500 mt-1">
-                  ≈ {inchToPx(h.marginsInch?.[side] ?? 0.5)} px
-                </div>
+                <div className="text-[11px] text-gray-500 mt-1">≈ {inchToPx(h.marginsInch?.[side] ?? 0.5)} px</div>
               </div>
             ))}
+          </div>
+          <div className="text-[11px] text-gray-500 mt-1">
+            Note: Header/footer bands are positioned by Pagination Plus geometry; these UI margins are for visual parity.
           </div>
         </div>
       </div>
@@ -315,6 +286,11 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
   const FooterList = () => {
     const f = cfg.footer;
     const fields = f.fields;
+    const [prevL, prevR] = buildFooterParts(f);
+    const previewText = [prevL.replace("{page}", "1"), prevR.replace("{page}", "1")]
+      .filter(Boolean)
+      .join("    ");
+
     return (
       <div className="px-4 pt-4 pb-6 space-y-4">
         <h3 className="text-sm font-semibold text-gray-700">Footer Components</h3>
@@ -361,7 +337,7 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
           </div>
         </div>
 
-        {/* Footer margins (inches) */}
+        {/* Footer margins (inches) — UI parity */}
         <div className="border-t pt-3">
           <h4 className="text-xs font-semibold text-gray-700 mb-2">Footer Margins (inches)</h4>
           <div className="grid grid-cols-2 gap-3">
@@ -376,10 +352,6 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
                       footer: {
                         ...f,
                         marginsInch: { ...f.marginsInch, [side]: valIn },
-                        margins: {
-                          top: inchToPx(side === "top" ? valIn : f.marginsInch.top),
-                          bottom: inchToPx(side === "bottom" ? valIn : f.marginsInch.bottom),
-                        },
                       },
                     });
                   }}
@@ -391,27 +363,20 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
                     </option>
                   ))}
                 </select>
-                <div className="text-[11px] text-gray-500 mt-1">
-                  ≈ {inchToPx(f.marginsInch?.[side] ?? 0.5)} px
-                </div>
+                <div className="text-[11px] text-gray-500 mt-1">≈ {inchToPx(f.marginsInch?.[side] ?? 0.5)} px</div>
               </div>
             ))}
           </div>
-        </div>
 
-        {/* Tiny live text preview */}
-        <div className="border-t pt-3">
-          <h4 className="text-xs font-semibold text-gray-700 mb-2">Preview</h4>
-          <div
-            className="w-full border rounded p-3 text-xs text-slate-700 bg-white"
-            style={{ textAlign: f.align || "center" }}
-          >
-            {[
-              fields.pageNumber ? "Page 1" : null,
-              fields.date ? new Date().toLocaleDateString() : null,
-            ]
-              .filter(Boolean)
-              .join(" · ") || "—"}
+          {/* Tiny live text preview */}
+          <div className="border-t pt-3">
+            <h4 className="text-xs font-semibold text-gray-700 mb-2">Preview</h4>
+            <div
+              className="w-full border rounded p-3 text-xs text-slate-700 bg-white"
+              style={{ textAlign: f.align || "center" }}
+            >
+              {previewText || "—"}
+            </div>
           </div>
         </div>
       </div>
@@ -557,8 +522,10 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
         <div>
           <BackButton label="SLU Logo" />
           <div className="p-4 text-sm text-gray-600">
-            <p>The SLU Logo position is fixed on the left side.</p>
-            <p>Resizable and replacement options can be added later.</p>
+            <p>
+              The SLU Logo is not rendered in the Pagination Plus text header. Consider overlaying a static logo in your
+              layout if required.
+            </p>
           </div>
         </div>
       );
@@ -591,11 +558,7 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
         <div className="h-px bg-gray-200" />
       </div>
 
-      {tab === "header"
-        ? selectedConfig
-          ? <ConfigView />
-          : <HeaderList />
-        : <FooterList />}
+      {tab === "header" ? (selectedConfig ? <ConfigView /> : <HeaderList />) : <FooterList />}
     </div>
   );
 }

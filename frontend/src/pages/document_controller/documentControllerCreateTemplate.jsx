@@ -1,6 +1,6 @@
 // src/pages/documentControllerCreateTemplate.jsx
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { toast } from 'react-hot-toast';
+import { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
+import { toast } from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   updateTemplateAPI,
@@ -32,10 +32,14 @@ import TextEditor from "../../layout/create_template/textEditor";
 
 // --- Helpers -----------------------------------------------------------------
 const DEFAULT_CONTENT = null;
+
+// Page setup now includes header/footer band heights (INCHES)
 const DEFAULT_PAGE_SETUP = {
   paperSize: "A4",
   orientation: "Portrait",
   margins: { top: 1, bottom: 1, left: 1, right: 1 },
+  headerHeight: 1.0, // in
+  footerHeight: 0.6, // in
 };
 
 // Match the panel/Page defaults so everything stays in sync
@@ -92,6 +96,42 @@ function useHeaderHeight() {
   return h;
 }
 
+// --- Small helpers to map config -> Pagination Plus text (LEFT/RIGHT) --------
+function buildHeaderParts(h) {
+  if (!h) return ["", ""];
+  const leftChunks = [];
+  if (h.fields?.university) leftChunks.push("Saint Louis University");
+  if (h.fields?.schoolName) leftChunks.push("School Name");
+
+  if (h.fields?.title) {
+    const t = h.config?.title?.text || "Document Title";
+    leftChunks.push(h.config?.title?.uppercase ? String(t).toUpperCase() : t);
+  }
+
+  let right = "";
+  if (h.fields?.documentStamp) {
+    const labels = h.config?.documentStamp?.firstColumnFixed || [];
+    const values = h.config?.documentStamp?.secondColumnEditable || [];
+    const pairs = labels.slice(0, 4).map((lab, i) => `${lab}: ${values[i] ?? ""}`.trim());
+    right = pairs.filter(Boolean).join(" | ");
+  }
+
+  const left = leftChunks.filter(Boolean).join(" · ");
+  return [left, right];
+}
+
+function buildFooterParts(f) {
+  if (!f) return ["", ""];
+  const page = f.fields?.pageNumber ? "{page}" : "";
+  const date = f.fields?.date ? new Date().toLocaleDateString() : "";
+  const joined = [page, date].filter(Boolean).join(" · ");
+  const align = f.align || "center";
+  if (align === "left") return [joined, ""];
+  if (align === "right") return ["", joined];
+  if (align === "justify") return [page, date];
+  return ["", joined]; // center
+}
+
 // --- Component ---------------------------------------------------------------
 export default function DocumentControllerCreateTemplate() {
   const navigate = useNavigate();
@@ -116,10 +156,10 @@ export default function DocumentControllerCreateTemplate() {
   // Layout/config state
   const [pageSetup, setPageSetup] = useState(DEFAULT_PAGE_SETUP);
   const [fontSettings, setFontSettings] = useState({});
-  // IMPORTANT: initialize with full defaults (not { header: {}, footer: {} })
   const [headerFooter, setHeaderFooter] = useState(DEFAULT_HEADER_FOOTER);
   const [dateFormat, setDateFormat] = useState({ style: "numeric" });
-  
+  const [editableFields, setEditableFields] = useState([]);
+
   // Track last saved state for autosave/dirty
   const [lastSavedContent, setLastSavedContent] = useState(null);
   const [lastSavedTitle, setLastSavedTitle] = useState("");
@@ -127,14 +167,6 @@ export default function DocumentControllerCreateTemplate() {
   const [dirty, setDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
-  const [editableFields, setEditableFields] = useState([]);
-
-  // UI
-  const [selectedPanel, setSelectedPanel] = useState("font");
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [notes, setNotes] = useState([]);
 
   // Parse templateId from query string
   const params = new URLSearchParams(location.search);
@@ -155,9 +187,25 @@ export default function DocumentControllerCreateTemplate() {
       setApprovers(normalized.approvers);
       setTemplateContent(normalized.templateContent || DEFAULT_CONTENT);
 
-      if (normalized.pageSetup) setPageSetup(normalized.pageSetup);
+      // Page setup (ensure header/footer heights exist)
+      if (normalized.pageSetup) {
+        setPageSetup({
+          paperSize: normalized.pageSetup.paperSize || DEFAULT_PAGE_SETUP.paperSize,
+          orientation: normalized.pageSetup.orientation || DEFAULT_PAGE_SETUP.orientation,
+          margins: {
+            top: normalized.pageSetup.margins?.top ?? DEFAULT_PAGE_SETUP.margins.top,
+            bottom: normalized.pageSetup.margins?.bottom ?? DEFAULT_PAGE_SETUP.margins.bottom,
+            left: normalized.pageSetup.margins?.left ?? DEFAULT_PAGE_SETUP.margins.left,
+            right: normalized.pageSetup.margins?.right ?? DEFAULT_PAGE_SETUP.margins.right,
+          },
+          headerHeight: normalized.pageSetup.headerHeight ?? DEFAULT_PAGE_SETUP.headerHeight,
+          footerHeight: normalized.pageSetup.footerHeight ?? DEFAULT_PAGE_SETUP.footerHeight,
+        });
+      }
+
       if (normalized.fontSettings) setFontSettings(normalized.fontSettings);
-      // Fallback to defaults if headerFooter missing/empty
+
+      // Header/footer config (deep-merge with defaults)
       if (normalized.headerFooter && (normalized.headerFooter.header || normalized.headerFooter.footer)) {
         setHeaderFooter({
           header: { ...DEFAULT_HEADER_FOOTER.header, ...(normalized.headerFooter.header || {}) },
@@ -166,6 +214,7 @@ export default function DocumentControllerCreateTemplate() {
       } else {
         setHeaderFooter(DEFAULT_HEADER_FOOTER);
       }
+
       if (normalized.dateFormat) setDateFormat(normalized.dateFormat);
       if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
     } catch (e) {
@@ -184,50 +233,30 @@ export default function DocumentControllerCreateTemplate() {
     loadTemplate(id);
   }, [templateIdFromQuery]);
 
+  const [loading, setLoading] = useState(false);
+  const [notes, setNotes] = useState([]);
+
   const handleEditorReady = (editor) => {
     editorRef.current = editor;
     setEditorInstance(editor);
   };
 
   const htmlToBasicJSON = (html) => {
-    if (!html) return { type: 'doc', content: [{ type: 'paragraph' }] };
-    const parts = html.split(/<\/p>/i)
-      .map(p => p.replace(/<[^>]+>/g, '').trim())
+    if (!html) return { type: "doc", content: [{ type: "paragraph" }] };
+    const parts = html
+      .split(/<\/p>/i)
+      .map((p) => p.replace(/<[^>]+>/g, "").trim())
       .filter(Boolean);
     return {
-      type: 'doc',
+      type: "doc",
       content: parts.length
-        ? parts.map(t => ({ type: 'paragraph', content: t ? [{ type: 'text', text: t }] : [] }))
-        : [{ type: 'paragraph' }]
+        ? parts.map((t) => ({ type: "paragraph", content: t ? [{ type: "text", text: t }] : [] }))
+        : [{ type: "paragraph" }],
     };
   };
 
-  // 🔧 Push header/footer into the editor once it exists, and whenever it changes
-  useEffect(() => {
-    if (!editorInstance) return;
-    try {
-      // Update shared storage so AutoPaginator / Page can read the active config
-      editorInstance.commands.setActiveHeaderFooter?.({
-        header: headerFooter.header,
-        footer: headerFooter.footer,
-        // If you eventually store rich configs, you can also pass:
-        // headerConfig: headerFooter.header,
-        // footerConfig: headerFooter.footer,
-      });
-
-      // Apply to all existing pages (keeps simple+rich attrs in sync)
-      editorInstance.commands.applyHeaderFooterToAllPages?.({
-        header: headerFooter.header,
-        footer: headerFooter.footer,
-      });
-
-      // Trigger a reflow so the paginator re-measures with new offsets
-      editorInstance.commands.reflowPages?.();
-    } catch (e) {
-      // no-op: guard against missing commands during early mount
-      // console.warn(e);
-    }
-  }, [editorInstance, headerFooter]);
+  // Remove any leftover direct header/footer editor mutations.
+  // TextEditor will apply geometry + header/footer strings from props.
 
   // Save handler matching backend expectations
   const handleSave = async () => {
@@ -243,7 +272,7 @@ export default function DocumentControllerCreateTemplate() {
         pages_json,
         pageSetup,
         dateFormat,
-        headerFooter,        // <-- persist header/footer config
+        headerFooter, // persist header/footer config
         fields: editableFields,
       };
 
@@ -269,6 +298,8 @@ export default function DocumentControllerCreateTemplate() {
       setSaving(false);
     }
   };
+
+  const [saving, setSaving] = useState(false);
 
   // Autosave
   useEffect(() => {
@@ -297,11 +328,11 @@ export default function DocumentControllerCreateTemplate() {
       if (dirty) {
         handleSave();
         e.preventDefault();
-        e.returnValue = '';
+        e.returnValue = "";
       }
     };
-    window.addEventListener('beforeunload', beforeUnload);
-    return () => window.removeEventListener('beforeunload', beforeUnload);
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
   }, [dirty]);
 
   // approval and publish handlers that refresh state
@@ -336,28 +367,27 @@ export default function DocumentControllerCreateTemplate() {
       toast.error("Please save the template before submitting for approval.");
       return;
     }
-    
+
     try {
       setError("");
       let deanId, secretaryId;
-      
+
       if (Array.isArray(approverIds)) {
         [deanId, secretaryId] = approverIds;
-      } else if (typeof approverIds === 'object') {
+      } else if (typeof approverIds === "object") {
         deanId = approverIds.dean || approverIds.deanId;
         secretaryId = approverIds.secretary || approverIds.secretaryId;
       }
-      
+
       if (!deanId && !secretaryId) {
         toast.error("Please select at least one approver.");
         return;
       }
-      
+
       const response = await submitTemplateAPI(templateId, deanId, secretaryId);
       setStatus("pending");
       toast.success("Template successfully submitted for approval!");
       await loadTemplate(templateId);
-      
     } catch (e) {
       console.error("Failed to submit for approval:", e);
       const errorMsg = e.response?.data?.message || e.message || "Failed to submit for approval.";
@@ -370,6 +400,8 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
+  const [error, setError] = useState("");
+
   // handle status updates from modal
   const handleStatusUpdate = (newStatus) => {
     setStatus(newStatus);
@@ -381,6 +413,16 @@ export default function DocumentControllerCreateTemplate() {
     if (updatedApprovers) setApprovers(updatedApprovers);
     if (templateId) loadTemplate(templateId);
   };
+
+  // Derive header/footer LEFT/RIGHT strings for TextEditor props
+  const [headerLeft, headerRight] = useMemo(
+    () => buildHeaderParts(headerFooter.header),
+    [headerFooter.header]
+  );
+  const [footerLeft, footerRight] = useMemo(
+    () => buildFooterParts(headerFooter.footer),
+    [headerFooter.footer]
+  );
 
   const renderPanel = () => {
     switch (selectedPanel) {
@@ -400,7 +442,15 @@ export default function DocumentControllerCreateTemplate() {
         return (
           <PageSetupPanel
             pageSetup={pageSetup}
-            onApply={(newSetup) => setPageSetup({ ...newSetup })}
+            onApply={(newSetup) =>
+              setPageSetup({
+                paperSize: newSetup.paperSize,
+                orientation: newSetup.orientation,
+                margins: { ...newSetup.margins },
+                headerHeight: newSetup.headerHeight, // keep inches
+                footerHeight: newSetup.footerHeight, // keep inches
+              })
+            }
           />
         );
       case "dateformat":
@@ -425,6 +475,8 @@ export default function DocumentControllerCreateTemplate() {
         return null;
     }
   };
+
+  const [selectedPanel, setSelectedPanel] = useState("font");
 
   return (
     <div>
@@ -479,6 +531,9 @@ export default function DocumentControllerCreateTemplate() {
                   pageSetup={pageSetup}
                   onEditorReady={handleEditorReady}
                   onContentChange={setTemplateContent}
+                  // NEW: provide header/footer strings directly to the editor
+                  header={{ left: headerLeft, right: headerRight }}
+                  footer={{ left: footerLeft, right: footerRight }}
                 />
               </main>
             </div>

@@ -12,16 +12,9 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
+import { PaginationPlus } from "tiptap-pagination-plus";
 
 import RichImage from "../../extensions/image/ImageNode";
-
-// Core schema & behavior
-import DocumentPages from "../../extensions/textEditor/DocumentPages";
-import Page from "../../extensions/textEditor/Page";
-import AutoPaginator from "../../extensions/textEditor/AutoPaginator";
-import BackspaceHandler from "../../extensions/textEditor/BackspaceHandler";
-
-// Editable fields + lock plugin (factory returns a plugin + setter)
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
@@ -30,10 +23,11 @@ const DEFAULT_SETUP = {
   paperSize: "A4",
   orientation: "Portrait",
   margins: { top: 1, bottom: 1, left: 1, right: 1 }, // inches
-  headerHeight: 1.0, // in
-  footerHeight: 0.6, // in
+  headerHeight: 1.0, // inches
+  footerHeight: 0.6, // inches
 };
 
+// Preset sizes in inches
 const PRESETS = {
   A4: { w: 8.27, h: 11.69 },
   Letter: { w: 8.5, h: 11 },
@@ -62,14 +56,23 @@ function computeDims(pageSetup) {
 
 const DEFAULT_DOC = {
   type: "doc",
-  content: [{ type: "page", content: [{ type: "paragraph" }] }],
+  content: [{ type: "paragraph" }],
 };
 
 function normalizeInitialContent(content) {
   if (!content) return DEFAULT_DOC;
-  if (typeof content !== "string") return content;
-  if (/data-type\s*=\s*"(nd-)?page"/i.test(content)) return content;
-  return `<section data-type="nd-page">${content}</section>`;
+  if (typeof content === "object") return content;
+  if (typeof content === "string") return content;
+  return DEFAULT_DOC;
+}
+
+// ---- helper to apply header/footer strings safely ----
+function applyHeaderFooter(editor, header, footer) {
+  const hl = header?.left ?? "";
+  const hr = header?.right ?? "";
+  const fl = footer?.left ?? "";
+  const fr = footer?.right ?? "";
+  editor?.chain().updateHeaderContent(hl, hr).updateFooterContent(fl, fr).run();
 }
 
 export default function TextEditor({
@@ -80,30 +83,19 @@ export default function TextEditor({
   className = "",
   mode = "template",
   readOnly = false,
+
+  // NEW (optional) props — pass from parent or use defaults below
+  header = { left: "", right: "Page {page}" },
+  footer = { left: "", right: "" },
 }) {
   const dimsRef = useRef(computeDims(pageSetup));
   const [showImageOptions, setShowImageOptions] = useState(false);
-
-  // lock policy setter from plugin factory
   const setPolicyRef = React.useRef(null);
-
-  // Push CSS vars into the editor/root using the extension command
-  const pushCssVars = (editor, d) => {
-    if (!editor?.commands?.setHeaderFooterCssVars) return;
-    editor.commands.setHeaderFooterCssVars({
-      paper:  { width: `${d.widthPx}px`, height: `${d.heightPx}px` },
-      margins:{ top: `${d.marginTopPx}px`, bottom: `${d.marginBottomPx}px`, left: `${d.marginLeftPx}px`, right: `${d.marginRightPx}px` },
-      header: { height: `${d.headerHeightPx}px` },
-      footer: { height: `${d.footerHeightPx}px` },
-    });
-  };
 
   const editor = useEditor({
     extensions: [
-      DocumentPages,
-      Page,
       StarterKit.configure({
-        document: false,
+        document: true,
         bold: true,
         italic: true,
         strike: true,
@@ -117,12 +109,28 @@ export default function TextEditor({
         gapcursor: true,
         history: true,
       }),
+
+      // Pagination Plus (visual options only; geometry set via commands)
+      (() => {
+        return PaginationPlus.configure({
+          pageGap: 24,
+          pageGapBorderSize: 1,
+          pageBreakBackground: "#ecececff",
+          // Do NOT set page width/height or header/footer content here; we push them via commands
+          headerLeft: "",
+          headerRight: "",
+          footerLeft: "",
+          footerRight: "",
+        });
+      })(),
+
       TextStyle,
       Color,
       FontFamily,
       Underline,
       Superscript,
       Subscript,
+
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -133,13 +141,10 @@ export default function TextEditor({
       }),
 
       EditableField,
-      AutoPaginator,
-      BackspaceHandler,
     ],
     content: normalizeInitialContent(content),
     editorProps: { attributes: { class: "nd-editor-canvas" } },
     onCreate: ({ editor }) => {
-      // Lock policy plugin
       const { plugin, setPolicy } = createLockOutsideFieldsPlugin({
         initialPolicy: mode === "document" ? "document" : "template",
         nodeTypeName: "editableField",
@@ -148,15 +153,12 @@ export default function TextEditor({
       setPolicyRef.current = setPolicy;
       editor.registerPlugin(plugin);
 
-      // Set initial CSS variables for paper/margins/header/footer
-      const d = dimsRef.current;
-      pushCssVars(editor, d);
+      try {
+        editor.setEditable(!readOnly);
+      } catch {}
 
-      // First reflow for paginator so it measures the body frame
-      editor.commands.reflowPages?.();
-
-      // Respect readOnly prop
-      try { editor.setEditable(!readOnly); } catch {}
+      // Ensure header/footer content appears on first mount
+      applyHeaderFooter(editor, header, footer);
 
       onEditorReady?.(editor);
     },
@@ -166,7 +168,9 @@ export default function TextEditor({
   // keep editable state in sync
   useEffect(() => {
     if (!editor) return;
-    try { editor.setEditable(!readOnly); } catch {}
+    try {
+      editor.setEditable(!readOnly);
+    } catch {}
   }, [editor, readOnly]);
 
   // switch lock policy when mode changes
@@ -175,14 +179,35 @@ export default function TextEditor({
     setPolicyRef.current(mode === "document" ? "document" : "template");
   }, [mode]);
 
-  // reflow and update CSS variables when pageSetup changes
+  // ✅ Update page geometry (size, margins, band heights) via commands
   useEffect(() => {
     if (!editor) return;
     const d = computeDims(pageSetup);
     dimsRef.current = d;
-    pushCssVars(editor, d);
-    editor.commands.reflowPages?.();
+
+    editor
+      .chain()
+      .updatePageWidth(d.widthPx)
+      .updatePageHeight(d.heightPx)
+      .updateMargins({
+        top: d.marginTopPx,
+        right: d.marginRightPx,
+        bottom: d.marginBottomPx,
+        left: d.marginLeftPx,
+      })
+      .updateHeaderHeight(d.headerHeightPx)
+      .updateFooterHeight(d.footerHeightPx)
+      .run();
+
+    // Re-apply header/footer content after geometry changes (helps on new pages)
+    applyHeaderFooter(editor, header, footer);
   }, [editor, pageSetup]);
+
+  // Apply header/footer whenever those props change
+  useEffect(() => {
+    if (!editor) return;
+    applyHeaderFooter(editor, header, footer);
+  }, [editor, header, footer]);
 
   // update content safely when prop changes
   useEffect(() => {
@@ -190,36 +215,36 @@ export default function TextEditor({
     if (typeof content === "string") {
       const html = normalizeInitialContent(content);
       if (html !== editor.getHTML()) {
-        try { setPolicyRef.current?.("off"); } catch {}
-        try { editor.commands.setContent(html, false); }
-        finally { try { setPolicyRef.current?.(mode === "document" ? "document" : "template"); } catch {} }
-        editor.commands.reflowPages?.();
+        try {
+          setPolicyRef.current?.("off");
+        } catch {}
+        try {
+          editor.commands.setContent(html, false);
+        } finally {
+          try {
+            setPolicyRef.current?.(mode === "document" ? "document" : "template");
+          } catch {}
+        }
       }
     } else if (content && typeof content === "object") {
-      try { setPolicyRef.current?.("off"); } catch {}
-      try { editor.commands.setContent(content, false); }
-      finally { try { setPolicyRef.current?.(mode === "document" ? "document" : "template"); } catch {} }
-      editor.commands.reflowPages?.();
+      try {
+        setPolicyRef.current?.("off");
+      } catch {}
+      try {
+        editor.commands.setContent(content, false);
+      } finally {
+        try {
+          setPolicyRef.current?.(mode === "document" ? "document" : "template");
+        } catch {}
+      }
     }
   }, [editor, content, mode]);
-
-  // optional: reflow on window resize (helps when container changes height)
-  useEffect(() => {
-    if (!editor) return;
-    const onResize = () => editor.commands.reflowPages?.();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [editor]);
 
   useEffect(() => () => editor?.destroy(), [editor]);
 
   return (
     <div className={`w-full flex ${className}`}>
-      {/* Keep container narrow to a page stack; layout rules live in global.css */}
-      <div
-        className="flex-1 mx-auto my-6"
-        style={{ maxWidth: "calc(var(--paper-width, 816px) + 4rem)" }}
-      >
+      <div className="flex-1 mx-auto my-6" style={{ maxWidth: "calc(816px + 4rem)" }}>
         {editor ? (
           <EditorContent editor={editor} className="prose max-w-none" />
         ) : (
