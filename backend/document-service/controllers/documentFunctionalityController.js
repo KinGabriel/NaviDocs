@@ -1,5 +1,6 @@
 import Document from '../models/documentModel.js';
 import axios from 'axios';
+import { createVersionData } from './documentVersionController.js';
 
 /**
  * @desc Create a new document based on a template's essential content.
@@ -89,6 +90,36 @@ export const createDocument = async (req, res) => {
     doc.school = req.user?.school || req.user?.role?.school || '';
 
     await doc.save();
+    //  create initial version data if caller supplied version info
+    try {
+      // Normalize note: treat note as a simple string. The codebase does not use notes arrays here.
+      let note = '';
+      if (typeof payload.note === 'string') {
+        note = payload.note;
+      } else if (typeof payload.notes === 'string') {
+        // Some callers might send `notes` as a string; accept that for backward compatibility.
+        note = payload.notes;
+      }
+
+      // Best-effort: create initial version data (fire-and-forget).
+      const upsertInitialVersion = async () => {
+        try {
+          await createVersionData(String(doc._id), payload.field_values || {}, {
+            userId: req.user?.id || null,
+            note: 'initial version',
+            // isBookmarked: !!payload.isBookmarked,
+            // last_activity_at: payload.last_activity_at || null
+          });
+        } catch (e) {
+          console.error('createDocument createVersionData failed', e);
+        }
+      };
+
+      upsertInitialVersion();
+    } catch (e) {
+      console.error('createDocument version upsert error', e);
+    }
+
     return res.status(201).json({ success: true, message: 'Document created successfully', document: doc });
   } catch (err) {
     if (err.code === 11000) {
@@ -184,6 +215,35 @@ export const updateDocumentFieldValues = async (req, res) => {
     }
 
     await doc.save();
+
+    // Best-effort: update corresponding version data if caller provided version identifier or field values
+    try {
+      // Normalize note from request body: prefer `note` string, accept `notes` string for compatibility.
+      let note = '';
+      if (typeof req.body.note === 'string') {
+        note = req.body.note;
+      } else if (typeof req.body.notes === 'string') {
+        note = req.body.notes;
+      }
+
+      // Best-effort: update corresponding version data (fire-and-forget).
+      const upsertVersion = async () => {
+        try {
+          await createVersionData(String(doc._id), req.body.field_values || {}, {
+            userId: req.user?.id || null,
+            note,
+            // isBookmarked: !!req.body.isBookmarked,
+           // last_activity_at: req.body.last_activity_at || null
+          });
+        } catch (e) {
+          console.error('updateDocumentFieldValues createVersionData failed', e);
+        }
+      };
+
+      upsertVersion();
+    } catch (e) {
+      console.error('updateDocumentFieldValues version upsert error', e);
+    }
 
     return res.json({ success: true, message: 'Field values updated', document: doc });
   } catch (err) {

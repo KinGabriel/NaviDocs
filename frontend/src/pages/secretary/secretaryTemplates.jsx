@@ -7,7 +7,7 @@ import Dropdown from "../../components/dropdowns/dropdown";
 import usePagination from "../../hooks/usePagination";
 import SearchBar from "../../components/searchbar";
 import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
-import { formatDate,StatusBadge,formatDateTime } from '../../utils/formatters.jsx';
+import { StatusBadge,formatDateTime } from '../../utils/formatters.jsx';
 import Loader from '../../components/loader';
 import { useNavigate } from "react-router-dom"; 
 import TaskAssignmentModal from '../../components/modals/taskAssignmentModal.jsx';

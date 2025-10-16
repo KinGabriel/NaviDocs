@@ -3,7 +3,6 @@ import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
-import StatusBadge from "../../components/statusBadge";
 import Greeting from "../../components/greeting";
 import UpcomingDeadlines from "../../components/upcomingDeadlines";
 import { Clock, AlertCircle, FileText, CheckCircle } from "lucide-react";

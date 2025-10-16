@@ -6,13 +6,12 @@ import Sidebar from "../layout/sidebars/sidebar";
 import useUser from "../hooks/useUser";
 import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
-import DocumentCard from "../components/cards/documentcard";
+import DocumentCard from "../components/cards/documentCard";
 import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";
 import RenameModal from "../components/modals/renameModal";
 import DeleteModal from "../components/modals/deleteModal";
-import SelectTemplate from "./selectTemplate";
 import ManageSuggestionsModal from "../components/modals/manageSuggestionsModal";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";

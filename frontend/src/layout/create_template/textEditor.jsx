@@ -12,7 +12,7 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
-
+import '../../assets/css/global.css'  
 import RichImage from "../../extensions/image/ImageNode";
 
 // Core schema & behavior
@@ -215,13 +215,130 @@ export default function TextEditor({
 
   return (
     <div className={`w-full flex ${className}`}>
+<<<<<<< HEAD
       {/* Keep container narrow to a page stack; layout rules live in global.css */}
+=======
+      <style>{`
+        :root {
+          --nd-page-width: ${dimsRef.current.widthPx}px;
+          --nd-page-height: ${dimsRef.current.heightPx}px;
+          --nd-margin-top: ${dimsRef.current.marginTopPx}px;
+          --nd-margin-bottom: ${dimsRef.current.marginBottomPx}px;
+          --nd-margin-left: ${dimsRef.current.marginLeftPx}px;
+          --nd-margin-right: ${dimsRef.current.marginRightPx}px;
+
+          /* Visual helpers (editor-level) */
+          --nd-header-height: ${dimsRef.current.headerHeightPx}px;
+          --nd-footer-height: ${dimsRef.current.footerHeightPx}px;
+
+          /* Content offsets: Page.js can override via inline styles on .nd-content */
+          --nd-content-top-offset: ${dimsRef.current.contentTopOffsetPx}px;
+          --nd-content-bottom-offset: ${dimsRef.current.contentBottomOffsetPx}px;
+        }
+
+        .nd-page {
+          box-sizing: border-box;
+          width: var(--nd-page-width);
+          min-height: var(--nd-page-height);
+          max-height: var(--nd-page-height);
+          padding: var(--nd-margin-top) var(--nd-margin-right) var(--nd-margin-bottom) var(--nd-margin-left);
+          margin: 1.25rem auto;
+          background: #fff;
+          border: 1px solid rgba(0,0,0,0.06);
+          box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+          overflow: hidden;
+
+          /* Allow header/content/footer stacking */
+          display: flex;
+          flex-direction: column;
+        }
+
+        .nd-editor { outline: none; }
+        .ProseMirror:focus { outline: none; }
+
+        /* Header / Content / Footer structure */
+        .nd-header {
+          position: relative;
+          z-index: 2;
+          /* Optionally visualize header area height while designing:
+             min-height: var(--nd-header-height); */
+        }
+        .nd-content {
+          position: relative;
+          z-index: 1;
+          flex: 1;
+          /* Offsets ensure body text respects header/footer when active.
+             Page.js may set inline padding-top/bottom dynamically; these are safe defaults. */
+          padding-top: var(--nd-content-top-offset, 0px);
+          padding-bottom: var(--nd-content-bottom-offset, 0px);
+        }
+        .nd-footer {
+          position: relative;
+          z-index: 2;
+          /* Optionally visualize footer area height while designing:
+             min-height: var(--nd-footer-height); */
+        }
+
+        /* ===== Editable Field visuals (inline box) ===== */
+        .nd-editable-field {
+          display: inline-flex;
+          align-items: center;
+          min-height: 1.75rem;
+          min-width: 1.25rem;
+          padding: 0 0.25rem;
+          border-radius: 0.375rem;
+          outline: 1px dashed rgba(99,102,241,.45);
+          background: rgba(99,102,241,.06);
+        }
+        .nd-editable-field--text {
+          color: #334155;
+        }
+        .nd-editable-field--text:empty::before {
+          content: attr(data-ph);
+          color: #94a3b8;
+        }
+        .nd-image-wrapper { position: relative; }
+        .nd-image-crop-container img { display: block; }
+        .nd-frame { pointer-events: none; }
+        .nd-crop-overlay::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          outline: 1px dashed #60a5fa;
+          pointer-events: none;
+        }
+
+        .nd-image-field-frame {
+          display: inline-flex;
+          width: 64px;
+          height: 48px;
+          border: 1px dashed #94a3b8;
+          border-radius: 0.375rem;
+          background: #f8fafc;
+          position: relative;
+        }
+        .nd-image-field-frame::after {
+          content: attr(data-placeholder);
+          font-size: 11px;
+          color: #94a3b8;
+          position: absolute;
+          inset: 0;
+          display: grid;
+          place-items: center;
+          text-align: center;
+          padding: 0 6px;
+        }
+          
+      `}</style>
+
+      {/* Main editor */}
+>>>>>>> ef476fc6861318bb2ed6e614d05c1ab4269e3459
       <div
         className="flex-1 mx-auto my-6"
         style={{ maxWidth: "calc(var(--paper-width, 816px) + 4rem)" }}
       >
         {editor ? (
-          <EditorContent editor={editor} className="prose max-w-none" />
+         <EditorContent editor={editor} className="ProseMirror prose max-w-none" />
         ) : (
           <div className="text-sm text-gray-500">Loading editor…</div>
         )}

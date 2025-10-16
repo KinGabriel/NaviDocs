@@ -1,5 +1,6 @@
 import TemplateHistory from '../models/templateVersionModel.js';
 import Template from '../models/templateModel.js';
+import { fetchUserInfoById } from '../utils/userServiceUtils.js';
 
 // Minimum interval (ms) before creating another identical snapshot version.
 // Can be overridden with environment variable MIN_TEMPLATE_VERSION_INTERVAL_MS
@@ -63,11 +64,11 @@ export const createTemplateVersion = async ({ templateId, snapshot = null, userI
 
     const similar = snapshotsEqual(snapToStore, lastSnapshot);
     const diffMs = nowMs - lastCreatedMs;
-    console.debug && console.debug('createTemplateVersion debug', { templateId, similar, diffMs, interval: MIN_TEMPLATE_VERSION_INTERVAL_MS });
+    //console.debug && console.debug('createTemplateVersion debug', { templateId, similar, diffMs, interval: MIN_TEMPLATE_VERSION_INTERVAL_MS });
 
     // If snapshot identical and the last version is newer than interval, skip creating a new version
     if (similar && diffMs < MIN_TEMPLATE_VERSION_INTERVAL_MS) {
-      console.debug && console.debug('createTemplateVersion - skipping creation (within interval, snapshots similar)', { templateId, latestId: latest._id, diffMs });
+     // console.debug && console.debug('createTemplateVersion - skipping creation (within interval, snapshots similar)', { templateId, latestId: latest._id, diffMs });
       // touch the latest version's timestamp so it represents the most recent activity
       try {
         const now = new Date();
@@ -88,7 +89,7 @@ export const createTemplateVersion = async ({ templateId, snapshot = null, userI
   const next = latest ? (latest.version_no || 0) + 1 : 1;
   const v = new TemplateHistory({ template_id: templateId, snapshot: snapToStore, version_no: next, created_by: userId, note });
   await v.save();
-  console.debug && console.debug('createTemplateVersion - created new version', { templateId, version_no: next, id: v._id });
+  // console.debug && console.debug('createTemplateVersion - created new version', { templateId, version_no: next, id: v._id });
   return v;
 };
 
@@ -104,7 +105,62 @@ export const listTemplateVersions = async (req, res) => {
 
     //if caller sets group=true or provides group_interval_ms
     const doGroup = String(req.query.group || '').toLowerCase() === 'true' || !!req.query.group_interval_ms;
-    if (!doGroup) return res.json({ success: true, versions });
+    // Normalize and enrich versions for response (attach created_by_name and author)
+    const normalizeVersion = async (raw) => {
+      if (!raw) return raw;
+      const out = { ...raw };
+      try {
+        // normalize ids to strings
+        out.id = out._id ? String(out._id) : out.id || null;
+        out.template_id = out.template_id ? String(out.template_id) : out.template_id || null;
+        // normalize created_by (may be ObjectId or { $oid } or nested)
+        let cb = out.created_by;
+        if (cb && typeof cb === 'object') {
+          if (cb.$oid) cb = cb.$oid;
+          else if (cb._id) cb = String(cb._id);
+        }
+        out.created_by = cb ? String(cb) : null;
+
+        // normalize dates to ISO strings
+        const toIso = (val) => {
+          if (!val) return null;
+          try {
+            const d = new Date(val);
+            return isNaN(d.getTime()) ? null : d.toISOString();
+          } catch (e) { return null; }
+        };
+        out.created_at = toIso(out.created_at || out.createdAt || out.timestamp || null);
+        out.updated_at = toIso(out.updated_at || out.updatedAt || null);
+        out.last_activity_at = toIso(out.last_activity_at || out.lastActivityAt || out.last_activity_at || null);
+
+        // fetch user info for created_by (response-only enrichment)
+        out.created_by_name = null;
+        out.author = null;
+        if (out.created_by) {
+          try {
+            const user = await fetchUserInfoById(out.created_by, req);
+            if (user && (user.firstname || user.lastname)) {
+              const fn = (user.firstname || '').trim();
+              const ln = (user.lastname || '').trim();
+              const name = `${fn} ${ln}`.trim();
+              out.created_by_name = name || null;
+              out.author = name || null;
+            }
+          } catch (e) {
+            // ignore user lookup failures
+            console.debug && console.debug('normalizeVersion - user lookup failed', e);
+          }
+        }
+      } catch (e) {
+        console.error('normalizeVersion error', e);
+      }
+      return out;
+    };
+
+    if (!doGroup) {
+      const mapped = await Promise.all(versions.map(v => normalizeVersion(v)));
+      return res.json({ success: true, versions: mapped });
+    }
 
     const groupIntervalMs = req.query.group_interval_ms ? parseInt(req.query.group_interval_ms, 10) : (5 * 60 * 1000);
 
@@ -150,13 +206,20 @@ export const listTemplateVersions = async (req, res) => {
     }
 
     // Build groupedVersions for response: expose representative and metadata
+    // normalize grouped entries as well
+    for (const g of grouped) {
+      g.representative = await normalizeVersion(g.representative);
+      g.versions = await Promise.all((g.versions || []).map(v => normalizeVersion(v)));
+    }
     const groupedVersions = grouped.map(g => ({
       representative: g.representative,
       count: g.count,
       versions: g.versions
     }));
 
-    return res.json({ success: true, versions, groupedVersions });
+    const normalizedAll = await Promise.all(versions.map(v => normalizeVersion(v)));
+    console.debug && console.debug('listTemplateVersions - grouped', { templateId: id, originalCount: versions.length, groupedCount: groupedVersions.length });
+    return res.json({ success: true, versions: normalizedAll, groupedVersions });
   } catch (err) {
     console.error('listTemplateVersions error', err);
     return res.status(500).json({ success: false, message: 'Failed to list template versions' });
@@ -173,7 +236,43 @@ export const getTemplateVersion = async (req, res) => {
     if (!id || !versionId) return res.status(400).json({ success: false, message: 'template id & version id required' });
   const v = await TemplateHistory.findOne({ _id: versionId, template_id: id }).lean();
     if (!v) return res.status(404).json({ success: false, message: 'version not found' });
-    return res.json({ success: true, version: v });
+    // normalize and enrich returned version
+    const normalizeVersionSingle = async (raw) => {
+      // reuse same logic as in list; create a small inline copy to avoid scope issues
+      const out = { ...raw };
+      try {
+        out.id = out._id ? String(out._id) : out.id || null;
+        out.template_id = out.template_id ? String(out.template_id) : out.template_id || null;
+        let cb = out.created_by;
+        if (cb && typeof cb === 'object') {
+          if (cb.$oid) cb = cb.$oid;
+          else if (cb._id) cb = String(cb._id);
+        }
+        out.created_by = cb ? String(cb) : null;
+        const toIso = (val) => { if (!val) return null; try { const d = new Date(val); return isNaN(d.getTime()) ? null : d.toISOString(); } catch (e) { return null; } };
+        out.created_at = toIso(out.created_at || out.createdAt || out.timestamp || null);
+        out.updated_at = toIso(out.updated_at || out.updatedAt || null);
+        out.last_activity_at = toIso(out.last_activity_at || out.lastActivityAt || out.last_activity_at || null);
+        out.created_by_name = null;
+        out.author = null;
+        if (out.created_by) {
+          try {
+            const user = await fetchUserInfoById(out.created_by, req);
+            if (user && (user.firstname || user.lastname)) {
+              const fn = (user.firstname || '').trim();
+              const ln = (user.lastname || '').trim();
+              const name = `${fn} ${ln}`.trim();
+              out.created_by_name = name || null;
+              out.author = name || null;
+            }
+          } catch (e) { console.debug && console.debug('normalize single version - user lookup failed', e); }
+        }
+      } catch (e) { console.error('normalizeVersionSingle error', e); }
+      return out;
+    };
+
+    const normalized = await normalizeVersionSingle(v);
+    return res.json({ success: true, version: normalized });
   } catch (err) {
     console.error('getTemplateVersion error', err);
     return res.status(500).json({ success: false, message: 'Failed to get template version' });
@@ -246,10 +345,11 @@ export const restoreTemplateVersion = async (req, res) => {
     if (!template) return res.status(404).json({ success: false, message: 'template not found' });
 
     // permission: allow owner or admin
+    /** 
     const isOwner = template.created_by && requesterId && String(template.created_by) === requesterId;
     const isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'Admin' || req.user.isAdmin);
     if (!isOwner && !isAdmin) return res.status(403).json({ success: false, message: 'Not authorized to restore this template' });
-
+*/
   // structural snapshot is stored in version.snapshot
   const snap = version.snapshot || {};
     const allowedKeys = ['pages_json','fields','pageSetup','dateFormat'];

@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy, RotateCcw, X} from 'lucide-react';
-import { listTemplateVersionsAPI, getTemplateVersionAPI, restoreTemplateVersionAPI, updateTemplateVersionBookmarkAPI } from '../../api/documentContollerAPI';
+import { listTemplateVersionsAPI, getTemplateVersionAPI, restoreTemplateVersionAPI, updateTemplateVersionBookmarkAPI, duplicateTemplateAPI } from '../../api/documentContollerAPI';
 import TextEditor from '../../layout/create_template/textEditor';
 import BookmarkModal from './bookmarkModal';
+import DuplicateModal from '../../components/modals/duplicateModal';
+import { toast } from 'react-hot-toast';
 
 
 export default function TemplateVersionHistory({ 
@@ -11,6 +13,7 @@ export default function TemplateVersionHistory({
   documentId, 
   currentContent,
   pageSetup,
+  previousName, 
 }) {
   const id = templateId || documentId; // use whichever is provided
   const [versions, setVersions] = useState([]);
@@ -29,134 +32,133 @@ export default function TemplateVersionHistory({
   const [showBookmarkModal, setShowBookmarkModal] = useState(false);
   const [bookmarkTarget, setBookmarkTarget] = useState(null);
   const [bookmarkName, setBookmarkName] = useState('');
+  // Duplicate modal state
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [duplicateItem, setDuplicateItem] = useState(null);
+  const [duplicating, setDuplicating] = useState(false);
  
-  // Fetch version history from API
-  useEffect(() => {
-    const fetchVersions = async () => {
-      setLoading(true);
-      let data = null;
-      try {
-        if (id) {
-          // primary: template-service
-          data = await listTemplateVersionsAPI(id);
-          console.debug('listTemplateVersionsAPI response', data);
+  // Fetch version history from API (extracting the function so it can be reused elsewhere)
+  const fetchVersions = async () => {
+    setLoading(true);
+    let data = null;
+    try {
+      if (id) {
+        // primary: template-service
+        data = await listTemplateVersionsAPI(id);
 
-          // Support multiple shapes: array, { versions: [...] }, or nested
-          let rawVersions = Array.isArray(data)
-            ? data
-            : Array.isArray(data.versions)
-              ? data.versions
-              : Array.isArray(data.data && data.data.versions)
-                ? data.data.versions
-                : [];
 
+        // Support multiple shapes: array, { versions: [...] }, or nested
+        let rawVersions = Array.isArray(data)
+          ? data
+          : Array.isArray(data.versions)
+            ? data.versions
+            : Array.isArray(data.data && data.data.versions)
+              ? data.data.versions
+              : [];
+
+        if (rawVersions && rawVersions.length > 0) {
+          const normalized = rawVersions.map((v, index) => {
+            // parse created_at: accept { $date: ... }, ISO string, or numeric timestamp
+            let createdAt = null;
+            if (v?.created_at) {
+              if (typeof v.created_at === 'string' || typeof v.created_at === 'number') createdAt = v.created_at;
+              else if (v.created_at.$date) createdAt = v.created_at.$date;
+            } else if (v?.createdAt) {
+              if (typeof v.createdAt === 'string' || typeof v.createdAt === 'number') createdAt = v.createdAt;
+              else if (v.createdAt.$date) createdAt = v.createdAt.$date;
+            } else if (v.timestamp) {
+              createdAt = v.timestamp;
+            }
+
+            // parse last_activity_at: accept { $date: ... } or ISO string
+            let lastActivity = null;
+            if (v?.last_activity_at) {
+              if (typeof v.last_activity_at === 'string' || typeof v.last_activity_at === 'number') lastActivity = v.last_activity_at;
+              else if (v.last_activity_at.$date) lastActivity = v.last_activity_at.$date;
+            } else if (v?.lastActivityAt) {
+              if (typeof v.lastActivityAt === 'string' || typeof v.lastActivityAt === 'number') lastActivity = v.lastActivityAt;
+              else if (v.lastActivityAt.$date) lastActivity = v.lastActivityAt.$date;
+            }
+
+            // parse created_by / author: prefer backend-normalized fields first
+            let author = 'Unknown';
+            if (v?.author) {
+              author = v.author;
+            } else if (v?.created_by_name) {
+              author = v.created_by_name;
+            } else if (v?.created_by) {
+              const cb = v.created_by;
+              if (typeof cb === 'object' && cb !== null) {
+                if (cb.name) author = String(cb.name).trim();
+                else if (cb.first_name || cb.last_name) author = [cb.first_name, cb.last_name].filter(Boolean).join(' ').trim();
+                else if (cb.firstname || cb.lastname) author = [cb.firstname, cb.lastname].filter(Boolean).join(' ').trim();
+                else if (cb.email) author = String(cb.email).split('@')[0];
+                else author = 'Unknown';
+              } else if (typeof cb === 'string') {
+                // Unpopulated ID — prefer not to show raw ID
+                author = 'Unknown';
+              }
+            }
+         
+
+            // Determine if this is the current version
+            // Check multiple indicators: is_current flag, isCurrent, or if it's the first/latest version
+            const isCurrent = v.is_current === true || 
+                             v.isCurrent === true || 
+                             v.current === true ||
+                             index === 0; // Fallback: treat first version as current
+
+            // prefer the first page from pages_json (TextEditor expects a single doc/page)
+            const firstPage = Array.isArray(v.snapshot?.pages_json) && v.snapshot.pages_json.length > 0
+              ? v.snapshot.pages_json[0]
+              : null;
+
+            // bookmark flag support (various shapes)
+            const isBookmarked = v.isBookmarked === true || v.is_bookmarked === true || v.bookmarked === true || false;
+
+            return {
+              ...v,
+              id: v._id || v.id,
+              created_at: createdAt,
+              last_activity_at: lastActivity,
+              content: firstPage || v.content || null,
+              author,
+              isBookmarked,
+              versionName: v.name || v.note || '',
+              is_current: isCurrent
+            };
+          });
+
+          const grouped = groupVersionsByDate(normalized);
+          setVersions(grouped);
+
+          const latestFromGroup = grouped?.[0]?.items?.[0] || normalized[0];
+          setSelectedVersion(latestFromGroup.id);
+          setVersionContent(latestFromGroup.content);
           
+          const expanded = {};
+          grouped.forEach(group => { expanded[group.date] = true; });
+          setExpandedDates(expanded);
 
-          if (rawVersions && rawVersions.length > 0) {
-            const normalized = rawVersions.map((v, index) => {
-              // parse created_at: accept { $date: ... }, ISO string, or numeric timestamp
-              let createdAt = null;
-              if (v?.created_at) {
-                if (typeof v.created_at === 'string' || typeof v.created_at === 'number') createdAt = v.created_at;
-                else if (v.created_at.$date) createdAt = v.created_at.$date;
-              } else if (v?.createdAt) {
-                if (typeof v.createdAt === 'string' || typeof v.createdAt === 'number') createdAt = v.createdAt;
-                else if (v.createdAt.$date) createdAt = v.createdAt.$date;
-              } else if (v.timestamp) {
-                createdAt = v.timestamp;
-              }
-
-              // parse last_activity_at: accept { $date: ... } or ISO string
-              let lastActivity = null;
-              if (v?.last_activity_at) {
-                if (typeof v.last_activity_at === 'string' || typeof v.last_activity_at === 'number') lastActivity = v.last_activity_at;
-                else if (v.last_activity_at.$date) lastActivity = v.last_activity_at.$date;
-              } else if (v?.lastActivityAt) {
-                if (typeof v.lastActivityAt === 'string' || typeof v.lastActivityAt === 'number') lastActivity = v.lastActivityAt;
-                else if (v.lastActivityAt.$date) lastActivity = v.lastActivityAt.$date;
-              }
-
-              // parse created_by: prioritize name over ID
-              let author = 'Unknown';
-              if (v?.created_by) {
-                // First check if it's a populated object with name
-                if (typeof v.created_by === 'object' && v.created_by.name) {
-                  author = v.created_by.name;
-                } else if (typeof v.created_by === 'object' && (v.created_by.first_name || v.created_by.last_name)) {
-                  author = [v.created_by.first_name, v.created_by.last_name].filter(Boolean).join(' ');
-                } else if (typeof v.created_by === 'object' && v.created_by.email) {
-                  author = v.created_by.email.split('@')[0]; // Use email username as fallback
-                } else if (typeof v.created_by === 'string') {
-                  // If it's a string ID, keep as Unknown rather than showing ID
-                  author = 'Unknown';
-                } else if (v.created_by.$oid || v.created_by._id || v.created_by.id) {
-                  // If it's an unpopulated reference, show Unknown
-                  author = 'Unknown';
-                }
-              } else if (v.author) {
-                author = v.author;
-              } else if (v.created_by_name) {
-                author = v.created_by_name;
-              }
-
-              // Determine if this is the current version
-              // Check multiple indicators: is_current flag, isCurrent, or if it's the first/latest version
-              const isCurrent = v.is_current === true || 
-                               v.isCurrent === true || 
-                               v.current === true ||
-                               index === 0; // Fallback: treat first version as current
-
-              // prefer the first page from pages_json (TextEditor expects a single doc/page)
-              const firstPage = Array.isArray(v.snapshot?.pages_json) && v.snapshot.pages_json.length > 0
-                ? v.snapshot.pages_json[0]
-                : null;
-
-              // bookmark flag support (various shapes)
-              const isBookmarked = v.isBookmarked === true || v.is_bookmarked === true || v.bookmarked === true || false;
-
-              return {
-                ...v,
-                id: v._id || v.id,
-                created_at: createdAt,
-                last_activity_at: lastActivity,
-                content: firstPage || v.content || null,
-                author,
-                isBookmarked,
-                versionName: v.name || v.note || '',
-                is_current: isCurrent
-              };
-            });
-
-            const grouped = groupVersionsByDate(normalized);
-            setVersions(grouped);
-
-            const latestFromGroup = grouped?.[0]?.items?.[0] || normalized[0];
-            setSelectedVersion(latestFromGroup.id);
-            setVersionContent(latestFromGroup.content);
-              
-          
-            const expanded = {};
-            grouped.forEach(group => { expanded[group.date] = true; });
-            setExpandedDates(expanded);
-
-            setRawResponse(data || null);
-            setLoading(false);
-            return;
-          }
+          setRawResponse(data || null);
+          setLoading(false);
+          return;
         }
-      } catch (error) {
-        console.error('Failed to fetch versions', error);
       }
+    } catch (error) {
+      console.error('Failed to fetch versions', error);
+    }
 
-      // No versions returned or API failed — set to empty (UI shows 'No versions found')
-      setRawResponse(data || null);
-      setVersions([]);
-      setSelectedVersion(null);
-      setVersionContent(null);
-      setExpandedDates({});
-      setLoading(false);
-    };
+    // No versions returned or API failed — set to empty (UI shows 'No versions found')
+    setRawResponse(data || null);
+    setVersions([]);
+    setSelectedVersion(null);
+    setVersionContent(null);
+    setExpandedDates({});
+    setLoading(false);
+  };
 
+  useEffect(() => {
     fetchVersions();
   }, [templateId, documentId, currentContent]);
 
@@ -318,22 +320,23 @@ export default function TemplateVersionHistory({
         setTimeout(() => {
           onClose && onClose();
         }, 500);
-      } else {
-        alert(resp?.message || 'Restore response received');
+        } else {
+        toast.error(resp?.message || 'Restore response received');
       }
     } catch (e) {
       console.error('Restore failed', e);
-      alert('Failed to restore template version.');
+      toast.error('Failed to restore template version.');
     } finally {
       setIsRestoring(false);
     }
   };
 
-  // TODO: IMPLEMENT API CALLS
   const handleCopyVersion = (version) => {
-    // Implement copy functionality
-    console.log('Copying version:', version.id);
+    // Open duplicate modal; use previousName from parent when available as a friendly initial title
     setMenuOpen(null);
+    const baseName = previousName || version.versionName || 'Template';
+    setDuplicateItem({ ...version, title: `${baseName}` });
+    setDuplicateOpen(true);
   };
 
   const handleBookmarkVersion = (version) => {
@@ -345,13 +348,13 @@ export default function TemplateVersionHistory({
           if (resp?.success) {
             const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? '';
             updateLocalBookmark(version.id, false, returnedNote);
-            alert('Version unbookmarked');
+            toast.success('Version unbookmarked');
           } else {
-            alert(resp?.message || 'Unbookmark failed');
+            toast.error(resp?.message || 'Unbookmark failed');
           }
         } catch (e) {
           console.error('Failed to unbookmark', e);
-          alert('Failed to unbookmark version');
+          toast.error('Failed to unbookmark version');
         } finally {
           setMenuOpen(null);
         }
@@ -396,13 +399,13 @@ export default function TemplateVersionHistory({
         setShowBookmarkModal(false);
         setBookmarkTarget(null);
         setBookmarkName('');
-        alert('Version bookmarked');
+        toast.success('Version bookmarked');
       } else {
-        alert(resp?.message || 'Bookmark failed');
+        toast.error(resp?.message || 'Bookmark failed');
       }
     } catch (e) {
       console.error('Bookmark confirm failed', e);
-      alert('Failed to bookmark version');
+      toast.error('Failed to bookmark version');
     }
   };
 
@@ -421,11 +424,11 @@ export default function TemplateVersionHistory({
         })));
         setEditingNoteFor(null);
       } else {
-        alert(resp?.message || 'Failed to save note');
+        toast.error(resp?.message || 'Failed to save note');
       }
     } catch (e) {
       console.error('Failed to save note', e);
-      alert('Failed to save note');
+      toast.error('Failed to save note');
     }
   };
 
@@ -721,6 +724,35 @@ export default function TemplateVersionHistory({
         onConfirm={confirmBookmark}
       />
 
+        {/* Duplicate Modal */}
+        <DuplicateModal
+          open={duplicateOpen}
+          item={duplicateItem}
+          submitting={duplicating}
+          onClose={() => { setDuplicateOpen(false); setDuplicateItem(null); }}
+          onDuplicate={async (itemWithTitle) => {
+            if (!itemWithTitle) return;
+            setDuplicating(true);
+            try {
+              const title = itemWithTitle.title;
+              const resp = await duplicateTemplateAPI(id, title);
+              if (resp?.success) {
+                setDuplicateOpen(false);
+                setDuplicateItem(null);
+                await fetchVersions();
+                toast.success('Template duplicated successfully');
+              } else {
+                toast.error(resp?.message || 'Failed to duplicate template');
+              }
+            } catch (err) {
+              console.error('Duplicate failed', err);
+              toast.error('Failed to duplicate template');
+            } finally {
+              setDuplicating(false);
+            }
+          }}
+        />
+
       {showRestoreModal && (
         <div className="fixed inset-0 backdrop-blur-[2px] bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
@@ -776,23 +808,25 @@ export default function TemplateVersionHistory({
               >
                 Cancel
               </button>
-              <button
-                onClick={handleRestoreVersion}
-                disabled={isRestoring}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isRestoring ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    Restoring...
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="w-4 h-4" />
-                    Restore
-                  </>
-                )}
-              </button>
+             <button
+              disabled={
+                !selectedVersion || currentVersionDetails?.isCurrent
+              }
+              onClick={() => setShowRestoreModal(true)}
+              className={`flex-1 px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium rounded-lg shadow-sm transition-all
+                ${
+                  !selectedVersion || currentVersionDetails?.isCurrent
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] active:scale-95'
+                }`}
+            >
+              <RotateCcw className="w-4 h-4" />
+              {currentVersionDetails?.isCurrent
+                ? 'Current version'
+                : selectedVersion
+                ? 'Restore'
+                : 'Select a version to restore'}
+            </button>
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { getSchoolCode, buildApprovalMeta, statusQuery } from "../utils/template
 import { generateTemplateThumbnail } from "../utils/thumbnailUtils.js";
 import axios from "axios";
 import { createTemplateVersion } from './templateVersionController.js';
+import { fetchUserInfoById } from '../utils/userServiceUtils.js';
 
 /**
  * @desc Create a new template
@@ -135,7 +136,7 @@ export const updateTemplate = async (req, res) => {
       // Prevent full overwrite if notes array also sent
       delete updateOps.$set.notes;
     }
-console.log(updateOps);
+//console.log(updateOps);
     const updatedTemplate = await Template.findByIdAndUpdate(
       req.params.id,
       updateOps,
@@ -307,27 +308,14 @@ export const getTemplateById = async (req, res) => {
       });
     }
 
-    // User service URL and token
-    const userServiceUrl = process.env.USER_SERVICE_URL || "http://localhost:5002";
-    let token = null;
-    if (req.cookies && req.cookies.token) {
-      token = req.cookies.token;
-    }
-    const headers = token ? { 'Cookie': `token=${token}` } : {};
-
-    // Helper to fetch user info by id
+    // Helper to fetch user display name by id using shared utility
     const fetchUserName = async (userId) => {
       if (!userId) return null;
       try {
-        const resp = await axios.get(
-          `${userServiceUrl}/api/user/getUserInfo/${userId}`,
-          { headers, withCredentials: true }
-        );
-        if (resp.data && resp.data.firstname && resp.data.lastname) {
-          return `${resp.data.firstname} ${resp.data.lastname}`;
-        }
-      } catch (err) {
-        return null;
+        const info = await fetchUserInfoById(userId, req, { basic: false });
+        if (info && info.firstname && info.lastname) return `${info.firstname} ${info.lastname}`;
+      } catch (e) {
+        // swallow and return null
       }
       return null;
     };
@@ -451,47 +439,27 @@ export const getTemplates = async (req, res) => {
 
     const total = await Template.countDocuments(query);
 
-    // Fetch creator names for each template
-    const userServiceUrl = process.env.USER_SERVICE_URL || "http://localhost:5002";
-    // Get token from cookie or header 
-    let token = null;
-    if (req.cookies && req.cookies.token) {
-      token = req.cookies.token;
-    }
+    // Fetch creator and assigned names using shared userService helper (headers/token handled centrally)
     const withMeta = await Promise.all(templates.map(async t => {
       let createdByName = null;
       let assignedNames = [];
       try {
-        // Fetch creator name
         if (t.created_by) {
-          const headers = {};
-          if (token) {
-            headers['Cookie'] = `token=${token}`;
-          }
-          const resp = await axios.get(
-            `${userServiceUrl}/api/user/getUserInfo/${t.created_by}`,
-            { headers, withCredentials: true }
-          );
-          if (resp.data && resp.data.firstname && resp.data.lastname) {
-            createdByName = `${resp.data.firstname} ${resp.data.lastname}`;
+          try {
+            const info = await fetchUserInfoById(String(t.created_by), req, { basic: true });
+            // console.log('Creator info:', info);
+            if (info && (info.firstname || info.lastname)) createdByName = [info.firstname, info.lastname].filter(Boolean).join(' ');
+          } catch (e) {
+            createdByName = null;
           }
         }
-        // Fetch assigned user names
+
         if (Array.isArray(t.assigned) && t.assigned.length > 0) {
           assignedNames = await Promise.all(t.assigned.map(async userId => {
             try {
-              const headers = {};
-              if (token) {
-                headers['Cookie'] = `token=${token}`;
-              }
-              const resp = await axios.get(
-                `${userServiceUrl}/api/user/getUserInfo/${userId}`,
-                { headers, withCredentials: true }
-              );
-              if (resp.data && resp.data.firstname && resp.data.lastname) {
-                return `${resp.data.firstname} ${resp.data.lastname}`;
-              }
-            } catch (err) {
+              const info = await fetchUserInfoById(String(userId), req, { basic: true });
+              if (info && (info.firstname || info.lastname)) return [info.firstname, info.lastname].filter(Boolean).join(' ');
+            } catch (e) {
               return null;
             }
             return null;
@@ -500,6 +468,8 @@ export const getTemplates = async (req, res) => {
       } catch (err) {
         createdByName = null;
       }
+     
+
       return {
         ...t.toObject(),
         approvalMeta: buildApprovalMeta(t, req.user?.id),
@@ -645,26 +615,16 @@ export const getPublishedTemplates = async (req, res) => {
 
     const total = await Template.countDocuments(query);
 
-    // Fetch creator names for each template
-    const userServiceUrl = process.env.USER_SERVICE_URL || "http://localhost:5002";
-    let token = null;
-    if (req.cookies && req.cookies.token) {
-      token = req.cookies.token;
-    }
+    // Fetch creator names using shared userService helper
     const withMeta = await Promise.all(templates.map(async t => {
       let createdByName = null;
       try {
         if (t.created_by) {
-          const headers = {};
-          if (token) {
-            headers['Cookie'] = `token=${token}`;
-          }
-          const resp = await axios.get(
-            `${userServiceUrl}/api/user/getUserInfo/${t.created_by}`,
-            { headers, withCredentials: true }
-          );
-          if (resp.data && resp.data.firstname && resp.data.lastname) {
-            createdByName = `${resp.data.firstname} ${resp.data.lastname}`;
+          try {
+            const info = await fetchUserInfoById(String(t.created_by), req, { basic: true });
+            if (info && (info.firstname || info.lastname)) createdByName = [info.firstname, info.lastname].filter(Boolean).join(' ');
+          } catch (e) {
+            createdByName = null;
           }
         }
       } catch (err) {

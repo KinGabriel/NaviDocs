@@ -7,6 +7,12 @@ import {
   updateDocumentFieldValues
 
 } from '../controllers/documentFunctionalityController.js';
+import {
+  getVersionData,
+  patchVersionBookmark,
+  listVersionDataByDocument,
+  restoreDocumentVersion,
+} from '../controllers/documentVersionController.js';
 import { 
   saveFieldSuggestion, 
   getFieldSuggestions,
@@ -28,4 +34,9 @@ router.post('/create-document', authenticateJWT, createDocument);
 router.get('/', authenticateJWT, listDocuments);
 router.get('/:id', authenticateJWT, getDocumentById);
 router.patch('/:id/field-values', authenticateJWT, updateDocumentFieldValues);
+
+router.get('/version-data/:versionId', authenticateJWT, getVersionData);
+router.patch('/version-data/:versionId/bookmark', authenticateJWT, patchVersionBookmark);
+router.get('/version-data/document/:documentId', authenticateJWT, listVersionDataByDocument);
+router.post('/version-data/restore', authenticateJWT, restoreDocumentVersion);
 export default router;

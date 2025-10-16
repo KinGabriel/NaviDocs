@@ -39,12 +39,12 @@ export const loginUser = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
-    res.cookie('token', token, {
+    res.cookie("token", token, {
       httpOnly: true,
-      secure: false, 
-      sameSite: 'Lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      path: '/',
+      secure: process.env.NODE_ENV === "production", 
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: "/",
     });
     res.json({
       message: "Succesful login!",
