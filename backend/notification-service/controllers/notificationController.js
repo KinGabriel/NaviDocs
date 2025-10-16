@@ -1,5 +1,5 @@
 // backend/notification-service/controllers/notificationController.js
-import notificationModel from "../models/notificationModel";
+import Notification from "../models/notificationModel";
 // NOTE: This service does NOT have direct access to the User model, 
 // so user role and ID must come from the request, typically injected by the Gateway/Auth-Service.
 
