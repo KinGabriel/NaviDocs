@@ -18,6 +18,7 @@
    npm install tailwindcss @tailwindcss/vite
    npm i prosemirror-keymap prosemirror-transform
    npm install react-hot-toast
+   npm install tiptap-pagination-plus
    ```
 
 
