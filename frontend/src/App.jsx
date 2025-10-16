@@ -34,7 +34,7 @@ import DepartmentHeadTemplates from './pages/dept_head/departmentHeadTemplates';
 import DepartmentHeadDocumentWorkflowView from './pages/dept_head/departmentHeadDocumentWorkflowView';
 import FacultyDashboard from './pages/faculty/facultyDashboard';
 import EditableFields from './pages/editableFields';
-import Storage from './pages/Storage';
+import Storage from './pages/storage';
 import SelectTemplate from './pages/selectTemplate'; 
 import { Toaster } from 'react-hot-toast';
 

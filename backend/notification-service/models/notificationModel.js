@@ -1,5 +1,5 @@
-// backend/notification-service/models/Notification.js
-const mongoose = require('mongoose');
+// backend/notification-service/models/notificationModel.js
+import mongoose from 'mongoose';
 
 const notificationSchema = new mongoose.Schema({
   // Optional: ID of a specific user for direct notification 
@@ -39,4 +39,4 @@ const notificationSchema = new mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model('Notification', notificationSchema);
+export default mongoose.model('Notification', notificationSchema);

@@ -1,6 +1,6 @@
 // backend/notification-service/routes/notificationRoutes.js
-const express = require('express');
-const { getNotifications, markAsRead, createInternalNotification } = require('../controllers/notificationController');
+import express from 'express';
+import { getNotifications, markAsRead, createInternalNotification } from '../controllers/notificationController.js';
 
 const router = express.Router();
 
@@ -17,4 +17,4 @@ router.patch('/:id/read', markAsRead);
 // This MUST be protected by an internal token/IP whitelist on the Gateway/WAF
 router.post('/internal', createInternalNotification); 
 
-module.exports = router;
+export default router;

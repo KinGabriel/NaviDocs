@@ -38,7 +38,8 @@ import {
         getTemplateVersion,
         updateTemplateVersionNote,
         updateTemplateVersionBookmark,
-        restoreTemplateVersion
+        restoreTemplateVersion,
+        duplicateTemplateFromVersion,
 } from '../controllers/templateVersionController.js';
 
 const router = express.Router();
@@ -71,5 +72,6 @@ router.delete("/:id", authenticateJWT, deleteTemplate);
 router.patch("/:id/insert-document-code", authenticateJWT, insertDocumentCode);
 router.patch("/:id/rename", authenticateJWT, renameTemplate);
 router.post("/:id/duplicate", authenticateJWT, duplicateTemplate);
+router.post("/:id/duplicate-version", authenticateJWT, duplicateTemplateFromVersion);
 
 export default router;

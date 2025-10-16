@@ -7,12 +7,14 @@ import {
   updateDocumentFieldValues,
   deleteDocumentById,
   renameDocument,
+  duplicateDocumentById,
 } from '../controllers/documentFunctionalityController.js';
 import {
   getVersionData,
   patchVersionBookmark,
   listVersionDataByDocument,
   restoreDocumentVersion,
+  duplicateDocumentFromVersion,
 } from '../controllers/documentVersionController.js';
 import { 
   saveFieldSuggestion, 
@@ -33,6 +35,8 @@ router.delete('/field-suggestions/:id', authenticateJWT, deleteFieldSuggestion);
 
 router.post('/create-document', authenticateJWT, createDocument);
 router.get('/', authenticateJWT, listDocuments);
+router.post('/:id/duplicate', authenticateJWT, duplicateDocumentById);
+router.post('/:id/duplicate-version', authenticateJWT, duplicateDocumentFromVersion);
 router.get('/:id', authenticateJWT, getDocumentById);
 router.patch('/:id/field-values', authenticateJWT, updateDocumentFieldValues);
 router.delete('/:id', authenticateJWT, deleteDocumentById);

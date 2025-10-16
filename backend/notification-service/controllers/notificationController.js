@@ -1,12 +1,12 @@
 // backend/notification-service/controllers/notificationController.js
-const Notification = require('../models/Notification');
+import Notification from "../models/notificationModel";
 // NOTE: This service does NOT have direct access to the User model, 
 // so user role and ID must come from the request, typically injected by the Gateway/Auth-Service.
 
 // @desc    API to receive notification events from other services (e.g., Document-Service)
 // @route   POST /api/internal/notifications
 // @access  Internal (Should be secured via Gateway/Internal Token)
-exports.createInternalNotification = async (req, res) => {
+export const createInternalNotification = async (req, res) => {
   try {
     const { recipientUser, recipientRoles, message, type, link, targetedUserIds } = req.body;
 
@@ -43,7 +43,7 @@ exports.createInternalNotification = async (req, res) => {
 // @desc    Get notifications for the authenticated user
 // @route   GET /api/notifications
 // @access  Public (Exposed via Gateway, Auth is done upstream)
-exports.getNotifications = async (req, res) => {
+export const getNotifications = async (req, res) => {
   // Assuming the Gateway has validated the token and injected user details into req.user 
   // (e.g., { id: 'user_id_string', role: 'faculty' })
   const userId = req.user.id; 
@@ -86,7 +86,7 @@ exports.getNotifications = async (req, res) => {
 // @desc    Mark a specific notification as read for the authenticated user
 // @route   PATCH /api/notifications/:id/read
 // @access  Public
-exports.markAsRead = async (req, res) => {
+export const markAsRead = async (req, res) => {
   const notificationId = req.params.id;
   const userId = req.user.id; 
 

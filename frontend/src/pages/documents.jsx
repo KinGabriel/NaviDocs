@@ -267,7 +267,7 @@ export default function GlobalTemplates() {
                  <SearchBar
                    value={search}
                    onChange={(e) => setSearch(e.target.value)}
-                   placeholder="Search templates..."
+                   placeholder="Search documents..."
                  />
                </div>
              </div>   
@@ -278,7 +278,7 @@ export default function GlobalTemplates() {
               {loading ? (
                 <div className="col-span-full text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Loading templates...</p>
+                  <p className="mt-2 text-gray-600">Loading documents...</p>
                 </div>
               ) : templates.length === 0 ? (
                 <div className="col-span-full text-center py-8">

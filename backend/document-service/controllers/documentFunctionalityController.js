@@ -1,6 +1,7 @@
 import Document from '../models/documentModel.js';
 import axios from 'axios';
 import { createVersionData,deleteAllVersionPerDocument } from './documentVersionController.js';
+import VersionData from '../models/documentVersionModel.js';
 
 /**
  * @desc Create a new document based on a template's essential content.
@@ -175,7 +176,9 @@ export const listDocuments = async (req, res) => {
     const numericLimit = Math.min(Number(limit) || 200, 1000);
     const numericPage = Math.max(Number(page) || 1, 1);
 
+    // Default sort: newest documents first. Prefer `createdAt` field, fall back to `created_at`.
     const documents = await Document.find(query)
+      .sort({ createdAt: -1, created_at: -1 })
       .limit(numericLimit)
       .skip((numericPage - 1) * numericLimit)
       .lean();
@@ -299,5 +302,48 @@ export const deleteDocumentById = async (req, res) => {
   } catch (err) {
     console.error('deleteDocumentById error', err);
     res.status(500).json({ message: 'Failed to delete document', error: err.message });
+  }
+};
+
+/**
+ * @desc duplicate a document by its ID
+ * @route POST /api/documents/:id/duplicate
+ * @param {*} req
+ */
+export const duplicateDocumentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'id required' });
+
+    const doc = await Document.findById(id);
+    if (!doc) return res.status(404).json({ message: 'document not found' });
+
+    // Determine the new title: prefer a provided newName/title in body, else default
+    const provided = (req.body && (typeof req.body.newName === 'string' ? req.body.newName : req.body.title)) || '';
+    const newTitle = provided && provided.trim() !== '' ? provided.trim() : `Copy of ${doc.title}`;
+
+    // Create a slim copy that only includes from_template and field_values
+    // plus minimal metadata. This avoids duplicating owner/versions/etc.
+    const newDocPayload = {
+      title: newTitle,
+      created_by: req.user?.id || doc.created_by || null,
+      school: doc.school || '',
+      // prefer explicit template_id, otherwise try from_template.id
+      template_id: doc.template_id || (doc.from_template && doc.from_template.id) || null,
+      from_template: doc.from_template || {},
+      field_values: doc.field_values || {},
+      status: 'draft',
+      notes: [],
+      thumbnailUrl: doc.thumbnailUrl || null,
+      status_meta: doc.status_meta || {},
+    };
+
+    const duplicateDoc = new Document(newDocPayload);
+    await duplicateDoc.save();
+
+    return res.json({ success: true, message: 'Document duplicated successfully', document: duplicateDoc });
+  } catch (err) {
+    console.error('duplicateDocumentById error', err);
+    res.status(500).json({ message: 'Failed to duplicate document', error: err.message });
   }
 };
