@@ -375,3 +375,89 @@ export const restoreTemplateVersion = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to restore template version' });
   }
 };
+
+/**
+ * @desc Duplicate a template from a specific version snapshot (copies pages_json, fields, pageSetup, dateFormat)
+ * @route POST /api/templates/:id/duplicate-version
+ * @access Private
+ */
+export const duplicateTemplateFromVersion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = req.body || {};
+    if (!id) return res.status(400).json({ success: false, message: 'template id required' });
+
+    // Normalize incoming version identifiers
+    const verNumber = (body.version_no !== undefined && body.version_no !== null)
+      ? Number(body.version_no)
+      : ((body.versionNo !== undefined && body.versionNo !== null) ? Number(body.versionNo) : null);
+    const providedVersionId = body.versionId ?? body.version_id ?? null;
+    const providedTitle = (typeof body.newName === 'string' && body.newName.trim() !== '') ? body.newName.trim() : (typeof body.title === 'string' && body.title.trim() !== '' ? body.title.trim() : null);
+
+    let version = null;
+    if (verNumber !== null && !Number.isNaN(verNumber)) {
+      version = await TemplateHistory.findOne({ version_no: verNumber, template_id: id }).lean();
+      if (!version) return res.status(404).json({ success: false, message: `version_no ${verNumber} not found for template` });
+    } else if (providedVersionId) {
+      // try numeric then _id
+      const asNum = Number(providedVersionId);
+      if (!Number.isNaN(asNum)) {
+        version = await TemplateHistory.findOne({ version_no: asNum, template_id: id }).lean();
+      }
+      if (!version && /^[0-9a-fA-F]{24}$/.test(String(providedVersionId))) {
+        version = await TemplateHistory.findOne({ _id: providedVersionId, template_id: id }).lean();
+      }
+      if (!version) return res.status(404).json({ success: false, message: 'version not found for provided versionId' });
+    } else {
+      return res.status(400).json({ success: false, message: 'version_no (number) required in body' });
+    }
+
+    const snap = version.snapshot || {};
+    // allowed snapshot keys we care about
+    const pages_json = Array.isArray(snap.pages_json) ? snap.pages_json : [];
+    const fields = Array.isArray(snap.fields) ? snap.fields : [];
+    const pageSetup = snap.pageSetup || {};
+    const dateFormat = snap.dateFormat || {};
+
+    // Fetch original template to preserve other metadata when possible
+    let original = null;
+    try { original = await Template.findById(id).lean(); } catch (e) { original = null; }
+
+    const baseTitle = providedTitle || (original && original.title) || `Copy of Template`;
+
+    const newTemplateData = {
+      title: baseTitle,
+      pages_json: pages_json && pages_json.length ? pages_json : (original && Array.isArray(original.pages_json) ? original.pages_json : [ { type: 'doc', content: [ { type: 'paragraph', content: [ { type: 'text', text: '' } ] } ] } ]),
+      pageSetup: Object.keys(pageSetup).length ? pageSetup : (original && original.pageSetup ? original.pageSetup : {}),
+      dateFormat: Object.keys(dateFormat).length ? dateFormat : (original && original.dateFormat ? original.dateFormat : {}),
+      fields: Array.isArray(fields) && fields.length ? fields : (original && Array.isArray(original.fields) ? original.fields : []),
+      status: 'draft',
+      thumbnailUrl: null
+    };
+
+    // created_by is the requester
+    if (req.user && req.user.id) newTemplateData.created_by = req.user.id;
+    // copy school from requester or original
+    newTemplateData.school = req.user?.school || (original && original.school) || req.user?.role?.school || '';
+
+    // do not copy identifying fields
+    delete newTemplateData.document_code;
+    delete newTemplateData.revision_no;
+
+    const newTemplate = new Template(newTemplateData);
+    await newTemplate.save();
+
+    // create initial version for the new template using the snapshot we duplicated from
+    try {
+      const snapshotForVersion = { pages_json: newTemplate.pages_json, fields: newTemplate.fields, pageSetup: newTemplate.pageSetup, dateFormat: newTemplate.dateFormat };
+      await createTemplateVersion({ templateId: newTemplate._id, snapshot: snapshotForVersion, userId: req.user?.id, note: 'Duplicated from version' });
+    } catch (e) {
+      console.warn('createTemplateVersion for duplicated template failed', e);
+    }
+
+    return res.status(201).json({ success: true, message: 'Template duplicated from version successfully', template: newTemplate });
+  } catch (error) {
+    console.error('Error duplicating template from version:', error);
+    return res.status(500).json({ success: false, message: 'Failed to duplicate template from version', error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
+  }
+};

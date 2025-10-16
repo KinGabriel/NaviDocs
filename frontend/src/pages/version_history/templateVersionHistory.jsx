@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy, RotateCcw, X} from 'lucide-react';
-import { listTemplateVersionsAPI, getTemplateVersionAPI, restoreTemplateVersionAPI, updateTemplateVersionBookmarkAPI, duplicateTemplateAPI } from '../../api/documentContollerAPI';
+import { listTemplateVersionsAPI, getTemplateVersionAPI, restoreTemplateVersionAPI, updateTemplateVersionBookmarkAPI, duplicateTemplateAPI, duplicateTemplateFromVersionAPI } from '../../api/documentContollerAPI';
 import TextEditor from '../../layout/create_template/textEditor';
 import BookmarkModal from './bookmarkModal';
 import DuplicateModal from '../../components/modals/duplicateModal';
@@ -735,7 +735,15 @@ export default function TemplateVersionHistory({
             setDuplicating(true);
             try {
               const title = itemWithTitle.title;
-              const resp = await duplicateTemplateAPI(id, title);
+              // If duplicating a specific version, itemWithTitle should include an id (version id)
+              let resp = null;
+              if (itemWithTitle && itemWithTitle.id) {
+                // Use the duplicate-from-version endpoint
+                resp = await duplicateTemplateFromVersionAPI(id, itemWithTitle.id, title);
+              } else {
+                // Fallback: duplicate the template (entire template)
+                resp = await duplicateTemplateAPI(id, title);
+              }
               if (resp?.success) {
                 setDuplicateOpen(false);
                 setDuplicateItem(null);

@@ -188,6 +188,22 @@ export const duplicateTemplateAPI = async (templateId, title) => {
   );
   return res.data;
 };
+
+/**
+ * Duplicate a template from a specific version snapshot
+ * @param {string} templateId
+ * @param {number|string} versionNoOrId - either numeric version_no or versionId
+ * @param {string} [newTitle]
+ * @returns {Promise<{success:boolean,message:string,template:Object}>}
+ */
+export const duplicateTemplateFromVersionAPI = async (templateId, versionNoOrId, newTitle) => {
+  const payload = {};
+  if (typeof versionNoOrId === 'number' || !Number.isNaN(Number(versionNoOrId))) payload.version_no = Number(versionNoOrId);
+  else payload.versionId = versionNoOrId;
+  if (newTitle && typeof newTitle === 'string') payload.newName = newTitle;
+  const res = await axios.post(`${API_URL}/api/templates/${templateId}/duplicate-version`, payload, { withCredentials: true });
+  return res.data;
+};
 /**
  * Approve a template for a specific role (dean or secretary).
  * Backend records approved_by & approved_at inside status_meta.approvals.<role>.
