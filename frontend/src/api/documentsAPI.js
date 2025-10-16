@@ -271,3 +271,18 @@ export const restoreDocumentVersionAPI = async (documentId, versionId) => {
 		throw new Error(error.response?.data?.message || 'Failed to restore document version');
 	}
 };
+
+/**
+ * Duplicate a document by id, optionally providing a new name in the body.
+ * @param {string} documentId
+ * @param {string} newTitle
+ */
+export const duplicateDocumentAPI = async (documentId, newTitle) => {
+	try {
+		const body = { newName: newTitle };
+		const res = await axios.post(`${API_URL}/api/documents/${documentId}/duplicate`, body, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to duplicate document');
+	}
+};
