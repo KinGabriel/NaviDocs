@@ -192,50 +192,96 @@ export default function TextEditor({
 
   // 🧩 Inject SLU & CICM logos safely (no crash)
   useEffect(() => {
-    if (!editor) return;
+  if (!editor) return;
 
-    let rafId;
-    const applyLogos = () => {
-      const pages = document.querySelectorAll(".rm-page-break");
-      if (!pages.length) return;
+  const renderHeaders = () => {
+    const pages = document.querySelectorAll(".rm-page-break");
+    if (!pages.length) return;
+    const totalPages = pages.length;
 
-      pages.forEach((page) => {
-        const headerLeft = page.querySelector(".rm-page-header-left");
-        const headerRight = page.querySelector(".rm-page-header-right");
+    pages.forEach((page, i) => {
+      // Ensure page positioning
+      page.style.position = "relative";
 
-        if (headerLeft) headerLeft.innerHTML = "";
-        if (headerRight) headerRight.innerHTML = "";
+      // Remove any previous injected custom header
+      let header = page.querySelector(".slu-page-header");
+      if (header) header.remove();
 
-        if (logoConfig.showSLULogo && headerLeft)
-          headerLeft.innerHTML = `<img src="${logoConfig.assets?.slu}" alt="SLU" style="height:48px;object-fit:contain" />`;
+      // Create new overlay header container
+      header = document.createElement("div");
+      header.className = "slu-page-header";
+      header.style.position = "absolute";
+      header.style.top = "0";
+      header.style.left = "0";
+      header.style.right = "0";
+      header.style.width = "100%";
+      header.style.height = "96px";
+      header.style.display = "flex";
+      header.style.alignItems = "center";
+      header.style.justifyContent = "space-between";
+      header.style.padding = "0 24px";
+      header.style.background = "white";
+      header.style.zIndex = "999";
+      header.style.gap = "16px";
+      header.style.boxSizing = "border-box";
+      header.style.borderBottom = "1px solid transparent"; // visual separation safety
 
-        if (logoConfig.showCICMLogo && headerRight)
-          headerRight.innerHTML = `<img src="${logoConfig.assets?.cicm}" alt="CICM" style="height:48px;object-fit:contain" />`;
-      });
+      // LEFT: SLU Logo
+      const left = document.createElement("div");
+      if (logoConfig.showSLULogo)
+        left.innerHTML = `<img src="${logoConfig.assets?.slu}" alt="SLU" style="height:60px;object-fit:contain;" />`;
 
-      // handle first page special header
-      const firstLeft = document.querySelector(".rm-first-page-header-left");
-      const firstRight = document.querySelector(".rm-first-page-header-right");
-      if (firstLeft && logoConfig.showSLULogo)
-        firstLeft.innerHTML = `<img src="${logoConfig.assets?.slu}" alt="SLU" style="height:48px;object-fit:contain" />`;
-      if (firstRight && logoConfig.showCICMLogo)
-        firstRight.innerHTML = `<img src="${logoConfig.assets?.cicm}" alt="CICM" style="height:48px;object-fit:contain" />`;
-    };
+      // CENTER: Vertical text block
+      const c = logoConfig.center || {};
+      const center = document.createElement("div");
+      center.style.display = "flex";
+      center.style.flexDirection = "column";
+      center.style.alignItems = "center";
+      center.style.textAlign = "center";
+      center.style.lineHeight = "1.2";
+      center.style.fontFamily = "Arial, sans-serif";
+      center.innerHTML = `
+        <div style="font-weight:bold;font-size:13px;">${c.line1 || "Saint Louis University"}</div>
+        ${c.line2 ? `<div style="font-weight:bold;font-size:14px;text-decoration:underline;">${c.line2}</div>` : ""}
+        ${c.line3 ? `<div style="font-size:12px;">${c.line3}</div>` : ""}
+        ${c.showLine4 && c.line4 ? `<div style="font-weight:bold;font-size:13px;">${c.line4}</div>` : ""}
+      `;
 
-    const schedule = () => {
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => applyLogos());
-    };
+      // RIGHT: CICM Logo + Document Table side-by-side
+      const d = logoConfig.documentStamp || {};
+      const right = document.createElement("div");
+      right.style.display = "flex";
+      right.style.alignItems = "center";
+      right.style.justifyContent = "flex-end";
+      right.style.gap = "12px";
 
-    // Run initially and periodically to catch re-pagination
-    schedule();
-    const interval = setInterval(() => schedule(), 1200);
+      const cicmLogo = logoConfig.showCICMLogo
+        ? `<img src="${logoConfig.assets?.cicm}" alt="CICM" style="height:52px;object-fit:contain;" />`
+        : "";
 
-    return () => {
-      cancelAnimationFrame(rafId);
-      clearInterval(interval);
-    };
-  }, [editor, logoConfig]);
+      const table = `
+        <table style="border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;">
+          <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${d.docCode || ""}</td></tr>
+          <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${d.revisionNo || ""}</td></tr>
+          <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${d.effectivity || ""}</td></tr>
+          <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${i + 1} of ${totalPages}</td></tr>
+        </table>
+      `;
+
+      right.innerHTML = `${cicmLogo}${table}`;
+
+      // Assemble
+      header.appendChild(left);
+      header.appendChild(center);
+      header.appendChild(right);
+      page.appendChild(header);
+    });
+  };
+
+  renderHeaders();
+  const interval = setInterval(renderHeaders, 1200);
+  return () => clearInterval(interval);
+}, [editor, logoConfig]);
 
   return (
     <div className={`w-full flex ${className}`}>
