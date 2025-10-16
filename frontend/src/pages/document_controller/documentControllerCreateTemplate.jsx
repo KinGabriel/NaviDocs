@@ -1,10 +1,9 @@
 // src/pages/documentControllerCreateTemplate.jsx
-import { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   updateTemplateAPI,
-  fetchApproversAPI,
   approveTemplateAPI,
   publishTemplateAPI,
   createTemplateAPI,
@@ -20,9 +19,9 @@ import FontPanel from "../../layout/create_template/fontPanel";
 import PageSetupPanel from "../../layout/create_template/pageSetupPanel";
 import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
-import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
 import DateFormatPanel from "../../layout/create_template/dateformatPanel";
 import FieldsPanel from "../../layout/create_template/fieldsPanel";
+import HeaderFooterPanel from "../../layout/create_template/headerFooterPanel"; // ✅ added
 
 // Sidebar
 import TemplateSidebar from "../../layout/sidebars/templateSidebar";
@@ -33,49 +32,11 @@ import TextEditor from "../../layout/create_template/textEditor";
 // --- Helpers -----------------------------------------------------------------
 const DEFAULT_CONTENT = null;
 
-// Page setup now includes header/footer band heights (INCHES)
+// Page setup (no header/footer band heights)
 const DEFAULT_PAGE_SETUP = {
   paperSize: "A4",
   orientation: "Portrait",
   margins: { top: 1, bottom: 1, left: 1, right: 1 },
-  headerHeight: 1.0, // in
-  footerHeight: 0.6, // in
-};
-
-// Match the panel/Page defaults so everything stays in sync
-const DEFAULT_HEADER_FOOTER = {
-  header: {
-    fields: {
-      sluLogo: true,
-      university: true,
-      schoolName: true,
-      title: true,
-      documentStamp: true,
-    },
-    config: {
-      university: { fontSize: 18, fontWeight: "bold", align: "center", color: "#000" },
-      schoolName: { fontSize: 14, italic: true, align: "center", color: "#000" },
-      title: {
-        text: "Document Title",
-        uppercase: false,
-        fontSize: 16,
-        fontWeight: "bold",
-        align: "center",
-        color: "#000",
-      },
-      documentStamp: {
-        firstColumnFixed: ["Document Code", "Revision No.", "Effectivity", "Page"],
-        secondColumnEditable: ["", "", "", ""],
-        align: "right",
-      },
-    },
-    margins: { top: 12, bottom: 12 },
-  },
-  footer: {
-    fields: { pageNumber: true, date: true },
-    align: "center",
-    margins: { top: 12, bottom: 12 },
-  },
 };
 
 function useHeaderHeight() {
@@ -94,42 +55,6 @@ function useHeaderHeight() {
     return () => window.removeEventListener("resize", read);
   }, []);
   return h;
-}
-
-// --- Small helpers to map config -> Pagination Plus text (LEFT/RIGHT) --------
-function buildHeaderParts(h) {
-  if (!h) return ["", ""];
-  const leftChunks = [];
-  if (h.fields?.university) leftChunks.push("Saint Louis University");
-  if (h.fields?.schoolName) leftChunks.push("School Name");
-
-  if (h.fields?.title) {
-    const t = h.config?.title?.text || "Document Title";
-    leftChunks.push(h.config?.title?.uppercase ? String(t).toUpperCase() : t);
-  }
-
-  let right = "";
-  if (h.fields?.documentStamp) {
-    const labels = h.config?.documentStamp?.firstColumnFixed || [];
-    const values = h.config?.documentStamp?.secondColumnEditable || [];
-    const pairs = labels.slice(0, 4).map((lab, i) => `${lab}: ${values[i] ?? ""}`.trim());
-    right = pairs.filter(Boolean).join(" | ");
-  }
-
-  const left = leftChunks.filter(Boolean).join(" · ");
-  return [left, right];
-}
-
-function buildFooterParts(f) {
-  if (!f) return ["", ""];
-  const page = f.fields?.pageNumber ? "{page}" : "";
-  const date = f.fields?.date ? new Date().toLocaleDateString() : "";
-  const joined = [page, date].filter(Boolean).join(" · ");
-  const align = f.align || "center";
-  if (align === "left") return [joined, ""];
-  if (align === "right") return ["", joined];
-  if (align === "justify") return [page, date];
-  return ["", joined]; // center
 }
 
 // --- Component ---------------------------------------------------------------
@@ -156,9 +81,11 @@ export default function DocumentControllerCreateTemplate() {
   // Layout/config state
   const [pageSetup, setPageSetup] = useState(DEFAULT_PAGE_SETUP);
   const [fontSettings, setFontSettings] = useState({});
-  const [headerFooter, setHeaderFooter] = useState(DEFAULT_HEADER_FOOTER);
   const [dateFormat, setDateFormat] = useState({ style: "numeric" });
   const [editableFields, setEditableFields] = useState([]);
+
+  // HeaderFooter panel state (logos)
+  const [logoConfig, setLogoConfig] = useState({});
 
   // Track last saved state for autosave/dirty
   const [lastSavedContent, setLastSavedContent] = useState(null);
@@ -171,6 +98,9 @@ export default function DocumentControllerCreateTemplate() {
   // Parse templateId from query string
   const params = new URLSearchParams(location.search);
   const templateIdFromQuery = params.get("templateId");
+
+  const [loading, setLoading] = useState(false);
+  const [notes, setNotes] = useState([]);
 
   // template loading using shared loader
   const loadTemplate = async (id) => {
@@ -187,7 +117,7 @@ export default function DocumentControllerCreateTemplate() {
       setApprovers(normalized.approvers);
       setTemplateContent(normalized.templateContent || DEFAULT_CONTENT);
 
-      // Page setup (ensure header/footer heights exist)
+      // Page setup
       if (normalized.pageSetup) {
         setPageSetup({
           paperSize: normalized.pageSetup.paperSize || DEFAULT_PAGE_SETUP.paperSize,
@@ -198,25 +128,15 @@ export default function DocumentControllerCreateTemplate() {
             left: normalized.pageSetup.margins?.left ?? DEFAULT_PAGE_SETUP.margins.left,
             right: normalized.pageSetup.margins?.right ?? DEFAULT_PAGE_SETUP.margins.right,
           },
-          headerHeight: normalized.pageSetup.headerHeight ?? DEFAULT_PAGE_SETUP.headerHeight,
-          footerHeight: normalized.pageSetup.footerHeight ?? DEFAULT_PAGE_SETUP.footerHeight,
         });
       }
 
       if (normalized.fontSettings) setFontSettings(normalized.fontSettings);
-
-      // Header/footer config (deep-merge with defaults)
-      if (normalized.headerFooter && (normalized.headerFooter.header || normalized.headerFooter.footer)) {
-        setHeaderFooter({
-          header: { ...DEFAULT_HEADER_FOOTER.header, ...(normalized.headerFooter.header || {}) },
-          footer: { ...DEFAULT_HEADER_FOOTER.footer, ...(normalized.headerFooter.footer || {}) },
-        });
-      } else {
-        setHeaderFooter(DEFAULT_HEADER_FOOTER);
-      }
-
       if (normalized.dateFormat) setDateFormat(normalized.dateFormat);
       if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
+
+      // If you later persist logoConfig, hydrate it here:
+      // setLogoConfig(normalized.logoConfig || null);
     } catch (e) {
       console.error(e);
       toast.error("Failed to load template.");
@@ -232,9 +152,6 @@ export default function DocumentControllerCreateTemplate() {
     setTemplateId(id);
     loadTemplate(id);
   }, [templateIdFromQuery]);
-
-  const [loading, setLoading] = useState(false);
-  const [notes, setNotes] = useState([]);
 
   const handleEditorReady = (editor) => {
     editorRef.current = editor;
@@ -255,15 +172,11 @@ export default function DocumentControllerCreateTemplate() {
     };
   };
 
-  // Remove any leftover direct header/footer editor mutations.
-  // TextEditor will apply geometry + header/footer strings from props.
-
   // Save handler matching backend expectations
   const handleSave = async () => {
     try {
       setSaving(true);
       const editor = editorRef.current;
-      // Always get JSON from editor
       const rawPagesJson = editor ? editor.getJSON() : htmlToBasicJSON(templateContent);
       const pages_json = Array.isArray(rawPagesJson) ? rawPagesJson : [rawPagesJson];
 
@@ -272,8 +185,8 @@ export default function DocumentControllerCreateTemplate() {
         pages_json,
         pageSetup,
         dateFormat,
-        headerFooter, // persist header/footer config
         fields: editableFields,
+        // logoConfig, // ← uncomment if you want to persist the logo choices
       };
 
       let res;
@@ -305,11 +218,9 @@ export default function DocumentControllerCreateTemplate() {
   useEffect(() => {
     if (!templateId && !templateTitle && !templateContent) return;
 
-    // Simple change detection including header/footer + key layout bits
     const isDirty =
       templateContent !== lastSavedContent ||
       templateTitle !== lastSavedTitle ||
-      JSON.stringify(headerFooter) !== JSON.stringify(DEFAULT_HEADER_FOOTER) || // drift from defaults
       JSON.stringify(pageSetup) !== JSON.stringify(DEFAULT_PAGE_SETUP) ||
       JSON.stringify(dateFormat) !== JSON.stringify({ style: "numeric" });
 
@@ -318,9 +229,9 @@ export default function DocumentControllerCreateTemplate() {
 
     const timeout = setTimeout(() => {
       handleSave();
-    }, 2000); // 2s debounce
+    }, 2000);
     return () => clearTimeout(timeout);
-  }, [templateContent, templateTitle, headerFooter, pageSetup, dateFormat]);
+  }, [templateContent, templateTitle, pageSetup, dateFormat]);
 
   // Save on unmount/navigation if dirty
   useEffect(() => {
@@ -362,7 +273,7 @@ export default function DocumentControllerCreateTemplate() {
   };
 
   // handle submission from modal
-  const handleSubmitForApproval = async (approverIds, instructions) => {
+  const handleSubmitForApproval = async (approverIds) => {
     if (!templateId) {
       toast.error("Please save the template before submitting for approval.");
       return;
@@ -384,7 +295,7 @@ export default function DocumentControllerCreateTemplate() {
         return;
       }
 
-      const response = await submitTemplateAPI(templateId, deanId, secretaryId);
+      await submitTemplateAPI(templateId, deanId, secretaryId);
       setStatus("pending");
       toast.success("Template successfully submitted for approval!");
       await loadTemplate(templateId);
@@ -414,15 +325,7 @@ export default function DocumentControllerCreateTemplate() {
     if (templateId) loadTemplate(templateId);
   };
 
-  // Derive header/footer LEFT/RIGHT strings for TextEditor props
-  const [headerLeft, headerRight] = useMemo(
-    () => buildHeaderParts(headerFooter.header),
-    [headerFooter.header]
-  );
-  const [footerLeft, footerRight] = useMemo(
-    () => buildFooterParts(headerFooter.footer),
-    [headerFooter.footer]
-  );
+  const [selectedPanel, setSelectedPanel] = useState("font");
 
   const renderPanel = () => {
     switch (selectedPanel) {
@@ -447,20 +350,17 @@ export default function DocumentControllerCreateTemplate() {
                 paperSize: newSetup.paperSize,
                 orientation: newSetup.orientation,
                 margins: { ...newSetup.margins },
-                headerHeight: newSetup.headerHeight, // keep inches
-                footerHeight: newSetup.footerHeight, // keep inches
               })
             }
           />
         );
       case "dateformat":
         return <DateFormatPanel value={dateFormat} onChange={setDateFormat} />;
-      case "headerfooter":
+      case "headerfooter": // ✅ new panel hook-up
         return (
           <HeaderFooterPanel
-            editor={editorInstance}
-            value={headerFooter}
-            onChange={setHeaderFooter}
+            value={logoConfig}
+            onChange={setLogoConfig}
           />
         );
       case "fields":
@@ -475,8 +375,6 @@ export default function DocumentControllerCreateTemplate() {
         return null;
     }
   };
-
-  const [selectedPanel, setSelectedPanel] = useState("font");
 
   return (
     <div>
@@ -531,9 +429,7 @@ export default function DocumentControllerCreateTemplate() {
                   pageSetup={pageSetup}
                   onEditorReady={handleEditorReady}
                   onContentChange={setTemplateContent}
-                  // NEW: provide header/footer strings directly to the editor
-                  header={{ left: headerLeft, right: headerRight }}
-                  footer={{ left: footerLeft, right: footerRight }}
+                  logoConfig={logoConfig} 
                 />
               </main>
             </div>

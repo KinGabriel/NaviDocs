@@ -17,14 +17,13 @@ import { PaginationPlus } from "tiptap-pagination-plus";
 import RichImage from "../../extensions/image/ImageNode";
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 
+// ---- utils
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
 
 const DEFAULT_SETUP = {
   paperSize: "A4",
   orientation: "Portrait",
   margins: { top: 1, bottom: 1, left: 1, right: 1 }, // inches
-  headerHeight: 1.0, // inches
-  footerHeight: 0.6, // inches
 };
 
 // Preset sizes in inches
@@ -49,31 +48,11 @@ function computeDims(pageSetup) {
     marginBottomPx: inchToPx(m.bottom),
     marginLeftPx: inchToPx(m.left),
     marginRightPx: inchToPx(m.right),
-    headerHeightPx: inchToPx(p.headerHeight ?? DEFAULT_SETUP.headerHeight),
-    footerHeightPx: inchToPx(p.footerHeight ?? DEFAULT_SETUP.footerHeight),
   };
 }
 
-const DEFAULT_DOC = {
-  type: "doc",
-  content: [{ type: "paragraph" }],
-};
-
-function normalizeInitialContent(content) {
-  if (!content) return DEFAULT_DOC;
-  if (typeof content === "object") return content;
-  if (typeof content === "string") return content;
-  return DEFAULT_DOC;
-}
-
-// ---- helper to apply header/footer strings safely ----
-function applyHeaderFooter(editor, header, footer) {
-  const hl = header?.left ?? "";
-  const hr = header?.right ?? "";
-  const fl = footer?.left ?? "";
-  const fr = footer?.right ?? "";
-  editor?.chain().updateHeaderContent(hl, hr).updateFooterContent(fl, fr).run();
-}
+const DEFAULT_DOC = { type: "doc", content: [{ type: "paragraph" }] };
+const normalizeInitialContent = (content) => (content ? content : DEFAULT_DOC);
 
 export default function TextEditor({
   content,
@@ -83,10 +62,6 @@ export default function TextEditor({
   className = "",
   mode = "template",
   readOnly = false,
-
-  // NEW (optional) props — pass from parent or use defaults below
-  header = { left: "", right: "Page {page}" },
-  footer = { left: "", right: "" },
 }) {
   const dimsRef = useRef(computeDims(pageSetup));
   const [showImageOptions, setShowImageOptions] = useState(false);
@@ -110,19 +85,13 @@ export default function TextEditor({
         history: true,
       }),
 
-      // Pagination Plus (visual options only; geometry set via commands)
-      (() => {
-        return PaginationPlus.configure({
-          pageGap: 24,
-          pageGapBorderSize: 1,
-          pageBreakBackground: "#ecececff",
-          // Do NOT set page width/height or header/footer content here; we push them via commands
-          headerLeft: "",
-          headerRight: "",
-          footerLeft: "",
-          footerRight: "",
-        });
-      })(),
+      // Pagination Plus (pagination + page geometry only)
+      PaginationPlus.configure({
+        pageGap: 24,
+        pageGapBorderSize: 1,
+        pageBreakBackground: "#ececec",
+        // removed header/footer options
+      }),
 
       TextStyle,
       Color,
@@ -157,9 +126,6 @@ export default function TextEditor({
         editor.setEditable(!readOnly);
       } catch {}
 
-      // Ensure header/footer content appears on first mount
-      applyHeaderFooter(editor, header, footer);
-
       onEditorReady?.(editor);
     },
     onUpdate: ({ editor }) => onContentChange?.(editor.getHTML()),
@@ -179,7 +145,7 @@ export default function TextEditor({
     setPolicyRef.current(mode === "document" ? "document" : "template");
   }, [mode]);
 
-  // ✅ Update page geometry (size, margins, band heights) via commands
+  // ✅ Update page geometry (size + margins only; header/footer removed)
   useEffect(() => {
     if (!editor) return;
     const d = computeDims(pageSetup);
@@ -195,48 +161,31 @@ export default function TextEditor({
         bottom: d.marginBottomPx,
         left: d.marginLeftPx,
       })
-      .updateHeaderHeight(d.headerHeightPx)
-      .updateFooterHeight(d.footerHeightPx)
       .run();
-
-    // Re-apply header/footer content after geometry changes (helps on new pages)
-    applyHeaderFooter(editor, header, footer);
   }, [editor, pageSetup]);
-
-  // Apply header/footer whenever those props change
-  useEffect(() => {
-    if (!editor) return;
-    applyHeaderFooter(editor, header, footer);
-  }, [editor, header, footer]);
 
   // update content safely when prop changes
   useEffect(() => {
     if (!editor) return;
-    if (typeof content === "string") {
-      const html = normalizeInitialContent(content);
-      if (html !== editor.getHTML()) {
-        try {
-          setPolicyRef.current?.("off");
-        } catch {}
-        try {
-          editor.commands.setContent(html, false);
-        } finally {
-          try {
-            setPolicyRef.current?.(mode === "document" ? "document" : "template");
-          } catch {}
-        }
-      }
-    } else if (content && typeof content === "object") {
+
+    const setWithPolicy = (val) => {
       try {
         setPolicyRef.current?.("off");
       } catch {}
       try {
-        editor.commands.setContent(content, false);
+        editor.commands.setContent(val, false);
       } finally {
         try {
           setPolicyRef.current?.(mode === "document" ? "document" : "template");
         } catch {}
       }
+    };
+
+    if (typeof content === "string" || !content?.type) {
+      const html = normalizeInitialContent(content);
+      if (html !== editor.getHTML()) setWithPolicy(html);
+    } else if (content && typeof content === "object") {
+      setWithPolicy(content);
     }
   }, [editor, content, mode]);
 
