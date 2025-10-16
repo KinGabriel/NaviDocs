@@ -161,9 +161,9 @@ export const Page = Node.create({
         }),
       },
 
-      // Dimensions (useful for CSS var setup if needed)
+      // Dimensions (can remain as metadata; no inline CSS override!)
       widthPx: { default: 816 },   // ~8.5in @96dpi
-      heightPx: { default: 1056 }, // ~11in @96dpi (tweak for A4 if you want)
+      heightPx: { default: 1056 }, // ~11in @96dpi (A4 is close)
     };
   },
 
@@ -197,9 +197,6 @@ export const Page = Node.create({
       !!(hFields && (hFields.sluLogo || hFields.university || hFields.schoolName || hFields.title || hFields.documentStamp));
     const hasFooter =
       !!(fFields && (fFields.pageNumber || fFields.date));
-
-    const pageW = Number(node.attrs.widthPx || 816);
-    const pageH = Number(node.attrs.heightPx || 1056);
 
     // ---------- HEADER (flex row: left / center / right) ----------
     const leftCol = hFields.sluLogo
@@ -337,16 +334,13 @@ export const Page = Node.create({
       : ["div", { class: "nd-page__footer", style: "display:none" }];
 
     // ---------- RETURN ----------
-    // Body wrapper is the ONLY place that holds block content (slot 0).
-    // AutoPaginator must measure .nd-page__body (no inner scrolling).
-    const styleVars = `--paper-width:${pageW}px;--paper-height:${pageH}px;`;
-
+    // IMPORTANT: Do NOT override --paper-width/height here.
+    // The PageSetup panel (via textEditor.jsx) sets root CSS vars that CSS reads.
     return [
       "section",
       mergeAttributes(HTMLAttributes, {
         "data-type": "nd-page",
         class: "nd-page",
-        style: styleVars,
       }),
       headerNode,
       [
@@ -354,7 +348,7 @@ export const Page = Node.create({
         {
           class: "nd-page__body pm-page-content",
           "data-page-content": "true",
-          style: "overflow:visible;box-sizing:border-box;", // no inner scrollbar
+          style: "overflow:visible;box-sizing:border-box;",
         },
         0,
       ],
