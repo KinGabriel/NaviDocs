@@ -23,10 +23,9 @@ const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
 const DEFAULT_SETUP = {
   paperSize: "A4",
   orientation: "Portrait",
-  margins: { top: 1, bottom: 1, left: 1, right: 1 }, // inches
+  margins: { top: 1, bottom: 1, left: 1, right: 1 },
 };
 
-// Preset sizes in inches
 const PRESETS = {
   A4: { w: 8.27, h: 11.69 },
   Letter: { w: 8.5, h: 11 },
@@ -62,6 +61,7 @@ export default function TextEditor({
   className = "",
   mode = "template",
   readOnly = false,
+  logoConfig = {},
 }) {
   const dimsRef = useRef(computeDims(pageSetup));
   const [showImageOptions, setShowImageOptions] = useState(false);
@@ -85,12 +85,11 @@ export default function TextEditor({
         history: true,
       }),
 
-      // Pagination Plus (pagination + page geometry only)
       PaginationPlus.configure({
         pageGap: 24,
         pageGapBorderSize: 1,
         pageBreakBackground: "#ececec",
-        // removed header/footer options
+        pageHeaderHeight: 96,
       }),
 
       TextStyle,
@@ -145,7 +144,7 @@ export default function TextEditor({
     setPolicyRef.current(mode === "document" ? "document" : "template");
   }, [mode]);
 
-  // ✅ Update page geometry (size + margins only; header/footer removed)
+  // ✅ Update page geometry (size + margins only)
   useEffect(() => {
     if (!editor) return;
     const d = computeDims(pageSetup);
@@ -190,6 +189,53 @@ export default function TextEditor({
   }, [editor, content, mode]);
 
   useEffect(() => () => editor?.destroy(), [editor]);
+
+  // 🧩 Inject SLU & CICM logos safely (no crash)
+  useEffect(() => {
+    if (!editor) return;
+
+    let rafId;
+    const applyLogos = () => {
+      const pages = document.querySelectorAll(".rm-page-break");
+      if (!pages.length) return;
+
+      pages.forEach((page) => {
+        const headerLeft = page.querySelector(".rm-page-header-left");
+        const headerRight = page.querySelector(".rm-page-header-right");
+
+        if (headerLeft) headerLeft.innerHTML = "";
+        if (headerRight) headerRight.innerHTML = "";
+
+        if (logoConfig.showSLULogo && headerLeft)
+          headerLeft.innerHTML = `<img src="${logoConfig.assets?.slu}" alt="SLU" style="height:48px;object-fit:contain" />`;
+
+        if (logoConfig.showCICMLogo && headerRight)
+          headerRight.innerHTML = `<img src="${logoConfig.assets?.cicm}" alt="CICM" style="height:48px;object-fit:contain" />`;
+      });
+
+      // handle first page special header
+      const firstLeft = document.querySelector(".rm-first-page-header-left");
+      const firstRight = document.querySelector(".rm-first-page-header-right");
+      if (firstLeft && logoConfig.showSLULogo)
+        firstLeft.innerHTML = `<img src="${logoConfig.assets?.slu}" alt="SLU" style="height:48px;object-fit:contain" />`;
+      if (firstRight && logoConfig.showCICMLogo)
+        firstRight.innerHTML = `<img src="${logoConfig.assets?.cicm}" alt="CICM" style="height:48px;object-fit:contain" />`;
+    };
+
+    const schedule = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => applyLogos());
+    };
+
+    // Run initially and periodically to catch re-pagination
+    schedule();
+    const interval = setInterval(() => schedule(), 1200);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearInterval(interval);
+    };
+  }, [editor, logoConfig]);
 
   return (
     <div className={`w-full flex ${className}`}>
