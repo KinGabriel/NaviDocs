@@ -4,8 +4,9 @@ import {
   createDocument,
   getDocumentById,
   listDocuments,  
-  updateDocumentFieldValues
-
+  updateDocumentFieldValues,
+  deleteDocumentById,
+  renameDocument,
 } from '../controllers/documentFunctionalityController.js';
 import {
   getVersionData,
@@ -34,6 +35,8 @@ router.post('/create-document', authenticateJWT, createDocument);
 router.get('/', authenticateJWT, listDocuments);
 router.get('/:id', authenticateJWT, getDocumentById);
 router.patch('/:id/field-values', authenticateJWT, updateDocumentFieldValues);
+router.delete('/:id', authenticateJWT, deleteDocumentById);
+router.patch('/:id/rename', authenticateJWT, renameDocument);
 
 router.get('/version-data/:versionId', authenticateJWT, getVersionData);
 router.patch('/version-data/:versionId/bookmark', authenticateJWT, patchVersionBookmark);

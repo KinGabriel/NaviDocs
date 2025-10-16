@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react"; // <-- add useState, useEffect
-import axios from "axios";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../layout/headers/header";
 import Sidebar from "../layout/sidebars/sidebar";
@@ -10,8 +9,7 @@ import DocumentCard from "../components/cards/documentCard";
 import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";
-import RenameModal from "../components/modals/renameModal";
-import DeleteModal from "../components/modals/deleteModal";
+// Rename/Delete UI is handled by DocumentCard; parent only updates state callbacks
 import ManageSuggestionsModal from "../components/modals/manageSuggestionsModal";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -30,14 +28,7 @@ export default function GlobalTemplates() {
 
   const navigate = useNavigate();
 
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [renameSubmitting, setRenameSubmitting] = useState(false);
-  const [renameError, setRenameError] = useState("");
-  const [activeDoc, setActiveDoc] = useState(null);
-
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
+  // Card components manage their own rename/delete UI; parent only needs to update local list
 
   const [selectOpen, setSelectOpen] = useState(false);
   const [publishedLoading, setPublishedLoading] = useState(false);
@@ -112,54 +103,18 @@ export default function GlobalTemplates() {
     fetchTemplates();
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
-  const openRename = (doc) => {
-    setActiveDoc(doc);
-    setRenameError("");
-    setRenameOpen(true);
+
+  const handleCardRename = (updated) => {
+    if (!updated) return;
+    const id = updated._id || updated.id;
+    if (!id) return;
+    setTemplates((prev) => prev.map((t) => ((t._id || t.id) === id ? { ...t, ...(updated || {}) } : t)));
   };
 
-  const handleRenameSubmit = async (newTitle) => {
-    if (!activeDoc?._id) return;
-    setRenameSubmitting(true);
-    setRenameError("");
-    try {
-      await renameDocumentAPI(activeDoc._id, newTitle);
-      // optimistic local update
-      setTemplates((prev) =>
-        prev.map((t) =>
-          (t._id || t.id) === activeDoc._id ? { ...t, title: newTitle } : t
-        )
-      );
-      setRenameOpen(false);
-      setActiveDoc(null);
-    } catch (e) {
-      setRenameError(e?.response?.data?.message || "Failed to rename document.");
-    } finally {
-      setRenameSubmitting(false);
-    }
-  };
-
-  const openDelete = (doc) => {
-    setActiveDoc(doc);
-    setDeleteError("");
-    setDeleteOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!activeDoc?._id) return;
-    setDeleteSubmitting(true);
-    setDeleteError("");
-    try {
-      await deleteDocumentAPI(activeDoc._id);
-      // remove from grid
-+      setTemplates((prev) => prev.filter((t) => (t._id || t.id) !== activeDoc._id));
-      setDeleteOpen(false);
-      setActiveDoc(null);
-    } catch (e) {
-      setDeleteError(e?.response?.data?.message || "Failed to delete document.");
-    } finally {
-      setDeleteSubmitting(false);
-    }
+  const handleCardDelete = (deleted) => {
+    const id = deleted?._id || deleted?.id;
+    if (!id) return;
+    setTemplates((prev) => prev.filter((t) => (t._id || t.id) !== id));
   };
 
   // Aggregate fields across all known templates (both listed and published cache).
@@ -355,8 +310,8 @@ export default function GlobalTemplates() {
                           setLoading(false);
                         }
                       }}
-                      onRename={() => openRename(template)}
-                      onDelete={() => openDelete(template)}
+                      onRename={(updated) => handleCardRename(updated)}
+                      onDelete={(deleted) => handleCardDelete(deleted)}
                     />
                   );
                 })
@@ -403,25 +358,7 @@ export default function GlobalTemplates() {
         </div>
       </div>
 
-      {/* Rename modal */}
-      <RenameModal
-        open={renameOpen}
-        onClose={() => { setRenameOpen(false); setActiveDoc(null); }}
-        currentTitle={activeDoc?.title}
-        submitting={renameSubmitting}
-        error={renameError}
-        onSubmit={handleRenameSubmit}
-      />
-
-      {/* Delete modal */}
-      <DeleteModal
-        open={deleteOpen}
-        onClose={() => { setDeleteOpen(false); setActiveDoc(null); }}
-        documentTitle={activeDoc?.title}
-        submitting={deleteSubmitting}
-        error={deleteError}
-        onConfirm={handleDeleteConfirm}
-      />
+      {/* DocumentCard handles rename/delete modals and API calls. Parent updates local list via callbacks. */}
 
       <ManageSuggestionsModal 
       open={manageOpen} 
