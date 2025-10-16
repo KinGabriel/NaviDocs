@@ -195,6 +195,33 @@ export const createVersionData = async (document_id, field_values = {}, opts = {
 };
 
 /**
+ * @desc Delete all version data records for a document. Used when deleting a document.
+ * @route INTERNAL
+ */
+export const deleteAllVersionPerDocument = async (documentId) => {
+  try {
+    if (!documentId) return false;
+    // normalize incoming documentId which may be an object, ObjectId, or string
+    let idToUse = documentId;
+    if (documentId && typeof documentId === 'object') {
+      if (documentId._id) idToUse = documentId._id;
+      else if (documentId.document_id) idToUse = documentId.document_id;
+      else if (documentId.id) idToUse = documentId.id;
+      else if (typeof documentId.toString === 'function') idToUse = documentId.toString();
+    }
+    // convert 24-hex string to ObjectId for matching if applicable
+    if (typeof idToUse === 'string' && isObjectIdString(idToUse)) {
+      idToUse = new mongoose.Types.ObjectId(String(idToUse));
+    }
+    const res = await VersionData.deleteMany({ document_id: idToUse });
+    return res.deletedCount > 0;
+  } catch (error) {
+    console.error('deleteAllVersionPerDocument error', error);
+    return false;
+  }
+};
+
+/**
  * @desc Get a single version data record by either its Mongo `_id` or by `version_no`.
  * @route GET /api/documents/version-data/:versionId
  */

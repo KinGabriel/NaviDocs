@@ -1,6 +1,6 @@
 import Document from '../models/documentModel.js';
 import axios from 'axios';
-import { createVersionData } from './documentVersionController.js';
+import { createVersionData,deleteAllVersionPerDocument } from './documentVersionController.js';
 
 /**
  * @desc Create a new document based on a template's essential content.
@@ -252,3 +252,52 @@ export const updateDocumentFieldValues = async (req, res) => {
   }
 };
 
+/**
+ * @desc Rename document (change its title)
+ * @route PATCH /api/documents/:id/rename
+ * @param {*} req
+ */
+export const renameDocument = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newName } = req.body;
+    if (!id) return res.status(400).json({ message: 'id required' });
+    if (!newName || newName.trim() === '') {
+      return res.status(400).json({ message: 'Title is required and shouldn\'t be empty' });
+    }
+    const doc = await Document.findById(id);
+    if (!doc) return res.status(404).json({ message: 'document not found' });
+    doc.title = newName.trim();
+    await doc.save();
+
+    res.json({ success: true, message: 'Document renamed successfully', document: doc });
+  } catch (err) {
+    console.error('renameDocument error', err);
+    res.status(500).json({ message: 'Failed to rename document', error: err.message });
+  }
+};
+
+/**
+ * @desc Delete a document by its ID
+ * @route DELETE /api/documents/:id
+ * @param {*} req
+*/
+export const deleteDocumentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'id required' });
+    const doc = await Document.findById(id);
+    if (!doc) return res.status(404).json({ message: 'document not found' });
+
+    // Delete the document
+    await Document.deleteOne({ _id: id });
+
+    // delete all version data for this document
+    await deleteAllVersionPerDocument(id);
+
+    res.json({ success: true, message: 'Document deleted successfully' });
+  } catch (err) {
+    console.error('deleteDocumentById error', err);
+    res.status(500).json({ message: 'Failed to delete document', error: err.message });
+  }
+};

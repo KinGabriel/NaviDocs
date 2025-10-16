@@ -68,6 +68,33 @@ export const getDocumentByIdAPI = async (documentId) => {
 };
 
 /**
+ * Rename a document (change its title).
+ * @param {string} documentId
+ * @param {string} newTitle
+ */
+export const renameDocumentAPI = async (documentId, newTitle) => {
+	try {
+		const res = await axios.patch(`${API_URL}/api/documents/${documentId}/rename`, { newName: newTitle }, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to rename document');
+	}
+};
+
+/**
+ * Delete a document by id
+ * @param {string} documentId
+ */
+export const deleteDocumentAPI = async (documentId) => {
+	try {
+		const res = await axios.delete(`${API_URL}/api/documents/${documentId}`, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to delete document');
+	}
+};
+
+/**
  * Update a document's field values (partial/patch).
  * Backend endpoint is expected to accept { field_values } and validate them.
  * @param {string} documentId

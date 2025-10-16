@@ -10,6 +10,7 @@ import {
   deleteTemplateAPI,
   assignControllersToTemplateAPI,
 } from "../../api/documentContollerAPI";
+import { renameDocumentAPI, deleteDocumentAPI } from "../../api/documentsAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -189,7 +190,7 @@ export default function DocumentCard({
     try {
       setDuplicating(true);
       const newTitle = newDoc?.title || `${title} (Copy)`;
-      const resp = await duplicateDocumentAPI(document._id, newTitle);
+  const resp = await duplicateTemplateAPI(document._id, newTitle);
       if (resp && resp.success) {
         // optional: navigate/open
         setDuplicateOpen(false);
@@ -213,7 +214,7 @@ export default function DocumentCard({
     try {
       setDeleting(true);
       setDeleteError("");
-      const resp = await deleteTemplateAPI(document._id);
+  const resp = await deleteDocumentAPI(document._id);
       if (resp && resp.success) {
         if (typeof onDelete === 'function') onDelete(resp.template || document);
         else window.location.reload();
