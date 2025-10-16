@@ -40,32 +40,6 @@ body {
   pointer-events: none;
 }
 
-.nd-page {
-  position: relative;
-}
-
-.nd-header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  font-size: 0.85rem;
-  color: #444;
-  text-align: center; 
-  pointer-events: none; 
-}
-
-.nd-footer {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  font-size: 0.8rem;
-  color: #666;
-  text-align: center; 
-  pointer-events: none; 
-}
-
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -221,4 +195,59 @@ body {
   inset: 0;
   display: grid;
   place-items: center;
+}
+
+/* ===================== */
+/* PAGE LAYOUT STRUCTURE */
+/* ===================== */
+
+/* Canvas scrolls; pages themselves never scroll internally */
+.nd-editor-canvas {
+  overflow-y: auto;
+  height: 100%;
+  background: #f1f5f9; /* light preview background */
+  padding: 32px 0;
+}
+
+/* A fixed-size visual page */
+.nd-page {
+  position: relative;
+  width: var(--paper-width, 210mm);
+  height: var(--paper-height, 297mm);
+  margin: 0 auto 24px;
+  overflow: hidden; /* no inner scrollbar */
+  background: #fff;
+  box-shadow: 0 0 0 1px #e5e7eb, 0 2px 8px rgba(0, 0, 0, .08);
+}
+
+/* Header/Footer live INSIDE the page box */
+.nd-page__header,
+.nd-page__footer {
+  position: absolute;
+  left: var(--page-margin-left, 25.4mm);
+  right: var(--page-margin-right, 25.4mm);
+  pointer-events: auto;
+}
+
+/* Header spacing and offset */
+.nd-page__header {
+  top: var(--header-top, 12.7mm);
+  min-height: var(--header-height, 20mm);
+}
+
+/* Footer spacing and offset */
+.nd-page__footer {
+  bottom: var(--footer-bottom, 12.7mm);
+  min-height: var(--footer-height, 15mm);
+}
+
+/* The printable content area (AutoPaginator measures this) */
+.nd-page__body {
+  position: absolute;
+  left: var(--page-margin-left, 25.4mm);
+  right: var(--page-margin-right, 25.4mm);
+  top: calc(var(--page-margin-top, 25.4mm) + var(--header-top, 12.7mm) + var(--header-height, 20mm));
+  bottom: calc(var(--page-margin-bottom, 25.4mm) + var(--footer-bottom, 12.7mm) + var(--footer-height, 15mm));
+  overflow: visible; /* critical: disables scroll inside page */
+  word-break: break-word;
 }

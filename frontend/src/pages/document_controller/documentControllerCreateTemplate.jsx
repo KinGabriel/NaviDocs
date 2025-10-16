@@ -17,7 +17,7 @@ import VersionHistory from "../version_history/templateVersionHistory";
 
 // Panels
 import FontPanel from "../../layout/create_template/fontPanel";
-import PageSetupPanel from "../../layout/create_template/pageSetupPanel";
+import PageSetupPanel from "../../layout/create_template/PageSetupPanel";
 import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
@@ -36,6 +36,42 @@ const DEFAULT_PAGE_SETUP = {
   paperSize: "A4",
   orientation: "Portrait",
   margins: { top: 1, bottom: 1, left: 1, right: 1 },
+};
+
+// Match the panel/Page defaults so everything stays in sync
+const DEFAULT_HEADER_FOOTER = {
+  header: {
+    fields: {
+      sluLogo: true,
+      university: true,
+      schoolName: true,
+      title: true,
+      documentStamp: true,
+    },
+    config: {
+      university: { fontSize: 18, fontWeight: "bold", align: "center", color: "#000" },
+      schoolName: { fontSize: 14, italic: true, align: "center", color: "#000" },
+      title: {
+        text: "Document Title",
+        uppercase: false,
+        fontSize: 16,
+        fontWeight: "bold",
+        align: "center",
+        color: "#000",
+      },
+      documentStamp: {
+        firstColumnFixed: ["Document Code", "Revision No.", "Effectivity", "Page"],
+        secondColumnEditable: ["", "", "", ""],
+        align: "right",
+      },
+    },
+    margins: { top: 12, bottom: 12 },
+  },
+  footer: {
+    fields: { pageNumber: true, date: true },
+    align: "center",
+    margins: { top: 12, bottom: 12 },
+  },
 };
 
 function useHeaderHeight() {
@@ -80,7 +116,8 @@ export default function DocumentControllerCreateTemplate() {
   // Layout/config state
   const [pageSetup, setPageSetup] = useState(DEFAULT_PAGE_SETUP);
   const [fontSettings, setFontSettings] = useState({});
-  const [headerFooter, setHeaderFooter] = useState({ header: {}, footer: {} });
+  // IMPORTANT: initialize with full defaults (not { header: {}, footer: {} })
+  const [headerFooter, setHeaderFooter] = useState(DEFAULT_HEADER_FOOTER);
   const [dateFormat, setDateFormat] = useState({ style: "numeric" });
   
   // Track last saved state for autosave/dirty
@@ -120,7 +157,15 @@ export default function DocumentControllerCreateTemplate() {
 
       if (normalized.pageSetup) setPageSetup(normalized.pageSetup);
       if (normalized.fontSettings) setFontSettings(normalized.fontSettings);
-      if (normalized.headerFooter) setHeaderFooter(normalized.headerFooter);
+      // Fallback to defaults if headerFooter missing/empty
+      if (normalized.headerFooter && (normalized.headerFooter.header || normalized.headerFooter.footer)) {
+        setHeaderFooter({
+          header: { ...DEFAULT_HEADER_FOOTER.header, ...(normalized.headerFooter.header || {}) },
+          footer: { ...DEFAULT_HEADER_FOOTER.footer, ...(normalized.headerFooter.footer || {}) },
+        });
+      } else {
+        setHeaderFooter(DEFAULT_HEADER_FOOTER);
+      }
       if (normalized.dateFormat) setDateFormat(normalized.dateFormat);
       if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
     } catch (e) {
@@ -156,6 +201,34 @@ export default function DocumentControllerCreateTemplate() {
         : [{ type: 'paragraph' }]
     };
   };
+
+  // 🔧 Push header/footer into the editor once it exists, and whenever it changes
+  useEffect(() => {
+    if (!editorInstance) return;
+    try {
+      // Update shared storage so AutoPaginator / Page can read the active config
+      editorInstance.commands.setActiveHeaderFooter?.({
+        header: headerFooter.header,
+        footer: headerFooter.footer,
+        // If you eventually store rich configs, you can also pass:
+        // headerConfig: headerFooter.header,
+        // footerConfig: headerFooter.footer,
+      });
+
+      // Apply to all existing pages (keeps simple+rich attrs in sync)
+      editorInstance.commands.applyHeaderFooterToAllPages?.({
+        header: headerFooter.header,
+        footer: headerFooter.footer,
+      });
+
+      // Trigger a reflow so the paginator re-measures with new offsets
+      editorInstance.commands.reflowPages?.();
+    } catch (e) {
+      // no-op: guard against missing commands during early mount
+      // console.warn(e);
+    }
+  }, [editorInstance, headerFooter]);
+
   // Save handler matching backend expectations
   const handleSave = async () => {
     try {
@@ -170,6 +243,7 @@ export default function DocumentControllerCreateTemplate() {
         pages_json,
         pageSetup,
         dateFormat,
+        headerFooter,        // <-- persist header/footer config
         fields: editableFields,
       };
 
@@ -199,15 +273,23 @@ export default function DocumentControllerCreateTemplate() {
   // Autosave
   useEffect(() => {
     if (!templateId && !templateTitle && !templateContent) return;
-    // Mark dirty if content or title changed
-    const isDirty = templateContent !== lastSavedContent || templateTitle !== lastSavedTitle;
+
+    // Simple change detection including header/footer + key layout bits
+    const isDirty =
+      templateContent !== lastSavedContent ||
+      templateTitle !== lastSavedTitle ||
+      JSON.stringify(headerFooter) !== JSON.stringify(DEFAULT_HEADER_FOOTER) || // drift from defaults
+      JSON.stringify(pageSetup) !== JSON.stringify(DEFAULT_PAGE_SETUP) ||
+      JSON.stringify(dateFormat) !== JSON.stringify({ style: "numeric" });
+
     setDirty(isDirty);
     if (!isDirty) return;
+
     const timeout = setTimeout(() => {
       handleSave();
     }, 2000); // 2s debounce
     return () => clearTimeout(timeout);
-  }, [templateContent, templateTitle]);
+  }, [templateContent, templateTitle, headerFooter, pageSetup, dateFormat]);
 
   // Save on unmount/navigation if dirty
   useEffect(() => {
@@ -228,7 +310,6 @@ export default function DocumentControllerCreateTemplate() {
     try {
       await approveTemplateAPI(templateId);
       toast.success("Template approved successfully.");
-      // Reload template to get updated state
       await loadTemplate(templateId);
     } catch (e) {
       console.error(e);
@@ -241,9 +322,7 @@ export default function DocumentControllerCreateTemplate() {
     try {
       await publishTemplateAPI(templateId);
       toast.success("Template published successfully.");
-      // Update status immediately
       setStatus("published");
-      // Reload template to get updated state
       await loadTemplate(templateId);
     } catch (e) {
       console.error(e);
@@ -259,43 +338,31 @@ export default function DocumentControllerCreateTemplate() {
     }
     
     try {
-      // Clear previous messages
       setError("");
       let deanId, secretaryId;
       
       if (Array.isArray(approverIds)) {
-        // If it's an array, assume first is dean, second is secretary
         [deanId, secretaryId] = approverIds;
       } else if (typeof approverIds === 'object') {
-        // If it's an object, extract dean and secretary
         deanId = approverIds.dean || approverIds.deanId;
         secretaryId = approverIds.secretary || approverIds.secretaryId;
       }
       
-      // Validate if there's at least one approver
       if (!deanId && !secretaryId) {
         toast.error("Please select at least one approver.");
         return;
       }
       
       const response = await submitTemplateAPI(templateId, deanId, secretaryId);
-      
-      // Update status immediately
       setStatus("pending");
       toast.success("Template successfully submitted for approval!");
-      // Reload template to get updated approval data
       await loadTemplate(templateId);
       
     } catch (e) {
       console.error("Failed to submit for approval:", e);
-      
-      // Handle specific error cases
       const errorMsg = e.response?.data?.message || e.message || "Failed to submit for approval.";
-      
-      // Check if template is already submitted
       if (e.response?.status === 400 && errorMsg.includes("already submitted")) {
         toast.success("This template has already been submitted for approval.");
-        // Still reload to get latest state
         await loadTemplate(templateId);
       } else {
         toast.error(errorMsg);
@@ -310,17 +377,9 @@ export default function DocumentControllerCreateTemplate() {
 
   // handle approval updates from modal
   const handleApprovalsUpdate = (updatedApprovals, updatedApprovers) => {
-    if (updatedApprovals) {
-      setApprovals(updatedApprovals);
-    }
-    if (updatedApprovers) {
-      setApprovers(updatedApprovers);
-    }
-    
-    // reload template to ensure we have the latest data
-    if (templateId) {
-      loadTemplate(templateId);
-    }
+    if (updatedApprovals) setApprovals(updatedApprovals);
+    if (updatedApprovers) setApprovers(updatedApprovers);
+    if (templateId) loadTemplate(templateId);
   };
 
   const renderPanel = () => {
@@ -367,65 +426,65 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
-return (
-  <div>
-    {showVersionHistory ? (
-      <VersionHistory
-        onClose={() => setShowVersionHistory(false)}
-        templateId={templateId}
-        currentContent={templateContent}
-        pageSetup={pageSetup}
-        TextEditor={TextEditor}
-        previousName={templateTitle}
-      />
-    ) : (
-      <div className="flex min-h-screen flex-col bg-slate-50">
-        <Header2
-          title={templateTitle}
-          setTitle={setTemplateTitle}
-          user={user}
-          onSubmitForApproval={handleSubmitForApproval}
-          onApprove={handleApprove}
-          onPublish={handlePublish}
-          saving={saving}
-          lastSavedAt={lastSavedAt}
-          dirty={dirty}
-          templateStatus={status}
-          approvals={approvals}
-          approvalMeta={approvalMeta}
-          approvers={approvers}
-          loadingApprovers={loading}
-          reviewNotes={notes}
-          assignedIds={[]}
-          templateId={templateId || ""}
-          onStatusUpdate={handleStatusUpdate}
-          onApprovalsUpdate={handleApprovalsUpdate}
-          template={template}
-          onShowVersionHistory={() => setShowVersionHistory(true)}
+  return (
+    <div>
+      {showVersionHistory ? (
+        <VersionHistory
+          onClose={() => setShowVersionHistory(false)}
+          templateId={templateId}
+          currentContent={templateContent}
+          pageSetup={pageSetup}
+          TextEditor={TextEditor}
         />
+      ) : (
+        <div className="flex min-h-screen flex-col bg-slate-50">
+          <Header2
+            title={templateTitle}
+            setTitle={setTemplateTitle}
+            user={user}
+            onSubmitForApproval={handleSubmitForApproval}
+            onApprove={handleApprove}
+            onPublish={handlePublish}
+            saving={saving}
+            lastSavedAt={lastSavedAt}
+            dirty={dirty}
+            templateStatus={status}
+            approvals={approvals}
+            approvalMeta={approvalMeta}
+            approvers={approvers}
+            loadingApprovers={loading}
+            reviewNotes={notes}
+            assignedIds={[]}
+            templateId={templateId || ""}
+            onStatusUpdate={handleStatusUpdate}
+            onApprovalsUpdate={handleApprovalsUpdate}
+            template={template}
+            onShowVersionHistory={() => setShowVersionHistory(true)}
+          />
 
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
-          <div className="flex gap-4">
-            <TemplateSidebar
-              selectedPanel={selectedPanel}
-              onSelectPanel={setSelectedPanel}
-              topOffsetPx={110}
-              bottomOffsetPx={16}
-            >
-              {renderPanel()}
-            </TemplateSidebar>
+          <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
+            <div className="flex gap-4">
+              <TemplateSidebar
+                selectedPanel={selectedPanel}
+                onSelectPanel={setSelectedPanel}
+                topOffsetPx={110}
+                bottomOffsetPx={16}
+              >
+                {renderPanel()}
+              </TemplateSidebar>
 
-            <main className="min-h-[60vh] flex-1">
-              <TextEditor
-                content={templateContent}
-                pageSetup={pageSetup}
-                onEditorReady={handleEditorReady}
-                onContentChange={setTemplateContent}
-              />
-            </main>
+              <main className="min-h-[60vh] flex-1">
+                <TextEditor
+                  content={templateContent}
+                  pageSetup={pageSetup}
+                  onEditorReady={handleEditorReady}
+                  onContentChange={setTemplateContent}
+                />
+              </main>
+            </div>
           </div>
         </div>
-      </div>
-    )}
-  </div>
-)};
+      )}
+    </div>
+  );
+}

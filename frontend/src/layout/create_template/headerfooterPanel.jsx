@@ -2,22 +2,21 @@
 import React, { useMemo, useState, useEffect } from "react";
 
 /**
- * HeaderFooterPanel — Modular header/footer builder
- * Components:
- *   1. SLU Logo
- *   2. Saint Louis University
- *   3. School Name
- *   4. Title
- *   5. Document Stamp (4x2)
- * Footer:
- *   - Page Number (toggle)
- *   - Date (toggle)
- *   - Alignment (left/center/right/justify)
- * Includes:
- *   - Inline configuration via "← Back"
- *   - Global header/footer margin settings
- *   - Auto sync to TipTap editor via `applyHeaderFooterToAllPages`
+ * HeaderFooterPanel — Modular header/footer builder (inch-based margins)
+ * - Margins are edited/stored in inches (marginsInch) at 0.25in increments.
+ * - Pixel margins (margins) are auto-derived for Page.js (96px = 1in).
+ * - Panel pushes changes into:
+ *     a) editor.storage.headerFooter.current  (read by paginator & Page)
+ *     b) CSS variables via commands.setHeaderFooterCssVars()
+ *     c) applyHeaderFooterToAllPages() + reflowPages() to re-measure
  */
+
+const INCH_TO_PX = 96;
+const inchToPx = (v) => Math.round(Number(v || 0) * INCH_TO_PX);
+const pxToIn = (v) => +(Number(v || 0) / INCH_TO_PX).toFixed(2);
+
+// Standard increments (0 to 3 inches, step 0.25)
+const INCH_STEPS = Array.from({ length: 13 }, (_, i) => +(i * 0.25).toFixed(2));
 
 // ---------- defaults & normalization ----------
 const DEFAULTS = {
@@ -33,21 +32,61 @@ const DEFAULTS = {
         align: "right",
       },
     },
-    margins: { top: 12, bottom: 12 },
+    // store inches for UI + derived px for Page rendering
+    marginsInch: { top: 0.5, bottom: 0.5 },
+    margins: { top: inchToPx(0.5), bottom: inchToPx(0.5) },
   },
   footer: {
     fields: { pageNumber: true, date: true },
     align: "center",
-    margins: { top: 12, bottom: 12 },
+    marginsInch: { top: 0.5, bottom: 0.5 },
+    margins: { top: inchToPx(0.5), bottom: inchToPx(0.5) },
   },
 };
 
-const normalize = (val) => {
-  const v = val ?? {};
+// Reasonable visual reserves for header/footer height in CSS (can be tuned)
+const DEFAULT_HEADER_HEIGHT_PX = 80;
+const DEFAULT_FOOTER_HEIGHT_PX = 60;
+
+// Ensure inches + px always exist and are consistent
+function normalize(value) {
+  const v = value ?? {};
   const h = v.header ?? {};
   const f = v.footer ?? {};
+
+  const ensureInchAndPx = (part, def) => {
+    const out = { ...def, ...(part || {}) };
+
+    // If only px given, derive inches
+    const hasInch = out.marginsInch && (out.marginsInch.top != null || out.marginsInch.bottom != null);
+    const hasPx = out.margins && (out.margins.top != null || out.margins.bottom != null);
+
+    if (!hasInch && hasPx) {
+      out.marginsInch = {
+        top: pxToIn(out.margins.top ?? def.margins.top),
+        bottom: pxToIn(out.margins.bottom ?? def.margins.bottom),
+      };
+    } else if (!hasInch && !hasPx) {
+      out.marginsInch = { ...def.marginsInch };
+    } else if (hasInch && !hasPx) {
+      out.margins = {
+        top: inchToPx(out.marginsInch.top ?? def.marginsInch.top),
+        bottom: inchToPx(out.marginsInch.bottom ?? def.marginsInch.bottom),
+      };
+    }
+
+    // Final sync: margins (px) from marginsInch
+    out.margins = {
+      top: inchToPx(out.marginsInch.top),
+      bottom: inchToPx(out.marginsInch.bottom),
+    };
+
+    return out;
+  };
+
   return {
     header: {
+      ...DEFAULTS.header,
       fields: { ...DEFAULTS.header.fields, ...(h.fields ?? {}) },
       config: {
         university: { ...DEFAULTS.header.config.university, ...(h.config?.university ?? {}) },
@@ -55,73 +94,96 @@ const normalize = (val) => {
         title: { ...DEFAULTS.header.config.title, ...(h.config?.title ?? {}) },
         documentStamp: { ...DEFAULTS.header.config.documentStamp, ...(h.config?.documentStamp ?? {}) },
       },
-      margins: { ...DEFAULTS.header.margins, ...(h.margins ?? {}) },
+      ...ensureInchAndPx(h, DEFAULTS.header),
     },
     footer: {
+      ...DEFAULTS.footer,
       fields: { ...DEFAULTS.footer.fields, ...(f.fields ?? {}) },
       align: f.align ?? DEFAULTS.footer.align,
-      margins: { ...DEFAULTS.footer.margins, ...(f.margins ?? {}) },
+      ...ensureInchAndPx(f, DEFAULTS.footer),
     },
   };
-};
+}
 
 export default function HeaderFooterPanel({ editor, value, onChange }) {
-  // Build a stable, normalized initial state (covers { footer: {} } cases)
   const initial = useMemo(() => normalize(value), [value]);
   const [cfg, setCfg] = useState(initial);
   const [tab, setTab] = useState("header");
   const [selectedConfig, setSelectedConfig] = useState(null);
 
-  // If parent updates `value`, keep local state in sync (still normalized)
+  // Keep local in sync if parent value changes
   useEffect(() => setCfg(normalize(value)), [value]);
 
-  // Push to parent + editor command
+  // Push CSS vars once on mount (defaults) to avoid FOUC
+  useEffect(() => {
+    if (!editor?.commands?.setHeaderFooterCssVars) return;
+    editor.commands.setHeaderFooterCssVars({
+      // These are "reserves" used by CSS layout to clamp the .nd-page__body
+      header: { height: DEFAULT_HEADER_HEIGHT_PX },
+      footer: { height: DEFAULT_FOOTER_HEIGHT_PX },
+      // Page margins are left as CSS defaults unless you have a separate panel
+    });
+    editor.commands.reflowPages?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+
+  // Send to parent + apply to editor (editor needs px margins)
   const applyToEditor = (next) => {
-    onChange?.(next);
+    // Derive px from inches (authoritative)
+    const toPx = (p, def) => {
+      const topIn = p.marginsInch?.top ?? def.marginsInch.top;
+      const bottomIn = p.marginsInch?.bottom ?? def.marginsInch.bottom;
+      return {
+        ...p,
+        marginsInch: { top: topIn, bottom: bottomIn },
+        margins: { top: inchToPx(topIn), bottom: inchToPx(bottomIn) },
+      };
+    };
+
+    const finalHeader = toPx(next.header, DEFAULTS.header);
+    const finalFooter = toPx(next.footer, DEFAULTS.footer);
+
+    // 1) Update storage (read by paginator, Page)
     try {
-      editor?.commands?.applyHeaderFooterToAllPages?.(next);
+      editor?.commands?.setActiveHeaderFooter?.({
+        header: finalHeader,
+        footer: finalFooter,
+      });
+    } catch {}
+
+    // 2) Sync CSS variables (header/footer "heights" + any future margins)
+    // NOTE: header/footer margins here are *inside* the header/footer block.
+    // Page margins (left/right/top/bottom) should be handled by a PageSetup panel.
+    try {
+      editor?.commands?.setHeaderFooterCssVars?.({
+        header: { height: DEFAULT_HEADER_HEIGHT_PX }, // tune or wire to a height slider later
+        footer: { height: DEFAULT_FOOTER_HEIGHT_PX },
+      });
+    } catch {}
+
+    // 3) Notify parent
+    onChange?.({ header: finalHeader, footer: finalFooter });
+
+    // 4) Apply to all pages + reflow pagination
+    try {
+      editor?.commands?.applyHeaderFooterToAllPages?.({
+        header: finalHeader,
+        footer: finalFooter,
+      });
+      editor?.commands?.reflowPages?.();
     } catch {}
   };
 
-  // Deep-merge patcher so we never blow away nested objects like footer.fields
+  // Safe deep-merge patcher that keeps inch/px in sync
   const patch = (updater) => {
     setCfg((prev) => {
-      const candidate = typeof updater === "function" ? updater(prev) : updater;
-      // merge header
-      const nh = {
-        ...prev.header,
-        ...(candidate.header ?? {}),
-        fields: { ...prev.header.fields, ...(candidate.header?.fields ?? {}) },
-        config: {
-          ...prev.header.config,
-          ...(candidate.header?.config ?? {}),
-          university: {
-            ...prev.header.config.university,
-            ...(candidate.header?.config?.university ?? {}),
-          },
-          schoolName: {
-            ...prev.header.config.schoolName,
-            ...(candidate.header?.config?.schoolName ?? {}),
-          },
-          title: { ...prev.header.config.title, ...(candidate.header?.config?.title ?? {}) },
-          documentStamp: {
-            ...prev.header.config.documentStamp,
-            ...(candidate.header?.config?.documentStamp ?? {}),
-          },
-        },
-        margins: { ...prev.header.margins, ...(candidate.header?.margins ?? {}) },
-      };
-      // merge footer
-      const nf = {
-        ...prev.footer,
-        ...(candidate.footer ?? {}),
-        fields: { ...prev.footer.fields, ...(candidate.footer?.fields ?? {}) },
-        margins: { ...prev.footer.margins, ...(candidate.footer?.margins ?? {}) },
-      };
-
-      const next = normalize({ header: nh, footer: nf });
-      applyToEditor(next);
-      return next;
+      const draft = typeof updater === "function" ? updater(prev) : updater;
+      const merged = normalize({
+        header: { ...prev.header, ...(draft.header || {}) },
+        footer: { ...prev.footer, ...(draft.footer || {}) },
+      });
+      applyToEditor(merged);
+      return merged;
     });
   };
 
@@ -179,69 +241,80 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
   };
 
   // ---------------- Header Component List ----------------
-  const HeaderList = () => (
-    <div className="px-4 pt-4 pb-6 space-y-3">
-      <h3 className="text-sm font-semibold text-gray-700 mb-2">Header Components</h3>
-      {[
-        { key: "sluLogo", label: "SLU Logo" },
-        { key: "university", label: "Saint Louis University" },
-        { key: "schoolName", label: "School Name" },
-        { key: "title", label: "Title" },
-        { key: "documentStamp", label: "Document Stamp" },
-      ].map((item) => (
-        <div key={item.key} className="flex items-center justify-between border-b border-gray-100 pb-2">
-          <Checkbox
-            label={item.label}
-            checked={!!cfg.header.fields[item.key]}
-            onChange={(v) =>
-              patch({
-                ...cfg,
-                header: {
-                  ...cfg.header,
-                  fields: { ...cfg.header.fields, [item.key]: v },
-                },
-              })
-            }
-          />
-          <GearButton onClick={() => setSelectedConfig(item.key)} />
-        </div>
-      ))}
+  const HeaderList = () => {
+    const h = cfg.header;
+    return (
+      <div className="px-4 pt-4 pb-6 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">Header Components</h3>
+        {[
+          { key: "sluLogo", label: "SLU Logo" },
+          { key: "university", label: "Saint Louis University" },
+          { key: "schoolName", label: "School Name" },
+          { key: "title", label: "Title" },
+          { key: "documentStamp", label: "Document Stamp" },
+        ].map((item) => (
+          <div key={item.key} className="flex items-center justify-between border-b border-gray-100 pb-2">
+            <Checkbox
+              label={item.label}
+              checked={!!h.fields[item.key]}
+              onChange={(v) =>
+                patch({
+                  header: {
+                    ...h,
+                    fields: { ...h.fields, [item.key]: v },
+                  },
+                })
+              }
+            />
+            <GearButton onClick={() => setSelectedConfig(item.key)} />
+          </div>
+        ))}
 
-      {/* Header margins */}
-      <div className="mt-4 border-t pt-3">
-        <h4 className="text-xs font-semibold text-gray-700 mb-2">Header Margins (px)</h4>
-        <div className="grid grid-cols-2 gap-3">
-          {["top", "bottom"].map((side) => (
-            <div key={side}>
-              <label className="block text-xs text-gray-500 capitalize">{side}</label>
-              <input
-                type="number"
-                value={cfg.header.margins?.[side] ?? 12}
-                onChange={(e) =>
-                  patch({
-                    ...cfg,
-                    header: {
-                      ...cfg.header,
-                      margins: { ...cfg.header.margins, [side]: Number(e.target.value) },
-                    },
-                  })
-                }
-                className="w-full border rounded px-2 py-1 text-xs"
-              />
-            </div>
-          ))}
+        {/* Header margins (inches) */}
+        <div className="mt-4 border-t pt-3">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Header Margins (inches)</h4>
+          <div className="grid grid-cols-2 gap-3">
+            {["top", "bottom"].map((side) => (
+              <div key={side}>
+                <label className="block text-xs text-gray-500 capitalize">{side}</label>
+                <select
+                  value={h.marginsInch?.[side] ?? 0.5}
+                  onChange={(e) => {
+                    const valIn = parseFloat(e.target.value);
+                    patch({
+                      header: {
+                        ...h,
+                        marginsInch: { ...h.marginsInch, [side]: valIn },
+                        margins: {
+                          top: inchToPx(side === "top" ? valIn : h.marginsInch.top),
+                          bottom: inchToPx(side === "bottom" ? valIn : h.marginsInch.bottom),
+                        },
+                      },
+                    });
+                  }}
+                  className="w-full border rounded px-2 py-1 text-xs"
+                >
+                  {INCH_STEPS.map((iv) => (
+                    <option key={iv} value={iv}>
+                      {iv.toFixed(2)} in
+                    </option>
+                  ))}
+                </select>
+                <div className="text-[11px] text-gray-500 mt-1">
+                  ≈ {inchToPx(h.marginsInch?.[side] ?? 0.5)} px
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // ---------------- Footer Component List ----------------
   const FooterList = () => {
-    const footer = cfg.footer ?? {};
-    const fields = footer.fields ?? DEFAULTS.footer.fields;
-    const align = footer.align ?? DEFAULTS.footer.align;
-    const margins = footer.margins ?? DEFAULTS.footer.margins;
-
+    const f = cfg.footer;
+    const fields = f.fields;
     return (
       <div className="px-4 pt-4 pb-6 space-y-4">
         <h3 className="text-sm font-semibold text-gray-700">Footer Components</h3>
@@ -253,11 +326,7 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
               checked={!!fields.pageNumber}
               onChange={(v) =>
                 patch({
-                  ...cfg,
-                  footer: {
-                    ...footer,
-                    fields: { ...fields, pageNumber: v },
-                  },
+                  footer: { ...f, fields: { ...fields, pageNumber: v } },
                 })
               }
             />
@@ -269,11 +338,7 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
               checked={!!fields.date}
               onChange={(v) =>
                 patch({
-                  ...cfg,
-                  footer: {
-                    ...footer,
-                    fields: { ...fields, date: v },
-                  },
+                  footer: { ...f, fields: { ...fields, date: v } },
                 })
               }
             />
@@ -289,39 +354,46 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
                 key={a}
                 label={a.charAt(0).toUpperCase() + a.slice(1)}
                 align={a}
-                active={align === a}
-                onClick={() =>
-                  patch({
-                    ...cfg,
-                    footer: { ...footer, align: a },
-                  })
-                }
+                active={(f.align || "center") === a}
+                onClick={() => patch({ footer: { ...f, align: a } })}
               />
             ))}
           </div>
         </div>
 
-        {/* Footer margins (px) */}
+        {/* Footer margins (inches) */}
         <div className="border-t pt-3">
-          <h4 className="text-xs font-semibold text-gray-700 mb-2">Footer Margins (px)</h4>
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Footer Margins (inches)</h4>
           <div className="grid grid-cols-2 gap-3">
             {["top", "bottom"].map((side) => (
               <div key={side}>
                 <label className="block text-xs text-gray-500 capitalize">{side}</label>
-                <input
-                  type="number"
-                  value={margins?.[side] ?? 12}
-                  onChange={(e) =>
+                <select
+                  value={f.marginsInch?.[side] ?? 0.5}
+                  onChange={(e) => {
+                    const valIn = parseFloat(e.target.value);
                     patch({
-                      ...cfg,
                       footer: {
-                        ...footer,
-                        margins: { ...margins, [side]: Number(e.target.value) },
+                        ...f,
+                        marginsInch: { ...f.marginsInch, [side]: valIn },
+                        margins: {
+                          top: inchToPx(side === "top" ? valIn : f.marginsInch.top),
+                          bottom: inchToPx(side === "bottom" ? valIn : f.marginsInch.bottom),
+                        },
                       },
-                    })
-                  }
+                    });
+                  }}
                   className="w-full border rounded px-2 py-1 text-xs"
-                />
+                >
+                  {INCH_STEPS.map((iv) => (
+                    <option key={iv} value={iv}>
+                      {iv.toFixed(2)} in
+                    </option>
+                  ))}
+                </select>
+                <div className="text-[11px] text-gray-500 mt-1">
+                  ≈ {inchToPx(f.marginsInch?.[side] ?? 0.5)} px
+                </div>
               </div>
             ))}
           </div>
@@ -330,8 +402,14 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
         {/* Tiny live text preview */}
         <div className="border-t pt-3">
           <h4 className="text-xs font-semibold text-gray-700 mb-2">Preview</h4>
-          <div className="w-full border rounded p-3 text-xs text-slate-700 bg-white" style={{ textAlign: align }}>
-            {[fields.pageNumber ? "Page 1" : null, fields.date ? new Date().toLocaleDateString() : null]
+          <div
+            className="w-full border rounded p-3 text-xs text-slate-700 bg-white"
+            style={{ textAlign: f.align || "center" }}
+          >
+            {[
+              fields.pageNumber ? "Page 1" : null,
+              fields.date ? new Date().toLocaleDateString() : null,
+            ]
               .filter(Boolean)
               .join(" · ") || "—"}
           </div>
@@ -354,7 +432,6 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
     const conf = cfg.header.config[configKey];
     const update = (field, val) =>
       patch({
-        ...cfg,
         header: {
           ...cfg.header,
           config: {
@@ -441,7 +518,6 @@ export default function HeaderFooterPanel({ editor, value, onChange }) {
       const updated = [...stamp.secondColumnEditable];
       updated[i] = val;
       patch({
-        ...cfg,
         header: {
           ...cfg.header,
           config: {
