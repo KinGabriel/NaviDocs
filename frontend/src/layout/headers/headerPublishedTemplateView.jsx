@@ -27,7 +27,12 @@ export default function HeaderPublishedTemplateView({
             src={naviLogo}
             alt="Logo"
             className="w-15 h-10 cursor-pointer"
-            onClick={() => navigate("/dean/dashboard")}
+            onClick={() => {
+              const role = user?.role?.name;
+              if (role === "Secretary") navigate("/secretary/dashboard");
+              else if (role === "Dean") navigate("/dean/dashboard");
+              else if (role === "Document Controller") navigate("/document-controller/dashboard")
+            }}
           />
 
           {/* Back button */}

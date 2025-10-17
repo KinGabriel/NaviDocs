@@ -106,7 +106,7 @@ export default function HeaderTemplateView({
                 const role = user?.role?.name;
                 if (role === "Secretary") navigate("/secretary/dashboard");
                 else if (role === "Dean") navigate("/dean/dashboard");
-                else navigate("/documents");
+                else if (role === "Document Controller") navigate("/document-controller/dashboard")
               }}
             />
 
@@ -115,7 +115,7 @@ export default function HeaderTemplateView({
                 const role = user?.role?.name;
                 if (role === "Secretary") navigate("/secretary/templates");
                 else if (role === "Dean") navigate("/dean/templates");
-                else navigate("/documents");
+                else if (role === "Document Controller") navigate("/document-controller/templates")
               }}
               className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
               aria-label="Back"
@@ -138,7 +138,7 @@ export default function HeaderTemplateView({
 
             {/* Title */}
             <div className="flex items-center gap-2">
-              {t.code && <div className="text-sm font-semibold text-gray-600">{t.code}</div>}
+              {t.code && <div className="text-2xl font-semibold text-gray-600">{t.code}</div>}
               <div className="text-base sm:text-lg font-medium text-gray-800">{t.title}</div>
             </div>
           </div>

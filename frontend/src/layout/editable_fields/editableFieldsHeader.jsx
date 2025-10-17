@@ -64,13 +64,37 @@ export default function EditableFieldsHeader({
     <div className="sticky top-0 z-50 bg-[#f3f3f3] shadow-sm">
       <div className="h-4 bg-[#063c8d] w-full" /> 
       <div className="flex items-center justify-between bg-[#f3f3f3] px-8 py-3 border-b border-gray-200">
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-3">
           {/* Logo */}
           <img 
             src={naviLogo} 
             alt="Logo" 
             className="w-15 h-10 cursor-pointer" 
-            onClick={() => navigate('/documents')} 
+            onClick={() => {
+              const role = user?.role?.name;
+              if (role === "Secretary") navigate("/secretary/dashboard");
+              else if (role === "Dean") navigate("/dean/dashboard");
+              else if (role === "Document Controller") navigate("/document-controller/dashboard")
+            }}
+          />
+
+          {/* Back button */}
+          <button
+            onClick={() => navigate("/documents")}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
+            aria-label="Back"
+            title="Back"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+                className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <span
+            aria-hidden="true"
+            className="h-6 w-px bg-gray-300 mx-1"
           />
           
           {/* Title */}

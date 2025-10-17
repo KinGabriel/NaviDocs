@@ -28,11 +28,21 @@ export default function HeaderDocumentView({
             src={naviLogo}
             alt="Logo"
             className="w-15 h-10 cursor-pointer"
-            onClick={() => navigate("/dean/dashboard")}
+            onClick={() => {
+              const role = user?.role?.name;
+              if (role === "Secretary") navigate("/secretary/dashboard");
+              else if (role === "Dean") navigate("/dean/dashboard");
+              else if (role === "Document Controller") navigate("/document-controller/dashboard")
+            }}
           />
 
           <button
-            onClick={() => navigate("/document")}
+            onClick={() => {
+              const role = user?.role?.name;
+              if (role === "Secretary") navigate("/secretary/templates");
+              else if (role === "Dean") navigate("/dean/templates");
+              else if (role === "Document Controller") navigate("/document-controller/templates")
+            }}
             className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
             aria-label="Back"
             title="Back"
@@ -50,8 +60,8 @@ export default function HeaderDocumentView({
           </button>
 
           {/* Divider */}
-          <span aria-hidden="true" className="h-5 w-px bg-gray-300 mx-1" />
-
+          <span aria-hidden="true" className="h-5 w-px bg-gray-300 mx-0.5" />
+          
           {/* Title */}
           <div className="flex items-center">
             <input
