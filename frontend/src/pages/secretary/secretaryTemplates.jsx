@@ -205,7 +205,7 @@ export default function SecretaryTemplates() {
        <div className="mb-6 border-b border-gray-200">
           <button
             onClick={() => setIsAssignmentModalOpen(true)}
-            className="flex items-center px-4 py-2 mb-5 text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] font-semibold rounded-lg shadow hover:bg-blue-700 transition gap-2"
+            className="bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm flex items-center gap-2 focus:outline-none focus:ring-0 hover:bg-blue-800"
           >
             <FileText className="h-5 w-5" />
             <span>Assign Templates</span>
