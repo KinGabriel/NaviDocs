@@ -10,6 +10,7 @@ import CreateTemplateModal from '../../components/modals/createTemplateModal';
 import usePagination from '../../hooks/usePagination';
 import { fetchTemplatesAPI, createTemplateAPI, approveTemplateAPI, publishTemplateAPI } from '../../api/documentContollerAPI';
 import toast from 'react-hot-toast';
+import Loader from '../../components/loader';
 
 export default function DocumentControllerTemplates() {
   const user = useUser();
@@ -251,8 +252,7 @@ export default function DocumentControllerTemplates() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
               {loading ? (
                 <div className="col-span-full text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Loading templates...</p>
+                  <Loader message="Loading templates..." />
                 </div>
               ) : templates.length === 0 ? (
                 <div className="col-span-full text-center py-8">
