@@ -103,11 +103,12 @@ export const createDocument = async (req, res) => {
       }
 
       // Best-effort: create initial version data (fire-and-forget).
-      const upsertInitialVersion = async () => {
+          const upsertInitialVersion = async () => {
         try {
           await createVersionData(String(doc._id), payload.field_values || {}, {
             userId: req.user?.id || null,
             note: 'initial version',
+            last_activity_at: payload.last_activity_at || new Date()
             // isBookmarked: !!payload.isBookmarked,
             // last_activity_at: payload.last_activity_at || null
           });
@@ -176,9 +177,9 @@ export const listDocuments = async (req, res) => {
     const numericLimit = Math.min(Number(limit) || 200, 1000);
     const numericPage = Math.max(Number(page) || 1, 1);
 
-    // Default sort: newest documents first. Prefer `createdAt` field, fall back to `created_at`.
+    // Default sort: newest documents first. Prefer `updatedAt` (last activity), fall back to `updated_at`, then created timestamps.
     const documents = await Document.find(query)
-      .sort({ createdAt: -1, created_at: -1 })
+      .sort({ updatedAt: -1, updated_at: -1, createdAt: -1, created_at: -1 })
       .limit(numericLimit)
       .skip((numericPage - 1) * numericLimit)
       .lean();
@@ -236,7 +237,7 @@ export const updateDocumentFieldValues = async (req, res) => {
             userId: req.user?.id || null,
             note,
             // isBookmarked: !!req.body.isBookmarked,
-           // last_activity_at: req.body.last_activity_at || null
+           last_activity_at: req.body.last_activity_at || new Date()
           });
         } catch (e) {
           console.error('updateDocumentFieldValues createVersionData failed', e);

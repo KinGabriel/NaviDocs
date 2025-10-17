@@ -83,12 +83,14 @@ export default function GlobalTemplates() {
         setTotalPages(1);
       }
 
+      const lastActivity = (t) => {
+        return new Date(
+          t.updatedAt || 0
+        ).getTime();
+      };
       if (sortOrder === "A-Z") templatesArray.sort((a, b) => a.title.localeCompare(b.title));
       if (sortOrder === "Z-A") templatesArray.sort((a, b) => b.title.localeCompare(a.title));
-      if (sortOrder === "Recent")
-        templatesArray.sort(
-          (a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at)
-        );
+      if (sortOrder === "Recent") templatesArray.sort((a, b) => lastActivity(b) - lastActivity(a));
 
       setTemplates(templatesArray);
     } catch {
