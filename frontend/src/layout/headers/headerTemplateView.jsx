@@ -97,18 +97,44 @@ export default function HeaderTemplateView({
         {/* Main header content */}
         <div className="flex items-center justify-between px-8 py-3 border-b border-gray-200 bg-[#f3f3f3]">
           {/* Logo and Title */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-3">
             <img
               src={naviLogo}
               alt="Logo"
               className="w-15 h-10 cursor-pointer"
               onClick={() => {
                 const role = user?.role?.name;
+                if (role === "Secretary") navigate("/secretary/dashboard");
+                else if (role === "Dean") navigate("/dean/dashboard");
+                else navigate("/documents");
+              }}
+            />
+
+            <button
+              onClick={() => {
+                const role = user?.role?.name;
                 if (role === "Secretary") navigate("/secretary/templates");
                 else if (role === "Dean") navigate("/dean/templates");
                 else navigate("/documents");
               }}
-            />
+              className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
+              aria-label="Back"
+              title="Back"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-5 h-5"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+          {/* Divider */}
+          <span aria-hidden="true" className="h-5 w-px bg-gray-300 mx-0.5" />
 
             {/* Title */}
             <div className="flex items-center gap-2">
