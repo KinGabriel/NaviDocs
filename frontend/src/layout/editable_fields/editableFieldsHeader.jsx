@@ -28,6 +28,25 @@ export default function EditableFieldsHeader({
   const [localTitle, setLocalTitle] = useState(title || '');
   const inputRef = useRef(null);
 
+  const [isSaveOpen, setIsSaveOpen] = useState(false);
+  const [isQuickOpen, setIsQuickOpen] = useState(false);
+  const saveMenuRef = useRef(null);
+  const quickMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (saveMenuRef.current && !saveMenuRef.current.contains(e.target)) {
+        setIsSaveOpen(false);
+      }
+      if (quickMenuRef.current && !quickMenuRef.current.contains(e.target)) {
+        setIsQuickOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+
   useEffect(() => {
     setLocalTitle(title || '');
   }, [title]);
@@ -159,10 +178,10 @@ export default function EditableFieldsHeader({
               </svg> 
             </button>
 
-          {/* Save/Action btn*/}
-          <div className="relative group">
-            <button 
-              onClick={handleSave}
+          {/* Save/Action btn */}
+          <div className="relative" ref={saveMenuRef}>
+            <button
+              onClick={() => setIsSaveOpen((o) => !o)}
               disabled={saving}
               className="bg-[#063c8d] hover:bg-[#052c6d] text-white rounded px-5 py-2.5 text-sm font-semibold flex items-center gap-2 disabled:opacity-70"
             >
@@ -170,81 +189,88 @@ export default function EditableFieldsHeader({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 0V4a2 2 0 00-2-2H9a2 2 0 00-2 2v3m1 0h4"/>
               </svg>
               {saving ? 'Saving...' : 'Save Draft'}
-              <ChevronDown className="w-3 h-3" />
+              <ChevronDown className={`w-3 h-3 transition-transform ${isSaveOpen ? 'rotate-180' : ''}`} />
             </button>
-            
+
             {/* Save options dropdown */}
-            <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150 absolute right-0 mt-2 w-64 z-50">
-              <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 text-xs text-gray-700 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">Save Options</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">Draft</span>
-                </div>
-                <p className="text-[11px] leading-relaxed">
-                  Your document is automatically saved as you work. You can continue editing anytime.
-                </p>
-                <div className="space-y-2">
-                  <button 
-                    onClick={handleSave}
-                    className="w-full text-left px-3 py-2 rounded bg-gray-50 hover:bg-gray-100 text-[11px]"
-                  >
-                    <div className="font-medium">Save Draft</div>
-                    <div className="text-gray-500">Continue working later</div>
-                  </button>
-                   <button 
-                    onClick={handleArchive}
-                    className="w-full text-left px-3 py-2 rounded bg-gray-50 hover:bg-gray-100 text-[11px]"
-                >
-                    <div className="font-medium">Archive Version</div>
-                    <div className="text-gray-500">Store for reference</div>
-                </button>
+            {isSaveOpen && (
+              <div className="absolute right-0 mt-2 w-64 z-50">
+                <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 text-xs text-gray-700 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">Save Options</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">Draft</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Your document is automatically saved as you work. You can continue editing anytime.
+                  </p>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => { handleSave(); setIsSaveOpen(false); }}
+                      className="w-full text-left px-3 py-2 rounded bg-gray-50 hover:bg-gray-100 text-[11px]"
+                    >
+                      <div className="font-medium">Save Draft</div>
+                      <div className="text-gray-500">Continue working later</div>
+                    </button>
+                    <button
+                      onClick={() => { handleArchive(); setIsSaveOpen(false); }}
+                      className="w-full text-left px-3 py-2 rounded bg-gray-50 hover:bg-gray-100 text-[11px]"
+                    >
+                      <div className="font-medium">Archive Version</div>
+                      <div className="text-gray-500">Store for reference</div>
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Quick Actions dropdown */}
-        <div className="relative group">
-          <button className="bg-gray-700 hover:bg-gray-800 text-white rounded px-5 py-2.5 text-sm font-medium flex items-center gap-2 shadow-lg">
-            <MoreHorizontal className="w-5 h-5" />
-            <span className="font-semibold">Quick Actions</span>
-            <ChevronDown className="w-4 h-4" />
-          </button>
+          <div className="relative" ref={quickMenuRef}>
+            <button
+              onClick={() => setIsQuickOpen((o) => !o)}
+              className="bg-gray-700 hover:bg-gray-800 text-white rounded px-5 py-2.5 text-sm font-medium flex items-center gap-2 shadow-lg"
+            >
+              <MoreHorizontal className="w-5 h-5" />
+              <span className="font-semibold">Quick Actions</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${isQuickOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-          {/* Dropdown menu */}
-          <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150 absolute right-0 mt-2 w-64 z-50">
-            <div className="bg-white rounded-lg shadow-xl border border-gray-200 py-2">
-              <button className="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Copy className="w-4 h-4 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900 text-sm">Make a Copy</div>
-                  <div className="text-xs text-gray-500">Duplicate this document</div>
-                </div>
-              </button>
+            {/* Dropdown menu */}
+            {isQuickOpen && (
+              <div className="absolute right-0 mt-2 w-64 z-50">
+                <div className="bg-white rounded-lg shadow-xl border border-gray-200 py-2">
+                  <button className="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-3" onClick={() => setIsQuickOpen(false)}>
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Copy className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 text-sm">Make a Copy</div>
+                      <div className="text-xs text-gray-500">Duplicate this document</div>
+                    </div>
+                  </button>
 
-              <button className="w-full text-left px-4 py-3 hover:bg-green-50 flex items-center gap-3">
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Send className="w-4 h-4 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900 text-sm">Submit</div>
-                  <div className="text-xs text-gray-500">Send to department head</div>
-                </div>
-              </button>
+                  <button className="w-full text-left px-4 py-3 hover:bg-green-50 flex items-center gap-3" onClick={() => setIsQuickOpen(false)}>
+                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                      <Send className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 text-sm">Submit</div>
+                      <div className="text-xs text-gray-500">Send to department head</div>
+                    </div>
+                  </button>
 
-              <button className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3">
-                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <FileDown className="w-4 h-4 text-purple-600" />
+                  <button className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3" onClick={() => setIsQuickOpen(false)}>
+                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <FileDown className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 text-sm">Export as PDF</div>
+                    </div>
+                  </button>
                 </div>
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900 text-sm">Export as PDF</div>
-                </div>
-              </button>
-            </div>
+              </div>
+            )}
           </div>
-        </div>
 
           {/* Profile picture */}
             <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
