@@ -124,7 +124,7 @@ export const updateTemplate = async (req, res) => {
       delete updatePayload.document_code;
     }
 
-    let updateOps = { $set: updatePayload };
+  let updateOps = { $set: updatePayload };
     if (req.body.notes_append && req.body.notes_append.message) {
       updateOps.$push = { notes: {
         added_by: req.body.notes_append.added_by || req.body.created_by || template.created_by,
@@ -137,10 +137,11 @@ export const updateTemplate = async (req, res) => {
       delete updateOps.$set.notes;
     }
 //console.log(updateOps);
+    // Use per-operation timestamps so Mongoose updates `updatedAt` automatically
     const updatedTemplate = await Template.findByIdAndUpdate(
       req.params.id,
       updateOps,
-      { new: true, runValidators: true }
+      { new: true, runValidators: true, timestamps: true }
     );
 
     // Create a version for the update (non-blocking). Use provided version_note or fallback to empty.
@@ -173,8 +174,8 @@ export const updateTemplate = async (req, res) => {
       });
     }
     */
-    // Trigger thumbnail generation after save
-    await generateTemplateThumbnailInternal(template);
+  // Trigger thumbnail generation after update using the updated document
+  await generateTemplateThumbnailInternal(updatedTemplate || template);
     res.status(200).json({
       success: true,
       message: 'Template updated successfully',
@@ -229,10 +230,11 @@ export const deleteTemplate = async (req, res) => {
         }
 
         // Remove requester from assigned array
+        // Use per-operation timestamps so Mongoose updates `updatedAt`
         const updated = await Template.findByIdAndUpdate(
           req.params.id,
           { $pull: { assigned: req.user.id } },
-          { new: true }
+          { new: true, timestamps: true }
         );
 
         return res.status(200).json({
@@ -433,7 +435,7 @@ export const getTemplates = async (req, res) => {
 
     // Fetch templates with pagination
     const templates = await Template.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
 
@@ -529,7 +531,7 @@ export const getTemplatesByUser = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const templates = await Template.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 })
       .limit(parseInt(limit))
       .skip(skip);
 
@@ -609,7 +611,7 @@ export const getPublishedTemplates = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const templates = await Template.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
 

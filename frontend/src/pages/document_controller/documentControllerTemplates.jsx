@@ -99,12 +99,18 @@ export default function DocumentControllerTemplates() {
         setTotalPages(1);
       }
       // Sorting
+      const lastActivity = (t) => {
+        // prefer updatedAt, then version-style updated_at, then status_meta.last_activity_at, then a generic last_activity_at, then created
+        return new Date(
+          t.updatedAt || t.updated_at || t.status_meta?.last_activity_at || t.last_activity_at || t.createdAt || t.created_at || 0
+        ).getTime();
+      };
       if (sortOrder === 'A-Z') {
         templatesArray.sort((a, b) => a.title.localeCompare(b.title));
       } else if (sortOrder === 'Z-A') {
         templatesArray.sort((a, b) => b.title.localeCompare(a.title));
       } else if (sortOrder === 'Recent') {
-        templatesArray.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
+        templatesArray.sort((a, b) => lastActivity(b) - lastActivity(a));
       }
       setTemplates(templatesArray);
     } catch (error) {
@@ -156,7 +162,8 @@ export default function DocumentControllerTemplates() {
       } else if (sortOrder === 'Z-A') {
         sortedTemplates.sort((a, b) => b.title.localeCompare(a.title));
       } else if (sortOrder === 'Recent') {
-        sortedTemplates.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
+        const lastActivity = (t) => new Date(t.updatedAt || t.updated_at || t.status_meta?.last_activity_at || t.last_activity_at || t.createdAt || t.created_at || 0).getTime();
+        sortedTemplates.sort((a, b) => lastActivity(b) - lastActivity(a));
       }
       setTemplates(sortedTemplates);
     }

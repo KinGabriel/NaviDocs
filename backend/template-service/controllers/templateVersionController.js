@@ -72,10 +72,12 @@ export const createTemplateVersion = async ({ templateId, snapshot = null, userI
       // touch the latest version's timestamp so it represents the most recent activity
       try {
         const now = new Date();
+        // Use per-operation timestamps so Mongoose updates the mapped `updated_at` automatically.
+        // Keep explicit last_activity_at so history retains a separate activity marker.
         const bumped = await TemplateHistory.findByIdAndUpdate(
           latest._id,
-          { $set: { created_at: now, createdAt: now, last_activity_at: now, updatedAt: now } },
-          { new: true }
+          { $set: { created_at: now, createdAt: now, last_activity_at: now } },
+          { new: true, timestamps: true }
         );
         return bumped || latest;
       } catch (e) {
