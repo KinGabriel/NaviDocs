@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Header from "../layout/headers/header";
 import useUser from "../hooks/useUser";
-import PublishedCard from "../components/cards/publishedCard.jsx";
+import TemplateCard from "../components/cards/templatecard";
 import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
 import usePagination from "../hooks/usePagination";
@@ -10,13 +11,13 @@ import { History, FileText, RotateCcw, Filter } from "lucide-react";
 
 export default function SelectTemplate() {
   const navigate = useNavigate();
-  const user = useUser();
+  const user = useUser(); // <-- same as secretaryTemplates
 
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState("Recent");
   const [selectedSchool, setSelectedSchool] = useState("All");
-  
-  // New filters for version history
+
+  // Version-history filters
   const [selectedDocumentCode, setSelectedDocumentCode] = useState("All");
   const [selectedRevision, setSelectedRevision] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
@@ -26,7 +27,6 @@ export default function SelectTemplate() {
   const [loading, setLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Extract unique document codes and revisions from templates
   const [documentCodes, setDocumentCodes] = useState([]);
   const [revisionNumbers, setRevisionNumbers] = useState([]);
 
@@ -39,32 +39,33 @@ export default function SelectTemplate() {
     STELA: "STL",
   };
 
-  // Extract unique document codes and revision numbers
+  // Extract unique codes & revisions
   useEffect(() => {
     const codes = [...new Set(templates.map(t => t.document_code).filter(Boolean))].sort();
-    const revisions = [...new Set(templates.map(t => {
-      const rev = t.revision_number ?? t.revision_no;
-      return rev !== undefined && rev !== null ? String(rev).padStart(2, '0') : null;
-    }).filter(Boolean))].sort();
-    
+    const revisions = [...new Set(
+      templates
+        .map(t => {
+          const rev = t.revision_number ?? t.revision_no;
+          return rev !== undefined && rev !== null ? String(rev).padStart(2, "0") : null;
+        })
+        .filter(Boolean)
+    )].sort();
+
     setDocumentCodes(codes);
     setRevisionNumbers(revisions);
   }, [templates]);
 
-  // Apply client-side filtering for document code and revision
+  // Apply client-side filters
   useEffect(() => {
     let filtered = [...templates];
 
-    // Filter by document code
     if (selectedDocumentCode !== "All") {
       filtered = filtered.filter(t => t.document_code === selectedDocumentCode);
     }
-
-    // Filter by revision number
     if (selectedRevision !== "All") {
       filtered = filtered.filter(t => {
         const rev = t.revision_number ?? t.revision_no;
-        const revStr = rev !== undefined && rev !== null ? String(rev).padStart(2, '0') : '';
+        const revStr = rev !== undefined && rev !== null ? String(rev).padStart(2, "0") : "";
         return revStr === selectedRevision;
       });
     }
@@ -72,15 +73,13 @@ export default function SelectTemplate() {
     setFilteredTemplates(filtered);
   }, [templates, selectedDocumentCode, selectedRevision]);
 
+  // Fetch templates
   useEffect(() => {
     let ignore = false;
     const fetchPublished = async () => {
       setLoading(true);
       try {
-        const params = {
-          limit: PAGE_SIZE,
-          page: pagination.currentPage,
-        };
+        const params = { limit: PAGE_SIZE, page: pagination.currentPage };
         if (selectedSchool && selectedSchool !== "All") params.school = selectedSchool;
         if (search && search.trim()) params.search = search.trim();
 
@@ -109,7 +108,7 @@ export default function SelectTemplate() {
         }
 
         if (!ignore) setTemplates(arr);
-      } catch (e) {
+      } catch {
         if (!ignore) {
           setTemplates([]);
           setTotalPages(1);
@@ -120,9 +119,7 @@ export default function SelectTemplate() {
     };
 
     fetchPublished();
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true; };
   }, [selectedSchool, search, sortOrder, pagination.currentPage]);
 
   // Reset filters
@@ -137,31 +134,24 @@ export default function SelectTemplate() {
     selectedDocumentCode !== "All",
     selectedRevision !== "All",
     selectedSchool !== "All",
-    search.trim() !== ""
+    search.trim() !== "",
   ].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Global App Header
-       <div className="sticky top-0 z-50 bg-[#f3f3f3] shadow-sm">
+    <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
-        </div> */}
+      <div className="h-4 md:h-5" />
+
       {/* Page Subheader */}
-      <div className="bg-white border-b shadow-sm mt-4 md:mt-6 sticky top-0 z-50">
+      <div className="bg-white border-b shadow-sm">
         <div className="px-8 py-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate("/documents")}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors font-medium"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                className="w-5 h-5"
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                   strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
               Back
@@ -181,10 +171,9 @@ export default function SelectTemplate() {
         </div>
       </div>
 
-      {/* Enhanced Controls */}
+      {/* Controls */}
       <div className="bg-white border-b shadow-sm">
         <div className="px-8 py-4">
-          {/* Top Row - Main Controls */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-3 flex-wrap">
               <Dropdown
@@ -199,14 +188,12 @@ export default function SelectTemplate() {
                 onChange={setSortOrder}
                 width="w-32"
               />
-              
-              {/* Version History Filters Toggle */}
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all font-medium ${
-                  showFilters 
-                    ? 'bg-blue-50 border-blue-300 text-blue-700' 
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  showFilters
+                    ? "bg-blue-50 border-blue-300 text-blue-700"
+                    : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
                 }`}
               >
                 <Filter className="w-4 h-4" />
@@ -217,7 +204,6 @@ export default function SelectTemplate() {
                   </span>
                 )}
               </button>
-
               {activeFiltersCount > 0 && (
                 <button
                   onClick={handleResetFilters}
@@ -238,7 +224,6 @@ export default function SelectTemplate() {
             </div>
           </div>
 
-          {/* Version History Filters Panel */}
           {showFilters && (
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
               <div className="flex items-start gap-2 mb-3">
@@ -252,7 +237,6 @@ export default function SelectTemplate() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Document Code Filter */}
                 <div>
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
                     <FileText className="w-4 h-4" />
@@ -268,15 +252,8 @@ export default function SelectTemplate() {
                       <option key={code} value={code}>{code}</option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {selectedDocumentCode === "All" 
-                      ? `${documentCodes.length} unique document codes available`
-                      : `Showing versions of ${selectedDocumentCode}`
-                    }
-                  </p>
                 </div>
 
-                {/* Revision Number Filter */}
                 <div>
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
                     <RotateCcw className="w-4 h-4" />
@@ -292,43 +269,8 @@ export default function SelectTemplate() {
                       <option key={rev} value={rev}>Revision {rev}</option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {selectedRevision === "All" 
-                      ? `${revisionNumbers.length} revision versions available`
-                      : `Showing revision ${selectedRevision} only`
-                    }
-                  </p>
                 </div>
               </div>
-
-              {/* Active Filters Summary */}
-              {activeFiltersCount > 0 && (
-                <div className="mt-3 pt-3 border-t border-blue-200">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="text-xs font-medium text-gray-600">Active filters:</span>
-                    {selectedDocumentCode !== "All" && (
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
-                        Code: {selectedDocumentCode}
-                      </span>
-                    )}
-                    {selectedRevision !== "All" && (
-                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
-                        Rev: {selectedRevision}
-                      </span>
-                    )}
-                    {selectedSchool !== "All" && (
-                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
-                        School: {selectedSchool}
-                      </span>
-                    )}
-                    {search.trim() && (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-                        Search: "{search}"
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -338,13 +280,17 @@ export default function SelectTemplate() {
       <div className="px-8 py-4">
         <div className="flex items-center justify-between text-sm">
           <div className="text-gray-600">
-            Showing <span className="font-semibold text-gray-900">{filteredTemplates.length}</span> of{" "}
+            Showing{" "}
+            <span className="font-semibold text-gray-900">{filteredTemplates.length}</span> of{" "}
             <span className="font-semibold text-gray-900">{templates.length}</span> templates
           </div>
+          {filteredTemplates.length !== templates.length && (
+            <div className="text-blue-600 font-medium">Filtered results active</div>
+          )}
         </div>
       </div>
 
-   {/* Template Grid */}
+      {/* Template Grid */}
       <div className="px-8 py-4">
         {loading ? (
           <div className="text-center py-20">
@@ -358,10 +304,9 @@ export default function SelectTemplate() {
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No templates found</h3>
             <p className="text-gray-600 mb-4">
-              {activeFiltersCount > 0 
+              {activeFiltersCount > 0
                 ? "Try adjusting your filters to see more results"
-                : "No published template versions are available"
-              }
+                : "No published template versions are available"}
             </p>
             {activeFiltersCount > 0 && (
               <button
@@ -374,33 +319,24 @@ export default function SelectTemplate() {
             )}
           </div>
         ) : (
-       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-5 gap-6">
-        {filteredTemplates.map((t, i) => {
-          const id = t._id || t.id || i;
-          const revisionNo = t.revision_number ?? t.revision_no;
-          const displayRev = revisionNo !== undefined && revisionNo !== null 
-            ? String(revisionNo).padStart(2, '0') 
-            : 'N/A';
-          
-          return (
-            <PublishedCard
-              key={id}
-              template={t}
-              user={user}
-              onSelect={() => {
-                const id = t._id || t.id;
-                navigate(`/templates/published/${id}`, {
-                  state: {
-                    doc: t,
-                    sidebarActive: "Templates",
-                    backTo: "/documents",
-                  },
-                });
-              }}
-            />
-          );
-        })}
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-5 gap-6">
+            {filteredTemplates.map((t, i) => {
+              const id = t._id || t.id || i;
+              return (
+                <TemplateCard
+                  key={id}
+                  template={t}
+                  user={user}
+                  onSelect={() => {
+                    const tid = t._id || t.id;
+                    navigate(`/templates/published/${tid}`, {
+                      state: { doc: t, sidebarActive: "Templates", backTo: "/documents" },
+                    });
+                  }}
+                />
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -415,9 +351,7 @@ export default function SelectTemplate() {
         </button>
         {pagination.getPageNumbers().map((num, idx) =>
           num === "..." ? (
-            <span key={idx} className="px-2 text-gray-400">
-              …
-            </span>
+            <span key={idx} className="px-2 text-gray-400">…</span>
           ) : (
             <button
               key={num}
