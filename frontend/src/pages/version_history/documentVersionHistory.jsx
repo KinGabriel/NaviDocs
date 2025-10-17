@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronDown, ChevronRight, MoreVertical, Clock, Copy, Rota
 import TextEditor from "../../layout/create_template/textEditor";
 import fetchAndNormalizeDocument from "../../utils/documentLoader";
 import BookmarkModal from './bookmarkModal';
+import Loader from '../../components/loader';
 import {
   listVersionDataByDocumentAPI,
   patchVersionBookmarkAPI,
@@ -537,8 +538,7 @@ return (
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300 border-t-blue-600 mx-auto mb-4"></div>
-                  <p className="text-sm text-gray-600">Loading version history...</p>
+                  <Loader message="Loading version history..." />
                 </div>
               </div>
             ) : currentVersionDetails ? (
@@ -673,7 +673,7 @@ return (
           </div>
         </div>
 
-      {/* Version History Sidebar */}
+   {/* Version History Sidebar */}
       <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
         {/* Sidebar Header */}
         <div className="p-4 border-b border-gray-200 space-y-3">
@@ -692,8 +692,7 @@ return (
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="p-4 text-center text-gray-500">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              <p className="text-sm">Loading versions...</p>
+              <Loader message="Loading versions..." />
             </div>
           ) : filteredVersions.length === 0 ? (
             <div className="p-4 text-center text-gray-500">
@@ -737,13 +736,13 @@ return (
                         />
 
                         <div className="flex items-start justify-between ml-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-900 truncate">
+                          <div className="flex-1 min-w-0 mr-2">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-sm font-medium text-gray-900">
                                 {version.time}
                               </span>
                               {version.versionName && (
-                                <span className="block text-xs text-gray-500 truncate">{version.versionName}</span>
+                                <span className="text-xs text-gray-500 break-words">{version.versionName}</span>
                               )}
                             </div>
                           {/* Current Version Label - Only shows for current version */}
@@ -767,7 +766,7 @@ return (
                               </div>
 
                               {/* Author Name */}
-                              <span className="text-xs text-gray-600 font-medium truncate hover:text-gray-900 transition-colors">
+                              <span className="text-xs text-gray-600 font-medium hover:text-gray-900 transition-colors break-words flex-1">
                                 {version.author || 'Unknown User'}
                               </span>
                             </div>
@@ -780,7 +779,7 @@ return (
                           </div>
                           
                           {/* Bookmark star + 3-dot button */}
-                          <div className="relative flex items-center gap-2" ref={menuOpen === version.id ? menuRef : null}>
+                          <div className="relative flex items-start gap-2 flex-shrink-0 pt-1" ref={menuOpen === version.id ? menuRef : null}>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleBookmarkVersion(version); }}
                               className="p-1 hover:bg-gray-100 rounded transition-colors"
