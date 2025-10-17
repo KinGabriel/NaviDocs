@@ -334,10 +334,10 @@ useEffect(() => {
           <div className="relative">
             <button
               onClick={() => setShowNewMenu((prev) => !prev)}
-              className="px-5 py-2.5 bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] text-white rounded-lg 
-                        shadow-md hover:shadow-lg flex items-center gap-2 font-medium transition-all duration-200"
+              className="bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm 
+             flex items-center gap-2 hover:bg-blue-800 focus:outline-none focus:ring-0"
             >
-              <Plus size={18} /> New
+              <Plus className="w-5 h-5" /> New
             </button>
 
             {showNewMenu && (
