@@ -16,6 +16,7 @@ import { PaginationPlus } from "tiptap-pagination-plus";
 
 import RichImage from "../../extensions/image/ImageNode";
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
+import { toISODate } from "../../utils/formatters";
 
 // ---- utils
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
@@ -62,6 +63,11 @@ export default function TextEditor({
   mode = "template",
   readOnly = false,
   logoConfig = {},
+  // new props
+  templateStatus = "",
+  documentCode = "",
+  revisionNo = "",
+  effectivity = "",
 }) {
   const dimsRef = useRef(computeDims(pageSetup));
   const [showImageOptions, setShowImageOptions] = useState(false);
@@ -248,7 +254,12 @@ export default function TextEditor({
       `;
 
       // RIGHT: CICM Logo + Document Table side-by-side
-      const d = logoConfig.documentStamp || {};
+      // prefer explicit top-level props when provided, otherwise fall back to nested
+      const d = {
+        docCode: documentCode || logoConfig.documentStamp?.docCode || logoConfig.docCode || logoConfig.document_code || "",
+        revisionNo: revisionNo || logoConfig.documentStamp?.revisionNo || logoConfig.revisionNo || logoConfig.revision_no || "",
+        effectivity: effectivity || logoConfig.documentStamp?.effectivity || logoConfig.effectivity || "",
+      };
       const right = document.createElement("div");
       right.style.display = "flex";
       right.style.alignItems = "center";
@@ -259,14 +270,18 @@ export default function TextEditor({
         ? `<img src="${logoConfig.assets?.cicm}" alt="CICM" style="height:52px;object-fit:contain;" />`
         : "";
 
-      const table = `
-        <table style="border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;">
-          <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${d.docCode || ""}</td></tr>
-          <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${d.revisionNo || ""}</td></tr>
-          <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${d.effectivity || ""}</td></tr>
-          <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${i + 1} of ${totalPages}</td></tr>
-        </table>
-      `;
+      // only render table when there's a document code and template is approved/published
+      const showStamp = d.docCode && ['approved', 'published'].includes((templateStatus || '').toLowerCase());
+      const table = showStamp
+        ? `
+          <table style="border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;">
+            <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${d.docCode || ""}</td></tr>
+            <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${d.revisionNo || ""}</td></tr>
+            <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${toISODate(d.effectivity) || ""}</td></tr>
+            <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${i + 1} of ${totalPages}</td></tr>
+          </table>
+        `
+        : "";
 
       right.innerHTML = `${cicmLogo}${table}`;
 

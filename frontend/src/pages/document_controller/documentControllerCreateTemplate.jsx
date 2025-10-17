@@ -21,7 +21,7 @@ import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import DateFormatPanel from "../../layout/create_template/dateformatPanel";
 import FieldsPanel from "../../layout/create_template/fieldsPanel";
-import HeaderFooterPanel from "../../layout/create_template/headerFooterPanel"; // ✅ added
+import HeaderFooterPanel from "../../layout/create_template/headerFooterPanel"; 
 
 // Sidebar
 import TemplateSidebar from "../../layout/sidebars/templateSidebar";
@@ -86,6 +86,11 @@ export default function DocumentControllerCreateTemplate() {
 
   // HeaderFooter panel state (logos)
   const [logoConfig, setLogoConfig] = useState({});
+  // Top-level document stamp fields (persisted at top-level)
+  const [documentCode, setDocumentCode] = useState(null);
+  const [revisionNo, setRevisionNo] = useState(0);
+  const [effectivity, setEffectivity] = useState(null);
+
 
   // Track last saved state for autosave/dirty
   const [lastSavedContent, setLastSavedContent] = useState(null);
@@ -135,8 +140,11 @@ export default function DocumentControllerCreateTemplate() {
       if (normalized.dateFormat) setDateFormat(normalized.dateFormat);
       if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
 
-      // If you later persist logoConfig, hydrate it here:
-      // setLogoConfig(normalized.logoConfig || null);
+  // Hydrate logoConfig and top-level document stamp fields (normalized by loader)
+  if (normalized.logoConfig) setLogoConfig(normalized.logoConfig || {});
+  if (normalized.document_code !== undefined) setDocumentCode(normalized.document_code);
+  if (normalized.revision_no !== undefined) setRevisionNo(normalized.revision_no);
+  if (normalized.effectivity !== undefined) setEffectivity(normalized.effectivity);
     } catch (e) {
       console.error(e);
       toast.error("Failed to load template.");
@@ -180,13 +188,37 @@ export default function DocumentControllerCreateTemplate() {
       const rawPagesJson = editor ? editor.getJSON() : htmlToBasicJSON(templateContent);
       const pages_json = Array.isArray(rawPagesJson) ? rawPagesJson : [rawPagesJson];
 
+      // Normalize top-level stamp fields
+      const normDocumentCode = documentCode === null || documentCode === undefined ? "" : String(documentCode);
+      const normRevisionNo = Number.isNaN(Number(revisionNo)) ? 0 : Number(revisionNo);
+      let normEffectivity = null;
+      if (effectivity !== undefined && effectivity !== null && effectivity !== "") {
+        // Accept several shapes but send an ISO date string (not {$date: ...}) so
+        // Mongoose can cast it to Date on the backend.
+        if (typeof effectivity === 'object' && effectivity.$date) {
+          // incoming form like { $date: ISO }
+          normEffectivity = effectivity.$date;
+        } else {
+          const d = new Date(effectivity);
+          if (!isNaN(d)) {
+            normEffectivity = d.toISOString();
+          } else {
+            // fallback: store raw string
+            normEffectivity = effectivity;
+          }
+        }
+      }
+
       const payload = {
         title: (templateTitle || "").trim() || "Untitled Template",
         pages_json,
         pageSetup,
         dateFormat,
         fields: editableFields,
-        // logoConfig, // ← uncomment if you want to persist the logo choices
+        logoConfig,
+        document_code: normDocumentCode,
+        revision_no: normRevisionNo,
+        effectivity: normEffectivity,
       };
 
       let res;
@@ -357,10 +389,37 @@ export default function DocumentControllerCreateTemplate() {
       case "dateformat":
         return <DateFormatPanel value={dateFormat} onChange={setDateFormat} />;
       case "headerfooter": // ✅ new panel hook-up
+        // Merge top-level stamp values into the logoConfig passed to the panel so
+        // the panel shows authoritative values regardless of where they were stored.
+        const headerValue = {
+          ...(logoConfig || {}),
+          docCode: (documentCode ?? logoConfig?.documentStamp?.docCode ?? logoConfig?.docCode ?? logoConfig?.document_code ?? ""),
+          revisionNo: (revisionNo ?? logoConfig?.documentStamp?.revisionNo ?? logoConfig?.revisionNo ?? logoConfig?.revision_no ?? 0),
+          effectivity: (effectivity ?? logoConfig?.documentStamp?.effectivity ?? logoConfig?.effectivity ?? null),
+        };
+
         return (
           <HeaderFooterPanel
-            value={logoConfig}
-            onChange={setLogoConfig}
+            value={headerValue}
+            onChange={(val) => {
+              // HeaderFooterPanel emits a nested documentStamp for backwards compat.
+              // Prefer top-level fields when present, otherwise pull from nested shape.
+              const topDocCode = val?.document_code ?? val?.docCode ?? val?.documentStamp?.docCode ?? "";
+              const topRevisionNo = val?.revision_no ?? val?.revisionNo ?? val?.documentStamp?.revisionNo ?? 0;
+              const topEffectivity = val?.effectivity ?? val?.effectivity ?? val?.documentStamp?.effectivity ?? null;
+
+              if (topDocCode !== undefined) setDocumentCode(topDocCode);
+              if (topRevisionNo !== undefined) setRevisionNo(topRevisionNo);
+              if (topEffectivity !== undefined) setEffectivity(topEffectivity);
+
+              // store the rest of the logo config but strip nested documentStamp to avoid duplication
+              const copy = { ...val };
+              if (copy.documentStamp) delete copy.documentStamp;
+              delete copy.document_code;
+              delete copy.revision_no;
+              delete copy.effectivity;
+              setLogoConfig(copy);
+            }}
           />
         );
       case "fields":
@@ -429,7 +488,11 @@ export default function DocumentControllerCreateTemplate() {
                   pageSetup={pageSetup}
                   onEditorReady={handleEditorReady}
                   onContentChange={setTemplateContent}
-                  logoConfig={logoConfig} 
+                  logoConfig={logoConfig}
+                  templateStatus={status}
+                  documentCode={documentCode}
+                  revisionNo={revisionNo}
+                  effectivity={effectivity}
                 />
               </main>
             </div>

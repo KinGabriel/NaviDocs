@@ -1,5 +1,6 @@
 // src/layout/create_template/headerFooterPanel.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { toISODate } from "../../utils/formatters";
 
 const SLU_LOGO_SRC = "/assets/images/slu-logo.png";
 const CICM_LOGO_SRC = "/assets/images/cicm-logo.png";
@@ -21,10 +22,23 @@ export default function HeaderFooterPanel({ value, onChange }) {
   // --- Document stamp fields ---
   const [docCode, setDocCode] = useState(v.docCode ?? "");
   const [revisionNo, setRevisionNo] = useState(v.revisionNo ?? "");
-  const [effectivity, setEffectivity] = useState(v.effectivity ?? "");
+  // Normalize effectivity into ISO string when possible so the input shows a
+  // consistent value (handles { $date: ISO } objects and loose date strings).
+  const normalizeEffectivityLocal = (val) => {
+    if (val === undefined || val === null || val === "") return "";
+    if (typeof val === 'object' && val.$date) return val.$date;
+    const d = new Date(val);
+    return isNaN(d) ? String(val) : d.toISOString();
+  };
+
+  const [effectivity, setEffectivity] = useState(normalizeEffectivityLocal(v.effectivity ?? ""));
 
   // Sync when parent changes value
+  // Prevent emitting changes while we're applying incoming props
+  const isSyncingRef = useRef(false);
+
   useEffect(() => {
+    isSyncingRef.current = true;
     setShowSLULogo(!!v.showSLULogo);
     setShowCICMLogo(!!v.showCICMLogo);
     setLine1(v.line1 ?? "Saint Louis University");
@@ -32,20 +46,32 @@ export default function HeaderFooterPanel({ value, onChange }) {
     setLine3(v.line3 ?? "");
     setLine4(v.line4 ?? "");
     setShowLine4(!!v.showLine4);
-    setDocCode(v.docCode ?? "");
-    setRevisionNo(v.revisionNo ?? "");
-    setEffectivity(v.effectivity ?? "");
+  setDocCode(v.docCode ?? "");
+  setRevisionNo(v.revisionNo ?? "");
+  setEffectivity(normalizeEffectivityLocal(v.effectivity ?? ""));
+    // release syncing after current tick so the notify effect can fire for user edits
+    const t = setTimeout(() => { isSyncingRef.current = false; }, 0);
+    return () => clearTimeout(t);
   }, [v]);
 
-  // Notify parent
+  // Notify parent (but skip if we're currently applying incoming props to avoid
+  // parent-child feedback loops). Emit both legacy nested `documentStamp` and
+  // top-level fields for forward/backward compatibility.
   useEffect(() => {
-    onChange?.({
+    if (isSyncingRef.current) return;
+    const payload = {
       showSLULogo,
       showCICMLogo,
       assets: { slu: SLU_LOGO_SRC, cicm: CICM_LOGO_SRC },
       center: { line1, line2, line3, line4, showLine4 },
+      // legacy nested shape
       documentStamp: { docCode, revisionNo, effectivity },
-    });
+      // top-level fields (preferred when present)
+      document_code: docCode,
+      revision_no: revisionNo,
+      effectivity: effectivity,
+    };
+    onChange?.(payload);
   }, [
     showSLULogo,
     showCICMLogo,
@@ -179,9 +205,9 @@ export default function HeaderFooterPanel({ value, onChange }) {
             <input
               type="text"
               className="border rounded-md px-2 py-1 text-sm flex-1"
-              value={effectivity}
-              onChange={(e) => setEffectivity(e.target.value)}
-              placeholder="e.g., 15 APR 2025"
+              value={toISODate(effectivity)}
+              onChange={(e) => setEffectivity(normalizeEffectivityLocal(e.target.value))}
+              placeholder="YYYY-MM-DD"
             />
           </div>
           <div className="flex items-center justify-between">

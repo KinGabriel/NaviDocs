@@ -148,12 +148,13 @@ export const updateTemplate = async (req, res) => {
     try {
       const note = (req.body && typeof req.body.version_note === 'string') ? req.body.version_note : '';
       // Provide a snapshot object with only allowed keys to let createTemplateVersion decide
-      const snapshot = {
-        pages_json: updatedTemplate.pages_json,
-        fields: updatedTemplate.fields,
-        pageSetup: updatedTemplate.pageSetup,
-        dateFormat: updatedTemplate.dateFormat
-      };
+        const snapshot = {
+          pages_json: updatedTemplate.pages_json,
+          fields: updatedTemplate.fields,
+          pageSetup: updatedTemplate.pageSetup,
+          dateFormat: updatedTemplate.dateFormat,
+          logoConfig: updatedTemplate.logoConfig || {}
+        };
       // fire-and-forget; createTemplateVersion contains its own try/catch where necessary
       createTemplateVersion({ templateId: updatedTemplate._id, snapshot, userId: req.user?.id, note }).catch(e => {
         console.error('Non-blocking createTemplateVersion failed:', e);

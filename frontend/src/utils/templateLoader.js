@@ -59,9 +59,46 @@ export async function fetchAndNormalizeTemplate(id) {
 
   const pageSetup = tpl.pageSetup || null;
   const fontSettings = tpl.fontSettings || null;
-  const headerFooter = tpl.headerFooter || null;
+  // Prefer explicit logoConfig, fall back to older headerFooter/header_footer shapes.
+  // Keep a single canonical `logoConfig` to avoid redundancy in the UI.
+  const logoConfig = tpl.logoConfig || tpl.headerFooter || tpl.header_footer || null;
+  // Keep a small compatibility reference to the older headerFooter shape
+  const headerFooter = tpl.headerFooter || tpl.header_footer || null;
   const dateFormat = tpl.dateFormat || null;
   const editableFields = Array.isArray(tpl.fields) ? tpl.fields : [];
+
+  // Helper: try to parse an effectivity/date-like value into ISO when possible
+  const normalizeEffectivity = (val) => {
+    if (val === undefined || val === null || val === '') return null;
+    // Support MongoDB Extended JSON: { $date: "ISO" }
+    if (typeof val === 'object' && val.$date) return val.$date;
+    // If it's already a Date
+    if (val instanceof Date) return val.toISOString();
+    // If it's a numeric timestamp
+    if (typeof val === 'number' && !isNaN(val)) {
+      const d = new Date(val);
+      return isNaN(d) ? null : d.toISOString();
+    }
+    // If it's a string, try Date parsing - fall back to original string if unparsable
+    if (typeof val === 'string') {
+      const d = new Date(val);
+      return isNaN(d) ? val : d.toISOString();
+    }
+    return null;
+  };
+
+  // Derive top-level document stamp values from several possible shapes for
+  // compatibility with older data.
+  const document_code = (
+    tpl.document_code ?? tpl.docCode ?? tpl.documentStamp?.docCode ?? logoConfig?.documentStamp?.docCode ?? headerFooter?.documentStamp?.docCode ?? ""
+  );
+  const revision_no = (
+    tpl.revision_no ?? tpl.revisionNo ?? tpl.documentStamp?.revisionNo ?? logoConfig?.documentStamp?.revisionNo ?? headerFooter?.documentStamp?.revisionNo ?? 0
+  );
+  const effectivityRaw = (
+    tpl.effectivity ?? tpl.effectivityDate ?? tpl.documentStamp?.effectivity ?? logoConfig?.documentStamp?.effectivity ?? null
+  );
+  const effectivity = normalizeEffectivity(effectivityRaw);
 
   return {
     template: tpl,
@@ -74,7 +111,12 @@ export async function fetchAndNormalizeTemplate(id) {
     templateContent,
     pageSetup,
     fontSettings,
-    headerFooter,
+    // `logoConfig` is the canonical header/footer/logo settings used by the editor.
+    // New: logoConfig (editor header/footer/logo settings) and top-level stamp fields
+    logoConfig,
+    document_code,
+    revision_no,
+    effectivity,
     dateFormat,
     editableFields,
     rawResponse: res,
