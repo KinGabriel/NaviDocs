@@ -140,54 +140,64 @@ export default function SelectTemplate() {
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
-      <div className="h-4 md:h-5" />
 
       {/* Page Subheader */}
-      <div className="bg-white border-b shadow-sm">
-        <div className="px-8 py-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate("/documents")}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors font-medium"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                   strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
-            </button>
+      <div className="bg-white border-b shadow-sm mt-4 md:mt-6">
+        <div className="px-8 py-6">
+          {/* Top row: title on left, ALL CONTROLS on right */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            {/* Left: Back icon + Title */}
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate("/documents")}
+                className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                aria-label="Back"
+                title="Back"
+              >
+                {/* icon-only */}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="sr-only">Back</span>
+              </button>
 
-            <div className="border-l border-gray-300 h-8" />
+              <div className="border-l border-gray-300 h-8" />
 
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-gray-900">Select Template</h1>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-gray-900">Select Template</h1>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Choose a published template from Document Controller
+                </p>
               </div>
-              <p className="text-sm text-gray-600">
-                Choose a published template from Document Controller
-              </p>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Controls */}
-      <div className="bg-white border-b shadow-sm">
-        <div className="px-8 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <div className="flex items-center gap-3 flex-wrap">
+            {/* Right: ALL controls aligned right */}
+            <div className="flex items-center gap-3 flex-wrap justify-end">
+              <div className="w-full sm:w-[300px]">
+                <SearchBar
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by title, code, or description..."
+                />
+              </div>
+
               <Dropdown
                 options={["All", ...Object.keys(schoolIdentifiers)]}
                 value={selectedSchool}
                 onChange={setSelectedSchool}
                 width="w-48"
               />
+
               <Dropdown
                 options={["Recent", "A-Z", "Z-A"]}
                 value={sortOrder}
                 onChange={setSortOrder}
                 width="w-32"
               />
+
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all font-medium ${
@@ -196,7 +206,10 @@ export default function SelectTemplate() {
                     : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                <Filter className="w-4 h-4" />
+                {/* Version Filters toggle */}
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h18M6 8h12M9 12h6m-9 4h12M3 20h18" />
+                </svg>
                 Version Filters
                 {activeFiltersCount > 0 && (
                   <span className="ml-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full font-semibold">
@@ -204,30 +217,28 @@ export default function SelectTemplate() {
                   </span>
                 )}
               </button>
+
               {activeFiltersCount > 0 && (
                 <button
                   onClick={handleResetFilters}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 >
-                  <RotateCcw className="w-4 h-4" />
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v6h6M20 20v-6h-6M20 4l-6 6M4 20l6-6" />
+                  </svg>
                   Reset
                 </button>
               )}
             </div>
-
-            <div className="w-full sm:w-auto sm:min-w-[300px]">
-              <SearchBar
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by title, code, or description..."
-              />
-            </div>
           </div>
 
+          {/* Version Filters panel (still inside subheader) */}
           {showFilters && (
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+            <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
               <div className="flex items-start gap-2 mb-3">
-                <History className="w-5 h-5 text-blue-600 mt-0.5" />
+                <svg className="w-5 h-5 text-blue-600 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 2a1 1 0 0 1 1 1v4.535a4 4 0 0 1 1.172 7.4l2.545 2.546a1 1 0 0 1-1.414 1.414l-2.546-2.545A4 4 0 1 1 10 7.535V3a1 1 0 0 1 1-1h2ZM8 13a2 2 0 1 0 3.446 1.342A2 2 0 0 0 8 13Z"/>
+                </svg>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">Version History Filters</h3>
                   <p className="text-xs text-gray-600 mt-0.5">
@@ -237,9 +248,10 @@ export default function SelectTemplate() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Document Code */}
                 <div>
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                    <FileText className="w-4 h-4" />
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/></svg>
                     Document Code
                   </label>
                   <select
@@ -248,15 +260,16 @@ export default function SelectTemplate() {
                     className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   >
                     <option value="All">All Document Codes</option>
-                    {documentCodes.map(code => (
+                    {documentCodes.map((code) => (
                       <option key={code} value={code}>{code}</option>
                     ))}
                   </select>
                 </div>
 
+                {/* Revision Number */}
                 <div>
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                    <RotateCcw className="w-4 h-4" />
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 1 1-6.364 2.636L4 7V3h4L6.637 4.364A7 7 0 1 0 13 5"/></svg>
                     Revision Number
                   </label>
                   <select
@@ -265,7 +278,7 @@ export default function SelectTemplate() {
                     className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   >
                     <option value="All">All Revisions</option>
-                    {revisionNumbers.map(rev => (
+                    {revisionNumbers.map((rev) => (
                       <option key={rev} value={rev}>Revision {rev}</option>
                     ))}
                   </select>
@@ -276,103 +289,109 @@ export default function SelectTemplate() {
         </div>
       </div>
 
-      {/* Results Summary */}
-      <div className="px-8 py-4">
-        <div className="flex items-center justify-between text-sm">
-          <div className="text-gray-600">
-            Showing{" "}
-            <span className="font-semibold text-gray-900">{filteredTemplates.length}</span> of{" "}
-            <span className="font-semibold text-gray-900">{templates.length}</span> templates
+      {/* RESULTS SUMMARY (white background) */}
+      <div className="bg-white">
+        <div className="px-8 py-4">
+          <div className="flex items-center justify-between text-sm">
+            <div className="text-gray-600">
+              Showing{" "}
+              <span className="font-semibold text-gray-900">{filteredTemplates.length}</span> of{" "}
+              <span className="font-semibold text-gray-900">{templates.length}</span> templates
+            </div>
+            {filteredTemplates.length !== templates.length && (
+              <div className="text-blue-600 font-medium">Filtered results active</div>
+            )}
           </div>
-          {filteredTemplates.length !== templates.length && (
-            <div className="text-blue-600 font-medium">Filtered results active</div>
+        </div>
+      </div>
+
+      {/* TEMPLATE GRID (white background) */}
+      <div className="bg-white">
+        <div className="px-8 py-4">
+          {loading ? (
+            <div className="text-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto" />
+              <p className="mt-4 text-gray-600 font-medium">Loading templates…</p>
+            </div>
+          ) : filteredTemplates.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                <FileText className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No templates found</h3>
+              <p className="text-gray-600 mb-4">
+                {activeFiltersCount > 0
+                  ? "Try adjusting your filters to see more results"
+                  : "No published template versions are available"}
+              </p>
+              {activeFiltersCount > 0 && (
+                <button
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset All Filters
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-5 gap-6">
+              {filteredTemplates.map((t, i) => {
+                const id = t._id || t.id || i;
+                return (
+                  <TemplateCard
+                    key={id}
+                    template={t}
+                    user={user}
+                    onSelect={() => {
+                      const tid = t._id || t.id;
+                      navigate(`/templates/published/${tid}`, {
+                        state: { doc: t, sidebarActive: "Templates", backTo: "/documents" },
+                      });
+                    }}
+                  />
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Template Grid */}
-      <div className="px-8 py-4">
-        {loading ? (
-          <div className="text-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto" />
-            <p className="mt-4 text-gray-600 font-medium">Loading templates…</p>
-          </div>
-        ) : filteredTemplates.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
-              <FileText className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No templates found</h3>
-            <p className="text-gray-600 mb-4">
-              {activeFiltersCount > 0
-                ? "Try adjusting your filters to see more results"
-                : "No published template versions are available"}
-            </p>
-            {activeFiltersCount > 0 && (
+      {/* PAGINATION (white background) */}
+      <div className="bg-white">
+        <div className="px-8 py-6 border-t flex justify-center items-center gap-2">
+          <button
+            onClick={pagination.handlePrev}
+            disabled={pagination.currentPage === 1}
+            className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          >
+            Prev
+          </button>
+          {pagination.getPageNumbers().map((num, idx) =>
+            num === "..." ? (
+              <span key={idx} className="px-2 text-gray-400">…</span>
+            ) : (
               <button
-                onClick={handleResetFilters}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                key={num}
+                onClick={() => pagination.handlePage(num)}
+                className={`px-3 py-1 rounded border ${
+                  pagination.currentPage === num
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-100"
+                }`}
               >
-                <RotateCcw className="w-4 h-4" />
-                Reset All Filters
+                {num}
               </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-5 gap-6">
-            {filteredTemplates.map((t, i) => {
-              const id = t._id || t.id || i;
-              return (
-                <TemplateCard
-                  key={id}
-                  template={t}
-                  user={user}
-                  onSelect={() => {
-                    const tid = t._id || t.id;
-                    navigate(`/templates/published/${tid}`, {
-                      state: { doc: t, sidebarActive: "Templates", backTo: "/documents" },
-                    });
-                  }}
-                />
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Pagination */}
-      <div className="px-8 py-6 border-t bg-white flex justify-center items-center gap-2">
-        <button
-          onClick={pagination.handlePrev}
-          disabled={pagination.currentPage === 1}
-          className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-        >
-          Prev
-        </button>
-        {pagination.getPageNumbers().map((num, idx) =>
-          num === "..." ? (
-            <span key={idx} className="px-2 text-gray-400">…</span>
-          ) : (
-            <button
-              key={num}
-              onClick={() => pagination.handlePage(num)}
-              className={`px-3 py-1 rounded border ${
-                pagination.currentPage === num
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              {num}
-            </button>
-          )
-        )}
-        <button
-          onClick={pagination.handleNext}
-          disabled={pagination.currentPage === totalPages}
-          className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-        >
-          Next
-        </button>
+            )
+          )}
+          <button
+            onClick={pagination.handleNext}
+            disabled={pagination.currentPage === totalPages}
+            className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );
