@@ -62,29 +62,29 @@ export default function Login() {
   };
 
   return (
-    <div className="flex h-screen">
+    <div className="min-h-screen flex flex-col md:flex-row">
       {/* Left side  */}
-      <div className="w-1/2 flex flex-col justify-center items-center bg-gradient-to-b from-blue-100 to-blue-300">
-        <img src={naviLogo} alt="Navidocs Logo" className="w-160  mb-4" />
-        <h1 className="text-7xl font-bold tracking-widest mb-2 text-[#1a237e] font-poppins"> NAVIDOCS </h1>
-        <p className="text-m  font-semibold mt-2">Smart Docs. Smooth Flow. NaviDocs.</p>
+      <div className="md:w-1/2 w-full flex flex-col justify-center items-center bg-gradient-to-b from-blue-100 to-blue-300 p-6 md:p-12 lg:p-16">
+        <img src={naviLogo} alt="Navidocs Logo" className="mb-4 max-w-[14rem] sm:max-w-[14rem] md:max-w-[18rem] lg:max-w-none" />
+        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold tracking-widest mb-2 text-[#1a237e] font-poppins"> NAVIDOCS </h1>
+        <p className="text-sm sm:text-base md:text-lg font-semibold mt-2">Smart Docs. Smooth Flow. NaviDocs.</p>
       </div>
       {/* Right side  */}
-      <div className="w-1/2 flex flex-col justify-center items-center bg-white ">
-        <img src={sluLogo} alt="School Logo" className="w-30 mb-6" />
-        <h2 className="text-6xl font-bold text-yellow-400 mb-4">Welcome!</h2>
-        <p className="mb-8 text-l text-gray-500">Please enter your details</p>
-        <form className="w-[40rem] max-w-full" onSubmit={handleSubmit}>
+      <div className="md:w-1/2 w-full flex flex-col justify-center items-center bg-white p-6 md:p-12 lg:p-16">
+        <img src={sluLogo} alt="School Logo" className="mb-6 w-16 sm:w-20 md:w-28 lg:w-36" />
+        <h2 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold text-yellow-400 mb-4">Welcome!</h2>
+        <p className="mb-6 text-sm sm:text-base md:text-lg text-gray-500">Please enter your details</p>
+        <form className="w-full max-w-md md:max-w-lg" onSubmit={handleSubmit}>
           <div className="mb-6 relative">
             <img
               src={userIcon}
               alt="User Icon"
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 w-7 h-7"
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7"
             />
             <input
               type="text"
               placeholder="Email Address"
-              className="w-full pl-12 pr-4 py-4 text-lg rounded-lg border border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full pl-12 pr-4 py-3 md:py-4 text-sm sm:text-base md:text-base lg:text-lg rounded-lg border border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -105,8 +105,7 @@ export default function Login() {
           </div>
           <button
             type="submit"
-            className="w-full py-4 mt-10 rounded-lg bg-gradient-to-r from-blue-700 to-blue-400 text-white font-bold text-xl mb-3 shadow-lg
-                        transition-all duration-200 ease-in-out active:scale-95 active:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 sm:py-3 md:py-4 mt-8 md:mt-10 rounded-lg bg-gradient-to-r from-blue-700 to-blue-400 text-white font-bold text-base md:text-lg lg:text-xl mb-3 shadow-lg transition-all duration-200 ease-in-out active:scale-95 active:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isLoading}
           >
             {isLoading ? (
