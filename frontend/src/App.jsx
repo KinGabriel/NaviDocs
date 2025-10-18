@@ -296,6 +296,15 @@ function App() {
        />
 
        <Route
+        path="/storage/folders/:id"
+        element={
+          <ProtectedRoute allowedRoles={["Document Controller","Secretary","Dean", "Department Head", "Faculty"]}>
+            <Storage />
+          </ProtectedRoute>
+        }
+      />
+
+       <Route
          path="/documents"
          element={
            <ProtectedRoute allowedRoles={["Document Controller","Dean", "Department Head", "Faculty", "Secretary"]}>
