@@ -58,6 +58,131 @@ export default function DocumentVersionHistory({
     return withSpaces.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
   };
 
+  // Helper: robust editableField node detection (pages_json nodes sometimes store type as string or as object)
+  const isEditableFieldNode = (node) => {
+    if (!node) return false;
+    // Some exported nodes may be strings or objects with .name
+    return node.type === 'editableField' || (node.type && (node.type.name === 'editableField' || node.type === 'editableField'));
+  };
+
+  // Replace placeholder patterns inside a text string using the resolver
+  const replacePlaceholdersInText = (text, versionFields = {}, doc = null) => {
+    if (!text) return text;
+
+    let out = String(text);
+
+    // 1) Handle {{key}} templates (e.g. {{first_name}})
+    out = out.replace(/\{\{\s*([^\}]+?)\s*\}\}/g, (_, key) => {
+      const v = findValueForEditableKey(key, versionFields || {}, doc);
+      return v === undefined || v === null ? _ : String(v);
+    });
+
+    // 2) Handle natural language placeholders like "insert first name" or "Insert First Name"
+    // Capture patterns like: insert <key...>
+    out = out.replace(/insert\s+([a-z0-9_\- ]+)/ig, (_, key) => {
+      const cleaned = String(key).trim();
+      const v = findValueForEditableKey(cleaned, versionFields || {}, doc);
+      return v === undefined || v === null ? _ : String(v);
+    });
+
+    return out;
+  };
+
+  // Resolve an editableField node key to a value by checking version fields, doc-level field_values,
+  // and template definitions. Uses normalized-key matching to handle formatting differences.
+  const findValueForEditableKey = (origKey, versionFields = {}, doc = null) => {
+    if (!origKey && origKey !== 0) return undefined;
+    const keyStr = String(origKey);
+    const targetNorm = normalizeKey(keyStr);
+
+    // small helper to normalize common nested value shapes
+    const extractPrimitive = (val) => {
+      if (val === undefined || val === null) return undefined;
+      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') return val;
+      if (Array.isArray(val) && val.length > 0) return extractPrimitive(val[0]);
+      if (typeof val === 'object') {
+        if (val.value !== undefined) return extractPrimitive(val.value);
+        if (val.text !== undefined) return extractPrimitive(val.text);
+        if (val.content !== undefined) return extractPrimitive(val.content);
+        // sometimes stored as { data: { value: 'x' } }
+        if (val.data && (val.data.value !== undefined || val.data.text !== undefined)) return extractPrimitive(val.data.value ?? val.data.text);
+      }
+      return undefined;
+    };
+
+    // 1) Exact match on versionFields
+    if (versionFields && typeof versionFields === 'object') {
+      if (Object.prototype.hasOwnProperty.call(versionFields, keyStr)) {
+        const raw = versionFields[keyStr];
+        const got = extractPrimitive(raw);
+        if (got !== undefined) {
+          return got;
+        }
+      }
+      for (const k of Object.keys(versionFields)) {
+        if (normalizeKey(k) === targetNorm) {
+          const raw = versionFields[k];
+          const got = extractPrimitive(raw);
+          if (got !== undefined) {
+            // matched via normalized key
+            return got;
+          }
+        }
+      }
+    }
+
+    // 2) Doc-level field_values
+    const docFields = doc?.field_values || doc?.document?.field_values || {};
+    if (docFields && typeof docFields === 'object') {
+      if (Object.prototype.hasOwnProperty.call(docFields, keyStr)) {
+        const raw = docFields[keyStr];
+        const got = extractPrimitive(raw);
+        if (got !== undefined) return got;
+      }
+      for (const k of Object.keys(docFields)) {
+        if (normalizeKey(k) === targetNorm) {
+          const raw = docFields[k];
+          const got = extractPrimitive(raw);
+          if (got !== undefined) {
+            // matched via normalized doc field key
+            return got;
+          }
+        }
+      }
+    }
+
+    // 3) Template definitions
+    try {
+      const tplFields = doc?.from_template?.fields || [];
+      if (Array.isArray(tplFields)) {
+        for (const f of tplFields) {
+          const fk = f.key || f.name || f.id || f._id;
+          if (!fk) continue;
+          if (normalizeKey(fk) === targetNorm) {
+            // try in versionFields/docFields first using normalized extraction
+            if (versionFields && Object.prototype.hasOwnProperty.call(versionFields, fk)) {
+              const raw = versionFields[fk];
+              const got = extractPrimitive(raw);
+              if (got !== undefined) return got;
+            }
+            if (docFields && Object.prototype.hasOwnProperty.call(docFields, fk)) {
+              const raw = docFields[fk];
+              const got = extractPrimitive(raw);
+              if (got !== undefined) return got;
+            }
+            if (f.default !== undefined) return f.default;
+            if (f.value !== undefined) return f.value;
+            return undefined;
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    return undefined;
+  };
+
   // Load the actual document data
   useEffect(() => {
     if (!documentId) return;
@@ -68,7 +193,7 @@ export default function DocumentVersionHistory({
       setDocError(null);
       try {
         const normalized = await fetchAndNormalizeDocument(documentId);
-        console.debug('DocumentVersionHistory: fetched normalized document', normalized);
+  // Document loaded
         
         // Fallback logic for pages_json
         if ((!normalized.pages_json || normalized.pages_json.length === 0) && normalized.document && normalized.document.pages_json) {
@@ -264,19 +389,38 @@ export default function DocumentVersionHistory({
         let changed = false;
 
         state.doc.descendants((node, pos) => {
-          if (node.type && node.type.name === 'editableField') {
-            const origKey = node.attrs?.key;
+          // 1) Editable field node (custom node)
+          if (isEditableFieldNode(node)) {
+            const origKey = node.attrs?.key || node.attrs?.name;
             if (!origKey) return;
-            
-            const newVal = version.fields[origKey] ?? '';
+
+            const newVal = findValueForEditableKey(origKey, version.fields || {}, docData) ?? '';
             const existing = node.textContent || '';
-            
+
             if (String(existing) !== String(newVal)) {
               const from = pos + 1;
               const to = pos + node.nodeSize - 1;
               tr.replaceWith(from, to, state.schema.text(String(newVal)));
               changed = true;
             }
+            return;
+          }
+
+          // 2) Plain text node fallback: replace placeholder-like text inside text nodes
+          // node.isText is true for text nodes in ProseMirror
+          try {
+            const nodeText = node.textContent || (node.text || '');
+            if (nodeText && /\{\{|insert\s+/i.test(nodeText)) {
+              const newText = replacePlaceholdersInText(nodeText, version.fields || {}, docData);
+              if (newText !== nodeText) {
+                const from = pos;
+                const to = pos + node.nodeSize;
+                tr.replaceWith(from, to, state.schema.text(String(newText)));
+                changed = true;
+              }
+            }
+          } catch (e) {
+            // ignore
           }
         });
 
@@ -284,7 +428,7 @@ export default function DocumentVersionHistory({
           editor.view.dispatch(tr);
         }
       } catch (err) {
-        console.debug('Error updating editor with version content:', err);
+        console.error('Error updating editor with version content:', err);
       } finally {
         setTimeout(() => { isApplyingRef.current = false; }, 50);
       }
@@ -306,7 +450,6 @@ export default function DocumentVersionHistory({
         toast.dismiss();
         if (resp && resp.success) {
           toast.success('Document copy created');
-          console.debug('Duplicate result:', resp);
           // Optionally, you could navigate to the new document here if your app has routing.
         } else {
           toast.error(resp?.message || 'Failed to create copy');
@@ -410,6 +553,45 @@ export default function DocumentVersionHistory({
     return (base.content || []).filter(n => n.type === 'page');
   }, [docData]);
 
+  // Build a list of detected editable fields (in reading order) for the currently selected document page
+  const detectedFieldsForCurrentVersion = useMemo(() => {
+    if (!docData || !currentVersionDetails) return [];
+
+    const base = docData?.pages_json?.[0];
+    if (!base || typeof base === 'string') return [];
+
+    const page = pageNodes[docPage] || (base && (base.content || []).find(n => n.type === 'page'));
+    if (!page) return [];
+
+    const seen = new Set();
+    const keys = [];
+
+    const walk = (node) => {
+      if (!node) return;
+      if (isEditableFieldNode(node)) {
+        const orig = node.attrs?.key || node.attrs?.name;
+        if (orig && !seen.has(orig)) {
+          seen.add(orig);
+          keys.push(orig);
+        }
+      }
+      if (Array.isArray(node.content)) node.content.forEach(walk);
+    };
+
+    walk(page);
+
+    return keys.map((k) => {
+      const resolved = findValueForEditableKey(k, currentVersionDetails.fields || {}, docData);
+      const changeEntry = (currentVersionDetails?.changes || []).find(c => normalizeKey(c.key || c.field || '') === normalizeKey(k));
+      return {
+        key: k,
+        label: formatFieldLabel(k),
+        value: resolved !== undefined && resolved !== null && String(resolved) !== '' ? resolved : (currentVersionDetails.fields?.[k] ?? ''),
+        changeType: changeEntry?.type
+      };
+    });
+  }, [docData, pageNodes, docPage, currentVersionDetails]);
+
   // Apply version field values to document content for preview
   const contentForEditor = useMemo(() => {
     if (!docData || !versionContent) return null;
@@ -418,27 +600,70 @@ export default function DocumentVersionHistory({
     
     // Handle HTML string format
     if (typeof base === 'string') {
-      return base.replace(/\{\{([A-Za-z0-9_\-]+)\}\}/g, (_, key) => {
-        const v = versionContent[key];
+      // First replace any {{key}} templates (allowing spaces and any non-brace char inside)
+      let html = String(base).replace(/\{\{\s*([^\}]+?)\s*\}\}/g, (_, key) => {
+        const v = findValueForEditableKey(key, versionContent || {}, docData);
         return v === undefined || v === null ? '' : String(v);
       });
+
+      // Also run the natural-language placeholder replacement (e.g., "insert first name")
+      html = replacePlaceholdersInText(html, versionContent || {}, docData);
+      return html;
     }
     
     // Handle ProseMirror/TipTap format
+    // pages_json can be either an array of pages, or the full `doc` itself.
     const pageNode = pageNodes[docPage] || (base && (base.content || []).find(n => n.type === 'page'));
+
+    // If the stored base is already a full `doc`, operate on that
+    if (base && typeof base === 'object' && base.type === 'doc') {
+      const clonedDoc = JSON.parse(JSON.stringify(base));
+      const walkDoc = (node) => {
+        if (!node) return;
+        if (isEditableFieldNode(node)) {
+          const origKey = node.attrs?.key || node.attrs?.name;
+          const val = findValueForEditableKey(origKey, versionContent || {}, docData);
+          if (val !== undefined && val !== null && String(val) !== '') {
+            node.content = [{ type: 'text', text: String(val) }];
+          } else {
+            node.content = node.content || [];
+          }
+        }
+
+        if (node.type === 'text' && typeof node.text === 'string') {
+          const newText = replacePlaceholdersInText(node.text, versionContent || {}, docData);
+          if (newText !== node.text) node.text = String(newText);
+        }
+
+        if (Array.isArray(node.content)) node.content.forEach(walkDoc);
+      };
+
+      walkDoc(clonedDoc);
+      return clonedDoc;
+    }
+
     if (!pageNode) return base || { type: 'doc', content: [] };
-    
+
     // Deep clone and inject version values
     const cloned = JSON.parse(JSON.stringify(pageNode));
     const walk = (node) => {
       if (!node) return;
-      if (node.type === 'editableField') {
-        const origKey = node.attrs?.key;
-        const val = versionContent?.[origKey];
+      if (isEditableFieldNode(node)) {
+        const origKey = node.attrs?.key || node.attrs?.name;
+        const val = findValueForEditableKey(origKey, versionContent || {}, docData);
         if (val !== undefined && val !== null && String(val) !== '') {
           node.content = [{ type: 'text', text: String(val) }];
-        } else {
-          node.content = node.content || [];
+          } else {
+            // leave placeholder in place
+            node.content = node.content || [];
+          }
+      }
+
+      // Fallback: if this is a raw text node, replace placeholder-like strings inside it
+      if (node.type === 'text' && typeof node.text === 'string') {
+        const newText = replacePlaceholdersInText(node.text, versionContent || {}, docData);
+        if (newText !== node.text) {
+          node.text = String(newText);
         }
       }
       if (Array.isArray(node.content)) node.content.forEach(walk);
@@ -447,6 +672,26 @@ export default function DocumentVersionHistory({
     
     return { type: 'doc', content: [cloned] };
   }, [docData, pageNodes, docPage, versionContent]);
+
+  // Debug helper: copy current page JSON to clipboard and log it
+  const copyCurrentPageJson = async () => {
+    try {
+      const base = docData?.pages_json?.[0];
+      const page = pageNodes[docPage] || (base && (base.content || []).find(n => n.type === 'page'));
+      const json = page ? JSON.stringify(page, null, 2) : JSON.stringify(base || docData?.pages_json || {}, null, 2);
+      if (navigator?.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(json);
+        toast.success('Page JSON copied to clipboard');
+      } else {
+        // Fallback: log page JSON for manual copy
+        console.log('Page JSON:', json);
+        toast('Page JSON logged to console');
+      }
+    } catch (e) {
+      console.error('Failed to copy page JSON', e);
+      toast.error('Failed to copy page JSON');
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -550,48 +795,61 @@ return (
                 <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Field Values</h3>
                 
                 <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
-                  {Object.entries(currentVersionDetails.fields).map(([fieldKey, fieldValue]) => {
-                    // Convert camelCase to Title Case for display
-                    const fieldLabel = fieldKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                    // Find a matching change entry by original key or formatted field label
-                    const changeEntry = (currentVersionDetails?.changes || []).find(c => {
-                      const ck = normalizeKey(c.key || c.field || '');
-                      const fk = normalizeKey(fieldKey);
-                      return ck === fk;
-                    });
-                    const badgeType = changeEntry?.type;
-                    const badgeClass = badgeType === 'added'
-                      ? 'text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded'
-                      : badgeType === 'modified'
-                      ? 'text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded'
-                      : badgeType === 'deleted'
-                      ? 'text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded'
-                      : '';
-                    const isModified = badgeType === 'modified';
-                    
-                    return (
-                      <div 
-                        key={fieldKey}
-                        className={`p-5 ${highlightChanges && isModified ? 'bg-amber-50' : ''}`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {fieldLabel}
-                            </label>
-                            <p className="text-base text-gray-900 whitespace-pre-wrap">
-                              {fieldValue || '—'}
-                            </p>
+                  {detectedFieldsForCurrentVersion.length > 0 ? (
+                    detectedFieldsForCurrentVersion.map(({ key, label, value, changeType }) => {
+                      const badgeType = changeType;
+                      const badgeClass = badgeType === 'added'
+                        ? 'text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded'
+                        : badgeType === 'modified'
+                        ? 'text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded'
+                        : badgeType === 'deleted'
+                        ? 'text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded'
+                        : '';
+                      const isModified = badgeType === 'modified';
+
+                      return (
+                        <div key={key} className={`p-5 ${highlightChanges && isModified ? 'bg-amber-50' : ''}`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+                              <p className="text-base text-gray-900 whitespace-pre-wrap">{value || '—'}</p>
+                            </div>
+                            {highlightChanges && badgeType && (
+                              <span className={badgeClass}>{badgeType === 'added' ? 'Added' : badgeType === 'modified' ? 'Modified' : 'Deleted'}</span>
+                            )}
                           </div>
-                          {highlightChanges && badgeType && (
-                            <span className={badgeClass}>
-                              {badgeType === 'added' ? 'Added' : badgeType === 'modified' ? 'Modified' : 'Deleted'}
-                            </span>
-                          )}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  ) : (
+                    Object.entries(currentVersionDetails.fields).map(([fieldKey, fieldValue]) => {
+                      const fieldLabel = fieldKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                      const changeEntry = (currentVersionDetails?.changes || []).find(c => normalizeKey(c.key || c.field || '') === normalizeKey(fieldKey));
+                      const badgeType = changeEntry?.type;
+                      const badgeClass = badgeType === 'added'
+                        ? 'text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded'
+                        : badgeType === 'modified'
+                        ? 'text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded'
+                        : badgeType === 'deleted'
+                        ? 'text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded'
+                        : '';
+                      const isModified = badgeType === 'modified';
+
+                      return (
+                        <div key={fieldKey} className={`p-5 ${highlightChanges && isModified ? 'bg-amber-50' : ''}`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">{fieldLabel}</label>
+                              <p className="text-base text-gray-900 whitespace-pre-wrap">{fieldValue || '—'}</p>
+                            </div>
+                            {highlightChanges && badgeType && (
+                              <span className={badgeClass}>{badgeType === 'added' ? 'Added' : badgeType === 'modified' ? 'Modified' : 'Deleted'}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -657,6 +915,10 @@ return (
             ) : docError ? (
               <div className="text-center py-12 text-red-600 font-medium">{docError}</div>
             ) : docData && contentForEditor ? (
+              <>
+                <div className="mb-3 flex items-center justify-end gap-2">
+                  <button onClick={copyCurrentPageJson} className="text-xs text-gray-600 px-2 py-1 rounded border bg-white hover:bg-gray-50">Copy page JSON</button>
+                </div>
               <TextEditor
                 content={contentForEditor}
                 pageSetup={docData?.pageSetup || pageSetup}
@@ -665,6 +927,7 @@ return (
                 onEditorReady={(editor) => (editorRef.current = editor)}
                 onContentChange={() => {}}
               />
+              </>
             ) : (
               <div className="text-center py-12 text-gray-400 italic">
                 No document preview available.
