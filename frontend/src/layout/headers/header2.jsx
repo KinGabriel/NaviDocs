@@ -230,6 +230,7 @@ export default function Header2({
             <img 
               src={naviLogo} 
               alt="Logo" 
+              title="Navidocs home"
               className="w-15 h-10 cursor-pointer" 
               onClick={() => {
                 const role = user?.role?.name;
@@ -287,7 +288,7 @@ export default function Header2({
             <button 
               onClick={() => setShowVersionHistory(true)}
               className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded" 
-              title="History"
+              title="Version History"
             > 
               <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24">
                 <path fill="#7D7D7D" 
