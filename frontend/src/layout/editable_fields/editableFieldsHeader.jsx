@@ -92,9 +92,9 @@ export default function EditableFieldsHeader({
             className="w-15 h-10 cursor-pointer" 
             onClick={() => {
               const role = user?.role?.name;
-              if (role === "Secretary") navigate("/secretary/dashboard");
-              else if (role === "Dean") navigate("/dean/dashboard");
-              else if (role === "Document Controller") navigate("/document-controller/dashboard")
+              if (role === "Secretary") navigate("/documents");
+              else if (role === "Dean") navigate("/documents");
+              else if (role === "Document Controller") navigate("/documents")
             }}
           />
 

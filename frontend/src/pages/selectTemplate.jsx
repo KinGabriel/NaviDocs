@@ -8,6 +8,7 @@ import Dropdown from "../components/dropdowns/dropdown";
 import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import { History, FileText, RotateCcw, Filter } from "lucide-react";
+import Loader from "../components/loader";  
 
 export default function SelectTemplate() {
   const navigate = useNavigate();
@@ -140,9 +141,8 @@ export default function SelectTemplate() {
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
-
       {/* Page Subheader */}
-      <div className="bg-white border-b shadow-sm mt-4 md:mt-6">
+      <div className="bg-white border-b shadow-sm mt-2 md:mt-2">
         <div className="px-8 py-6">
           {/* Top row: title on left, ALL CONTROLS on right */}
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -310,8 +310,7 @@ export default function SelectTemplate() {
         <div className="px-8 py-4">
           {loading ? (
             <div className="text-center py-20">
-              <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto" />
-              <p className="mt-4 text-gray-600 font-medium">Loading templates…</p>
+              <Loader message="Loading published templates..." />
             </div>
           ) : filteredTemplates.length === 0 ? (
             <div className="text-center py-20">
