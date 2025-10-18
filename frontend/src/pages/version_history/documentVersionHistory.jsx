@@ -673,25 +673,6 @@ export default function DocumentVersionHistory({
     return { type: 'doc', content: [cloned] };
   }, [docData, pageNodes, docPage, versionContent]);
 
-  // Debug helper: copy current page JSON to clipboard and log it
-  const copyCurrentPageJson = async () => {
-    try {
-      const base = docData?.pages_json?.[0];
-      const page = pageNodes[docPage] || (base && (base.content || []).find(n => n.type === 'page'));
-      const json = page ? JSON.stringify(page, null, 2) : JSON.stringify(base || docData?.pages_json || {}, null, 2);
-      if (navigator?.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(json);
-        toast.success('Page JSON copied to clipboard');
-      } else {
-        // Fallback: log page JSON for manual copy
-        console.log('Page JSON:', json);
-        toast('Page JSON logged to console');
-      }
-    } catch (e) {
-      console.error('Failed to copy page JSON', e);
-      toast.error('Failed to copy page JSON');
-    }
-  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -916,9 +897,7 @@ return (
               <div className="text-center py-12 text-red-600 font-medium">{docError}</div>
             ) : docData && contentForEditor ? (
               <>
-                <div className="mb-3 flex items-center justify-end gap-2">
-                  <button onClick={copyCurrentPageJson} className="text-xs text-gray-600 px-2 py-1 rounded border bg-white hover:bg-gray-50">Copy page JSON</button>
-                </div>
+  
               <TextEditor
                 content={contentForEditor}
                 pageSetup={docData?.pageSetup || pageSetup}
