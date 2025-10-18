@@ -201,6 +201,7 @@ export default function TextEditor({
   if (!editor) return;
 
   const renderHeaders = () => {
+    const cfg = logoConfig || {};
     const pages = document.querySelectorAll(".rm-page-break");
     if (!pages.length) return;
     const totalPages = pages.length;
@@ -234,11 +235,11 @@ export default function TextEditor({
 
       // LEFT: SLU Logo
       const left = document.createElement("div");
-      if (logoConfig.showSLULogo)
-        left.innerHTML = `<img src="${logoConfig.assets?.slu}" alt="SLU" style="height:60px;object-fit:contain;" />`;
+      if (cfg.showSLULogo)
+        left.innerHTML = `<img src="${cfg.assets?.slu || ''}" alt="SLU" style="height:60px;object-fit:contain;" />`;
 
       // CENTER: Vertical text block
-      const c = logoConfig.center || {};
+  const c = cfg.center || {};
       const center = document.createElement("div");
       center.style.display = "flex";
       center.style.flexDirection = "column";
@@ -256,9 +257,9 @@ export default function TextEditor({
       // RIGHT: CICM Logo + Document Table side-by-side
       // prefer explicit top-level props when provided, otherwise fall back to nested
       const d = {
-        docCode: documentCode || logoConfig.documentStamp?.docCode || logoConfig.docCode || logoConfig.document_code || "",
-        revisionNo: revisionNo || logoConfig.documentStamp?.revisionNo || logoConfig.revisionNo || logoConfig.revision_no || "",
-        effectivity: effectivity || logoConfig.documentStamp?.effectivity || logoConfig.effectivity || "",
+        docCode: documentCode || cfg.documentStamp?.docCode || cfg.docCode || cfg.document_code || "",
+        revisionNo: revisionNo || cfg.documentStamp?.revisionNo || cfg.revisionNo || cfg.revision_no || "",
+        effectivity: effectivity || cfg.documentStamp?.effectivity || cfg.effectivity || "",
       };
       const right = document.createElement("div");
       right.style.display = "flex";
@@ -266,8 +267,8 @@ export default function TextEditor({
       right.style.justifyContent = "flex-end";
       right.style.gap = "12px";
 
-      const cicmLogo = logoConfig.showCICMLogo
-        ? `<img src="${logoConfig.assets?.cicm}" alt="CICM" style="height:52px;object-fit:contain;" />`
+      const cicmLogo = cfg.showCICMLogo
+        ? `<img src="${cfg.assets?.cicm || ''}" alt="CICM" style="height:52px;object-fit:contain;" />`
         : "";
 
   // only render table when there's a document code and either:
