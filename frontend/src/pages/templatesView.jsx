@@ -54,6 +54,24 @@ export default function TemplatesView() {
     return [{ type: 'page', content }];
   }, [template]);
 
+  // Determine if current page is landscape based on pageSetup
+  const isLandscape = useMemo(() => {
+    if (!template?.pageSetup) return false;
+    
+    const pageSetup = template.pageSetup;
+    
+    // Check if orientation is explicitly set
+    if (pageSetup.orientation) {
+      return pageSetup.orientation.toLowerCase() === 'landscape';
+    }
+    
+    // Otherwise, determine by comparing dimensions
+    const width = parseFloat(pageSetup.width) || 0;
+    const height = parseFloat(pageSetup.height) || 0;
+    
+    return width > height;
+  }, [template?.pageSetup]);
+
   const totalPages = pageNodes.length || 0;
   // Clamp currentPage whenever totalPages changes
   useEffect(() => {
@@ -608,7 +626,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
         onAddInstructions={handleAddInstructions}
       />
       
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
+    <div className={`mx-auto w-full px-4 py-6 md:pl-2 ${isLandscape ? 'max-w-full' : 'max-w-7xl'}`}>
         <main className="p-8 flex-1 overflow-y-auto">
           {/* Error message banner */}
           {error && (
@@ -637,216 +655,219 @@ const handleUpdateISOCode = async ({ iso_code }) => {
             </div>
           )}
           
-          {/* preview and details */}
-          <div className="grid grid-cols-12 gap-6">
-            {/* Template preview */}
-            <section className="col-span-12 lg:col-span-8  ">
-                    {/* Page Controls */}
-                  <div className="flex items-center justify-between mb-2">
-                      <button
-                        className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-                        disabled={currentPage === 0}
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-gray-600">
-                        Page {currentPage + 1} of {totalPages}
-                      </span>
-                      <button
-                        className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
-                        disabled={currentPage === totalPages - 1}
-                      >
-                        Next
-                      </button>
-                    </div>
-                    {/* Document Plate with header/footer placeholders */}
-                     
-                      {/* Page content */}
-                      <div className="flex-1 w-full">
-                        {contentForEditor && (
-                          <TextEditor
-                            key={`${template?._id || template?.id || 'tpl'}-${currentPage}`}
-                            content={contentForEditor}
-                            pageSetup={template?.pageSetup}
-                            logoConfig={template?.logoConfig}
-                            templateStatus={template?.status}
-                            documentCode={template?.document_code || template?.documentCode}
-                            revisionNo={template?.revision_no || template?.revisionNo}
-                            effectivity={template?.effectivity}
-                            className="pointer-events-none opacity-100 w-full"
-                            onEditorReady={editor => {
-                              // Disable editing
-                              try { editor.setEditable(false); } catch {}
-                            }}
-                          />
-                        )}
-                    </div>
-            </section>
-
-            {/* Template details and metadata */}
-            <aside className="col-span-12 lg:col-span-4">
-              
-              {/* Template Status Panel */}
-              <div className="bg-white border rounded-md shadow-sm mb-4">
-                <div className="p-5">
-                  <div className="mb-4">
-                    <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
-                      Template Status
-                    </h3>
-                    <div className="w-16 h-0.5 bg-yellow-400 mb-3 rounded" />
-                    <div className="text-base text-gray-900 font-sans">
-                      {/* Status-specific messages */}
-                      {t.status === 'assigned' && (
-                        <>Document controllers are still working on the template.</>
-                      )}
-                      {t.status === 'pending' && (
-                        ((user?.role?.name === "Dean" && t.status_meta?.approvals?.secretary?.isApproved !== false) ||
-                         (user?.role?.name === "Secretary" && t.status_meta?.approvals?.secretary?.isApproved !== true)) ? (
-                          <>Template is awaiting your approval.</>
-                        ) : (
-                          <>Template is awaiting approval from assigned approvers.</>
-                        )
-                      )}
-                      {t.status === 'approved' && (
-                        <>Template has been fully approved and is ready for publishing by the document controller.</>
-                      )}
-                      {t.status === 'published' && (
-                        <>Template is published and available for use.</>
-                      )}
-                      {t.status === 'rejected' && (
-                        <>Template was rejected.</>
-                      )}
-                      {t.status === 'returned' && (
-                        <>Template was returned for changes.</>
-                      )}
-                    </div>
-                  </div>
-                </div>
+        {/* preview and details - Dynamic layout based on orientation */}
+        <div className={`flex ${isLandscape ? 'flex-row gap-6' : 'flex-col lg:flex-row'} gap-6`}>
+          {/* Template preview */}
+          <section className={`${
+            isLandscape 
+              ? 'flex-1 min-w-0' 
+              : 'w-full lg:w-8/12'
+          }`}>
+              {/* Page Controls */}
+              <div className={`flex items-center mb-2 ${isLandscape ? 'justify-center gap-4 w-full' : 'justify-between'}`}>
+                <button
+                  className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                <button
+                  className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage === totalPages - 1}
+                >
+                  Next
+                </button>
               </div>
-
-              {/* DocumentDetailsCard - editable for Dean, non-editable for other modules */}
-              {template && (
-                <DocumentDetailsCard 
-                  template={template}
-                  onUpdateDocumentDetails={handleUpdateDocumentDetails}
-                  onUpdateISOCode={handleUpdateISOCode}
-                  canEdit={user?.role?.name === "Dean"}
+            
+            {/* Page content */}
+            <div className={`w-full ${isLandscape ? 'overflow-x-auto' : ''}`}>
+              {contentForEditor && (
+                <TextEditor
+                  key={`${template?._id || template?.id || 'tpl'}-${currentPage}`}
+                  content={contentForEditor}
+                  pageSetup={template?.pageSetup}
+                  logoConfig={template?.logoConfig}
+                  templateStatus={template?.status}
+                  documentCode={template?.document_code || template?.documentCode}
+                  revisionNo={template?.revision_no || template?.revisionNo}
+                  effectivity={template?.effectivity}
+                  className="pointer-events-none opacity-100 w-full"
+                  onEditorReady={editor => {
+                    try { editor.setEditable(false); } catch {}
+                  }}
                 />
               )}
-              
-              {/* Details Panel */}
-              <div className="bg-white border rounded-md shadow-sm">
-                <div className="p-5">
-                  {/* Deadline Section */}
-                  <div className="mb-4">
-                    <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
-                      Deadline
-                    </h3>
-                    <div className="text-base text-gray-900">{deadline || "No deadline set"}</div>
-                  </div>
-                  
-                  {/* Assigned Members Section */}
-                  <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
-                    Assigned Members
-                  </h3>
-                  
-                  <ul className="mb-6">
-                    {assignedNames.length > 0 ? (
-                      assignedNames.map((name, idx) => (
-                        <li key={idx} className="text-sm text-gray-800 mb-1 flex items-center">
-                          <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2" aria-hidden="true"></span>
-                          {name}
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-sm text-gray-400">No members assigned.</li>
-                    )}
-                  </ul>
-                  
-                  {/* Approvers Section */}
-                  <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
-                    To be approved by
-                  </h3>
-                  
-                  <ul className="mb-6">
-                    {approvalsArr.length > 0 ? (
-                      approvalsArr.map((approver, idx) => {
-                        // Determine status badge color and text
-                        let statusBadge;
-                        if (approver.isRejected) {
-                          statusBadge = (
-                            <span className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-medium">
-                              Rejected
-                            </span>
-                          );
-                        } else if (approver.isReturned) {
-                          statusBadge = (
-                            <span className="ml-2 px-2 py-0.5 rounded bg-orange-100 text-orange-700 text-xs font-medium">
-                              Returned
-                            </span>
-                          );
-                        } else if (approver.isApproved) {
-                          statusBadge = (
-                            <span className="ml-2 px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">
-                              Approved
-                            </span>
-                          );
-                        } else {
-                          statusBadge = (
-                            <span className="ml-2 px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs font-medium">
-                              Pending
-                            </span>
-                          );
-                        }
+            </div>
+          </section>
 
-                        return (
-                          <li key={idx} className="flex mb-2 text-sm">
-                            <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0" aria-hidden="true"></span>
-                            <div className="flex flex-col">
-                              <span className="font-medium text-gray-800 flex items-center">
-                                {approver.name} ({approver.role?.name || approver.role})
-                                {statusBadge}
-                              </span>
-                            </div>
-                          </li>
-                        );
-                      })
-                    ) : (
-                      <li className="text-sm text-gray-400">No approvers assigned.</li>
-                    )}
-                  </ul>
-                  
-                  {/* Notes Section */}
-                  <h3 className="text-base font-bold tracking-widest text-gray-900 uppercase font-sans">
-                    Notes
+          {/* Template details and metadata*/}
+          <aside className={`${
+            isLandscape 
+              ? 'w-80 flex-shrink-0' 
+              : 'w-full lg:w-4/12'
+          }`}>
+            {/* Template Status Panel */}
+            <div className="bg-white border rounded-md shadow-sm mb-4">
+              <div className="p-5">
+                <div className="mb-4">
+                  <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
+                    Template Status
                   </h3>
                   <div className="w-16 h-0.5 bg-yellow-400 mb-3 rounded" />
-                  <ul>
-                    {notes.length > 0 ? (
-                      notes.map((note, idx) => (
-                        <li key={idx} className="mb-3">
-                          {/* Note metadata */}
-                          <div className="text-xs text-gray-500 mb-1 font-sans">
-                            {note.added_by_name || note.added_by || ''} &middot; {formatDateTime(note.created_at)}
-                          </div>
-                          {/* Note type */}
-                          <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-3">
-                            {note.type || 'Note'}
-                          </div>
-                          {/* Note message */}
-                          <div className="text-base text-gray-800 font-sans">{note.message}</div>
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-base text-gray-400 font-sans">No notes available.</li>
+                  <div className="text-base text-gray-900 font-sans">
+                    {t.status === 'assigned' && (
+                      <>Document controllers are still working on the template.</>
                     )}
-                  </ul>
+                    {t.status === 'pending' && (
+                      ((user?.role?.name === "Dean" && t.status_meta?.approvals?.secretary?.isApproved !== false) ||
+                      (user?.role?.name === "Secretary" && t.status_meta?.approvals?.secretary?.isApproved !== true)) ? (
+                        <>Template is awaiting your approval.</>
+                      ) : (
+                        <>Template is awaiting approval from assigned approvers.</>
+                      )
+                    )}
+                    {t.status === 'approved' && (
+                      <>Template has been fully approved and is ready for publishing by the document controller.</>
+                    )}
+                    {t.status === 'published' && (
+                      <>Template is published and available for use.</>
+                    )}
+                    {t.status === 'rejected' && (
+                      <>Template was rejected.</>
+                    )}
+                    {t.status === 'returned' && (
+                      <>Template was returned for changes.</>
+                    )}
+                  </div>
                 </div>
               </div>
-            </aside>
-          </div>
+            </div>
+
+            {/* DocumentDetailsCard - editable for Dean, non-editable for other modules */}
+            {template && (
+              <DocumentDetailsCard 
+                template={template}
+                onUpdateDocumentDetails={handleUpdateDocumentDetails}
+                onUpdateISOCode={handleUpdateISOCode}
+                canEdit={user?.role?.name === "Dean"}
+              />
+            )}
+            
+            {/* Details Panel */}
+            <div className="bg-white border rounded-md shadow-sm">
+              <div className="p-5">
+                {/* Deadline Section */}
+                <div className="mb-4">
+                  <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
+                    Deadline
+                  </h3>
+                  <div className="text-base text-gray-900">{deadline || "No deadline set"}</div>
+                </div>
+                
+                {/* Assigned Members Section */}
+                <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
+                  Assigned Members
+                </h3>
+                
+                <ul className="mb-6">
+                  {assignedNames.length > 0 ? (
+                    assignedNames.map((name, idx) => (
+                      <li key={idx} className="text-sm text-gray-800 mb-1 flex items-center">
+                        <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2" aria-hidden="true"></span>
+                        {name}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-sm text-gray-400">No members assigned.</li>
+                  )}
+                </ul>
+                
+                {/* Approvers Section */}
+                <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
+                  To be approved by
+                </h3>
+                
+                <ul className="mb-6">
+                  {approvalsArr.length > 0 ? (
+                    approvalsArr.map((approver, idx) => {
+                      let statusBadge;
+                      if (approver.isRejected) {
+                        statusBadge = (
+                          <span className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-medium">
+                            Rejected
+                          </span>
+                        );
+                      } else if (approver.isReturned) {
+                        statusBadge = (
+                          <span className="ml-2 px-2 py-0.5 rounded bg-orange-100 text-orange-700 text-xs font-medium">
+                            Returned
+                          </span>
+                        );
+                      } else if (approver.isApproved) {
+                        statusBadge = (
+                          <span className="ml-2 px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">
+                            Approved
+                          </span>
+                        );
+                      } else {
+                        statusBadge = (
+                          <span className="ml-2 px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs font-medium">
+                            Pending
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <li key={idx} className="flex mb-2 text-sm">
+                          <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0" aria-hidden="true"></span>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-800 flex items-center flex-wrap">
+                              {approver.name} ({approver.role?.name || approver.role})
+                              {statusBadge}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })
+                  ) : (
+                    <li className="text-sm text-gray-400">No approvers assigned.</li>
+                  )}
+                </ul>
+                
+                {/* Notes Section */}
+                <h3 className="text-base font-bold tracking-widest text-gray-900 uppercase font-sans">
+                  Notes
+                </h3>
+                <div className="w-16 h-0.5 bg-yellow-400 mb-3 rounded" />
+                <ul>
+                  {notes.length > 0 ? (
+                    notes.map((note, idx) => (
+                      <li key={idx} className="mb-3">
+                          {/* Note metadata */}
+                        <div className="text-xs text-gray-500 mb-1 font-sans">
+                          {note.added_by_name || note.added_by || ''} &middot; {formatDateTime(note.created_at)}
+                        </div>
+                          {/* Note type */}
+                        <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-3">
+                          {note.type || 'Note'}
+                        </div>
+                          {/* Note message */}
+                        <div className="text-base text-gray-800 font-sans">{note.message}</div>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-base text-gray-400 font-sans">No notes available.</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </aside>
+        </div>
         </main>
       </div>
       
