@@ -57,6 +57,16 @@ export async function fetchAndNormalizeTemplate(id) {
 
   const templateContent = (tpl.pages_json && tpl.pages_json.length > 0) ? tpl.pages_json[0] : DEFAULT_CONTENT;
 
+  // Normalize pages: treat each pages_json entry as a page document.
+  let templatePages = [];
+  if (Array.isArray(tpl.pages_json) && tpl.pages_json.length > 0) {
+    templatePages = tpl.pages_json.map(p => (p && p.type === 'doc' ? p : { type: 'doc', content: p?.content || [] }));
+  } else if (templateContent) {
+    templatePages = [{ type: 'doc', content: templateContent.content || [] }];
+  } else {
+    templatePages = [];
+  }
+
   const pageSetup = tpl.pageSetup || null;
   const fontSettings = tpl.fontSettings || null;
   // Prefer explicit logoConfig, fall back to older headerFooter/header_footer shapes.
@@ -109,10 +119,9 @@ export async function fetchAndNormalizeTemplate(id) {
     approvalMeta,
     approvers: approversArr,
     templateContent,
+    templatePages,
     pageSetup,
     fontSettings,
-    // `logoConfig` is the canonical header/footer/logo settings used by the editor.
-    // New: logoConfig (editor header/footer/logo settings) and top-level stamp fields
     logoConfig,
     document_code,
     revision_no,

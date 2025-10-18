@@ -29,7 +29,6 @@ export default function EditableFields() {
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [docData, setDocData] = useState(null);
   const [docError, setDocError] = useState(null);
-  const [docPage, setDocPage] = useState(0);
 
  const TableManager = ({ editor }) => {
   const [showTableDialog, setShowTableDialog] = useState(false);
@@ -321,13 +320,11 @@ export default function EditableFields() {
     ];
   }, [docData]);
 
-  // Prefer fields found directly in the selected page's editableField nodes
-  const panelsFromPage = useMemo(() => {
+  // Aggregate editableField nodes from the document (first pages_json item)
+  const panelsFromDoc = useMemo(() => {
     if (!docData || !docData.pages_json) return null;
     const base = docData.pages_json[0];
     if (!base || typeof base === 'string') return null;
-    const page = (base.content || [])[docPage];
-    if (!page) return null;
 
     const extracted = [];
     const walk = (node) => {
@@ -340,40 +337,40 @@ export default function EditableFields() {
         const key = origKey;
         // avoid duplicates
         if (!extracted.find(f => f.name === key)) {
-          // Create a more user-friendly label from the key
           const label = origKey
-            .replace(/([A-Z])/g, ' $1') // Add space before capital letters
-            .replace(/[_-]/g, ' ') // Replace underscores and hyphens with spaces
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/[_-]/g, ' ')
             .trim()
             .split(' ')
             .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .join(' ');
-          
-          extracted.push({ 
-            type: type === 'text' ? 'input' : type, 
-            name: key, 
-            label: label || origKey, 
-            placeholder 
+
+          extracted.push({
+            type: type === 'text' ? 'input' : type,
+            name: key,
+            label: label || origKey,
+            placeholder,
           });
         }
       }
       if (Array.isArray(node.content)) node.content.forEach(walk);
     };
-    walk(page);
+
+    if (Array.isArray(base.content)) base.content.forEach(walk);
 
     if (extracted.length === 0) return null;
-      return [
+    return [
       {
         number: 1,
-        title: docData.from_template?.title || 'Page Fields',
+        title: docData.from_template?.title || 'Document Fields',
         subtitle: docData.from_template?.description || '',
         color: 'bg-blue-500',
         fields: extracted,
       },
     ];
-  }, [docData, docPage]);
+  }, [docData]);
 
-  const panelsToUse = panelsFromPage || panelsFromTemplate || panelsConfig;
+  const panelsToUse = panelsFromDoc || panelsFromTemplate || panelsConfig;
   const [currentField, setCurrentField] = useState(null);
   const sectionsPerPage = 2;
   const totalPages = Math.max(1, Math.ceil(panelsToUse.length / sectionsPerPage));
@@ -481,11 +478,10 @@ export default function EditableFields() {
         }
       });
     }
-    // also ensure keys from page editableField nodes are present
+    // also ensure keys from document editableField nodes are present
     try {
       const base = docData.pages_json?.[0];
       if (base && typeof base !== 'string') {
-        const page = (base.content || [])[docPage];
         const pageKeys = [];
         const walk = (node) => {
           if (!node) return;
@@ -498,15 +494,14 @@ export default function EditableFields() {
           }
           if (Array.isArray(node.content)) node.content.forEach(walk);
         };
-        walk(page);
-        console.debug('editableFields:init page editable keys', pageKeys);
+        if (Array.isArray(base.content)) base.content.forEach(walk);
+        console.debug('editableFields:init document editable keys', pageKeys);
       }
     } catch (err) {
       // ignore
     }
-    setFormData(merged);
-    setCurrentPage(0);
-    setDocPage(0);
+  setFormData(merged);
+  setCurrentPage(0);
     // If navigation requested autofill, do it once after doc data initializes
     (async () => {
       try {
@@ -613,14 +608,7 @@ export default function EditableFields() {
   };
 
   // page nodes: if pages_json contains ProseMirror doc object, extract page nodes
-  const pageNodes = useMemo(() => {
-    const base = docData?.pages_json?.[0];
-    if (!base) return [];
-    if (typeof base === 'string') return [];
-    return (base.content || []).filter(n => n.type === 'page');
-  }, [docData]);
-
-  const docTotalPages = Math.max(1, pageNodes.length || (docData?.pages_json && docData.pages_json.length ? 1 : 0));
+  // no per-page nodes; we operate on the first normalized pages_json item as the full doc preview
 
   // safely apply placeholders only when the page content is a HTML/string
   const applyPlaceholdersToHtml = (html, values = {}) => {
@@ -634,15 +622,10 @@ export default function EditableFields() {
   const contentForEditor = useMemo(() => {
     if (!docData) return null;
     const base = docData?.pages_json?.[0];
-    // if the backend returned an HTML string for pages, map placeholders and let TextEditor normalize
-    if (typeof base === 'string') {
-      return applyPlaceholdersToHtml(base, formData);
-    }
-    // otherwise use the page node object (TipTap/ProseMirror shape)
-    const pageNode = pageNodes[docPage] || (base && (base.content || []).find(n => n.type === 'page'));
-    if (!pageNode) return base || { type: 'doc', content: [] };
-    // deep-clone the page node so we can inject values without mutating docData
-    const cloned = JSON.parse(JSON.stringify(pageNode));
+    if (typeof base === 'string') return applyPlaceholdersToHtml(base, formData);
+
+    // deep-clone the base node so we can inject values without mutating docData
+    const cloned = JSON.parse(JSON.stringify(base));
     const walk = (node) => {
       if (!node) return;
       if (node.type === 'editableField') {
@@ -652,55 +635,50 @@ export default function EditableFields() {
         if (val !== undefined && val !== null && String(val) !== '') {
           node.content = [{ type: 'text', text: String(val) }];
         } else {
-          // keep existing content or ensure empty array
           node.content = node.content || [];
         }
       }
       if (Array.isArray(node.content)) node.content.forEach(walk);
     };
-    walk(cloned);
+    if (Array.isArray(cloned.content)) cloned.content.forEach(walk);
 
-    // construct a minimal doc object with this cloned page node so TipTap receives a valid doc
-    return { type: 'doc', content: [cloned] };
-  }, [docData, pageNodes, docPage, formData]);
+    // construct a minimal doc object with this cloned content so TipTap receives a valid doc
+    return { type: 'doc', content: Array.isArray(cloned.content) ? cloned.content : [cloned] };
+  }, [docData, formData]);
 
-  //count editableField nodes in selected page to confirm they exist
+  //count editableField nodes in the document to confirm they exist
   useEffect(() => {
     if (!docData || !docData.pages_json) return;
     try {
       const base = docData.pages_json[0];
       if (!base || typeof base === 'string') return;
-      const page = (base.content || [])[docPage];
-      if (!page) return;
       let count = 0;
       const walk = (node) => {
         if (!node) return;
         if (node.type === 'editableField') count += 1;
         if (Array.isArray(node.content)) node.content.forEach(walk);
       };
-      walk(page);
-      console.debug(`editableFields.jsx: page ${docPage} contains ${count} editableField node(s)`);
+      if (Array.isArray(base.content)) base.content.forEach(walk);
+      console.debug(`editableFields.jsx: document contains ${count} editableField node(s)`);
     } catch (err) {
       console.debug('editableFields.jsx: error counting editableField nodes', err);
     }
-  }, [docData, docPage]);
+  }, [docData]);
 
-  // visible count for UI: number of editableField nodes in the current page
+  // visible count for UI: number of editableField nodes across the document
   const editableCount = useMemo(() => {
     if (!docData || !docData.pages_json) return 0;
     const base = docData.pages_json[0];
     if (!base || typeof base === 'string') return 0;
-    const page = (base.content || [])[docPage];
-    if (!page) return 0;
     let count = 0;
     const walk = (node) => {
       if (!node) return;
       if (node.type === 'editableField') count += 1;
       if (Array.isArray(node.content)) node.content.forEach(walk);
     };
-    walk(page);
+    if (Array.isArray(base.content)) base.content.forEach(walk);
     return count;
-  }, [docData, docPage]);
+  }, [docData]);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -818,17 +796,14 @@ export default function EditableFields() {
     };
   }, [formData, docData]);
 
-  // When the visible document page changes, make sure formData contains keys for that page
-  // and apply current formData to the editor so the preview reflects the selected page's values.
+  // When the document changes, ensure formData contains keys for all editableField nodes
+  // and apply current formData to the editor.
   useEffect(() => {
     if (!docData) return;
     try {
       const base = docData.pages_json?.[0];
       if (!base || typeof base === 'string') return;
-      const page = (base.content || [])[docPage];
-      if (!page) return;
 
-      // ensure formData has entries for each editableField on the page
       const additions = {};
       const walk = (node) => {
         if (!node) return;
@@ -840,33 +815,30 @@ export default function EditableFields() {
         }
         if (Array.isArray(node.content)) node.content.forEach(walk);
       };
-      walk(page);
+      if (Array.isArray(base.content)) base.content.forEach(walk);
 
       if (Object.keys(additions).length > 0) {
         setFormData((prev) => ({ ...(prev || {}), ...additions }));
       }
 
-      // apply current formData values to the editor for the new page
       if (editorRef.current) {
         try {
           isApplyingRef.current = true;
           applyFormDataToEditor(editorRef.current);
         } catch (err) {
-          console.debug('editableFields: error applying formData on page change', err);
+          console.debug('editableFields: error applying formData', err);
         } finally {
           setTimeout(() => { isApplyingRef.current = false; }, 50);
         }
       }
     } catch (err) {
-      console.debug('editableFields: page change handling error', err);
+      console.debug('editableFields: document change handling error', err);
     }
-  }, [docPage, docData]);
+  }, [docData]);
 
-  // Progress Navigation - shows which document page is currently being edited
-  const ProgressNavigation = ({ docPage, docTotalPages, panelsConfig }) => {
-    // Get the panels for the current document page
-    const currentPanels = panelsConfig.slice(docPage * sectionsPerPage, (docPage + 1) * sectionsPerPage);
-    
+  // Progress Navigation - shows which section (panel group) is currently visible
+  const ProgressNavigation = ({ panelsConfig }) => {
+    const currentPanels = panelsConfig.slice(currentPage * sectionsPerPage, (currentPage + 1) * sectionsPerPage);
     return (
       <div className="bg-white p-4 border-gray-200 border-b">
         <div className="flex items-center space-x-3">
@@ -884,7 +856,7 @@ export default function EditableFields() {
               </div>
             ))
           ) : (
-            <span className="text-sm text-gray-500 italic">No editable sections on this page</span>
+            <span className="text-sm text-gray-500 italic">No editable sections</span>
           )}
         </div>
       </div>
@@ -903,8 +875,8 @@ export default function EditableFields() {
         documentId={id}
       />
 
-      {/* Progress Navigation */}
-      <ProgressNavigation panelsConfig={panelsToUse} docPage={docPage} docTotalPages={docTotalPages} />
+  {/* Progress Navigation */}
+  <ProgressNavigation panelsConfig={panelsToUse} />
       <div className="flex flex-1">
         <div className="w-1/2 bg-gray-50 p-6 space-y-6">
 
@@ -1009,45 +981,7 @@ export default function EditableFields() {
           {/* Insertion of Table */}
          {editorRef.current && <TableManager editor={editorRef.current} />}
 
-          {/* Prev/Next page buttons (placed below panels) */}
-          <div className="flex items-center justify-end">
-            <div className="flex items-center space-x-3">
-              {docPage > 0 && (
-                <button
-                  onClick={() => setDocPage((p) => Math.max(p - 1, 0))}
-                  className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 border-2 border-gray-300 rounded-lg font-medium text-sm hover:border-[#003DA5] hover:text-[#003DA5] hover:shadow-md transition-all duration-200"
-                >
-                  <ChevronLeft className="w-4 h-4 mr-2" />
-                  Previous
-                </button>
-              )}
-              {docPage < docTotalPages - 1 && (
-                <button
-                  onClick={() => setDocPage((p) => Math.min(p + 1, docTotalPages - 1))}
-                  className="inline-flex items-center px-6 py-2.5 bg-[#003DA5] text-white rounded-lg font-medium text-sm hover:bg-[#052c6d] transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4 ml-2" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Dot slider representing document pages (docTotalPages) - clicking jumps to that page */}
-          <div className="flex items-center justify-center space-x-2 pt-4">
-            {Array.from({ length: docTotalPages }, (_, index) => (
-              <button
-                key={index}
-                onClick={() => setDocPage(index)}
-                className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                  index === docPage
-                    ? "bg-[#003DA5] scale-125"
-                    : "bg-gray-300 hover:bg-gray-400 hover:scale-110"
-                }`}
-                aria-label={`Go to page ${index + 1}`}
-              />
-            ))}
-          </div>
+          {/* Section navigation (panels) is below */}
 
        {/* Action Buttons */}
           <div className="flex justify-end items-center pt-6">
@@ -1081,10 +1015,8 @@ export default function EditableFields() {
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               
-              {/* Page Info */}
-              <div className="text-sm text-gray-700 font-medium">
-                Page <span className="font-semibold">{docPage + 1}</span> of <span className="font-semibold">{docTotalPages}</span>
-              </div>
+              {/* Document Info */}
+              <div className="text-sm text-gray-700 font-medium">Document preview</div>
 
               {/* Status & Editable Fields */}
               <div className="flex items-center space-x-4 text-sm">
@@ -1131,6 +1063,12 @@ export default function EditableFields() {
                   content={contentForEditor}
                   pageSetup={docData?.pageSetup}
                   mode="document"
+                  // pass normalized logo/header config and stamp info so TextEditor can render page headers
+                  logoConfig={docData?.logoConfig || docData?.from_template?.logoConfig || null}
+                  templateStatus={docData?.from_template?.status || docData?.status || null}
+                  documentCode={docData?.document_code || docData?.document?.document_code || docData?.from_template?.document_code || null}
+                  revisionNo={docData?.revision_no ?? docData?.document?.revision_no ?? docData?.from_template?.revision_no ?? null}
+                  effectivity={docData?.effectivity || docData?.document?.effectivity || docData?.from_template?.effectivity || null}
                   onEditorReady={(editor) => {
                   // capture editor instance
                     editorRef.current = editor;

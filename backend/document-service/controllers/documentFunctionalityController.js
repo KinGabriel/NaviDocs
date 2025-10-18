@@ -37,6 +37,7 @@ export const createDocument = async (req, res) => {
         const resp = await axios.get(`${templateServiceUrl}/api/templates/${payload.template_id}`, { headers, withCredentials: true });
         if (resp.data && resp.data.template) {
           const template = resp.data.template;
+          console.log('Fetched template for document creation:', template);
           // Snapshot the template into the document using the current FromTemplateSchema
           payload.from_template = {
             id: template._id,
@@ -47,6 +48,7 @@ export const createDocument = async (req, res) => {
             fields: Array.isArray(template.fields) ? template.fields : [],
             pages_json: Array.isArray(template.pages_json) ? template.pages_json : [],
             pageSetup: template.pageSetup || {},
+            logoConfig: template.logoConfig || {},
             status_meta: template.status_meta || {},
             dateFormat: template.dateFormat || {},
             assigned: Array.isArray(template.assigned) ? template.assigned : [],

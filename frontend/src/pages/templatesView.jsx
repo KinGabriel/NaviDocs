@@ -40,20 +40,48 @@ export default function TemplatesView() {
   // Find all page nodes in pages_json[0].content
   const [currentPage, setCurrentPage] = useState(0);
   const pageNodes = useMemo(() => {
-    if (!template?.pages_json?.[0]?.content) return [];
-    return template.pages_json[0].content.filter(n => n.type === "page");
+    if (Array.isArray(template?.templatePages) && template.templatePages.length > 0) {
+      return template.templatePages;
+    }
+    const baseDoc = template?.templateContent || template?.pages_json?.[0] || null;
+    if (!baseDoc) return [];
+
+    const content = Array.isArray(baseDoc.content) ? baseDoc.content : [];
+    const explicitPages = content.filter(n => n.type === 'page');
+    if (explicitPages.length > 0) return explicitPages;
+
+    // No explicit page nodes -> treat the whole document as a single page
+    return [{ type: 'page', content }];
   }, [template]);
-  const totalPages = pageNodes.length;
+
+  const totalPages = pageNodes.length || 0;
+  // Clamp currentPage whenever totalPages changes
+  useEffect(() => {
+    setCurrentPage(p => Math.min(Math.max(0, p), Math.max(0, totalPages - 1)));
+  }, [totalPages]);
+
   const currentPageNode = pageNodes[currentPage] || null;
 
   // Build a document-shaped content object that contains only the current page.
-  // The create-template page passes the full pages_json[0] (a doc), so matching that
-  // shape helps the editor render consistently.
   const contentForEditor = (() => {
-    if (!currentPageNode) return null;
-    const baseDoc = template?.pages_json?.[0] || { type: 'doc', content: [] };
-    // clone baseDoc but replace content with just the current page node
-    return { ...baseDoc, content: [currentPageNode] };
+    // If we have normalized templatePages, return the page doc at currentPage
+    if (Array.isArray(template?.templatePages) && template.templatePages.length > 0) {
+      return template.templatePages[currentPage] || template.templatePages[0] || null;
+    }
+
+    // Build a doc containing only the current page node, or fall back to the
+    if (currentPageNode) {
+      const baseDoc = template?.templateContent || template?.pages_json?.[0] || { type: 'doc', content: [] };
+      return { ...baseDoc, content: [currentPageNode] };
+    }
+
+    // If there's a top-level templateContent, use it as-is
+    if (template?.templateContent) return template.templateContent;
+
+    // Fallback to pages_json[0]
+    if (template?.pages_json?.[0]) return template.pages_json[0];
+
+    return null;
   })();
 
   // Assign modal state
@@ -75,7 +103,14 @@ export default function TemplatesView() {
     try {
       const normalized = await fetchAndNormalizeTemplate(templateId);
       console.log("Refreshed template (normalized):", normalized);
-      setTemplate(normalized.template);
+      // Merge the normalized top-level fields into the raw template object so
+      // downstream code can access both shapes via the same `template` state.
+      const raw = normalized.template || {};
+      const merged = { ...raw, ...normalized };
+      // If templateContent exists on normalized, keep it as-is; avoid overwriting
+      // the nested `pages_json` unless it's missing.
+      if (normalized.templateContent && !merged.pages_json) merged.pages_json = [normalized.templateContent];
+      setTemplate(merged);
       // Optionally set other local state pieces if needed in this view
     } catch (err) {
       console.error("Failed to refresh template:", err);
@@ -632,12 +667,18 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                       <div className="flex-1 w-full">
                         {contentForEditor && (
                           <TextEditor
+                            key={`${template?._id || template?.id || 'tpl'}-${currentPage}`}
                             content={contentForEditor}
                             pageSetup={template?.pageSetup}
+                            logoConfig={template?.logoConfig}
+                            templateStatus={template?.status}
+                            documentCode={template?.document_code || template?.documentCode}
+                            revisionNo={template?.revision_no || template?.revisionNo}
+                            effectivity={template?.effectivity}
                             className="pointer-events-none opacity-100 w-full"
                             onEditorReady={editor => {
                               // Disable editing
-                              editor.setEditable(false);
+                              try { editor.setEditable(false); } catch {}
                             }}
                           />
                         )}
@@ -828,8 +869,8 @@ const handleUpdateISOCode = async ({ iso_code }) => {
           setAssignSubmitting(true);
           try {
             await assignControllersToTemplateAPI(template._id, assignees);
-            const refreshed = await getTemplateByIdAPI(template._id);
-            setTemplate(refreshed.template || refreshed.data || refreshed);
+            // Refresh via the normalized loader so UI gets canonical fields
+            await refreshTemplate(template._id);
             setAssignOpen(false);
             setSelectedIds([]);
           } catch (e) {

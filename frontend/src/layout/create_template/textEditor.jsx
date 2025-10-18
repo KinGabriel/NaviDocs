@@ -270,8 +270,10 @@ export default function TextEditor({
         ? `<img src="${logoConfig.assets?.cicm}" alt="CICM" style="height:52px;object-fit:contain;" />`
         : "";
 
-      // only render table when there's a document code and template is approved/published
-      const showStamp = d.docCode && ['approved', 'published'].includes((templateStatus || '').toLowerCase());
+  // only render table when there's a document code and either:
+  // - we're rendering a document (mode === 'document'), or
+  // - the template status indicates approved/published
+  const showStamp = d.docCode && (mode === 'document' || ['approved', 'published'].includes((templateStatus || '').toLowerCase()));
       const table = showStamp
         ? `
           <table style="border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;">
@@ -296,7 +298,7 @@ export default function TextEditor({
   renderHeaders();
   const interval = setInterval(renderHeaders, 1200);
   return () => clearInterval(interval);
-}, [editor, logoConfig]);
+}, [editor, logoConfig, templateStatus, documentCode, revisionNo, effectivity, mode]);
 
   return (
     <div className={`w-full flex ${className}`}>

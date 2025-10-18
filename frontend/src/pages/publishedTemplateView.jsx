@@ -145,6 +145,21 @@ export default function PublishedTemplateView() {
     return { ...baseDoc, content: [pageNode] };
   }, [d, pageNodes, currentPage]);
 
+  // Defensive normalization for logoConfig to match TextEditor expectations
+  const normalizedLogoConfig = (() => {
+    const src = d?.logoConfig || d?.headerFooter || {};
+    return {
+      ...src,
+      showSLULogo: src.showSLULogo ?? src.showSLU ?? !!src.assets?.slu,
+      showCICMLogo: src.showCICMLogo ?? src.showCICM ?? !!src.assets?.cicm,
+      assets: {
+        slu: src?.assets?.slu || src?.slu || '/assets/images/slu-logo.png',
+        cicm: src?.assets?.cicm || src?.cicm || '/assets/images/cicm-logo.png',
+      },
+      center: src.center || {},
+    };
+  })();
+
   // Handler when user submits a title in the modal
   // now accepts autofill flag (boolean) as second arg
   const createWithTitle = async (title, autoFill = false) => {
@@ -227,6 +242,11 @@ export default function PublishedTemplateView() {
                     className="pointer-events-none opacity-100 w-full"
                     onEditorReady={(editor) => editor && editor.setEditable(false)}
                     mode="template"
+                    logoConfig={normalizedLogoConfig}
+                    templateStatus={d?.status || 'published'}
+                    documentCode={d?.document_code || d?.docCode || d?.documentCode}
+                    revisionNo={d?.revision_no ?? d?.revisionNo}
+                    effectivity={d?.effectivity || d?.effectivity_date || d?.effectivity_date_iso}
                   />
                 </div>
               )}
