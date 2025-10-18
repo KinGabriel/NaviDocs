@@ -12,7 +12,6 @@ import DocumentControllerDashboard from './pages/document_controller/documentCon
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
-import DocumentControllerStatistics from './pages/document_controller/documentControllerStatistics';
 import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
 import DocumentControllerWorkflowView from './pages/document_controller/documentControllerWorkflowView';
 import NotFoundPage from './pages/error_pages/notFoundPage';
@@ -121,14 +120,6 @@ function App() {
          element={
            <ProtectedRoute allowedRoles={["Document Controller"]}>
              <DocumentControllerCreateTemplate />
-           </ProtectedRoute>
-         }
-       />
-       <Route
-         path="/document-controller/statistics"
-         element={
-           <ProtectedRoute allowedRoles={["Document Controller"]}>
-             <DocumentControllerStatistics />
            </ProtectedRoute>
          }
        />
