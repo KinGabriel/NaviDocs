@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { getFieldSuggestionsAPI, updateFieldSuggestionAPI, deleteFieldSuggestionAPI, listAllSuggestionFieldsAPI } from '../../api/documentsAPI';
+import Loader from "../../components/loader";
 
 export default function ManageSuggestionsModal({ open, onClose, fields = [], user = null }) {
   const [loading, setLoading] = useState(false);
@@ -9,6 +10,9 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
   const [activeScope, setActiveScope] = useState('user');
   const [editing, setEditing] = useState({}); 
   const [busyIds, setBusyIds] = useState(new Set());
+  const [expandedFields, setExpandedFields] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAllFields, setShowAllFields] = useState(false);
 
   const isController = (() => {
     if (!user) return false;
@@ -26,7 +30,6 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
       if (!open) return;
       setLoading(true);
       try {
-        //  fetch the canonical list of suggestion-able fields for the current user/school
         let canonical = [];
         try {
           const resp = await listAllSuggestionFieldsAPI();
@@ -35,62 +38,58 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
           canonical = [];
         }
 
-          const passed = Array.isArray(fields) ? fields : [];
-          // Normalize to objects of shape { name, label }
-          const normalize = (it) => {
-            if (!it) return null;
-            if (typeof it === 'string') return { name: it, label: it };
-            return { name: it.name || it.key || String(it), label: it.label || it.name || String(it) };
-          };
+        const passed = Array.isArray(fields) ? fields : [];
+        const normalize = (it) => {
+          if (!it) return null;
+          if (typeof it === 'string') return { name: it, label: it };
+          return { name: it.name || it.key || String(it), label: it.label || it.name || String(it) };
+        };
 
-          // Build a map of passed labels (so we can prefer those labels when available)
-          const passedMap = new Map();
-          passed.forEach((it) => {
-            const n = normalize(it);
-            if (!n || !n.name) return;
-            const k = String(n.name).trim();
-            if (!k) return;
-            passedMap.set(k, (n.label || k).trim());
-          });
+        const passedMap = new Map();
+        passed.forEach((it) => {
+          const n = normalize(it);
+          if (!n || !n.name) return;
+          const k = String(n.name).trim();
+          if (!k) return;
+          passedMap.set(k, (n.label || k).trim());
+        });
 
-          // Only include keys that are present in the canonical list (these are keys that have saved suggestions)
-          const merged = [];
-          const seen = new Set();
-          (canonical || []).forEach((it) => {
-            const n = normalize(it);
-            if (!n || !n.name) return;
-            const key = String(n.name).trim();
-            if (!key) return;
-            if (!seen.has(key)) {
-              seen.add(key);
-              const label = passedMap.get(key) || (n.label || key).trim();
-              merged.push({ name: key, label });
-            }
-          });
-
-          const map = {};
-          await Promise.all((merged || []).map(async (f) => {
-            try {
-              const key = String(f.name).trim();
-              const resp = await getFieldSuggestionsAPI(key, activeScope, 20);
-              const list = Array.isArray(resp) ? resp : (resp && resp.suggestions) ? resp.suggestions : [];
-              map[key] = list;
-            } catch (err) {
-              const key = String(f.name).trim();
-              map[key] = [];
-            }
-          }));
-
-          // Only include fields that have values for the active scope
-          const filtered = merged.filter((f) => {
-            const key = String(f.name).trim();
-            return Array.isArray(map[key]) && map[key].length > 0;
-          });
-
-          if (!ignore) {
-            setSuggestions(map);
-            setLocalFields(filtered);
+        const merged = [];
+        const seen = new Set();
+        (canonical || []).forEach((it) => {
+          const n = normalize(it);
+          if (!n || !n.name) return;
+          const key = String(n.name).trim();
+          if (!key) return;
+          if (!seen.has(key)) {
+            seen.add(key);
+            const label = passedMap.get(key) || (n.label || key).trim();
+            merged.push({ name: key, label });
           }
+        });
+
+        const map = {};
+        await Promise.all((merged || []).map(async (f) => {
+          try {
+            const key = String(f.name).trim();
+            const resp = await getFieldSuggestionsAPI(key, activeScope, 20);
+            const list = Array.isArray(resp) ? resp : (resp && resp.suggestions) ? resp.suggestions : [];
+            map[key] = list;
+          } catch (err) {
+            const key = String(f.name).trim();
+            map[key] = [];
+          }
+        }));
+
+        const filtered = merged.filter((f) => {
+          const key = String(f.name).trim();
+          return Array.isArray(map[key]) && map[key].length > 0;
+        });
+
+        if (!ignore) {
+          setSuggestions(map);
+          setLocalFields(filtered);
+        }
       } catch (err) {
         console.error('manage suggestions load error', err);
       } finally {
@@ -115,7 +114,6 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
     setBusyIds((s) => new Set([...s, id]));
     try {
       await updateFieldSuggestionAPI(id, { value: val });
-      // update local
       setSuggestions((prev) => {
         const copy = { ...prev };
         if (Array.isArray(copy[fieldName])) {
@@ -148,83 +146,230 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
     }
   };
 
+  const filteredFields = localFields.filter(f => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return f.label.toLowerCase().includes(query) || f.name.toLowerCase().includes(query);
+  });
+
+  const INITIAL_FIELDS_DISPLAY = 5;
+  const displayedFields = showAllFields ? filteredFields : filteredFields.slice(0, INITIAL_FIELDS_DISPLAY);
+  const hasMoreFields = filteredFields.length > INITIAL_FIELDS_DISPLAY;
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>
-      <div className="w-full max-w-4xl bg-white rounded-lg shadow-lg overflow-auto max-h-[80vh]">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="text-lg font-semibold">Manage saved values</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100"><X className="w-5 h-5" /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-opacity-40 backdrop-blur-[2px]">
+      <div className="w-full max-w-4xl mx-4 bg-white rounded-xl shadow-2xl flex flex-col max-h-[85vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">Manage Saved Values</h3>
+            <p className="text-sm text-gray-600 mt-0.5">Edit or delete your saved field values</p>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="p-2 rounded-lg hover:bg-white hover:shadow-sm transition-all duration-200"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
         </div>
 
-        <div className="p-4">
-          <div className="mb-4">
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setActiveScope('user')}
-                className={`px-3 py-1 rounded ${activeScope === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-              >
-                User
-              </button>
-              {isController && (
+        {/* Scope Selector */}
+        <div className="px-6 py-4 border-b border-gray-200 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Scope:</span>
+              <div className="flex items-center bg-gray-100 rounded-lg p-1">
                 <button
-                  onClick={() => setActiveScope('school')}
-                  className={`px-3 py-1 rounded ${activeScope === 'school' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                  onClick={() => setActiveScope('user')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                    activeScope === 'user' 
+                      ? 'bg-white text-blue-700 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 >
-                  School
+                  User
+                </button>
+                {isController && (
+                  <button
+                    onClick={() => setActiveScope('school')}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                      activeScope === 'school' 
+                        ? 'bg-white text-blue-700 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    School
+                  </button>
+                )}
+              </div>
+            </div> 
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader message="Loading saved values..." />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {displayedFields && displayedFields.length > 0 ? (
+                <>
+                {displayedFields.map((f) => {
+                const allSuggestions = suggestions[f.name] || [];
+                const isExpanded = expandedFields[f.name];
+                const INITIAL_DISPLAY = 3;
+                const displayList = isExpanded ? allSuggestions : allSuggestions.slice(0, INITIAL_DISPLAY);
+                const hasMore = allSuggestions.length > INITIAL_DISPLAY;
+
+                return (
+                  <div key={f.name} className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow duration-200">
+                    {/* Field Header */}
+                    <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg">
+                      <h4 className="text-sm font-semibold text-gray-900">{f.label || f.name}</h4>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {allSuggestions.length} {allSuggestions.length === 1 ? 'value' : 'values'}
+                      </span>
+                    </div>
+
+                    {/* Field Content */}
+                    <div className="p-4">
+                      {allSuggestions.length === 0 ? (
+                        <div className="text-center py-6 text-sm text-gray-400">
+                          No saved values for this field
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {displayList.map((s) => {
+                            const id = s._id || s.id;
+                            const isEditing = editing[id] !== undefined;
+                            const isBusy = busyIds.has(id);
+
+                            return (
+                              <div 
+                                key={id} 
+                                className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-150"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  {isEditing ? (
+                                    <input
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                      value={editing[id]}
+                                      onChange={(e) =>
+                                        setEditing((ev) => ({ ...ev, [id]: e.target.value }))
+                                      }
+                                      autoFocus
+                                    />
+                                  ) : (
+                                    <div className="text-sm text-gray-800 truncate">
+                                      {String(s.value ?? s)}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  {isEditing ? (
+                                    <>
+                                      <button
+                                        disabled={isBusy}
+                                        onClick={() => onSaveEdit(id, f.name)}
+                                        className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        disabled={isBusy}
+                                        onClick={() => onCancelEdit(id)}
+                                        className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => onStartEdit(s)}
+                                        className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors duration-150"
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        disabled={isBusy}
+                                        onClick={() => onDelete(id, f.name)}
+                                        className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+                                      >
+                                        Delete
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* Show More/Less Button */}
+                          {hasMore && (
+                            <button
+                              onClick={() =>
+                                setExpandedFields((prev) => ({
+                                  ...prev,
+                                  [f.name]: !isExpanded,
+                                }))
+                              }
+                              className="w-full flex items-center justify-center gap-2 mt-3 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors duration-150"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp className="w-4 h-4" />
+                                  Show less
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-4 h-4" />
+                                  Show {allSuggestions.length - INITIAL_DISPLAY} more
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          
+              {/* Show More/Less Fields Button */}
+              {!searchQuery && hasMoreFields && (
+                <button
+                  onClick={() => setShowAllFields(!showAllFields)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-150 border-2 border-blue-200 border-dashed"
+                >
+                  {showAllFields ? (
+                    <>
+                      <ChevronUp className="w-4 h-4" />
+                      Show less fields
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4" />
+                      Show {filteredFields.length - INITIAL_FIELDS_DISPLAY} more fields
+                    </>
+                  )}
                 </button>
               )}
-            </div>
-          </div>
-          {loading ? (
-            <div className="text-center py-8 text-gray-500">Loading…</div>
-          ) : (
-            <div className="space-y-6">
-              {(localFields && localFields.length > 0) ? (
-                localFields.map((f) => (
-                <div key={f.name} className="border rounded p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-medium">{f.label || f.name}</div>
-                    <div className="text-xs text-gray-500">{(suggestions[f.name]||[]).length} saved</div>
-                  </div>
-                  <div className="space-y-2">
-                    {(!suggestions[f.name] || suggestions[f.name].length === 0) && (
-                      <div className="text-sm text-gray-400">No saved values for this field.</div>
-                    )}
-                    {(suggestions[f.name] || []).map((s) => {
-                      const id = s._id || s.id;
-                      const isEditing = editing[id] !== undefined;
-                      return (
-                        <div key={id} className="flex items-center justify-between bg-gray-50 rounded p-2">
-                          <div className="flex-1">
-                            {isEditing ? (
-                              <input className="w-full border px-2 py-1 rounded" value={editing[id]} onChange={(e) => setEditing((ev) => ({ ...ev, [id]: e.target.value }))} />
-                            ) : (
-                              <div className="text-sm text-gray-800">{String(s.value ?? s)}</div>
-                            )}
-                          </div>
-                          <div className="ml-4 flex items-center space-x-2">
-                            {isEditing ? (
-                              <>
-                                <button disabled={busyIds.has(id)} onClick={() => onSaveEdit(id, f.name)} className="text-sm px-2 py-1 bg-green-600 text-white rounded">Save</button>
-                                <button disabled={busyIds.has(id)} onClick={() => onCancelEdit(id)} className="text-sm px-2 py-1 bg-gray-100 rounded">Cancel</button>
-                              </>
-                            ) : (
-                              <>
-                                <button onClick={() => onStartEdit(s)} className="text-sm px-2 py-1 bg-blue-50 text-blue-700 rounded">Edit</button>
-                                <button disabled={busyIds.has(id)} onClick={() => onDelete(id, f.name)} className="text-sm px-2 py-1 bg-red-50 text-red-700 rounded">Delete</button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                ))
+            </>
               ) : (
-                <div className="text-sm text-gray-500">No saved fields for this scope.</div>
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <Search className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    {searchQuery ? 'No fields match your search' : 'No saved fields for this scope'}
+                  </p>
+                </div>
               )}
             </div>
           )}
