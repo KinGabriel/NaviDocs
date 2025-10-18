@@ -86,6 +86,7 @@ export default function EditableFieldsHeader({
         <div className="flex items-center gap-3">
           {/* Logo */}
           <img 
+            title="Navidocs home"
             src={naviLogo} 
             alt="Logo" 
             className="w-15 h-10 cursor-pointer" 

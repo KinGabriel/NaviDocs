@@ -27,6 +27,7 @@ export default function HeaderDocumentView({
           <img
             src={naviLogo}
             alt="Logo"
+            title="Navidocs home"
             className="w-15 h-10 cursor-pointer"
             onClick={() => {
               const role = user?.role?.name;

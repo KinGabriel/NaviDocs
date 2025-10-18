@@ -100,6 +100,7 @@ export default function HeaderTemplateView({
           <div className="flex items-center gap-3">
             <img
               src={naviLogo}
+              title="Navidocs home"
               alt="Logo"
               className="w-15 h-10 cursor-pointer"
               onClick={() => {
