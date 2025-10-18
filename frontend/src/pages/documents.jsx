@@ -9,6 +9,7 @@ import DocumentCard from "../components/cards/documentCard";
 import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";
+import Loader from "../components/loader";
 // Rename/Delete UI is handled by DocumentCard; parent only updates state callbacks
 import ManageSuggestionsModal from "../components/modals/manageSuggestionsModal";
 
@@ -279,8 +280,7 @@ export default function GlobalTemplates() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
               {loading ? (
                 <div className="col-span-full text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Loading documents...</p>
+                  <Loader message="Loading documents..." />
                 </div>
               ) : templates.length === 0 ? (
                 <div className="col-span-full text-center py-8">

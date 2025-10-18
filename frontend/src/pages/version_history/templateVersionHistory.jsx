@@ -5,7 +5,7 @@ import TextEditor from '../../layout/create_template/textEditor';
 import BookmarkModal from './bookmarkModal';
 import DuplicateModal from '../../components/modals/duplicateModal';
 import { toast } from 'react-hot-toast';
-
+import Loader from '../../components/loader'; 
 
 export default function TemplateVersionHistory({ 
   onClose, 
@@ -309,27 +309,26 @@ export default function TemplateVersionHistory({
   // ------------------------------------------------------------------------------------------------
   // Handle restore version
   const handleRestoreVersion = async () => {
-    if (!selectedVersion) return;
-    
-    setIsRestoring(true);
-    try {
-      const resp = await restoreTemplateVersionAPI(id, selectedVersion);
-      if (resp?.success) {
-        setShowRestoreModal(false);
-        // Show success feedback
-        setTimeout(() => {
-          onClose && onClose();
-        }, 500);
-        } else {
-        toast.error(resp?.message || 'Restore response received');
-      }
-    } catch (e) {
-      console.error('Restore failed', e);
-      toast.error('Failed to restore template version.');
-    } finally {
-      setIsRestoring(false);
-    }
-  };
+     if (!selectedVersion) return;
+     setIsRestoring(true);
+     try {
+       const resp = await restoreTemplateVersionAPI(templateId, selectedVersion);
+       if (resp && resp.success) {
+         // Refresh versions and document preview
+         try { await fetchVersions(); } catch (e) { console.warn('Failed to refresh versions after restore', e); }
+         try { const normalized = await fetchAndNormalizeDocument(templateId); setDocData(normalized); } catch (e) { console.warn('Failed to reload document after restore', e); }
+         setShowRestoreModal(false);
+         toast.success('Version restored successfully!');
+       } else {
+         toast.error(resp?.message || 'Failed to restore version');
+       }
+     } catch (e) {
+       console.error('Restore failed', e);
+       toast.error(e?.message || 'Failed to restore version');
+     } finally {
+       setIsRestoring(false);
+     }
+   };
 
   const handleCopyVersion = (version) => {
     // Open duplicate modal; use previousName from parent when available as a friendly initial title
@@ -531,8 +530,7 @@ export default function TemplateVersionHistory({
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="p-4 text-center text-gray-500">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              <p className="text-sm">Loading versions...</p>
+              <Loader message="Loading versions..." />
             </div>
           ) : filteredVersions.length === 0 ? (
             <div className="p-4 text-center text-gray-500">
@@ -576,13 +574,13 @@ export default function TemplateVersionHistory({
                       />
 
                         <div className="flex items-start justify-between ml-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-900 truncate">
+                         <div className="flex-1 min-w-0 mr-2">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-sm font-medium text-gray-900">
                                   {version.time}
                                 </span>
                                 {version.versionName && (
-                                  <span className="block text-xs text-gray-500 truncate">{version.versionName}</span>
+                                 <span className="text-xs text-gray-500 break-words">{version.versionName}</span>
                                 )}
                             </div>
                             
@@ -607,7 +605,7 @@ export default function TemplateVersionHistory({
                             </div>
 
                             {/* Author Name */}
-                            <span className="text-xs text-gray-600 font-medium truncate hover:text-gray-900 transition-colors">
+                            <span className="text-xs text-gray-600 font-medium hover:text-gray-900 transition-colors break-words flex-1">
                               {version.author || 'Unknown User'}
                             </span>
                           </div>
@@ -620,7 +618,7 @@ export default function TemplateVersionHistory({
                           </div>
                           
                           {/* Bookmark star + 3-dot button */}
-                          <div className="relative flex items-center gap-2" ref={menuOpen === version.id ? menuRef : null}>
+                           <div className="relative flex items-start gap-2 flex-shrink-0 pt-1" ref={menuOpen === version.id ? menuRef : null}>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleBookmarkVersion(version); }}
                               className="p-1 hover:bg-gray-100 rounded transition-colors"
@@ -820,7 +818,7 @@ export default function TemplateVersionHistory({
               disabled={
                 !selectedVersion || currentVersionDetails?.isCurrent
               }
-              onClick={() => setShowRestoreModal(true)}
+              onClick={handleRestoreVersion}
               className={`flex-1 px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium rounded-lg shadow-sm transition-all
                 ${
                   !selectedVersion || currentVersionDetails?.isCurrent

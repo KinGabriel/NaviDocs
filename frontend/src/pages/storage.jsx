@@ -9,7 +9,7 @@ import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
 import MoveModal from "../components/modals/moveModal";
 import Loader from "../components/loader";
-import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ListFilter } from "lucide-react";
+import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ListFilter, ChevronRight } from "lucide-react";
 
 // root files initial (empty, will be fetched from backend)
 const ROOT_FILES_INITIAL = [];
@@ -54,6 +54,9 @@ export default function Storage() {
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [parentFolderId, setParentFolderId] = useState("");
+
+  // Breadcrumb navigation state
+  const [folderPath, setFolderPath] = useState([]);
 
   // When opening the new folder modal, default parentFolderId to the currently selected folder
   useEffect(() => {
@@ -137,6 +140,55 @@ useEffect(() => {
       })
       .finally(() => setLoadingFolders(false));
   }, [user, selectedStatus]);
+
+  // Build breadcrumb path when selectedFolder changes
+  useEffect(() => {
+    if (!selectedFolder) {
+      setFolderPath([]);
+      return;
+    }
+
+    const buildPath = (folderId) => {
+      const path = [];
+      let currentId = folderId;
+      
+      while (currentId) {
+        const folder = folders.find(f => f._id === currentId);
+        if (folder) {
+          path.unshift({
+            id: folder._id,
+            name: folder.name,
+            data: folder.data
+          });
+          currentId = folder.data.parentFolder;
+        } else {
+          break;
+        }
+      }
+      
+      return path;
+    };
+
+    setFolderPath(buildPath(selectedFolder._id));
+  }, [selectedFolder, folders]);
+
+  // Navigate to folder by clicking breadcrumb
+  const navigateToFolder = async (folderId) => {
+    if (!folderId) {
+      setSelectedFolder(null);
+      return;
+    }
+
+    try {
+      setLoadingFolderDetails(true);
+      const data = await getFolderByIDAPI(folderId, user?._id, selectedStatus);
+      setSelectedFolder(data.folder);
+    } catch (err) {
+      alert('Failed to fetch folder details.');
+    } finally {
+      setLoadingFolderDetails(false);
+    }
+  };
 
   // toggle menus
   const toggleFolderMenu = (id) =>
@@ -310,7 +362,7 @@ useEffect(() => {
           </>
         )}
 
-            {/* Inside folder navigation */}
+            {/* Breadcrumb Navigation */}
             {selectedFolder && (
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
                 <button
@@ -320,16 +372,78 @@ useEffect(() => {
                   <ArrowLeft size={18} /> Back to Storage
                 </button>
                 
-                <div className="flex items-center text-gray-600 text-sm font-medium">
-                  <span className="text-gray-400">Storage</span>
-                  <span className="mx-2 text-gray-300">/</span>
-                  <span className="text-[#0035DA] font-bold">{selectedFolder.folderName || selectedFolder.name}</span>
+                {/* Breadcrumb */}
+                <div className="flex items-center text-sm font-medium mt-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                  <button
+                    onClick={() => navigateToFolder(null)}
+                    className="text-gray-600 hover:text-[#0035DA] hover:underline transition-colors flex-shrink-0"
+                  >
+                    Storage
+                  </button>
+
+                  {/* Compute visible breadcrumb parts */}
+                  {(() => {
+                    const maxVisible = 3; // Number of visible breadcrumbs (excluding root)
+                    if (folderPath.length <= maxVisible) {
+                      return folderPath.map((folder, index) => (
+                        <React.Fragment key={folder.id}>
+                          <ChevronRight className="mx-1 text-gray-400 flex-shrink-0" size={16} />
+                          <button
+                            onClick={() => navigateToFolder(folder.id)}
+                            className={`truncate max-w-[120px] text-ellipsis overflow-hidden transition-colors ${
+                              index === folderPath.length - 1
+                                ? "text-[#0035DA] font-semibold cursor-default"
+                                : "text-gray-600 hover:text-[#0035DA] hover:underline"
+                            }`}
+                            disabled={index === folderPath.length - 1}
+                            title={folder.name}
+                          >
+                            {folder.name}
+                          </button>
+                        </React.Fragment>
+                      ));
+                    } else {
+                      const first = folderPath[0];
+                      const last = folderPath[folderPath.length - 1];
+                      const middle = folderPath.slice(-2, -1)[0]; // second to last folder (optional)
+
+                      return (
+                        <>
+                          <ChevronRight className="mx-1 text-gray-400 flex-shrink-0" size={16} />
+                          {/* Ellipsis to indicate truncation */}
+                          <span className="text-gray-400 select-none">…</span>
+                          <ChevronRight className="mx-1 text-gray-400 flex-shrink-0" size={16} />
+
+                          {/* Last 2 visible folders */}
+                          {[middle, last].map((folder, index) => (
+                            <React.Fragment key={folder.id}>
+                              {index > 0 && (
+                                <ChevronRight className="mx-1 text-gray-400 flex-shrink-0" size={16} />
+                              )}
+                              <button
+                                onClick={() => navigateToFolder(folder.id)}
+                                className={`truncate max-w-[120px] text-ellipsis overflow-hidden transition-colors ${
+                                  folder.id === last.id
+                                    ? "text-[#0035DA] font-semibold cursor-default"
+                                    : "text-gray-600 hover:text-[#0035DA] hover:underline"
+                                }`}
+                                disabled={folder.id === last.id}
+                                title={folder.name}
+                              >
+                                {folder.name}
+                              </button>
+                            </React.Fragment>
+                          ))}
+                        </>
+                      );
+                    }
+                  })()}
                 </div>
               </div>
             )}
-
         <div className="flex items-center justify-between gap-6 mb-3 bg-gray-50/50 p-3 rounded-lg">
         <div className="flex items-center gap-4">
+          
           {/* New Button */}
           <div className="relative">
             <button
