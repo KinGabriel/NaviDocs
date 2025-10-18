@@ -105,9 +105,9 @@ export default function HeaderTemplateView({
               className="w-15 h-10 cursor-pointer"
               onClick={() => {
                 const role = user?.role?.name;
-                if (role === "Secretary") navigate("/secretary/dashboard");
-                else if (role === "Dean") navigate("/dean/dashboard");
-                else if (role === "Document Controller") navigate("/document-controller/dashboard")
+                if (role === "Secretary") navigate("/secretary/templates");
+                else if (role === "Dean") navigate("/dean/templates");
+                else if (role === "Document Controller") navigate("/document-controller/templates")
               }}
             />
 
