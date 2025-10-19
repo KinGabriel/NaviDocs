@@ -40,7 +40,7 @@ export default function DepartmentHeadDocumentWorkflow() {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("Recent");
 
-  // NEW: list/grid view
+  // list/grid view
   const [viewMode, setViewMode] = useState("table"); // "table" | "grid"
 
   const rows = tab === "submitted" ? SUBMITTED : PUBLISHED;
@@ -91,7 +91,6 @@ export default function DepartmentHeadDocumentWorkflow() {
           onClick={() =>
             navigate(`/department-head/documents/${row.id}`, { state: { from: "workflow" } })
           }
-          // UPDATED: blue rounded button like your screenshot
           className="inline-flex items-center justify-center px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
         >
           View
@@ -117,7 +116,6 @@ export default function DepartmentHeadDocumentWorkflow() {
           onClick={() =>
             navigate(`/department-head/documents/${row.id}`, { state: { from: "workflow" } })
           }
-          // UPDATED: blue rounded button like your screenshot
           className="inline-flex items-center justify-center px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
         >
           View
@@ -171,11 +169,11 @@ export default function DepartmentHeadDocumentWorkflow() {
                 />
               </div>
 
-              {/* NEW: view toggle pill */}
+              {/* view toggle pill */}
               <ViewToggle mode={viewMode} onChange={setViewMode} />
             </div>
 
-            {/* Tabs — UPDATED to blue underline style */}
+            {/* Tabs */}
             <div className="mb-4 border-b border-gray-200">
               <div className="flex space-x-8">
                 <button

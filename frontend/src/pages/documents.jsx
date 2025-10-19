@@ -46,7 +46,7 @@ export default function GlobalTemplates() {
   const statusOptions = ["All", "Draft", "Pending Approval", "Approved", "Published"];
   const PAGE_SIZE = 8;
 
-  // NEW: view mode ("table" | "grid")
+  // view mode ("table" | "grid")
   const [viewMode, setViewMode] = useState("grid");
 
   const fetchTemplates = async () => {
@@ -334,12 +334,11 @@ export default function GlobalTemplates() {
                   />
                 </div>
 
-                {/* NEW: View toggle pill (list/grid) */}
+                {/* View toggle pill (list/grid) */}
                 <ViewToggle mode={viewMode} onChange={setViewMode} />
               </div>
             </div>
 
-            {/* NEW: Tabs styled like your screenshot (blue underline for active) */}
             <div className="mb-6 border-b border-gray-200">
               <div className="flex space-x-8">
                 {statusOptions.map((opt) => (
@@ -449,7 +448,7 @@ export default function GlobalTemplates() {
   );
 }
 
-/* ---------- Inline helper: Toggle pill (matches your screenshot) ---------- */
+/* ---------- Inline helper: Toggle pill ---------- */
 function ViewToggle({ mode = "grid", onChange }) {
   const isTable = mode === "table";
   return (

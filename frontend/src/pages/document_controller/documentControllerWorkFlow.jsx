@@ -32,7 +32,7 @@ export default function DocumentControllerWorkflow() {
   const [sortBy, setSortBy] = useState("Recent");
   const [peopleFilter, setPeopleFilter] = useState("All");
 
-  // NEW: list/grid view
+  // list/grid view
   const [viewMode, setViewMode] = useState("table"); // "table" | "grid"
 
   // rows for current tab
@@ -116,7 +116,6 @@ export default function DocumentControllerWorkflow() {
                 state: { from: "workflow", doc: row },
               })
             }
-            // UPDATED button style to match your blue pill button
             className="inline-flex items-center justify-center px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
           >
             View
@@ -176,11 +175,11 @@ export default function DocumentControllerWorkflow() {
                 />
               </div>
 
-              {/* NEW: view toggle pill */}
+              {/* view toggle pill */}
               <ViewToggle mode={viewMode} onChange={setViewMode} />
             </div>
 
-            {/* Tabs — UPDATED to blue underline style */}
+            {/* Tabs */}
             <div className="mb-4 border-b border-gray-200">
               <div className="flex space-x-8">
                 <button

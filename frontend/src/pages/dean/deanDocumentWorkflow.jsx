@@ -7,7 +7,6 @@ import Dropdown from "../../components/dropdowns/dropdown";
 import SearchBar from "../../components/searchbar";
 import Table from "../../components/table";
 import usePagination from "../../hooks/usePagination";
-// Card view uses your existing card style
 import DocumentCard from "../../components/cards/documentCard";
 
 // ---------- PLACEHOLDER DATA ----------
@@ -96,7 +95,6 @@ export default function DeanDocumentWorkflow() {
           onClick={() =>
             navigate(`/dean/documents/${row.id}`, { state: { from: "workflow" } })
           }
-          // UPDATED: match screenshot style (blue rounded button)
           className="inline-flex items-center justify-center px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
         >
           View
@@ -122,7 +120,6 @@ export default function DeanDocumentWorkflow() {
           onClick={() =>
             navigate(`/dean/documents/${row.id}`, { state: { from: "workflow" } })
           }
-          // UPDATED: match screenshot style (blue rounded button)
           className="inline-flex items-center justify-center px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
         >
           View
@@ -180,7 +177,7 @@ export default function DeanDocumentWorkflow() {
               <ViewToggle mode={viewMode} onChange={setViewMode} />
             </div>
 
-            {/* Tabs — UPDATED to look like your screenshot (underline style) */}
+            {/* Tabs */}
             <div className="mb-4 border-b border-gray-200">
               <div className="flex space-x-8">
                 <button
@@ -191,7 +188,6 @@ export default function DeanDocumentWorkflow() {
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
                 >
-                  {/** label changed? keep original semantics */}
                   Submitted
                 </button>
                 <button
