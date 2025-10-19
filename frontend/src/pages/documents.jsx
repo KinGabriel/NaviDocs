@@ -10,7 +10,7 @@ import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";
 import Loader from "../components/loader";
-import ManageSuggestionsModal from "../components/modals/manageSuggestionsModal";s
+import ManageSuggestionsModal from "../components/modals/manageSuggestionsModal";
 import Table from "../components/table";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
