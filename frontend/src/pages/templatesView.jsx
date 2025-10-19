@@ -663,27 +663,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
               ? 'flex-1 min-w-0' 
               : 'w-full lg:w-8/12'
           }`}>
-              {/* Page Controls */}
-              <div className={`flex items-center mb-2 ${isLandscape ? 'justify-center gap-4 w-full' : 'justify-between'}`}>
-                <button
-                  className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-                  disabled={currentPage === 0}
-                >
-                  Previous
-                </button>
-                <span className="text-sm text-gray-600">
-                  Page {currentPage + 1} of {totalPages}
-                </span>
-                <button
-                  className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
-                  disabled={currentPage === totalPages - 1}
-                >
-                  Next
-                </button>
-              </div>
-            
+          
             {/* Page content */}
             <div className={`w-full ${isLandscape ? 'overflow-x-auto' : ''}`}>
               {contentForEditor && (
