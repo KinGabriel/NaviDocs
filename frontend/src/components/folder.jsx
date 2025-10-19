@@ -7,7 +7,7 @@ import MultiSelectDropdown from './dropdowns/multiSelectDropdown';
 import Dropdown3 from './dropdowns/dropdown3';
 import useUser from '../hooks/useUser';
 import RenameFolderModal from "../components/modals/renameFolderModal";
-
+import RemoveModal from "../components/modals/removeModal";
 import {
   Folder,
   MoreVertical,
@@ -605,43 +605,22 @@ export default function FolderComponent({
 />
 
 
-      {/* Remove Modal */}
-      {isRemoveOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[400px] max-w-full rounded-xl shadow-lg p-6 relative">
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-black"
-              onClick={() => setIsRemoveOpen(false)}
-            >
-              <X size={20} />
-            </button>
-            <h2 className="text-lg font-semibold mb-4 text-red-600">Remove</h2>
-            <p className="mb-4">Are you sure you want to remove "{folder.name}"?</p>
-            <div className="flex justify-end gap-3">
-              <button
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
-                onClick={() => setIsRemoveOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
-                onClick={async () => {
-                  try {
-                    await deleteFolderByIDAPI(folder._id);
-                    setIsRemoveOpen(false);
-                    if (onDelete) onDelete(); // Notify parent to refresh
-                  } catch (err) {
-                    alert(err.message || "Failed to delete folder");
-                  }
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RemoveModal
+  open={isRemoveOpen}
+  onClose={() => setIsRemoveOpen(false)}
+  itemType="folder"
+  itemTitle={folder.name}
+  onConfirm={async () => {
+    try {
+      await deleteFolderByIDAPI(folder._id);
+      setIsRemoveOpen(false);
+      if (onDelete) onDelete(); // refresh parent
+    } catch (err) {
+      alert(err.message || "Failed to remove folder");
+    }
+  }}
+/>
+
     </>
   );
 }

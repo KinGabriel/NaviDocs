@@ -7,6 +7,7 @@ import useUser from '../hooks/useUser';
 import PdfThumbnail from "./thumbnails/pdfThumbnail";
 import DocxThumbnail from "./thumbnails/docxThumbnail";
 import RenameModal from "../components/modals/renameModal";
+import RemoveModal from "../components/modals/removeModal";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 import {
   FileText,
@@ -719,55 +720,35 @@ export default function FileComponent({
   }}
 />
 
+<RemoveModal
+  open={isRemoveOpen}
+  onClose={() => setIsRemoveOpen(false)}
+  itemType="file"
+  itemTitle={fileName}
+  submitting={removing}
+  error={removeError}
+  onConfirm={async () => {
+    try {
+      setRemoving(true);
+      setRemoveError("");
 
-      {/* Remove Modal */}
-      {isRemoveOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[400px] max-w-full rounded-xl shadow-lg p-6 relative">
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-black"
-              onClick={() => setIsRemoveOpen(false)}
-            >
-              <X size={20} />
-            </button>
-            <h2 className="text-lg font-semibold mb-4">
-              Are you sure you want to remove "{fileName}"?
-            </h2>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setIsRemoveOpen(false)}
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  setRemoving(true);
-                  setRemoveError(null);
-                  try {
-                    if (parentFolderId) {
-                      await deleteFileFromFolderAPI(parentFolderId, file._id);
-                    } else {
-                      await deleteFileAPI(file._id);
-                    }
-                    setIsRemoveOpen(false);
-                    if (onDelete) onDelete(file);
-                  } catch (err) {
-                    setRemoveError(err?.message || 'Failed to delete file');
-                  } finally {
-                    setRemoving(false);
-                  }
-                }}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
-                disabled={removing}
-              >
-                {removing ? 'Removing...' : 'Remove'}
-              </button>
-            </div>
-            {removeError && <div className="text-red-600 text-xs mt-2">{removeError}</div>}
-          </div>
-        </div>
-      )}
+      if (parentFolderId) {
+        await deleteFileFromFolderAPI(parentFolderId, file._id);
+      } else {
+        await deleteFileAPI(file._id);
+      }
+
+      setIsRemoveOpen(false);
+      if (onDelete) onDelete(file._id);
+    } catch (err) {
+      console.error("Remove error:", err);
+      setRemoveError("Failed to remove the file. Please try again.");
+    } finally {
+      setRemoving(false);
+    }
+  }}
+/>
+
     </>
   );
 }
