@@ -626,8 +626,8 @@ const handleUpdateISOCode = async ({ iso_code }) => {
         onAddInstructions={handleAddInstructions}
       />
       
-    <div className={`mx-auto w-full px-4 py-6 md:pl-2 ${isLandscape ? 'max-w-full' : 'max-w-7xl'}`}>
-        <main className="p-8 flex-1 overflow-y-auto">
+      <div className={`mx-auto w-full px-4 py-6 md:pl-2 ${isLandscape ? 'max-w-full' : 'max-w-7xl'} min-h-screen`}>
+        <div className="p-8 min-h-screen">
           {/* Error message banner */}
           {error && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
@@ -655,200 +655,201 @@ const handleUpdateISOCode = async ({ iso_code }) => {
             </div>
           )}
           
-        {/* preview and details - Dynamic layout based on orientation */}
-        <div className={`flex ${isLandscape ? 'flex-row gap-6' : 'flex-col lg:flex-row'} gap-6`}>
-          {/* Template preview */}
-          <section className={`${
-            isLandscape 
-              ? 'flex-1 min-w-0' 
-              : 'w-full lg:w-8/12'
-          }`}>
-          
-            {/* Page content */}
-            <div className={`w-full ${isLandscape ? 'overflow-x-auto' : ''}`}>
-              {contentForEditor && (
-                <TextEditor
-                  key={`${template?._id || template?.id || 'tpl'}-${currentPage}`}
-                  content={contentForEditor}
-                  pageSetup={template?.pageSetup}
-                  logoConfig={template?.logoConfig}
-                  templateStatus={template?.status}
-                  documentCode={template?.document_code || template?.documentCode}
-                  revisionNo={template?.revision_no || template?.revisionNo}
-                  effectivity={template?.effectivity}
-                  className="pointer-events-none opacity-100 w-full"
-                  onEditorReady={editor => {
-                    try { editor.setEditable(false); } catch {}
-                  }}
-                />
-              )}
-            </div>
-          </section>
+          {/* preview and details - Dynamic layout based on orientation */}
+          <div className={`flex ${isLandscape ? 'flex-row gap-6' : 'flex-col lg:flex-row'} gap-6 items-start`}>
+            {/* Template preview */}
+            <section className={`${
+              isLandscape 
+                ? 'flex-1 min-w-0' 
+                : 'w-full lg:w-8/12'
+            }`}>
+              {/* Page content */}
+              <div className={`w-full ${isLandscape ? 'overflow-x-auto' : ''}`}>
+                {contentForEditor && (
+                  <TextEditor
+                    key={`${template?._id || template?.id || 'tpl'}-${currentPage}`}
+                    content={contentForEditor}
+                    pageSetup={template?.pageSetup}
+                    logoConfig={template?.logoConfig}
+                    templateStatus={template?.status}
+                    documentCode={template?.document_code || template?.documentCode}
+                    revisionNo={template?.revision_no || template?.revisionNo}
+                    effectivity={template?.effectivity}
+                    className="pointer-events-none opacity-100 w-full"
+                    onEditorReady={editor => {
+                      try { editor.setEditable(false); } catch {}
+                    }}
+                  />
+                )}
+              </div>
+            </section>
 
-          {/* Template details and metadata*/}
-          <aside className={`${
-            isLandscape 
-              ? 'w-80 flex-shrink-0' 
-              : 'w-full lg:w-4/12'
-          }`}>
-            {/* Template Status Panel */}
-            <div className="bg-white border rounded-md shadow-sm mb-4">
-              <div className="p-5">
-                <div className="mb-4">
-                  <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
-                    Template Status
-                  </h3>
-                  <div className="w-16 h-0.5 bg-yellow-400 mb-3 rounded" />
-                  <div className="text-base text-gray-900 font-sans">
-                    {t.status === 'assigned' && (
-                      <>Document controllers are still working on the template.</>
-                    )}
-                    {t.status === 'pending' && (
-                      ((user?.role?.name === "Dean" && t.status_meta?.approvals?.secretary?.isApproved !== false) ||
-                      (user?.role?.name === "Secretary" && t.status_meta?.approvals?.secretary?.isApproved !== true)) ? (
-                        <>Template is awaiting your approval.</>
+            {/* Template details and metadata */}
+            <aside className={`${
+              isLandscape 
+                ? 'w-80 flex-shrink-0' 
+                : 'w-full lg:w-4/12'
+            } self-start sticky top-20`}>
+              <div className="space-y-4">
+                {/* Template Status Panel */}
+                <div className="bg-white border rounded-md shadow-sm">
+                  <div className="p-5">
+                    <div className="mb-4">
+                      <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
+                        Template Status
+                      </h3>
+                      <div className="w-16 h-0.5 bg-yellow-400 mb-3 rounded" />
+                      <div className="text-base text-gray-900 font-sans">
+                        {t.status === 'assigned' && (
+                          <>Document controllers are still working on the template.</>
+                        )}
+                        {t.status === 'pending' && (
+                          ((user?.role?.name === "Dean" && t.status_meta?.approvals?.secretary?.isApproved !== false) ||
+                          (user?.role?.name === "Secretary" && t.status_meta?.approvals?.secretary?.isApproved !== true)) ? (
+                            <>Template is awaiting your approval.</>
+                          ) : (
+                            <>Template is awaiting approval from assigned approvers.</>
+                          )
+                        )}
+                        {t.status === 'approved' && (
+                          <>Template has been fully approved and is ready for publishing by the document controller.</>
+                        )}
+                        {t.status === 'published' && (
+                          <>Template is published and available for use.</>
+                        )}
+                        {t.status === 'rejected' && (
+                          <>Template was rejected.</>
+                        )}
+                        {t.status === 'returned' && (
+                          <>Template was returned for changes.</>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* DocumentDetailsCard - editable for Dean, non-editable for other modules */}
+                {template && (
+                  <DocumentDetailsCard 
+                    template={template}
+                    onUpdateDocumentDetails={handleUpdateDocumentDetails}
+                    onUpdateISOCode={handleUpdateISOCode}
+                    canEdit={user?.role?.name === "Dean"}
+                  />
+                )}
+                
+                {/* Details Panel */}
+                <div className="bg-white border rounded-md shadow-sm">
+                  <div className="p-5">
+                    {/* Deadline Section */}
+                    <div className="mb-4">
+                      <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
+                        Deadline
+                      </h3>
+                      <div className="text-base text-gray-900">{deadline || "No deadline set"}</div>
+                    </div>
+                    
+                    {/* Assigned Members Section */}
+                    <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
+                      Assigned Members
+                    </h3>
+                    
+                    <ul className="mb-6">
+                      {assignedNames.length > 0 ? (
+                        assignedNames.map((name, idx) => (
+                          <li key={idx} className="text-sm text-gray-800 mb-1 flex items-center">
+                            <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2" aria-hidden="true"></span>
+                            {name}
+                          </li>
+                        ))
                       ) : (
-                        <>Template is awaiting approval from assigned approvers.</>
-                      )
-                    )}
-                    {t.status === 'approved' && (
-                      <>Template has been fully approved and is ready for publishing by the document controller.</>
-                    )}
-                    {t.status === 'published' && (
-                      <>Template is published and available for use.</>
-                    )}
-                    {t.status === 'rejected' && (
-                      <>Template was rejected.</>
-                    )}
-                    {t.status === 'returned' && (
-                      <>Template was returned for changes.</>
-                    )}
+                        <li className="text-sm text-gray-400">No members assigned.</li>
+                      )}
+                    </ul>
+                    
+                    {/* Approvers Section */}
+                    <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
+                      To be approved by
+                    </h3>
+                    
+                    <ul className="mb-6">
+                      {approvalsArr.length > 0 ? (
+                        approvalsArr.map((approver, idx) => {
+                          let statusBadge;
+                          if (approver.isRejected) {
+                            statusBadge = (
+                              <span className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-medium">
+                                Rejected
+                              </span>
+                            );
+                          } else if (approver.isReturned) {
+                            statusBadge = (
+                              <span className="ml-2 px-2 py-0.5 rounded bg-orange-100 text-orange-700 text-xs font-medium">
+                                Returned
+                              </span>
+                            );
+                          } else if (approver.isApproved) {
+                            statusBadge = (
+                              <span className="ml-2 px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">
+                                Approved
+                              </span>
+                            );
+                          } else {
+                            statusBadge = (
+                              <span className="ml-2 px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs font-medium">
+                                Pending
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <li key={idx} className="flex mb-2 text-sm">
+                              <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0" aria-hidden="true"></span>
+                              <div className="flex flex-col">
+                                <span className="font-medium text-gray-800 flex items-center flex-wrap">
+                                  {approver.name} ({approver.role?.name || approver.role})
+                                  {statusBadge}
+                                </span>
+                              </div>
+                            </li>
+                          );
+                        })
+                      ) : (
+                        <li className="text-sm text-gray-400">No approvers assigned.</li>
+                      )}
+                    </ul>
+                    
+                    {/* Notes Section */}
+                    <h3 className="text-base font-bold tracking-widest text-gray-900 uppercase font-sans">
+                      Notes
+                    </h3>
+                    <div className="w-16 h-0.5 bg-yellow-400 mb-3 rounded" />
+                    <ul>
+                      {notes.length > 0 ? (
+                        notes.map((note, idx) => (
+                          <li key={idx} className="mb-3">
+                            {/* Note metadata */}
+                            <div className="text-xs text-gray-500 mb-1 font-sans">
+                              {note.added_by_name || note.added_by || ''} &middot; {formatDateTime(note.created_at)}
+                            </div>
+                            {/* Note type */}
+                            <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-3">
+                              {note.type || 'Note'}
+                            </div>
+                            {/* Note message */}
+                            <div className="text-base text-gray-800 font-sans">{note.message}</div>
+                          </li>
+                        ))
+                      ) : (
+                        <li className="text-base text-gray-400 font-sans">No notes available.</li>
+                      )}
+                    </ul>
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* DocumentDetailsCard - editable for Dean, non-editable for other modules */}
-            {template && (
-              <DocumentDetailsCard 
-                template={template}
-                onUpdateDocumentDetails={handleUpdateDocumentDetails}
-                onUpdateISOCode={handleUpdateISOCode}
-                canEdit={user?.role?.name === "Dean"}
-              />
-            )}
-            
-            {/* Details Panel */}
-            <div className="bg-white border rounded-md shadow-sm">
-              <div className="p-5">
-                {/* Deadline Section */}
-                <div className="mb-4">
-                  <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
-                    Deadline
-                  </h3>
-                  <div className="text-base text-gray-900">{deadline || "No deadline set"}</div>
-                </div>
-                
-                {/* Assigned Members Section */}
-                <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
-                  Assigned Members
-                </h3>
-                
-                <ul className="mb-6">
-                  {assignedNames.length > 0 ? (
-                    assignedNames.map((name, idx) => (
-                      <li key={idx} className="text-sm text-gray-800 mb-1 flex items-center">
-                        <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2" aria-hidden="true"></span>
-                        {name}
-                      </li>
-                    ))
-                  ) : (
-                    <li className="text-sm text-gray-400">No members assigned.</li>
-                  )}
-                </ul>
-                
-                {/* Approvers Section */}
-                <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
-                  To be approved by
-                </h3>
-                
-                <ul className="mb-6">
-                  {approvalsArr.length > 0 ? (
-                    approvalsArr.map((approver, idx) => {
-                      let statusBadge;
-                      if (approver.isRejected) {
-                        statusBadge = (
-                          <span className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-medium">
-                            Rejected
-                          </span>
-                        );
-                      } else if (approver.isReturned) {
-                        statusBadge = (
-                          <span className="ml-2 px-2 py-0.5 rounded bg-orange-100 text-orange-700 text-xs font-medium">
-                            Returned
-                          </span>
-                        );
-                      } else if (approver.isApproved) {
-                        statusBadge = (
-                          <span className="ml-2 px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">
-                            Approved
-                          </span>
-                        );
-                      } else {
-                        statusBadge = (
-                          <span className="ml-2 px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs font-medium">
-                            Pending
-                          </span>
-                        );
-                      }
-
-                      return (
-                        <li key={idx} className="flex mb-2 text-sm">
-                          <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0" aria-hidden="true"></span>
-                          <div className="flex flex-col">
-                            <span className="font-medium text-gray-800 flex items-center flex-wrap">
-                              {approver.name} ({approver.role?.name || approver.role})
-                              {statusBadge}
-                            </span>
-                          </div>
-                        </li>
-                      );
-                    })
-                  ) : (
-                    <li className="text-sm text-gray-400">No approvers assigned.</li>
-                  )}
-                </ul>
-                
-                {/* Notes Section */}
-                <h3 className="text-base font-bold tracking-widest text-gray-900 uppercase font-sans">
-                  Notes
-                </h3>
-                <div className="w-16 h-0.5 bg-yellow-400 mb-3 rounded" />
-                <ul>
-                  {notes.length > 0 ? (
-                    notes.map((note, idx) => (
-                      <li key={idx} className="mb-3">
-                          {/* Note metadata */}
-                        <div className="text-xs text-gray-500 mb-1 font-sans">
-                          {note.added_by_name || note.added_by || ''} &middot; {formatDateTime(note.created_at)}
-                        </div>
-                          {/* Note type */}
-                        <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-3">
-                          {note.type || 'Note'}
-                        </div>
-                          {/* Note message */}
-                        <div className="text-base text-gray-800 font-sans">{note.message}</div>
-                      </li>
-                    ))
-                  ) : (
-                    <li className="text-base text-gray-400 font-sans">No notes available.</li>
-                  )}
-                </ul>
-              </div>
-            </div>
-          </aside>
+            </aside>
+          </div>
         </div>
-        </main>
       </div>
       
       {/* Assign Members Modal */}
@@ -870,7 +871,6 @@ const handleUpdateISOCode = async ({ iso_code }) => {
           setAssignSubmitting(true);
           try {
             await assignControllersToTemplateAPI(template._id, assignees);
-            // Refresh via the normalized loader so UI gets canonical fields
             await refreshTemplate(template._id);
             setAssignOpen(false);
             setSelectedIds([]);
