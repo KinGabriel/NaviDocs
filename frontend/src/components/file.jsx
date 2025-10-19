@@ -6,6 +6,7 @@ import { searchUsersByEmailAPI, getUserIdByEmailAPI } from '../api/userAPI';
 import useUser from '../hooks/useUser';
 import PdfThumbnail from "./thumbnails/pdfThumbnail";
 import DocxThumbnail from "./thumbnails/docxThumbnail";
+import RenameModal from "../components/modals/renameModal";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 import {
   FileText,
@@ -699,57 +700,25 @@ export default function FileComponent({
         </div>
       )}
 
-      {/* Rename Modal */}
-      {isRenameOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[400px] max-w-full rounded-xl shadow-lg p-6 relative">
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-black"
-              onClick={() => setIsRenameOpen(false)}
-            >
-              <X size={20} />
-            </button>
-            <h2 className="text-lg font-semibold mb-4">Rename</h2>
-            <input
-              type="text"
-              className="w-full border rounded-lg px-3 py-2 mb-4"
-              value={renameInput}
-              onChange={(e) => setRenameInput(e.target.value)}
-            />
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setIsRenameOpen(false)}
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!renameInput || renameInput === fileName) {
-                    setIsRenameOpen(false);
-                    return;
-                  }
-                  try {
-                    if (parentFolderId) {
-                      await renameFileAPI(file._id, renameInput, parentFolderId);
-                    } else {
-                      await renameFileAPI(file._id, renameInput);
-                    }
-                    setIsRenameOpen(false);
-                    // Trigger a refresh or update parent
-                    if (onDelete) onDelete(file); // Use onDelete as a refresh callback
-                  } catch (err) {
-                    alert(err?.message || 'Failed to rename file');
-                  }
-                }}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RenameModal
+  open={isRenameOpen}
+  onClose={() => setIsRenameOpen(false)}
+  currentTitle={file.originalName}
+  onSubmit={async (newTitle) => {
+    try {
+      if (parentFolderId) {
+        await renameFileAPI(file._id, newTitle, parentFolderId);
+      } else {
+        await renameFileAPI(file._id, newTitle);
+      }
+      setIsRenameOpen(false);
+      if (onDelete) onDelete(file); // refresh parent view
+    } catch (err) {
+      alert(err?.message || "Failed to rename file");
+    }
+  }}
+/>
+
 
       {/* Remove Modal */}
       {isRemoveOpen && (

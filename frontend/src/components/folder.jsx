@@ -6,6 +6,7 @@ import React, { useState, Fragment,useEffect, useRef } from "react";
 import MultiSelectDropdown from './dropdowns/multiSelectDropdown';
 import Dropdown3 from './dropdowns/dropdown3';
 import useUser from '../hooks/useUser';
+import RenameFolderModal from "../components/modals/renameFolderModal";
 
 import {
   Folder,
@@ -587,53 +588,22 @@ export default function FolderComponent({
         </div>
       )}
 
-      {/* Rename Modal */}
-      {isRenameOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[400px] max-w-full rounded-xl shadow-lg p-6 relative">
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-black"
-              onClick={() => setIsRenameOpen(false)}
-            >
-              <X size={20} />
-            </button>
-            <h2 className="text-lg font-semibold mb-4">Rename</h2>
-            <input
-              type="text"
-              className="w-full border rounded-lg px-3 py-2 mb-4"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-            />
-            <div className="flex justify-end gap-3">
-              <button
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
-                onClick={() => setIsRenameOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                onClick={async () => {
-                  if (!renameValue || renameValue === folder.name) {
-                    setIsRenameOpen(false);
-                    return;
-                  }
-                  try {
-                    await import('../api/storageAPI').then(({ renameFolderAPI }) => renameFolderAPI(folder._id, renameValue));
-                    setIsRenameOpen(false);
-                    // Trigger a refresh or update parent
-                    if (onDelete) onDelete(folder); // Use onDelete as a refresh callback
-                  } catch (err) {
-                    alert(err?.message || 'Failed to rename folder');
-                  }
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RenameFolderModal
+  open={isRenameOpen}
+  onClose={() => setIsRenameOpen(false)}
+  currentTitle={folder.name}
+  onSubmit={async (newTitle) => {
+    try {
+      const { renameFolderAPI } = await import("../api/storageAPI");
+      await renameFolderAPI(folder._id, newTitle);
+      setIsRenameOpen(false);
+      if (onDelete) onDelete(folder); // Refresh parent view
+    } catch (err) {
+      alert(err?.message || "Failed to rename folder");
+    }
+  }}
+/>
+
 
       {/* Remove Modal */}
       {isRemoveOpen && (
