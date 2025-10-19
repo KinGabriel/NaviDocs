@@ -10,8 +10,8 @@ import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";
 import Loader from "../components/loader";
-// Rename/Delete UI is handled by DocumentCard; parent only updates state callbacks
-import ManageSuggestionsModal from "../components/modals/manageSuggestionsModal";
+import ManageSuggestionsModal from "../components/modals/manageSuggestionsModal";s
+import Table from "../components/table";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -30,7 +30,6 @@ export default function GlobalTemplates() {
   const navigate = useNavigate();
 
   // Card components manage their own rename/delete UI; parent only needs to update local list
-
   const [selectOpen, setSelectOpen] = useState(false);
   const [publishedLoading, setPublishedLoading] = useState(false);
   const [publishedTemplatesCache, setPublishedTemplatesCache] = useState([]);
@@ -46,6 +45,9 @@ export default function GlobalTemplates() {
 
   const statusOptions = ["All", "Draft", "Pending Approval", "Approved", "Published"];
   const PAGE_SIZE = 8;
+
+  // NEW: view mode ("table" | "grid")
+  const [viewMode, setViewMode] = useState("grid");
 
   const fetchTemplates = async () => {
     if (!user) return;
@@ -175,6 +177,64 @@ export default function GlobalTemplates() {
   });
   const fields = Array.from(map.values());
 
+  // ---------- Helpers for table view (no API/logic changes) ----------
+  const StatusPill = ({ value }) => {
+    const val = (value || "").toString();
+    // keep neutral styling; status text comes from API
+    return (
+      <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-50 text-yellow-700 border border-yellow-200">
+        <span className="h-2 w-2 rounded-full bg-yellow-500" />
+        {val || "-"}
+      </span>
+    );
+  };
+
+  const handleView = async (tpl) => {
+    const id = tpl?._id || tpl?.id;
+    if (!id) return;
+    try {
+      setLoading(true);
+      const resp = await getDocumentByIdAPI(id);
+      const doc = resp?.document || resp;
+      navigate(`/documents/editable-fields/${id}`, {
+        state: {
+          doc,
+          sidebarActive: "Documents",
+          backTo: "/documents",
+        },
+      });
+    } catch (err) {
+      console.error("Failed to fetch document by id", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Table columns (read-only actions)
+  const columns = [
+    { key: "title", label: "Template Name", render: (row) => row.title || "Untitled" },
+    { key: "assignedTo", label: "Assigned To", render: (row) => {
+        const list = row.assignedNames || row.assigned || [];
+        if (Array.isArray(list) && list.length) return list.filter(Boolean).join(", ");
+        return row.createdByName || row.created_by_name || "-";
+      }
+    },
+    { key: "deadline", label: "Deadline", render: (row) => row.deadline ? new Date(row.deadline).toLocaleString() : "No Deadline set" },
+    { key: "status", label: "Status", render: (row) => <StatusPill value={row.status} /> },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <button
+          onClick={() => handleView(row)}
+          className="inline-flex items-center justify-center px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
+        >
+          View
+        </button>
+      ),
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
@@ -187,8 +247,8 @@ export default function GlobalTemplates() {
             </h1>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
-          <div className="flex items-center justify-between gap-2 mb-4">
-             {/* Select Template Button */}
+            <div className="flex items-center justify-between gap-2 mb-4">
+              {/* Select Template Button */}
               <div className="flex-1 flex justify-start ml-1">
                 <button
                   onClick={() => navigate("/select-template")}
@@ -210,7 +270,7 @@ export default function GlobalTemplates() {
                   </svg>
                   Select Template
                 </button>
-             {/* Manage Suggestions Button */}
+                {/* Manage Suggestions Button */}
                 <button
                   onClick={async () => {
                     // Prefetch both published templates and user's documents (larger slice)
@@ -247,78 +307,97 @@ export default function GlobalTemplates() {
                 </button>
               </div>
 
-             {/* Controls */}
-             <div className="flex items-center gap-2">
-               {/* School Filter */}
-               <Dropdown
-                 options={["All", ...Object.keys(schoolIdentifiers)]}
-                 value={selectedSchool}
-                 onChange={setSelectedSchool}
-                 width="w-50"
-               />
-   
-               {/* Sort Order */}
-               <Dropdown
-                 options={["Recent", "A-Z", "Z-A"]}
-                 value={sortOrder}
-                 onChange={setSortOrder}
-                 width="w-36"
-               />
-   
-               {/* Search Bar */}
-               <div className="w-64">
-                 <SearchBar
-                   value={search}
-                   onChange={(e) => setSearch(e.target.value)}
-                   placeholder="Search documents..."
-                 />
-               </div>
-             </div>   
-            </div>        
+              {/* Controls */}
+              <div className="flex items-center gap-2">
+                {/* School Filter */}
+                <Dropdown
+                  options={["All", ...Object.keys(schoolIdentifiers)]}
+                  value={selectedSchool}
+                  onChange={setSelectedSchool}
+                  width="w-50"
+                />
 
-            {/* Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
-              {loading ? (
-                <div className="col-span-full text-center py-8">
+                {/* Sort Order */}
+                <Dropdown
+                  options={["Recent", "A-Z", "Z-A"]}
+                  value={sortOrder}
+                  onChange={setSortOrder}
+                  width="w-36"
+                />
+
+                {/* Search Bar */}
+                <div className="w-64">
+                  <SearchBar
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search documents..."
+                  />
+                </div>
+
+                {/* NEW: View toggle pill (list/grid) */}
+                <ViewToggle mode={viewMode} onChange={setViewMode} />
+              </div>
+            </div>
+
+            {/* NEW: Tabs styled like your screenshot (blue underline for active) */}
+            <div className="mb-6 border-b border-gray-200">
+              <div className="flex space-x-8">
+                {statusOptions.map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => {
+                      setSelectedStatus(opt);
+                      pagination.handlePage(1);
+                    }}
+                    className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                      selectedStatus === opt
+                        ? "border-blue-600 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* List OR Grid */}
+            {viewMode === "table" ? (
+              loading ? (
+                <div className="w-full flex justify-center py-10">
                   <Loader message="Loading documents..." />
                 </div>
-              ) : templates.length === 0 ? (
-                <div className="col-span-full text-center py-8">
-                  <p className="text-gray-600">No Documents found</p>
-                </div>
               ) : (
-                templates.map((template, i) => {
-                  const id = template._id || i;
-                  return (
-                    <DocumentCard
-                      key={id}
-                      document={template}
-                      user={user}
-                      onSelect={async () => {
-                        try {
-                          setLoading(true);
-                          const resp = await getDocumentByIdAPI(id);
-                          const doc = resp?.document || resp;
-                          navigate(`/documents/editable-fields/${id}`, {
-                            state: {
-                              doc,
-                              sidebarActive: "Documents",
-                              backTo: "/documents",
-                            },
-                          });
-                        } catch (err) {
-                          console.error('Failed to fetch document by id', err);                      
-                        } finally {
-                          setLoading(false);
-                        }
-                      }}
-                      onRename={(updated) => handleCardRename(updated)}
-                      onDelete={(deleted) => handleCardDelete(deleted)}
-                    />
-                  );
-                })
-              )}
-            </div>
+                <Table columns={columns} data={templates} />
+              )
+            ) : (
+              /* Grid (existing) */
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
+                {loading ? (
+                  <div className="col-span-full text-center py-8">
+                    <Loader message="Loading documents..." />
+                  </div>
+                ) : templates.length === 0 ? (
+                  <div className="col-span-full text-center py-8">
+                    <p className="text-gray-600">No Documents found</p>
+                  </div>
+                ) : (
+                  templates.map((template, i) => {
+                    const id = template._id || i;
+                    return (
+                      <DocumentCard
+                        key={id}
+                        document={template}
+                        user={user}
+                        onSelect={() => handleView(template)}
+                        onRename={(updated) => handleCardRename(updated)}
+                        onDelete={(deleted) => handleCardDelete(deleted)}
+                      />
+                    );
+                  })
+                )}
+              </div>
+            )}
 
             {/* Pagination */}
             <div className="flex justify-center items-center mt-6 gap-2">
@@ -361,12 +440,51 @@ export default function GlobalTemplates() {
       </div>
 
       {/* DocumentCard handles rename/delete modals and API calls. Parent updates local list via callbacks. */}
-
       <ManageSuggestionsModal 
-      open={manageOpen} 
-      onClose={() => setManageOpen(false)}
-      fields={fields} 
-      user={user} />
+        open={manageOpen} 
+        onClose={() => setManageOpen(false)}
+        fields={fields} 
+        user={user} />
+    </div>
+  );
+}
+
+/* ---------- Inline helper: Toggle pill (matches your screenshot) ---------- */
+function ViewToggle({ mode = "grid", onChange }) {
+  const isTable = mode === "table";
+  return (
+    <div className="inline-flex items-stretch rounded-full border border-gray-300 overflow-hidden">
+      {/* List / Table */}
+      <button
+        type="button"
+        onClick={() => onChange("table")}
+        className={`px-3 py-2 flex items-center ${
+          isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
+        }`}
+        aria-label="List view"
+        title="List view"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </button>
+      {/* Grid */}
+      <button
+        type="button"
+        onClick={() => onChange("grid")}
+        className={`px-3 py-2 flex items-center ${
+          !isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
+        }`}
+        aria-label="Grid view"
+        title="Grid view"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="4" y="4" width="6" height="6" rx="1"></rect>
+          <rect x="14" y="4" width="6" height="6" rx="1"></rect>
+          <rect x="4" y="14" width="6" height="6" rx="1"></rect>
+          <rect x="14" y="14" width="6" height="6" rx="1"></rect>
+        </svg>
+      </button>
     </div>
   );
 }
