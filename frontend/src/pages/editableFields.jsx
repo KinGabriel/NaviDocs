@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { ChevronRight, ChevronLeft, RotateCcw, X, Grid3x3, Plus, Trash2 } from "lucide-react";
 import EditableFieldsHeader from "../layout/editable_fields/editableFieldsHeader";
 import useUser from "../hooks/useUser";
@@ -61,10 +62,8 @@ export default function EditableFields() {
         console.log('Table inserted successfully');
       } else {
         console.log('Direct insertion failed, trying insertContent...');
-        
         // Method 2: Build table HTML and insert it
         let tableHTML = '<table><tbody>';
-        
         // Header row
         tableHTML += '<tr>';
         for (let c = 0; c < Number(cols); c++) {
@@ -113,97 +112,99 @@ export default function EditableFields() {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-700 flex items-center">
-          <Grid3x3 className="w-4 h-4 mr-2" />
-          Table Tools
-        </h3>
-        <button
-          onClick={() => setShowTableDialog(true)}
-          disabled={!editor}
-          className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-            editor
-              ? "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
-              : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
-          }`}
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          Insert Table
-        </button>
+    <>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-700 flex items-center">
+            <Grid3x3 className="w-4 h-4 mr-2" />
+            Table Tools
+          </h3>
+          <button
+            onClick={() => setShowTableDialog(true)}
+            disabled={!editor}
+            className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+              editor
+                ? "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+                : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
+            }`}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Insert Table
+          </button>
+        </div>
+
+        {editor && isInTable && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <p className="text-xs text-gray-500 mb-2">Table selected:</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => editor.chain().focus().addRowBefore().run()}
+                className="inline-flex items-center justify-center px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-100"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Row Before
+              </button>
+              <button
+                onClick={() => editor.chain().focus().addRowAfter().run()}
+                className="inline-flex items-center justify-center px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-100"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Row After
+              </button>
+              <button
+                onClick={() => editor.chain().focus().addColumnBefore().run()}
+                className="inline-flex items-center justify-center px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-100"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Column Before
+              </button>
+              <button
+                onClick={() => editor.chain().focus().addColumnAfter().run()}
+                className="inline-flex items-center justify-center px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-100"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Column After
+              </button>
+              <button
+                onClick={() => editor.chain().focus().deleteRow().run()}
+                className="inline-flex items-center justify-center px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100"
+              >
+                <Trash2 className="w-3 h-3 mr-1" />
+                Delete Row
+              </button>
+              <button
+                onClick={() => editor.chain().focus().deleteColumn().run()}
+                className="inline-flex items-center justify-center px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100"
+              >
+                <Trash2 className="w-3 h-3 mr-1" />
+                Delete Column
+              </button>
+              <button
+                onClick={() => editor.chain().focus().deleteTable().run()}
+                className="col-span-2 inline-flex items-center justify-center px-3 py-1.5 bg-red-600 text-white border border-red-700 rounded-lg text-xs font-medium hover:bg-red-700"
+              >
+                <Trash2 className="w-3 h-3 mr-1" />
+                Delete Table
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {editor && isInTable && (
-        <div className="mt-3 pt-3 border-t border-gray-200">
-          <p className="text-xs text-gray-500 mb-2">Table selected:</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => editor.chain().focus().addRowBefore().run()}
-              className="inline-flex items-center justify-center px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-100"
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Row Before
-            </button>
-            <button
-              onClick={() => editor.chain().focus().addRowAfter().run()}
-              className="inline-flex items-center justify-center px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-100"
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Row After
-            </button>
-            <button
-              onClick={() => editor.chain().focus().addColumnBefore().run()}
-              className="inline-flex items-center justify-center px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-100"
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Column Before
-            </button>
-            <button
-              onClick={() => editor.chain().focus().addColumnAfter().run()}
-              className="inline-flex items-center justify-center px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-100"
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Column After
-            </button>
-            <button
-              onClick={() => editor.chain().focus().deleteRow().run()}
-              className="inline-flex items-center justify-center px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100"
-            >
-              <Trash2 className="w-3 h-3 mr-1" />
-              Delete Row
-            </button>
-            <button
-              onClick={() => editor.chain().focus().deleteColumn().run()}
-              className="inline-flex items-center justify-center px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100"
-            >
-              <Trash2 className="w-3 h-3 mr-1" />
-              Delete Column
-            </button>
-            <button
-              onClick={() => editor.chain().focus().deleteTable().run()}
-              className="col-span-2 inline-flex items-center justify-center px-3 py-1.5 bg-red-600 text-white border border-red-700 rounded-lg text-xs font-medium hover:bg-red-700"
-            >
-              <Trash2 className="w-3 h-3 mr-1" />
-              Delete Table
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showTableDialog && (
+      {showTableDialog && createPortal(
         <div
-          className="fixed inset-0 bg-opacity-30 backdrop-blur-[2px] flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-opacity-50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4"
           onClick={() => setShowTableDialog(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full border border-gray-200"
+            className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-gray-200 relative"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-800">Insert Table</h3>
               <button
                 onClick={() => setShowTableDialog(false)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200 active:scale-95"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -241,22 +242,23 @@ export default function EditableFields() {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   onClick={() => setShowTableDialog(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-all duration-200 active:scale-95"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleInsertTable}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 active:scale-95"
                 >
                   Insert
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };
 
@@ -863,7 +865,8 @@ export default function EditableFields() {
     );
   };
 
-  return (
+return (
+  <>
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <EditableFieldsHeader
         title={docData?.title || docData?.document?.title || 'Untitled Document'}
@@ -875,136 +878,91 @@ export default function EditableFields() {
         documentId={id}
       />
 
-  {/* Progress Navigation */}
-  <ProgressNavigation panelsConfig={panelsToUse} />
       <div className="flex flex-1">
-        <div className="w-1/2 bg-gray-50 p-6 space-y-6">
+        {/* Left Panel - Sticky */}
+        <div className="w-1/2 bg-gray-50 relative">
+          {/* Progress Navigation - Full Width */}
+          <div className="sticky top-0 z-10 bg-gray-50">
+            <ProgressNavigation panelsConfig={panelsToUse} />
+          </div>
+          
+          <div className="sticky top-0 h-screen overflow-y-auto p-6 space-y-6 pt-20">{/* Added pt-20 to account for progress nav height */}
 
-      {/* Clear All & Autofill Buttons */}
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={() => setShowClearModal(true)}
-          disabled={Object.keys(formData).length === 0}
-          className={`inline-flex items-center px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 shadow-sm active:scale-95 ${
-            Object.keys(formData).length > 0
-              ? "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:border-red-300"
-              : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
-          }`}
-        >
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Clear All
-        </button>
-
-        {/* Autofill button: fetch saved suggestions and populate empty fields */}
-        <button
-          onClick={() => setAutofillOpen(true)}
-          className="ml-3 shadow-sm inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-sm bg-green-50 text-green-700 border border-green-100 hover:bg-green-100"
-        >
-          Autofill
-        </button>
-      </div>
-
-      {/* Clear All Modal */}
-      {showClearModal && (
-        <div
-          className="fixed inset-0  backdrop-blur-[2px] flex items-center justify-center z-50 p-4"
-          onClick={() => setShowClearModal(false)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full border border-gray-200 relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowClearModal(false)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200 active:scale-95"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mb-4 border border-red-100 mx-auto">
-              <RotateCcw className="w-7 h-7 text-red-600" />
-            </div>
-
-            <h2 className="text-lg font-semibold text-gray-800 text-center mb-3">
-              Clear All Form Data
-            </h2>
-            <p className="text-gray-600 text-center text-sm mb-6">
-              Are you sure you want to clear all form data? This action cannot be undone.
-            </p>
-
-            <div className="flex justify-center gap-4">
+            {/* Clear All & Autofill Buttons */}
+            <div className="flex justify-end">
               <button
-                onClick={() => setShowClearModal(false)}
-                className="px-5 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200 active:scale-95"
+                onClick={() => setShowClearModal(true)}
+                disabled={Object.keys(formData).length === 0}
+                className={`inline-flex items-center px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 shadow-sm active:scale-95 ${
+                  Object.keys(formData).length > 0
+                    ? "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:border-red-300"
+                    : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
+                }`}
               >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setFormData({});
-                  setShowClearModal(false);
-                }}
-                className="px-5 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-all duration-200 active:scale-95"
-              >
+                <RotateCcw className="w-4 h-4 mr-2" />
                 Clear All
               </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-          {/* Render current panels or show a helpful message when the current page has no editable fields */}
-          {docData && docData.pages_json && typeof docData.pages_json[0] !== 'string' && editableCount === 0 ? (
-            <div className="bg-white p-6 rounded-lg shadow-sm">
-              <div className="space-y-2">
-                <div className="text-lg font-medium text-gray-700">No editable fields for this page</div>
-                <div className="text-sm text-gray-500">This page doesn't contain any editable placeholders. Please go to another page to edit fields</div>
+              {/* Autofill button: fetch saved suggestions and populate empty fields */}
+              <button
+                onClick={() => setAutofillOpen(true)}
+                className="ml-3 shadow-sm inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-sm bg-green-50 text-green-700 border border-green-100 hover:bg-green-100"
+              >
+                Autofill
+              </button>
+            </div>
+
+            {/* Render current panels or show a helpful message when the current page has no editable fields */}
+            {docData && docData.pages_json && typeof docData.pages_json[0] !== 'string' && editableCount === 0 ? (
+              <div className="bg-white p-6 rounded-lg shadow-sm">
+                <div className="space-y-2">
+                  <div className="text-lg font-medium text-gray-700">No editable fields for this page</div>
+                  <div className="text-sm text-gray-500">This page doesn't contain any editable placeholders. Please go to another page to edit fields</div>
+                </div>
               </div>
-            </div>
-          ) : (
-            currentPanels.map((panel, idx) => (
-              <Panel
-                key={idx}
-                number={panel.number}
-                title={panel.title}
-                subtitle={panel.subtitle}
-                color={panel.color}
-                fields={panel.fields}
-                formData={formData}
-                onChange={handleInputChange}
-                onFocusField={(fieldName) => setCurrentField(fieldName)}
-                user={user}
-              />
-            ))
-          )}
+            ) : (
+              currentPanels.map((panel, idx) => (
+                <Panel
+                  key={idx}
+                  number={panel.number}
+                  title={panel.title}
+                  subtitle={panel.subtitle}
+                  color={panel.color}
+                  fields={panel.fields}
+                  formData={formData}
+                  onChange={handleInputChange}
+                  onFocusField={(fieldName) => setCurrentField(fieldName)}
+                  user={user}
+                />
+              ))
+            )}
 
-          {/* Insertion of Table */}
-         {editorRef.current && <TableManager editor={editorRef.current} />}
+            {/* Insertion of Table */}
+            {editorRef.current && <TableManager editor={editorRef.current} />}
 
-          {/* Section navigation (panels) is below */}
-
-       {/* Action Buttons */}
-          <div className="flex justify-end items-center pt-6">
-            <div className="flex items-center space-x-3">
-              {currentPage > 0 && (
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 0))}
-                  className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 border-2 border-gray-300 rounded-lg font-medium text-sm hover:border-[#003DA5] hover:text-[#003DA5] hover:shadow-md transition-all duration-200"
-                >
-                  <ChevronLeft className="w-4 h-4 mr-2" />
-                  Previous
-                </button>
-              )}
-              
-              {currentPage < totalPages - 1 && (
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages - 1))}
-                  className="inline-flex items-center px-6 py-2.5 bg-[#003DA5] text-white rounded-lg font-medium text-sm hover:bg-[#052c6d] transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4 ml-2" />
-                </button>
-              )}
+            {/* Action Buttons */}
+            <div className="flex justify-end items-center pt-6">
+              <div className="flex items-center space-x-3">
+                {currentPage > 0 && (
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 0))}
+                    className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 border-2 border-gray-300 rounded-lg font-medium text-sm hover:border-[#003DA5] hover:text-[#003DA5] hover:shadow-md transition-all duration-200"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    Previous
+                  </button>
+                )}
+                
+                {currentPage < totalPages - 1 && (
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages - 1))}
+                    className="inline-flex items-center px-6 py-2.5 bg-[#003DA5] text-white rounded-lg font-medium text-sm hover:bg-[#052c6d] transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1063,17 +1021,14 @@ export default function EditableFields() {
                   content={contentForEditor}
                   pageSetup={docData?.pageSetup}
                   mode="document"
-                  // pass normalized logo/header config and stamp info so TextEditor can render page headers
                   logoConfig={docData?.logoConfig || docData?.from_template?.logoConfig || null}
                   templateStatus={docData?.from_template?.status || docData?.status || null}
                   documentCode={docData?.document_code || docData?.document?.document_code || docData?.from_template?.document_code || null}
                   revisionNo={docData?.revision_no ?? docData?.document?.revision_no ?? docData?.from_template?.revision_no ?? null}
                   effectivity={docData?.effectivity || docData?.document?.effectivity || docData?.from_template?.effectivity || null}
                   onEditorReady={(editor) => {
-                  // capture editor instance
                     editorRef.current = editor;
-                  // initial apply of formData into editor
-                   console.log('✅ Editor ready:', editor);
+                    console.log('✅ Editor ready:', editor);
                     try {
                       isApplyingRef.current = true;
                       applyFormDataToEditor(editor);
@@ -1082,7 +1037,6 @@ export default function EditableFields() {
                     } finally {
                       setTimeout(() => { isApplyingRef.current = false; }, 50);
                     }
-                    // listen for updates from the editor (user edits)
                     editor.on('update', () => {
                       if (isApplyingRef.current) return;
                       if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
@@ -1096,7 +1050,6 @@ export default function EditableFields() {
                               newValues[origKey] = node.textContent || '';
                             }
                           });
-                        // merge into formData only if changed
                           setFormData((prev) => {
                             let changed = false;
                             const merged = { ...prev };
@@ -1123,16 +1076,67 @@ export default function EditableFields() {
           </div>
         </div>
       </div>
-      {/* Autofill modal */}
-      <AutofillModal
-        open={autofillOpen}
-        onClose={() => setAutofillOpen(false)}
-        fields={panelsToUse ? panelsToUse.flatMap(p => p.fields || []) : []}
-        fetchPreview={fetchPreview}
-        onApply={handleApplyAutofill}
-        applying={autofillApplying}
-        user={user}
-      />
     </div>
-  );
+    
+    {/* Clear All Modal - Rendered at root level */}
+    {showClearModal && (
+      <div
+        className="fixed inset-0 backdrop-blur-[2px] flex items-center justify-center z-50 p-4"
+        onClick={() => setShowClearModal(false)}
+      >
+        <div
+          className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full border border-gray-200 relative"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => setShowClearModal(false)}
+            className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200 active:scale-95"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mb-4 border border-red-100 mx-auto">
+            <RotateCcw className="w-7 h-7 text-red-600" />
+          </div>
+
+          <h2 className="text-lg font-semibold text-gray-800 text-center mb-3">
+            Clear All Form Data
+          </h2>
+          <p className="text-gray-600 text-center text-sm mb-6">
+            Are you sure you want to clear all form data? This action cannot be undone.
+          </p>
+
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={() => setShowClearModal(false)}
+              className="px-5 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200 active:scale-95"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                setFormData({});
+                setShowClearModal(false);
+              }}
+              className="px-5 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-all duration-200 active:scale-95"
+            >
+              Clear All
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    
+    {/* Autofill modal */}
+    <AutofillModal
+      open={autofillOpen}
+      onClose={() => setAutofillOpen(false)}
+      fields={panelsToUse ? panelsToUse.flatMap(p => p.fields || []) : []}
+      fetchPreview={fetchPreview}
+      onApply={handleApplyAutofill}
+      applying={autofillApplying}
+      user={user}
+    />
+  </>
+);
 }
