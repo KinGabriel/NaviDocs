@@ -356,73 +356,78 @@ export default function GlobalTemplates() {
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
             <div className="flex items-center justify-between gap-2 mb-4">
+              
               {/* Select Template Button */}
               <div className="flex-1 flex justify-start ml-1">
-                <button
-                  onClick={() => navigate("/select-template")}
-                  className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  Select Template
-                </button>
+                {!showDeleted && (
+                  <>
+                    <button
+                      onClick={() => navigate("/select-template")}
+                      className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4v16m8-8H4"
+                        />
+                      </svg>
+                      Select Template
+                    </button>
 
-                {/* Manage Suggestions Button */}
-                <button
-                  onClick={async () => {
-                    try {
-                      setPublishedLoading(true);
-                      setDocumentsCacheLoading(true);
+                    {/* Manage Suggestions Button */}
+                    <button
+                      onClick={async () => {
+                        try {
+                          setPublishedLoading(true);
+                          setDocumentsCacheLoading(true);
 
-                      const [pubRes, docsRes] = await Promise.all([
-                        fetchPublishedTemplatesAPI({
-                          limit: PAGE_SIZE,
-                          page: pagination.currentPage,
-                        }),
-                        listDocumentsAPI({
-                          limit: PAGE_SIZE,
-                          page: pagination.currentPage,
-                        }),
-                      ]);
+                          const [pubRes, docsRes] = await Promise.all([
+                            fetchPublishedTemplatesAPI({
+                              limit: PAGE_SIZE,
+                              page: pagination.currentPage,
+                            }),
+                            listDocumentsAPI({
+                              limit: PAGE_SIZE,
+                              page: pagination.currentPage,
+                            }),
+                          ]);
 
-                      if (pubRes?.success && pubRes.data?.templates)
-                        setPublishedTemplatesCache(pubRes.data.templates);
-                      else if (pubRes?.templates) setPublishedTemplatesCache(pubRes.templates);
-                      else if (Array.isArray(pubRes)) setPublishedTemplatesCache(pubRes);
+                          if (pubRes?.success && pubRes.data?.templates)
+                            setPublishedTemplatesCache(pubRes.data.templates);
+                          else if (pubRes?.templates) setPublishedTemplatesCache(pubRes.templates);
+                          else if (Array.isArray(pubRes)) setPublishedTemplatesCache(pubRes);
 
-                      if (docsRes && Array.isArray(docsRes.documents))
-                        setDocumentsCache(docsRes.documents);
-                      else if (docsRes && docsRes.success && Array.isArray(docsRes.data?.documents))
-                        setDocumentsCache(docsRes.data.documents);
-                      else if (Array.isArray(docsRes)) setDocumentsCache(docsRes);
-                    } catch (err) {
-                      console.error(
-                        "Failed to prefetch published templates or documents:",
-                        err
-                      );
-                    } finally {
-                      setPublishedLoading(false);
-                      setDocumentsCacheLoading(false);
-                      setManageOpen(true);
-                    }
-                  }}
-                  className="ml-3 flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 font-semibold px-4 py-2 rounded shadow transition-colors border"
-                >
-                  Manage saved values
-                </button>
-              </div>
+                          if (docsRes && Array.isArray(docsRes.documents))
+                            setDocumentsCache(docsRes.documents);
+                          else if (docsRes && docsRes.success && Array.isArray(docsRes.data?.documents))
+                            setDocumentsCache(docsRes.data.documents);
+                          else if (Array.isArray(docsRes)) setDocumentsCache(docsRes);
+                        } catch (err) {
+                          console.error(
+                            "Failed to prefetch published templates or documents:",
+                            err
+                          );
+                        } finally {
+                          setPublishedLoading(false);
+                          setDocumentsCacheLoading(false);
+                          setManageOpen(true);
+                        }
+                      }}
+                      className="ml-3 flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 font-semibold px-4 py-2 rounded shadow transition-colors border"
+                    >
+                      Manage saved values
+                    </button>
+                  </>
+                )}
+                  </div>
 
               {/* Controls */}
               <div className="flex items-center gap-2">
