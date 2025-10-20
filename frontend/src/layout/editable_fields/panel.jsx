@@ -59,23 +59,35 @@ export default function Panel({ number, title, color, fields, formData, onChange
             <div key={idx}>
               <label className="block text-sm font-medium mb-1">{field.label}</label>
               {field.type === 'input' ? (
-                <input
-                  type="text"
-                  value={fieldValue}
-                  onChange={(e) => onChange(field.name, e.target.value)}
-                  onFocus={() => onFocusField && onFocusField(field.name)}
-                  className="w-full p-2 border border-gray-300 rounded"
-                  placeholder={field.placeholder}
-                />
-              ) : field.type === 'textarea' ? (
-                <textarea
-                  value={fieldValue}
-                  onChange={(e) => onChange(field.name, e.target.value)}
-                  onFocus={() => onFocusField && onFocusField(field.name)}
-                  className="w-full p-2 border border-gray-300 rounded h-24 resize-none"
-                  placeholder={field.placeholder}
-                />
-              ) : null}
+              <input
+                type="text"
+                value={fieldValue}
+                onChange={(e) => onChange(field.name, e.target.value)}
+                onFocus={() => {
+                  if (onFocusField) onFocusField(field.name);
+                }}
+                onClick={() => {
+                  // trigger on click to ensure it works even if already focused
+                  if (onFocusField) onFocusField(field.name);
+                }}
+                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                placeholder={field.placeholder}
+              />
+            ) : field.type === 'textarea' ? (
+              <textarea
+                value={fieldValue}
+                onChange={(e) => onChange(field.name, e.target.value)}
+                onFocus={() => {
+                  if (onFocusField) onFocusField(field.name);
+                }}
+                onClick={() => {
+                  // trigger on click to ensure it works even if already focused
+                  if (onFocusField) onFocusField(field.name);
+                }}
+                className="w-full p-2 border border-gray-300 rounded h-24 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                placeholder={field.placeholder}
+              />
+            ) : null}
 
               {/* Controls: Save suggestion (scope-aware) */}
               <div className="flex items-center space-x-2 mt-2">
