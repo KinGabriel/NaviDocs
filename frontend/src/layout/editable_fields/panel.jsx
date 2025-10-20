@@ -59,7 +59,7 @@ export default function Panel({ number, title, color, fields, formData, onChange
             <div key={idx}>
               <label className="block text-sm font-medium mb-1">{field.label}</label>
               {field.type === 'input' ? (
-              <input
+              <input 
                 type="text"
                 value={fieldValue}
                 onChange={(e) => onChange(field.name, e.target.value)}

@@ -963,7 +963,7 @@ return (
                   <div className="text-lg font-medium text-gray-700">No editable fields for this page</div>
                   <div className="text-sm text-gray-500">This page doesn't contain any editable placeholders. Please go to another page to edit fields</div>
                 </div>
-              </div>
+              </div> 
             ) : (
              currentPanels.map((panel, idx) => (
             <Panel
