@@ -5,7 +5,8 @@ import useUser from "../hooks/useUser";
 import Panel from "../layout/editable_fields/panel";
 import TextEditor from "../layout/create_template/textEditor";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
-import { updateDocumentFieldValuesAPI, getFieldSuggestionsAPI, saveFieldSuggestionAPI } from "../api/documentsAPI";
+import { updateDocumentFieldValuesAPI, getFieldSuggestionsAPI, saveFieldSuggestionAPI, shareDocumentAPI } from "../api/documentsAPI";
+import ShareDocumentModal from "../components/modals/shareDocumentModal";
 import AutofillModal from "../components/modals/autofillModal";
 import { useParams, useLocation } from "react-router-dom";
 
@@ -29,6 +30,9 @@ export default function EditableFields() {
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [docData, setDocData] = useState(null);
   const [docError, setDocError] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareSelectedIds, setShareSelectedIds] = useState([]);
+  const [shareSubmitting, setShareSubmitting] = useState(false);
 
  const TableManager = ({ editor }) => {
   const [showTableDialog, setShowTableDialog] = useState(false);
@@ -902,6 +906,24 @@ export default function EditableFields() {
         >
           Autofill
         </button>
+        <button
+          onClick={() => {
+              // open share modal and prefill selected ids from docData.assigned if present
+              const extractId = (a) => {
+                if (!a) return null;
+                if (typeof a === 'string' || typeof a === 'number') return String(a);
+                if (typeof a === 'object') return String(a.userId || a.id || a._id || a.user || '');
+                return null;
+              };
+              const src = Array.isArray(docData?.assigned) ? docData.assigned : (Array.isArray(docData?.from_template?.assigned) ? docData.from_template.assigned : []);
+              const assigned = Array.isArray(src) ? src.map(extractId).filter(Boolean) : [];
+              setShareSelectedIds(assigned);
+              setShareOpen(true);
+            }}
+          className="ml-3 shadow-sm inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-sm bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100"
+        >
+          Share
+        </button>
       </div>
 
       {/* Clear All Modal */}
@@ -1132,6 +1154,31 @@ export default function EditableFields() {
         onApply={handleApplyAutofill}
         applying={autofillApplying}
         user={user}
+      />
+      <ShareDocumentModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        template={docData || {}}
+        selectedIds={shareSelectedIds}
+        setSelectedIds={setShareSelectedIds}
+        onShare={async ({ assignees }) => {
+          try {
+            setShareSubmitting(true);
+            const docId = id;
+            await shareDocumentAPI(docId, assignees);
+            // update local docData.assigned to reflect change
+            setDocData((d) => d ? { ...d, assigned: Array.isArray(assignees) ? assignees : [] } : d);
+            setShareOpen(false);
+          } catch (err) {
+            console.error('Failed to share document', err, err.responseData || null);
+            // prefer server message
+            const serverMsg = err.responseData?.message || err.message || 'Failed to share document';
+            try { toast.error(serverMsg); } catch(e) { /* ignore toast failures */ }
+          } finally {
+            setShareSubmitting(false);
+          }
+        }}
+        submitting={shareSubmitting}
       />
     </div>
   );

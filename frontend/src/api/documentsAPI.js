@@ -312,3 +312,23 @@ export const duplicateDocumentFromVersionAPI = async (documentId, versionNoOrId,
 		throw new Error(error.response?.data?.message || 'Failed to duplicate document from version');
 	}
 };
+/**
+ * Share a document by user IDs only.
+ * @param {string} documentId
+ * @param {Array<Object>|Array<string>} assignees - array of assignee objects ({ userId, access }) or legacy array of userId strings
+ */
+export const shareDocumentAPI = async (documentId, assignees = []) => {
+	try {
+		// Forward the assignees array as-is. Server will normalize entries.
+		const body = { assignees: Array.isArray(assignees) ? assignees : [] };
+		const res = await axios.post(`${API_URL}/api/documents/${documentId}/share`, body, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		// Attach server response for callers to inspect
+		const message = error.response?.data?.message || error.message || 'Failed to share document';
+		const err = new Error(message);
+		err.responseData = error.response?.data;
+		err.status = error.response?.status;
+		throw err;
+	}
+};

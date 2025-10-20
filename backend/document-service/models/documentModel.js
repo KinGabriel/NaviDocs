@@ -43,6 +43,8 @@ const DocumentSchema = new Schema({
   status_meta: { type: StatusMetaSchema, default: () => ({}) },
   field_values: { type: Schema.Types.Mixed, default: {} },
   notes: { type: [Schema.Types.Mixed], default: [] },
+  assigned: [{ userId: { type: String, default: null }, access: { type: String, enum: ['viewer','editor'], default: 'viewer' } }],
+  isArchived: { type: Boolean, default: false },
   thumbnailUrl: { type: String, default: null }
 }, { timestamps: true });
 
