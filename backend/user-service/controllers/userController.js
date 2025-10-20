@@ -76,10 +76,11 @@ export const searchUsersByEmail = async (req, res) => {
       return res.status(400).json({ message: "Query too short" });
     }
     // Find users whose email contains the query (case-insensitive)
+    // Include firstname and lastname so the client can display a friendly name
     const users = await User.find({ email: { $regex: query, $options: "i" } })
-      .select("_id email")
+      .select("_id email firstname lastname")
       .limit(10);
-    res.json({ users: users.map(u => ({ userId: u._id, email: u.email })) });
+    res.json({ users: users.map(u => ({ userId: u._id, email: u.email, firstname: u.firstname || '', lastname: u.lastname || '', name: `${(u.firstname || '').trim()} ${(u.lastname || '').trim()}`.trim() })) });
   } catch (error) {
     console.error("Error searching users by email:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -241,5 +242,24 @@ export const getSchoolStaff = async (req, res) => {
   } catch (error) {
     console.error("Error fetching school staff:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+/**
+ * Batch get user info for multiple ids
+ * @route POST /api/user/getUsersInfo
+ * @access Private
+ * body: { ids: [id1, id2, ...] }
+ */
+export const getUsersInfoByBatch = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    if (!ids.length) return res.json({ users: [] });
+    const users = await User.find({ _id: { $in: ids } }).select('_id email firstname lastname');
+    const mapped = users.map(u => ({ userId: u._id, email: u.email, firstname: u.firstname || '', lastname: u.lastname || '', name: `${(u.firstname || '').trim()} ${(u.lastname || '').trim()}`.trim() }));
+    return res.json({ users: mapped });
+  } catch (error) {
+    console.error('Error in getUsersInfo', error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };
