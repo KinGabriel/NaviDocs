@@ -22,7 +22,7 @@ import { formatDateTime } from "../utils/formatters";
 import AssignMembersModal from "../components/modals/assignMembersModal";
 import TextEditor from "../layout/create_template/textEditor"; 
 import DocumentDetailsCard from "../components/cards/documentDetailsCard";
-
+import Loader from "../components/loader";  
 import fetchAndNormalizeTemplate from "../utils/templateLoader";
 
 export default function TemplatesView() {
@@ -598,10 +598,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
   if (loading && !template) {
     return (
       <div className="min-h-screen bg-gray-200 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading template...</p>
-        </div>
+        <Loader message="Loading template..." />
       </div>
     );
   }

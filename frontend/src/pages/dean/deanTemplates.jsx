@@ -233,7 +233,7 @@ export default function DeanTemplates() {
           {/* Body */}
           {loading ? (
             <div className="flex justify-center items-center py-20">
-              <Loader />
+              <Loader message='Loading templates...' />
             </div>
           ) : error ? (
             <div className="flex justify-center items-center py-20 text-red-500">{error}</div>
