@@ -7,6 +7,7 @@ import usePagination from "../../hooks/usePagination";
 import Table from "../../components/table";
 import Dropdown from "../../components/dropdowns/dropdown";
 import SearchBar from "../../components/searchbar";
+import DocumentCard from "../../components/cards/documentCard"; // NEW
 
 // --- placeholder docs (now with id) ---
 const PLACEHOLDER_DOCS = Array.from({ length: 20 }, (_, i) => ({
@@ -30,6 +31,9 @@ export default function DocumentControllerWorkflow() {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("Recent");
   const [peopleFilter, setPeopleFilter] = useState("All");
+
+  // list/grid view
+  const [viewMode, setViewMode] = useState("table"); // "table" | "grid"
 
   // rows for current tab
   const baseRows = useMemo(
@@ -86,7 +90,6 @@ export default function DocumentControllerWorkflow() {
     [filtered, pagination.currentPage]
   );
 
-
   // dynamic columns based on tab (Created By vs Owned By)
   const columns = useMemo(() => {
     const common = [
@@ -113,7 +116,7 @@ export default function DocumentControllerWorkflow() {
                 state: { from: "workflow", doc: row },
               })
             }
-            className="px-4 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+            className="inline-flex items-center justify-center px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
           >
             View
           </button>
@@ -128,13 +131,13 @@ export default function DocumentControllerWorkflow() {
       <Header user={user} />
       <div className="flex flex-1">
         {/* Sidebar fixed width */}
-          <Sidebar user={user} />
+        <Sidebar user={user} />
 
         {/* Main content wrapper (aligned with other pages) */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-3 mx-6 mt-8 rounded-xl">
           <main className="p-5 flex-1 overflow-y-auto">
             {/* Heading */}
-         <div className="flex-1 px-1 py-3">
+            <div className="flex-1 px-1 py-3">
               <h1 className="text-3xl font-bold tracking-widest uppercase">
                 {tab === "submitted" ? "SUBMITTED DOCUMENTS" : "PUBLISHED DOCUMENTS"}
               </h1>
@@ -171,27 +174,30 @@ export default function DocumentControllerWorkflow() {
                   placeholder="Search..."
                 />
               </div>
+
+              {/* view toggle pill */}
+              <ViewToggle mode={viewMode} onChange={setViewMode} />
             </div>
 
             {/* Tabs */}
-            <div className="mt-5">
-              <div className="inline-flex bg-gray-100 rounded p-1">
+            <div className="mb-4 border-b border-gray-200">
+              <div className="flex space-x-8">
                 <button
                   onClick={() => setTab("submitted")}
-                  className={`px-4 py-2 rounded-md text-sm font-semibold ${
+                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                     tab === "submitted"
-                      ? "bg-white shadow text-[#0035DA]"
-                      : "text-gray-600"
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
                 >
                   Submitted
                 </button>
                 <button
                   onClick={() => setTab("published")}
-                  className={`px-4 py-2 rounded-md text-sm font-semibold ${
+                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                     tab === "published"
-                      ? "bg-white shadow text-[#0035DA]"
-                      : "text-gray-600"
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
                 >
                   Published
@@ -199,8 +205,44 @@ export default function DocumentControllerWorkflow() {
               </div>
             </div>
 
-            {/* Reusable Table */}
-            <Table columns={columns} data={pageRows} />
+            {/* Table OR Cards */}
+            {viewMode === "table" ? (
+              /* Reusable Table */
+              <Table columns={columns} data={pageRows} />
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 mt-2">
+                {pageRows.map((row, i) => {
+                  const docForCard = {
+                    _id: row.id || i,
+                    id: row.id || i,
+                    title: row.title,
+                    code: row.code,
+                    revision: row.rev,
+                    rev: row.rev,
+                    effectivity: row.eff,
+                    eff: row.eff,
+                    createdByName: row.createdBy,
+                    ownedByName: row.ownedBy,
+                    status: row.status,
+                    updatedAt: new Date().toISOString(),
+                  };
+                  return (
+                    <DocumentCard
+                      key={docForCard._id}
+                      document={docForCard}
+                      user={user}
+                      onSelect={() =>
+                        navigate(`/document-controller/document-workflow/${row.id}`, {
+                          state: { from: "workflow", doc: row },
+                        })
+                      }
+                      onRename={() => {}}
+                      onDelete={() => {}}
+                    />
+                  );
+                })}
+              </div>
+            )}
 
             {/* Pagination Controls */}
             <div className="flex justify-center items-center mt-6 gap-2">
@@ -218,7 +260,9 @@ export default function DocumentControllerWorkflow() {
                   <button
                     key={num}
                     onClick={() => pagination.handlePage(num)}
-                    className={`px-3 py-1 rounded border ${pagination.currentPage === num ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+                    className={`px-3 py-1 rounded border ${
+                      pagination.currentPage === num ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100"
+                    }`}
                   >
                     {num}
                   </button>
@@ -257,5 +301,45 @@ function StatusBadge({ type }) {
       />
       {type}
     </span>
+  );
+}
+
+/* ---------- Inline helper: Toggle pill ---------- */
+function ViewToggle({ mode = "table", onChange }) {
+  const isTable = mode === "table";
+  return (
+    <div className="inline-flex items-stretch rounded-full border border-gray-300 overflow-hidden">
+      {/* List / Table */}
+      <button
+        type="button"
+        onClick={() => onChange("table")}
+        className={`px-3 py-2 flex items-center ${
+          isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
+        }`}
+        aria-label="List view"
+        title="List view"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </button>
+      {/* Grid */}
+      <button
+        type="button"
+        onClick={() => onChange("grid")}
+        className={`px-3 py-2 flex items-center ${
+          !isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
+        }`}
+        aria-label="Grid view"
+        title="Grid view"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="4" y="4" width="6" height="6" rx="1"></rect>
+          <rect x="14" y="4" width="6" height="6" rx="1"></rect>
+          <rect x="4" y="14" width="6" height="6" rx="1"></rect>
+          <rect x="14" y="14" width="6" height="6" rx="1"></rect>
+        </svg>
+      </button>
+    </div>
   );
 }

@@ -229,7 +229,7 @@ export default function SecretaryTemplates() {
         </div>
         {loading ? (
           <div className="flex justify-center items-center py-20">
-            <Loader />
+            <Loader message='Loading templates...'/>
           </div>
         ) : error ? (
           <div className="flex justify-center items-center py-20 text-red-500">{error}</div>

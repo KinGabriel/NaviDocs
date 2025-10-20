@@ -6,6 +6,8 @@ import { searchUsersByEmailAPI, getUserIdByEmailAPI } from '../api/userAPI';
 import useUser from '../hooks/useUser';
 import PdfThumbnail from "./thumbnails/pdfThumbnail";
 import DocxThumbnail from "./thumbnails/docxThumbnail";
+import RenameModal from "../components/modals/renameModal";
+import RemoveModal from "../components/modals/removeModal";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 import {
   FileText,
@@ -22,6 +24,7 @@ import {
   Plus,
   Copy,
 } from "lucide-react";
+import toast, { Toaster } from 'react-hot-toast';
 
 export default function FileComponent({
   file,
@@ -155,7 +158,7 @@ export default function FileComponent({
         a.remove();
       }, 100);
     } catch (err) {
-      alert('Failed to download file.');
+      toast.error('Failed to download file.');
     }
   };
 
@@ -176,7 +179,7 @@ export default function FileComponent({
     const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     if (!inputEmail) return;
     if (!emailRegex.test(inputEmail)) {
-      alert('Please enter a valid email address.');
+      toast.error('Please enter a valid email address.');
       return;
     }
     if (emails.some((e) => e.email === inputEmail)) return;
@@ -185,11 +188,11 @@ export default function FileComponent({
     try {
       userId = await getUserIdByEmailAPI(inputEmail);
       if (!userId) {
-        alert('No user found with this email.');
+        toast.error('No user found with this email.');
         return;
       }
     } catch (err) {
-      alert('Error checking user existence.');
+      toast.error('Error checking user existence.');
       return;
     }
     // Add the email and userId to the list with the selected role
@@ -241,7 +244,7 @@ export default function FileComponent({
     navigator.clipboard.writeText(
       `https://mydrive.com/file/${fileName?.replace(/\s+/g, "-")}`
     );
-    alert("Link copied to clipboard!");
+    toast.success("Link copied to clipboard!");
   };
 
   return (
@@ -669,28 +672,32 @@ export default function FileComponent({
               <button
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                 onClick={async () => {
-                  // Always resend all current users (except owner) as allowedUsers
-                  const allowedUsers = emails
-                    .filter(e => !e.isOwner)
-                    .map(e => ({
-                      userId: e.userId,
-                      role: e.role,
-                      email: e.email,
-                      grantedBy: user?.firstname + ' ' + user?.lastname,
-                      emailOfGrantedBy: user?.email
-                    }));
-                  try {
-                    await addAccessToFileAPI({
-                      fileId: file._id,
-                      folderId: parentFolderId,
-                      allowedUsers,
-                      visibility
-                    });
-                    setIsShareOpen(false);
-                  } catch (err) {
-                    alert(err?.message || 'Failed to share file');
-                  }
-                }}
+  const allowedUsers = emails
+    .filter(e => !e.isOwner)
+    .map(e => ({
+      userId: e.userId,
+      role: e.role,
+      email: e.email,
+      grantedBy: user?.firstname + ' ' + user?.lastname,
+      emailOfGrantedBy: user?.email
+    }));
+  const loadingToast = toast.loading("Sharing file...");
+  try {
+    await addAccessToFileAPI({
+      fileId: file._id,
+      folderId: parentFolderId,
+      allowedUsers,
+      visibility
+    });
+
+    toast.dismiss(loadingToast);
+    toast.success("File shared successfully!");
+    setIsShareOpen(false);
+  } catch (err) {
+    toast.dismiss(loadingToast);
+    toast.error(err?.message || "You are not authorized to share this file.");
+  }
+}}
               >
                 Share
               </button>
@@ -699,106 +706,56 @@ export default function FileComponent({
         </div>
       )}
 
-      {/* Rename Modal */}
-      {isRenameOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[400px] max-w-full rounded-xl shadow-lg p-6 relative">
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-black"
-              onClick={() => setIsRenameOpen(false)}
-            >
-              <X size={20} />
-            </button>
-            <h2 className="text-lg font-semibold mb-4">Rename</h2>
-            <input
-              type="text"
-              className="w-full border rounded-lg px-3 py-2 mb-4"
-              value={renameInput}
-              onChange={(e) => setRenameInput(e.target.value)}
-            />
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setIsRenameOpen(false)}
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!renameInput || renameInput === fileName) {
-                    setIsRenameOpen(false);
-                    return;
-                  }
-                  try {
-                    if (parentFolderId) {
-                      await renameFileAPI(file._id, renameInput, parentFolderId);
-                    } else {
-                      await renameFileAPI(file._id, renameInput);
-                    }
-                    setIsRenameOpen(false);
-                    // Trigger a refresh or update parent
-                    if (onDelete) onDelete(file); // Use onDelete as a refresh callback
-                  } catch (err) {
-                    alert(err?.message || 'Failed to rename file');
-                  }
-                }}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RenameModal
+  open={isRenameOpen}
+  onClose={() => setIsRenameOpen(false)}
+  currentTitle={file.originalName}
+  onSubmit={async (newTitle) => {
+    try {
+      if (parentFolderId) {
+        await renameFileAPI(file._id, newTitle, parentFolderId);
+      } else {
+        await renameFileAPI(file._id, newTitle);
+      }
+      setIsRenameOpen(false);
+      if (onDelete) onDelete(file); 
+    } catch (err) {
+      toast.error(err?.message || "Failed to rename file");
+    }
+  }}
+/>
 
-      {/* Remove Modal */}
-      {isRemoveOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[400px] max-w-full rounded-xl shadow-lg p-6 relative">
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-black"
-              onClick={() => setIsRemoveOpen(false)}
-            >
-              <X size={20} />
-            </button>
-            <h2 className="text-lg font-semibold mb-4">
-              Are you sure you want to remove "{fileName}"?
-            </h2>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setIsRemoveOpen(false)}
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  setRemoving(true);
-                  setRemoveError(null);
-                  try {
-                    if (parentFolderId) {
-                      await deleteFileFromFolderAPI(parentFolderId, file._id);
-                    } else {
-                      await deleteFileAPI(file._id);
-                    }
-                    setIsRemoveOpen(false);
-                    if (onDelete) onDelete(file);
-                  } catch (err) {
-                    setRemoveError(err?.message || 'Failed to delete file');
-                  } finally {
-                    setRemoving(false);
-                  }
-                }}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
-                disabled={removing}
-              >
-                {removing ? 'Removing...' : 'Remove'}
-              </button>
-            </div>
-            {removeError && <div className="text-red-600 text-xs mt-2">{removeError}</div>}
-          </div>
-        </div>
-      )}
+<RemoveModal
+  open={isRemoveOpen}
+  onClose={() => setIsRemoveOpen(false)}
+  itemType="file"
+  itemTitle={fileName}
+  submitting={removing}
+  error={removeError}
+  onConfirm={async () => {
+    try {
+      setRemoving(true);
+      setRemoveError("");
+
+      if (parentFolderId) {
+        await deleteFileFromFolderAPI(parentFolderId, file._id);
+      } else {
+        await deleteFileAPI(file._id);
+      }
+
+      setIsRemoveOpen(false);
+      if (onDelete) onDelete(file._id);
+    } catch (err) {
+      console.error("Remove error:", err);
+      setRemoveError("Failed to remove the file. Please try again.");
+      toast.error("Failed to remove the file. Please try again.");
+    } finally {
+      setRemoving(false);
+    }
+  }}
+/>
+<Toaster position="top-center" reverseOrder={false} />
+
     </>
   );
 }

@@ -1,4 +1,3 @@
-// Use shared options and dynamic department filtering
 import { SCHOOL_OPTIONS, DEPARTMENT_OPTIONS } from "../utils/options";
 import { deleteFolderByIDAPI,addAccessToFoldersAPI } from "../api/storageAPI";
 import { searchUsersByEmailAPI,getUserIdByEmailAPI } from "../api/userAPI";
@@ -6,7 +5,8 @@ import React, { useState, Fragment,useEffect, useRef } from "react";
 import MultiSelectDropdown from './dropdowns/multiSelectDropdown';
 import Dropdown3 from './dropdowns/dropdown3';
 import useUser from '../hooks/useUser';
-
+import RenameFolderModal from "../components/modals/renameFolderModal";
+import RemoveModal from "../components/modals/removeModal";
 import {
   Folder,
   MoreVertical,
@@ -19,6 +19,7 @@ import {
   X,
   Copy,
 } from "lucide-react";
+import toast, { Toaster } from 'react-hot-toast';
 
 export default function FolderComponent({
   folder,
@@ -137,7 +138,7 @@ export default function FolderComponent({
     const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     if (!inputEmail) return;
     if (!emailRegex.test(inputEmail)) {
-      alert('Please enter a valid email address.');
+      toast.error("Please enter a valid email address.");
       return;
     }
     if (emails.some((e) => e.email === inputEmail)) return;
@@ -146,11 +147,11 @@ export default function FolderComponent({
     try {
       userId = await getUserIdByEmailAPI(inputEmail);
       if (!userId) {
-        alert('No user found with this email.');
+        toast.error("No user found with this email.");
         return;
       }
     } catch (err) {
-      alert('Error checking user existence.');
+      toast.error("Error checking user existence.");
       return;
     }
     // Add the email and userId to the list with the selected role
@@ -196,7 +197,7 @@ export default function FolderComponent({
     navigator.clipboard.writeText(
       `https://mydrive.com/folder/${folder.name.replace(/\s+/g, "-")}`
     );
-    alert("Link copied to clipboard!");
+    toast.success("Link copied to clipboard!");
   };
 
   const debounce = (fn, delay) => {
@@ -264,7 +265,7 @@ export default function FolderComponent({
                 {/* Download */}
                 <li
                   className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => alert("Download clicked")}
+                  onClick={() => toast.info("Download clicked")}
                 >
                   <Download size={16} className="text-gray-600" /> Download
                 </li>
@@ -556,29 +557,42 @@ export default function FolderComponent({
               <button
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                 onClick={async () => {
-                  // Always resend all current users (except owner) as allowedUsers
-                  const allowedUsers = emails
-                    .filter(e => !e.isOwner)
-                    .map(e => ({
-                      userId: e.userId,
-                      role: e.role,
-                      email: e.email,
-                      grantedBy: user?.firstname + ' ' + user?.lastname,
-                      emailOfGrantedBy: user?.email
-                    }));
-                  try {
-                    await addAccessToFoldersAPI({
-                      folderId: folder._id,
-                      allowedUsers,
-                      allowedSchools: selectedSchools,
-                      allowedDepartments: selectedDepartments,
-                      visibility: visibility
-                    });
-                    setIsShareOpen(false);
-                  } catch (err) {
-                    alert(err.message || 'Failed to share folder');
-                  }
-                }}
+  const allowedUsers = emails
+    .filter(e => !e.isOwner)
+    .map(e => ({
+      userId: e.userId,
+      role: e.role,
+      email: e.email,
+      grantedBy: user?.firstname + " " + user?.lastname,
+      emailOfGrantedBy: user?.email,
+    }));
+  if (
+    allowedUsers.length === 0 &&
+    selectedSchools.length === 0 &&
+    selectedDepartments.length === 0
+  ) {
+    toast.error("Please add at least one user, school, or department to share.");
+    return;
+  }
+
+  try {
+    const loadingToast = toast.loading("Sharing folder...");
+    await addAccessToFoldersAPI({
+      folderId: folder._id,
+      allowedUsers,
+      allowedSchools: selectedSchools,
+      allowedDepartments: selectedDepartments,
+      visibility: visibility,
+    });
+    toast.dismiss(loadingToast);
+    toast.success("Folder shared successfully!");
+    setIsShareOpen(false);
+  } catch (err) {
+    toast.dismiss();
+    toast.error("You are not authorized to share this folder.");
+  }
+}}
+
               >
                 Share
               </button>
@@ -587,91 +601,40 @@ export default function FolderComponent({
         </div>
       )}
 
-      {/* Rename Modal */}
-      {isRenameOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[400px] max-w-full rounded-xl shadow-lg p-6 relative">
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-black"
-              onClick={() => setIsRenameOpen(false)}
-            >
-              <X size={20} />
-            </button>
-            <h2 className="text-lg font-semibold mb-4">Rename</h2>
-            <input
-              type="text"
-              className="w-full border rounded-lg px-3 py-2 mb-4"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-            />
-            <div className="flex justify-end gap-3">
-              <button
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
-                onClick={() => setIsRenameOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                onClick={async () => {
-                  if (!renameValue || renameValue === folder.name) {
-                    setIsRenameOpen(false);
-                    return;
-                  }
-                  try {
-                    await import('../api/storageAPI').then(({ renameFolderAPI }) => renameFolderAPI(folder._id, renameValue));
-                    setIsRenameOpen(false);
-                    // Trigger a refresh or update parent
-                    if (onDelete) onDelete(folder); // Use onDelete as a refresh callback
-                  } catch (err) {
-                    alert(err?.message || 'Failed to rename folder');
-                  }
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RenameFolderModal
+  open={isRenameOpen}
+  onClose={() => setIsRenameOpen(false)}
+  currentTitle={folder.name}
+  onSubmit={async (newTitle) => {
+    try {
+      const { renameFolderAPI } = await import("../api/storageAPI");
+      await renameFolderAPI(folder._id, newTitle);
+      setIsRenameOpen(false);
+      if (onDelete) onDelete(folder); 
+    } catch (err) {
+      toast.error(err?.message || "Failed to rename folder");
+    }
+  }}
+/>
 
-      {/* Remove Modal */}
-      {isRemoveOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[400px] max-w-full rounded-xl shadow-lg p-6 relative">
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-black"
-              onClick={() => setIsRemoveOpen(false)}
-            >
-              <X size={20} />
-            </button>
-            <h2 className="text-lg font-semibold mb-4 text-red-600">Remove</h2>
-            <p className="mb-4">Are you sure you want to remove "{folder.name}"?</p>
-            <div className="flex justify-end gap-3">
-              <button
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
-                onClick={() => setIsRemoveOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
-                onClick={async () => {
-                  try {
-                    await deleteFolderByIDAPI(folder._id);
-                    setIsRemoveOpen(false);
-                    if (onDelete) onDelete(); // Notify parent to refresh
-                  } catch (err) {
-                    alert(err.message || "Failed to delete folder");
-                  }
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
+      <RemoveModal
+  open={isRemoveOpen}
+  onClose={() => setIsRemoveOpen(false)}
+  itemType="folder"
+  itemTitle={folder.name}
+  onConfirm={async () => {
+    try {
+      await deleteFolderByIDAPI(folder._id);
+      setIsRemoveOpen(false);
+      if (onDelete) onDelete();
+    } catch (err) {
+      toast.error(err.message || "Failed to remove folder");
+    }
+  }}
+/>
+<Toaster position="top-center" reverseOrder={false} />
+
     </>
   );
 }

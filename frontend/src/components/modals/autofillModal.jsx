@@ -51,7 +51,7 @@ export default function AutofillModal({ open, onClose, fields = [], fetchPreview
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 bg-opacity-50 backdrop-blur-[2px] flex items-center justify-center z-50" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b">
