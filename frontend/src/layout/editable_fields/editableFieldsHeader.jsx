@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import naviLogo from '../../assets/images/navilogo.png';
+import DownloadingModal from "../../components/modals/downloadingModal";
 import DocumentVersionHistory from '../../pages/version_history/documentVersionHistory';
 import { ChevronDown, Copy, Send, FileDown, MoreHorizontal } from "lucide-react";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -11,6 +12,7 @@ export default function EditableFieldsHeader({
   setTitle, 
   onSave,
   onArchive,
+  onExportPDF,
   saving = false, 
   lastSavedAt, 
   dirty = false,
@@ -27,6 +29,9 @@ export default function EditableFieldsHeader({
   const [editing, setEditing] = useState(false);
   const [localTitle, setLocalTitle] = useState(title || '');
   const inputRef = useRef(null);
+
+  const [dlOpen, setDlOpen] = useState(false);
+  const [dlErr, setDlErr] = useState("");
 
   const [isSaveOpen, setIsSaveOpen] = useState(false);
   const [isQuickOpen, setIsQuickOpen] = useState(false);
@@ -78,6 +83,21 @@ export default function EditableFieldsHeader({
     const handleArchive = () => {
     if (onArchive) onArchive();
   };
+
+  async function handleExportPDF() {
+    setDlErr("");
+    setDlOpen(true);
+    try {
+      await onExportPDF?.();
+      setDlOpen(false);
+    } catch (err) {
+      setDlErr(
+        err?.response?.data?.message ||
+        err?.message ||
+        "We couldn’t generate the PDF right now. Please try again."
+      );
+    }
+  }
 
   return (
     <div className="sticky top-0 z-50 bg-[#f3f3f3] shadow-sm">
@@ -137,7 +157,7 @@ export default function EditableFieldsHeader({
                     onClick={() => setEditing(true)}
                     className="text-gray-400 hover:text-gray-600"
                   >
-                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square-pen-icon lucide-square-pen"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>
+                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-square-pen-icon lucide-square-pen"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>
                   </button>
                 </div>
               )}
@@ -260,7 +280,12 @@ export default function EditableFieldsHeader({
                     </div>
                   </button>
 
-                  <button className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3" onClick={() => setIsQuickOpen(false)}>
+                  <button className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3" 
+                    onClick={async () => {
+                        setIsQuickOpen(false);
+                        await handleExportPDF();
+                      }}
+                    >
                     <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                       <FileDown className="w-4 h-4 text-purple-600" />
                     </div>
@@ -289,11 +314,20 @@ export default function EditableFieldsHeader({
       </div>
 
       {/* Version History Full Screen Overlay */}
-            {showVersionHistory && (
-              <div className="fixed inset-0 z-[100] bg-white">
-                <DocumentVersionHistory onClose={() => setShowVersionHistory(false)} documentId={documentId} />
-              </div>
-            )}
+      {showVersionHistory && (
+        <div className="fixed inset-0 z-[100] bg-white">
+          <DocumentVersionHistory onClose={() => setShowVersionHistory(false)} documentId={documentId} />
+        </div>
+      )}
+
+      <DownloadingModal
+        open={dlOpen || !!dlErr}
+        onClose={() => { setDlOpen(false); setDlErr(""); }}
+        isError={!!dlErr}
+        title="Downloading PDF…"
+        message={`"${(title || "Document")}" is being prepared as a PDF. This may take a few seconds.`}
+        errorText={dlErr}
+      />
 
     </div>
     

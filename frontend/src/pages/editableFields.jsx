@@ -9,6 +9,7 @@ import fetchAndNormalizeDocument from "../utils/documentLoader";
 import { updateDocumentFieldValuesAPI, getFieldSuggestionsAPI, saveFieldSuggestionAPI } from "../api/documentsAPI";
 import AutofillModal from "../components/modals/autofillModal";
 import { useParams, useLocation } from "react-router-dom";
+import DownloadingModal from "../components/modals/downloadingModal";
 
 export default function EditableFields() {
   const user = useUser();
@@ -30,6 +31,21 @@ export default function EditableFields() {
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [docData, setDocData] = useState(null);
   const [docError, setDocError] = useState(null);
+
+  const [dlOpen, setDlOpen] = useState(false);
+  const [dlErr, setDlErr] = useState("");
+
+  const handleExportPDF = async () => {
+    try {
+      setDlErr("");
+      setDlOpen(true);
+      await new Promise(r => setTimeout(r, 1500));
+      setDlOpen(false);
+    } catch (err) {
+      console.error(err);
+      setDlErr(err?.message || "We couldn’t generate the PDF. Please try again.");
+    }
+  };
 
   const scrollToAndHighlightField = (editor, fieldName) => {
   if (!editor) return;
@@ -920,6 +936,7 @@ return (
         lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : null}
         dirty={dirty}
         documentId={id}
+        onExportPDF={handleExportPDF}
       />
 
       <div className="flex flex-1">
@@ -1186,6 +1203,15 @@ return (
       onApply={handleApplyAutofill}
       applying={autofillApplying}
       user={user}
+    />
+
+    <DownloadingModal
+      open={dlOpen || !!dlErr}
+      isError={!!dlErr}
+      title="Downloading PDF…"
+      message="Your document is being prepared. This may take a few seconds."
+      errorText={dlErr}
+      onClose={() => { setDlOpen(false); setDlErr(""); }}
     />
   </>
 );
