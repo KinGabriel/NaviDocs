@@ -2,7 +2,7 @@
 import nodemailer from 'nodemailer';
 import { welcomeEmailTemplate } from '../templates/welcomeTemplate.js';
 import { folderAccessTemplate } from '../templates/folderAccessTemplate.js';
-import { buildAssignmentEmail } from '../templates/buildAssignmentEmail.js'
+import { buildAssignmentEmail } from '../templates/buildAssignmentTemplate.js';
 
 
 // Create transporter
