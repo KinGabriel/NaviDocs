@@ -6,8 +6,7 @@ import useUser from "../hooks/useUser";
 import Panel from "../layout/editable_fields/panel";
 import TextEditor from "../layout/create_template/textEditor";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
-import { updateDocumentFieldValuesAPI, getFieldSuggestionsAPI, saveFieldSuggestionAPI, shareDocumentAPI } from "../api/documentsAPI";
-import ShareDocumentModal from "../components/modals/shareDocumentModal";
+import { updateDocumentFieldValuesAPI, getFieldSuggestionsAPI, saveFieldSuggestionAPI } from "../api/documentsAPI";
 import AutofillModal from "../components/modals/autofillModal";
 import { useParams, useLocation } from "react-router-dom";
 import DownloadingModal from "../components/modals/downloadingModal";
@@ -32,10 +31,6 @@ export default function EditableFields() {
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [docData, setDocData] = useState(null);
   const [docError, setDocError] = useState(null);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [shareSelectedIds, setShareSelectedIds] = useState([]);
-  const [shareSubmitting, setShareSubmitting] = useState(false);
-
   const [dlOpen, setDlOpen] = useState(false);
   const [dlErr, setDlErr] = useState("");
 
@@ -933,15 +928,17 @@ return (
   <>
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <EditableFieldsHeader
-        title={docData?.title || docData?.document?.title || 'Untitled Document'}
-        user={user}
-        setTitle={(t) => setDocData((d) => (d ? { ...d, title: t } : d))}
-        saving={saving}
-        lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : null}
-        dirty={dirty}
-        documentId={id}
-        onExportPDF={handleExportPDF}
-      />
+      title={docData?.title || docData?.document?.title || 'Untitled Document'}
+      user={user}
+      setTitle={(t) => setDocData((d) => (d ? { ...d, title: t } : d))}
+      saving={saving}
+      lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : null}
+      dirty={dirty}
+      documentId={id}
+      onExportPDF={handleExportPDF}
+      documentData={docData} 
+      onDocumentUpdate={(updates) => setDocData(d => d ? { ...d, ...updates } : d)} 
+    />
 
       <div className="flex flex-1">
         {/* Left Panel - Sticky */}
@@ -954,7 +951,7 @@ return (
 
           <div className="sticky top-0 h-screen overflow-y-auto p-6 space-y-6 pt-20">{/* Added pt-20 to account for progress nav height */}
 
-            {/* Clear All & Autofill & Share Buttons */}
+            {/* Clear All & Autofill Buttons */}
             <div className="flex justify-end mb-4">
               <button
                 onClick={() => setShowClearModal(true)}
@@ -975,25 +972,6 @@ return (
                 className="ml-3 shadow-sm inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-sm bg-green-50 text-green-700 border border-green-100 hover:bg-green-100"
               >
                 Autofill
-              </button>
-
-              <button
-                onClick={() => {
-                  // open share modal and prefill selected ids from docData.assigned if present
-                  const extractId = (a) => {
-                    if (!a) return null;
-                    if (typeof a === 'string' || typeof a === 'number') return String(a);
-                    if (typeof a === 'object') return String(a.userId || a.id || a._id || a.user || '');
-                    return null;
-                  };
-                  const src = Array.isArray(docData?.assigned) ? docData.assigned : (Array.isArray(docData?.from_template?.assigned) ? docData.from_template.assigned : []);
-                  const assigned = Array.isArray(src) ? src.map(extractId).filter(Boolean) : [];
-                  setShareSelectedIds(assigned);
-                  setShareOpen(true);
-                }}
-                className="ml-3 shadow-sm inline-flex items-center px-4 py-2.5 rounded-lg font-medium text-sm bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100"
-              >
-                Share
               </button>
             </div>
 
@@ -1217,34 +1195,7 @@ return (
         </div>
       </div>
     )}
-    
-    {/* Share modal (opened from Share button) */}
-    <ShareDocumentModal
-      open={shareOpen}
-      onClose={() => setShareOpen(false)}
-      template={docData || {}}
-      selectedIds={shareSelectedIds}
-      setSelectedIds={setShareSelectedIds}
-      onShare={async ({ assignees }) => {
-        try {
-          setShareSubmitting(true);
-          const docId = id;
-          await shareDocumentAPI(docId, assignees);
-          // update local docData.assigned to reflect change
-          setDocData((d) => d ? { ...d, assigned: Array.isArray(assignees) ? assignees : [] } : d);
-          setShareOpen(false);
-        } catch (err) {
-          console.error('Failed to share document', err, err.responseData || null);
-          // prefer server message
-          const serverMsg = err.responseData?.message || err.message || 'Failed to share document';
-          try { toast.error(serverMsg); } catch(e) { /* ignore toast failures */ }
-        } finally {
-          setShareSubmitting(false);
-        }
-      }}
-      submitting={shareSubmitting}
-    />
-
+  
     {/* Autofill modal */}
     <AutofillModal
       open={autofillOpen}

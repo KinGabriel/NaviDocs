@@ -1,7 +1,7 @@
 // Shared Delete Modal Component for templates and documents
 
 import React, { useEffect, useState } from "react";
-import { Trash2, X } from "lucide-react";
+import { FileArchive, X } from "lucide-react";
 
 export default function DeleteModal({
   open,
@@ -62,10 +62,10 @@ export default function DeleteModal({
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
-              <Trash2 className="w-5 h-5 text-red-600" />
+              <FileArchive className="w-5 h-5 text-red-600" />
             </div>
             <h2 id="delete-modal-title" className="text-xl font-semibold text-gray-900">
-              Delete {displayName}
+              Archive {displayName}
             </h2>
           </div>
           <button
@@ -81,15 +81,13 @@ export default function DeleteModal({
         {/* Content */}
         <div className="px-6 py-6 text-center">
           <p className="text-gray-700 text-sm leading-relaxed">
-            Are you sure you want to permanently delete this{" "}
+            Are you sure you want to archive this{" "}
             <span className="font-semibold text-gray-900">{displayName}</span>{" "}
             {itemTitle && (
               <>
                 named <span className="font-semibold text-gray-900">“{itemTitle}”</span>
               </>
             )}
-            ? This action{" "}
-            <span className="text-red-600 font-medium">cannot be undone</span>.
           </p>
           {(localError || error) && (
             <p className="text-sm text-red-600 mt-3">{localError || error}</p>
@@ -128,12 +126,12 @@ export default function DeleteModal({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                Deleting…
+                Archiving…
               </>
             ) : (
               <>
-                <Trash2 className="w-4 h-4" />
-                Delete
+                <FileArchive className="w-4 h-4" />
+                Archive
               </>
             )}
           </button>
