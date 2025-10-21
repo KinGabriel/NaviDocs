@@ -65,6 +65,35 @@ export const getUserBasicInfo = async (req, res) => {
 };
 
 /**
+ * Get user profile by user ID (email, name, role, profile_picture)
+ * @route GET /api/user/:id
+ * @access Private
+ */
+export const getUserProfile = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId).select('_id email firstname lastname role profile_picture');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const firstname = user.firstname || '';
+    const lastname = user.lastname || '';
+    const name = `${firstname} ${lastname}`.trim() || user.email?.split('@')[0] || '';
+
+    // Normalize role to either string or { name }
+    let role = null;
+    if (user.role) {
+      if (typeof user.role === 'string') role = user.role;
+      else if (typeof user.role === 'object' && user.role.name) role = user.role.name;
+    }
+
+    return res.json({ id: user._id, email: user.email, firstname, lastname, name, role, profile_picture: user.profile_picture });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+/**
  * Search users by email substring (for autocomplete suggestions)
  * @route GET /api/user/searchByEmail?query=xxx
  * @access Private

@@ -35,6 +35,8 @@ export const loginUser = async (req, res) => {
         email: user.email,
         role: user.role,
         school: user.role.school,
+        firstname: user.firstname || user.firstName || user.first_name || '',
+        lastname: user.lastname || user.lastName || user.last_name || ''
       },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }

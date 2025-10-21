@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from "multer";
-import {getUserEmail, getUserBasicInfo,getUserIdByEmail,updateUserAccountSettings,updateUserPassword, searchUsersByEmail,getSchoolStaff, getUsersInfoByBatch } from '../controllers/userController.js';
+import { getUserEmail, getUserBasicInfo, getUserIdByEmail, updateUserAccountSettings, updateUserPassword, searchUsersByEmail, getSchoolStaff, getUsersInfoByBatch, getUserProfile } from '../controllers/userController.js';
 import { authenticateJWT } from '../middleware/authenticationMiddleware.js';
 
 const router = express.Router();
@@ -22,6 +22,7 @@ const upload = multer({
 router.get('/getSchoolStaff', authenticateJWT, getSchoolStaff);
 router.get('/getUserEmail/:id', authenticateJWT, getUserEmail);
 router.get('/getUserInfo/:id', authenticateJWT, getUserBasicInfo);
+router.get('/:id', authenticateJWT, getUserProfile);
 router.post('/getUsersInfo', authenticateJWT, getUsersInfoByBatch);
 router.get('/getUserIdByEmail/:email', authenticateJWT, getUserIdByEmail);
 // Search users by email substring (for suggestions)

@@ -1,6 +1,8 @@
 import Template from "../models/templateModel.js";
 import { buildApprovalMeta } from "../utils/templateUtils.js";
 import axios from "axios";
+import { getActorFromReq } from '../utils/actorUtils.js';
+import { fetchUsersProfiles } from '../utils/userServiceUtils.js';
 
 
 /**
@@ -176,22 +178,7 @@ export const assignUsersToCreateTemplate = async (req, res) => {
     if (req.headers.cookie) headers['Cookie'] = req.headers.cookie;
 
     const uniqueUserIds = Array.from(new Set([...assigned, approver].map(String)));
-
-    const fetchEmail = async (id) => {
-      try {
-        const resp = await axios.post(getEmailEndpoint(id), {}, { headers, timeout: 8000 });
-        const email = resp?.data?.email;
-        return email ? { id, email } : null;
-      } catch (err) {
-        console.warn(`⚠️ Failed to get email for user ${id}:`, err?.message || err);
-        return null;
-      }
-    };
-
-    const emailResults = await Promise.allSettled(uniqueUserIds.map(fetchEmail));
-    const recipients = emailResults
-      .map((r) => (r.status === 'fulfilled' ? r.value : null))
-      .filter(Boolean); // [{ id, email }, ...]
+    const recipients = await fetchUsersProfiles(uniqueUserIds, headers); // [{id,email,name,role}, ...]
 
     if (recipients.length === 0) {
       return res.status(200).json({
@@ -206,16 +193,12 @@ export const assignUsersToCreateTemplate = async (req, res) => {
     // ==========================================================
     // SEND EMAILS (assigned + approver)
     // ==========================================================
-    const MAIL_BASE = process.env.EMAIL_SERVICE_URL || ''; // e.g., http://localhost:4001
-    const mailEndpoint = `${MAIL_BASE}/api/email/assignments`; // matches your mailRoutes
+    const MAIL_BASE = process.env.EMAIL_SERVICE_URL || ''; 
+    const mailEndpoint = `${MAIL_BASE}/api/email/assignments`; 
 
+    const actor = getActorFromReq(req);
     const mailPayload = {
-      actor: {
-        id: req.user._id,
-        name: `${req.user.firstName} ${req.user.lastName}`,
-        role: req.user.role,
-        email: req.user.email,
-      },
+      actor,
       template: {
         id: template._id,
         name: template.title,
@@ -223,10 +206,12 @@ export const assignUsersToCreateTemplate = async (req, res) => {
         revision: template.revision_no ?? 0,   // fallback to 0
         effectivityDate: template.effectivity || null,
       },
-      assignmentType: assignmentType || 'shared',
+      assignmentType: assignmentType || 'Template Creation',
       deadline: deadline || null,
-      to: recipients.map((r) => r.email),      // actual recipient emails
-      recipients,                              // minimal objects ({ id, email })
+      now: new Date().toISOString(),
+      notes: Array.isArray(template.notes) ? template.notes : (Array.isArray(templateData.notes) ? templateData.notes : []),
+  to: recipients.map((r) => r.email),      // actual recipient emails
+  recipients: recipients.map(r => ({ id: r.id, email: r.email, name: r.name || undefined, role: r.role || undefined })),
       title: title ?? template.title,
       instructions: instructions ?? templateData.instructions ?? '',
     };
@@ -258,86 +243,6 @@ export const assignUsersToCreateTemplate = async (req, res) => {
       .json({ success: false, message: 'Failed to assign users/approver' });
   }
 };
-
-
-
-
-
-export const emailAssignment = async (req, res, next) => {
-  try {
-    const actor = {
-      id: req.user._id,
-      name: `${req.user.firstName} ${req.user.lastName}`,
-      role: req.user.role,
-      email: req.user.email,
-    };
-
-
-    const templateId = req.params.id;
-    const { title, instructions, dueDate, assigneeIds = [], secretaryId, assignmentType } = req.body;
-
-
-    // persist
-    await templatesService.assignUsers({
-      templateId,
-      assigneeIds,
-      secretaryId: secretaryId || null,
-      assignmentType,
-      title,
-      instructions,
-      deadline: dueDate || null,
-      actorId: actor.id,
-    });
-
-
-    // gather context
-    const template = await templatesService.getTemplateById(templateId);
-    const assignees = assigneeIds.length ? await usersService.findUsersByIds(assigneeIds) : [];
-    const secretary = secretaryId ? await usersService.findUserById(secretaryId) : null;
-    const recipients = [...assignees, ...(secretary ? [secretary] : [])].map((u) => ({
-      id: u._id,
-      name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.name || 'User',
-      email: u.email,
-      role: u.role,
-    }));
-    const MAIL_BASE = process.env.EMAIL_SERVICE_URL || ''; // e.g., http://localhost:4001
-    const endpoint = `${EMAIL_SERVICE_URL}/api/email/assignments`;
-console.log('recipient',recipients)
-    const payload = {
-      actor,
-      template: {
-        id: template._id,
-        name: template.name,
-        code: template.code,
-        revision: template.revision ?? 0,
-        effectivityDate: template.effectivityDate || null,
-      },
-      assignmentType: assignmentType || 'shared',
-      deadline: dueDate || null,
-      to: recipients.map(r => r.email).filter(Boolean),
-      recipients,
-      title,
-      instructions,
-    };
-
-    const mailResp = await axios.post(endpoint, payload);
-    console.log('mail service response:', mailResp.status, mailResp.data);
-
-    return res.status(200).json({
-      ok: true,
-      message: 'Assignment created. Emails sent.',
-      notified: payload.to,
-      mailService: { status: mailResp.status, data: mailResp.data },
-    });
-  } catch (error) {
-    console.error('createAssignment error:', error?.response?.data || error.message);
-    return next(error);
-  }
-};
-
-
-
-
 
 /**
  * @desc Assign or add document controllers to a template

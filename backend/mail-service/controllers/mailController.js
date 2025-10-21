@@ -83,7 +83,8 @@ export const sendNotificationEmail = async (req, res) => {
     // If a template is specified, render it
     if (template === 'folderAccess') {
       // Import here to avoid circular deps if not needed
-      finalHtml = folderAccessTemplate(templateData || {});
+      // forward now if present so the template can show timestamp
+      finalHtml = folderAccessTemplate({ ...(templateData || {}), now: templateData?.now });
     }
 
     if (!finalHtml && !text) {
@@ -123,6 +124,8 @@ export async function sendAssignmentEmails(req, res) {
       to = [],
       title,
       instructions,
+      notes = [],
+      now = null,
     } = req.body || {};
 
     // Build recipient list from either rich objects or plain emails
@@ -149,7 +152,9 @@ export async function sendAssignmentEmails(req, res) {
           email: recipient.email,
           role: recipient.role,
         },
-        // title and instructions are available if your template wants them
+        now,
+        notes,
+        instructions: instructions || undefined,
       });
 
       const mailOptions = {
