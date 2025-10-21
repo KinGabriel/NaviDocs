@@ -19,7 +19,14 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['document_submitted', 'document_approved', 'document_rejected', 'template_update', 'system_alert'],
+    enum: [
+      'document_submitted',
+      'document_approved',
+      'document_rejected',
+      'template_update',
+      'system_alert',
+      'template_approval_request'
+    ],
     required: true,
   },
   link: { // Frontend route path (e.g., /dashboard/approval/123)

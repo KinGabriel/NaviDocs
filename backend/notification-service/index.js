@@ -24,6 +24,8 @@ app.use("/api/notifications", notificationRoutes);
 
 // Connect to DB and start server
 dbConnection(); 
+// Diagnostic: log whether INTERNAL_TOKEN is present in env (do not print the token value)
+console.log('INTERNAL_TOKEN present in env:', !!process.env.INTERNAL_TOKEN);
 
 app.listen(PORT, HOST, () => 
     console.log(`Notification Service running on port ${PORT}`)

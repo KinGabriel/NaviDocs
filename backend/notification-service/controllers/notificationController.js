@@ -8,6 +8,17 @@ import Notification from "../models/notificationModel.js";
 // @access  Internal (Should be secured via Gateway/Internal Token)
 export const createInternalNotification = async (req, res) => {
   try {
+    // Diagnostic logging: show headers and env token for debugging (avoid leaking in production)
+    const receivedToken = req.headers['x-internal-token'] || req.headers['x-internal-token'.toLowerCase()];
+    console.log('Incoming internal notification request - headers X-Internal-Token present:', !!receivedToken);
+    // Validate internal token header
+    if (!receivedToken || receivedToken !== process.env.INTERNAL_TOKEN) {
+      console.warn('Rejected internal notification request - missing/invalid token');
+      // Log small payload preview to help debugging
+      console.log('Payload preview:', { message: req.body && req.body.message, targetedUserIds: req.body && req.body.targetedUserIds });
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
     const { recipientUser, recipientRoles, message, type, link, targetedUserIds } = req.body;
 
     // This block replaces the need for the Notification Service to fetch User data.
@@ -31,6 +42,7 @@ export const createInternalNotification = async (req, res) => {
       isRead: initialReadStatus,
     });
 
+    console.log('Saving new notification for targeted users:', Object.keys(initialReadStatus));
     await newNotification.save();
     res.status(201).json({ message: 'Notification created successfully', notificationId: newNotification._id });
   } catch (error) {
@@ -46,8 +58,8 @@ export const createInternalNotification = async (req, res) => {
 export const getNotifications = async (req, res) => {
   // Assuming the Gateway has validated the token and injected user details into req.user 
   // (e.g., { id: 'user_id_string', role: 'faculty' })
-  const userId = req.user.id; 
-  const userRole = req.user.role; 
+  const userId = req.user.id ||  req.user._id ; 
+  const userRole = req.user.role || req.user.role.name; 
 
   try {
     const notifications = await Notification.find({

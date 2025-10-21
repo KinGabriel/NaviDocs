@@ -109,6 +109,67 @@ export const assignUsersToCreateTemplate = async (req, res) => {
 
     console.log('Saving template with assigned:', template.assigned);
     await template.save();
+    // --- Notify approver(s) via Notification Service (internal call) ---
+    try {
+      const notificationServiceUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8008';
+      // Build targeted user IDs: include assigned users and the approver slot(s), but exclude the assigner (req.user.id)
+      const assignedIds = Array.isArray(template.assigned) ? template.assigned.slice() : [];
+      const approvals = template?.status_meta?.approvals || {};
+      const approverIds = [];
+      // Collect any assigned_to fields from approvals
+      Object.keys(approvals).forEach(slot => {
+        const assigned_to = approvals[slot]?.assigned_to;
+        if (assigned_to) approverIds.push(assigned_to);
+      });
+
+      // Combine and dedupe
+      const combinedTargets = Array.from(new Set([...(assignedIds || []), ...(approverIds || [])]));
+      // Exclude the assigner
+      const targetedUserIds = combinedTargets.filter(id => id && String(id) !== String(req.user.id));
+
+      if (targetedUserIds.length > 0) {
+        const payload = {
+          recipientUser: targetedUserIds.length === 1 ? targetedUserIds[0] : undefined,
+          recipientRoles: ['Dean','Secretary','Document Controller'],
+          message: `You have been assigned a template \"${template.title}\" to approve.`,
+          type: 'template_approval_request',
+          link: `/document-controller/create-template?templateId=${template._id}`,
+          targetedUserIds
+        };
+
+        // internal route: /api/notifications/internal (protected by gateway/internal token)
+        try {
+          const resp = await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Internal-Token': process.env.INTERNAL_TOKEN || ''
+            },
+            timeout: 5000
+          });
+
+          console.log('Notification service responded:', resp.status, resp.data);
+        } catch (err) {
+          // More descriptive logging to aid debugging (network vs response error)
+          if (err.response) {
+            // Server responded with a status outside 2xx
+            console.error('Notification service error response:', {
+              status: err.response.status,
+              data: err.response.data
+            });
+          } else if (err.request) {
+            // Request made but no response received
+            console.error('No response from Notification service, request sent:', err.request && err.request._currentUrl ? err.request._currentUrl : 'request sent');
+          } else {
+            // Something else happened when setting up the request
+            console.error('Error while calling Notification service:', err.message || err);
+          }
+        }
+      } else {
+        console.log('No external users to notify (only assigner present)');
+      }
+    } catch (notifyErr) {
+      console.error('Failed to send internal notification (outer):', notifyErr?.message || notifyErr);
+    }
     res.json({ success: true, message: 'Users and approver assigned successfully', template });
   } catch (error) {
     console.error('Error assigning users/approver:', error);

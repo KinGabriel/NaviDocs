@@ -66,6 +66,21 @@ services:
     networks:
       - navidocs
 
+  notification-service:
+    build:
+      context: ./backend/notification-service
+      args:
+        PORT: ${NOTIFICATION_SERVICE_PORT:-8008}
+    env_file:
+      - ./backend/notification-service/.env
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT:-8008}:${NOTIFICATION_SERVICE_PORT:-8008}"
+    environment:
+      - PORT=${NOTIFICATION_SERVICE_PORT:-8008}
+    restart: unless-stopped
+    networks:
+      - navidocs
+
   file-service:
     build:
       context: ./backend/file-service
