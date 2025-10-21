@@ -324,13 +324,40 @@ export const deleteDocumentById = async (req, res) => {
     const doc = await Document.findById(id);
     if (!doc) return res.status(404).json({ message: 'document not found' });
 
-    // Delete the document
-    await Document.deleteOne({ _id: id });
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    // delete all version data for this document
-    await deleteAllVersionPerDocument(id);
+    // If user is owner, delete document and all versions
+    if (String(doc.created_by) === String(userId)) {
+      await Document.deleteOne({ _id: id });
+      await deleteAllVersionPerDocument(id);
+      return res.json({ success: true, message: 'Document deleted successfully' });
+    }
 
-    res.json({ success: true, message: 'Document deleted successfully' });
+    // If user is assigned, remove their id from assigned array
+    let changed = false;
+    if (Array.isArray(doc.assigned)) {
+      // Support both string and object-shaped entries
+      const before = doc.assigned.length;
+      doc.assigned = doc.assigned.filter(a => {
+        if (!a) return false;
+        if (typeof a === 'string' || typeof a === 'number') {
+          return String(a) !== String(userId);
+        } else if (typeof a === 'object') {
+          const aid = a.userId || a.id || a._id || a.user;
+          return String(aid) !== String(userId);
+        }
+        return true;
+      });
+      if (doc.assigned.length !== before) changed = true;
+    }
+
+    if (changed) {
+      await doc.save();
+      return res.json({ success: true, message: 'Removed from assigned list' });
+    } else {
+      return res.status(403).json({ message: 'Not authorized to delete this document or not assigned' });
+    }
   } catch (err) {
     console.error('deleteDocumentById error', err);
     res.status(500).json({ message: 'Failed to delete document', error: err.message });
