@@ -3,11 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import naviLogo from '../../assets/images/navilogo.png';
 import DownloadingModal from "../../components/modals/downloadingModal";
 import DocumentVersionHistory from '../../pages/version_history/documentVersionHistory';
-import { ChevronDown, Copy, Send, FileDown, MoreHorizontal } from "lucide-react";
+import ShareDocumentModal from "../../components/modals/shareDocumentModal";
+import { shareDocumentAPI } from "../../api/documentsAPI";
+import { ChevronDown, Copy, Send, FileDown, MoreHorizontal, Share2 } from "lucide-react";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export default function EditableFieldsHeader({ 
-  title = "Course Syllabus FTS", 
+   title = "Course Syllabus FTS", 
   user,
   setTitle, 
   onSave,
@@ -17,6 +19,8 @@ export default function EditableFieldsHeader({
   lastSavedAt, 
   dirty = false,
   documentId,
+  documentData, 
+  onDocumentUpdate, 
 }) {
   const navigate = useNavigate();
   const handleSave = () => {
@@ -29,27 +33,14 @@ export default function EditableFieldsHeader({
   const [editing, setEditing] = useState(false);
   const [localTitle, setLocalTitle] = useState(title || '');
   const inputRef = useRef(null);
-
   const [dlOpen, setDlOpen] = useState(false);
   const [dlErr, setDlErr] = useState("");
-
-  const [isSaveOpen, setIsSaveOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareSelectedIds, setShareSelectedIds] = useState([]);
+  const [shareSubmitting, setShareSubmitting] = useState(false);
   const [isQuickOpen, setIsQuickOpen] = useState(false);
-  const saveMenuRef = useRef(null);
+  const shareMenuRef = useRef(null);
   const quickMenuRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (saveMenuRef.current && !saveMenuRef.current.contains(e.target)) {
-        setIsSaveOpen(false);
-      }
-      if (quickMenuRef.current && !quickMenuRef.current.contains(e.target)) {
-        setIsQuickOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
 
   useEffect(() => {
@@ -114,6 +105,8 @@ export default function EditableFieldsHeader({
               const role = user?.role?.name;
               if (role === "Secretary") navigate("/documents");
               else if (role === "Dean") navigate("/documents");
+              else if (role === "Department Head") navigate("/documents");
+              else if (role === "Faculty") navigate("/documents");
               else if (role === "Document Controller") navigate("/documents")
             }}
           />
@@ -200,50 +193,43 @@ export default function EditableFieldsHeader({
             </button>
 
           {/* Save/Action btn */}
-          <div className="relative" ref={saveMenuRef}>
-            <button
-              onClick={() => setIsSaveOpen((o) => !o)}
-              disabled={saving}
-              className="bg-[#063c8d] hover:bg-[#052c6d] text-white rounded px-5 py-2.5 text-sm font-semibold flex items-center gap-2 disabled:opacity-70"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 0V4a2 2 0 00-2-2H9a2 2 0 00-2 2v3m1 0h4"/>
-              </svg>
-              {saving ? 'Saving...' : 'Save Draft'}
-              <ChevronDown className={`w-3 h-3 transition-transform ${isSaveOpen ? 'rotate-180' : ''}`} />
-            </button>
+          <div className="relative" ref={shareMenuRef}>
+          <button
+            onClick={() => {
+              // open share modal and prefill selected ids from documentData.assigned if present
+              const extractId = (a) => {
+                if (!a) return null;
+                if (typeof a === "string" || typeof a === "number") return String(a);
+                if (typeof a === "object")
+                  return String(a.userId || a.id || a._id || a.user || "");
+                return null;
+              };
 
-            {/* Save options dropdown */}
-            {isSaveOpen && (
-              <div className="absolute right-0 mt-2 w-64 z-50">
-                <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 text-xs text-gray-700 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">Save Options</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">Draft</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed">
-                    Your document is automatically saved as you work. You can continue editing anytime.
-                  </p>
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => { handleSave(); setIsSaveOpen(false); }}
-                      className="w-full text-left px-3 py-2 rounded bg-gray-50 hover:bg-gray-100 text-[11px]"
-                    >
-                      <div className="font-medium">Save Draft</div>
-                      <div className="text-gray-500">Continue working later</div>
-                    </button>
-                    <button
-                      onClick={() => { handleArchive(); setIsSaveOpen(false); }}
-                      className="w-full text-left px-3 py-2 rounded bg-gray-50 hover:bg-gray-100 text-[11px]"
-                    >
-                      <div className="font-medium">Archive Version</div>
-                      <div className="text-gray-500">Store for reference</div>
-                    </button>
-                  </div>
-                </div>
+              const src = Array.isArray(documentData?.assigned)
+                ? documentData.assigned
+                : Array.isArray(documentData?.from_template?.assigned)
+                ? documentData.from_template.assigned
+                : [];
+
+              const assigned = Array.isArray(src)
+                ? src.map(extractId).filter(Boolean)
+                : [];
+
+              setShareSelectedIds(assigned);
+              setShareOpen(true);
+            }}
+            className="ml-3 flex items-center space-x-3 bg-[#063c8d] text-white rounded text-sm font-semibold hover:bg-[#052c6d] px-4 py-2.5 shadow-sm transition-all"
+          >
+            <div className="w-4 h-4 rounded flex items-center justify-center">
+              <Share2 color="#ffffff" />
+            </div>
+            <div className="text-left">
+              <div className="font-medium text-white text-sm font-semibold">
+                Share
               </div>
-            )}
-          </div>
+            </div>
+          </button>
+        </div>
 
           {/* Quick Actions dropdown */}
           <div className="relative" ref={quickMenuRef}>
@@ -320,6 +306,7 @@ export default function EditableFieldsHeader({
         </div>
       )}
 
+      {/* Downloading Modal */  }
       <DownloadingModal
         open={dlOpen || !!dlErr}
         onClose={() => { setDlOpen(false); setDlErr(""); }}
@@ -329,6 +316,33 @@ export default function EditableFieldsHeader({
         errorText={dlErr}
       />
 
+      {/* Share Document Modal */   }
+      <ShareDocumentModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        template={documentData || {}}
+        selectedIds={shareSelectedIds}
+        setSelectedIds={setShareSelectedIds}
+        onShare={async ({ assignees }) => {
+          try {
+            setShareSubmitting(true);
+            await shareDocumentAPI(documentId, assignees);
+            // update local docData.assigned to reflect change
+            if (onDocumentUpdate) {
+              onDocumentUpdate({ assigned: Array.isArray(assignees) ? assignees : [] });
+            }
+            setShareOpen(false);
+          } catch (err) {
+            console.error('Failed to share document', err);
+             // prefer server message
+            const serverMsg = err.responseData?.message || err.message || 'Failed to share document';
+            try { toast.error(serverMsg); } catch(e) { /* ignore toast failures */ }
+          } finally {
+            setShareSubmitting(false);
+          }
+        }}
+        submitting={shareSubmitting}
+      />
     </div>
     
   );
