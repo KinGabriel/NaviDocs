@@ -1,4 +1,3 @@
-
 import axios from "axios";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -332,3 +331,35 @@ export const shareDocumentAPI = async (documentId, assignees = []) => {
 		throw err;
 	}
 };
+
+/**
+ * Archive a document by id
+ * If owner, sets isArchived=true. If assigned, removes user from assigned.
+ * @param {string} documentId
+ */
+export const archiveDocumentAPI = async (documentId) => {
+  try {
+    const res = await axios.patch(`${API_URL}/api/documents/${documentId}/archive`, {}, { withCredentials: true });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to archive document');
+  }
+};
+
+/**
+ * List archived documents for current user
+ * @param {Object} params - Query params (page, limit)
+ * @returns {Promise<Object>} - API response data (should include pagination)
+ */
+export const listArchivedDocumentsAPI = async (params = {}) => {
+  try {
+    const res = await axios.get(`${API_URL}/api/documents/archived`, {
+      params,
+      withCredentials: true,
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Failed to list archived documents");
+  }
+};
+
