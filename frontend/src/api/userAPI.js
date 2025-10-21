@@ -52,6 +52,21 @@ export const getUserIdByEmailAPI = async (email) => {
 };
 
 /**
+ * Batch get users info by ids
+ * @param {Array<string>} ids
+ * @returns {Promise<Array<{userId:string,email?:string,firstname?:string,lastname?:string,name?:string}>>}
+ */
+export const getUsersInfoByIdsAPI = async (ids) => {
+	if (!Array.isArray(ids) || !ids.length) return [];
+	try {
+		const resp = await axios.post(`${API_URL}/api/user/getUsersInfo`, { ids }, { withCredentials: true });
+		return resp.data?.users || [];
+	} catch (err) {
+		return [];
+	}
+};
+
+/**
  * Search users by email substring (for suggestions)
  * @param {string} query
  * @returns {Promise<Array<{userId: string, email: string}>>}

@@ -2,112 +2,104 @@ import Template from "../models/templateModel.js";
 import { buildApprovalMeta } from "../utils/templateUtils.js";
 import axios from "axios";
 
+
 /**
- * @desc Assign users and set assigner/approver for a template
+ * @desc Create the template, assign users + approver, then email everyone involved
  * @route POST /api/templates/assign
  * @access Private
  */
 export const assignUsersToCreateTemplate = async (req, res) => {
   try {
-    const { assigned, approver, templateData, deadline } = req.body;
-    console.log("Assigning users to template:", { assigned, approver, deadline, templateData });
-    // Always create the template from templateData
+    const {
+      assigned,
+      approver,
+      templateData,
+      deadline,
+      title,
+      instructions,
+      assignmentType,
+    } = req.body;
+
+    // --- validation ---
     if (!templateData) {
-      console.log('templateData missing:', req.body);
       return res.status(400).json({ success: false, message: 'templateData is required' });
     }
-    console.log(templateData.instructions);
-
-    templateData.title = templateData.title ? templateData.title.trim() : 'Untitled Template';
- 
-    delete templateData.document_code;
-    templateData.notes = templateData.notes || [];
-      templateData.notes.push({
-        added_by: req.user.id,
-        role_snapshot: req.user?.role?.name || '',
-        type: 'assignment',
-        message: templateData.instructions || 'No instructions provided',
-        created_at: new Date()
-      });
-
-    if (deadline) {
-      templateData.deadline = deadline;
-    }
-    if (!templateData.created_by) {
-      templateData.created_by = req.user.id;
-    }
-    // Minimal template creation logic 
-    const { title, pages_json, body, created_by, notes } = templateData;
-    const template = new Template({
-      title: title && title.trim() !== '' ? title.trim() : 'Untitled Template',
-      pages_json: Array.isArray(pages_json) ? pages_json : [
-        {
-          type: 'doc',
-          content: [
-            { type: 'paragraph', content: [{ type: 'text', text: '' }] }
-          ]
-        }
-      ],
-      body: body || '',
-      created_by: created_by || req.user.id,
-      notes: Array.isArray(notes) ? notes : [],
-      deadline: deadline || undefined
-    });
-    await template.save();
-
     if (!Array.isArray(assigned) || assigned.length === 0) {
-      console.log('assigned missing or empty:', assigned);
       return res.status(400).json({ success: false, message: 'Assigned users array required' });
     }
-
     if (!approver) {
-      console.log('approver missing:', approver);
       return res.status(400).json({ success: false, message: 'Approver is required' });
     }
 
-    // Set assigned users
+    const userId = String(req.user?.id ?? req.user?._id);
+
+    // --- normalize templateData & notes ---
+    const safeTitle = (templateData.title || '').trim() || 'Untitled Template';
+    delete templateData.document_code;
+
+    const notes = Array.isArray(templateData.notes) ? templateData.notes : [];
+    notes.push({
+      added_by: userId,
+      role_snapshot: req.user?.role?.name || '',
+      type: 'assignment',
+      message: templateData.instructions || 'No instructions provided',
+      created_at: new Date(),
+    });
+
+    // --- create new Template doc (but do not email yet) ---
+    const template = new Template({
+      title: safeTitle,
+      pages_json: Array.isArray(templateData.pages_json)
+        ? templateData.pages_json
+        : [
+            {
+              type: 'doc',
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: '' }] }],
+            },
+          ],
+      body: templateData.body || '',
+      created_by: templateData.created_by || userId,
+      notes,
+      deadline: deadline || undefined,
+    });
+
+    // --- assign properties ---
     template.assigned = assigned;
-    // Set deadline if provided
-    if (deadline) {
-      template.deadline = deadline;
-    }
-    // Set status to 'assigned'
     template.status = 'assigned';
     template.school = req.user?.school || '';
-    // Set assigner (current user)
     template.status_meta = template.status_meta || {};
-    template.status_meta.assigned_by = req.user.id;
+    template.status_meta.assigned_by = userId;
     template.status_meta.assigned_at = new Date();
-    
-    // Set approver slot based on assigner's role
-    const role = req.user?.role?.name?.toLowerCase();
+    template.status_meta.approvals = template.status_meta.approvals || { dean: {}, secretary: {} };
+
+    // approver structure based on assigner role
+    const role = String(req.user?.role?.name || '').toLowerCase();
     if (role === 'dean') {
-      template.status_meta.approvals = template.status_meta.approvals || {};
       template.status_meta.approvals.secretary = {
         assigned_to: approver,
         isApproved: false,
-        approved_at: null
+        approved_at: null,
       };
       template.status_meta.approvals.dean = {
-        assigned_to: req.user.id,
+        assigned_to: userId,
         isApproved: false,
-        approved_at: null
+        approved_at: null,
       };
     } else if (role === 'secretary') {
-      template.status_meta.approvals = template.status_meta.approvals || {};
       template.status_meta.approvals.dean = {
         assigned_to: approver,
-        isApproved: false ,
-        approved_at: null
+        isApproved: false,
+        approved_at: null,
       };
       template.status_meta.approvals.secretary = {
-        assigned_to: req.user.id,
+        assigned_to: userId,
         isApproved: false,
-        approved_at: null
+        approved_at: null,
       };
     }
 
-    console.log('Saving template with assigned:', template.assigned);
+    if (deadline) template.deadline = deadline;
+
     await template.save();
     // --- Notify approver(s) via Notification Service (internal call) ---
     try {
@@ -170,12 +162,181 @@ export const assignUsersToCreateTemplate = async (req, res) => {
     } catch (notifyErr) {
       console.error('Failed to send internal notification (outer):', notifyErr?.message || notifyErr);
     }
-    res.json({ success: true, message: 'Users and approver assigned successfully', template });
+
+    // ==========================================================
+    // FETCH EMAILS (assigned users + approver)
+    // ==========================================================
+    const USER_BASE = process.env.USER_SERVICE_URL || ''; // e.g., http://localhost:4002
+    const getEmailEndpoint = (id) =>
+      `${USER_BASE}/api/user/getUserEmail/${encodeURIComponent(id)}`;
+
+    // Forward auth from the current request (Bearer + Cookies if present)
+    const headers = {};
+    if (req.headers.authorization) headers['Authorization'] = req.headers.authorization;
+    if (req.headers.cookie) headers['Cookie'] = req.headers.cookie;
+
+    const uniqueUserIds = Array.from(new Set([...assigned, approver].map(String)));
+
+    const fetchEmail = async (id) => {
+      try {
+        const resp = await axios.post(getEmailEndpoint(id), {}, { headers, timeout: 8000 });
+        const email = resp?.data?.email;
+        return email ? { id, email } : null;
+      } catch (err) {
+        console.warn(`⚠️ Failed to get email for user ${id}:`, err?.message || err);
+        return null;
+      }
+    };
+
+    const emailResults = await Promise.allSettled(uniqueUserIds.map(fetchEmail));
+    const recipients = emailResults
+      .map((r) => (r.status === 'fulfilled' ? r.value : null))
+      .filter(Boolean); // [{ id, email }, ...]
+
+    if (recipients.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message:
+          'Users and approver assigned successfully (emails skipped: no user emails resolved)',
+        template,
+        notified: [],
+      });
+    }
+
+    // ==========================================================
+    // SEND EMAILS (assigned + approver)
+    // ==========================================================
+    const MAIL_BASE = process.env.EMAIL_SERVICE_URL || ''; // e.g., http://localhost:4001
+    const mailEndpoint = `${MAIL_BASE}/api/email/assignments`; // matches your mailRoutes
+
+    const mailPayload = {
+      actor: {
+        id: req.user._id,
+        name: `${req.user.firstName} ${req.user.lastName}`,
+        role: req.user.role,
+        email: req.user.email,
+      },
+      template: {
+        id: template._id,
+        name: template.title,
+        code: template.document_code,          // typically set later by dean
+        revision: template.revision_no ?? 0,   // fallback to 0
+        effectivityDate: template.effectivity || null,
+      },
+      assignmentType: assignmentType || 'shared',
+      deadline: deadline || null,
+      to: recipients.map((r) => r.email),      // actual recipient emails
+      recipients,                              // minimal objects ({ id, email })
+      title: title ?? template.title,
+      instructions: instructions ?? templateData.instructions ?? '',
+    };
+
+    let mailService = null;
+    try {
+      const mailResp = await axios.post(mailEndpoint, mailPayload, { timeout: 10000 });
+      mailService = { status: mailResp.status, data: mailResp.data };
+    } catch (mailErr) {
+      mailService = { error: mailErr?.response?.data || mailErr.message || 'mail send failed' };
+    }
+
+    // ==========================================================
+    // RESPONSE
+    // ==========================================================
+    return res.status(200).json({
+      success: true,
+      message:
+        'Users and approver assigned successfully' +
+        (mailService?.error ? ' (email failed)' : ' and emails sent'),
+      template,
+      notified: mailPayload.to,
+      mailService,
+    });
   } catch (error) {
-    console.error('Error assigning users/approver:', error);
-    res.status(500).json({ success: false, message: 'Failed to assign users/approver' });
+    console.error('assignUsersToCreateTemplate error:', error);
+    return res
+      .status(500)
+      .json({ success: false, message: 'Failed to assign users/approver' });
   }
 };
+
+
+
+
+
+export const emailAssignment = async (req, res, next) => {
+  try {
+    const actor = {
+      id: req.user._id,
+      name: `${req.user.firstName} ${req.user.lastName}`,
+      role: req.user.role,
+      email: req.user.email,
+    };
+
+
+    const templateId = req.params.id;
+    const { title, instructions, dueDate, assigneeIds = [], secretaryId, assignmentType } = req.body;
+
+
+    // persist
+    await templatesService.assignUsers({
+      templateId,
+      assigneeIds,
+      secretaryId: secretaryId || null,
+      assignmentType,
+      title,
+      instructions,
+      deadline: dueDate || null,
+      actorId: actor.id,
+    });
+
+
+    // gather context
+    const template = await templatesService.getTemplateById(templateId);
+    const assignees = assigneeIds.length ? await usersService.findUsersByIds(assigneeIds) : [];
+    const secretary = secretaryId ? await usersService.findUserById(secretaryId) : null;
+    const recipients = [...assignees, ...(secretary ? [secretary] : [])].map((u) => ({
+      id: u._id,
+      name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.name || 'User',
+      email: u.email,
+      role: u.role,
+    }));
+    const MAIL_BASE = process.env.EMAIL_SERVICE_URL || ''; // e.g., http://localhost:4001
+    const endpoint = `${EMAIL_SERVICE_URL}/api/email/assignments`;
+console.log('recipient',recipients)
+    const payload = {
+      actor,
+      template: {
+        id: template._id,
+        name: template.name,
+        code: template.code,
+        revision: template.revision ?? 0,
+        effectivityDate: template.effectivityDate || null,
+      },
+      assignmentType: assignmentType || 'shared',
+      deadline: dueDate || null,
+      to: recipients.map(r => r.email).filter(Boolean),
+      recipients,
+      title,
+      instructions,
+    };
+
+    const mailResp = await axios.post(endpoint, payload);
+    console.log('mail service response:', mailResp.status, mailResp.data);
+
+    return res.status(200).json({
+      ok: true,
+      message: 'Assignment created. Emails sent.',
+      notified: payload.to,
+      mailService: { status: mailResp.status, data: mailResp.data },
+    });
+  } catch (error) {
+    console.error('createAssignment error:', error?.response?.data || error.message);
+    return next(error);
+  }
+};
+
+
+
 
 
 /**
@@ -574,5 +735,3 @@ export const insertDocumentCode = async (req, res) => {
     return res.status(500).json({ success:false, message:'Failed to insert document code' });
   }
 };
-
-

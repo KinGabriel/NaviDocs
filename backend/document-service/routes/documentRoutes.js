@@ -1,5 +1,6 @@
 import express from 'express';
 import { authenticateJWT } from '../middleware/authenticationMiddleware.js';
+import { requireDocumentAccess } from '../middleware/accessControlMiddleware.js';
 import {
   createDocument,
   getDocumentById,
@@ -9,6 +10,7 @@ import {
   renameDocument,
   duplicateDocumentById,
 } from '../controllers/documentFunctionalityController.js';
+import { shareDocument } from '../controllers/documentWorkFlow.js';
 import {
   getVersionData,
   patchVersionBookmark,
@@ -35,12 +37,13 @@ router.delete('/field-suggestions/:id', authenticateJWT, deleteFieldSuggestion);
 
 router.post('/create-document', authenticateJWT, createDocument);
 router.get('/', authenticateJWT, listDocuments);
-router.post('/:id/duplicate', authenticateJWT, duplicateDocumentById);
-router.post('/:id/duplicate-version', authenticateJWT, duplicateDocumentFromVersion);
-router.get('/:id', authenticateJWT, getDocumentById);
-router.patch('/:id/field-values', authenticateJWT, updateDocumentFieldValues);
-router.delete('/:id', authenticateJWT, deleteDocumentById);
-router.patch('/:id/rename', authenticateJWT, renameDocument);
+router.post('/:id/duplicate', authenticateJWT, requireDocumentAccess('view'), duplicateDocumentById);
+router.post('/:id/duplicate-version', authenticateJWT, requireDocumentAccess('view'), duplicateDocumentFromVersion);
+router.get('/:id', authenticateJWT, requireDocumentAccess('view'), getDocumentById);
+router.patch('/:id/field-values', authenticateJWT, requireDocumentAccess('edit'), updateDocumentFieldValues);
+router.post('/:id/share', authenticateJWT, requireDocumentAccess('edit'), shareDocument);
+router.delete('/:id', authenticateJWT, requireDocumentAccess('edit'), deleteDocumentById);
+router.patch('/:id/rename', authenticateJWT, requireDocumentAccess('edit'), renameDocument);
 
 router.get('/version-data/:versionId', authenticateJWT, getVersionData);
 router.patch('/version-data/:versionId/bookmark', authenticateJWT, patchVersionBookmark);

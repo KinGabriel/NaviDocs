@@ -1,4 +1,3 @@
-// Use shared options and dynamic department filtering
 import { SCHOOL_OPTIONS, DEPARTMENT_OPTIONS } from "../utils/options";
 import { deleteFolderByIDAPI,addAccessToFoldersAPI } from "../api/storageAPI";
 import { searchUsersByEmailAPI,getUserIdByEmailAPI } from "../api/userAPI";
@@ -20,6 +19,7 @@ import {
   X,
   Copy,
 } from "lucide-react";
+import toast, { Toaster } from 'react-hot-toast';
 
 export default function FolderComponent({
   folder,
@@ -138,7 +138,7 @@ export default function FolderComponent({
     const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     if (!inputEmail) return;
     if (!emailRegex.test(inputEmail)) {
-      alert('Please enter a valid email address.');
+      toast.error("Please enter a valid email address.");
       return;
     }
     if (emails.some((e) => e.email === inputEmail)) return;
@@ -147,11 +147,11 @@ export default function FolderComponent({
     try {
       userId = await getUserIdByEmailAPI(inputEmail);
       if (!userId) {
-        alert('No user found with this email.');
+        toast.error("No user found with this email.");
         return;
       }
     } catch (err) {
-      alert('Error checking user existence.');
+      toast.error("Error checking user existence.");
       return;
     }
     // Add the email and userId to the list with the selected role
@@ -197,7 +197,7 @@ export default function FolderComponent({
     navigator.clipboard.writeText(
       `https://mydrive.com/folder/${folder.name.replace(/\s+/g, "-")}`
     );
-    alert("Link copied to clipboard!");
+    toast.success("Link copied to clipboard!");
   };
 
   const debounce = (fn, delay) => {
@@ -265,7 +265,7 @@ export default function FolderComponent({
                 {/* Download */}
                 <li
                   className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => alert("Download clicked")}
+                  onClick={() => toast.info("Download clicked")}
                 >
                   <Download size={16} className="text-gray-600" /> Download
                 </li>
@@ -557,29 +557,42 @@ export default function FolderComponent({
               <button
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                 onClick={async () => {
-                  // Always resend all current users (except owner) as allowedUsers
-                  const allowedUsers = emails
-                    .filter(e => !e.isOwner)
-                    .map(e => ({
-                      userId: e.userId,
-                      role: e.role,
-                      email: e.email,
-                      grantedBy: user?.firstname + ' ' + user?.lastname,
-                      emailOfGrantedBy: user?.email
-                    }));
-                  try {
-                    await addAccessToFoldersAPI({
-                      folderId: folder._id,
-                      allowedUsers,
-                      allowedSchools: selectedSchools,
-                      allowedDepartments: selectedDepartments,
-                      visibility: visibility
-                    });
-                    setIsShareOpen(false);
-                  } catch (err) {
-                    alert(err.message || 'Failed to share folder');
-                  }
-                }}
+  const allowedUsers = emails
+    .filter(e => !e.isOwner)
+    .map(e => ({
+      userId: e.userId,
+      role: e.role,
+      email: e.email,
+      grantedBy: user?.firstname + " " + user?.lastname,
+      emailOfGrantedBy: user?.email,
+    }));
+  if (
+    allowedUsers.length === 0 &&
+    selectedSchools.length === 0 &&
+    selectedDepartments.length === 0
+  ) {
+    toast.error("Please add at least one user, school, or department to share.");
+    return;
+  }
+
+  try {
+    const loadingToast = toast.loading("Sharing folder...");
+    await addAccessToFoldersAPI({
+      folderId: folder._id,
+      allowedUsers,
+      allowedSchools: selectedSchools,
+      allowedDepartments: selectedDepartments,
+      visibility: visibility,
+    });
+    toast.dismiss(loadingToast);
+    toast.success("Folder shared successfully!");
+    setIsShareOpen(false);
+  } catch (err) {
+    toast.dismiss();
+    toast.error("You are not authorized to share this folder.");
+  }
+}}
+
               >
                 Share
               </button>
@@ -597,9 +610,9 @@ export default function FolderComponent({
       const { renameFolderAPI } = await import("../api/storageAPI");
       await renameFolderAPI(folder._id, newTitle);
       setIsRenameOpen(false);
-      if (onDelete) onDelete(folder); // Refresh parent view
+      if (onDelete) onDelete(folder); 
     } catch (err) {
-      alert(err?.message || "Failed to rename folder");
+      toast.error(err?.message || "Failed to rename folder");
     }
   }}
 />
@@ -614,12 +627,13 @@ export default function FolderComponent({
     try {
       await deleteFolderByIDAPI(folder._id);
       setIsRemoveOpen(false);
-      if (onDelete) onDelete(); // refresh parent
+      if (onDelete) onDelete();
     } catch (err) {
-      alert(err.message || "Failed to remove folder");
+      toast.error(err.message || "Failed to remove folder");
     }
   }}
 />
+<Toaster position="top-center" reverseOrder={false} />
 
     </>
   );

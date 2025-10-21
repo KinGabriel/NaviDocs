@@ -2,6 +2,7 @@ import Document from '../models/documentModel.js';
 import axios from 'axios';
 import { createVersionData,deleteAllVersionPerDocument } from './documentVersionController.js';
 import VersionData from '../models/documentVersionModel.js';
+import { fetchUserInfoById } from '../utils/userServiceUtils.js';
 
 /**
  * @desc Create a new document based on a template's essential content.
@@ -146,6 +147,33 @@ export const getDocumentById = async (req, res) => {
     if (!id) return res.status(400).json({ message: 'id required' });
     const doc = await Document.findById(id).lean();
     if (!doc) return res.status(404).json({ message: 'document not found' });
+
+    // Best-effort: fetch creator's name from user service and attach it to the response
+    const fetchUserName = async (userId) => {
+      if (!userId) return null;
+      try {
+        // request detailed user info (not the basic endpoint) so we can prefer firstname/lastname
+        const info = await fetchUserInfoById(String(userId), req, { basic: false });
+        if (info) {
+          return `${info.firstname} ${info.lastname}`;
+        }
+      } catch (e) {
+        // swallow and return null
+      }
+      return null;
+    };
+
+    try {
+      const createdById = doc.created_by || doc.createdBy || null;
+      if (createdById) {
+        const name = await fetchUserName(createdById);
+        if (name) doc.createdByName = name;
+      }
+    } catch (e) {
+      console.warn('getDocumentById: failed to fetch creator info', e?.message || e);
+    }
+
+    console.log('getDocumentById', id, '->', doc);
     return res.json({ document: doc });
   } catch (err) {
     console.error('getDocumentById error', err);
@@ -172,7 +200,8 @@ export const listDocuments = async (req, res) => {
     const query = {
       $or: [
         { created_by: uid }, // documents created by user
-        { "from_template.assigned": uid } // documents assigned to user
+        { assigned: { $elemMatch: { userId: uid } } } // documents assigned to user
+
       ]
     };
 

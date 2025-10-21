@@ -24,6 +24,7 @@ import {
   Plus,
   Copy,
 } from "lucide-react";
+import toast, { Toaster } from 'react-hot-toast';
 
 export default function FileComponent({
   file,
@@ -157,7 +158,7 @@ export default function FileComponent({
         a.remove();
       }, 100);
     } catch (err) {
-      alert('Failed to download file.');
+      toast.error('Failed to download file.');
     }
   };
 
@@ -178,7 +179,7 @@ export default function FileComponent({
     const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     if (!inputEmail) return;
     if (!emailRegex.test(inputEmail)) {
-      alert('Please enter a valid email address.');
+      toast.error('Please enter a valid email address.');
       return;
     }
     if (emails.some((e) => e.email === inputEmail)) return;
@@ -187,11 +188,11 @@ export default function FileComponent({
     try {
       userId = await getUserIdByEmailAPI(inputEmail);
       if (!userId) {
-        alert('No user found with this email.');
+        toast.error('No user found with this email.');
         return;
       }
     } catch (err) {
-      alert('Error checking user existence.');
+      toast.error('Error checking user existence.');
       return;
     }
     // Add the email and userId to the list with the selected role
@@ -243,7 +244,7 @@ export default function FileComponent({
     navigator.clipboard.writeText(
       `https://mydrive.com/file/${fileName?.replace(/\s+/g, "-")}`
     );
-    alert("Link copied to clipboard!");
+    toast.success("Link copied to clipboard!");
   };
 
   return (
@@ -671,28 +672,32 @@ export default function FileComponent({
               <button
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                 onClick={async () => {
-                  // Always resend all current users (except owner) as allowedUsers
-                  const allowedUsers = emails
-                    .filter(e => !e.isOwner)
-                    .map(e => ({
-                      userId: e.userId,
-                      role: e.role,
-                      email: e.email,
-                      grantedBy: user?.firstname + ' ' + user?.lastname,
-                      emailOfGrantedBy: user?.email
-                    }));
-                  try {
-                    await addAccessToFileAPI({
-                      fileId: file._id,
-                      folderId: parentFolderId,
-                      allowedUsers,
-                      visibility
-                    });
-                    setIsShareOpen(false);
-                  } catch (err) {
-                    alert(err?.message || 'Failed to share file');
-                  }
-                }}
+  const allowedUsers = emails
+    .filter(e => !e.isOwner)
+    .map(e => ({
+      userId: e.userId,
+      role: e.role,
+      email: e.email,
+      grantedBy: user?.firstname + ' ' + user?.lastname,
+      emailOfGrantedBy: user?.email
+    }));
+  const loadingToast = toast.loading("Sharing file...");
+  try {
+    await addAccessToFileAPI({
+      fileId: file._id,
+      folderId: parentFolderId,
+      allowedUsers,
+      visibility
+    });
+
+    toast.dismiss(loadingToast);
+    toast.success("File shared successfully!");
+    setIsShareOpen(false);
+  } catch (err) {
+    toast.dismiss(loadingToast);
+    toast.error(err?.message || "You are not authorized to share this file.");
+  }
+}}
               >
                 Share
               </button>
@@ -713,9 +718,9 @@ export default function FileComponent({
         await renameFileAPI(file._id, newTitle);
       }
       setIsRenameOpen(false);
-      if (onDelete) onDelete(file); // refresh parent view
+      if (onDelete) onDelete(file); 
     } catch (err) {
-      alert(err?.message || "Failed to rename file");
+      toast.error(err?.message || "Failed to rename file");
     }
   }}
 />
@@ -743,11 +748,13 @@ export default function FileComponent({
     } catch (err) {
       console.error("Remove error:", err);
       setRemoveError("Failed to remove the file. Please try again.");
+      toast.error("Failed to remove the file. Please try again.");
     } finally {
       setRemoving(false);
     }
   }}
 />
+<Toaster position="top-center" reverseOrder={false} />
 
     </>
   );
