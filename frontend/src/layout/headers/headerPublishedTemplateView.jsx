@@ -32,6 +32,7 @@ export default function HeaderPublishedTemplateView({
               const role = user?.role?.name;
               if (role === "Secretary") navigate("/secretary/templates");
                 else if (role === "Dean") navigate("/dean/templates");
+                else if (role === "Department Head") navigate("/dept-head/templates");
                 else if (role === "Document Controller") navigate("/document-controller/templates")
             }}
           />

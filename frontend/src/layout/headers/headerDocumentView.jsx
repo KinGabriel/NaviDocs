@@ -33,6 +33,7 @@ export default function HeaderDocumentView({
               const role = user?.role?.name;
               if (role === "Secretary") navigate("/documents");
                 else if (role === "Dean") navigate("/documents");
+                else if (role === "Department Head") navigate("/domuments");
                 else if (role === "Document Controller") navigate("/documents")
             }}
           />

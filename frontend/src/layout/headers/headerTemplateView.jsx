@@ -116,6 +116,7 @@ export default function HeaderTemplateView({
                 const role = user?.role?.name;
                 if (role === "Secretary") navigate("/secretary/templates");
                 else if (role === "Dean") navigate("/dean/templates");
+                else if (role === "Department Head") navigate("/dept-head/templates");
                 else if (role === "Document Controller") navigate("/document-controller/templates")
               }}
               className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
