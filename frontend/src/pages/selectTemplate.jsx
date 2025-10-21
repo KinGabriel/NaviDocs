@@ -7,7 +7,7 @@ import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
 import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI, unpublishTemplateAPI } from "../api/documentContollerAPI";
-import { History, FileText, RotateCcw, Filter, FileDigit } from "lucide-react";
+import { History, FileText, RotateCcw, SlidersHorizontal, FileDigit, FileCode, X } from "lucide-react";
 import Loader from "../components/loader";  
 
 export default function SelectTemplate() {
@@ -227,9 +227,7 @@ const handleUnpublish = async (templateId) => {
                 }`}
               >
                 {/* Version Filters toggle */}
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h18M6 8h12M9 12h6m-9 4h12M3 20h18" />
-                </svg>
+                <SlidersHorizontal className="w-4 h-4" />
                 Version Filters
                 {activeFiltersCount > 0 && (
                   <span className="ml-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full font-semibold">
@@ -243,9 +241,7 @@ const handleUnpublish = async (templateId) => {
                   onClick={handleResetFilters}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v6h6M20 20v-6h-6M20 4l-6 6M4 20l6-6" />
-                  </svg>
+                  <RotateCcw className="w-4 h-4" />
                   Reset
                 </button>
               )}
@@ -269,7 +265,7 @@ const handleUnpublish = async (templateId) => {
                 {/* Document Code */}
                 <div>
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/></svg>
+                    <FileCode className="w-4 h-4" />
                     Document Code
                   </label>
                   <select
@@ -287,7 +283,7 @@ const handleUnpublish = async (templateId) => {
                 {/* Revision Number */}
                 <div>
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                    <FileDigit color="#545454" />
+                    <FileDigit className="w-4 h-4" />
                     Revision Number
                   </label>
                   <select
@@ -302,12 +298,75 @@ const handleUnpublish = async (templateId) => {
                   </select>
                 </div>
               </div>
+
+              {/* Active Filters Tags */}
+              {activeFiltersCount > 0 && (
+                <div className="mt-4 pt-4 border-t border-blue-200">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                      Active Filters:
+                    </span>
+                    
+                    {selectedSchool !== "All" && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                        <span>School: {selectedSchool}</span>
+                        <button
+                          onClick={() => setSelectedSchool("All")}
+                          className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                          aria-label="Remove school filter"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedDocumentCode !== "All" && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-200 text-purple-700 rounded-full text-xs font-medium">
+                        <span>Code: {selectedDocumentCode}</span>
+                        <button
+                          onClick={() => setSelectedDocumentCode("All")}
+                          className="hover:bg-violet-200 rounded-full p-0.5 transition-colors"
+                          aria-label="Remove document code filter"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedRevision !== "All" && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                        <span>Revision: {selectedRevision}</span>
+                        <button
+                          onClick={() => setSelectedRevision("All")}
+                          className="hover:bg-green-200 rounded-full p-0.5 transition-colors"
+                          aria-label="Remove revision filter"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    {search.trim() !== "" && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                        <span>Search: "{search}"</span>
+                        <button
+                          onClick={() => setSearch("")}
+                          className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                          aria-label="Remove search filter"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* RESULTS SUMMARY */}
+      {/* RESULTS SUMMARY*/}
       <div className="bg-white">
         <div className="px-8 py-4">
           <div className="flex items-center justify-between text-sm">
@@ -316,9 +375,6 @@ const handleUnpublish = async (templateId) => {
               <span className="font-semibold text-gray-900">{filteredTemplates.length}</span> of{" "}
               <span className="font-semibold text-gray-900">{templates.length}</span> templates
             </div>
-            {filteredTemplates.length !== templates.length && (
-              <div className="text-blue-600 font-medium">Filtered results active</div>
-            )}
           </div>
         </div>
       </div>

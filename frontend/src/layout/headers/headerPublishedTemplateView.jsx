@@ -30,10 +30,10 @@ export default function HeaderPublishedTemplateView({
             className="w-15 h-10 cursor-pointer"
             onClick={() => {
               const role = user?.role?.name;
-              if (role === "Secretary") navigate("/secretary/templates");
-                else if (role === "Dean") navigate("/dean/templates");
-                else if (role === "Department Head") navigate("/dept-head/templates");
-                else if (role === "Document Controller") navigate("/document-controller/templates")
+              if (role === "Secretary") navigate("/documents");
+                else if (role === "Dean") navigate("/ocuments");
+                else if (role === "Department Head") navigate("/documents");
+                else if (role === "Document Controller") navigate("/documents");
             }}
           />
 
@@ -59,7 +59,7 @@ export default function HeaderPublishedTemplateView({
           {/* Title */}
           <div className="flex items-center">
             <input
-              className="bg-transparent text-2xl font-medium text-gray-800 outline-none border-none"
+              className="bg-transparent text-xl font-medium text-gray-800 outline-none border-none"
               value={title}
               placeholder="Document Title"
               readOnly
