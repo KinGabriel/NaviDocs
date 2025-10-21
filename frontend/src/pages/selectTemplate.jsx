@@ -2,38 +2,33 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../layout/headers/header";
 import useUser from "../hooks/useUser";
-import TemplateCard from "../components/cards/templatecard";
+import PublishedCard from "../components/cards/publishedCard"; 
 import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
 import usePagination from "../hooks/usePagination";
-import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
-import { History, FileText, RotateCcw, Filter } from "lucide-react";
+import { fetchPublishedTemplatesAPI, unpublishTemplateAPI } from "../api/documentContollerAPI";
+import { History, FileText, RotateCcw, Filter, FileDigit } from "lucide-react";
 import Loader from "../components/loader";  
 
 export default function SelectTemplate() {
   const navigate = useNavigate();
-  const user = useUser(); // <-- same as secretaryTemplates
+  const user = useUser(); 
 
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState("Recent");
   const [selectedSchool, setSelectedSchool] = useState("All");
-
-  // Version-history filters
   const [selectedDocumentCode, setSelectedDocumentCode] = useState("All");
   const [selectedRevision, setSelectedRevision] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
-
   const [templates, setTemplates] = useState([]);
   const [filteredTemplates, setFilteredTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
-
   const [documentCodes, setDocumentCodes] = useState([]);
   const [revisionNumbers, setRevisionNumbers] = useState([]);
-
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const PAGE_SIZE = 10;
   const pagination = usePagination(totalPages, 1);
-
   const schoolIdentifiers = {
     "University Wide": "VAA",
     SAMCIS: "SMI",
@@ -76,53 +71,78 @@ export default function SelectTemplate() {
 
   // Fetch templates
   useEffect(() => {
-    let ignore = false;
-    const fetchPublished = async () => {
-      setLoading(true);
-      try {
-        const params = { limit: PAGE_SIZE, page: pagination.currentPage };
-        if (selectedSchool && selectedSchool !== "All") params.school = selectedSchool;
-        if (search && search.trim()) params.search = search.trim();
+  let ignore = false;
+  const fetchPublished = async () => {
+    setLoading(true);
+    try {
+      const params = { limit: PAGE_SIZE, page: pagination.currentPage };
+      if (selectedSchool && selectedSchool !== "All") params.school = selectedSchool;
+      if (search && search.trim()) params.search = search.trim();
 
-        const result = await fetchPublishedTemplatesAPI(params);
+      const result = await fetchPublishedTemplatesAPI(params);
 
-        let arr = [];
-        if (result?.success && result.data?.templates) {
-          arr = result.data.templates;
-          setTotalPages(result.data.pagination?.total_pages || 1);
-        } else if (result?.templates) {
-          arr = result.templates;
-          setTotalPages(1);
-        } else if (Array.isArray(result)) {
-          arr = result;
-          setTotalPages(1);
-        }
-
-        if (sortOrder === "A-Z") arr.sort((a, b) => a.title.localeCompare(b.title));
-        if (sortOrder === "Z-A") arr.sort((a, b) => b.title.localeCompare(a.title));
-        if (sortOrder === "Recent") {
-          arr.sort(
-            (a, b) =>
-              new Date(b.createdAt || b.created_at) -
-              new Date(a.createdAt || a.created_at)
-          );
-        }
-
-        if (!ignore) setTemplates(arr);
-      } catch {
-        if (!ignore) {
-          setTemplates([]);
-          setTotalPages(1);
-        }
-      } finally {
-        if (!ignore) setLoading(false);
+      let arr = [];
+      if (result?.success && result.data?.templates) {
+        arr = result.data.templates;
+        setTotalPages(result.data.pagination?.total_pages || 1);
+      } else if (result?.templates) {
+        arr = result.templates;
+        setTotalPages(1);
+      } else if (Array.isArray(result)) {
+        arr = result;
+        setTotalPages(1);
       }
-    };
 
-    fetchPublished();
-    return () => { ignore = true; };
-  }, [selectedSchool, search, sortOrder, pagination.currentPage]);
+      if (sortOrder === "A-Z") arr.sort((a, b) => a.title.localeCompare(b.title));
+      if (sortOrder === "Z-A") arr.sort((a, b) => b.title.localeCompare(a.title));
+      if (sortOrder === "Recent") {
+        arr.sort(
+          (a, b) =>
+            new Date(b.createdAt || b.created_at) -
+            new Date(a.createdAt || a.created_at)
+        );
+      }
 
+      if (!ignore) setTemplates(arr);
+    } catch {
+      if (!ignore) {
+        setTemplates([]);
+        setTotalPages(1);
+      }
+    } finally {
+      if (!ignore) setLoading(false);
+    }
+  };
+
+  fetchPublished();
+  return () => { ignore = true; };
+}, [selectedSchool, search, sortOrder, pagination.currentPage, refreshTrigger]); 
+
+const handleAssign = (updatedTemplate) => {
+  // Update the template in the local state
+  setTemplates(prev => prev.map(t => 
+    (t._id || t.id) === (updatedTemplate._id || updatedTemplate.id) 
+      ? updatedTemplate 
+      : t
+  ));
+  setFilteredTemplates(prev => prev.map(t => 
+    (t._id || t.id) === (updatedTemplate._id || updatedTemplate.id) 
+      ? updatedTemplate 
+      : t
+  ));
+};
+
+const handleUnpublish = async (templateId) => {
+  try {
+    await unpublishTemplateAPI(templateId);
+    // Refresh the templates list
+    setRefreshTrigger(prev => prev + 1);
+    return { success: true };
+  } catch (err) {
+    console.error('Unpublish error:', err);
+    throw err;
+  }
+};
   // Reset filters
   const handleResetFilters = () => {
     setSelectedDocumentCode("All");
@@ -232,13 +252,11 @@ export default function SelectTemplate() {
             </div>
           </div>
 
-          {/* Version Filters panel (still inside subheader) */}
+          {/* Version Filters panel */}
           {showFilters && (
             <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
               <div className="flex items-start gap-2 mb-3">
-                <svg className="w-5 h-5 text-blue-600 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M13 2a1 1 0 0 1 1 1v4.535a4 4 0 0 1 1.172 7.4l2.545 2.546a1 1 0 0 1-1.414 1.414l-2.546-2.545A4 4 0 1 1 10 7.535V3a1 1 0 0 1 1-1h2ZM8 13a2 2 0 1 0 3.446 1.342A2 2 0 0 0 8 13Z"/>
-                </svg>
+               <History className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">Version History Filters</h3>
                   <p className="text-xs text-gray-600 mt-0.5">
@@ -269,7 +287,7 @@ export default function SelectTemplate() {
                 {/* Revision Number */}
                 <div>
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 1 1-6.364 2.636L4 7V3h4L6.637 4.364A7 7 0 1 0 13 5"/></svg>
+                    <FileDigit color="#545454" />
                     Revision Number
                   </label>
                   <select
@@ -289,7 +307,7 @@ export default function SelectTemplate() {
         </div>
       </div>
 
-      {/* RESULTS SUMMARY (white background) */}
+      {/* RESULTS SUMMARY */}
       <div className="bg-white">
         <div className="px-8 py-4">
           <div className="flex items-center justify-between text-sm">
@@ -305,7 +323,7 @@ export default function SelectTemplate() {
         </div>
       </div>
 
-      {/* TEMPLATE GRID (white background) */}
+      {/* TEMPLATE GRID  */}
       <div className="bg-white">
         <div className="px-8 py-4">
           {loading ? (
@@ -334,29 +352,31 @@ export default function SelectTemplate() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-5 gap-6">
-              {filteredTemplates.map((t, i) => {
-                const id = t._id || t.id || i;
-                return (
-                  <TemplateCard
-                    key={id}
-                    template={t}
-                    user={user}
-                    onSelect={() => {
-                      const tid = t._id || t.id;
-                      navigate(`/templates/published/${tid}`, {
-                        state: { doc: t, sidebarActive: "Templates", backTo: "/documents" },
-                      });
-                    }}
-                  />
-                );
-              })}
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-5 gap-6">
+            {filteredTemplates.map((t, i) => {
+              const id = t._id || t.id || i;
+              return (
+                <PublishedCard
+                  key={id}
+                  template={t}
+                  user={user}
+                  onSelect={() => {
+                    const tid = t._id || t.id;
+                    navigate(`/templates/published/${tid}`, {
+                      state: { doc: t, sidebarActive: "Templates", backTo: "/documents" },
+                    });
+                  }}
+                  onAssign={handleAssign}
+                  onUnpublish={handleUnpublish}
+                />
+              );
+            })}
+          </div>
           )}
         </div>
       </div>
 
-      {/* PAGINATION (white background) */}
+      {/* PAGINATION  */}
       <div className="bg-white">
         <div className="px-8 py-6 border-t flex justify-center items-center gap-2">
           <button
