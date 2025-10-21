@@ -8,17 +8,6 @@ import Notification from "../models/notificationModel.js";
 // @access  Internal (Should be secured via Gateway/Internal Token)
 export const createInternalNotification = async (req, res) => {
   try {
-    // Diagnostic logging: show headers and env token for debugging (avoid leaking in production)
-    const receivedToken = req.headers['x-internal-token'] || req.headers['x-internal-token'.toLowerCase()];
-    console.log('Incoming internal notification request - headers X-Internal-Token present:', !!receivedToken);
-    // Validate internal token header
-    if (!receivedToken || receivedToken !== process.env.INTERNAL_TOKEN) {
-      console.warn('Rejected internal notification request - missing/invalid token');
-      // Log small payload preview to help debugging
-      console.log('Payload preview:', { message: req.body && req.body.message, targetedUserIds: req.body && req.body.targetedUserIds });
-      return res.status(403).json({ message: 'Forbidden' });
-    }
-
     const { recipientUser, recipientRoles, message, type, link, targetedUserIds } = req.body;
 
     // This block replaces the need for the Notification Service to fetch User data.
@@ -87,7 +76,7 @@ export const getNotifications = async (req, res) => {
         createdAt: notif.createdAt,
       };
     });
-
+console.log('Fetched notifications for user:', userId, userNotifications);
     res.json(userNotifications);
   } catch (error) {
     console.error('Error fetching notifications:', error);
