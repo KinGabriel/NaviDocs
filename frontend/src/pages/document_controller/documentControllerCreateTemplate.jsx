@@ -388,7 +388,7 @@ export default function DocumentControllerCreateTemplate() {
         );
       case "dateformat":
         return <DateFormatPanel value={dateFormat} onChange={setDateFormat} />;
-      case "headerfooter": // ✅ new panel hook-up
+      case "headerfooter":
         // Merge top-level stamp values into the logoConfig passed to the panel so
         // the panel shows authoritative values regardless of where they were stored.
         const headerValue = {
