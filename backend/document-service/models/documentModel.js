@@ -40,11 +40,12 @@ const DocumentSchema = new Schema({
   template_id: { type: Schema.Types.ObjectId, ref: 'Template', default: null },
   from_template: { type: FromTemplateSchema, default: () => ({}) },
   status: { type: String, default: 'draft' },
-  status_meta: { type: StatusMetaSchema, default: () => ({}) },
   field_values: { type: Schema.Types.Mixed, default: {} },
   notes: { type: [Schema.Types.Mixed], default: [] },
   assigned: [{ userId: { type: String, default: null }, access: { type: String, enum: ['viewer','editor'], default: 'viewer' } }],
   isArchived: { type: Boolean, default: false },
+  submission_link: { type: String, default: null },
+  deadline: { type: Date, default: null },
   thumbnailUrl: { type: String, default: null }
 }, { timestamps: true });
 
