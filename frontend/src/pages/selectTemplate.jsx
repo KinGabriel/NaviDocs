@@ -118,20 +118,6 @@ export default function SelectTemplate() {
   return () => { ignore = true; };
 }, [selectedSchool, search, sortOrder, pagination.currentPage, refreshTrigger]); 
 
-const handleAssign = (updatedTemplate) => {
-  // Update the template in the local state
-  setTemplates(prev => prev.map(t => 
-    (t._id || t.id) === (updatedTemplate._id || updatedTemplate.id) 
-      ? updatedTemplate 
-      : t
-  ));
-  setFilteredTemplates(prev => prev.map(t => 
-    (t._id || t.id) === (updatedTemplate._id || updatedTemplate.id) 
-      ? updatedTemplate 
-      : t
-  ));
-};
-
 const handleUnpublish = async (templateId) => {
   try {
     await unpublishTemplateAPI(templateId);
@@ -422,7 +408,6 @@ const handleUnpublish = async (templateId) => {
                       state: { doc: t, sidebarActive: "Templates", backTo: "/documents" },
                     });
                   }}
-                  onAssign={handleAssign}
                   onUnpublish={handleUnpublish}
                 />
               );
