@@ -746,8 +746,78 @@ export default function EditableFields() {
   const [autofillOpen, setAutofillOpen] = useState(false);
   const [autofillApplying, setAutofillApplying] = useState(false);
   const editorRef = useRef(null);
+  const [duplicateCounts, setDuplicateCounts] = useState({});
+  const [duplicateIndices, setDuplicateIndices] = useState({});
+  const duplicatePositionsRef = useRef({});
   const isApplyingRef = useRef(false);
   const updateTimerRef = useRef(null);
+
+  // compute positions of editableField nodes and update counts/indices
+  const computeDuplicatePositions = (editor) => {
+    try {
+      if (!editor || !editor.state) return;
+      const map = {};
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type && node.type.name === 'editableField') {
+          const key = node.attrs?.key || node.attrs?.name;
+          if (!key) return;
+          if (!map[key]) map[key] = [];
+          map[key].push(pos);
+        }
+      });
+      duplicatePositionsRef.current = map;
+      const counts = {};
+      Object.keys(map).forEach(k => { counts[k] = map[k].length; });
+      setDuplicateCounts(counts);
+      setDuplicateIndices(prev => {
+        const next = { ...(prev || {}) };
+        Object.keys(counts).forEach(k => {
+          if (!Object.prototype.hasOwnProperty.call(next, k)) next[k] = 0;
+          else if (next[k] >= counts[k]) next[k] = Math.max(0, counts[k] - 1);
+        });
+        return next;
+      });
+    } catch (err) {
+      console.debug('computeDuplicatePositions error', err);
+    }
+  };
+
+  const scrollToEditorPos = (editor, pos) => {
+    try {
+      if (!editor || !editor.view) return;
+      setTimeout(() => {
+        try {
+          const dom = editor.view.domAtPos(pos + 1);
+          if (dom && dom.node) {
+            const element = dom.node.nodeType === 3 ? dom.node.parentElement : dom.node;
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              element.style.transition = 'background-color 0.25s ease';
+              element.style.backgroundColor = '#fef3c7';
+              setTimeout(() => { element.style.backgroundColor = ''; }, 900);
+            }
+          }
+        } catch (e) { /* ignore */ }
+      }, 50);
+    } catch (err) {
+      console.debug('scrollToEditorPos error', err);
+    }
+  };
+
+  // cycle through duplicates (wrap-around)
+  const cycleDuplicate = (fieldName, direction = 'next') => {
+    const positions = duplicatePositionsRef.current[fieldName] || [];
+    if (!positions.length || !editorRef.current) return;
+    setDuplicateIndices(prev => {
+      const cur = prev?.[fieldName] ?? 0;
+      const len = positions.length;
+      const next = direction === 'next' ? (cur + 1) % len : (cur - 1 + len) % len;
+      const updated = { ...(prev || {}) };
+      updated[fieldName] = next;
+      scrollToEditorPos(editorRef.current, positions[next]);
+      return updated;
+    });
+  };
 
   // whether formData differs from last saved values
   const dirty = useMemo(() => {
@@ -996,12 +1066,21 @@ return (
               onChange={handleInputChange}
               onFocusField={(fieldName) => {
                 setCurrentField(fieldName);
-                // Scroll to and highlight the field in the editor when focused in the panel
-                if (editorRef.current) {
-                  scrollToAndHighlightField(editorRef.current, fieldName);
-                }
+                try {
+                  const positions = duplicatePositionsRef.current[fieldName] || [];
+                  if (positions.length > 0 && editorRef.current) {
+                    // focus first occurrence
+                    setDuplicateIndices(prev => ({ ...(prev || {}), [fieldName]: 0 }));
+                    scrollToEditorPos(editorRef.current, positions[0]);
+                  } else if (editorRef.current) {
+                    scrollToAndHighlightField(editorRef.current, fieldName);
+                  }
+                } catch (err) { console.debug('focus jump error', err); }
               }}
               user={user}
+              duplicateCounts={duplicateCounts}
+              duplicateIndices={duplicateIndices}
+              onCycleDuplicate={(fieldName, dir) => cycleDuplicate(fieldName, dir)}
             />
           ))
             )}
@@ -1101,6 +1180,8 @@ return (
                     try {
                       isApplyingRef.current = true;
                       applyFormDataToEditor(editor);
+                      // compute editableField positions/counts right after editor is ready
+                      try { computeDuplicatePositions(editor); } catch (e) { /* ignore */ }
                     } catch (err) {
                       console.debug('editableFields: error applying initial formData to editor', err);
                     } finally {
@@ -1130,6 +1211,9 @@ return (
                             });
                             return changed ? merged : prev;
                           });
+
+                          // keep duplicate positions/counts in sync when the editor content changes
+                          try { computeDuplicatePositions(editor); } catch (e) { /* ignore */ }
                         } catch (err) {
                           console.debug('editableFields: error reading editableField from editor', err);
                         }

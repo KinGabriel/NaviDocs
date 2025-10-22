@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import SectionHeader from "../../layout/editable_fields/sectionHeader";
 import { saveFieldSuggestionAPI } from "../../api/documentsAPI";
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function Panel({ number, title, color, fields, formData, onChange, onFocusField, user }) {
+export default function Panel({ number, title, color, fields, formData, onChange, onFocusField, user, duplicateCounts = {}, duplicateIndices = {}, onCycleDuplicate }) {
   // saving state and messages per field
   const [savingState, setSavingState] = useState({});
   const [saveMessage, setSaveMessage] = useState({}); 
@@ -55,9 +56,36 @@ export default function Panel({ number, title, color, fields, formData, onChange
       <div className="space-y-4 mt-4">
         {fields.map((field, idx) => {
           const fieldValue = formData?.[field.name] || "";
+          const dupCount = duplicateCounts[field.name] || 0;
+          const dupIndex = duplicateIndices[field.name] || 0;
           return (
             <div key={idx}>
-              <label className="block text-sm font-medium mb-1">{field.label}</label>
+              <label className="block text-sm font-medium mb-1 flex items-center justify-between">
+                <span>{field.label}</span>
+                {dupCount > 1 && (
+                  <div className="inline-flex items-center text-xs text-gray-600 space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => onCycleDuplicate && onCycleDuplicate(field.name, 'prev')}
+                      className="inline-flex items-center justify-center w-7 h-7 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                      title={`Previous occurrence (${dupIndex === 0 ? dupCount : dupIndex} of ${dupCount})`} 
+                      aria-label={`Previous occurrence of ${field.name}`}>
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    <span className="text-xs font-medium text-gray-700">{dupIndex + 1} / {dupCount}</span>
+
+                    <button
+                      type="button"
+                      onClick={() => onCycleDuplicate && onCycleDuplicate(field.name, 'next')}
+                      className="inline-flex items-center justify-center w-7 h-7 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                      title={`Next occurrence (${dupIndex + 2 > dupCount ? 1 : dupIndex + 2} of ${dupCount})`}
+                      aria-label={`Next occurrence of ${field.name}`}>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </label>
               {field.type === 'input' ? (
               <input 
                 type="text"
