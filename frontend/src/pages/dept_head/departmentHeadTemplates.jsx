@@ -169,13 +169,14 @@ export default function DepartmentHeadTemplates() {
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Templates" />
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+        {/* prevent horizontal overflow + responsive margins/padding */}
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
           <div className="flex-1 px-1 py-5">
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">TEMPLATES</h1>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
             {/* Filters */}
-            <div className="flex items-center justify-end gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 justify-start lg:justify-end">
                  <Dropdown
                    options={["All", ...Object.keys(schoolIdentifiers)]}
                    value={selectedSchool}
@@ -194,7 +195,7 @@ export default function DepartmentHeadTemplates() {
                 </div>
 
             {/* Templates Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
+            <div className="grid [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))] gap-5 sm:gap-6">
               {loading ? (
                 <div className="col-span-full text-center py-8">
                   <Loader message="Loading templates..." />
@@ -208,7 +209,7 @@ export default function DepartmentHeadTemplates() {
                 </div>
               ) : (
                 templates.map((template, i) => (
-                  <div key={template._id || i} className="flex flex-col">
+                  <div key={template._id || i} className="flex flex-col min-w-0">
                     {/* Click the card => open preview */}
                     <div
                       className="cursor-pointer"
