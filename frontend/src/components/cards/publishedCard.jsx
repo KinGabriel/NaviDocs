@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import AssignMembersModal from "../modals/assignMembersModal";
 import UnpublishModal from '../modals/unpublishModal';
-import { assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -14,62 +12,39 @@ export default function PublishedCard({
   user, 
   onApprove, 
   onPublish, 
-  onAssign,
   onUnpublish,
 }) {
 
   const [showMenu, setShowMenu] = useState(false);
-  const [assignOpen, setAssignOpen] = useState(false);
   const [unpublishOpen, setUnpublishOpen] = useState(false);
   const [unpublishing, setUnpublishing] = useState(false);
   const [unpublishError, setUnpublishError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const isAnyModalOpen = assignOpen || unpublishOpen;
   const [modalCloseTs, setModalCloseTs] = useState(0);
+
   const justClosedModal = () => setModalCloseTs(Date.now());
   const ignoreClickNow = () => (Date.now() - modalCloseTs) < 300;
-
-  const [selectedIds, setSelectedIds] = useState(() => {
-    try {
-      return Array.isArray(template?.assigned)
-        ? [...template.assigned]
-        : (Array.isArray(template?.assignees)
-          ? [...template.assignees]
-          : []);
-    } catch (e) {
-      return [];
-    }
-  });
+  const isAnyModalOpen = unpublishOpen;
 
   const canUnpublish = () => {
     if (!user || !template) return false;
-  
+
     const userId = user._id || user.id;
     const userRole = (typeof user?.role === 'string') ? user.role : user?.role?.name;
-  
+
     if (userRole === 'Document Controller') return true;
-  
+
     const ownerId = template.created_by?._id || template.created_by?.id || template.created_by;
     if (ownerId && String(ownerId) === String(userId)) return true;
-  
+
     const assigned = template.assigned || template.assignees || [];
-    const isAssigned = assigned.some(a => {
+    return assigned.some(a => {
       const assignedId = (typeof a === 'string')
         ? a
         : (a._id || a.id || a.userId || a.user);
       return assignedId && String(assignedId) === String(userId);
     });
-  
-    return isAssigned;
   };
-
-  useEffect(() => {
-    setSelectedIds(Array.isArray(template?.assigned)
-      ? [...template.assigned]
-      : (Array.isArray(template?.assignees)
-        ? [...template.assignees]
-        : []));
-  }, [template?.assigned, template?.assignees]);
 
   const getTemplateStatus = (template) => {
     if (typeof template.status === 'string') {
@@ -131,22 +106,9 @@ export default function PublishedCard({
   const handleMenuAction = (action, e) => {
     e.stopPropagation(); 
     setShowMenu(false);
-    
-    switch (action) {
-      case 'assign':
-        setSelectedIds(Array.isArray(template?.assigned)
-          ? [...template.assigned]
-          : (Array.isArray(template?.assignees)
-            ? [...template.assignees]
-            : []));
-        setAssignOpen(true);
-        break;
-      case 'unpublish':
-        setUnpublishError("");
-        setUnpublishOpen(true);
-        break;
-      default:
-        break;
+    if (action === 'unpublish') {
+      setUnpublishError("");
+      setUnpublishOpen(true);
     }
   };
 
@@ -172,11 +134,9 @@ export default function PublishedCard({
       setUnpublishing(true);
       setIsLoading(true);
       setUnpublishError("");
-      
       if (onUnpublish) {
         await onUnpublish(template._id);
       }
-
       setUnpublishOpen(false);
       justClosedModal();
     } catch (err) {
@@ -248,23 +208,12 @@ export default function PublishedCard({
               }
               alt="Template Thumbnail"
               className="object-contain w-full h-full rounded-t-lg"
-              style={{ maxHeight: 310, maxWidth: 280, background: '#f9fafb' }}
               loading="lazy"
             />
           ) : (
             <div className="text-center">
-              <svg 
-                className="mx-auto h-16 w-16 text-gray-300 mb-3" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={1} 
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
-                />
+              <svg className="mx-auto h-16 w-16 text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
               <span className="text-gray-400 text-sm">Document Preview</span>
               <p className="text-xs text-gray-300 mt-1">{template.document_size || 'A4'}</p>
@@ -301,7 +250,8 @@ export default function PublishedCard({
               </svg>
               <span>Created {formatDate(template.createdAt || template.created_at)}</span>
             </div>
-              {/* Approval role indicators */}
+
+       {/* Approval role indicators */}
           {approvalMeta && (
             <div className="flex items-center gap-2 mt-2">
               {['secretary','dean'].map(r => {
@@ -347,18 +297,6 @@ export default function PublishedCard({
               <>
                 <div className="fixed inset-0 z-[40]" onClick={() => setShowMenu(false)} />
                 <div className="absolute right-0 top-8 z-[9999] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    onClick={(e) => handleMenuAction('assign', e)}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 21a8 8 0 0 0-16 0"/>
-                      <circle cx="10" cy="8" r="5"/>
-                      <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/>
-                    </svg>
-                    Assign
-                  </button>
-
                   {canUnpublish() && (
                     <button
                       className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
@@ -393,39 +331,7 @@ export default function PublishedCard({
         </div>
       </div>
 
-      {/* Assign Modal */}
-      <AssignMembersModal
-        open={assignOpen}
-        onClose={() => { setAssignOpen(false); justClosedModal(); }}
-        template={template}
-        selectedIds={selectedIds}
-        setSelectedIds={setSelectedIds}
-        setTheDocController={(id) => console.log("Set controller:", id)}
-        onAssign={async (payload) => {
-          try {
-            const controllers = Array.isArray(payload)
-              ? payload
-              : (payload && (payload.assignees || payload.controllers)) || [];
-
-            const resp = await assignControllersToTemplateAPI(template._id, controllers);
-            if (resp && resp.success) {
-              if (typeof onAssign === 'function') {
-                onAssign(resp.template || template);
-              }
-            } else {
-              alert(resp?.message || 'Failed to assign controllers');
-            }
-          } catch (err) {
-            console.error('Assign controllers error', err);
-            alert(err.response?.data?.message || 'Error assigning controllers');
-          } finally {
-            setAssignOpen(false);
-            justClosedModal();
-          }
-        }}
-      />
-      
-      {/* Unpublish Modal*/}
+      {/* Unpublish Modal */}
       <UnpublishModal
         open={unpublishOpen}
         onClose={() => { setUnpublishOpen(false); justClosedModal(); }}
@@ -434,6 +340,7 @@ export default function PublishedCard({
         onConfirm={confirmUnpublish}
         submitting={unpublishing}
         error={unpublishError}
-      /> 
+      />
     </>
-  )};
+  );
+}
