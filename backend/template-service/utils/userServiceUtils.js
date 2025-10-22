@@ -1,6 +1,53 @@
 import axios from 'axios';
 
-const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:8001';
+const USER_SERVICE_URL = process.env.USER_SERVICE_URL || '';
+
+const getProfileEndpoint = (id) => `${USER_SERVICE_URL}/api/user/${encodeURIComponent(id)}`;
+const getEmailEndpoint = (id) => `${USER_SERVICE_URL}/api/user/getUserEmail/${encodeURIComponent(id)}`;
+
+/**
+ * Fetch a user profile (email, name, role). Tries profile endpoint first, falls back to email-only endpoint.
+ * @param {string} id
+ * @param {object} headers optional headers to forward
+ * @returns {Promise<{id:string,email:string,name?:string,role?:string}|null>} profile or null
+ */
+export async function fetchUserProfile(id, headers = {}) {
+  if (!id) return null;
+  try {
+    const resp = await axios.get(getProfileEndpoint(id), { headers, timeout: 8000 });
+    const data = resp?.data || {};
+    const email = data.email || data.emailAddress || null;
+    const firstname = data.firstname || data.firstName || data.first_name || '';
+    const lastname = data.lastname || data.lastName || data.last_name || '';
+    const name = [firstname, lastname].filter(Boolean).join(' ') || data.name || data.displayName || (email ? email.split('@')[0] : null);
+    const role = typeof data.role === 'string' ? data.role : (data.role?.name || null);
+    return email ? { id, email, name, role } : null;
+  } catch (err) {
+    // fallback to email-only endpoint
+    try {
+      const resp = await axios.get(getEmailEndpoint(id), { headers, timeout: 8000 });
+      const email = resp?.data?.email;
+      return email ? { id, email } : null;
+    } catch (err2) {
+      console.warn(`Failed to fetch user profile/email for ${id}:`, err2?.response?.status || err2?.message || err2);
+      return null;
+    }
+  }
+}
+
+/**
+ * Fetch multiple user profiles in parallel and return mapped results (skipping nulls)
+ * @param {string[]} ids
+ * @param {object} headers
+ */
+export async function fetchUsersProfiles(ids = [], headers = {}) {
+  if (!Array.isArray(ids) || ids.length === 0) return [];
+  const uniq = Array.from(new Set(ids.map(String)));
+  const results = await Promise.allSettled(uniq.map(id => fetchUserProfile(id, headers)));
+  return results
+    .map(r => (r.status === 'fulfilled' ? r.value : null))
+    .filter(Boolean);
+}
 
 /**
  * Build authentication headers for calls to the user service.
@@ -42,3 +89,5 @@ export const fetchUserInfoById = async (userId, req = {}, opts = { basic: false 
     return null;
   }
 };
+
+export default { fetchUserProfile, fetchUsersProfiles, buildUserServiceHeaders, fetchUserInfoById };

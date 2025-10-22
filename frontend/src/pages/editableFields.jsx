@@ -9,6 +9,7 @@ import fetchAndNormalizeDocument from "../utils/documentLoader";
 import { updateDocumentFieldValuesAPI, getFieldSuggestionsAPI, saveFieldSuggestionAPI } from "../api/documentsAPI";
 import AutofillModal from "../components/modals/autofillModal";
 import { useParams, useLocation } from "react-router-dom";
+import DownloadingModal from "../components/modals/downloadingModal";
 
 export default function EditableFields() {
   const user = useUser();
@@ -30,6 +31,63 @@ export default function EditableFields() {
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [docData, setDocData] = useState(null);
   const [docError, setDocError] = useState(null);
+  const [dlOpen, setDlOpen] = useState(false);
+  const [dlErr, setDlErr] = useState("");
+
+  const handleExportPDF = async () => {
+    try {
+      setDlErr("");
+      setDlOpen(true);
+      await new Promise(r => setTimeout(r, 1500));
+      setDlOpen(false);
+    } catch (err) {
+      console.error(err);
+      setDlErr(err?.message || "We couldn’t generate the PDF. Please try again.");
+    }
+  };
+
+  const scrollToAndHighlightField = (editor, fieldName) => {
+  if (!editor) return;
+  
+  try {
+    const { state } = editor;
+    let targetPos = null;
+    
+    // Find the position of the editableField node with matching key
+    state.doc.descendants((node, pos) => {
+      if (node.type && node.type.name === 'editableField') {
+        const key = node.attrs?.key;
+        if (key === fieldName) {
+          targetPos = pos;
+          return false; 
+        }
+      }
+    });
+    
+    if (targetPos !== null) {
+      // Scroll the field into view and highlight it
+      setTimeout(() => {
+        const dom = editor.view.domAtPos(targetPos + 1);
+        if (dom && dom.node) {
+          const element = dom.node.nodeType === 3 ? dom.node.parentElement : dom.node;
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // temporary highlight effect
+            element.style.transition = 'background-color 0.3s ease';
+            element.style.backgroundColor = '#fef3c7'; // Light yellow highlight
+            
+            setTimeout(() => {
+              element.style.backgroundColor = '';
+            }, 1000);
+          }
+        }
+      }, 50);
+    }
+  } catch (err) {
+    console.debug('Error scrolling to field:', err);
+  }
+};
 
  const TableManager = ({ editor }) => {
   const [showTableDialog, setShowTableDialog] = useState(false);
@@ -706,6 +764,7 @@ export default function EditableFields() {
       [field]: value,
     }));
   };
+
   // Apply formData (or a partial map) into editor's editableField nodes
   const applyFormDataToEditor = (editor, partial = null) => {
     if (!editor) return;
@@ -869,14 +928,17 @@ return (
   <>
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <EditableFieldsHeader
-        title={docData?.title || docData?.document?.title || 'Untitled Document'}
-        user={user}
-        setTitle={(t) => setDocData((d) => (d ? { ...d, title: t } : d))}
-        saving={saving}
-        lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : null}
-        dirty={dirty}
-        documentId={id}
-      />
+      title={docData?.title || docData?.document?.title || 'Untitled Document'}
+      user={user}
+      setTitle={(t) => setDocData((d) => (d ? { ...d, title: t } : d))}
+      saving={saving}
+      lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : null}
+      dirty={dirty}
+      documentId={id}
+      onExportPDF={handleExportPDF}
+      documentData={docData} 
+      onDocumentUpdate={(updates) => setDocData(d => d ? { ...d, ...updates } : d)} 
+    />
 
       <div className="flex flex-1">
         {/* Left Panel - Sticky */}
@@ -886,10 +948,11 @@ return (
             <ProgressNavigation panelsConfig={panelsToUse} />
           </div>
           
+
           <div className="sticky top-0 h-screen overflow-y-auto p-6 space-y-6 pt-20">{/* Added pt-20 to account for progress nav height */}
 
             {/* Clear All & Autofill Buttons */}
-            <div className="flex justify-end">
+            <div className="flex justify-end mb-4">
               <button
                 onClick={() => setShowClearModal(true)}
                 disabled={Object.keys(formData).length === 0}
@@ -919,22 +982,28 @@ return (
                   <div className="text-lg font-medium text-gray-700">No editable fields for this page</div>
                   <div className="text-sm text-gray-500">This page doesn't contain any editable placeholders. Please go to another page to edit fields</div>
                 </div>
-              </div>
+              </div> 
             ) : (
-              currentPanels.map((panel, idx) => (
-                <Panel
-                  key={idx}
-                  number={panel.number}
-                  title={panel.title}
-                  subtitle={panel.subtitle}
-                  color={panel.color}
-                  fields={panel.fields}
-                  formData={formData}
-                  onChange={handleInputChange}
-                  onFocusField={(fieldName) => setCurrentField(fieldName)}
-                  user={user}
-                />
-              ))
+             currentPanels.map((panel, idx) => (
+            <Panel
+              key={idx}
+              number={panel.number}
+              title={panel.title}
+              subtitle={panel.subtitle}
+              color={panel.color}
+              fields={panel.fields}
+              formData={formData}
+              onChange={handleInputChange}
+              onFocusField={(fieldName) => {
+                setCurrentField(fieldName);
+                // Scroll to and highlight the field in the editor when focused in the panel
+                if (editorRef.current) {
+                  scrollToAndHighlightField(editorRef.current, fieldName);
+                }
+              }}
+              user={user}
+            />
+          ))
             )}
 
             {/* Insertion of Table */}
@@ -1126,7 +1195,7 @@ return (
         </div>
       </div>
     )}
-    
+  
     {/* Autofill modal */}
     <AutofillModal
       open={autofillOpen}
@@ -1136,6 +1205,15 @@ return (
       onApply={handleApplyAutofill}
       applying={autofillApplying}
       user={user}
+    />
+
+    <DownloadingModal
+      open={dlOpen || !!dlErr}
+      isError={!!dlErr}
+      title="Downloading PDF…"
+      message="Your document is being prepared. This may take a few seconds."
+      errorText={dlErr}
+      onClose={() => { setDlOpen(false); setDlErr(""); }}
     />
   </>
 );

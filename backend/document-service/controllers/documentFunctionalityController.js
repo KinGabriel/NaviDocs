@@ -1,7 +1,9 @@
+
 import Document from '../models/documentModel.js';
 import axios from 'axios';
 import { createVersionData,deleteAllVersionPerDocument } from './documentVersionController.js';
 import VersionData from '../models/documentVersionModel.js';
+import { fetchUserInfoById } from '../utils/userServiceUtils.js';
 
 /**
  * @desc Create a new document based on a template's essential content.
@@ -145,7 +147,34 @@ export const getDocumentById = async (req, res) => {
     const { id } = req.params;
     if (!id) return res.status(400).json({ message: 'id required' });
     const doc = await Document.findById(id).lean();
-    if (!doc) return res.status(404).json({ message: 'document not found' });
+    if (!doc || doc.isArchived === true) return res.status(404).json({ message: 'document not found' });
+
+    // Best-effort: fetch creator's name from user service and attach it to the response
+    const fetchUserName = async (userId) => {
+      if (!userId) return null;
+      try {
+        // request detailed user info (not the basic endpoint) so we can prefer firstname/lastname
+        const info = await fetchUserInfoById(String(userId), req, { basic: false });
+        if (info) {
+          return `${info.firstname} ${info.lastname}`;
+        }
+      } catch (e) {
+        // swallow and return null
+      }
+      return null;
+    };
+
+    try {
+      const createdById = doc.created_by || doc.createdBy || null;
+      if (createdById) {
+        const name = await fetchUserName(createdById);
+        if (name) doc.createdByName = name;
+      }
+    } catch (e) {
+      console.warn('getDocumentById: failed to fetch creator info', e?.message || e);
+    }
+
+    console.log('getDocumentById', id, '->', doc);
     return res.json({ document: doc });
   } catch (err) {
     console.error('getDocumentById error', err);
@@ -172,8 +201,9 @@ export const listDocuments = async (req, res) => {
     const query = {
       $or: [
         { created_by: uid }, // documents created by user
-        { "from_template.assigned": uid } // documents assigned to user
-      ]
+        { assigned: { $elemMatch: { userId: uid } } } // documents assigned to user
+      ],
+      isArchived: { $ne: true }
     };
 
     const numericLimit = Math.min(Number(limit) || 200, 1000);
@@ -295,13 +325,40 @@ export const deleteDocumentById = async (req, res) => {
     const doc = await Document.findById(id);
     if (!doc) return res.status(404).json({ message: 'document not found' });
 
-    // Delete the document
-    await Document.deleteOne({ _id: id });
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    // delete all version data for this document
-    await deleteAllVersionPerDocument(id);
+    // If user is owner, delete document and all versions
+    if (String(doc.created_by) === String(userId)) {
+      await Document.deleteOne({ _id: id });
+      await deleteAllVersionPerDocument(id);
+      return res.json({ success: true, message: 'Document deleted successfully' });
+    }
 
-    res.json({ success: true, message: 'Document deleted successfully' });
+    // If user is assigned, remove their id from assigned array
+    let changed = false;
+    if (Array.isArray(doc.assigned)) {
+      // Support both string and object-shaped entries
+      const before = doc.assigned.length;
+      doc.assigned = doc.assigned.filter(a => {
+        if (!a) return false;
+        if (typeof a === 'string' || typeof a === 'number') {
+          return String(a) !== String(userId);
+        } else if (typeof a === 'object') {
+          const aid = a.userId || a.id || a._id || a.user;
+          return String(aid) !== String(userId);
+        }
+        return true;
+      });
+      if (doc.assigned.length !== before) changed = true;
+    }
+
+    if (changed) {
+      await doc.save();
+      return res.json({ success: true, message: 'Removed from assigned list' });
+    } else {
+      return res.status(403).json({ message: 'Not authorized to delete this document or not assigned' });
+    }
   } catch (err) {
     console.error('deleteDocumentById error', err);
     res.status(500).json({ message: 'Failed to delete document', error: err.message });
@@ -348,5 +405,90 @@ export const duplicateDocumentById = async (req, res) => {
   } catch (err) {
     console.error('duplicateDocumentById error', err);
     res.status(500).json({ message: 'Failed to duplicate document', error: err.message });
+  }
+};
+
+/**
+ * @desc Archive a document by its ID
+ * @route PATCH /api/documents/:id/archive
+ * @param {*} req
+ */
+export const archiveDocumentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'id required' });
+    const doc = await Document.findById(id);
+    if (!doc) return res.status(404).json({ message: 'document not found' });
+
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    // If user is owner, archive document
+    if (String(doc.created_by) === String(userId)) {
+      doc.isArchived = true;
+      await doc.save();
+      return res.json({ success: true, message: 'Document archived successfully', document: doc });
+    }
+
+    // If user is assigned, remove their id from assigned array
+    let changed = false;
+    if (Array.isArray(doc.assigned)) {
+      const before = doc.assigned.length;
+      doc.assigned = doc.assigned.filter(a => {
+        if (!a) return false;
+        if (typeof a === 'string' || typeof a === 'number') {
+          return String(a) !== String(userId);
+        } else if (typeof a === 'object') {
+          const aid = a.userId || a.id || a._id || a.user;
+          return String(aid) !== String(userId);
+        }
+        return true;
+      });
+      if (doc.assigned.length !== before) changed = true;
+    }
+
+    if (changed) {
+      await doc.save();
+      return res.json({ success: true, message: 'Removed from assigned list' });
+    } else {
+      return res.status(403).json({ message: 'Not authorized to archive this document or not assigned' });
+    }
+  } catch (err) {
+    console.error('archiveDocumentById error', err);
+    res.status(500).json({ message: 'Failed to archive document', error: err.message });
+  }
+};
+
+/**
+ * List archived documents for current user
+ * @route GET /api/documents/archived
+ */
+export const listArchivedDocuments = async (req, res) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const { limit = 200, page = 1 } = req.query;
+    const uid = req.user.id;
+    const query = {
+      $or: [
+        { created_by: uid },
+        { assigned: { $elemMatch: { userId: uid } } }
+      ],
+      isArchived: true
+    };
+    const numericLimit = Math.min(Number(limit) || 200, 1000);
+    const numericPage = Math.max(Number(page) || 1, 1);
+    const documents = await Document.find(query)
+      .sort({ updatedAt: -1, updated_at: -1, createdAt: -1, created_at: -1 })
+      .limit(numericLimit)
+      .skip((numericPage - 1) * numericLimit)
+      .lean();
+    const totalCount = await Document.countDocuments(query);
+    const totalPages = Math.max(1, Math.ceil(totalCount / numericLimit));
+    res.json({ documents, pagination: { total_count: totalCount, total_pages: totalPages, page: numericPage, limit: numericLimit } });
+  } catch (err) {
+    console.error("listArchivedDocuments error:", err);
+    res.status(500).json({ message: "Failed to list archived documents", error: err.message });
   }
 };

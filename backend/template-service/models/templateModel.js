@@ -70,7 +70,8 @@ const templateSchema = new mongoose.Schema({
     created_at: { type: Date, default: Date.now }
   }],
   deadline:{ type: Date, default: null },
-  assigned: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+  assigned: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  isArchived: { type: Boolean, default: false },
 }, { timestamps: true });
 
 // to check if both dean & secretary approvals are complete (Virtual)

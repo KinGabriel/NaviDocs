@@ -1,3 +1,4 @@
+
 import Template from "../models/templateModel.js";
 import { getSchoolCode, buildApprovalMeta, statusQuery } from "../utils/templateUtils.js";
 import { generateTemplateThumbnail } from "../utils/thumbnailUtils.js";
@@ -303,7 +304,7 @@ export const deleteTemplate = async (req, res) => {
  */
 export const getTemplateById = async (req, res) => {
   try {
-    const template = await Template.findById(req.params.id);
+  const template = await Template.findOne({ _id: req.params.id, $or: [{ isArchived: { $exists: false } }, { isArchived: false }] });
     if (!template) {
       return res.status(404).json({ 
         success: false,
@@ -402,6 +403,9 @@ export const getTemplates = async (req, res) => {
         { assigned: req.user.id },
         { "status_meta.approvals.dean.assigned_to": req.user.id },
         { "status_meta.approvals.secretary.assigned_to": req.user.id }
+      ],
+      $and: [
+        { $or: [{ isArchived: { $exists: false } }, { isArchived: false }] }
       ]
     };
 
@@ -521,7 +525,7 @@ export const getTemplatesByUser = async (req, res) => {
     const { status, limit = 20, page = 1 } = req.query;
     
     // Build query
-    let query = { created_by: req.params.userId };
+  let query = { created_by: req.params.userId, $or: [{ isArchived: { $exists: false } }, { isArchived: false }] };
     
     // Filter by status if provided
     if (status && ['draft','pending','approved','published'].includes(status)) {
@@ -574,7 +578,7 @@ export const getPublishedTemplates = async (req, res) => {
     const { school, search, limit = 50, page = 1 } = req.query;
 
     // Base query: published templates
-    let query = { status: 'published' };
+  let query = { status: 'published', $or: [{ isArchived: { $exists: false } }, { isArchived: false }] };
 
     // If a specific school is requested (and not 'All'), restrict by that school's document_code
     // and include FAA-VAA global templates as well.
@@ -754,5 +758,186 @@ export const generateTemplateThumbnailInternal = async (template) => {
   } catch (error) {
     console.error("Error generating thumbnail (internal):", error);
     return null;
+  }
+};
+
+/**
+ * @desc Archive template
+ * @route PATCH /api/templates/:id/archive
+ * @access Private (Creator, Admin, or Assigned)
+ */
+export const archiveTemplate = async (req, res) => {
+  try {
+    const template = await Template.findById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ success: false, message: 'Template not found' });
+    }
+
+    const requesterId = req.user && req.user.id ? String(req.user.id) : null;
+    const isOwner = template.created_by && String(template.created_by) === requesterId;
+    const isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'Admin' || req.user.isAdmin);
+    // Support both string and object-shaped assigned entries
+    const assignedArr = Array.isArray(template.assigned) ? template.assigned : [];
+    const isAssigned = assignedArr.some(a => {
+      if (!a) return false;
+      if (typeof a === 'string' || typeof a === 'number') return String(a) === requesterId;
+      if (typeof a === 'object' && a._id) return String(a._id) === requesterId;
+      if (typeof a === 'object' && a.$oid) return String(a.$oid) === requesterId;
+      return false;
+    });
+
+    // If owner or admin, archive template
+    if (isOwner || isAdmin) {
+      template.isArchived = true;
+      await template.save();
+      return res.status(200).json({ success: true, message: 'Template archived successfully', template });
+    }
+
+    // If assigned, remove self from assigned array (support both shapes)
+    if (isAssigned) {
+      // Only allow removal if status is draft, rejected, or approved
+      const allowedStatuses = ['draft', 'rejected', 'approved'];
+      if (!allowedStatuses.includes(String(template.status))) {
+        return res.status(403).json({ success: false, message: 'Not authorized to remove assignment unless template is draft, rejected, or approved' });
+      }
+      // Remove all entries matching user id
+      template.assigned = assignedArr.filter(a => {
+        if (!a) return false;
+        if (typeof a === 'string' || typeof a === 'number') return String(a) !== requesterId;
+        if (typeof a === 'object' && a._id) return String(a._id) !== requesterId;
+        if (typeof a === 'object' && a.$oid) return String(a.$oid) !== requesterId;
+        return true;
+      });
+      await template.save();
+      return res.status(200).json({ success: true, message: 'Removed from assigned list', template });
+    }
+
+    // Not owner/admin/assigned -> forbidden
+    return res.status(403).json({ success: false, message: 'Not authorized to archive this template' });
+  } catch (error) {
+    console.error('Error archiving template:', error);
+    res.status(500).json({ success: false, message: 'Failed to archive template', error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
+  }
+};
+
+/**
+ * @desc Get all archived templates with filtering and pagination
+ * @route GET /api/templates/archived
+ * @access Private
+ */
+export const getArchivedTemplates = async (req, res) => {
+  try {
+    const { school, status, search, limit = 50, page = 1 } = req.query;
+
+    let query = {
+      isArchived: true,
+      $or: [
+        { created_by: req.user.id },
+        { assigned: req.user.id },
+        { "status_meta.approvals.dean.assigned_to": req.user.id },
+        { "status_meta.approvals.secretary.assigned_to": req.user.id }
+      ]
+    };
+
+    // School filtering
+    if (school && school !== 'All') {
+      const schoolCode = getSchoolCode(school);
+      query.document_code = { $regex: `^FM-${schoolCode}-\\d+$`, $options: 'i' };
+    }
+
+    // Status filtering
+    Object.assign(query, statusQuery(status));
+
+    // Search
+    if (search) {
+      query.$or = [
+        { $and: [ { $or: [
+          { created_by: req.user.id },
+          { assigned: req.user.id },
+          { "status_meta.approvals.dean.assigned_to": req.user.id },
+          { "status_meta.approvals.secretary.assigned_to": req.user.id }
+        ] }, { title: { $regex: search, $options: 'i' } } ] },
+        { $and: [ { $or: [
+          { created_by: req.user.id },
+          { assigned: req.user.id },
+          { "status_meta.approvals.dean.assigned_to": req.user.id },
+          { "status_meta.approvals.secretary.assigned_to": req.user.id }
+        ] }, { document_code: { $regex: search, $options: 'i' } } ] }
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Fetch templates with pagination
+    const templates = await Template.find(query)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Template.countDocuments(query);
+
+    // Fetch creator and assigned names using shared userService helper
+    const withMeta = await Promise.all(templates.map(async t => {
+      let createdByName = null;
+      let assignedNames = [];
+      try {
+        if (t.created_by) {
+          try {
+            const info = await fetchUserInfoById(String(t.created_by), req, { basic: true });
+            if (info && (info.firstname || info.lastname)) createdByName = [info.firstname, info.lastname].filter(Boolean).join(' ');
+          } catch (e) {
+            createdByName = null;
+          }
+        }
+
+        if (Array.isArray(t.assigned) && t.assigned.length > 0) {
+          assignedNames = await Promise.all(t.assigned.map(async userId => {
+            try {
+              const info = await fetchUserInfoById(String(userId), req, { basic: true });
+              if (info && (info.firstname || info.lastname)) return [info.firstname, info.lastname].filter(Boolean).join(' ');
+            } catch (e) {
+              return null;
+            }
+            return null;
+          }));
+        }
+      } catch (err) {
+        createdByName = null;
+      }
+
+      return {
+        ...t.toObject(),
+        approvalMeta: buildApprovalMeta(t, req.user?.id),
+        createdByName,
+        assignedNames
+      };
+    }));
+    res.status(200).json({
+      success: true,
+      message: 'Archived templates retrieved successfully',
+      data: {
+        templates: withMeta,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(total / parseInt(limit)),
+          total_templates: total,
+          has_next: skip + templates.length < total,
+          has_prev: parseInt(page) > 1,
+          per_page: parseInt(limit)
+        },
+        filters_applied: {
+          school: school || 'All',
+          status: status || 'All',
+          search: search || null
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching archived templates:', error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching archived templates",
+    });
   }
 };

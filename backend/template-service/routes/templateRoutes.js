@@ -9,8 +9,11 @@ import {
         getTemplatesByUser,
         getPublishedTemplates,
         duplicateTemplate,
-        renameTemplate
+        renameTemplate,
+        archiveTemplate,
+        getArchivedTemplates
 } from "../controllers/templateFunctionalitiesController.js";
+
 
 
 import {
@@ -52,6 +55,7 @@ router.get("/dashboard-info", authenticateJWT, dashboardInfo);
 router.get("/stats", authenticateJWT, getTemplateStats);
 router.get("/published", authenticateJWT, getPublishedTemplates);
 router.get("/user/:userId", authenticateJWT, getTemplatesByUser);
+router.get("/archived", authenticateJWT, getArchivedTemplates);
 router.get("/:id", authenticateJWT, getTemplateById);
 router.get('/:id/versions', authenticateJWT, listTemplateVersions);
 router.get('/:id/versions/:versionId', authenticateJWT, getTemplateVersion);
@@ -68,10 +72,12 @@ router.patch("/:id/return", authenticateJWT, returnTemplate);
 router.patch("/:id/reject", authenticateJWT, rejectTemplate);
 router.patch("/:id/add-note", authenticateJWT, addTemplateNote);
 router.patch("/:id/adjust-deadline", authenticateJWT, adjustTemplateDeadline);
+router.patch('/:id/archive', authenticateJWT, archiveTemplate);
 router.delete("/:id", authenticateJWT, deleteTemplate);
 router.patch("/:id/insert-document-code", authenticateJWT, insertDocumentCode);
 router.patch("/:id/rename", authenticateJWT, renameTemplate);
 router.post("/:id/duplicate", authenticateJWT, duplicateTemplate);
 router.post("/:id/duplicate-version", authenticateJWT, duplicateTemplateFromVersion);
+
 
 export default router;

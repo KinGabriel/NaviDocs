@@ -31,6 +31,7 @@ export const createInternalNotification = async (req, res) => {
       isRead: initialReadStatus,
     });
 
+    console.log('Saving new notification for targeted users:', Object.keys(initialReadStatus));
     await newNotification.save();
     res.status(201).json({ message: 'Notification created successfully', notificationId: newNotification._id });
   } catch (error) {
@@ -46,8 +47,8 @@ export const createInternalNotification = async (req, res) => {
 export const getNotifications = async (req, res) => {
   // Assuming the Gateway has validated the token and injected user details into req.user 
   // (e.g., { id: 'user_id_string', role: 'faculty' })
-  const userId = req.user.id; 
-  const userRole = req.user.role; 
+  const userId = req.user.id ||  req.user._id ; 
+  const userRole = req.user.role || req.user.role.name; 
 
   try {
     const notifications = await Notification.find({
@@ -75,7 +76,7 @@ export const getNotifications = async (req, res) => {
         createdAt: notif.createdAt,
       };
     });
-
+console.log('Fetched notifications for user:', userId, userNotifications);
     res.json(userNotifications);
   } catch (error) {
     console.error('Error fetching notifications:', error);

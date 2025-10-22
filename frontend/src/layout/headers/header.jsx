@@ -14,12 +14,55 @@ const API_URL =
 export default function Header({ user }) {
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
-  const [notifications] = useState([
-    { message: "Document approved", time: "2 min ago", unread: true },
-    { message: "New user registered", time: "10 min ago", unread: false },
-    { message: "Template updated", time: "1 hour ago", unread: true }
-  ]);
+  const [notifications, setNotifications] = useState([]);
   const bellRef = useRef();
+
+  // Poll notifications every 30s
+  useEffect(() => {
+    let mounted = true;
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch('/api/notifications', { credentials: 'include' });
+        if (!mounted) return;
+        if (res.ok) {
+          const data = await res.json();
+          // Expecting array: { _id, message, link, isRead, createdAt }
+          setNotifications(data.map(n => ({
+            id: n._id,
+            message: n.message,
+            link: n.link,
+            isRead: !!n.isRead,
+            createdAt: n.createdAt
+          })));
+        }
+      } catch (err) {
+        console.error('Failed to fetch notifications:', err);
+      }
+    };
+
+    fetchNotifications();
+    const id = setInterval(fetchNotifications, 30000);
+    return () => { mounted = false; clearInterval(id); };
+  }, []);
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const markAsRead = async (id) => {
+    try {
+      await fetch(`/api/notifications/${id}/read`, { method: 'PATCH', credentials: 'include' });
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch (err) {
+      console.error('Failed to mark notification as read', err);
+    }
+  };
+
+  const handleNotificationSelect = (n) => {
+    if (!n) return;
+    markAsRead(n.id);
+    setShowDropdown(false);
+    // Navigate to the link within app
+    if (n.link) navigate(n.link);
+  };
 
   /**
    * @function handleLogout
@@ -69,7 +112,7 @@ export default function Header({ user }) {
           >
             <img src={notifIcon} alt="Notifications" className="h-6 w-6" />
             {/* Notification badge */}
-            {notifications.some(n => n.unread) && (
+            {unreadCount > 0 && (
               <span style={{
                 position: "absolute",
                 top: 6,
@@ -84,13 +127,14 @@ export default function Header({ user }) {
                 alignItems: "center",
                 justifyContent: "center"
               }}>
-                {notifications.filter(n => n.unread).length}
+                {unreadCount}
               </span>
             )}
             {showDropdown && (
               <NotificationDropdown
                 notifications={notifications}
                 onClose={() => setShowDropdown(true)}
+                onSelect={handleNotificationSelect}
               />
             )}
           </div>

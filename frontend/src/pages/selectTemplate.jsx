@@ -2,38 +2,33 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../layout/headers/header";
 import useUser from "../hooks/useUser";
-import TemplateCard from "../components/cards/templatecard";
+import PublishedCard from "../components/cards/publishedCard"; 
 import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
 import usePagination from "../hooks/usePagination";
-import { fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
-import { History, FileText, RotateCcw, Filter } from "lucide-react";
+import { fetchPublishedTemplatesAPI, unpublishTemplateAPI } from "../api/documentContollerAPI";
+import { History, FileText, RotateCcw, SlidersHorizontal, FileDigit, FileCode, X } from "lucide-react";
 import Loader from "../components/loader";  
 
 export default function SelectTemplate() {
   const navigate = useNavigate();
-  const user = useUser(); // <-- same as secretaryTemplates
+  const user = useUser(); 
 
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState("Recent");
   const [selectedSchool, setSelectedSchool] = useState("All");
-
-  // Version-history filters
   const [selectedDocumentCode, setSelectedDocumentCode] = useState("All");
   const [selectedRevision, setSelectedRevision] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
-
   const [templates, setTemplates] = useState([]);
   const [filteredTemplates, setFilteredTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
-
   const [documentCodes, setDocumentCodes] = useState([]);
   const [revisionNumbers, setRevisionNumbers] = useState([]);
-
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const PAGE_SIZE = 10;
   const pagination = usePagination(totalPages, 1);
-
   const schoolIdentifiers = {
     "University Wide": "VAA",
     SAMCIS: "SMI",
@@ -76,53 +71,78 @@ export default function SelectTemplate() {
 
   // Fetch templates
   useEffect(() => {
-    let ignore = false;
-    const fetchPublished = async () => {
-      setLoading(true);
-      try {
-        const params = { limit: PAGE_SIZE, page: pagination.currentPage };
-        if (selectedSchool && selectedSchool !== "All") params.school = selectedSchool;
-        if (search && search.trim()) params.search = search.trim();
+  let ignore = false;
+  const fetchPublished = async () => {
+    setLoading(true);
+    try {
+      const params = { limit: PAGE_SIZE, page: pagination.currentPage };
+      if (selectedSchool && selectedSchool !== "All") params.school = selectedSchool;
+      if (search && search.trim()) params.search = search.trim();
 
-        const result = await fetchPublishedTemplatesAPI(params);
+      const result = await fetchPublishedTemplatesAPI(params);
 
-        let arr = [];
-        if (result?.success && result.data?.templates) {
-          arr = result.data.templates;
-          setTotalPages(result.data.pagination?.total_pages || 1);
-        } else if (result?.templates) {
-          arr = result.templates;
-          setTotalPages(1);
-        } else if (Array.isArray(result)) {
-          arr = result;
-          setTotalPages(1);
-        }
-
-        if (sortOrder === "A-Z") arr.sort((a, b) => a.title.localeCompare(b.title));
-        if (sortOrder === "Z-A") arr.sort((a, b) => b.title.localeCompare(a.title));
-        if (sortOrder === "Recent") {
-          arr.sort(
-            (a, b) =>
-              new Date(b.createdAt || b.created_at) -
-              new Date(a.createdAt || a.created_at)
-          );
-        }
-
-        if (!ignore) setTemplates(arr);
-      } catch {
-        if (!ignore) {
-          setTemplates([]);
-          setTotalPages(1);
-        }
-      } finally {
-        if (!ignore) setLoading(false);
+      let arr = [];
+      if (result?.success && result.data?.templates) {
+        arr = result.data.templates;
+        setTotalPages(result.data.pagination?.total_pages || 1);
+      } else if (result?.templates) {
+        arr = result.templates;
+        setTotalPages(1);
+      } else if (Array.isArray(result)) {
+        arr = result;
+        setTotalPages(1);
       }
-    };
 
-    fetchPublished();
-    return () => { ignore = true; };
-  }, [selectedSchool, search, sortOrder, pagination.currentPage]);
+      if (sortOrder === "A-Z") arr.sort((a, b) => a.title.localeCompare(b.title));
+      if (sortOrder === "Z-A") arr.sort((a, b) => b.title.localeCompare(a.title));
+      if (sortOrder === "Recent") {
+        arr.sort(
+          (a, b) =>
+            new Date(b.createdAt || b.created_at) -
+            new Date(a.createdAt || a.created_at)
+        );
+      }
 
+      if (!ignore) setTemplates(arr);
+    } catch {
+      if (!ignore) {
+        setTemplates([]);
+        setTotalPages(1);
+      }
+    } finally {
+      if (!ignore) setLoading(false);
+    }
+  };
+
+  fetchPublished();
+  return () => { ignore = true; };
+}, [selectedSchool, search, sortOrder, pagination.currentPage, refreshTrigger]); 
+
+const handleAssign = (updatedTemplate) => {
+  // Update the template in the local state
+  setTemplates(prev => prev.map(t => 
+    (t._id || t.id) === (updatedTemplate._id || updatedTemplate.id) 
+      ? updatedTemplate 
+      : t
+  ));
+  setFilteredTemplates(prev => prev.map(t => 
+    (t._id || t.id) === (updatedTemplate._id || updatedTemplate.id) 
+      ? updatedTemplate 
+      : t
+  ));
+};
+
+const handleUnpublish = async (templateId) => {
+  try {
+    await unpublishTemplateAPI(templateId);
+    // Refresh the templates list
+    setRefreshTrigger(prev => prev + 1);
+    return { success: true };
+  } catch (err) {
+    console.error('Unpublish error:', err);
+    throw err;
+  }
+};
   // Reset filters
   const handleResetFilters = () => {
     setSelectedDocumentCode("All");
@@ -207,9 +227,7 @@ export default function SelectTemplate() {
                 }`}
               >
                 {/* Version Filters toggle */}
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h18M6 8h12M9 12h6m-9 4h12M3 20h18" />
-                </svg>
+                <SlidersHorizontal className="w-4 h-4" />
                 Version Filters
                 {activeFiltersCount > 0 && (
                   <span className="ml-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full font-semibold">
@@ -223,22 +241,18 @@ export default function SelectTemplate() {
                   onClick={handleResetFilters}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v6h6M20 20v-6h-6M20 4l-6 6M4 20l6-6" />
-                  </svg>
+                  <RotateCcw className="w-4 h-4" />
                   Reset
                 </button>
               )}
             </div>
           </div>
 
-          {/* Version Filters panel (still inside subheader) */}
+          {/* Version Filters panel */}
           {showFilters && (
             <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
               <div className="flex items-start gap-2 mb-3">
-                <svg className="w-5 h-5 text-blue-600 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M13 2a1 1 0 0 1 1 1v4.535a4 4 0 0 1 1.172 7.4l2.545 2.546a1 1 0 0 1-1.414 1.414l-2.546-2.545A4 4 0 1 1 10 7.535V3a1 1 0 0 1 1-1h2ZM8 13a2 2 0 1 0 3.446 1.342A2 2 0 0 0 8 13Z"/>
-                </svg>
+               <History className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">Version History Filters</h3>
                   <p className="text-xs text-gray-600 mt-0.5">
@@ -251,7 +265,7 @@ export default function SelectTemplate() {
                 {/* Document Code */}
                 <div>
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/></svg>
+                    <FileCode className="w-4 h-4" />
                     Document Code
                   </label>
                   <select
@@ -269,7 +283,7 @@ export default function SelectTemplate() {
                 {/* Revision Number */}
                 <div>
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 1 1-6.364 2.636L4 7V3h4L6.637 4.364A7 7 0 1 0 13 5"/></svg>
+                    <FileDigit className="w-4 h-4" />
                     Revision Number
                   </label>
                   <select
@@ -284,12 +298,75 @@ export default function SelectTemplate() {
                   </select>
                 </div>
               </div>
+
+              {/* Active Filters Tags */}
+              {activeFiltersCount > 0 && (
+                <div className="mt-4 pt-4 border-t border-blue-200">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                      Active Filters:
+                    </span>
+                    
+                    {selectedSchool !== "All" && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                        <span>School: {selectedSchool}</span>
+                        <button
+                          onClick={() => setSelectedSchool("All")}
+                          className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                          aria-label="Remove school filter"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedDocumentCode !== "All" && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-200 text-purple-700 rounded-full text-xs font-medium">
+                        <span>Code: {selectedDocumentCode}</span>
+                        <button
+                          onClick={() => setSelectedDocumentCode("All")}
+                          className="hover:bg-violet-200 rounded-full p-0.5 transition-colors"
+                          aria-label="Remove document code filter"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedRevision !== "All" && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                        <span>Revision: {selectedRevision}</span>
+                        <button
+                          onClick={() => setSelectedRevision("All")}
+                          className="hover:bg-green-200 rounded-full p-0.5 transition-colors"
+                          aria-label="Remove revision filter"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    {search.trim() !== "" && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                        <span>Search: "{search}"</span>
+                        <button
+                          onClick={() => setSearch("")}
+                          className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                          aria-label="Remove search filter"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* RESULTS SUMMARY (white background) */}
+      {/* RESULTS SUMMARY*/}
       <div className="bg-white">
         <div className="px-8 py-4">
           <div className="flex items-center justify-between text-sm">
@@ -298,14 +375,11 @@ export default function SelectTemplate() {
               <span className="font-semibold text-gray-900">{filteredTemplates.length}</span> of{" "}
               <span className="font-semibold text-gray-900">{templates.length}</span> templates
             </div>
-            {filteredTemplates.length !== templates.length && (
-              <div className="text-blue-600 font-medium">Filtered results active</div>
-            )}
           </div>
         </div>
       </div>
 
-      {/* TEMPLATE GRID (white background) */}
+      {/* TEMPLATE GRID  */}
       <div className="bg-white">
         <div className="px-8 py-4">
           {loading ? (
@@ -334,29 +408,31 @@ export default function SelectTemplate() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-5 gap-6">
-              {filteredTemplates.map((t, i) => {
-                const id = t._id || t.id || i;
-                return (
-                  <TemplateCard
-                    key={id}
-                    template={t}
-                    user={user}
-                    onSelect={() => {
-                      const tid = t._id || t.id;
-                      navigate(`/templates/published/${tid}`, {
-                        state: { doc: t, sidebarActive: "Templates", backTo: "/documents" },
-                      });
-                    }}
-                  />
-                );
-              })}
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-5 gap-6">
+            {filteredTemplates.map((t, i) => {
+              const id = t._id || t.id || i;
+              return (
+                <PublishedCard
+                  key={id}
+                  template={t}
+                  user={user}
+                  onSelect={() => {
+                    const tid = t._id || t.id;
+                    navigate(`/templates/published/${tid}`, {
+                      state: { doc: t, sidebarActive: "Templates", backTo: "/documents" },
+                    });
+                  }}
+                  onAssign={handleAssign}
+                  onUnpublish={handleUnpublish}
+                />
+              );
+            })}
+          </div>
           )}
         </div>
       </div>
 
-      {/* PAGINATION (white background) */}
+      {/* PAGINATION  */}
       <div className="bg-white">
         <div className="px-8 py-6 border-t flex justify-center items-center gap-2">
           <button

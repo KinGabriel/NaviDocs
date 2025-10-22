@@ -482,3 +482,54 @@ export const restoreTemplateVersionAPI = async (templateId, versionId) => {
     throw new Error(err.response?.data?.message || 'Failed to restore template version');
   }
 };
+/**
+ * Archive a template by ID. If owner/admin, sets isArchived=true. If assigned, removes user from assigned.
+ * @param {string} templateId - Template MongoDB ObjectId
+ * @returns {Promise<{success:boolean,message:string,template?:Object}>}
+ */
+export const archiveTemplateAPI = async (templateId) => {
+  try {
+    const res = await axios.patch(`${API_URL}/api/templates/${templateId}/archive`, {}, {
+      withCredentials: true,
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to archive template');
+  }
+};
+
+/**
+ * Fetch archived templates with optional school, status, and search filters.
+ * Calls backend: GET /api/templates/archived
+ * @param {Object} params - { selectedSchool, selectedStatus, search, PAGE_SIZE, currentPage }
+ * @returns {Promise<{success:boolean,message:string,data:{templates:Array,pagination:Object,filters_applied:Object}}>} API response
+ */
+export const fetchArchivedTemplatesAPI = async ({ 
+  selectedSchool, 
+  selectedStatus, 
+  search, 
+  PAGE_SIZE, 
+  currentPage 
+}) => {
+  const params = {};
+  if (selectedSchool !== 'All') params.school = selectedSchool;
+  if (selectedStatus !== 'All') {
+    const statusMap = {
+      'Draft': 'draft',
+      'Pending Approval': 'pending',
+      'Approved': 'approved',
+      'Published': 'published',
+      'Rejected': 'rejected',
+      'Returned': 'returned'
+    };
+    params.status = statusMap[selectedStatus] || selectedStatus;
+  }
+  if (search && search.trim()) params.search = search.trim();
+  params.limit = PAGE_SIZE;
+  params.page = currentPage;
+  const res = await axios.get(`${API_URL}/api/templates/archived`, {
+    params,
+    withCredentials: true,
+  });
+  return res.data;
+};

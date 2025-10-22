@@ -1,4 +1,3 @@
-
 import axios from "axios";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -312,3 +311,55 @@ export const duplicateDocumentFromVersionAPI = async (documentId, versionNoOrId,
 		throw new Error(error.response?.data?.message || 'Failed to duplicate document from version');
 	}
 };
+/**
+ * Share a document by user IDs only.
+ * @param {string} documentId
+ * @param {Array<Object>|Array<string>} assignees - array of assignee objects ({ userId, access }) or legacy array of userId strings
+ */
+export const shareDocumentAPI = async (documentId, assignees = []) => {
+	try {
+		// Forward the assignees array as-is. Server will normalize entries.
+		const body = { assignees: Array.isArray(assignees) ? assignees : [] };
+		const res = await axios.post(`${API_URL}/api/documents/${documentId}/share`, body, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		// Attach server response for callers to inspect
+		const message = error.response?.data?.message || error.message || 'Failed to share document';
+		const err = new Error(message);
+		err.responseData = error.response?.data;
+		err.status = error.response?.status;
+		throw err;
+	}
+};
+
+/**
+ * Archive a document by id
+ * If owner, sets isArchived=true. If assigned, removes user from assigned.
+ * @param {string} documentId
+ */
+export const archiveDocumentAPI = async (documentId) => {
+  try {
+    const res = await axios.patch(`${API_URL}/api/documents/${documentId}/archive`, {}, { withCredentials: true });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to archive document');
+  }
+};
+
+/**
+ * List archived documents for current user
+ * @param {Object} params - Query params (page, limit)
+ * @returns {Promise<Object>} - API response data (should include pagination)
+ */
+export const listArchivedDocumentsAPI = async (params = {}) => {
+  try {
+    const res = await axios.get(`${API_URL}/api/documents/archived`, {
+      params,
+      withCredentials: true,
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Failed to list archived documents");
+  }
+};
+

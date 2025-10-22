@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import RenameModal from '../modals/renameModal';
-import AssignMembersModal from '../modals/assignMembersModal';
+import ShareDocumentModal from '../modals/shareDocumentModal';
 import DuplicateModal from '../modals/duplicateModal';
 import DeleteModal from '../modals/deleteModal';
 import { toast } from 'react-hot-toast';
 
 import { assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
-import { renameDocumentAPI, deleteDocumentAPI,duplicateDocumentAPI } from "../../api/documentsAPI";
+import { renameDocumentAPI, deleteDocumentAPI,duplicateDocumentAPI, shareDocumentAPI } from "../../api/documentsAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -87,23 +87,31 @@ export default function DocumentCard({
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => {
     try {
-      return Array.isArray(document?.assigned)
-        ? [...document.assigned]
-        : (Array.isArray(document?.assignees)
-            ? [...document.assignees]
-            : (Array.isArray(document?.collaborators) ? [...document.collaborators] : []));
+      const extractId = (a) => {
+        if (!a) return null;
+        if (typeof a === 'string' || typeof a === 'number') return String(a);
+        if (typeof a === 'object') return String(a.userId || a.id || a._id || a.user || '');
+        return null;
+      };
+      const src = Array.isArray(document?.assigned) ? document.assigned
+        : (Array.isArray(document?.assignees) ? document.assignees
+          : (Array.isArray(document?.collaborators) ? document.collaborators : []));
+      return Array.isArray(src) ? src.map(extractId).filter(Boolean) : [];
     } catch {
       return [];
     }
   });
   useEffect(() => {
-    setSelectedIds(
-      Array.isArray(document?.assigned)
-        ? [...document.assigned]
-        : (Array.isArray(document?.assignees)
-            ? [...document.assignees]
-            : (Array.isArray(document?.collaborators) ? [...document.collaborators] : []))
-    );
+    const extractId = (a) => {
+      if (!a) return null;
+      if (typeof a === 'string' || typeof a === 'number') return String(a);
+      if (typeof a === 'object') return String(a.userId || a.id || a._id || a.user || '');
+      return null;
+    };
+    const src = Array.isArray(document?.assigned) ? document.assigned
+      : (Array.isArray(document?.assignees) ? document.assignees
+        : (Array.isArray(document?.collaborators) ? document.collaborators : []));
+    setSelectedIds(Array.isArray(src) ? src.map(extractId).filter(Boolean) : []);
   }, [document?.assigned, document?.assignees, document?.collaborators]);
 
   // Duplicate
@@ -180,6 +188,29 @@ export default function DocumentCard({
       } catch (err) {
       console.error('Assign error:', err);
       toast.error(err?.response?.data?.message || 'Error assigning members');
+    } finally {
+      setAssignOpen(false);
+    }
+  };
+
+  const handleShare = async (payload) => {
+    try {
+      const members = Array.isArray(payload)
+        ? payload
+        : (payload?.assignees || payload?.controllers || payload?.members || []);
+      const resp = await shareDocumentAPI(document._id, members);
+      if (resp && (resp.success || resp.document)) {
+        toast.success('Document shared');
+        const updated = resp.document || document;
+        if (typeof onAssign === 'function') onAssign(updated);
+        else if (typeof onRename === 'function') onRename(updated);
+        else window.location.reload();
+      } else {
+        toast.error(resp?.message || 'Failed to share document');
+      }
+    } catch (err) {
+      console.error('Share error:', err);
+      toast.error(err?.response?.data?.message || 'Error sharing document');
     } finally {
       setAssignOpen(false);
     }
@@ -382,7 +413,7 @@ export default function DocumentCard({
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    Delete  
+                    Archive  
                   </button>
                 </div>
               </>
@@ -401,15 +432,15 @@ export default function DocumentCard({
         onSubmit={handleRename}
       />
 
-      {/* Assign Modal */}
-      <AssignMembersModal
+      {/* Share Modal (replaces Assign) */}
+      <ShareDocumentModal
         open={assignOpen}
         onClose={() => setAssignOpen(false)}
         template={document}
         selectedIds={selectedIds}
         setSelectedIds={setSelectedIds}
-        setTheDocController={() => {}}
-        onAssign={handleAssign}
+        onShare={handleShare}
+        submitting={false}
       />
 
       {/* Duplicate Modal */} 
