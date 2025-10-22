@@ -37,6 +37,7 @@ const DocumentSchema = new Schema({
   title: { type: String, required: true },
   created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   school: { type: String, default: '' },
+  department: { type: String, default: null },
   template_id: { type: Schema.Types.ObjectId, ref: 'Template', default: null },
   from_template: { type: FromTemplateSchema, default: () => ({}) },
   status: { type: String, default: 'draft' },

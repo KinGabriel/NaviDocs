@@ -93,6 +93,8 @@ export const createDocument = async (req, res) => {
 
     // set school from req.user if present
     doc.school = req.user?.school || req.user?.role?.school || '';
+  // set department from authenticated user or payload
+  doc.department = req.user?.department || req.user?.role?.department || payload.department || null;
 
     await doc.save();
     //  create initial version data if caller supplied version info

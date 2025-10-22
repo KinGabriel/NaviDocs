@@ -196,7 +196,10 @@ export const assignFacultyByDeptHead = async (req, res) => {
 		const docToCreate = new Document({ ...payload });
 		// set submission_link if provided
 		if (payload.submission_link) docToCreate.submission_link = payload.submission_link;
+		// set school and department from authenticated user when available
 		docToCreate.school = req.user?.school || req.user?.role?.school || payload.school || '';
+		docToCreate.department = req.user?.department || req.user?.role?.department || payload.department || null;
+
 
 		// mark document as assigned
 		docToCreate.status = 'assigned';
@@ -283,6 +286,10 @@ export const submitDocumentLink = async (req, res) => {
 		}
 
 		// set submission link and mark status as submitted
+		// load document to update
+		const doc = await Document.findById(id);
+		if (!doc) return res.status(404).json({ message: 'document not found' });
+
 		doc.submission_link = finalLink;
 		doc.status = 'submitted';
 
