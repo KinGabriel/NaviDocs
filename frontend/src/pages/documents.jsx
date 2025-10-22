@@ -30,7 +30,6 @@ export default function GlobalTemplates() {
   const [selectedSchool, setSelectedSchool] = useState("All");
   const statusOptions = ["All", "Draft", "Pending Approval", "Approved", "Published"];
 
-  // derive initial selectedStatus from navigation state or query (?status=)
   const deriveInitialStatus = () => {
     const fromState = location.state?.status;
     const fromQuery = searchParams.get("status");
@@ -42,16 +41,13 @@ export default function GlobalTemplates() {
   const [selectedStatus, setSelectedStatus] = useState(deriveInitialStatus());
   const [sortOrder, setSortOrder] = useState("Recent");
 
-  // sync when navigated with a different state/query later
   useEffect(() => {
     const next = deriveInitialStatus();
     setSelectedStatus(next);
-    // reset to first page when arriving with a filter
     pagination.handlePage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state, searchParams]);
 
-  // Card components manage their own rename/delete UI; parent only needs to update local list
   const [selectOpen, setSelectOpen] = useState(false);
   const [publishedLoading, setPublishedLoading] = useState(false);
   const [publishedTemplatesCache, setPublishedTemplatesCache] = useState([]);
@@ -67,7 +63,6 @@ export default function GlobalTemplates() {
 
   const PAGE_SIZE = 8;
 
-  // view mode ("table" | "grid")
   const [viewMode, setViewMode] = useState("grid");
 
   const fetchTemplates = async () => {
@@ -92,7 +87,6 @@ export default function GlobalTemplates() {
 
       const result = await listDocumentsAPI(params);
 
-      // backend returns { documents: [...] } (and may include pagination fields)
       let templatesArray = [];
       if (result && Array.isArray(result.documents)) {
         templatesArray = result.documents;
@@ -141,7 +135,6 @@ export default function GlobalTemplates() {
     setTemplates((prev) => prev.filter((t) => (t._id || t.id) !== id));
   };
 
-  // Aggregate fields across all known templates (both listed and published cache).
   const extractFieldsFromDoc = (doc) => {
     if (!doc) return [];
     const fromFields = doc?.from_template?.fields || doc?.fields || doc?.template?.fields;
@@ -202,7 +195,6 @@ export default function GlobalTemplates() {
   });
   const fields = Array.from(map.values());
 
-  // ---------- Helpers for table view ----------
   const StatusPill = ({ value }) => {
     const val = (value || "").toString();
     return (
@@ -234,7 +226,6 @@ export default function GlobalTemplates() {
     }
   };
 
-  // Table columns (read-only actions)
   const columns = [
     { key: "title", label: "Template Name", render: (row) => row.title || "Untitled" },
     {
@@ -272,16 +263,18 @@ export default function GlobalTemplates() {
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Documents" />
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+        {/* Prevent horizontal overflow inside the white panel */}
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
           <div className="flex-1 px-1 py-5">
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">
               DOCUMENTS
             </h1>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
-            <div className="flex items-center justify-between gap-2 mb-4">
-              {/* Select Template Button */}
-              <div className="flex-1 flex justify-start ml-1">
+            {/* Controls Row */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+              {/* Buttons stack on small screens */}
+              <div className="flex flex-col sm:flex-row gap-3 justify-start ml-1">
                 <button
                   onClick={() => navigate("/select-template")}
                   className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
@@ -293,17 +286,11 @@ export default function GlobalTemplates() {
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   Select Template
                 </button>
 
-                {/* Manage Suggestions Button */}
                 <button
                   onClick={async () => {
                     try {
@@ -328,29 +315,25 @@ export default function GlobalTemplates() {
 
                       if (docsRes && Array.isArray(docsRes.documents))
                         setDocumentsCache(docsRes.documents);
-                      else if (docsRes && docsRes.success && Array.isArray(docsRes.data?.documents))
+                      else if (docsRes?.success && Array.isArray(docsRes.data?.documents))
                         setDocumentsCache(docsRes.data.documents);
                       else if (Array.isArray(docsRes)) setDocumentsCache(docsRes);
                     } catch (err) {
-                      console.error(
-                        "Failed to prefetch published templates or documents:",
-                        err
-                      );
+                      console.error("Failed to prefetch published templates or documents:", err);
                     } finally {
                       setPublishedLoading(false);
                       setDocumentsCacheLoading(false);
                       setManageOpen(true);
                     }
                   }}
-                  className="ml-3 flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 font-semibold px-4 py-2 rounded shadow transition-colors border"
+                  className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 font-semibold px-4 py-2 rounded shadow transition-colors border"
                 >
                   Manage saved values
                 </button>
               </div>
 
-              {/* Controls */}
+              {/* Filters + Search + View toggle */}
               <div className="flex items-center gap-2">
-                {/* School Filter */}
                 <Dropdown
                   options={["All", ...Object.keys(schoolIdentifiers)]}
                   value={selectedSchool}
@@ -361,7 +344,6 @@ export default function GlobalTemplates() {
                   width="w-50"
                 />
 
-                {/* Sort Order */}
                 <Dropdown
                   options={["Recent", "A-Z", "Z-A"]}
                   value={sortOrder}
@@ -372,7 +354,6 @@ export default function GlobalTemplates() {
                   width="w-36"
                 />
 
-                {/* Search Bar */}
                 <div className="w-64">
                   <SearchBar
                     value={search}
@@ -381,7 +362,6 @@ export default function GlobalTemplates() {
                   />
                 </div>
 
-                {/* View toggle pill (list/grid) */}
                 <ViewToggle mode={viewMode} onChange={setViewMode} />
               </div>
             </div>
@@ -417,7 +397,11 @@ export default function GlobalTemplates() {
                 <Table columns={columns} data={templates} />
               )
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
+              /* 
+                 Auto-fill grid prevents overlap by creating as many 280px+ columns as fit.
+                 min-w-0 wrapper prevents children from spilling out of their cell.
+              */
+              <div className="grid [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))] gap-5 sm:gap-6">
                 {loading ? (
                   <div className="col-span-full text-center py-8">
                     <Loader message="Loading documents..." />
@@ -430,14 +414,17 @@ export default function GlobalTemplates() {
                   templates.map((template, i) => {
                     const id = template._id || i;
                     return (
-                      <DocumentCard
-                        key={id}
-                        document={template}
-                        user={user}
-                        onSelect={() => handleView(template)}
-                        onRename={(updated) => handleCardRename(updated)}
-                        onDelete={(deleted) => handleCardDelete(deleted)}
-                      />
+                      <div key={id} className="min-w-0">
+                        {/* Ensure the card fits its grid cell */}
+                        <DocumentCard
+                          document={{ ...template }}
+                          user={user}
+                          className="w-full"
+                          onSelect={() => handleView(template)}
+                          onRename={(updated) => handleCardRename(updated)}
+                          onDelete={(deleted) => handleCardDelete(deleted)}
+                        />
+                      </div>
                     );
                   })
                 )}
@@ -484,7 +471,6 @@ export default function GlobalTemplates() {
         </div>
       </div>
 
-      {/* DocumentCard handles rename/delete modals and API calls. Parent updates local list via callbacks. */}
       <ManageSuggestionsModal
         open={manageOpen}
         onClose={() => setManageOpen(false)}
@@ -500,7 +486,6 @@ function ViewToggle({ mode = "grid", onChange }) {
   const isTable = mode === "table";
   return (
     <div className="inline-flex items-stretch rounded-full border border-gray-300 overflow-hidden">
-      {/* List / Table */}
       <button
         type="button"
         onClick={() => onChange("table")}
@@ -511,15 +496,9 @@ function ViewToggle({ mode = "grid", onChange }) {
         title="List view"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M4 7h16M4 12h16M4 17h16"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
+          <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </button>
-      {/* Grid */}
       <button
         type="button"
         onClick={() => onChange("grid")}
