@@ -36,6 +36,7 @@ import EditableFields from './pages/editableFields';
 import Storage from './pages/storage';
 import SelectTemplate from './pages/selectTemplate'; 
 import { Toaster } from 'react-hot-toast';
+import RecentlyDeleted from "./pages/recentlyDeleted";
 
 /** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {
@@ -329,6 +330,15 @@ function App() {
       </ProtectedRoute>
        }
       />
+
+      <Route
+        path="/recently-deleted"
+        element={
+          <ProtectedRoute allowedRoles={["Document Controller", "Dean", "Department Head", "Secretary", "Faculty"]}>
+            <RecentlyDeleted />
+          </ProtectedRoute>
+        }
+       />
 
        {/* Error Pages */}
        <Route path="*" element={<NotFoundPage />} />
