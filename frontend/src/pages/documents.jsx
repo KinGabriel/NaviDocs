@@ -30,11 +30,6 @@ export default function GlobalTemplates() {
   const [selectedSchool, setSelectedSchool] = useState("All");
   const statusOptions = ["All", "Draft", "Pending Approval", "Approved", "Published"];
 
-  const [showDeleted, setShowDeleted] = useState(false);
-  const [deletedDocs, setDeletedDocs] = useState([]);
-  const [deletedLoading, setDeletedLoading] = useState(false);
-  const [deletedTotalPages, setDeletedTotalPages] = useState(1);
-
   // derive initial selectedStatus from navigation state or query (?status=)
   const deriveInitialStatus = () => {
     const fromState = location.state?.status;
@@ -126,48 +121,8 @@ export default function GlobalTemplates() {
     }
   };
 
-  // fetch deleted documents
-  const fetchDeleted = async () => {
-    if (!user || !showDeleted) return;
-    setDeletedLoading(true);
-    try {
-      const params = {
-        limit: PAGE_SIZE,
-        page: pagination.currentPage,
-        deleted: true, // <- soft-deleted filter (backend should handle)
-        search: search?.trim() || undefined,
-      };
-      const result = await listDocumentsAPI(params);
-
-      let arr = [];
-      if (result && Array.isArray(result.documents)) {
-        arr = result.documents;
-        setDeletedTotalPages(result.pagination?.total_pages || 1);
-      } else if (result?.success && Array.isArray(result.data?.documents)) {
-        arr = result.data.documents;
-        setDeletedTotalPages(result.data?.pagination?.total_pages || 1);
-      } else if (Array.isArray(result)) {
-        arr = result;
-        setDeletedTotalPages(1);
-      }
-      // Optional sort by deletedAt desc if present
-      arr.sort((a, b) => {
-        const ad = new Date(a.deletedAt || a.updatedAt || 0).getTime();
-        const bd = new Date(b.deletedAt || b.updatedAt || 0).getTime();
-        return bd - ad;
-      });
-      setDeletedDocs(arr);
-    } catch (e) {
-      setDeletedDocs([]);
-      setDeletedTotalPages(1);
-    } finally {
-      setDeletedLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (showDeleted) fetchDeleted();
-    else fetchTemplates();
+    fetchTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
@@ -312,37 +267,6 @@ export default function GlobalTemplates() {
     },
   ];
 
-  const deletedColumns = [
-    { key: "title", label: "Document Name", render: (row) => row.title || "Untitled" },
-    {
-      key: "assignedTo",
-      label: "Assigned To",
-      render: (row) => {
-        const list = row.assignedNames || row.assigned || [];
-        if (Array.isArray(list) && list.length) return list.filter(Boolean).join(", ");
-        return row.createdByName || row.created_by_name || "-";
-      },
-    },
-    {
-      key: "deletedAt",
-      label: "Deleted On",
-      render: (row) =>
-        row.deletedAt
-          ? new Date(row.deletedAt).toLocaleString()
-          : row.updatedAt
-          ? new Date(row.updatedAt).toLocaleString()
-          : "-",
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      render: () => (
-        <span className="text-gray-400 text-sm">No actions</span>
-        // Later: add Restore / Delete Permanently if API supports it
-      ),
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
@@ -359,98 +283,74 @@ export default function GlobalTemplates() {
               
               {/* Select Template Button */}
               <div className="flex-1 flex justify-start ml-1">
-                {!showDeleted && (
-                  <>
-                    <button
-                      onClick={() => navigate("/select-template")}
-                      className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
-                      Select Template
-                    </button>
+                <button
+                  onClick={() => navigate("/select-template")}
+                  className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  Select Template
+                </button>
 
-                    {/* Manage Suggestions Button */}
-                    <button
-                      onClick={async () => {
-                        try {
-                          setPublishedLoading(true);
-                          setDocumentsCacheLoading(true);
+                {/* Manage Suggestions Button */}
+                <button
+                  onClick={async () => {
+                    try {
+                      setPublishedLoading(true);
+                      setDocumentsCacheLoading(true);
 
-                          const [pubRes, docsRes] = await Promise.all([
-                            fetchPublishedTemplatesAPI({
-                              limit: PAGE_SIZE,
-                              page: pagination.currentPage,
-                            }),
-                            listDocumentsAPI({
-                              limit: PAGE_SIZE,
-                              page: pagination.currentPage,
-                            }),
-                          ]);
+                      const [pubRes, docsRes] = await Promise.all([
+                        fetchPublishedTemplatesAPI({
+                          limit: PAGE_SIZE,
+                          page: pagination.currentPage,
+                        }),
+                        listDocumentsAPI({
+                          limit: PAGE_SIZE,
+                          page: pagination.currentPage,
+                        }),
+                      ]);
 
-                          if (pubRes?.success && pubRes.data?.templates)
-                            setPublishedTemplatesCache(pubRes.data.templates);
-                          else if (pubRes?.templates) setPublishedTemplatesCache(pubRes.templates);
-                          else if (Array.isArray(pubRes)) setPublishedTemplatesCache(pubRes);
+                      if (pubRes?.success && pubRes.data?.templates)
+                        setPublishedTemplatesCache(pubRes.data.templates);
+                      else if (pubRes?.templates) setPublishedTemplatesCache(pubRes.templates);
+                      else if (Array.isArray(pubRes)) setPublishedTemplatesCache(pubRes);
 
-                          if (docsRes && Array.isArray(docsRes.documents))
-                            setDocumentsCache(docsRes.documents);
-                          else if (docsRes && docsRes.success && Array.isArray(docsRes.data?.documents))
-                            setDocumentsCache(docsRes.data.documents);
-                          else if (Array.isArray(docsRes)) setDocumentsCache(docsRes);
-                        } catch (err) {
-                          console.error(
-                            "Failed to prefetch published templates or documents:",
-                            err
-                          );
-                        } finally {
-                          setPublishedLoading(false);
-                          setDocumentsCacheLoading(false);
-                          setManageOpen(true);
-                        }
-                      }}
-                      className="ml-3 flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 font-semibold px-4 py-2 rounded shadow transition-colors border"
-                    >
-                      Manage saved values
-                    </button>
-                  </>
-                )}
-                  </div>
+                      if (docsRes && Array.isArray(docsRes.documents))
+                        setDocumentsCache(docsRes.documents);
+                      else if (docsRes && docsRes.success && Array.isArray(docsRes.data?.documents))
+                        setDocumentsCache(docsRes.data.documents);
+                      else if (Array.isArray(docsRes)) setDocumentsCache(docsRes);
+                    } catch (err) {
+                      console.error(
+                        "Failed to prefetch published templates or documents:",
+                        err
+                      );
+                    } finally {
+                      setPublishedLoading(false);
+                      setDocumentsCacheLoading(false);
+                      setManageOpen(true);
+                    }
+                  }}
+                  className="ml-3 flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 font-semibold px-4 py-2 rounded shadow transition-colors border"
+                >
+                  Manage saved values
+                </button>
+              </div>
 
               {/* Controls */}
               <div className="flex items-center gap-2">
-                
-                {/* Recently Deleted */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    // switch view; reset to page 1 for clarity
-                    pagination.handlePage(1);
-                    setShowDeleted((s) => !s);
-                  }}
-                  className={`p-2 rounded-lg border transition-colors ${
-                    showDeleted ? "bg-red-100 border-red-300 text-red-700" : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                  }`}
-                  aria-label="Recently deleted"
-                  title="Recently deleted"
-                >
-                  {/* Trash icon */}
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path d="M3 6h18M9 6v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
 
                 {/* School Filter */}
                 <Dropdown
@@ -488,81 +388,33 @@ export default function GlobalTemplates() {
               </div>
             </div>
 
-            {!showDeleted && (
-              <div className="mb-6 border-b border-gray-200">
-                <div className="flex space-x-8">
-                  {statusOptions.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => {
-                        setSelectedStatus(opt);
-                        pagination.handlePage(1);
-                      }}
-                      className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                        selectedStatus === opt
-                          ? "border-blue-600 text-blue-600"
-                          : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
+            <div className="mb-6 border-b border-gray-200">
+              <div className="flex space-x-8">
+                {statusOptions.map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => {
+                      setSelectedStatus(opt);
+                      pagination.handlePage(1);
+                    }}
+                    className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                      selectedStatus === opt
+                        ? "border-blue-600 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
 
             {/* CONTENT */}
-            {showDeleted ? (
-              deletedLoading ? (
-                <div className="w-full flex justify-center py-10">
-                  <Loader message="Loading recently deleted..." />
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-xl font-semibold text-gray-800">Recently Deleted</h2>
-                  </div>
-
-                  {viewMode === "table" ? (
-                    <Table columns={deletedColumns} data={deletedDocs} />
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
-                      {deletedDocs.length === 0 ? (
-                        <div className="col-span-full text-center py-8">
-                          <p className="text-gray-600">No deleted documents</p>
-                        </div>
-                      ) : (
-                        deletedDocs.map((template, i) => {
-                          const id = template._id || i;
-                          return (
-                            <div key={id} className="relative">
-                              {/* subtle 'Deleted' badge */}
-                              <span className="absolute top-2 right-2 z-10 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
-                                Deleted
-                              </span>
-
-                              <DocumentCard
-                                document={template}
-                                user={user}
-                                onSelect={() => {
-                                // You can route to a read-only detail view, or do nothing
-                                // navigate(`/documents/${template._id || id}`)  // optional
-                              }}
-                              // omit onRename/onDelete to keep card read-only here
-                            />
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                  )}
-                </>
-              )
-            ) : viewMode === "table" ? (
-              loading ? (
-                <div className="w-full flex justify-center py-10">
-                  <Loader message="Loading documents..." />
-                </div>
+            {viewMode === "table" ? (
+            loading ? (
+              <div className="w-full flex justify-center py-10">
+                <Loader message="Loading documents..." />
+              </div>
               ) : (
                 <Table columns={columns} data={templates} />
               )
@@ -624,7 +476,7 @@ export default function GlobalTemplates() {
               )}
               <button
                 onClick={pagination.handleNext}
-                disabled={pagination.currentPage === (showDeleted ? deletedTotalPages : totalPages)}
+                disabled={pagination.currentPage === totalPages}
                 className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
                 Next
