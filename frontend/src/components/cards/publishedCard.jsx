@@ -23,6 +23,7 @@ export default function PublishedCard({
   const [unpublishOpen, setUnpublishOpen] = useState(false);
   const [unpublishing, setUnpublishing] = useState(false);
   const [unpublishError, setUnpublishError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const isAnyModalOpen = assignOpen || unpublishOpen;
   const [modalCloseTs, setModalCloseTs] = useState(0);
   const justClosedModal = () => setModalCloseTs(Date.now());
@@ -30,37 +31,44 @@ export default function PublishedCard({
 
   const [selectedIds, setSelectedIds] = useState(() => {
     try {
-      return Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []);
+      return Array.isArray(template?.assigned)
+        ? [...template.assigned]
+        : (Array.isArray(template?.assignees)
+          ? [...template.assignees]
+          : []);
     } catch (e) {
       return [];
     }
   });
 
   const canUnpublish = () => {
-  if (!user || !template) return false;
+    if (!user || !template) return false;
   
-  const userId = user._id || user.id;
-  const userRole = (typeof user?.role === 'string') ? user.role : user?.role?.name;
+    const userId = user._id || user.id;
+    const userRole = (typeof user?.role === 'string') ? user.role : user?.role?.name;
   
-  // Document Controller can always unpublish
-  if (userRole === 'Document Controller') return true;
+    if (userRole === 'Document Controller') return true;
   
-  // Owner can unpublish
-  const ownerId = template.created_by?._id || template.created_by?.id || template.created_by;
-  if (ownerId && String(ownerId) === String(userId)) return true;
+    const ownerId = template.created_by?._id || template.created_by?.id || template.created_by;
+    if (ownerId && String(ownerId) === String(userId)) return true;
   
-  // Assigned members can unpublish
-  const assigned = template.assigned || template.assignees || [];
-  const isAssigned = assigned.some(a => {
-    const assignedId = (typeof a === 'string') ? a : (a._id || a.id || a.userId || a.user);
-    return assignedId && String(assignedId) === String(userId);
-  });
+    const assigned = template.assigned || template.assignees || [];
+    const isAssigned = assigned.some(a => {
+      const assignedId = (typeof a === 'string')
+        ? a
+        : (a._id || a.id || a.userId || a.user);
+      return assignedId && String(assignedId) === String(userId);
+    });
   
-  return isAssigned;
-};
+    return isAssigned;
+  };
 
   useEffect(() => {
-    setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
+    setSelectedIds(Array.isArray(template?.assigned)
+      ? [...template.assigned]
+      : (Array.isArray(template?.assignees)
+        ? [...template.assignees]
+        : []));
   }, [template?.assigned, template?.assignees]);
 
   const getTemplateStatus = (template) => {
@@ -126,7 +134,11 @@ export default function PublishedCard({
     
     switch (action) {
       case 'assign':
-        setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
+        setSelectedIds(Array.isArray(template?.assigned)
+          ? [...template.assigned]
+          : (Array.isArray(template?.assignees)
+            ? [...template.assignees]
+            : []));
         setAssignOpen(true);
         break;
       case 'unpublish':
@@ -155,23 +167,25 @@ export default function PublishedCard({
     if (onPublish) onPublish(template);
   };
 
- const confirmUnpublish = async () => {
-  try {
-    setUnpublishing(true);
-    setUnpublishError("");
-    
-    if (onUnpublish) {
-      await onUnpublish(template._id);
+  const confirmUnpublish = async () => {
+    try {
+      setUnpublishing(true);
+      setIsLoading(true);
+      setUnpublishError("");
+      
+      if (onUnpublish) {
+        await onUnpublish(template._id);
+      }
+
+      setUnpublishOpen(false);
+      justClosedModal();
+    } catch (err) {
+      setUnpublishError(err?.response?.data?.message || err?.message || 'Error unpublishing template');
+    } finally {
+      setUnpublishing(false);
+      setIsLoading(false);
     }
-    
-    setUnpublishOpen(false);
-    justClosedModal();
-  } catch (err) {
-    setUnpublishError(err?.response?.data?.message || err?.message || 'Error unpublishing template');
-  } finally {
-    setUnpublishing(false);
-  }
-};
+  };
 
   const guardMouseDown = (e) => {
     if (isAnyModalOpen || ignoreClickNow()) {
@@ -219,7 +233,7 @@ export default function PublishedCard({
           )}
         </div>
 
-        {/*  Document Preview or Thumbnail */}
+        {/* Document Preview or Thumbnail */}
         <div 
           className="w-full h-[310px] bg-gray-50 flex items-center justify-center border-b border-gray-300 hover:bg-gray-100 transition-colors rounded-t-lg"
           onMouseDown={guardMouseDown}
@@ -258,39 +272,36 @@ export default function PublishedCard({
           )}
         </div>
 
-      {/*  Footer with dynamic content */}
-      <div className="flex items-start justify-between px-4 py-3 relative overflow-visible">
-        <div className="flex-1 min-w-0">
-          {/*  Template Title */}
-          <p className="text-sm font-medium text-gray-900 leading-tight truncate" title={template.title}>
-            {template.title || 'Untitled Template'}
-          </p>
-          
+        {/* Footer */}
+        <div className="flex items-start justify-between px-4 py-3 relative overflow-visible">
+          <div className="flex-1 min-w-0">
+            {/*  Template Title */}
+            <p className="text-sm font-medium text-gray-900 leading-tight truncate" title={template.title}>
+              {template.title || 'Untitled Template'}
+            </p>
+            
           {/* Document Code */}
-          <p className="text-xs text-blue-600 font-mono mt-1">
-            {template.document_code || 'No Code'}
-          </p>
-          
-          {/*  School and Date Info */}
-          <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4z"/>
-              <circle cx="12" cy="7" r="4"/>
-            </svg>
-            <span>{extractSchoolFromCode(template.document_code)}</span>
-          </div>
-          
-          <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            <span>Created {formatDate(template.createdAt || template.created_at)}</span>
-          </div>
-
-          {/* Approval role indicators */}
+            <p className="text-xs text-blue-600 font-mono mt-1">
+              {template.document_code || 'No Code'}
+            </p>
+           {/*  School and Date Info */}
+            <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4z"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              <span>{extractSchoolFromCode(template.document_code)}</span>
+            </div>
+            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <span>Created {formatDate(template.createdAt || template.created_at)}</span>
+            </div>
+              {/* Approval role indicators */}
           {approvalMeta && (
             <div className="flex items-center gap-2 mt-2">
               {['secretary','dean'].map(r => {
@@ -313,95 +324,106 @@ export default function PublishedCard({
               )}
             </div>
           )}
-        </div>
+          </div>
 
-        {/* 3-dot button */}
-        <div className="relative">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu((prev) => !prev);
-            }}
-            className="p-1 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition"
-            title="More options"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="5" r="1" />
-              <circle cx="12" cy="12" r="1" />
-              <circle cx="12" cy="19" r="1" />
-            </svg>
-          </button>
+          {/* 3-dot button */}
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu((prev) => !prev);
+              }}
+              className="p-1 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition"
+              title="More options"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="5" r="1" />
+                <circle cx="12" cy="12" r="1" />
+                <circle cx="12" cy="19" r="1" />
+              </svg>
+            </button>
 
-          {showMenu && (
-            <>
-              {/* Backdrop */}
-              <div className="fixed inset-0 z-[40]" onClick={() => setShowMenu(false)} />
-              
-              {/* Dropdown menu */}
-              <div className="absolute right-0 top-8 z-[9999] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
-                <button
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                  onClick={(e) => handleMenuAction('assign', e)}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 21a8 8 0 0 0-16 0"/>
-                    <circle cx="10" cy="8" r="5"/>
-                    <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/>
-                  </svg>
-                  Assign
-                </button>
-
-                {canUnpublish() && (
+            {showMenu && (
+              <>
+                <div className="fixed inset-0 z-[40]" onClick={() => setShowMenu(false)} />
+                <div className="absolute right-0 top-8 z-[9999] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
                   <button
-                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                    onClick={(e) => handleMenuAction('unpublish', e)}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={(e) => handleMenuAction('assign', e)}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                      <path d="M16 16l-4 4-4-4" />
-                      <path d="M12 12v8" />
-                      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 0 0 4 14.9" />
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 21a8 8 0 0 0-16 0"/>
+                      <circle cx="10" cy="8" r="5"/>
+                      <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/>
                     </svg>
-                    Unpublish
+                    Assign
                   </button>
-                )}
-              </div>
-            </>
-          )}
+
+                  {canUnpublish() && (
+                    <button
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      onClick={(e) => handleMenuAction('unpublish', e)}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                            <path fill="#fff" d="M12 2A10 10 0 1 0 22 12A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8A8 8 0 0 1 12 20Z" opacity="0.5"/>
+                            <path fill="#fff" d="M20 12h2A10 10 0 0 0 12 2V4A8 8 0 0 1 20 12Z"><animateTransform attributeName="transform" dur="1s" from="0 12 12" repeatCount="indefinite" to="360 12 12" type="rotate"/>
+                            </path>
+                            </svg>
+                          <span>Unpublishing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                            <path d="M16 16l-4 4-4-4" />
+                            <path d="M12 12v8" />
+                            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 0 0 4 14.9" />
+                          </svg>
+                          Unpublish
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
-    </div>
 
       {/* Assign Modal */}
-     <AssignMembersModal
-      open={assignOpen}
-      onClose={() => { setAssignOpen(false); justClosedModal(); }}
-      template={template}
-      selectedIds={selectedIds}
-      setSelectedIds={setSelectedIds}
-      setTheDocController={(id) => console.log("Set controller:", id)}
-      onAssign={async (payload) => {
-        try {
-          const controllers = Array.isArray(payload)
-            ? payload
-            : (payload && (payload.assignees || payload.controllers)) || [];
+      <AssignMembersModal
+        open={assignOpen}
+        onClose={() => { setAssignOpen(false); justClosedModal(); }}
+        template={template}
+        selectedIds={selectedIds}
+        setSelectedIds={setSelectedIds}
+        setTheDocController={(id) => console.log("Set controller:", id)}
+        onAssign={async (payload) => {
+          try {
+            const controllers = Array.isArray(payload)
+              ? payload
+              : (payload && (payload.assignees || payload.controllers)) || [];
 
-          const resp = await assignControllersToTemplateAPI(template._id, controllers);
-          if (resp && resp.success) {
-            if (typeof onAssign === 'function') {
-              onAssign(resp.template || template);
+            const resp = await assignControllersToTemplateAPI(template._id, controllers);
+            if (resp && resp.success) {
+              if (typeof onAssign === 'function') {
+                onAssign(resp.template || template);
+              }
+            } else {
+              alert(resp?.message || 'Failed to assign controllers');
             }
-          } else {
-            alert(resp?.message || 'Failed to assign controllers');
+          } catch (err) {
+            console.error('Assign controllers error', err);
+            alert(err.response?.data?.message || 'Error assigning controllers');
+          } finally {
+            setAssignOpen(false);
+            justClosedModal();
           }
-        } catch (err) {
-          console.error('Assign controllers error', err);
-          alert(err.response?.data?.message || 'Error assigning controllers');
-        } finally {
-          setAssignOpen(false);
-          justClosedModal();
-        }
-      }}
-    />
+        }}
+      />
       
       {/* Unpublish Modal*/}
       <UnpublishModal
