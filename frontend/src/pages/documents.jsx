@@ -280,7 +280,6 @@ export default function GlobalTemplates() {
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
             <div className="flex items-center justify-between gap-2 mb-4">
-              
               {/* Select Template Button */}
               <div className="flex-1 flex justify-start ml-1">
                 <button
@@ -351,7 +350,6 @@ export default function GlobalTemplates() {
 
               {/* Controls */}
               <div className="flex items-center gap-2">
-
                 {/* School Filter */}
                 <Dropdown
                   options={["All", ...Object.keys(schoolIdentifiers)]}
@@ -409,12 +407,12 @@ export default function GlobalTemplates() {
               </div>
             </div>
 
-            {/* CONTENT */}
+            {/* List OR Grid */}
             {viewMode === "table" ? (
-            loading ? (
-              <div className="w-full flex justify-center py-10">
-                <Loader message="Loading documents..." />
-              </div>
+              loading ? (
+                <div className="w-full flex justify-center py-10">
+                  <Loader message="Loading documents..." />
+                </div>
               ) : (
                 <Table columns={columns} data={templates} />
               )
