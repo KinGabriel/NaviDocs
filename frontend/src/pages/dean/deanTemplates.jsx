@@ -46,7 +46,6 @@ export default function DeanTemplates() {
     setLoading(true);
     setError(null);
     try {
-      // Pass only dean-relevant statuses to the API
       const apiStatus =
         selectedStatus === "Assigned" ? "All" : tabToStatus[selectedStatus] || selectedStatus;
 
@@ -83,7 +82,7 @@ export default function DeanTemplates() {
         );
       }
 
-      // Sorting (same as your other pages)
+      // Sorting
       if (sortOrder === "A-Z") {
         arr.sort((a, b) => a.title.localeCompare(b.title));
       } else if (sortOrder === "Z-A") {
@@ -110,8 +109,8 @@ export default function DeanTemplates() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
-  // Table columns (Secretary look; Dean actions)
-   const columns = [
+  // Table columns
+  const columns = [
     { key: "title", label: "Template Name" },
     { key: "createdByName", label: "Assigned To", render: row =>
       Array.isArray(row.assignedNames) && row.assignedNames.length > 0
@@ -174,61 +173,78 @@ export default function DeanTemplates() {
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Templates" />
-     <main className="flex-1 bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-        {/* Header */}
-        <div className="px-1 py-3">
-          <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-4">Templates</h1>
-          <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
-        </div>
-
-        <div className="flex items-center justify-end gap-2 mb-4">
-          <Dropdown
-            options={["All", ...Object.keys(schoolIdentifiers)]}
-            value={selectedSchool}
-            onChange={setSelectedSchool}
-            width="w-50"
-          />
-          <Dropdown
-            options={["Recent", "A-Z", "Z-A"]}
-            value={sortOrder}
-            onChange={setSortOrder}
-            width="w-36"
-          />
-          <div className="w-64">
-            <SearchBar
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+        <main className="flex-1 bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+          {/* Header */}
+          <div className="px-1 py-3">
+            <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-4">Templates</h1>
+            <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
           </div>
-        </div>
 
-          {/* Dean-only tabs */}
-          <div className="mb-6 border-b border-gray-200">
-          <button
-            onClick={() => setIsAssignmentModalOpen(true)}
-            className="bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm 
-             flex items-center gap-2 hover:bg-blue-800 focus:outline-none focus:ring-0 mb-5"
-          >
-            <FileText className="h-5 w-5" />
-            <span>Assign Templates</span>
-          </button>
+          {/* Controls (search on top; dropdowns + small-screen button below) */}
+          <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-end">
+            {/* Search first */}
+            <div className="flex justify-start lg:justify-end">
+              <div className="w-64">
+                <SearchBar
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
 
-          <div className="flex space-x-8">
-            {tabs.map((tab) => (
+            {/* Dropdowns + small-screen Assign beside them */}
+            <div className="flex flex-wrap items-center gap-2 justify-start lg:justify-end">
+              <Dropdown
+                options={["All", ...Object.keys(schoolIdentifiers)]}
+                value={selectedSchool}
+                onChange={setSelectedSchool}
+                width="w-50"
+              />
+              <Dropdown
+                options={["Recent", "A-Z", "Z-A"]}
+                value={sortOrder}
+                onChange={setSortOrder}
+                width="w-36"
+              />
+              {/* Small-screen Assign button beside dropdowns */}
               <button
-                key={tab}
-                onClick={() => setSelectedStatus(tab)}
-                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  selectedStatus === tab
-                    ? "border-[#003DA5] text-[#003DA5]"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+                onClick={() => setIsAssignmentModalOpen(true)}
+                className="bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm 
+                 flex items-center gap-2 hover:bg-blue-800 focus:outline-none focus:ring-0 lg:hidden"
               >
-                {tab}
+                <FileText className="h-5 w-5" />
+                <span>Assign Templates</span>
               </button>
-            ))}
+            </div>
           </div>
-        </div>
+
+          {/* Tabs + original desktop Assign button */}
+          <div className="mb-6 border-b border-gray-200">
+            <button
+              onClick={() => setIsAssignmentModalOpen(true)}
+              className="hidden lg:inline-flex bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm 
+               items-center gap-2 hover:bg-blue-800 focus:outline-none focus:ring-0 mb-5"
+            >
+              <FileText className="h-5 w-5" />
+              <span>Assign Templates</span>
+            </button>
+
+            <div className="flex space-x-8">
+              {tabs.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setSelectedStatus(tab)}
+                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                    selectedStatus === tab
+                      ? "border-[#003DA5] text-[#003DA5]"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Body */}
           {loading ? (
@@ -244,47 +260,46 @@ export default function DeanTemplates() {
           )}
 
           {/* Pagination */}
-            <div className="flex justify-center items-center gap-2 mt-auto pt-4">
-              <button
-                onClick={pagination.handlePrev}
-                disabled={pagination.currentPage === 1}
-                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-              >
-                Prev
-              </button>
-              {pagination.getPageNumbers().map((num, idx) =>
-                num === "..." ? (
-                  <span key={idx} className="px-2 text-gray-400">...</span>
-                ) : (
-                  <button
-                    key={num}
-                    onClick={() => pagination.handlePage(num)}
-                    className={`px-3 py-1 rounded border ${
-                      pagination.currentPage === num
-                        ? "bg-blue-600 text-white"
-                        : "bg-white text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    {num}
-                  </button>
-                )
-              )}
-              <button
-                onClick={pagination.handleNext}
-                disabled={pagination.currentPage === totalPages}
-                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          </main>
+          <div className="flex justify-center items-center gap-2 mt-auto pt-4">
+            <button
+              onClick={pagination.handlePrev}
+              disabled={pagination.currentPage === 1}
+              className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+            >
+              Prev
+            </button>
+            {pagination.getPageNumbers().map((num, idx) =>
+              num === "..." ? (
+                <span key={idx} className="px-2 text-gray-400">...</span>
+              ) : (
+                <button
+                  key={num}
+                  onClick={() => pagination.handlePage(num)}
+                  className={`px-3 py-1 rounded border ${
+                    pagination.currentPage === num
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {num}
+                </button>
+              )
+            )}
+            <button
+              onClick={pagination.handleNext}
+              disabled={pagination.currentPage === totalPages}
+              className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </main>
       </div>
 
       {/* Assignment Modal */}
       {isAssignmentModalOpen && (
         <div className="fixed inset-0 z-50 inset-0 bg-opacity-30 backdrop-blur-[2px] flex items-center justify-center">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            
             <TaskAssignmentModal
               templateId={selectedTemplateId}
               isOpen={isAssignmentModalOpen}
