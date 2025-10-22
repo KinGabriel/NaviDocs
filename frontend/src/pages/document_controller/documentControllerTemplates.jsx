@@ -101,7 +101,6 @@ export default function DocumentControllerTemplates() {
       }
       // Sorting
       const lastActivity = (t) => {
-        // prefer updatedAt, then version-style updated_at, then status_meta.last_activity_at, then a generic last_activity_at, then created
         return new Date(
           t.updatedAt || t.updated_at || t.status_meta?.last_activity_at || t.last_activity_at || t.createdAt || t.created_at || 0
         ).getTime();
@@ -175,67 +174,68 @@ export default function DocumentControllerTemplates() {
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Templates" />
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+        {/* prevent horizontal overflow + comfy responsive padding/margins */}
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
           <div className="flex-1 px-1 py-5">
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">TEMPLATES</h1>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
-          <div className="flex items-center justify-between gap-2 mb-4">
-          {/* Create Template Button */}
-          <button
-            onClick={handleCreateTemplate}
-            className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
-            </svg>
-            Create Template
-          </button>
+            {/* Controls row: stacks on small screens */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+              {/* Create button (keeps full size; stacks above filters on small screens) */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleCreateTemplate}
+                  className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+                  </svg>
+                  Create Template
+                </button>
+              </div>
 
-          {/* Controls */}
-          
-          <div className="flex items-center gap-2">
-            {/* School Filter */}
-            <Dropdown
-              options={["All", ...Object.keys(schoolIdentifiers)]}
-              value={selectedSchool}
-              onChange={setSelectedSchool}
-              width="w-50"
-            />
+              {/* Filters + Search */}
+              <div className="flex items-center gap-2">
+                {/* School Filter */}
+                <Dropdown
+                  options={["All", ...Object.keys(schoolIdentifiers)]}
+                  value={selectedSchool}
+                  onChange={setSelectedSchool}
+                  width="w-50"
+                />
 
-            {/* Sort Order */}
-            <Dropdown
-              options={["Recent", "A-Z", "Z-A"]}
-              value={sortOrder}
-              onChange={setSortOrder}
-              width="w-36"
-            />
+                {/* Sort Order */}
+                <Dropdown
+                  options={["Recent", "A-Z", "Z-A"]}
+                  value={sortOrder}
+                  onChange={setSortOrder}
+                  width="w-36"
+                />
 
-            {/* Search Bar */}
-            <div className="w-64">
-              <SearchBar
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search templates..."
-              />
+                {/* Search Bar */}
+                <div className="w-64">
+                  <SearchBar
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search templates..."
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
             {/*  Status Toggle Buttons  */}
             <div className="flex gap-1 mb-4">
               {statusOptions.map((status) => {
                 const getStatusStyle = (status, isSelected) => {
                   const baseStyle = "px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 border";
-                  
                   if (isSelected) {
                     return `${baseStyle} bg-blue-600 text-white border-blue-600 shadow-sm`;
                   } else {
                     return `${baseStyle} bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:border-gray-400`;
                   }
                 };
-
                 return (
                   <button
                     key={status}
@@ -248,8 +248,8 @@ export default function DocumentControllerTemplates() {
               })}
             </div>
 
-            {/* Templates Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
+            {/* Templates Grid — auto-fill to prevent overlap */}
+            <div className="grid [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))] gap-5 sm:gap-6">
               {loading ? (
                 <div className="col-span-full text-center py-8">
                   <Loader message="Loading templates..." />
@@ -263,17 +263,18 @@ export default function DocumentControllerTemplates() {
                 </div>
               ) : (
                 templates.map((template, i) => (
-                  <TemplateCard
-                    key={template._id || i}
-                    template={template}
-                    user={user}
-                    onApprove={handleInlineApprove}
-                    onPublish={handleInlinePublish}
-                    onSelect={() => navigate(`/document-controller/create-template?templateId=${template._id}`)}
-                    onAssign={(updatedTemplate) => {
-                      setTemplates(prev => prev.map(t => (t._id === updatedTemplate._id ? { ...t, ...updatedTemplate } : t)));
-                    }}
-                  />
+                  <div key={template._id || i} className="min-w-0">
+                    <TemplateCard
+                      template={template}
+                      user={user}
+                      onApprove={handleInlineApprove}
+                      onPublish={handleInlinePublish}
+                      onSelect={() => navigate(`/document-controller/create-template?templateId=${template._id}`)}
+                      onAssign={(updatedTemplate) => {
+                        setTemplates(prev => prev.map(t => (t._id === updatedTemplate._id ? { ...t, ...updatedTemplate } : t)));
+                      }}
+                    />
+                  </div>
                 ))
               )}
             </div>
