@@ -22,12 +22,12 @@ const upload = multer({
 router.get('/getSchoolStaff', authenticateJWT, getSchoolStaff);
 router.get('/getUserEmail/:id', authenticateJWT, getUserEmail);
 router.get('/getUserInfo/:id', authenticateJWT, getUserBasicInfo);
-router.get('/:id', authenticateJWT, getUserProfile);
 router.post('/getUsersInfo', authenticateJWT, getUsersInfoByBatch);
 router.get('/getUserIdByEmail/:email', authenticateJWT, getUserIdByEmail);
 // Search users by email substring (for suggestions)
 router.get('/searchByEmail', authenticateJWT, searchUsersByEmail);
 router.patch('/updatePassword/:id', authenticateJWT, updateUserPassword);
 router.patch('/updateAccountSettings/:id', authenticateJWT, upload.single('profile_picture'), updateUserAccountSettings);
+router.get('/:id', authenticateJWT, getUserProfile);
 
 export default router;
