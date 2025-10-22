@@ -85,7 +85,7 @@ export default function DocumentControllerCreateTemplate() {
   const [editableFields, setEditableFields] = useState([]);
 
   // HeaderFooter panel state (logos)
-  const [logoConfig, setLogoConfig] = useState({});
+  const [headerConfig, setHeaderConfig] = useState({});
   // Top-level document stamp fields (persisted at top-level)
   const [documentCode, setDocumentCode] = useState(null);
   const [revisionNo, setRevisionNo] = useState(0);
@@ -140,8 +140,8 @@ export default function DocumentControllerCreateTemplate() {
       if (normalized.dateFormat) setDateFormat(normalized.dateFormat);
       if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
 
-  // Hydrate logoConfig and top-level document stamp fields (normalized by loader)
-  if (normalized.logoConfig) setLogoConfig(normalized.logoConfig || {});
+  
+  if (normalized.headerConfig) setHeaderConfig(normalized.headerConfig || {});
   if (normalized.document_code !== undefined) setDocumentCode(normalized.document_code);
   if (normalized.revision_no !== undefined) setRevisionNo(normalized.revision_no);
   if (normalized.effectivity !== undefined) setEffectivity(normalized.effectivity);
@@ -215,7 +215,7 @@ export default function DocumentControllerCreateTemplate() {
         pageSetup,
         dateFormat,
         fields: editableFields,
-        logoConfig,
+        headerConfig,
         document_code: normDocumentCode,
         revision_no: normRevisionNo,
         effectivity: normEffectivity,
@@ -389,13 +389,11 @@ export default function DocumentControllerCreateTemplate() {
       case "dateformat":
         return <DateFormatPanel value={dateFormat} onChange={setDateFormat} />;
       case "headerfooter":
-        // Merge top-level stamp values into the logoConfig passed to the panel so
-        // the panel shows authoritative values regardless of where they were stored.
         const headerValue = {
-          ...(logoConfig || {}),
-          docCode: (documentCode ?? logoConfig?.documentStamp?.docCode ?? logoConfig?.docCode ?? logoConfig?.document_code ?? ""),
-          revisionNo: (revisionNo ?? logoConfig?.documentStamp?.revisionNo ?? logoConfig?.revisionNo ?? logoConfig?.revision_no ?? 0),
-          effectivity: (effectivity ?? logoConfig?.documentStamp?.effectivity ?? logoConfig?.effectivity ?? null),
+          ...(headerConfig || {}),
+          docCode: (documentCode ?? headerConfig?.documentStamp?.docCode ?? headerConfig?.docCode ?? headerConfig?.document_code ?? ""),
+          revisionNo: (revisionNo ?? headerConfig?.documentStamp?.revisionNo ?? headerConfig?.revisionNo ?? headerConfig?.revision_no ?? 0),
+          effectivity: (effectivity ?? headerConfig?.documentStamp?.effectivity ?? headerConfig?.effectivity ?? null),
         };
 
         return (
@@ -418,7 +416,7 @@ export default function DocumentControllerCreateTemplate() {
               delete copy.document_code;
               delete copy.revision_no;
               delete copy.effectivity;
-              setLogoConfig(copy);
+              setHeaderConfig(copy);
             }}
           />
         );
@@ -488,7 +486,7 @@ export default function DocumentControllerCreateTemplate() {
                   pageSetup={pageSetup}
                   onEditorReady={handleEditorReady}
                   onContentChange={setTemplateContent}
-                  logoConfig={logoConfig}
+                  headerConfig={headerConfig}
                   templateStatus={status}
                   documentCode={documentCode}
                   revisionNo={revisionNo}

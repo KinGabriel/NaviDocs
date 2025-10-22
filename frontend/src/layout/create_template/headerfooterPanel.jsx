@@ -1,4 +1,4 @@
-// src/layout/create_template/headerFooterPanel.jsx
+// src/layout/create_template/headerfooterPanel.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { toISODate } from "../../utils/formatters";
 
@@ -19,54 +19,66 @@ export default function HeaderFooterPanel({ value, onChange }) {
   const [line4, setLine4] = useState(v.line4 ?? "");
   const [showLine4, setShowLine4] = useState(!!v.showLine4);
 
+  // --- Horizontal header divider toggle ---
+  const [showHeaderLine, setShowHeaderLine] = useState(!!v.showHeaderLine);
+
   // --- Document stamp fields ---
   const [docCode, setDocCode] = useState(v.docCode ?? "");
   const [revisionNo, setRevisionNo] = useState(v.revisionNo ?? "");
-  // Normalize effectivity into ISO string when possible so the input shows a
-  // consistent value (handles { $date: ISO } objects and loose date strings).
+
   const normalizeEffectivityLocal = (val) => {
     if (val === undefined || val === null || val === "") return "";
-    if (typeof val === 'object' && val.$date) return val.$date;
+    if (typeof val === "object" && val.$date) return val.$date;
     const d = new Date(val);
     return isNaN(d) ? String(val) : d.toISOString();
   };
-
-  const [effectivity, setEffectivity] = useState(normalizeEffectivityLocal(v.effectivity ?? ""));
+  const [effectivity, setEffectivity] = useState(
+    normalizeEffectivityLocal(v.effectivity ?? "")
+  );
 
   // Sync when parent changes value
-  // Prevent emitting changes while we're applying incoming props
   const isSyncingRef = useRef(false);
-
   useEffect(() => {
     isSyncingRef.current = true;
+
     setShowSLULogo(!!v.showSLULogo);
     setShowCICMLogo(!!v.showCICMLogo);
+
     setLine1(v.line1 ?? "Saint Louis University");
     setLine2(v.line2 ?? "");
     setLine3(v.line3 ?? "");
     setLine4(v.line4 ?? "");
     setShowLine4(!!v.showLine4);
-  setDocCode(v.docCode ?? "");
-  setRevisionNo(v.revisionNo ?? "");
-  setEffectivity(normalizeEffectivityLocal(v.effectivity ?? ""));
-    // release syncing after current tick so the notify effect can fire for user edits
-    const t = setTimeout(() => { isSyncingRef.current = false; }, 0);
+
+    setShowHeaderLine(!!v.showHeaderLine);
+
+    setDocCode(v.docCode ?? "");
+    setRevisionNo(v.revisionNo ?? "");
+    setEffectivity(normalizeEffectivityLocal(v.effectivity ?? ""));
+
+    const t = setTimeout(() => {
+      isSyncingRef.current = false;
+    }, 0);
     return () => clearTimeout(t);
   }, [v]);
 
-  // Notify parent (but skip if we're currently applying incoming props to avoid
-  // parent-child feedback loops). Emit both legacy nested `documentStamp` and
-  // top-level fields for forward/backward compatibility.
+  // Notify parent
   useEffect(() => {
     if (isSyncingRef.current) return;
     const payload = {
+      // top-level conveniences used by the editor
       showSLULogo,
       showCICMLogo,
+      showHeaderLine,
+
+      // asset paths (swap to your upload paths if needed)
       assets: { slu: SLU_LOGO_SRC, cicm: CICM_LOGO_SRC },
+
+      // structured config that textEditor.jsx reads
       center: { line1, line2, line3, line4, showLine4 },
-      // legacy nested shape
       documentStamp: { docCode, revisionNo, effectivity },
-      // top-level fields (preferred when present)
+
+      // legacy field names preserved for backward compatibility
       document_code: docCode,
       revision_no: revisionNo,
       effectivity: effectivity,
@@ -75,6 +87,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
   }, [
     showSLULogo,
     showCICMLogo,
+    showHeaderLine,
     line1,
     line2,
     line3,
@@ -88,12 +101,14 @@ export default function HeaderFooterPanel({ value, onChange }) {
 
   return (
     <div className="p-5 bg-white rounded-2xl shadow-md w-full overflow-auto">
-      <h2 className="text-lg font-semibold text-gray-800 mb-1">Header & Footer Settings</h2>
+      <h2 className="text-lg font-semibold text-gray-800 mb-1">
+        Header &amp; Footer Settings
+      </h2>
       <p className="text-sm text-gray-500 mb-4">
         Configure your institutional header with logos, department name, and document info.
       </p>
 
-      {/* --- Logo toggles --- */}
+      {/* Logos */}
       <div className="space-y-4 mb-6">
         <label className="flex items-center space-x-3 cursor-pointer">
           <input
@@ -117,7 +132,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
             onChange={(e) => setShowCICMLogo(e.target.checked)}
             className="w-5 h-5 accent-blue-600"
           />
-          <span className="text-gray-700 font-medium">Show CICM Logo</span>
+        <span className="text-gray-700 font-medium">Show CICM Logo</span>
         </label>
         {showCICMLogo && (
           <div className="ml-8">
@@ -126,9 +141,21 @@ export default function HeaderFooterPanel({ value, onChange }) {
         )}
       </div>
 
-      {/* --- Center Text Block --- */}
+      {/* Center Text */}
       <div className="border-t pt-4 space-y-3">
         <h3 className="font-semibold text-gray-700 mb-2">Center Text Block</h3>
+
+        {/* Horizontal header divider toggle */}
+        <label className="flex items-center space-x-3 mb-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showHeaderLine}
+            onChange={(e) => setShowHeaderLine(e.target.checked)}
+            className="w-5 h-5 accent-blue-600"
+          />
+          <span className="text-gray-700 font-medium">Show horizontal line under header</span>
+        </label>
+
         <div className="space-y-2">
           <input
             type="text"
@@ -152,8 +179,6 @@ export default function HeaderFooterPanel({ value, onChange }) {
             value={line3}
             onChange={(e) => setLine3(e.target.value)}
           />
-
-          {/* Optional 4th Line */}
           <div className="flex items-center space-x-2 mt-2">
             <input
               type="checkbox"
@@ -161,7 +186,9 @@ export default function HeaderFooterPanel({ value, onChange }) {
               onChange={(e) => setShowLine4(e.target.checked)}
               className="w-4 h-4 accent-blue-600"
             />
-            <label className="text-sm font-medium text-gray-700">Show additional line</label>
+            <label className="text-sm font-medium text-gray-700">
+              Show additional line
+            </label>
           </div>
           {showLine4 && (
             <input
@@ -175,12 +202,15 @@ export default function HeaderFooterPanel({ value, onChange }) {
         </div>
       </div>
 
-      {/* --- Document Stamp --- */}
+      {/* Document Stamp */}
       <div className="border-t pt-4 mt-5 space-y-3">
-        <h3 className="font-semibold text-gray-700 mb-2">Document Stamp (Right Side Table)</h3>
+        <h3 className="font-semibold text-gray-700 mb-2">
+          Document Stamp (Right Side Table)
+        </h3>
         <p className="text-xs text-gray-500 mb-3">
           Fixed labels. Only values are editable. Page count is automatic.
         </p>
+
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700 w-1/3">Document Code</span>
@@ -191,6 +221,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
               onChange={(e) => setDocCode(e.target.value)}
             />
           </div>
+
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700 w-1/3">Revision No.</span>
             <input
@@ -200,6 +231,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
               onChange={(e) => setRevisionNo(e.target.value)}
             />
           </div>
+
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700 w-1/3">Effectivity</span>
             <input
@@ -210,6 +242,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
               placeholder="YYYY-MM-DD"
             />
           </div>
+
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700 w-1/3">Page</span>
             <input

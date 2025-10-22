@@ -1,5 +1,5 @@
 // src/layout/create_template/textEditor.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
@@ -16,7 +16,6 @@ import { PaginationPlus } from "tiptap-pagination-plus";
 
 import RichImage from "../../extensions/image/ImageNode";
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
-import { toISODate } from "../../utils/formatters";
 
 // ---- utils
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
@@ -62,59 +61,32 @@ export default function TextEditor({
   className = "",
   mode = "template",
   readOnly = false,
-  logoConfig = {},
-  // new props
-  templateStatus = "",
-  documentCode = "",
-  revisionNo = "",
-  effectivity = "",
+  headerConfig = {},
 }) {
   const dimsRef = useRef(computeDims(pageSetup));
-  const [showImageOptions, setShowImageOptions] = useState(false);
-  const setPolicyRef = React.useRef(null);
+  const setPolicyRef = useRef(null);
+  const observerRef = useRef(null);
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({
-        document: true,
-        bold: true,
-        italic: true,
-        strike: true,
-        blockquote: true,
-        bulletList: true,
-        orderedList: true,
-        heading: { levels: [1, 2, 3] },
-        code: false,
-        codeBlock: false,
-        dropcursor: true,
-        gapcursor: true,
-        history: true,
-      }),
-
-      PaginationPlus.configure({
-        pageGap: 24,
-        pageGapBorderSize: 1,
-        pageBreakBackground: "#ececec",
-        pageHeaderHeight: 96,
-      }),
-
+      StarterKit,
       TextStyle,
       Color,
       FontFamily,
       Underline,
       Superscript,
       Subscript,
-
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
       TableCell,
-
-      RichImage.configure({
-        onOpenImageOptions: () => setShowImageOptions(true),
-      }),
-
+      RichImage.configure({ onOpenImageOptions: () => {} }),
       EditableField,
+      PaginationPlus.configure({
+        pageGap: 24,
+        pageGapBorderSize: 1,
+        pageBreakBackground: "#ececec",
+      }),
     ],
     content: normalizeInitialContent(content),
     editorProps: { attributes: { class: "nd-editor-canvas" } },
@@ -126,17 +98,17 @@ export default function TextEditor({
       });
       setPolicyRef.current = setPolicy;
       editor.registerPlugin(plugin);
-
-      try {
-        editor.setEditable(!readOnly);
-      } catch {}
-
+      editor.setEditable(!readOnly);
       onEditorReady?.(editor);
+
+      requestAnimationFrame(applyHeaderFooterBands);
     },
-    onUpdate: ({ editor }) => onContentChange?.(editor.getHTML()),
+    onUpdate: ({ editor }) => {
+      onContentChange?.(editor.getHTML());
+      queueMicrotask(() => requestAnimationFrame(applyHeaderFooterBands));
+    },
   });
 
-  // keep editable state in sync
   useEffect(() => {
     if (!editor) return;
     try {
@@ -144,13 +116,11 @@ export default function TextEditor({
     } catch {}
   }, [editor, readOnly]);
 
-  // switch lock policy when mode changes
   useEffect(() => {
     if (!setPolicyRef.current) return;
     setPolicyRef.current(mode === "document" ? "document" : "template");
   }, [mode]);
 
-  // ✅ Update page geometry (size + margins only)
   useEffect(() => {
     if (!editor) return;
     const d = computeDims(pageSetup);
@@ -167,22 +137,19 @@ export default function TextEditor({
         left: d.marginLeftPx,
       })
       .run();
+
+    queueMicrotask(() => requestAnimationFrame(applyHeaderFooterBands));
   }, [editor, pageSetup]);
 
-  // update content safely when prop changes
   useEffect(() => {
     if (!editor) return;
 
     const setWithPolicy = (val) => {
       try {
         setPolicyRef.current?.("off");
-      } catch {}
-      try {
         editor.commands.setContent(val, false);
       } finally {
-        try {
-          setPolicyRef.current?.(mode === "document" ? "document" : "template");
-        } catch {}
+        setPolicyRef.current?.(mode === "document" ? "document" : "template");
       }
     };
 
@@ -196,110 +163,171 @@ export default function TextEditor({
 
   useEffect(() => () => editor?.destroy(), [editor]);
 
-  // 🧩 Inject SLU & CICM logos safely (no crash)
-  useEffect(() => {
-  if (!editor) return;
+  const ensureFlexBand = (bandEl) => {
+    if (!bandEl) return null;
+    bandEl.style.display = "flex";
+    bandEl.style.alignItems = "center";
+    bandEl.style.justifyContent = "space-between";
+    bandEl.style.gap = "16px";
+    bandEl.style.padding = "0 24px";
+    bandEl.style.height = "96px";
+    bandEl.style.boxSizing = "border-box";
+    bandEl.style.position = "relative";
+    bandEl.style.background = "white";
 
-  const renderHeaders = () => {
-    const cfg = logoConfig || {};
-    const pages = document.querySelectorAll(".rm-page-break");
-    if (!pages.length) return;
-    const totalPages = pages.length;
+    let left =
+      bandEl.querySelector(":scope > .rm-page-header-left") ||
+      bandEl.querySelector(":scope > .rm-first-page-header-left") ||
+      bandEl.querySelector(":scope > [class$='-left']");
+    if (!left) {
+      left = document.createElement("div");
+      left.className = "nv-header-left";
+      bandEl.insertBefore(left, bandEl.firstChild);
+    }
 
-    pages.forEach((page, i) => {
-      // Ensure page positioning
-      page.style.position = "relative";
+    let right =
+      bandEl.querySelector(":scope > .rm-page-header-right") ||
+      bandEl.querySelector(":scope > .rm-first-page-header-right") ||
+      bandEl.querySelector(":scope > [class$='-right']");
+    if (!right) {
+      right = document.createElement("div");
+      right.className = "nv-header-right";
+      bandEl.appendChild(right);
+    }
+    // 🟩 Make sure logo + stamp align side-by-side
+    right.style.display = "flex";
+    right.style.alignItems = "center";
+    right.style.justifyContent = "flex-end";
+    right.style.gap = "8px";
 
-      // Remove any previous injected custom header
-      let header = page.querySelector(".slu-page-header");
-      if (header) header.remove();
-
-      // Create new overlay header container
-      header = document.createElement("div");
-      header.className = "slu-page-header";
-      header.style.position = "absolute";
-      header.style.top = "0";
-      header.style.left = "0";
-      header.style.right = "0";
-      header.style.width = "100%";
-      header.style.height = "96px";
-      header.style.display = "flex";
-      header.style.alignItems = "center";
-      header.style.justifyContent = "space-between";
-      header.style.padding = "0 24px";
-      header.style.background = "white";
-      header.style.zIndex = "999";
-      header.style.gap = "16px";
-      header.style.boxSizing = "border-box";
-      header.style.borderBottom = "1px solid transparent"; // visual separation safety
-
-      // LEFT: SLU Logo
-      const left = document.createElement("div");
-      if (cfg.showSLULogo)
-        left.innerHTML = `<img src="${cfg.assets?.slu || ''}" alt="SLU" style="height:60px;object-fit:contain;" />`;
-
-      // CENTER: Vertical text block
-  const c = cfg.center || {};
-      const center = document.createElement("div");
+    let center = bandEl.querySelector(":scope > .nv-center");
+    if (!center) {
+      center = document.createElement("div");
+      center.className = "nv-center";
+      center.style.flex = "1";
       center.style.display = "flex";
       center.style.flexDirection = "column";
       center.style.alignItems = "center";
       center.style.textAlign = "center";
-      center.style.lineHeight = "1.2";
+      center.style.lineHeight = "1.15";
       center.style.fontFamily = "Arial, sans-serif";
-      center.innerHTML = `
-        <div style="font-weight:bold;font-size:13px;">${c.line1 || "Saint Louis University"}</div>
-        ${c.line2 ? `<div style="font-weight:bold;font-size:14px;text-decoration:underline;">${c.line2}</div>` : ""}
-        ${c.line3 ? `<div style="font-size:12px;">${c.line3}</div>` : ""}
-        ${c.showLine4 && c.line4 ? `<div style="font-weight:bold;font-size:13px;">${c.line4}</div>` : ""}
-      `;
+      bandEl.insertBefore(center, right);
+    }
 
-      // RIGHT: CICM Logo + Document Table side-by-side
-      // prefer explicit top-level props when provided, otherwise fall back to nested
-      const d = {
-        docCode: documentCode || cfg.documentStamp?.docCode || cfg.docCode || cfg.document_code || "",
-        revisionNo: revisionNo || cfg.documentStamp?.revisionNo || cfg.revisionNo || cfg.revision_no || "",
-        effectivity: effectivity || cfg.documentStamp?.effectivity || cfg.effectivity || "",
-      };
-      const right = document.createElement("div");
-      right.style.display = "flex";
-      right.style.alignItems = "center";
-      right.style.justifyContent = "flex-end";
-      right.style.gap = "12px";
+    return { left, center, right, bandEl };
+  };
 
-      const cicmLogo = cfg.showCICMLogo
-        ? `<img src="${cfg.assets?.cicm || ''}" alt="CICM" style="height:52px;object-fit:contain;" />`
-        : "";
+  const applyHeaderFooterBands = () => {
+    const root = document.querySelector(".rm-with-pagination");
+    if (!root) return;
+    const breakers = root.querySelectorAll(".rm-page-break");
+    const total = breakers.length;
 
-  // only render table when there's a document code and either:
-  // - we're rendering a document (mode === 'document'), or
-  // - the template status indicates approved/published
-  const showStamp = d.docCode && (mode === 'document' || ['approved', 'published'].includes((templateStatus || '').toLowerCase()));
-      const table = showStamp
-        ? `
-          <table style="border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;">
-            <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${d.docCode || ""}</td></tr>
-            <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${d.revisionNo || ""}</td></tr>
-            <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${toISODate(d.effectivity) || ""}</td></tr>
-            <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${i + 1} of ${totalPages}</td></tr>
-          </table>
-        `
-        : "";
+    const firstHeader = root.querySelector(".rm-first-page-header");
+    if (firstHeader) {
+      const trip = ensureFlexBand(firstHeader);
+      renderHeaderContent(trip, headerConfig, 1, total);
+    }
 
-      right.innerHTML = `${cicmLogo}${table}`;
-
-      // Assemble
-      header.appendChild(left);
-      header.appendChild(center);
-      header.appendChild(right);
-      page.appendChild(header);
+    breakers.forEach((brk, i) => {
+      const pageNo = i + 1;
+      const footer = brk.querySelector(".rm-page-footer");
+      if (footer) renderFooter(footer, pageNo, total);
+      const header = brk.querySelector(".rm-page-header");
+      if (header && pageNo < total) {
+        const trip = ensureFlexBand(header);
+        renderHeaderContent(trip, headerConfig, pageNo + 1, total);
+      }
     });
   };
 
-  renderHeaders();
-  const interval = setInterval(renderHeaders, 1200);
-  return () => clearInterval(interval);
-}, [editor, logoConfig, templateStatus, documentCode, revisionNo, effectivity, mode]);
+  const renderHeaderContent = (trip, cfg, pageNo, total) => {
+    if (!trip) return;
+    const c = cfg?.center || {};
+    const showSLU = cfg?.showSLULogo && cfg?.assets?.slu;
+    const showCICM = cfg?.showCICMLogo && cfg?.assets?.cicm;
+    const d = cfg?.documentStamp || {};
+    const docCode = d.docCode || cfg?.document_code || "";
+    const revisionNo = d.revisionNo || cfg?.revision_no || "";
+    const effectivity = d.effectivity || cfg?.effectivity || "";
+
+    // LEFT: SLU logo
+    trip.left.innerHTML = showSLU
+      ? `<img src="${cfg.assets.slu}" alt="SLU" style="height:56px;object-fit:contain;">`
+      : "";
+
+    // CENTER
+    trip.center.innerHTML = `
+      <div style="font-weight:700;font-size:13px;">${c.line1 || "Saint Louis University"}</div>
+      ${c.line2 ? `<div style="font-weight:700;font-size:14px;text-decoration:underline;">${c.line2}</div>` : ""}
+      ${c.line3 ? `<div style="font-size:12px;">${c.line3}</div>` : ""}
+      ${c.line4 ? `<div style="font-weight:700;font-size:13px;">${c.line4}</div>` : ""}
+    `;
+
+    // RIGHT: CICM logo next to stamp table
+    trip.right.innerHTML = `
+      ${showCICM ? `<img src="${cfg.assets.cicm}" alt="CICM" style="height:52px;object-fit:contain;flex:0 0 auto;">` : ""}
+      <table style="flex:0 0 auto;border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;background:#fff;">
+        <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(docCode)}</td></tr>
+        <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(revisionNo))}</td></tr>
+        <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(effectivity))}</td></tr>
+        <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${pageNo} of ${total}</td></tr>
+      </table>
+    `;
+
+    const wantLine = !!cfg.showHeaderLine;
+    let line = trip.bandEl.querySelector(":scope > .nv-header-line");
+    if (wantLine && !line) {
+      line = document.createElement("div");
+      line.className = "nv-header-line";
+      line.style.position = "absolute";
+      line.style.left = "0";
+      line.style.right = "0";
+      line.style.bottom = "0";
+      line.style.height = "1px";
+      line.style.background = "#000";
+      trip.bandEl.appendChild(line);
+    } else if (!wantLine && line) {
+      line.remove();
+    }
+  };
+
+  const renderFooter = (footer, pageNo, total) => {
+    footer.style.display = "flex";
+    footer.style.justifyContent = "center";
+    footer.style.alignItems = "center";
+    footer.style.height = "40px";
+    footer.innerHTML = `<div style="font-family:Arial;font-size:12px;">Page ${pageNo} of ${total}</div>`;
+  };
+
+  const escapeHtml = (v) =>
+    String(v ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  useEffect(() => {
+    requestAnimationFrame(applyHeaderFooterBands);
+    const root = document.querySelector(".rm-with-pagination");
+    observerRef.current?.disconnect();
+    if (root) {
+      observerRef.current = new MutationObserver((muts) => {
+        const relevant = muts.some((m) =>
+          [...m.addedNodes, ...m.removedNodes].some(
+            (n) =>
+              n instanceof HTMLElement &&
+              (n.matches?.(".rm-page-break, .rm-first-page-header, .rm-page-header, .rm-page-footer") ||
+                n.querySelector?.(".rm-page-break, .rm-first-page-header, .rm-page-header, .rm-page-footer"))
+          )
+        );
+        if (relevant) requestAnimationFrame(applyHeaderFooterBands);
+      });
+      observerRef.current.observe(root, { subtree: true, childList: true });
+    }
+    return () => observerRef.current?.disconnect();
+  }, [editor, headerConfig]);
 
   return (
     <div className={`w-full flex ${className}`}>
