@@ -12,15 +12,17 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
+import Highlight from "@tiptap/extension-highlight";                 
+import TextAlign from "@tiptap/extension-text-align";              
 import { PaginationPlus } from "tiptap-pagination-plus";
 
 import RichImage from "../../extensions/image/ImageNode";
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 
-// ---- FontSize extension (enables fontSize on TextStyle)
+// ---- Extend TextStyle attrs to include fontSize + lineHeight
 import { Extension } from "@tiptap/core";
-const FontSize = Extension.create({
-  name: "fontSize",
+const TextStyleAttrs = Extension.create({
+  name: "textStyleAttrs",
   addGlobalAttributes() {
     return [
       {
@@ -28,13 +30,13 @@ const FontSize = Extension.create({
         attributes: {
           fontSize: {
             default: null,
-            renderHTML: attrs => {
-              if (!attrs.fontSize) return {};
-              return { style: `font-size: ${attrs.fontSize}` };
-            },
-            parseHTML: element => ({
-              fontSize: element.style?.fontSize || null,
-            }),
+            renderHTML: attrs => (attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {}),
+            parseHTML: element => ({ fontSize: element.style?.fontSize || null }),
+          },
+          lineHeight: {
+            default: null,
+            renderHTML: attrs => (attrs.lineHeight ? { style: `line-height: ${attrs.lineHeight}` } : {}),
+            parseHTML: element => ({ lineHeight: element.style?.lineHeight || null }),
           },
         },
       },
@@ -94,11 +96,13 @@ export default function TextEditor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      TextStyle,
-      FontSize, // ✅ enables font-size styling via TextStyle
-      Color,
-      FontFamily,
+      StarterKit,                            // includes history, lists, etc.
+      TextStyle,                             // base mark
+      TextStyleAttrs,                        // ✅ adds fontSize & lineHeight attrs to TextStyle
+      Color,                                 // text color
+      FontFamily,                            // font family
+      Highlight.configure({ multicolor: true }),   // ✅ highlight colors
+      TextAlign.configure({ types: ["heading", "paragraph"] }), // ✅ alignment API used in panel
       Underline,
       Superscript,
       Subscript,
@@ -115,7 +119,9 @@ export default function TextEditor({
       }),
     ],
     content: normalizeInitialContent(content),
-    editorProps: { attributes: { class: "nd-editor-canvas" } },
+    editorProps: {
+      attributes: { class: "nd-editor-canvas" },
+    },
     onCreate: ({ editor }) => {
       const { plugin, setPolicy } = createLockOutsideFieldsPlugin({
         initialPolicy: mode === "document" ? "document" : "template",
@@ -231,7 +237,7 @@ export default function TextEditor({
       center.className = "nv-center";
       center.style.flex = "1";
       center.style.display = "flex";
-      center.style.flexDirection = "row";      // text + CICM side-by-side
+      center.style.flexDirection = "row"; // text + CICM side-by-side
       center.style.alignItems = "center";
       center.style.justifyContent = "center";
       center.style.gap = "8px";
@@ -285,12 +291,10 @@ export default function TextEditor({
     const revisionNo = d.revisionNo || cfg?.revision_no || "";
     const effectivity = d.effectivity || cfg?.effectivity || "";
 
-    // LEFT: SLU logo
     trip.left.innerHTML = showSLU
       ? `<img src="${cfg.assets.slu}" alt="SLU" style="height:56px;object-fit:contain;">`
       : "";
 
-    // CENTER: text block + CICM logo on the RIGHT side of the text
     const textHTML = `
       <div class="nv-center-text" style="display:flex;flex-direction:column;align-items:center;line-height:1.15;">
         <div style="font-weight:700;font-size:13px;">${c.line1 || "Saint Louis University"}</div>
@@ -303,10 +307,8 @@ export default function TextEditor({
       ? `<img src="${cfg.assets.cicm}" alt="CICM" class="nv-cicm" style="height:52px;object-fit:contain;flex:0 0 auto;">`
       : "";
 
-    // text first, CICM logo to the right
     trip.center.innerHTML = textHTML + cicmHTML;
 
-    // RIGHT: stamp table ONLY
     trip.right.innerHTML = `
       <table style="border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;background:#fff;">
         <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(docCode)}</td></tr>
@@ -316,7 +318,6 @@ export default function TextEditor({
       </table>
     `;
 
-    // Optional horizontal line under the header band
     const wantLine = !!cfg.showHeaderLine;
     let line = trip.bandEl.querySelector(":scope > .nv-header-line");
     if (wantLine && !line) {
