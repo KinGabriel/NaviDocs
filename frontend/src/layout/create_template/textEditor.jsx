@@ -17,6 +17,31 @@ import { PaginationPlus } from "tiptap-pagination-plus";
 import RichImage from "../../extensions/image/ImageNode";
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 
+// ---- FontSize extension (enables fontSize on TextStyle)
+import { Extension } from "@tiptap/core";
+const FontSize = Extension.create({
+  name: "fontSize",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["textStyle"],
+        attributes: {
+          fontSize: {
+            default: null,
+            renderHTML: attrs => {
+              if (!attrs.fontSize) return {};
+              return { style: `font-size: ${attrs.fontSize}` };
+            },
+            parseHTML: element => ({
+              fontSize: element.style?.fontSize || null,
+            }),
+          },
+        },
+      },
+    ];
+  },
+});
+
 // ---- utils
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
 
@@ -71,6 +96,7 @@ export default function TextEditor({
     extensions: [
       StarterKit,
       TextStyle,
+      FontSize, // ✅ enables font-size styling via TextStyle
       Color,
       FontFamily,
       Underline,
@@ -194,7 +220,6 @@ export default function TextEditor({
       right.className = "nv-header-right";
       bandEl.appendChild(right);
     }
-    // 🟩 Make sure logo + stamp align side-by-side
     right.style.display = "flex";
     right.style.alignItems = "center";
     right.style.justifyContent = "flex-end";
@@ -206,12 +231,19 @@ export default function TextEditor({
       center.className = "nv-center";
       center.style.flex = "1";
       center.style.display = "flex";
-      center.style.flexDirection = "column";
+      center.style.flexDirection = "row";      // text + CICM side-by-side
       center.style.alignItems = "center";
+      center.style.justifyContent = "center";
+      center.style.gap = "8px";
       center.style.textAlign = "center";
-      center.style.lineHeight = "1.15";
       center.style.fontFamily = "Arial, sans-serif";
       bandEl.insertBefore(center, right);
+    } else {
+      center.style.flexDirection = "row";
+      center.style.alignItems = "center";
+      center.style.justifyContent = "center";
+      center.style.gap = "8px";
+      center.style.textAlign = "center";
     }
 
     return { left, center, right, bandEl };
@@ -243,9 +275,11 @@ export default function TextEditor({
 
   const renderHeaderContent = (trip, cfg, pageNo, total) => {
     if (!trip) return;
+
     const c = cfg?.center || {};
     const showSLU = cfg?.showSLULogo && cfg?.assets?.slu;
     const showCICM = cfg?.showCICMLogo && cfg?.assets?.cicm;
+
     const d = cfg?.documentStamp || {};
     const docCode = d.docCode || cfg?.document_code || "";
     const revisionNo = d.revisionNo || cfg?.revision_no || "";
@@ -256,18 +290,25 @@ export default function TextEditor({
       ? `<img src="${cfg.assets.slu}" alt="SLU" style="height:56px;object-fit:contain;">`
       : "";
 
-    // CENTER
-    trip.center.innerHTML = `
-      <div style="font-weight:700;font-size:13px;">${c.line1 || "Saint Louis University"}</div>
-      ${c.line2 ? `<div style="font-weight:700;font-size:14px;text-decoration:underline;">${c.line2}</div>` : ""}
-      ${c.line3 ? `<div style="font-size:12px;">${c.line3}</div>` : ""}
-      ${c.line4 ? `<div style="font-weight:700;font-size:13px;">${c.line4}</div>` : ""}
+    // CENTER: text block + CICM logo on the RIGHT side of the text
+    const textHTML = `
+      <div class="nv-center-text" style="display:flex;flex-direction:column;align-items:center;line-height:1.15;">
+        <div style="font-weight:700;font-size:13px;">${c.line1 || "Saint Louis University"}</div>
+        ${c.line2 ? `<div style="font-weight:700;font-size:14px;text-decoration:underline;">${c.line2}</div>` : ""}
+        ${c.line3 ? `<div style="font-size:12px;">${c.line3}</div>` : ""}
+        ${c.line4 ? `<div style="font-weight:700;font-size:13px;">${c.line4}</div>` : ""}
+      </div>
     `;
+    const cicmHTML = showCICM
+      ? `<img src="${cfg.assets.cicm}" alt="CICM" class="nv-cicm" style="height:52px;object-fit:contain;flex:0 0 auto;">`
+      : "";
 
-    // RIGHT: CICM logo next to stamp table
+    // text first, CICM logo to the right
+    trip.center.innerHTML = textHTML + cicmHTML;
+
+    // RIGHT: stamp table ONLY
     trip.right.innerHTML = `
-      ${showCICM ? `<img src="${cfg.assets.cicm}" alt="CICM" style="height:52px;object-fit:contain;flex:0 0 auto;">` : ""}
-      <table style="flex:0 0 auto;border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;background:#fff;">
+      <table style="border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;background:#fff;">
         <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(docCode)}</td></tr>
         <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(revisionNo))}</td></tr>
         <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(effectivity))}</td></tr>
@@ -275,6 +316,7 @@ export default function TextEditor({
       </table>
     `;
 
+    // Optional horizontal line under the header band
     const wantLine = !!cfg.showHeaderLine;
     let line = trip.bandEl.querySelector(":scope > .nv-header-line");
     if (wantLine && !line) {
