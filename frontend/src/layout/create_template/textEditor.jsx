@@ -14,9 +14,9 @@ import { PaginationPlus } from "tiptap-pagination-plus";
 import { PaginationTable } from "tiptap-table-plus";
 import RichImage from "../../extensions/image/ImageNode";
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
-
-// ---- Extend TextStyle attrs to include fontSize + lineHeight
 import { Extension } from "@tiptap/core";
+
+// Extend TextStyle attributes to include fontSize and lineHeight
 const TextStyleAttrs = Extension.create({
   name: "textStyleAttrs",
   addGlobalAttributes() {
@@ -28,13 +28,13 @@ const TextStyleAttrs = Extension.create({
             default: null,
             renderHTML: (attrs) =>
               attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
-            parseHTML: (element) => ({ fontSize: element.style?.fontSize || null }),
+            parseHTML: (el) => ({ fontSize: el.style.fontSize || null }),
           },
           lineHeight: {
             default: null,
             renderHTML: (attrs) =>
               attrs.lineHeight ? { style: `line-height: ${attrs.lineHeight}` } : {},
-            parseHTML: (element) => ({ lineHeight: element.style?.lineHeight || null }),
+            parseHTML: (el) => ({ lineHeight: el.style.lineHeight || null }),
           },
         },
       },
@@ -44,6 +44,10 @@ const TextStyleAttrs = Extension.create({
 
 // ---- utils
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
+
+// Reserve exact space for header/footer
+const HEADER_HEIGHT_PX = 96;
+const FOOTER_HEIGHT_PX = 48;
 
 const DEFAULT_SETUP = {
   paperSize: "A4",
@@ -64,7 +68,6 @@ function computeDims(pageSetup) {
   const wIn = portrait ? base.w : base.h;
   const hIn = portrait ? base.h : base.w;
   const m = p.margins || DEFAULT_SETUP.margins;
-
   return {
     widthPx: inchToPx(wIn),
     heightPx: inchToPx(hIn),
@@ -95,7 +98,7 @@ export default function TextEditor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit, // history, lists, etc.
+      StarterKit,
       TextStyle,
       TextStyleAttrs,
       Color,
@@ -105,27 +108,22 @@ export default function TextEditor({
       Underline,
       Superscript,
       Subscript,
-      TablePlus.configure({
-       resizeHandleStyle: { width: "3px" },
-      }),
+      TablePlus.configure({ resizeHandleStyle: { width: "3px" } }),
       TableRowPlus,
       TableCellPlus,
       TableHeaderPlus,
-
       RichImage.configure({ onOpenImageOptions: () => {} }),
       EditableField,
-
-      // Keep pagination so pages + tables cooperate
       PaginationPlus.configure({
         pageGap: 24,
         pageGapBorderSize: 1,
         pageBreakBackground: "#ececec",
+        pageHeaderHeight: HEADER_HEIGHT_PX,
+        pageFooterHeight: FOOTER_HEIGHT_PX,
       }),
     ],
     content: normalizeInitialContent(content),
-    editorProps: {
-      attributes: { class: "nd-editor-canvas" },
-    },
+    editorProps: { attributes: { class: "nd-editor-canvas" } },
     onCreate: ({ editor }) => {
       const { plugin, setPolicy } = createLockOutsideFieldsPlugin({
         initialPolicy: mode === "document" ? "document" : "template",
@@ -136,7 +134,6 @@ export default function TextEditor({
       editor.registerPlugin(plugin);
       editor.setEditable(!readOnly);
       onEditorReady?.(editor);
-
       requestAnimationFrame(applyHeaderFooterBands);
     },
     onUpdate: ({ editor }) => {
@@ -145,6 +142,7 @@ export default function TextEditor({
     },
   });
 
+  // --- Editor lifecycle
   useEffect(() => {
     if (!editor) return;
     try {
@@ -161,7 +159,6 @@ export default function TextEditor({
     if (!editor) return;
     const d = computeDims(pageSetup);
     dimsRef.current = d;
-
     editor
       .chain()
       .updatePageWidth(d.widthPx)
@@ -173,13 +170,11 @@ export default function TextEditor({
         left: d.marginLeftPx,
       })
       .run();
-
     queueMicrotask(() => requestAnimationFrame(applyHeaderFooterBands));
   }, [editor, pageSetup]);
 
   useEffect(() => {
     if (!editor) return;
-
     const setWithPolicy = (val) => {
       try {
         setPolicyRef.current?.("off");
@@ -188,7 +183,6 @@ export default function TextEditor({
         setPolicyRef.current?.(mode === "document" ? "document" : "template");
       }
     };
-
     if (typeof content === "string" || !content?.type) {
       const html = normalizeInitialContent(content);
       if (html !== editor.getHTML()) setWithPolicy(html);
@@ -199,6 +193,7 @@ export default function TextEditor({
 
   useEffect(() => () => editor?.destroy(), [editor]);
 
+  // ---- Layout / Header/Footer Rendering ----
   const ensureFlexBand = (bandEl) => {
     if (!bandEl) return null;
     bandEl.style.display = "flex";
@@ -206,7 +201,7 @@ export default function TextEditor({
     bandEl.style.justifyContent = "space-between";
     bandEl.style.gap = "16px";
     bandEl.style.padding = "0 24px";
-    bandEl.style.height = "96px";
+    bandEl.style.height = `${HEADER_HEIGHT_PX}px`;
     bandEl.style.boxSizing = "border-box";
     bandEl.style.position = "relative";
     bandEl.style.background = "white";
@@ -241,19 +236,13 @@ export default function TextEditor({
       center.className = "nv-center";
       center.style.flex = "1";
       center.style.display = "flex";
-      center.style.flexDirection = "row"; 
+      center.style.flexDirection = "row";
       center.style.alignItems = "center";
       center.style.justifyContent = "center";
       center.style.gap = "8px";
       center.style.textAlign = "center";
       center.style.fontFamily = "Arial, sans-serif";
       bandEl.insertBefore(center, right);
-    } else {
-      center.style.flexDirection = "row";
-      center.style.alignItems = "center";
-      center.style.justifyContent = "center";
-      center.style.gap = "8px";
-      center.style.textAlign = "center";
     }
 
     return { left, center, right, bandEl };
@@ -284,12 +273,9 @@ export default function TextEditor({
   };
 
   const renderHeaderContent = (trip, cfg, pageNo, total) => {
-    if (!trip) return;
-
     const c = cfg?.center || {};
     const showSLU = cfg?.showSLULogo && cfg?.assets?.slu;
     const showCICM = cfg?.showCICMLogo && cfg?.assets?.cicm;
-
     const d = cfg?.documentStamp || {};
     const docCode = d.docCode || cfg?.document_code || "";
     const revisionNo = d.revisionNo || cfg?.revision_no || "";
@@ -299,6 +285,7 @@ export default function TextEditor({
       ? `<img src="${cfg.assets.slu}" alt="SLU" style="height:56px;object-fit:contain;">`
       : "";
 
+    // Center text with CICM logo aligned to the right
     const textHTML = `
       <div class="nv-center-text" style="display:flex;flex-direction:column;align-items:center;line-height:1.15;">
         <div style="font-weight:700;font-size:13px;">${c.line1 || "Saint Louis University"}</div>
@@ -308,11 +295,12 @@ export default function TextEditor({
       </div>
     `;
     const cicmHTML = showCICM
-      ? `<img src="${cfg.assets.cicm}" alt="CICM" class="nv-cicm" style="height:52px;object-fit:contain;flex:0 0 auto;">`
+      ? `<img src="${cfg.assets.cicm}" alt="CICM" style="height:52px;object-fit:contain;flex:0 0 auto;">`
       : "";
 
     trip.center.innerHTML = textHTML + cicmHTML;
 
+    // Right side: document stamp
     trip.right.innerHTML = `
       <table style="border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;background:#fff;">
         <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(docCode)}</td></tr>
@@ -334,16 +322,14 @@ export default function TextEditor({
       line.style.height = "1px";
       line.style.background = "#000";
       trip.bandEl.appendChild(line);
-    } else if (!wantLine && line) {
-      line.remove();
-    }
+    } else if (!wantLine && line) line.remove();
   };
 
   const renderFooter = (footer, pageNo, total) => {
     footer.style.display = "flex";
     footer.style.justifyContent = "center";
     footer.style.alignItems = "center";
-    footer.style.height = "40px";
+    footer.style.height = `${FOOTER_HEIGHT_PX}px`;
     footer.innerHTML = `<div style="font-family:Arial;font-size:12px;">Page ${pageNo} of ${total}</div>`;
   };
 
@@ -355,22 +341,13 @@ export default function TextEditor({
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
 
+  // Observe pagination mutations
   useEffect(() => {
     requestAnimationFrame(applyHeaderFooterBands);
     const root = document.querySelector(".rm-with-pagination");
     observerRef.current?.disconnect();
     if (root) {
-      observerRef.current = new MutationObserver((muts) => {
-        const relevant = muts.some((m) =>
-          [...m.addedNodes, ...m.removedNodes].some(
-            (n) =>
-              n instanceof HTMLElement &&
-              (n.matches?.(".rm-page-break, .rm-first-page-header, .rm-page-header, .rm-page-footer") ||
-                n.querySelector?.(".rm-page-break, .rm-first-page-header, .rm-page-header, .rm-page-footer"))
-          )
-        );
-        if (relevant) requestAnimationFrame(applyHeaderFooterBands);
-      });
+      observerRef.current = new MutationObserver(() => requestAnimationFrame(applyHeaderFooterBands));
       observerRef.current.observe(root, { subtree: true, childList: true });
     }
     return () => observerRef.current?.disconnect();
