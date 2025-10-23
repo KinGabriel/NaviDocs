@@ -20,6 +20,8 @@
    npm install react-hot-toast
    npm install tiptap-pagination-plus
    npm i @tiptap/extension-highlight@2.23.1 @tiptap/extension-text-align@2.23.1
+   npm i tiptap-table-plus
+   
 
    ```
 
