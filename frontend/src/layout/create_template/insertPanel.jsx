@@ -4,6 +4,7 @@ import { useState } from 'react';
 export default function InsertPanel({ editor }) {
   const [rows, setRows] = useState(3);
   const [cols, setCols] = useState(3);
+  const [copyDupContent, setCopyDupContent] = useState(true); // for TablePlus duplicateRow/duplicateColumn
 
   const handleInsertTable = () => {
     if (!editor) return;
@@ -62,7 +63,7 @@ export default function InsertPanel({ editor }) {
         const width = Math.round(natW * scale);
         const height = Math.round(natH * scale);
 
-        // Insert via RichImage’s command (we replaced base Image)
+        // Insert via RichImage’s command 
         const ok = editor
           .chain()
           .focus()
@@ -156,30 +157,90 @@ export default function InsertPanel({ editor }) {
           </button>
         </div>
 
-        {/* Table Functionality Buttons - will display if table is clicked */}
+        {/* Table Tools (show when selection is inside a table) */}
         {isInTable && (
-          <div className="grid grid-cols-2 gap-2 mt-4">
-            <button onClick={() => editor.chain().focus().addColumnBefore().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-              Add Column Before
-            </button>
-            <button onClick={() => editor.chain().focus().addColumnAfter().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-              Add Column After
-            </button>
-            <button onClick={() => editor.chain().focus().addRowBefore().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-              Add Row Before
-            </button>
-            <button onClick={() => editor.chain().focus().addRowAfter().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-              Add Row After
-            </button>
-            <button onClick={() => editor.chain().focus().deleteColumn().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-              Delete Column
-            </button>
-            <button onClick={() => editor.chain().focus().deleteRow().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-              Delete Row
-            </button>
-            <button onClick={() => editor.chain().focus().deleteTable().run()} className="col-span-2 bg-red-200 text-black px-3 py-1 rounded hover:bg-red-400">
-              Delete Table
-            </button>
+          <div className="space-y-3 mt-4">
+            {/* ——— Structure ——— */}
+            <div>
+              <h3 className="text-sm font-semibold mb-1">Structure</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => editor.chain().focus().addColumnBefore().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Add Column Before
+                </button>
+                <button onClick={() => editor.chain().focus().addColumnAfter().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Add Column After
+                </button>
+                <button onClick={() => editor.chain().focus().addRowBefore().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Add Row Before
+                </button>
+                <button onClick={() => editor.chain().focus().addRowAfter().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Add Row After
+                </button>
+                <button onClick={() => editor.chain().focus().deleteColumn().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Delete Column
+                </button>
+                <button onClick={() => editor.chain().focus().deleteRow().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Delete Row
+                </button>
+                <button onClick={() => editor.chain().focus().deleteTable().run()} className="col-span-2 bg-red-200 text-black px-3 py-1 rounded hover:bg-red-400">
+                  Delete Table
+                </button>
+              </div>
+            </div>
+
+            {/* ——— Table Plus: Duplicate ——— */}
+            <div>
+              <h3 className="text-sm font-semibold mb-1">Duplicate (Table Plus)</h3>
+              <div className="flex items-center gap-3 mb-2">
+                <input
+                  id="dupContent"
+                  type="checkbox"
+                  checked={copyDupContent}
+                  onChange={(e) => setCopyDupContent(e.target.checked)}
+                />
+                <label htmlFor="dupContent" className="text-sm">Copy cell content when duplicating</label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() =>
+                    editor.chain().focus().duplicateColumn({ withContent: !!copyDupContent }).run()
+                  }
+                  className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200"
+                >
+                  Duplicate Column
+                </button>
+                <button
+                  onClick={() =>
+                    editor.chain().focus().duplicateRow({ withContent: !!copyDupContent }).run()
+                  }
+                  className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200"
+                >
+                  Duplicate Row
+                </button>
+              </div>
+            </div>
+
+            {/* ——— Headers & Merge ——— */}
+            <div>
+              <h3 className="text-sm font-semibold mb-1">Headers & Merge</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => editor.chain().focus().toggleHeaderRow().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Toggle Header Row
+                </button>
+                <button onClick={() => editor.chain().focus().toggleHeaderColumn().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Toggle Header Column
+                </button>
+                <button onClick={() => editor.chain().focus().toggleHeaderCell().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Toggle Header Cell
+                </button>
+                <button onClick={() => editor.chain().focus().mergeCells().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Merge Cells
+                </button>
+                <button onClick={() => editor.chain().focus().splitCell().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Split Cell
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -8,14 +8,10 @@ import FontFamily from "@tiptap/extension-font-family";
 import Underline from "@tiptap/extension-underline";
 import Superscript from "@tiptap/extension-superscript";
 import Subscript from "@tiptap/extension-subscript";
-import Table from "@tiptap/extension-table";
-import TableRow from "@tiptap/extension-table-row";
-import TableHeader from "@tiptap/extension-table-header";
-import TableCell from "@tiptap/extension-table-cell";
-import Highlight from "@tiptap/extension-highlight";                 
-import TextAlign from "@tiptap/extension-text-align";              
+import Highlight from "@tiptap/extension-highlight";
+import TextAlign from "@tiptap/extension-text-align";
 import { PaginationPlus } from "tiptap-pagination-plus";
-
+import { PaginationTable } from "tiptap-table-plus";
 import RichImage from "../../extensions/image/ImageNode";
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 
@@ -30,13 +26,15 @@ const TextStyleAttrs = Extension.create({
         attributes: {
           fontSize: {
             default: null,
-            renderHTML: attrs => (attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {}),
-            parseHTML: element => ({ fontSize: element.style?.fontSize || null }),
+            renderHTML: (attrs) =>
+              attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
+            parseHTML: (element) => ({ fontSize: element.style?.fontSize || null }),
           },
           lineHeight: {
             default: null,
-            renderHTML: attrs => (attrs.lineHeight ? { style: `line-height: ${attrs.lineHeight}` } : {}),
-            parseHTML: element => ({ lineHeight: element.style?.lineHeight || null }),
+            renderHTML: (attrs) =>
+              attrs.lineHeight ? { style: `line-height: ${attrs.lineHeight}` } : {},
+            parseHTML: (element) => ({ lineHeight: element.style?.lineHeight || null }),
           },
         },
       },
@@ -79,6 +77,7 @@ function computeDims(pageSetup) {
 
 const DEFAULT_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 const normalizeInitialContent = (content) => (content ? content : DEFAULT_DOC);
+const { TablePlus, TableRowPlus, TableCellPlus, TableHeaderPlus } = PaginationTable;
 
 export default function TextEditor({
   content,
@@ -96,22 +95,27 @@ export default function TextEditor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit,                            // includes history, lists, etc.
-      TextStyle,                             // base mark
-      TextStyleAttrs,                        // ✅ adds fontSize & lineHeight attrs to TextStyle
-      Color,                                 // text color
-      FontFamily,                            // font family
-      Highlight.configure({ multicolor: true }),   // ✅ highlight colors
-      TextAlign.configure({ types: ["heading", "paragraph"] }), // ✅ alignment API used in panel
+      StarterKit, // history, lists, etc.
+      TextStyle,
+      TextStyleAttrs,
+      Color,
+      FontFamily,
+      Highlight.configure({ multicolor: true }),
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
       Underline,
       Superscript,
       Subscript,
-      Table.configure({ resizable: true }),
-      TableRow,
-      TableHeader,
-      TableCell,
+      TablePlus.configure({
+       resizeHandleStyle: { width: "3px" },
+      }),
+      TableRowPlus,
+      TableCellPlus,
+      TableHeaderPlus,
+
       RichImage.configure({ onOpenImageOptions: () => {} }),
       EditableField,
+
+      // Keep pagination so pages + tables cooperate
       PaginationPlus.configure({
         pageGap: 24,
         pageGapBorderSize: 1,
@@ -237,7 +241,7 @@ export default function TextEditor({
       center.className = "nv-center";
       center.style.flex = "1";
       center.style.display = "flex";
-      center.style.flexDirection = "row"; // text + CICM side-by-side
+      center.style.flexDirection = "row"; 
       center.style.alignItems = "center";
       center.style.justifyContent = "center";
       center.style.gap = "8px";

@@ -11,7 +11,7 @@ export default function FontPanel({ editor }) {
   const isReady = !!editor;
 
   // size control (points only)
-  const [fontSizePt, setFontSizePt] = useState(12);     // number | "Mixed"
+  const [fontSizePt, setFontSizePt] = useState(12);     
   const [sizeInput, setSizeInput] = useState("12");
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
 
