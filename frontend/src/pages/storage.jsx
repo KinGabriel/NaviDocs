@@ -17,6 +17,9 @@ export default function Storage() {
   const navigate = useNavigate();
   const user = useUser();
 
+  // File view mode: 'grid' or 'list'
+  const [fileViewMode, setFileViewMode] = useState("grid");
+
   // Orphan/root files state
   const [rootFiles, setRootFiles] = useState([]);
   const [loadingRootFiles, setLoadingRootFiles] = useState(true);
@@ -71,6 +74,54 @@ export default function Storage() {
   const [itemToMove, setItemToMove] = useState(null);
   const [moveType, setMoveType] = useState("folder");
 
+  const FileViewToggle = ({ mode, onChange }) => {
+  return (
+    <div className="inline-flex items-center border border-gray-300 rounded-full overflow-hidden">
+      {/* Table View */}
+      <button
+        type="button"
+        onClick={() => onChange("table")}
+        className={`px-3 py-2 flex items-center transition-all duration-150 ${
+          mode === "table"
+            ? "bg-blue-100 text-blue-700"
+            : "bg-white text-gray-700 hover:bg-gray-100"
+        }`}
+        aria-label="Table view"
+        title="Table view"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M4 7h16M4 12h16M4 17h16"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+
+      {/* Grid View */}
+      <button
+        type="button"
+        onClick={() => onChange("grid")}
+        className={`px-3 py-2 flex items-center transition-all duration-150 ${
+          mode === "grid"
+            ? "bg-blue-100 text-blue-700"
+            : "bg-white text-gray-700 hover:bg-gray-100"
+        }`}
+        aria-label="Grid view"
+        title="Grid view"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="4" y="4" width="6" height="6" rx="1"></rect>
+          <rect x="14" y="4" width="6" height="6" rx="1"></rect>
+          <rect x="4" y="14" width="6" height="6" rx="1"></rect>
+          <rect x="14" y="14" width="6" height="6" rx="1"></rect>
+        </svg>
+      </button>
+    </div>
+  );
+};
+  
   // When opening the new folder modal, default parentFolderId to the currently selected folder
   useEffect(() => {
     if (showNewFolderModal) {
@@ -687,28 +738,39 @@ export default function Storage() {
               {uploadError && <span className="text-red-600 text-sm">{uploadError}</span>}
 
               {/* Files */}
-              <h3 className="text-lg font-semibold mb-3">
-                {selectedFolder ? `Files in ${selectedFolder.folderName}` : 'Files'}
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+  <h3 className="text-lg font-semibold">
+    {selectedFolder ? `Files in ${selectedFolder.folderName}` : 'Files'}
+  </h3>
+  <FileViewToggle mode={fileViewMode} onChange={setFileViewMode} />
+
+</div>
               {loadingRootFiles || loadingFolderDetails ? (
                 <Loader message="Loading files..." />
               ) : displayedFiles.length ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {displayedFiles.map((file, idx) => (
-                    <FileComponent
-                      key={file._id || file.name || idx}
-                      file={file}
-                      index={idx}
-                      isMenuOpen={openFileMenu === `file-${idx}`}
-                      toggleMenu={toggleFileMenu}
-                      onMoveRequest={handleMoveFile}
-                      parentFolderId={selectedFolder?._id}
-                      onDelete={async () => {
-                        await loadContent();
-                      }}
-                    />
-                  ))}
-                </div>
+                 <div
+  className={
+    fileViewMode === "grid"
+      ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"
+      : "flex flex-col divide-y"
+  }
+>
+  {displayedFiles.map((file, idx) => (
+    <FileComponent
+      key={file._id || file.name || idx}
+      file={file}
+      index={idx}
+      isMenuOpen={openFileMenu === `file-${idx}`}
+      toggleMenu={toggleFileMenu}
+      onMoveRequest={handleMoveFile}
+      parentFolderId={selectedFolder?._id}
+      onDelete={async () => {
+        await loadContent();
+      }}
+      viewMode={fileViewMode} // optional if FileComponent supports layout variation
+    />
+  ))}
+</div>
               ) : (
                 <p className="text-gray-500 italic">No files found.</p>
               )}
