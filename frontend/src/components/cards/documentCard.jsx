@@ -260,12 +260,28 @@ export default function DocumentCard({
     } finally { setDeleting(false); }
   };
 
+  function getStatusStyle(status) {
+  const normalized = String(status).toLowerCase().replace(/\s+/g, "_");
+  const styles = {
+    approved: "bg-green-50 text-green-700 border border-green-200",
+    submitted: "bg-green-50 text-green-700 border border-green-200",
+    pending: "bg-yellow-50 text-yellow-700 border border-yellow-200",
+    late: "bg-red-50 text-red-700 border border-red-200",
+    rejected: "bg-red-50 text-red-700 border border-red-200",
+    returned: "bg-orange-50 text-orange-700 border border-orange-200",
+    draft: "bg-gray-50 text-gray-700 border border-gray-200",
+    published: "bg-blue-50 text-blue-700 border border-blue-200",
+    pending_review: "bg-purple-50 text-purple-700 border border-purple-200",
+  };
+
+  return styles[normalized] || "bg-gray-50 text-gray-700 border border-gray-200";
+}
   
   return (
     <div className="m-2">
       <div className="relative w-[280px] bg-white rounded-lg shadow-md border border-gray-300 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer overflow-visible">
         <div className="absolute top-2 right-2 z-10">
-          <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
+          <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusStyle(status)}`}>
             {status.charAt(0).toUpperCase() + status.slice(1)}
           </div>
         </div>
