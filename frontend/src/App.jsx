@@ -32,6 +32,8 @@ import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics
 import DepartmentHeadTemplates from './pages/dept_head/departmentHeadTemplates'; 
 import DepartmentHeadDocumentWorkflowView from './pages/dept_head/departmentHeadDocumentWorkflowView';
 import FacultyDashboard from './pages/faculty/facultyDashboard';
+import FacultyWorkFlow from './pages/faculty/facultyWorkFlow';
+import FacultyTemplates from './pages/faculty/facultyTemplates';  
 import EditableFields from './pages/editableFields';
 import Storage from './pages/storage';
 import SelectTemplate from './pages/selectTemplate'; 
@@ -259,6 +261,24 @@ function App() {
          }
        />
 
+        <Route
+         path="/faculty/document-workflow"
+         element={
+           <ProtectedRoute allowedRoles={["Faculty"]}>
+             <FacultyWorkFlow />
+           </ProtectedRoute>
+         }
+       />
+
+         <Route
+         path="/faculty/templates"
+         element={
+           <ProtectedRoute allowedRoles={["Faculty"]}>
+             <FacultyTemplates />
+           </ProtectedRoute>
+         }
+       />
+
        {/* Global */}
        <Route
          path="/account/settings"
@@ -317,7 +337,7 @@ function App() {
         <Route
          path="/templates/:id"
          element={
-           <ProtectedRoute allowedRoles={["Secretary", "Dean"]}>
+           <ProtectedRoute allowedRoles={["Secretary", "Dean","Faculty", "Department Head" ]}>
              <TemplatesView />
            </ProtectedRoute>
          }
