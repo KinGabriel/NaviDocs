@@ -7,7 +7,7 @@ import Dropdown from "../../components/dropdowns/dropdown";
 import usePagination from "../../hooks/usePagination";
 import SearchBar from "../../components/searchbar";
 import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
-import { StatusBadge, formatDateTime } from '../../utils/formatters.jsx';
+import { StatusBadge, formatDateTime } from '../../utils/formatters';
 import Loader from '../../components/loader';
 import { useNavigate } from "react-router-dom"; 
 import TaskAssignmentModal from '../../components/modals/taskAssignmentModal.jsx';
@@ -119,10 +119,10 @@ export default function SecretaryTemplates() {
             if (!isNaN(deadlineDate.getTime()) && deadlineDate < now) {
               type = "Late";
             } else {
-              type = "OnGoing";
+              type = "Draft";
             }
           } else {
-            type = "OnGoing";
+            type = "Draft";
           }
         } else if (row.status === "published") {
           type = "Published";

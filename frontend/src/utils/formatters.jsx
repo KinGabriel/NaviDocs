@@ -88,18 +88,20 @@ export function toISODate(val) {
  * @param {string} props.type - The status type to display
  * @returns {JSX.Element}
  */
-export default function StatusBadge({ type }) {
+export function StatusBadge({ type }) {
   const status = String(type).toLowerCase().replace(/\s+/g, "_");
 
   const styles = {
     // Document/Template statuses
     approved: "bg-green-50 text-green-700 border border-green-200",
+    submitted: "bg-green-50 text-green-700 border border-green-200",
     pending: "bg-yellow-50 text-yellow-700 border border-yellow-200",
     late: "bg-red-50 text-red-700 border border-red-200",
     rejected: "bg-red-50 text-red-700 border border-red-200",
     returned: "bg-orange-50 text-orange-700 border border-orange-200",
-    ongoing: "bg-gray-50 text-gray-700 border border-gray-200",
+    draft: "bg-gray-50 text-gray-700 border border-gray-200",
     published: "bg-blue-50 text-blue-700 border border-blue-200",
+    pending_review: "bg-purple-50 text-purple-700 border border-purple-200",
 
     // Priority/Delay statuses
     severe_delay: "bg-red-50 text-red-700 border border-red-200",
@@ -118,12 +120,14 @@ export default function StatusBadge({ type }) {
   const dotColors = {
     // Document/Template statuses
     approved: "bg-green-500",
+    submitted: "bg-green-500",
     pending: "bg-yellow-500",
     late: "bg-red-500",
     rejected: "bg-red-500",
     returned: "bg-orange-500",
-    ongoing: "bg-gray-500",
+    draft: "bg-gray-500",
     published: "bg-blue-500",
+    pending_review: "bg-purple-500",
 
     // Priority/Delay statuses
     severe_delay: "bg-red-500",
@@ -154,4 +158,3 @@ export default function StatusBadge({ type }) {
     </span>
   );
 }
-

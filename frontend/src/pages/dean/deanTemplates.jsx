@@ -7,7 +7,7 @@ import useUser from "../../hooks/useUser";
 import SearchBar from "../../components/searchbar";
 import Dropdown from "../../components/dropdowns/dropdown";
 import usePagination from "../../hooks/usePagination";
-import { formatDate, StatusBadge ,formatDateTime} from '../../utils/formatters.jsx';
+import { StatusBadge, formatDateTime } from '../../utils/formatters';
 import Loader from '../../components/loader';
 import { fetchTemplatesAPI as fetchDeanTemplatesAPI, approveTemplateAPI,createTemplateAPI } from "../../api/documentContollerAPI";
 import TaskAssignmentModal from '../../components/modals/taskAssignmentModal';
@@ -133,10 +133,10 @@ export default function DeanTemplates() {
             if (!isNaN(deadlineDate.getTime()) && deadlineDate < now) {
               type = "Late";
             } else {
-              type = "OnGoing";
+              type = "Draft";
             }
           } else {
-            type = "OnGoing";
+            type = "Draft";
           }
         } else if (row.status === "published") {
           type = "Published";
