@@ -10,6 +10,7 @@ import { updateDocumentFieldValuesAPI, getFieldSuggestionsAPI, saveFieldSuggesti
 import AutofillModal from "../components/modals/autofillModal";
 import { useParams, useLocation } from "react-router-dom";
 import DownloadingModal from "../components/modals/downloadingModal";
+import { exportDocumentPdfAPI } from "../api/assignmentDocumentsAPI";
 
 export default function EditableFields() {
   const user = useUser();
@@ -35,14 +36,100 @@ export default function EditableFields() {
   const [dlErr, setDlErr] = useState("");
 
   const handleExportPDF = async () => {
+    const FILE_SERVICE_URL = import.meta.env.VITE_FILE_SERVICE_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000';
     try {
-      setDlErr("");
-      setDlOpen(true);
-      await new Promise(r => setTimeout(r, 1500));
-      setDlOpen(false);
+      const idToUse = docData?._id || docData?.document?._id || id;
+      if (!idToUse) throw new Error('No document id available for export');
+
+      // capture the exact rendered HTML from the editor. Prefer the paginated container (.rm-with-pagination)
+      let providedHtml = null;
+      try {
+        const paginated = document.querySelector('.rm-with-pagination');
+        if (paginated) providedHtml = paginated.outerHTML;
+        else if (editorRef.current && editorRef.current.view && editorRef.current.view.dom) providedHtml = editorRef.current.view.dom.outerHTML;
+        else if (editorRef.current && typeof editorRef.current.getHTML === 'function') providedHtml = editorRef.current.getHTML();
+
+        // include page <head> styles to keep fonts and global styles intact
+        const headInner = (document.querySelector('head') && document.querySelector('head').innerHTML) || '';
+        if (providedHtml) providedHtml = `<!doctype html><html><head>${headInner}</head><body>${providedHtml}</body></html>`;
+      } catch (e) {
+        console.debug('handleExportPDF: failed to capture editor HTML, falling back to server render', e);
+        providedHtml = null;
+      }
+
+  // collect page setup from document or template so backend can match layout (paper size, margins, orientation)
+  const pageSetupToSend = docData?.pageSetup || docData?.from_template?.pageSetup || null;
+  const resp = await exportDocumentPdfAPI(idToUse, { store: true, html: providedHtml, pageSetup: pageSetupToSend });
+      console.debug('exportDocumentPdf response', resp && typeof resp === 'object' ? {
+        keys: Object.keys(resp),
+        filePath: resp.filePath || null,
+        hasData: !!(resp.data || resp.base64),
+        dataLength: resp.data && typeof resp.data === 'string' ? resp.data.length : (resp.base64 && typeof resp.base64 === 'string' ? resp.base64.length : 0)
+      } : resp);
+
+      // If server returned a stored file path, open it in a new tab
+      if (resp && resp.filePath) {
+        const path = String(resp.filePath || '');
+        const url = path.startsWith('http') || path.startsWith('data:') ? path : `${FILE_SERVICE_URL}${path}`;
+        window.open(url, '_blank');
+        return;
+      }
+
+      // If server returned inline base64 data, convert to blob and download
+      if (resp && (resp.data || resp.base64)) {
+        const b64 = resp.data || resp.base64;
+        const contentType = resp.contentType || 'application/pdf';
+        try {
+          // Build a data URL (handle case where backend already included data: prefix)
+          const dataUrl = b64.startsWith('data:') ? b64 : `data:${contentType};base64,${b64}`;
+          // Use fetch to convert data URL to a blob (more robust than atob for large payloads)
+          const fetched = await fetch(dataUrl);
+          const blob = await fetched.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          const safeTitle = (docData?.title || 'document').replace(/[^a-z0-9\-_. ]/gi, '_');
+          a.download = `${safeTitle}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(blobUrl);
+          return;
+        } catch (e) {
+          console.error('Failed to convert base64 to blob via fetch', e);
+          // fallback: try to sanitize and decode with atob
+          try {
+            const sanitized = String(b64).replace(/\s+/g, '');
+            const byteCharacters = atob(sanitized);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: contentType });
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            const safeTitle = (docData?.title || 'document').replace(/[^a-z0-9\-_. ]/gi, '_');
+            a.download = `${safeTitle}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(blobUrl);
+            return;
+          } catch (e2) {
+            console.error('Fallback base64 decode failed', e2);
+          }
+        }
+      }
+
+  // include a short snapshot of the response in the thrown error to help debugging (no large base64 payload)
+  const snapshot = resp && typeof resp === 'object' ? JSON.stringify({ keys: Object.keys(resp), hasData: !!(resp.data || resp.base64), filePath: resp.filePath || null }) : String(resp);
+  throw new Error('Export completed but no file was returned: ' + snapshot);
     } catch (err) {
-      console.error(err);
-      setDlErr(err?.message || "We couldn’t generate the PDF. Please try again.");
+      console.error('export PDF failed', err);
+      // rethrow so caller (header) can display its modal/error handling
+      throw err;
     }
   };
 

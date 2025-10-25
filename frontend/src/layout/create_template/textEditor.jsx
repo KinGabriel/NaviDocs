@@ -115,9 +115,9 @@ export default function TextEditor({
       RichImage.configure({ onOpenImageOptions: () => {} }),
       EditableField,
       PaginationPlus.configure({
-        pageGap: 24,
+        pageGap: 2,
         pageGapBorderSize: 1,
-        pageBreakBackground: "#ececec",
+        pageBreakBackground: "#ffffffff",
         pageHeaderHeight: HEADER_HEIGHT_PX,
         pageFooterHeight: FOOTER_HEIGHT_PX,
       }),

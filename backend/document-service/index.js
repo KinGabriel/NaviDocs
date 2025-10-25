@@ -12,7 +12,11 @@ const PORT = process.env.PORT || 8003;
 const HOST = process.env.HOST || "127.0.0.1";
 
 // CORS is handled by the gateway; backend services assume requests come through the gateway
-app.use(express.json());
+// Increase JSON/body size limits to allow large HTML payloads when the frontend sends full document HTML for PDF rendering.
+// Default express.json limit is small; set to 10mb here. Adjust via env PDF_BODY_LIMIT if needed.
+const jsonLimit = process.env.PDF_BODY_LIMIT || '10mb';
+app.use(express.json({ limit: jsonLimit }));
+app.use(express.urlencoded({ extended: true, limit: jsonLimit }));
 app.use(cookieParser());
 //  document routes
 app.use('/api/documents', documentRoutes);

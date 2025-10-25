@@ -48,6 +48,9 @@ const DocumentSchema = new Schema({
   submission_link: { type: String, default: null },
   deadline: { type: Date, default: null },
   thumbnailUrl: { type: String, default: null }
+  ,
+  // exported PDF links (path returned by file-service)
+  export_links: [{ path: { type: String, default: null }, created_at: { type: Date, default: null }, created_by: { type: Schema.Types.ObjectId, ref: 'User', default: null } }],
 }, { timestamps: true });
 
 // Useful indexes

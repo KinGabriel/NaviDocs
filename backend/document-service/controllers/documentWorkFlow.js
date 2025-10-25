@@ -3,6 +3,7 @@ import axios from 'axios';
 import FormData from 'form-data';
 import path from 'path';
 import { createVersionData } from './documentVersionController.js';
+import { escapeHtml, buildDocumentHtml, pagesJsonToHtml, generatePdfBuffer, uploadPdfBuffer } from '../utils/pdfExportUtil.js';
 
 /**
  * @route POST /api/documents/:id/share
@@ -254,31 +255,9 @@ export const submitDocumentLink = async (req, res) => {
 			const originalName = req.file.originalname || `upload_${Date.now()}`;
 			const ext = path.extname(originalName) || '';
 
-			if (keepInStorage) {
-				try {
-					const fileServerUrl = process.env.FILE_SERVICE_URL || 'http://localhost:5005';
-					const form = new FormData();
-					// file field name expected by file-service is 'document'
-					form.append('document', req.file.buffer, { filename: originalName, contentType: req.file.mimetype });
-					// owner: prefer school, then user id
-					const owner = req.user?.school || req.user?.role?.school || req.user?.id || 'unknown';
-					form.append('owner', String(owner));
-					form.append('documentId', String(id));
-					form.append('folderName', 'submissions');
-
-					const headers = { ...form.getHeaders() };
-					const uploadResp = await axios.post(`${fileServerUrl}/api/files/upload/document`, form, { headers, timeout: 20000 });
-					// file-service returns filePath or path
-					finalLink = uploadResp?.data?.filePath || uploadResp?.data?.path || uploadResp?.data?.filePath || null;
-				} catch (e) {
-					console.error('Failed to upload submission file to file-service', e?.message || e);
-					return res.status(500).json({ message: 'Failed to upload file to storage', error: e?.message || String(e) });
-				}
-			} else {
-				// Do not store the file in file-service — create a default path string for reference
-				const owner = req.user?.school || req.user?.role?.school || req.user?.id || 'public';
-				finalLink = `/uploads/${owner}/submissions/${id}_${Date.now()}${ext}`;
-			}
+			// For now do not forward files to file-service. Store submission as inline data URL (base64).
+			const b64 = req.file.buffer.toString('base64');
+			finalLink = `data:${req.file.mimetype};base64,${b64}`;
 		} else if (submission_link && typeof submission_link === 'string') {
 			finalLink = submission_link;
 		} else {
@@ -313,5 +292,116 @@ export const submitDocumentLink = async (req, res) => {
 	} catch (err) {
 		console.error('submitDocumentLink error', err);
 		return res.status(500).json({ message: 'Failed to submit document', error: err.message });
+	}
+};
+
+
+/**
+ * @desc Export a document to PDF and upload to file-service
+ * @route POST /api/documents/:id/export-pdf
+ * Body (optional): { store: boolean }
+ */
+export const exportDocumentPdf = async (req, res) => {
+	try {
+		const { id } = req.params;
+		if (!id) return res.status(400).json({ message: 'id required' });
+
+		const { store = true } = req.body || {};
+
+		const doc = await Document.findById(id).lean();
+		if (!doc) return res.status(404).json({ message: 'document not found' });
+
+		// Allow frontend to supply the exact HTML to render (preferred when frontend already builds final HTML)
+		// Body may include: { html: '<!doctype html>...</html>', store: boolean }
+		const providedHtml = req.body && typeof req.body.html === 'string' ? String(req.body.html) : null;
+		const maxHtmlSize = parseInt(process.env.PDF_HTML_MAX_SIZE || '2000000'); // default 2MB
+		let htmlFull = null;
+		if (providedHtml) {
+			if (providedHtml.length === 0) return res.status(400).json({ message: 'Provided html is empty' });
+			if (providedHtml.length > maxHtmlSize) return res.status(413).json({ message: 'Provided html exceeds allowed size' });
+			htmlFull = providedHtml;
+			console.debug && console.debug('exportDocumentPdf: using provided html from request, length =', htmlFull.length);
+		} else {
+			// Build HTML from pages_json and field_values
+			const pages = doc.from_template?.pages_json || doc.pages_json || [];
+			const htmlBody = pagesJsonToHtml(pages, doc.field_values || {});
+			const logoUrl = process.env.FILE_SERVICE_URL ? `${process.env.FILE_SERVICE_URL}/assets/logo.png` : null;
+			htmlFull = `<!doctype html>
+			<html>
+				<head>
+					<meta charset="utf-8" />
+					<meta name="viewport" content="width=device-width, initial-scale=1" />
+					<style>
+						body { font-family: Arial, Helvetica, sans-serif; color: #111; padding: 20px; }
+						.header { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+						.header img { height:40px; }
+						.editable-field { background: #fff8e6; padding: 2px 4px; border-radius: 2px; }
+						.page-break { page-break-after: always; }
+						p { margin: 8px 0; }
+					</style>
+				</head>
+				<body>
+					<main>
+						${htmlBody}
+					</main>
+				</body>
+			</html>`;
+			console.debug && console.debug('exportDocumentPdf: built html from pages_json, length =', htmlFull.length);
+			
+		}
+
+		// render HTML and generate PDF using shared util
+		try {
+			const pageSetupToUse = req.body && req.body.pageSetup ? req.body.pageSetup : (doc.from_template?.pageSetup || doc.pageSetup || {});
+			console.debug && console.debug('exportDocumentPdf: using pageSetup', pageSetupToUse);
+			try {
+								const cleanupCss = `
+										<style>
+											/* hide pagination separators/backgrounds used only for editor preview */
+											.page-break, .rm-page-break, .page-break-background, .rm-page-break .page-break, .rm-page-break > .page-break { background: transparent !important; box-shadow: none !important; }
+											/* hide any page-break background elements completely (editor preview bands) */
+											.page-break-background, .page-break-background * { display: none !important; }
+											[class*="page-break-background"], [class*="page-footer-background"], [class*="page-break-bg"] { display: none !important; }
+											/* hide header separator line inserted by the editor UI */
+											.nv-header-line { display: none !important; }
+											/* make header/footer bands transparent (but keep their content visible) */
+											.rm-page-footer, .rm-page-header, .nv-header-left, .nv-header-right { background: transparent !important; box-shadow: none !important; }
+											/* remove stray borders */
+											.rm-page-break, .page-break { border: none !important; }
+										</style>`;
+				if (/<head[^>]*>/i.test(htmlFull)) {
+					htmlFull = htmlFull.replace(/<head([^>]*)>/i, `<head$1>\n${cleanupCss}`);
+				} else {
+					htmlFull = cleanupCss + htmlFull;
+				}
+			} catch (injectErr) {
+				console.warn('exportDocumentPdf: failed to inject cleanup CSS', injectErr?.message || injectErr);
+			}
+
+			// generate PDF from final HTML 
+			const pdfBuffer = await generatePdfBuffer(htmlFull, pageSetupToUse || {});
+			try {
+				console.debug && console.debug('exportDocumentPdf: generated pdfBuffer length =', pdfBuffer ? pdfBuffer.length : 0);
+			} catch (logErr) {
+				// non-fatal
+				console.warn('exportDocumentPdf: failed to log pdfBuffer length', logErr);
+			}
+
+			if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer) || pdfBuffer.length === 0) {
+				console.error('exportDocumentPdf: pdfBuffer is empty or invalid');
+				return res.status(500).json({ success: false, message: 'PDF generation produced empty output', dataLength: 0 });
+			}
+
+			// For now we do not upload exports to file-service. Return inline base64 PDF and length metadata.
+			const base64 = pdfBuffer.toString('base64');
+			console.debug && console.debug('exportDocumentPdf: returning inline base64 PDF, length =', htmlFull);
+			return res.json({ success: true, message: 'Document exported (inline)', data: base64, contentType: 'application/pdf', dataLength: pdfBuffer.length });
+		} catch (e) {
+			console.error('exportDocumentPdf error (generate/upload)', e?.message || e);
+			return res.status(500).json({ message: 'Failed to render or upload PDF', error: e?.message || String(e) });
+		}
+	} catch (err) {
+		console.error('exportDocumentPdf error', err);
+		return res.status(500).json({ message: 'Failed to export document', error: err.message });
 	}
 };

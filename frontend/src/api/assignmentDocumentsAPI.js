@@ -24,3 +24,26 @@ export const assignFacultyByDeptHeadAPI = async (documentId, assignees = [], not
 		throw err;
 	}
 };
+
+/**
+ * Export a document to PDF (backend) and optionally store it in file-service.
+ * @param {string} documentId
+ * @param {object} [options]
+ * @param {boolean} [options.store=true] - whether the backend should upload the generated PDF to file-service
+ * @returns {Promise<object>} - response data from the server ({ filePath } or { data: base64, contentType })
+ */
+export const exportDocumentPdfAPI = async (documentId, options = { store: true, html: null, pageSetup: null }) => {
+	try {
+		const body = { store: options.store === undefined ? true : !!options.store };
+		if (options.html && typeof options.html === 'string') body.html = options.html;
+		if (options.pageSetup && typeof options.pageSetup === 'object') body.pageSetup = options.pageSetup;
+		const res = await axios.post(`${API_URL}/api/documents/${documentId}/export-pdf`, body, { withCredentials: true, maxContentLength: Infinity, maxBodyLength: Infinity });
+		return res.data;
+	} catch (error) {
+		const message = error.response?.data?.message || error.message || 'Failed to export document to PDF';
+		const err = new Error(message);
+		err.responseData = error.response?.data;
+		err.status = error.response?.status;
+		throw err;
+	}
+};
