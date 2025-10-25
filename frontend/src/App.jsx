@@ -33,6 +33,7 @@ import DepartmentHeadTemplates from './pages/dept_head/departmentHeadTemplates';
 import DepartmentHeadDocumentWorkflowView from './pages/dept_head/departmentHeadDocumentWorkflowView';
 import FacultyDashboard from './pages/faculty/facultyDashboard';
 import FacultyWorkFlow from './pages/faculty/facultyWorkFlow';
+import FacultyWorkflowView from './pages/faculty/facultyWorkflowView';
 import FacultyTemplates from './pages/faculty/facultyTemplates';  
 import EditableFields from './pages/editableFields';
 import Storage from './pages/storage';
@@ -266,6 +267,15 @@ function App() {
          element={
            <ProtectedRoute allowedRoles={["Faculty"]}>
              <FacultyWorkFlow />
+           </ProtectedRoute>
+         }
+       />
+
+       <Route
+         path="/faculty/document-workflow/:id"
+         element={
+           <ProtectedRoute allowedRoles={["Faculty"]}>
+             <FacultyWorkflowView />
            </ProtectedRoute>
          }
        />
