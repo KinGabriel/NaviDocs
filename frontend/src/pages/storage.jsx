@@ -12,6 +12,10 @@ import MoveModal from "../components/modals/moveModal";
 import Loader from "../components/loader";
 import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ChevronRight, Folder, File, MoreVertical, Download, Pencil, FolderCog, Move, Share2, Copy, Trash2 } from "lucide-react";
 import { formatDate } from "../utils/formatters";
+import RenameModal from "../components/modals/renameModal";
+import RemoveModal from "../components/modals/removeModal";
+import { renameFolderAPI, deleteFolderAPI, renameFileAPI, deleteFileAPI, deleteFileFromFolderAPI } from "../api/storageAPI";
+import toast, { Toaster } from 'react-hot-toast';
 
 // View Toggle Component
 function ViewToggle({ mode = "table", onChange }) {
@@ -79,6 +83,8 @@ export default function Storage() {
   const [loadingFolderDetails, setLoadingFolderDetails] = useState(false);
   const [openFolderMenu, setOpenFolderMenu] = useState(null);
   const [openFileMenu, setOpenFileMenu] = useState(null);
+  const [renameType, setRenameType] = useState("folder"); // "folder" or "file"
+  const [removeType, setRemoveType] = useState("folder");
   
   // Submenu states for table view
   const [openOrganizeSubmenu, setOpenOrganizeSubmenu] = useState(null);
@@ -289,11 +295,16 @@ export default function Storage() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // Toggle menus
-  const toggleFolderMenu = (id) =>
-    setOpenFolderMenu(openFolderMenu === id ? null : id);
-  const toggleFileMenu = (id) =>
-    setOpenFileMenu(openFileMenu === id ? null : id);
+// Toggle menus
+const toggleFolderMenu = (id, e) => {
+  if (e) e.stopPropagation();
+  setOpenFolderMenu(openFolderMenu === id ? null : id);
+};
+
+const toggleFileMenu = (id, e) => {
+  if (e) e.stopPropagation();
+  setOpenFileMenu(openFileMenu === id ? null : id);
+};
 
   // Folders (search + sort)
   const displayedFolders = useMemo(() => {
@@ -676,15 +687,11 @@ export default function Storage() {
                             <td className="px-6 py-4">
                               <div className="relative">
                                 <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleFolderMenu(`folder-${folder._id}`);
-                                  }}
-                                  className="p-1 rounded-full hover:bg-gray-300"
-                                >
-                                  <MoreVertical className="w-5 h-5 text-gray-600" />
-                                </button>
-                                
+                                    onClick={(e) => toggleFolderMenu(`folder-${folder._id}`, e)}
+                                    className="p-1 rounded-full hover:bg-gray-300"
+                                  >
+                                    <MoreVertical className="w-5 h-5 text-gray-600" />
+                                  </button>
                                 {openFolderMenu === `folder-${folder._id}` && (
                                   <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50">
                                     <ul className="text-sm text-gray-700">
@@ -702,7 +709,9 @@ export default function Storage() {
                                         className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          console.log("Rename folder");
+                                          setItemToRename(folder);
+                                          setRenameType("folder");
+                                          setShowRenameModal(true);
                                           setOpenFolderMenu(null);
                                         }}
                                       >
@@ -726,7 +735,7 @@ export default function Storage() {
                                         <span className="text-gray-500 text-xs">▶</span>
                                         {openOrganizeSubmenu === `folder-${folder._id}` && (
                                           <ul 
-                                            className="absolute top-0 left-full ml-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50"
+                                            className="absolute top-0 right-full mr-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50"
                                             onMouseEnter={(e) => {
                                               e.stopPropagation();
                                               setOpenOrganizeSubmenu(`folder-${folder._id}`);
@@ -767,7 +776,7 @@ export default function Storage() {
                                         <span className="text-gray-500 text-xs">▶</span>
                                         {openShareSubmenu === `folder-${folder._id}` && (
                                           <ul 
-                                            className="absolute top-0 left-full ml-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50"
+                                            className="absolute top-0 right-full mr-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50"
                                             onMouseEnter={(e) => {
                                               e.stopPropagation();
                                               setOpenShareSubmenu(`folder-${folder._id}`);
@@ -803,22 +812,18 @@ export default function Storage() {
                                         )}
                                       </li>
                                       <hr className="my-1" />
-                                      <li
-                                        className="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 cursor-pointer"
-                                        onClick={async (e) => {
-                                          e.stopPropagation();
-                                          if (window.confirm(`Delete folder "${folder.name}"?`)) {
-                                            try {
-                                              await loadContent();
-                                            } catch (err) {
-                                              alert(err.message || "Failed to delete folder");
-                                            }
-                                          }
-                                          setOpenFolderMenu(null);
-                                        }}
-                                      >
-                                        <Trash2 size={16} className="text-red-600" /> Archive
-                                      </li>
+                                     <li
+                                      className="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setItemToRemove(file);
+                                        setRemoveType("file");
+                                        setShowRemoveModal(true);
+                                        setOpenFileMenu(null);
+                                      }}
+                                    >
+                                      <Trash2 size={16} className="text-red-600" /> Archive
+                                    </li>
                                     </ul>
                                   </div>
                                 )}
@@ -959,15 +964,11 @@ export default function Storage() {
                               <td className="px-6 py-4">
                                 <div className="relative">
                                   <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleFileMenu(`file-${file._id || idx}`);
-                                    }}
+                                    onClick={(e) => toggleFileMenu(`file-${file._id || idx}`, e)}
                                     className="p-1 rounded-full hover:bg-gray-300"
                                   >
                                     <MoreVertical className="w-5 h-5 text-gray-600" />
                                   </button>
-                                  
                                   {openFileMenu === `file-${file._id || idx}` && (
                                     <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50">
                                       <ul className="text-sm text-gray-700">
@@ -981,11 +982,13 @@ export default function Storage() {
                                         >
                                           <Download size={16} className="text-gray-600" /> Download
                                         </li>
-                                        <li
+                                       <li
                                           className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            console.log("Rename file");
+                                            setItemToRename(file);
+                                            setRenameType("file");
+                                            setShowRenameModal(true);
                                             setOpenFileMenu(null);
                                           }}
                                         >
@@ -1002,7 +1005,7 @@ export default function Storage() {
                                           </div>
                                           <span className="text-gray-500 text-xs">▶</span>
                                           {openOrganizeSubmenu === `file-${file._id || idx}` && (
-                                            <ul className="absolute top-0 left-full ml-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50">
+                                            <ul className="absolute top-0 right-full mr-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50">
                                               <li
                                                 className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
                                                 onClick={(e) => {
@@ -1027,7 +1030,7 @@ export default function Storage() {
                                           <span className="text-gray-500 text-xs">▶</span>
                                           {openShareSubmenu === `file-${file._id || idx}` && (
                                             <ul 
-                                              className="absolute top-0 left-full ml-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50"
+                                              className="absolute top-0 right-full mr-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50"
                                               onMouseEnter={() => setOpenShareSubmenu(`file-${file._id || idx}`)}
                                               onMouseLeave={() => setOpenShareSubmenu(null)}
                                             >
@@ -1057,16 +1060,12 @@ export default function Storage() {
                                         <hr className="my-1" />
                                         <li
                                           className="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 cursor-pointer"
-                                          onClick={async (e) => {
+                                          onClick={(e) => {
                                             e.stopPropagation();
-                                            if (window.confirm(`Delete file "${fileName}"?`)) {
-                                              try {
-                                                await loadContent();
-                                              } catch (err) {
-                                                alert(err.message || "Failed to delete file");
-                                              }
-                                            }
-                                            setOpenFileMenu(null);
+                                            setItemToRemove(folder);
+                                            setRemoveType("folder");
+                                            setShowRemoveModal(true);
+                                            setOpenFolderMenu(null);
                                           }}
                                         >
                                           <Trash2 size={16} className="text-red-600" /> Archive
@@ -1206,6 +1205,71 @@ export default function Storage() {
           </div>
         </div>
       )}
+
+    {/* Rename Modal */}
+    {showRenameModal && itemToRename && (
+      <RenameModal
+        open={showRenameModal}
+        onClose={() => {
+          setShowRenameModal(false);
+          setItemToRename(null);
+        }}
+        currentTitle={renameType === "folder" ? itemToRename.name : (itemToRename.name || itemToRename.originalName || itemToRename.fileName)}
+        onSubmit={async (newTitle) => {
+          try {
+            if (renameType === "folder") {
+              await renameFolderAPI(itemToRename._id, newTitle);
+            } else {
+              if (selectedFolder) {
+                await renameFileAPI(itemToRename._id, newTitle, selectedFolder._id);
+              } else {
+                await renameFileAPI(itemToRename._id, newTitle);
+              }
+            }
+            toast.success(`${renameType === "folder" ? "Folder" : "File"} renamed successfully!`);
+            setShowRenameModal(false);
+            setItemToRename(null);
+            await loadContent();
+          } catch (err) {
+            toast.error(err?.message || `Failed to rename ${renameType}`);
+          }
+        }}
+      />
+    )}
+
+  {/* Remove Modal */}
+  {showRemoveModal && itemToRemove && (
+    <RemoveModal
+      open={showRemoveModal}
+      onClose={() => {
+        setShowRemoveModal(false);
+        setItemToRemove(null);
+      }}
+      itemType={removeType}
+      itemTitle={removeType === "folder" ? itemToRemove.name : (itemToRemove.name || itemToRemove.originalName || itemToRemove.fileName)}
+      onConfirm={async () => {
+        try {
+          if (removeType === "folder") {
+            await deleteFolderAPI(itemToRemove._id);
+          } else {
+            if (selectedFolder) {
+              await deleteFileFromFolderAPI(selectedFolder._id, itemToRemove._id);
+            } else {
+              await deleteFileAPI(itemToRemove._id);
+            }
+          }
+          toast.success(`${removeType === "folder" ? "Folder" : "File"} archived successfully!`);
+          setShowRemoveModal(false);
+          setItemToRemove(null);
+          await loadContent();
+        } catch (err) {
+          toast.error(err?.message || `Failed to archive ${removeType}`);
+        }
+      }}
+    />
+  )}
+
+  <Toaster position="top-center" reverseOrder={false} />
     </div>
   );
 }
