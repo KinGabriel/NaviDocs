@@ -12,11 +12,12 @@ import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import { PaginationPlus } from "tiptap-pagination-plus";
 import { PaginationTable } from "tiptap-table-plus";
-import RichImage from "../../extensions/image/ImageNode";
-import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 import { Extension } from "@tiptap/core";
 
-// Extend TextStyle attributes to include fontSize and lineHeight
+import RichImage from "../../extensions/image/ImageNode";
+import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
+
+/* ---------------------------- TextStyle extra attrs ---------------------------- */
 const TextStyleAttrs = Extension.create({
   name: "textStyleAttrs",
   addGlobalAttributes() {
@@ -42,12 +43,9 @@ const TextStyleAttrs = Extension.create({
   },
 });
 
-// ---- utils
+/* ----------------------------------- utils ----------------------------------- */
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
-
-// Reserve exact space for header/footer
-const HEADER_HEIGHT_PX = 96;
-const FOOTER_HEIGHT_PX = 48;
+const px = (n) => `${Math.max(0, Number(n) || 0)}px`;
 
 const DEFAULT_SETUP = {
   paperSize: "A4",
@@ -82,6 +80,58 @@ const DEFAULT_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 const normalizeInitialContent = (content) => (content ? content : DEFAULT_DOC);
 const { TablePlus, TableRowPlus, TableCellPlus, TableHeaderPlus } = PaginationTable;
 
+/* ----------------------- normalize header/footer config ----------------------- */
+const getCfg = (cfg) => {
+  const center = cfg?.header?.centerText || cfg?.center || {};
+  const logos = cfg?.header?.logos || {};
+  return {
+    headerEnabled: !!cfg?.headerEnabled,
+    footerEnabled: !!cfg?.footerEnabled,
+    headerMarginIn: Number(cfg?.headerMarginIn ?? 0.5),
+    footerMarginIn: Number(cfg?.footerMarginIn ?? 0.5),
+    assets: cfg?.assets || {},
+    center: {
+      enabled: center.enabled ?? true,
+      line1: center.line1 ?? cfg?.center?.line1 ?? "Saint Louis University",
+      line2: center.line2 ?? cfg?.center?.line2 ?? "",
+      line3: center.line3 ?? cfg?.center?.line3 ?? "",
+      line4: center.line4 ?? cfg?.center?.line4 ?? "",
+      showLine4: !!(center.showLine4 ?? cfg?.center?.showLine4),
+      fontFamily: center.fontFamily ?? "Inter, system-ui, sans-serif",
+      fontSize: Number(center.fontSize ?? 14),
+      bold: !!center.bold,
+      italic: !!center.italic,
+      color: center.color ?? "#000000",
+      showHeaderLine: !!(center.showHeaderLine ?? cfg?.showHeaderLine),
+    },
+    logos: {
+      slu: {
+        enabled: !!(logos.slu?.enabled ?? cfg?.showSLULogo),
+        sizePx: Number(logos.slu?.sizePx ?? 56),
+        // When logos sit inside the left container, xPercent becomes irrelevant.
+      },
+      cicm: {
+        enabled: !!(logos.cicm?.enabled ?? cfg?.showCICMLogo),
+        sizePx: Number(logos.cicm?.sizePx ?? 52),
+      },
+    },
+    stamp: {
+      docCode: cfg?.documentStamp?.docCode ?? cfg?.document_code ?? "",
+      revisionNo: cfg?.documentStamp?.revisionNo ?? cfg?.revision_no ?? "",
+      effectivity: cfg?.documentStamp?.effectivity ?? cfg?.effectivity ?? "",
+    },
+  };
+};
+
+const escapeHtml = (v) =>
+  String(v ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+/* --------------------------------- component --------------------------------- */
 export default function TextEditor({
   content,
   pageSetup = DEFAULT_SETUP,
@@ -95,6 +145,9 @@ export default function TextEditor({
   const dimsRef = useRef(computeDims(pageSetup));
   const setPolicyRef = useRef(null);
   const observerRef = useRef(null);
+
+  const initialHeaderH = inchToPx(headerConfig?.headerEnabled ? (headerConfig?.headerMarginIn ?? 0.5) : 0);
+  const initialFooterH = inchToPx(headerConfig?.footerEnabled ? (headerConfig?.footerMarginIn ?? 0.5) : 0);
 
   const editor = useEditor({
     extensions: [
@@ -118,12 +171,16 @@ export default function TextEditor({
         pageGap: 2,
         pageGapBorderSize: 1,
         pageBreakBackground: "#ffffffff",
-        pageHeaderHeight: HEADER_HEIGHT_PX,
-        pageFooterHeight: FOOTER_HEIGHT_PX,
+        pageHeaderHeight: initialHeaderH,
+        pageFooterHeight: initialFooterH,
       }),
     ],
     content: normalizeInitialContent(content),
-    editorProps: { attributes: { class: "nd-editor-canvas" } },
+    editorProps: {
+      attributes: {
+        class: "tiptap ProseMirror nd-editor-canvas rm-with-pagination",
+      },
+    },
     onCreate: ({ editor }) => {
       const { plugin, setPolicy } = createLockOutsideFieldsPlugin({
         initialPolicy: mode === "document" ? "document" : "template",
@@ -142,7 +199,7 @@ export default function TextEditor({
     },
   });
 
-  // --- Editor lifecycle
+  /* ------------------------------ lifecycle hooks ----------------------------- */
   useEffect(() => {
     if (!editor) return;
     try {
@@ -193,15 +250,37 @@ export default function TextEditor({
 
   useEffect(() => () => editor?.destroy(), [editor]);
 
-  // ---- Layout / Header/Footer Rendering ----
+  /* ----------------------- react to headerConfig changes ---------------------- */
+  useEffect(() => {
+    if (!editor) return;
+    const c = getCfg(headerConfig);
+    const headerH = c.headerEnabled ? inchToPx(c.headerMarginIn) : 0;
+    const footerH = c.footerEnabled ? inchToPx(c.footerMarginIn) : 0;
+
+    const ext = editor.extensionManager.extensions.find((e) => e.name === "paginationPlus");
+    if (ext && ext.options) {
+      ext.options.pageHeaderHeight = headerH;
+      ext.options.pageFooterHeight = footerH;
+    }
+
+    queueMicrotask(() => requestAnimationFrame(applyHeaderFooterBands));
+  }, [editor, headerConfig]);
+
+  /* --------------------------- header/footer renderer ------------------------- */
   const ensureFlexBand = (bandEl) => {
     if (!bandEl) return null;
+
+    // Align header/footers with the same left/right margins as the page body
+    const { marginLeftPx, marginRightPx } = dimsRef.current;
+
     bandEl.style.display = "flex";
     bandEl.style.alignItems = "center";
     bandEl.style.justifyContent = "space-between";
     bandEl.style.gap = "16px";
-    bandEl.style.padding = "0 24px";
-    bandEl.style.height = `${HEADER_HEIGHT_PX}px`;
+    bandEl.style.paddingLeft = px(marginLeftPx);
+    bandEl.style.paddingRight = px(marginRightPx);
+    bandEl.style.paddingTop = "0";
+    bandEl.style.paddingBottom = "0";
     bandEl.style.boxSizing = "border-box";
     bandEl.style.position = "relative";
     bandEl.style.background = "white";
@@ -209,7 +288,7 @@ export default function TextEditor({
     let left =
       bandEl.querySelector(":scope > .rm-page-header-left") ||
       bandEl.querySelector(":scope > .rm-first-page-header-left") ||
-      bandEl.querySelector(":scope > [class$='-left']");
+      bandEl.querySelector(":scope > .nv-header-left");
     if (!left) {
       left = document.createElement("div");
       left.className = "nv-header-left";
@@ -219,7 +298,7 @@ export default function TextEditor({
     let right =
       bandEl.querySelector(":scope > .rm-page-header-right") ||
       bandEl.querySelector(":scope > .rm-first-page-header-right") ||
-      bandEl.querySelector(":scope > [class$='-right']");
+      bandEl.querySelector(":scope > .nv-header-right");
     if (!right) {
       right = document.createElement("div");
       right.className = "nv-header-right";
@@ -241,11 +320,111 @@ export default function TextEditor({
       center.style.justifyContent = "center";
       center.style.gap = "8px";
       center.style.textAlign = "center";
-      center.style.fontFamily = "Arial, sans-serif";
       bandEl.insertBefore(center, right);
     }
 
     return { left, center, right, bandEl };
+  };
+
+  const renderHeaderContent = (trip, rawCfg, pageNo, total) => {
+    const cfg = getCfg(rawCfg);
+
+    // visibility per enable
+    trip.bandEl.style.visibility = cfg.headerEnabled ? "visible" : "hidden";
+    if (!cfg.headerEnabled) {
+      trip.left.innerHTML = "";
+      trip.center.innerHTML = "";
+      trip.right.innerHTML = "";
+      return;
+    }
+
+    // Clear prior content
+    trip.left.innerHTML = "";
+    trip.center.innerHTML = "";
+    trip.right.innerHTML = "";
+
+    // LEFT: logos live inside the left container so they align with page margins
+    if (cfg.logos.slu?.enabled && cfg.assets?.slu) {
+      const img = document.createElement("img");
+      img.src = cfg.assets.slu;
+      img.alt = "SLU";
+      img.style.height = px(cfg.logos.slu.sizePx || 56);
+      img.style.objectFit = "contain";
+      img.style.pointerEvents = "none";
+      trip.left.appendChild(img);
+    }
+    if (cfg.logos.cicm?.enabled && cfg.assets?.cicm) {
+      const img = document.createElement("img");
+      img.src = cfg.assets.cicm;
+      img.alt = "CICM";
+      img.style.height = px(cfg.logos.cicm.sizePx || 52);
+      img.style.objectFit = "contain";
+      img.style.pointerEvents = "none";
+      img.style.marginLeft = "8px";
+      trip.left.appendChild(img);
+    }
+
+    // CENTER: text block
+    const weight = cfg.center.bold ? 700 : 400;
+    const styleStr = `
+      display:flex;flex-direction:column;align-items:center;line-height:1.15;
+      font-family:${cfg.center.fontFamily};color:${cfg.center.color};
+      font-size:${px(cfg.center.fontSize)};font-style:${cfg.center.italic ? "italic" : "normal"};
+      font-weight:${weight};text-align:center;
+    `;
+    const line = (txt, extra = "") => (txt ? `<div style="${extra}">${escapeHtml(txt)}</div>` : "");
+    trip.center.innerHTML = `
+      <div class="nv-center-text" style="${styleStr}">
+        ${line(cfg.center.line1)}
+        ${line(cfg.center.line2)}
+        ${line(cfg.center.line3, "font-size:12px;")}
+        ${cfg.center.showLine4 ? line(cfg.center.line4) : ""}
+      </div>
+    `;
+
+    // RIGHT: document stamp table
+    trip.right.innerHTML = `
+      <table style="border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;background:#fff;">
+        <tbody>
+          <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(cfg.stamp.docCode)}</td></tr>
+          <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.revisionNo))}</td></tr>
+          <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.effectivity))}</td></tr>
+          <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${pageNo} of ${total}</td></tr>
+        </tbody>
+      </table>
+    `;
+
+    // Optional bottom rule
+    const wantLine = !!cfg.center.showHeaderLine;
+    let lineEl = trip.bandEl.querySelector(":scope > .nv-header-line");
+    if (wantLine && !lineEl) {
+      lineEl = document.createElement("div");
+      lineEl.className = "nv-header-line";
+      lineEl.style.position = "absolute";
+      lineEl.style.left = "0";
+      lineEl.style.right = "0";
+      lineEl.style.bottom = "0";
+      lineEl.style.height = "1px";
+      lineEl.style.background = "#000";
+      trip.bandEl.appendChild(lineEl);
+    } else if (!wantLine && lineEl) {
+      lineEl.remove();
+    }
+  };
+
+  const renderFooter = (footer, pageNo, total, rawCfg) => {
+    const cfg = getCfg(rawCfg);
+    footer.style.visibility = cfg.footerEnabled ? "visible" : "hidden";
+    if (!cfg.footerEnabled) {
+      footer.innerHTML = "";
+      return;
+    }
+    footer.style.display = "flex";
+    footer.style.justifyContent = "center";
+    footer.style.alignItems = "center";
+    footer.style.paddingLeft = px(dimsRef.current.marginLeftPx);
+    footer.style.paddingRight = px(dimsRef.current.marginRightPx);
+    footer.innerHTML = `<div style="font-family:Arial;font-size:12px;">Page ${pageNo} of ${total}</div>`;
   };
 
   const applyHeaderFooterBands = () => {
@@ -263,7 +442,8 @@ export default function TextEditor({
     breakers.forEach((brk, i) => {
       const pageNo = i + 1;
       const footer = brk.querySelector(".rm-page-footer");
-      if (footer) renderFooter(footer, pageNo, total);
+      if (footer) renderFooter(footer, pageNo, total, headerConfig);
+
       const header = brk.querySelector(".rm-page-header");
       if (header && pageNo < total) {
         const trip = ensureFlexBand(header);
@@ -272,87 +452,21 @@ export default function TextEditor({
     });
   };
 
-  const renderHeaderContent = (trip, cfg, pageNo, total) => {
-    const c = cfg?.center || {};
-    const showSLU = cfg?.showSLULogo && cfg?.assets?.slu;
-    const showCICM = cfg?.showCICMLogo && cfg?.assets?.cicm;
-    const d = cfg?.documentStamp || {};
-    const docCode = d.docCode || cfg?.document_code || "";
-    const revisionNo = d.revisionNo || cfg?.revision_no || "";
-    const effectivity = d.effectivity || cfg?.effectivity || "";
-
-    trip.left.innerHTML = showSLU
-      ? `<img src="${cfg.assets.slu}" alt="SLU" style="height:56px;object-fit:contain;">`
-      : "";
-
-    // Center text with CICM logo aligned to the right
-    const textHTML = `
-      <div class="nv-center-text" style="display:flex;flex-direction:column;align-items:center;line-height:1.15;">
-        <div style="font-weight:700;font-size:13px;">${c.line1 || "Saint Louis University"}</div>
-        ${c.line2 ? `<div style="font-weight:700;font-size:14px;text-decoration:underline;">${c.line2}</div>` : ""}
-        ${c.line3 ? `<div style="font-size:12px;">${c.line3}</div>` : ""}
-        ${c.line4 ? `<div style="font-weight:700;font-size:13px;">${c.line4}</div>` : ""}
-      </div>
-    `;
-    const cicmHTML = showCICM
-      ? `<img src="${cfg.assets.cicm}" alt="CICM" style="height:52px;object-fit:contain;flex:0 0 auto;">`
-      : "";
-
-    trip.center.innerHTML = textHTML + cicmHTML;
-
-    // Right side: document stamp
-    trip.right.innerHTML = `
-      <table style="border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;background:#fff;">
-        <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(docCode)}</td></tr>
-        <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(revisionNo))}</td></tr>
-        <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(effectivity))}</td></tr>
-        <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${pageNo} of ${total}</td></tr>
-      </table>
-    `;
-
-    const wantLine = !!cfg.showHeaderLine;
-    let line = trip.bandEl.querySelector(":scope > .nv-header-line");
-    if (wantLine && !line) {
-      line = document.createElement("div");
-      line.className = "nv-header-line";
-      line.style.position = "absolute";
-      line.style.left = "0";
-      line.style.right = "0";
-      line.style.bottom = "0";
-      line.style.height = "1px";
-      line.style.background = "#000";
-      trip.bandEl.appendChild(line);
-    } else if (!wantLine && line) line.remove();
-  };
-
-  const renderFooter = (footer, pageNo, total) => {
-    footer.style.display = "flex";
-    footer.style.justifyContent = "center";
-    footer.style.alignItems = "center";
-    footer.style.height = `${FOOTER_HEIGHT_PX}px`;
-    footer.innerHTML = `<div style="font-family:Arial;font-size:12px;">Page ${pageNo} of ${total}</div>`;
-  };
-
-  const escapeHtml = (v) =>
-    String(v ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-
-  // Observe pagination mutations
+  /* ---------------------------- observe pagination ---------------------------- */
   useEffect(() => {
     requestAnimationFrame(applyHeaderFooterBands);
     const root = document.querySelector(".rm-with-pagination");
     observerRef.current?.disconnect();
     if (root) {
-      observerRef.current = new MutationObserver(() => requestAnimationFrame(applyHeaderFooterBands));
+      observerRef.current = new MutationObserver(() =>
+        requestAnimationFrame(applyHeaderFooterBands)
+      );
       observerRef.current.observe(root, { subtree: true, childList: true });
     }
     return () => observerRef.current?.disconnect();
   }, [editor, headerConfig]);
 
+  /* ----------------------------------- ui ------------------------------------ */
   return (
     <div className={`w-full flex ${className}`}>
       <div className="flex-1 mx-auto my-6" style={{ maxWidth: "calc(816px + 4rem)" }}>
