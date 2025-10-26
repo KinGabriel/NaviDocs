@@ -32,11 +32,13 @@ export const assignFacultyByDeptHeadAPI = async (documentId, assignees = [], not
  * @param {boolean} [options.store=true] - whether the backend should upload the generated PDF to file-service
  * @returns {Promise<object>} - response data from the server ({ filePath } or { data: base64, contentType })
  */
-export const exportDocumentPdfAPI = async (documentId, options = { store: true, html: null, pageSetup: null }) => {
+export const exportDocumentPdfAPI = async (documentId, options = { store: true, html: null, pageSetup: null, folderId: undefined, filename: undefined }) => {
 	try {
 		const body = { store: options.store === undefined ? true : !!options.store };
 		if (options.html && typeof options.html === 'string') body.html = options.html;
 		if (options.pageSetup && typeof options.pageSetup === 'object') body.pageSetup = options.pageSetup;
+		if (typeof options.folderId !== 'undefined') body.folderId = options.folderId; // root
+		if (typeof options.filename === 'string') body.filename = options.filename;
 		const res = await axios.post(`${API_URL}/api/documents/${documentId}/export-pdf`, body, { withCredentials: true, maxContentLength: Infinity, maxBodyLength: Infinity });
 		return res.data;
 	} catch (error) {

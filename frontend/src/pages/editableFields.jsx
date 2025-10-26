@@ -11,6 +11,7 @@ import AutofillModal from "../components/modals/autofillModal";
 import { useParams, useLocation } from "react-router-dom";
 import DownloadingModal from "../components/modals/downloadingModal";
 import { exportDocumentPdfAPI } from "../api/assignmentDocumentsAPI";
+import { addDocumentsAPI, addOrphanFileAPI } from "../api/storageAPI";
 
 export default function EditableFields() {
   const user = useUser();
@@ -35,8 +36,14 @@ export default function EditableFields() {
   const [dlOpen, setDlOpen] = useState(false);
   const [dlErr, setDlErr] = useState("");
 
-  const handleExportPDF = async () => {
-    const FILE_SERVICE_URL = import.meta.env.VITE_FILE_SERVICE_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const handleExportPDF = async (options = { store: true, folderId: undefined }) => {
+    // Resolve a single File Service base URL even if the env contains a comma-separated list
+    const rawBases = (import.meta.env.VITE_FILE_SERVICE_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000').split(',');
+    let pickBase = rawBases.find(u => u && u.includes(window.location.hostname)) || rawBases[0] || '';
+    pickBase = String(pickBase).trim();
+    if (pickBase.startsWith('http//')) pickBase = 'http://' + pickBase.slice(6); // fix missing colon if present
+    if (pickBase.startsWith('https//')) pickBase = 'https://' + pickBase.slice(7);
+    const FILE_BASE = pickBase.replace(/\/$/, '');
     try {
       const idToUse = docData?._id || docData?.document?._id || id;
       if (!idToUse) throw new Error('No document id available for export');
@@ -59,7 +66,9 @@ export default function EditableFields() {
 
   // collect page setup from document or template so backend can match layout (paper size, margins, orientation)
   const pageSetupToSend = docData?.pageSetup || docData?.from_template?.pageSetup || null;
-  const resp = await exportDocumentPdfAPI(idToUse, { store: true, html: providedHtml, pageSetup: pageSetupToSend });
+  const storeFlag = options && typeof options.store !== 'undefined' ? !!options.store : true;
+  const fileName = ((docData?.title || 'document').replace(/[^a-z0-9\-_. ]/gi, '_') || 'document') + '.pdf';
+  const resp = await exportDocumentPdfAPI(idToUse, { store: storeFlag, html: providedHtml, pageSetup: pageSetupToSend, folderId: options.folderId, filename: fileName });
       console.debug('exportDocumentPdf response', resp && typeof resp === 'object' ? {
         keys: Object.keys(resp),
         filePath: resp.filePath || null,
@@ -70,13 +79,13 @@ export default function EditableFields() {
       // If server returned a stored file path, open it in a new tab
       if (resp && resp.filePath) {
         const path = String(resp.filePath || '');
-        const url = path.startsWith('http') || path.startsWith('data:') ? path : `${FILE_SERVICE_URL}${path}`;
+        const url = /^https?:\/\//i.test(path) || path.startsWith('data:') ? path : `${FILE_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
         window.open(url, '_blank');
         return;
       }
 
       // If server returned inline base64 data, convert to blob and download
-      if (resp && (resp.data || resp.base64)) {
+      if (!storeFlag && resp && (resp.data || resp.base64)) {
         const b64 = resp.data || resp.base64;
         const contentType = resp.contentType || 'application/pdf';
         try {
@@ -85,6 +94,22 @@ export default function EditableFields() {
           // Use fetch to convert data URL to a blob (more robust than atob for large payloads)
           const fetched = await fetch(dataUrl);
           const blob = await fetched.blob();
+          // If client-side upload path is used (store=false) and a target folder/root specified, upload then download
+          if (!storeFlag && options && (typeof options.folderId !== 'undefined')) {
+            const safeTitle = (docData?.title || 'document').replace(/[^a-z0-9\-_. ]/gi, '_');
+            const fileName = `${safeTitle}.pdf`;
+            const file = new File([blob], fileName, { type: contentType });
+            try {
+              if (options.folderId) {
+                await addDocumentsAPI(options.folderId, [file], user?._id, user?._id);
+              } else {
+                await addOrphanFileAPI([file], user?._id, user?._id);
+              }
+            } catch (uploadErr) {
+              console.error('Upload to folder failed', uploadErr);
+              // continue to download even if upload fails
+            }
+          }
           const blobUrl = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = blobUrl;
@@ -107,6 +132,20 @@ export default function EditableFields() {
             }
             const byteArray = new Uint8Array(byteNumbers);
             const blob = new Blob([byteArray], { type: contentType });
+            if (!storeFlag && options && (typeof options.folderId !== 'undefined')) {
+              const safeTitle = (docData?.title || 'document').replace(/[^a-z0-9\-_. ]/gi, '_');
+              const fileName = `${safeTitle}.pdf`;
+              const file = new File([blob], fileName, { type: contentType });
+              try {
+                if (options.folderId) {
+                  await addDocumentsAPI(options.folderId, [file], user?._id, user?._id);
+                } else {
+                  await addOrphanFileAPI([file], user?._id, user?._id);
+                }
+              } catch (uploadErr) {
+                console.error('Upload to folder failed (fallback)', uploadErr);
+              }
+            }
             const blobUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = blobUrl;
