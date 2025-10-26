@@ -460,7 +460,9 @@ function HeaderTab({
       {/* Logos */}
       <div className="rounded-xl border p-4">
         <div className="mb-3 text-sm font-semibold text-slate-700">Logos</div>
-        <div className="grid gap-6 md:grid-cols-2">
+
+        {/* STACKED: SLU on top, CICM below */}
+        <div className="flex flex-col gap-6">
           <LogoBlock
             title="SLU Logo"
             previewSrc={assets.slu || SLU_LOGO_SRC}
