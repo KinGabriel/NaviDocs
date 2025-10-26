@@ -12,10 +12,6 @@ import MoveModal from "../components/modals/moveModal";
 import Loader from "../components/loader";
 import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ChevronRight, Folder, File, MoreVertical, Download, Pencil, FolderCog, Move, Share2, Copy, Trash2 } from "lucide-react";
 import { formatDate } from "../utils/formatters";
-import RenameModal from "../components/modals/renameModal";
-import RemoveModal from "../components/modals/removeModal";
-import { renameFolderAPI, deleteFolderAPI, renameFileAPI, deleteFileAPI, deleteFileFromFolderAPI } from "../api/storageAPI";
-import toast, { Toaster } from 'react-hot-toast';
 
 // View Toggle Component
 function ViewToggle({ mode = "table", onChange }) {
@@ -1205,71 +1201,6 @@ const toggleFileMenu = (id, e) => {
           </div>
         </div>
       )}
-
-    {/* Rename Modal */}
-    {showRenameModal && itemToRename && (
-      <RenameModal
-        open={showRenameModal}
-        onClose={() => {
-          setShowRenameModal(false);
-          setItemToRename(null);
-        }}
-        currentTitle={renameType === "folder" ? itemToRename.name : (itemToRename.name || itemToRename.originalName || itemToRename.fileName)}
-        onSubmit={async (newTitle) => {
-          try {
-            if (renameType === "folder") {
-              await renameFolderAPI(itemToRename._id, newTitle);
-            } else {
-              if (selectedFolder) {
-                await renameFileAPI(itemToRename._id, newTitle, selectedFolder._id);
-              } else {
-                await renameFileAPI(itemToRename._id, newTitle);
-              }
-            }
-            toast.success(`${renameType === "folder" ? "Folder" : "File"} renamed successfully!`);
-            setShowRenameModal(false);
-            setItemToRename(null);
-            await loadContent();
-          } catch (err) {
-            toast.error(err?.message || `Failed to rename ${renameType}`);
-          }
-        }}
-      />
-    )}
-
-  {/* Remove Modal */}
-  {showRemoveModal && itemToRemove && (
-    <RemoveModal
-      open={showRemoveModal}
-      onClose={() => {
-        setShowRemoveModal(false);
-        setItemToRemove(null);
-      }}
-      itemType={removeType}
-      itemTitle={removeType === "folder" ? itemToRemove.name : (itemToRemove.name || itemToRemove.originalName || itemToRemove.fileName)}
-      onConfirm={async () => {
-        try {
-          if (removeType === "folder") {
-            await deleteFolderAPI(itemToRemove._id);
-          } else {
-            if (selectedFolder) {
-              await deleteFileFromFolderAPI(selectedFolder._id, itemToRemove._id);
-            } else {
-              await deleteFileAPI(itemToRemove._id);
-            }
-          }
-          toast.success(`${removeType === "folder" ? "Folder" : "File"} archived successfully!`);
-          setShowRemoveModal(false);
-          setItemToRemove(null);
-          await loadContent();
-        } catch (err) {
-          toast.error(err?.message || `Failed to archive ${removeType}`);
-        }
-      }}
-    />
-  )}
-
-  <Toaster position="top-center" reverseOrder={false} />
     </div>
   );
 }
