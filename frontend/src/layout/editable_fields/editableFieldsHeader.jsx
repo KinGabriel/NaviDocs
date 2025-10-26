@@ -273,22 +273,6 @@ export default function EditableFieldsHeader({
                     <button className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3 rounded-md" 
                       onClick={async () => {
                         setIsQuickOpen(false);
-                        // Save to file service (store=true)
-                        await handleExportPDF({ store: true });
-                      }}
-                    >
-                      <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <FileDown className="w-4 h-4 text-purple-600" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900 text-sm">Export & Save to Files</div>
-                        <div className="text-xs text-gray-500">Generates PDF and uploads to your file storage</div>
-                      </div>
-                    </button>
-
-                    <button className="w-full text-left mt-2 px-4 py-3 hover:bg-purple-50 flex items-center gap-3 rounded-md" 
-                      onClick={async () => {
-                        setIsQuickOpen(false);
                         // Direct download (store=false)
                         await handleExportPDF({ store: false });
                       }}
