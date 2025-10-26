@@ -1,41 +1,95 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import HeaderPublishedTemplateView from "../layout/headers/headerPublishedTemplateView";
 import useUser from "../hooks/useUser";
 import { getTemplateByIdAPI } from "../api/documentContollerAPI";
-import { createDocumentAPI } from "../api/documentsAPI";
+import { createDocumentAPI, deleteDocumentAPI } from "../api/documentsAPI";
+import { exportDocumentPdfAPI } from "../api/assignmentDocumentsAPI";
 import CreateDocumentModal from "../components/modals/createDocumentModal";
 import TextEditor from "../layout/create_template/textEditor";
 import DownloadingModal from "../components/modals/downloadingModal";
 import axios from "axios";
+import StoragePickerModal from "../components/modals/storagePickerModal";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
 
-async function downloadTemplatePDF({ id, title, pdfUrl }) {
-  if (pdfUrl && /^https?:\/\//i.test(pdfUrl)) {
-    const a = document.createElement("a");
-    a.href = pdfUrl;
-    a.download = `${(title || "template").replace(/\s+/g, "_")}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    return;
-  }
+// Helper: create a temporary document from the template, export via the document exporter, then cleanup
+async function exportTemplateViaDocument({ templateDoc, store = false, folderId, filename, html }) {
+  const payload = {
+    title: `${templateDoc.title || "Template"} (Export)`,
+    template_id: templateDoc._id || templateDoc.id,
+    pages_json: templateDoc.pages_json,
+    pageSetup: templateDoc.pageSetup,
+    field_values: templateDoc.field_values || {},
+  };
 
-  const endpoint = `${API_URL.replace(/\/$/, "")}/api/templates/${id}/pdf`;
-  const response = await axios.get(endpoint, { responseType: "blob" });
-  const blob = new Blob([response.data], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${(title || "template").replace(/\s+/g, "_")}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  const createdRes = await createDocumentAPI(payload);
+  const created = createdRes?.document || createdRes;
+  const createdId = created?._id || created?.id || created?.document?._id;
+  if (!createdId) throw new Error("Failed to create a temporary document for export");
+
+  try {
+    const resp = await exportDocumentPdfAPI(createdId, {
+      store: !!store,
+      folderId,
+      filename,
+      // If the caller provides raw HTML, forward it so backend renders exactly what the user sees
+      ...(html ? { html, pageSetup: templateDoc.pageSetup } : {}),
+      // Let backend build HTML from the document pages_json; no html/pageSetup override needed here
+    });
+
+    if (resp && resp.filePath) {
+      // Server stored the PDF; open it and also trigger a download
+      const path = String(resp.filePath);
+      const url = /^https?:\/\//i.test(path) || path.startsWith("data:")
+        ? path
+        : `${API_URL.replace(/\/$/, "")}${path.startsWith("/") ? "" : "/"}${path}`;
+      // Open in new tab
+      window.open(url, "_blank");
+      // Best-effort: also start a direct download
+      try {
+        const r = await fetch(url, { credentials: 'include' });
+        if (r.ok) {
+          const blob = await r.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(blobUrl);
+        }
+      } catch {}
+      return;
+    }
+
+    if (!store && resp && (resp.data || resp.base64)) {
+      const b64 = resp.data || resp.base64;
+      const contentType = resp.contentType || 'application/pdf';
+      const dataUrl = b64.startsWith('data:') ? b64 : `data:${contentType};base64,${b64}`;
+      const fetched = await fetch(dataUrl);
+      const blob = await fetched.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+      return;
+    }
+
+    const snapshot = resp && typeof resp === 'object' ? JSON.stringify({ keys: Object.keys(resp), filePath: resp.filePath || null }) : String(resp);
+    throw new Error('Export did not return a file: ' + snapshot);
+  } finally {
+    // Cleanup the temporary document
+    try { await deleteDocumentAPI(createdId); } catch (e) { /* ignore */ }
+  }
 }
 
 const FALLBACK_DOC = {
@@ -61,6 +115,8 @@ export default function PublishedTemplateView() {
   const [template, setTemplate] = useState(tpl);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
+  const [showStoragePicker, setShowStoragePicker] = useState(false);
+  const previewRef = useRef(null);
 
   useEffect(() => {
     if (!state?.doc && id) {
@@ -95,14 +151,17 @@ export default function PublishedTemplateView() {
     document_size: d.document_size || FALLBACK_DOC.document_size,
   };
 
-  const handleDownload = async () => {
+  const handleExportDownload = async () => {
     setDownloadError("");
     setDownloading(true);
     try {
-      await downloadTemplatePDF({
-        id: template._id || template.id || id,
-        title: template.title || "Template",
-        pdfUrl: template.pdfUrl || template.pdf_url,
+      const safeTitle = (template.title || "Template").replace(/[^a-z0-9\-_. ]/gi, "_");
+      const html = buildExportHtmlFromPreview();
+      await exportTemplateViaDocument({
+        templateDoc: d,
+        store: false,
+        html: html || undefined,
+        filename: `${safeTitle}.pdf`,
       });
       setDownloading(false);
     } catch (err) {
@@ -141,6 +200,90 @@ export default function PublishedTemplateView() {
     if (!pageNode) return baseDoc;
     return { ...baseDoc, content: [pageNode] };
   }, [d, pageNodes, currentPage]);
+
+  // Build a full HTML document using the exact preview DOM and include current styles
+  const buildExportHtmlFromPreview = () => {
+    try {
+      const node = previewRef.current;
+      if (!node) return null;
+
+      const headParts = [];
+      const baseHref = window.location.origin + "/";
+      headParts.push(`<base href="${baseHref}">`);
+      const styleNodes = Array.from(document.querySelectorAll('head style, head link[rel="stylesheet"]'));
+      for (const el of styleNodes) {
+        if (el.tagName.toLowerCase() === 'style') {
+          headParts.push(`<style>${el.innerHTML}</style>`);
+        } else if (el.tagName.toLowerCase() === 'link') {
+          const href = el.getAttribute('href');
+          if (href) {
+            const abs = href.startsWith('http') ? href : new URL(href, baseHref).href;
+            headParts.push(`<link rel="stylesheet" href="${abs}">`);
+          }
+        }
+      }
+
+      // Choose the editor canvas only (avoid outer layout spacing)
+      const canvas = node.querySelector('.rm-with-pagination') || node;
+
+      // Export-only CSS to remove preview-only chrome, hide header rule, fix page gaps, and reduce widows/orphans
+      const exportCss = `
+        @page { margin: 0; }
+        html, body { margin: 0; padding: 0; background: #fff; }
+        /* Robust centering for headless PDF renderers */
+        body { display: flex; justify-content: center; align-items: flex-start; }
+        /* Neutralize PaginationPlus gaps/borders that can render as faint lines */
+        :root, .rm-with-pagination { --pageGap: 0px !important; --pageGapBorderSize: 0px !important; }
+        /* Keep canvas centered and remove any outer spacing */
+
+        .rm-pagination-separator, .rm-page-gap { display: none !important; }
+        .rm-page-break, .rm-page-container { background: #fff !important; box-shadow: none !important; border: 0 !important; outline: none !important; }
+        .rm-page-break::before, .rm-page-break::after, .rm-page-container::before, .rm-page-container::after { display: none !important; content: none !important; }
+        .rm-first-page-header, .rm-page-header { border: 0 !important; box-shadow: none !important; }
+        /* Hide any header separator lines for export only */
+        .rm-first-page-header .nv-header-line,
+        .rm-page-header .nv-header-line,
+        .nv-header-line { display: none !important; }
+        
+        /* Guard against top-collapsing margins from the first block on first page */
+        .rm-page-break:first-child .ProseMirror > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
+        /* Guard against bottom-collapsing margins on the last page */
+        .rm-page-break:last-child .ProseMirror > *:last-child { margin-bottom: 0 !important; padding-bottom: 0 !important; }
+        
+        /* Last-page specific: ensure no separators or adornments render */
+        .rm-page-break:last-child .rm-pagination-separator,
+        .rm-page-break:last-child .rm-page-gap { display: none !important; }
+        .rm-page-break:last-child::before,
+        .rm-page-break:last-child::after,
+        .rm-page-break:last-child .rm-page-container::before,
+        .rm-page-break:last-child .rm-page-container::after { display: none !important; content: none !important; }
+        
+        /* Widow/Orphan control and break-inside avoidance for common blocks */
+        .ProseMirror p,
+        .ProseMirror h1, .ProseMirror h2, .ProseMirror h3, .ProseMirror h4, .ProseMirror h5, .ProseMirror h6,
+        .ProseMirror ul, .ProseMirror ol,
+        .ProseMirror li,
+        .ProseMirror blockquote,
+        .ProseMirror table,
+        .ProseMirror tr,
+        .ProseMirror figure,
+        .ProseMirror pre,
+        .ProseMirror code {
+          page-break-inside: avoid !important;
+          break-inside: avoid-page !important;
+          widows: 3; orphans: 3;
+          break-before: auto !important;
+          break-after: auto !important; /* Relax end-of-doc behavior to avoid last-page artifacts */
+        }
+      `;
+
+      const html = `<!doctype html><html><head>${headParts.join('\n')}<style>${exportCss}</style></head><body>${canvas.outerHTML}</body></html>`;
+      return html;
+    } catch (e) {
+      console.warn('Failed to capture preview HTML:', e);
+      return null;
+    }
+  };
 
   const normalizedLogoConfig = (() => {
     const src = d?.logoConfig || d?.headerFooter || {};
@@ -216,10 +359,37 @@ export default function PublishedTemplateView() {
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <HeaderPublishedTemplateView
         title={doc.title}
-        onDownloadPDF={handleDownload}
+        onExportDownload={handleExportDownload}
+        onExportToStorage={() => setShowStoragePicker(true)}
         onEdit={handleEdit}
         onUnpublish={handleUnpublish}
         user={user}
+      />
+      {/* Storage Picker */}
+      <StoragePickerModal
+        open={showStoragePicker}
+        onClose={() => setShowStoragePicker(false)}
+        user={user}
+        onConfirm={async (folderId) => {
+          setShowStoragePicker(false);
+          setDownloadError("");
+          setDownloading(true);
+          try {
+            const safeTitle = (template.title || "Template").replace(/[^a-z0-9\-_. ]/gi, "_");
+            const html = buildExportHtmlFromPreview();
+            await exportTemplateViaDocument({
+              templateDoc: d,
+              store: true,
+              folderId,
+              html: html || undefined,
+              filename: `${safeTitle}.pdf`,
+            });
+            setDownloading(false);
+          } catch (err) {
+            console.error('Export to storage failed:', err);
+            setDownloadError(err?.message || 'Failed to export and save to storage.');
+          }
+        }}
       />
 
       <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
@@ -228,35 +398,10 @@ export default function PublishedTemplateView() {
             <section className="col-span-12 lg:col-span-8">
               {/* Render template preview using TextEditor (read-only). Build a single-page doc from pages_json */}
               {d && (
-                <div className="w-full">
-                  {totalPages > 0 && (
-                    <div className="flex items-center justify-between mb-2">
-                      <button
-                        className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
-                        onClick={() =>
-                          setCurrentPage((p) => Math.max(0, p - 1))
-                        }
-                        disabled={currentPage === 0}
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-gray-600">
-                        Page {currentPage + 1} of {totalPages}
-                      </span>
-                      <button
-                        className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
-                        onClick={() =>
-                          setCurrentPage((p) =>
-                            Math.min(totalPages - 1, p + 1)
-                          )
-                        }
-                        disabled={currentPage === totalPages - 1}
-                      >
-                        Next
-                      </button>
-                    </div>
-                  )}
+                <div className="w-full m">
+              
 
+                  <div ref={previewRef} id="template-preview-capture">
                   <TextEditor
                     content={contentForEditor}
                     pageSetup={d?.pageSetup}
@@ -277,6 +422,7 @@ export default function PublishedTemplateView() {
                       d?.effectivity_date_iso
                     }
                   />
+                  </div>
                 </div>
               )}
               {!d && (

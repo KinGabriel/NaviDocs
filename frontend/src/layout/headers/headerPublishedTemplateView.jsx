@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import naviLogo from "../../assets/images/navilogo.png";
-import { Download, Pencil, X } from "lucide-react";
+import { Download, ChevronDown, FolderPlus } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -10,12 +11,24 @@ const API_URL =
 
 export default function HeaderPublishedTemplateView({
   title,
-  onDownloadPDF,
+  onExportDownload,
+  onExportToStorage,
   onEdit,
   onUnpublish,
   user,
 }) {
   const navigate = useNavigate();
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const exportRef = useRef(null);
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!exportRef.current) return;
+      if (!exportRef.current.contains(e.target)) setIsExportOpen(false);
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, []);
 
   return (
      <div className="sticky top-0 z-50 bg-[#f3f3f3] shadow-sm">
@@ -68,14 +81,54 @@ export default function HeaderPublishedTemplateView({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Download btn */}
-          <button
-            onClick={onDownloadPDF}
-            className="bg-[#063c8d] hover:bg-[#052c6d] text-white rounded px-4 py-2 text-sm font-semibold flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Download as PDF
-          </button>
+          {/* Export dropdown */}
+          <div className="relative" ref={exportRef}>
+            <button
+              onClick={() => setIsExportOpen((o) => !o)}
+              className="bg-[#063c8d] hover:bg-[#052c6d] text-white rounded px-4 py-2 text-sm font-semibold flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            {isExportOpen && (
+              <div className="absolute right-0 mt-2 w-72 z-50">
+                <div className="bg-white rounded-lg shadow-xl border border-gray-200 py-2">
+                  <button
+                    className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3"
+                    onClick={() => {
+                      setIsExportOpen(false);
+                      onExportDownload && onExportDownload();
+                    }}
+                  >
+                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <Download className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 text-sm">Export & Download</div>
+                      <div className="text-xs text-gray-500">Generate PDF and download directly to your browser</div>
+                    </div>
+                  </button>
+
+                  <button
+                    className="w-full text-left mt-2 px-4 py-3 hover:bg-blue-50 flex items-center gap-3"
+                    onClick={() => {
+                      setIsExportOpen(false);
+                      onExportToStorage && onExportToStorage();
+                    }}
+                  >
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <FolderPlus className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 text-sm">Export to Storage & Download…</div>
+                      <div className="text-xs text-gray-500">Choose folder or create new, then save and download</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Profile picture */}
           <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
