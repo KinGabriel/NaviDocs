@@ -10,8 +10,7 @@ import { updateDocumentFieldValuesAPI, getFieldSuggestionsAPI, saveFieldSuggesti
 import AutofillModal from "../components/modals/autofillModal";
 import { useParams, useLocation } from "react-router-dom";
 import DownloadingModal from "../components/modals/downloadingModal";
-import { exportDocumentPdfAPI } from "../api/assignmentDocumentsAPI";
-import { addDocumentsAPI, addOrphanFileAPI } from "../api/storageAPI";
+import exportDocumentPdf from "../utils/exportPdf";
 
 export default function EditableFields() {
   const user = useUser();
@@ -37,13 +36,6 @@ export default function EditableFields() {
   const [dlErr, setDlErr] = useState("");
 
   const handleExportPDF = async (options = { store: true, folderId: undefined }) => {
-    // Resolve a single File Service base URL even if the env contains a comma-separated list
-    const rawBases = (import.meta.env.VITE_FILE_SERVICE_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000').split(',');
-    let pickBase = rawBases.find(u => u && u.includes(window.location.hostname)) || rawBases[0] || '';
-    pickBase = String(pickBase).trim();
-    if (pickBase.startsWith('http//')) pickBase = 'http://' + pickBase.slice(6); // fix missing colon if present
-    if (pickBase.startsWith('https//')) pickBase = 'https://' + pickBase.slice(7);
-    const FILE_BASE = pickBase.replace(/\/$/, '');
     try {
       const idToUse = docData?._id || docData?.document?._id || id;
       if (!idToUse) throw new Error('No document id available for export');
@@ -64,107 +56,21 @@ export default function EditableFields() {
         providedHtml = null;
       }
 
-  // collect page setup from document or template so backend can match layout (paper size, margins, orientation)
-  const pageSetupToSend = docData?.pageSetup || docData?.from_template?.pageSetup || null;
-  const storeFlag = options && typeof options.store !== 'undefined' ? !!options.store : true;
-  const fileName = ((docData?.title || 'document').replace(/[^a-z0-9\-_. ]/gi, '_') || 'document') + '.pdf';
-  const resp = await exportDocumentPdfAPI(idToUse, { store: storeFlag, html: providedHtml, pageSetup: pageSetupToSend, folderId: options.folderId, filename: fileName });
-      console.debug('exportDocumentPdf response', resp && typeof resp === 'object' ? {
-        keys: Object.keys(resp),
-        filePath: resp.filePath || null,
-        hasData: !!(resp.data || resp.base64),
-        dataLength: resp.data && typeof resp.data === 'string' ? resp.data.length : (resp.base64 && typeof resp.base64 === 'string' ? resp.base64.length : 0)
-      } : resp);
+      // collect page setup from document or template so backend can match layout (paper size, margins, orientation)
+      const pageSetupToSend = docData?.pageSetup || docData?.from_template?.pageSetup || null;
+      const storeFlag = options && typeof options.store !== 'undefined' ? !!options.store : true;
+      const safeTitle = (docData?.title || 'document').replace(/[^a-z0-9\-_. ]/gi, '_') || 'document';
+      const fileName = `${safeTitle}.pdf`;
 
-      // If server returned a stored file path, open it in a new tab
-      if (resp && resp.filePath) {
-        const path = String(resp.filePath || '');
-        const url = /^https?:\/\//i.test(path) || path.startsWith('data:') ? path : `${FILE_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
-        window.open(url, '_blank');
-        return;
-      }
-
-      // If server returned inline base64 data, convert to blob and download
-      if (!storeFlag && resp && (resp.data || resp.base64)) {
-        const b64 = resp.data || resp.base64;
-        const contentType = resp.contentType || 'application/pdf';
-        try {
-          // Build a data URL (handle case where backend already included data: prefix)
-          const dataUrl = b64.startsWith('data:') ? b64 : `data:${contentType};base64,${b64}`;
-          // Use fetch to convert data URL to a blob (more robust than atob for large payloads)
-          const fetched = await fetch(dataUrl);
-          const blob = await fetched.blob();
-          // If client-side upload path is used (store=false) and a target folder/root specified, upload then download
-          if (!storeFlag && options && (typeof options.folderId !== 'undefined')) {
-            const safeTitle = (docData?.title || 'document').replace(/[^a-z0-9\-_. ]/gi, '_');
-            const fileName = `${safeTitle}.pdf`;
-            const file = new File([blob], fileName, { type: contentType });
-            try {
-              if (options.folderId) {
-                await addDocumentsAPI(options.folderId, [file], user?._id, user?._id);
-              } else {
-                await addOrphanFileAPI([file], user?._id, user?._id);
-              }
-            } catch (uploadErr) {
-              console.error('Upload to folder failed', uploadErr);
-              // continue to download even if upload fails
-            }
-          }
-          const blobUrl = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          const safeTitle = (docData?.title || 'document').replace(/[^a-z0-9\-_. ]/gi, '_');
-          a.download = `${safeTitle}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(blobUrl);
-          return;
-        } catch (e) {
-          console.error('Failed to convert base64 to blob via fetch', e);
-          // fallback: try to sanitize and decode with atob
-          try {
-            const sanitized = String(b64).replace(/\s+/g, '');
-            const byteCharacters = atob(sanitized);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: contentType });
-            if (!storeFlag && options && (typeof options.folderId !== 'undefined')) {
-              const safeTitle = (docData?.title || 'document').replace(/[^a-z0-9\-_. ]/gi, '_');
-              const fileName = `${safeTitle}.pdf`;
-              const file = new File([blob], fileName, { type: contentType });
-              try {
-                if (options.folderId) {
-                  await addDocumentsAPI(options.folderId, [file], user?._id, user?._id);
-                } else {
-                  await addOrphanFileAPI([file], user?._id, user?._id);
-                }
-              } catch (uploadErr) {
-                console.error('Upload to folder failed (fallback)', uploadErr);
-              }
-            }
-            const blobUrl = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            const safeTitle = (docData?.title || 'document').replace(/[^a-z0-9\-_. ]/gi, '_');
-            a.download = `${safeTitle}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(blobUrl);
-            return;
-          } catch (e2) {
-            console.error('Fallback base64 decode failed', e2);
-          }
-        }
-      }
-
-  // include a short snapshot of the response in the thrown error to help debugging (no large base64 payload)
-  const snapshot = resp && typeof resp === 'object' ? JSON.stringify({ keys: Object.keys(resp), hasData: !!(resp.data || resp.base64), filePath: resp.filePath || null }) : String(resp);
-  throw new Error('Export completed but no file was returned: ' + snapshot);
+      await exportDocumentPdf({
+        documentId: idToUse,
+        fileName,
+        html: providedHtml,
+        pageSetup: pageSetupToSend,
+        store: storeFlag,
+        folderId: options.folderId,
+        userId: user?._id,
+      });
     } catch (err) {
       console.error('export PDF failed', err);
       // rethrow so caller (header) can display its modal/error handling

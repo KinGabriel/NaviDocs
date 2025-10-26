@@ -54,7 +54,7 @@ const DEFAULT_SETUP = {
 };
 
 const PRESETS = {
-  A4: { w: 8.27, h: 11.69 },
+  A4: { w: 8.27, h: 11.7 },
   Letter: { w: 8.5, h: 11 },
   Legal: { w: 8.5, h: 14 },
 };
