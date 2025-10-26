@@ -108,7 +108,6 @@ const getCfg = (cfg) => {
       slu: {
         enabled: !!(logos.slu?.enabled ?? cfg?.showSLULogo),
         sizePx: Number(logos.slu?.sizePx ?? 56),
-        // When logos sit inside the left container, xPercent becomes irrelevant.
       },
       cicm: {
         enabled: !!(logos.cicm?.enabled ?? cfg?.showCICMLogo),
@@ -131,6 +130,30 @@ const escapeHtml = (v) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
+/* ---------------------------- dynamic header/footer --------------------------- */
+const MIN_HEADER_PX = 90;
+const MIN_FOOTER_PX = 0;
+
+const getHeaderBasePx = (cfg) =>
+  cfg.headerEnabled ? Math.max(MIN_HEADER_PX, inchToPx(cfg.headerMarginIn ?? 0)) : 0;
+
+const getFooterBasePx = (cfg) =>
+  cfg.footerEnabled ? Math.max(MIN_FOOTER_PX, inchToPx(cfg.footerMarginIn ?? 0)) : 0;
+
+// Only increases band to fit content; never smaller than base
+const autoFitBand = (editor, bandEl, kind /* 'header' | 'footer' */, basePx) => {
+  if (!editor || !bandEl) return;
+  const needed = Math.ceil(bandEl.scrollHeight);
+  const next = Math.max(basePx, needed);
+  const ext = editor.extensionManager.extensions.find((e) => e.name === "paginationPlus");
+  if (!ext || !ext.options) return;
+  const key = kind === "footer" ? "pageFooterHeight" : "pageHeaderHeight";
+  if (ext.options[key] !== next) {
+    ext.options[key] = next;
+    requestAnimationFrame(() => {}); // let PaginationPlus relayout, our observer will re-render
+  }
+};
+
 /* --------------------------------- component --------------------------------- */
 export default function TextEditor({
   content,
@@ -146,8 +169,9 @@ export default function TextEditor({
   const setPolicyRef = useRef(null);
   const observerRef = useRef(null);
 
-  const initialHeaderH = inchToPx(headerConfig?.headerEnabled ? (headerConfig?.headerMarginIn ?? 0.5) : 0);
-  const initialFooterH = inchToPx(headerConfig?.footerEnabled ? (headerConfig?.footerMarginIn ?? 0.5) : 0);
+  const _initCfg = getCfg(headerConfig);
+  const initialHeaderH = getHeaderBasePx(_initCfg);
+  const initialFooterH = getFooterBasePx(_initCfg);
 
   const editor = useEditor({
     extensions: [
@@ -254,8 +278,8 @@ export default function TextEditor({
   useEffect(() => {
     if (!editor) return;
     const c = getCfg(headerConfig);
-    const headerH = c.headerEnabled ? inchToPx(c.headerMarginIn) : 0;
-    const footerH = c.footerEnabled ? inchToPx(c.footerMarginIn) : 0;
+    const headerH = getHeaderBasePx(c);
+    const footerH = getFooterBasePx(c);
 
     const ext = editor.extensionManager.extensions.find((e) => e.name === "paginationPlus");
     if (ext && ext.options) {
@@ -329,7 +353,6 @@ export default function TextEditor({
   const renderHeaderContent = (trip, rawCfg, pageNo, total) => {
     const cfg = getCfg(rawCfg);
 
-    // visibility per enable
     trip.bandEl.style.visibility = cfg.headerEnabled ? "visible" : "hidden";
     if (!cfg.headerEnabled) {
       trip.left.innerHTML = "";
@@ -338,17 +361,17 @@ export default function TextEditor({
       return;
     }
 
-    // Clear prior content
     trip.left.innerHTML = "";
     trip.center.innerHTML = "";
     trip.right.innerHTML = "";
 
-    // LEFT: logos live inside the left container so they align with page margins
+    // LEFT logos
     if (cfg.logos.slu?.enabled && cfg.assets?.slu) {
       const img = document.createElement("img");
       img.src = cfg.assets.slu;
       img.alt = "SLU";
       img.style.height = px(cfg.logos.slu.sizePx || 56);
+      img.style.maxHeight = "100%";
       img.style.objectFit = "contain";
       img.style.pointerEvents = "none";
       trip.left.appendChild(img);
@@ -358,13 +381,14 @@ export default function TextEditor({
       img.src = cfg.assets.cicm;
       img.alt = "CICM";
       img.style.height = px(cfg.logos.cicm.sizePx || 52);
+      img.style.maxHeight = "100%";
       img.style.objectFit = "contain";
       img.style.pointerEvents = "none";
       img.style.marginLeft = "8px";
       trip.left.appendChild(img);
     }
 
-    // CENTER: text block
+    // CENTER text
     const weight = cfg.center.bold ? 700 : 400;
     const styleStr = `
       display:flex;flex-direction:column;align-items:center;line-height:1.15;
@@ -382,7 +406,7 @@ export default function TextEditor({
       </div>
     `;
 
-    // RIGHT: document stamp table
+    // RIGHT table
     trip.right.innerHTML = `
       <table style="border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;background:#fff;">
         <tbody>
@@ -410,6 +434,9 @@ export default function TextEditor({
     } else if (!wantLine && lineEl) {
       lineEl.remove();
     }
+
+    // Auto-fit to content with 90px minimum
+    autoFitBand(editor, trip.bandEl, "header", getHeaderBasePx(getCfg(headerConfig)));
   };
 
   const renderFooter = (footer, pageNo, total, rawCfg) => {
@@ -425,6 +452,9 @@ export default function TextEditor({
     footer.style.paddingLeft = px(dimsRef.current.marginLeftPx);
     footer.style.paddingRight = px(dimsRef.current.marginRightPx);
     footer.innerHTML = `<div style="font-family:Arial;font-size:12px;">Page ${pageNo} of ${total}</div>`;
+
+    // Auto-fit footer if needed (keeps at least MIN_FOOTER_PX)
+    autoFitBand(editor, footer, "footer", getFooterBasePx(getCfg(headerConfig)));
   };
 
   const applyHeaderFooterBands = () => {
