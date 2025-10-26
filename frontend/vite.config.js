@@ -10,4 +10,14 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    proxy: {
+      // Proxy all /api requests in dev to the API gateway
+      "/api": {
+        target: process.env.VITE_GATEWAY_URL || "http://localhost:8000",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 })

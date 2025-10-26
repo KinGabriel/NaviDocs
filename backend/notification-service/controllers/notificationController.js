@@ -45,38 +45,40 @@ export const createInternalNotification = async (req, res) => {
 // @route   GET /api/notifications
 // @access  Public (Exposed via Gateway, Auth is done upstream)
 export const getNotifications = async (req, res) => {
-  // Assuming the Gateway has validated the token and injected user details into req.user 
-  // (e.g., { id: 'user_id_string', role: 'faculty' })
-  const userId = req.user.id ||  req.user._id ; 
-  const userRole = req.user.role || req.user.role.name; 
+  // user injected by our auth middleware (cookie-based JWT)
+  const userId = String(req.user?.id || req.user?._id || '');
+  const userRole = typeof req.user?.role === 'string' ? req.user.role : (req.user?.role?.name || null);
 
   try {
-    const notifications = await Notification.find({
-      $or: [
-        { 'isRead': { $exists: true, $ne: {} } }, // Filter out notifications created without targeted users 
-        { recipientUser: userId },           // Targeted directly to the user
-        { recipientRoles: userRole }         // Targeted to the user's role
-      ]
-    })
+    // Build OR conditions safely
+    const orConditions = [
+      // notifications explicitly targeted to this user via targetedUserIds (isRead.<userId> exists)
+      { [`isRead.${userId}`]: { $exists: true } },
+      // direct user targeting
+      { recipientUser: userId },
+    ];
+    if (userRole) orConditions.push({ recipientRoles: userRole });
+
+    const notifications = await Notification.find({ $or: orConditions })
       .sort({ createdAt: -1 })
-      .limit(50) 
+      .limit(50)
       .lean();
 
-    // Process results to determine the user's specific read status
-    const userNotifications = notifications.map(notif => {
-      // Check the Map for the user's specific status, defaulting to false (unread)
-      const readStatus = notif.isRead[userId] || false; 
-
+    // Normalize read status and shape
+    const userNotifications = notifications.map((notif) => {
+      const map = notif.isRead || {};
+      const readVal = typeof map.get === 'function' ? map.get(userId) : map[userId];
+      const readStatus = !!readVal;
       return {
         _id: notif._id,
         message: notif.message,
         type: notif.type,
         link: notif.link,
-        isRead: readStatus, // The key dynamic filter
+        isRead: readStatus,
         createdAt: notif.createdAt,
       };
     });
-console.log('Fetched notifications for user:', userId, userNotifications);
+
     res.json(userNotifications);
   } catch (error) {
     console.error('Error fetching notifications:', error);

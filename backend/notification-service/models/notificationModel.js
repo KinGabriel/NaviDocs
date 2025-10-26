@@ -20,12 +20,23 @@ const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
     enum: [
+      // Existing (keep for backward compatibility)
       'document_submitted',
       'document_approved',
       'document_rejected',
       'template_update',
       'system_alert',
-      'template_approval_request'
+      'template_approval_request',
+      // New template workflow events
+      'template_assignment',
+      'template_deadline_update',
+      'template_review_requested', // preferred over template_approval_request
+      'template_partially_approved',
+      'template_fully_approved',
+      'template_rejected',
+      'template_returned',
+      'template_published',
+      'template_unpublished'
     ],
     required: true,
   },
