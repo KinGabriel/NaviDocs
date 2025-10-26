@@ -139,7 +139,7 @@ export default function FacultyWorkflowView() {
         {/* Main Content Wrapper */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-3 mx-6 mt-8 rounded-xl">
           {/* Container */}
-          <div className="w-full px-4 max-w-6xl">
+          <div className="w-full px-4 max-w-8xl">
             {/* Back Button */}
             <div className="mb-6 mt-3">
               <button
