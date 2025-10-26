@@ -35,6 +35,11 @@ apiEndpoints:
     paths:
       - /graphql
 
+  notifications:
+    paths:
+      - /api/notifications
+      - /api/notifications/*
+
 
 
 serviceEndpoints:
@@ -50,6 +55,8 @@ serviceEndpoints:
     url: ${FILE_SERVICE_URL}
   analytics-service:
     url: ${ANALYTICS_SERVICE_URL}
+  notification-service:
+    url: ${NOTIFICATION_SERVICE_URL}
 
 policies:
   - jwt
@@ -151,6 +158,20 @@ pipelines:
       - proxy:
           - action:
               serviceEndpoint: analytics-service
+              changeOrigin: true
+
+  notification-pipeline:
+    apiEndpoints:
+      - notifications
+    policies:
+      - cors:
+          - action:
+              origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
+              methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+              credentials: true
+      - proxy:
+          - action:
+              serviceEndpoint: notification-service
               changeOrigin: true
 
 

@@ -10,15 +10,50 @@ import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
 import MoveModal from "../components/modals/moveModal";
 import Loader from "../components/loader";
-import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ListFilter, ChevronRight } from "lucide-react";
+import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ChevronRight, Folder, File, MoreVertical, Download, Pencil, FolderCog, Move, Share2, Copy, Trash2 } from "lucide-react";
+import { formatDate } from "../utils/formatters";
+
+// View Toggle Component
+function ViewToggle({ mode = "table", onChange }) {
+  const isTable = mode === "table";
+  return (
+    <div className="inline-flex items-stretch rounded-full border border-gray-300 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => onChange("table")}
+        className={`px-3 py-2 flex items-center ${isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"}`}
+        aria-label="List view"
+        title="List view"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("grid")}
+        className={`px-3 py-2 flex items-center ${!isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"}`}
+        aria-label="Grid view"
+        title="Grid view"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="4" y="4" width="6" height="6" rx="1"></rect>
+          <rect x="14" y="4" width="6" height="6" rx="1"></rect>
+          <rect x="4" y="14" width="6" height="6" rx="1"></rect>
+          <rect x="14" y="14" width="6" height="6" rx="1"></rect>
+        </svg>
+      </button>
+    </div>
+  );
+}
 
 export default function Storage() {
-  const { id } = useParams(); // Get folder ID from URL
+  const { id } = useParams();
   const navigate = useNavigate();
   const user = useUser();
 
-  // File view mode: 'grid' or 'list'
-  const [fileViewMode, setFileViewMode] = useState("grid");
+  // View mode: 'table' or 'grid'
+  const [viewMode, setViewMode] = useState("table");
 
   // Orphan/root files state
   const [rootFiles, setRootFiles] = useState([]);
@@ -44,6 +79,12 @@ export default function Storage() {
   const [loadingFolderDetails, setLoadingFolderDetails] = useState(false);
   const [openFolderMenu, setOpenFolderMenu] = useState(null);
   const [openFileMenu, setOpenFileMenu] = useState(null);
+  const [renameType, setRenameType] = useState("folder"); // "folder" or "file"
+  const [removeType, setRemoveType] = useState("folder");
+  
+  // Submenu states for table view
+  const [openOrganizeSubmenu, setOpenOrganizeSubmenu] = useState(null);
+  const [openShareSubmenu, setOpenShareSubmenu] = useState(null);
   
   // document upload state
   const [uploading, setUploading] = useState(false);
@@ -74,55 +115,10 @@ export default function Storage() {
   const [itemToMove, setItemToMove] = useState(null);
   const [moveType, setMoveType] = useState("folder");
 
-  const FileViewToggle = ({ mode, onChange }) => {
-  return (
-    <div className="inline-flex items-center border border-gray-300 rounded-full overflow-hidden">
-      {/* Table View */}
-      <button
-        type="button"
-        onClick={() => onChange("table")}
-        className={`px-3 py-2 flex items-center transition-all duration-150 ${
-          mode === "table"
-            ? "bg-blue-100 text-blue-700"
-            : "bg-white text-gray-700 hover:bg-gray-100"
-        }`}
-        aria-label="Table view"
-        title="Table view"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M4 7h16M4 12h16M4 17h16"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </svg>
-      </button>
-
-      {/* Grid View */}
-      <button
-        type="button"
-        onClick={() => onChange("grid")}
-        className={`px-3 py-2 flex items-center transition-all duration-150 ${
-          mode === "grid"
-            ? "bg-blue-100 text-blue-700"
-            : "bg-white text-gray-700 hover:bg-gray-100"
-        }`}
-        aria-label="Grid view"
-        title="Grid view"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          <rect x="4" y="4" width="6" height="6" rx="1"></rect>
-          <rect x="14" y="4" width="6" height="6" rx="1"></rect>
-          <rect x="4" y="14" width="6" height="6" rx="1"></rect>
-          <rect x="14" y="14" width="6" height="6" rx="1"></rect>
-        </svg>
-      </button>
-    </div>
-  );
-};
+  // Pagination - 10 folders + 10 files per page
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   
-  // When opening the new folder modal, default parentFolderId to the currently selected folder
   useEffect(() => {
     if (showNewFolderModal) {
       if (selectedFolder && selectedFolder._id) {
@@ -133,7 +129,6 @@ export default function Storage() {
     }
   }, [showNewFolderModal, selectedFolder]);
 
-  // Load content when URL changes or status changes
   useEffect(() => {
     if (!user || !user._id) return;
     loadContent();
@@ -197,11 +192,7 @@ export default function Storage() {
 
   const loadFolderById = async (folderId) => {
     try {
-      console.log('=== Loading folder by ID:', folderId, '===');
-      
-      // Get all folders first (needed for breadcrumb building)
       const allFoldersData = await getFoldersAPI({ user, status: selectedStatus });
-      console.log('Raw folders from API:', allFoldersData.folders?.length);
       
       const mapped = (allFoldersData.folders || []).map((f) => ({
         name: f.folderName || "Unnamed Folder",
@@ -213,22 +204,9 @@ export default function Storage() {
         }
       }));
       
-      console.log('Mapped folders:', mapped.map(f => ({ 
-        id: f._id, 
-        name: f.name, 
-        parent: f.data.parentFolder 
-      })));
-      
       setFolders(mapped);
       
-      // Get folder details
       const folderData = await getFolderByIDAPI(folderId, user._id, selectedStatus);
-      console.log('Current folder from API:', {
-        name: folderData.folder?.folderName,
-        id: folderData.folder?._id,
-        parent: folderData.folder?.parentFolder
-      });
-      
       setSelectedFolder(folderData.folder);
       
       setFoldersError(null);
@@ -243,51 +221,6 @@ export default function Storage() {
     }
   };
 
-  const buildBreadcrumbs = (folder, allFolders) => {
-    if (!folder || !allFolders || allFolders.length === 0) {
-      console.log('Cannot build breadcrumbs: missing data', { folder, foldersCount: allFolders?.length });
-      return;
-    }
-
-    const trail = [];
-    const visited = new Set();
-    let currentId = folder.parentFolder;
-    
-    console.log('Building breadcrumbs for:', folder.folderName || folder.name, 'ID:', folder._id);
-    console.log('Parent ID:', currentId);
-    console.log('Available folders:', allFolders.map(f => ({ id: f._id, name: f.name, parent: f.data?.parentFolder })));
-    
-    // Build parent chain from bottom to top
-    while (currentId && !visited.has(currentId)) {
-      visited.add(currentId);
-      const parent = allFolders.find(f => f._id === currentId);
-      console.log('Looking for parent:', currentId, 'Found:', parent?.name);
-      
-      if (parent) {
-        trail.unshift({ 
-          name: parent.name, 
-          id: parent._id, 
-          data: parent.data 
-        });
-        currentId = parent.data?.parentFolder;
-      } else {
-        console.log('Parent not found, breaking');
-        break;
-      }
-    }
-    
-    // Add current folder at the end
-    trail.push({ 
-      name: folder.folderName || folder.name, 
-      id: folder._id, 
-      data: folder 
-    });
-    
-    console.log('Final breadcrumb trail:', trail.map(t => t.name));
-    setFolderPath(trail);
-  };
-
-  // Navigation functions
   const openFolder = (folderId) => {
     navigate(`/storage/folders/${folderId}`);
   };
@@ -316,14 +249,8 @@ export default function Storage() {
     }
 
     if (folders.length === 0) {
-      console.log('Folders not loaded yet, skipping breadcrumb build');
       return;
     }
-
-    console.log('Building breadcrumbs from useEffect');
-    console.log('Selected folder:', selectedFolder.folderName || selectedFolder.name, 'ID:', selectedFolder._id);
-    console.log('Parent:', selectedFolder.parentFolder);
-    console.log('Total folders available:', folders.length);
 
     const buildPath = (folderId) => {
       const path = [];
@@ -333,7 +260,6 @@ export default function Storage() {
       while (currentId && !visited.has(currentId)) {
         visited.add(currentId);
         const folder = folders.find(f => f._id === currentId);
-        console.log('Looking for folder ID:', currentId, 'Found:', folder?.name);
         
         if (folder) {
           path.unshift({
@@ -342,9 +268,7 @@ export default function Storage() {
             data: folder.data
           });
           currentId = folder.data?.parentFolder;
-          console.log('Next parent ID:', currentId);
         } else {
-          console.log('Folder not found, breaking');
           break;
         }
       }
@@ -353,23 +277,30 @@ export default function Storage() {
     };
 
     const path = buildPath(selectedFolder._id);
-    console.log('Final path:', path.map(p => p.name));
     setFolderPath(path);
   }, [selectedFolder, folders]);
+
   useEffect(() => {
     const handleClickOutside = () => {
       setOpenFolderMenu(null);
       setOpenFileMenu(null);
+      setOpenOrganizeSubmenu(null);
+      setOpenShareSubmenu(null);
     };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // Toggle menus
-  const toggleFolderMenu = (id) =>
-    setOpenFolderMenu(openFolderMenu === id ? null : id);
-  const toggleFileMenu = (id) =>
-    setOpenFileMenu(openFileMenu === id ? null : id);
+// Toggle menus
+const toggleFolderMenu = (id, e) => {
+  if (e) e.stopPropagation();
+  setOpenFolderMenu(openFolderMenu === id ? null : id);
+};
+
+const toggleFileMenu = (id, e) => {
+  if (e) e.stopPropagation();
+  setOpenFileMenu(openFileMenu === id ? null : id);
+};
 
   // Folders (search + sort)
   const displayedFolders = useMemo(() => {
@@ -400,7 +331,62 @@ export default function Storage() {
     return rows;
   }, [selectedFolder, searchQuery, rootFiles]);
 
-  // Handle create new folder
+  const totalFolderPages = Math.ceil(displayedFolders.length / itemsPerPage);
+  const totalFilePages = Math.ceil(displayedFiles.length / itemsPerPage);
+  const totalPages = Math.max(totalFolderPages, totalFilePages, 1);
+  
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, sortRecent, selectedStatus, id]);
+
+  const paginatedFolders = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return displayedFolders.slice(startIndex, endIndex);
+  }, [displayedFolders, currentPage, itemsPerPage]);
+
+  const paginatedFiles = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return displayedFiles.slice(startIndex, endIndex);
+  }, [displayedFiles, currentPage, itemsPerPage]);
+
+  const pagination = {
+    currentPage,
+    totalPages,
+    handlePrev: () => setCurrentPage(p => Math.max(1, p - 1)),
+    handleNext: () => setCurrentPage(p => Math.min(totalPages, p + 1)),
+    handlePage: (num) => setCurrentPage(num),
+    getPageNumbers: () => {
+      const pages = [];
+      const maxVisible = 5;
+      
+      if (totalPages <= maxVisible) {
+        for (let i = 1; i <= totalPages; i++) pages.push(i);
+      } else {
+        if (currentPage <= 3) {
+          for (let i = 1; i <= 4; i++) pages.push(i);
+          pages.push("...");
+          pages.push(totalPages);
+        } else if (currentPage >= totalPages - 2) {
+          pages.push(1);
+          pages.push("...");
+          for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+        } else {
+          pages.push(1);
+          pages.push("...");
+          pages.push(currentPage - 1);
+          pages.push(currentPage);
+          pages.push(currentPage + 1);
+          pages.push("...");
+          pages.push(totalPages);
+        }
+      }
+      
+      return pages;
+    }
+  };
+
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
     setCreatingFolder(true);
@@ -460,9 +446,9 @@ export default function Storage() {
       setItemToMove(null);
     }
   };
-
   // Show main loader when initial data is loading
   const isInitialLoading = (loadingFolders || loadingFolderDetails) && folders.length === 0 && !selectedFolder;
+  const needsPagination = displayedFolders.length > itemsPerPage || displayedFiles.length > itemsPerPage;
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -470,7 +456,6 @@ export default function Storage() {
       <div className="flex flex-1">
         <Sidebar user={user} active="Filled-Out Documents Storage" />
         
-        {/* Move Modal */}
         <MoveModal
           folders={folders}
           open={showMoveModal}
@@ -480,9 +465,8 @@ export default function Storage() {
           type={moveType}
         />
 
-        {/* Main */}
+      {/* Main */}
         <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          {/* Title */}
           {!selectedFolder && (
             <>
               <h1 className="text-3xl font-semibold mt-8 tracking-wide">
@@ -650,12 +634,12 @@ export default function Storage() {
                   placeholder="Search files and folders..."
                 />
               </div>
+              <ViewToggle mode={viewMode} onChange={setViewMode} />
             </div>
           </div>
           
           <div className="border-t border-gray-200 mb-4"></div>
 
-          {/* Show loader for initial loading */}
           {isInitialLoading ? (
             <Loader message="Loading storage..." />
           ) : (
@@ -664,25 +648,216 @@ export default function Storage() {
               <h3 className="text-lg font-semibold mb-3">Folders</h3>
               {loadingFolders ? (
                 <Loader message="Loading folders..." />
-              ) : displayedFolders.length ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
-                  {displayedFolders.map((folder, idx) => (
-                    <FolderComponent
-                      key={folder._id}
-                      folder={folder}
-                      index={idx}
-                      isMenuOpen={openFolderMenu === idx}
-                      toggleMenu={toggleFolderMenu}
-                      onClick={() => openFolder(folder._id)}
-                      onMoveRequest={handleMoveFolder}
-                      onDelete={async () => {
-                        await loadContent();
-                      }}
-                    />
-                  ))}
-                </div>
+              ) : paginatedFolders.length ? (
+                viewMode === "table" ? (
+                  // Table View for Folders
+                  <div className="overflow-x-auto mb-8 border border-gray-200 rounded-lg">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
+                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Owner</th>
+                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Last Modified</th>
+                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider w-16">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {paginatedFolders.map((folder, idx) => (
+                          <tr 
+                            key={folder._id} 
+                            className="hover:bg-blue-50 transition-colors cursor-pointer"
+                            onClick={() => openFolder(folder._id)}
+                          >
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <Folder className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                                <span className="font-medium text-gray-900">{folder.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {folder.data?.owner?.name || 'Unknown'}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {formatDate(folder.date)}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="relative">
+                                <button
+                                    onClick={(e) => toggleFolderMenu(`folder-${folder._id}`, e)}
+                                    className="p-1 rounded-full hover:bg-gray-300"
+                                  >
+                                    <MoreVertical className="w-5 h-5 text-gray-600" />
+                                  </button>
+                                {openFolderMenu === `folder-${folder._id}` && (
+                                  <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50">
+                                    <ul className="text-sm text-gray-700">
+                                      <li
+                                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          console.log("Download folder");
+                                          setOpenFolderMenu(null);
+                                        }}
+                                      >
+                                        <Download size={16} className="text-gray-600" /> Download
+                                      </li>
+                                      <li
+                                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setItemToRename(folder);
+                                          setRenameType("folder");
+                                          setShowRenameModal(true);
+                                          setOpenFolderMenu(null);
+                                        }}
+                                      >
+                                        <Pencil size={16} className="text-gray-600" /> Rename
+                                      </li>
+                                      <hr className="my-1" />
+                                      <li
+                                        className="relative flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                        onMouseEnter={(e) => {
+                                          e.stopPropagation();
+                                          setOpenOrganizeSubmenu(`folder-${folder._id}`);
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.stopPropagation();
+                                          setOpenOrganizeSubmenu(null);
+                                        }}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <FolderCog size={16} className="text-gray-600" /> Organize
+                                        </div>
+                                        <span className="text-gray-500 text-xs">▶</span>
+                                        {openOrganizeSubmenu === `folder-${folder._id}` && (
+                                          <ul 
+                                            className="absolute top-0 right-full mr-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50"
+                                            onMouseEnter={(e) => {
+                                              e.stopPropagation();
+                                              setOpenOrganizeSubmenu(`folder-${folder._id}`);
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.stopPropagation();
+                                              setOpenOrganizeSubmenu(null);
+                                            }}
+                                          >
+                                            <li
+                                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleMoveFolder(folder);
+                                                setOpenFolderMenu(null);
+                                                setOpenOrganizeSubmenu(null);
+                                              }}
+                                            >
+                                              <Move size={16} className="text-gray-600" /> Move
+                                            </li>
+                                          </ul>
+                                        )}
+                                      </li>
+                                      <li
+                                        className="relative flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                        onMouseEnter={(e) => {
+                                          e.stopPropagation();
+                                          setOpenShareSubmenu(`folder-${folder._id}`);
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.stopPropagation();
+                                          setOpenShareSubmenu(null);
+                                        }}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <Share2 size={16} className="text-gray-600" /> Share
+                                        </div>
+                                        <span className="text-gray-500 text-xs">▶</span>
+                                        {openShareSubmenu === `folder-${folder._id}` && (
+                                          <ul 
+                                            className="absolute top-0 right-full mr-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50"
+                                            onMouseEnter={(e) => {
+                                              e.stopPropagation();
+                                              setOpenShareSubmenu(`folder-${folder._id}`);
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.stopPropagation();
+                                              setOpenShareSubmenu(null);
+                                            }}
+                                          >
+                                            <li
+                                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                console.log("Share folder");
+                                                setOpenFolderMenu(null);
+                                                setOpenShareSubmenu(null);
+                                              }}
+                                            >
+                                              <Share2 size={16} className="text-gray-600" /> Share
+                                            </li>
+                                            <li
+                                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                console.log("Copy link");
+                                                setOpenFolderMenu(null);
+                                                setOpenShareSubmenu(null);
+                                              }}
+                                            >
+                                              <Copy size={16} className="text-gray-600" /> Get Link
+                                            </li>
+                                          </ul>
+                                        )}
+                                      </li>
+                                      <hr className="my-1" />
+                                     <li
+                                      className="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setItemToRemove(file);
+                                        setRemoveType("file");
+                                        setShowRemoveModal(true);
+                                        setOpenFileMenu(null);
+                                      }}
+                                    >
+                                      <Trash2 size={16} className="text-red-600" /> Archive
+                                    </li>
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  // Grid View for Folders
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+                    {paginatedFolders.map((folder, idx) => (
+                      <FolderComponent
+                        key={folder._id}
+                        folder={folder}
+                        index={idx}
+                        isMenuOpen={openFolderMenu === idx}
+                        toggleMenu={toggleFolderMenu}
+                        onClick={() => openFolder(folder._id)}
+                        onMoveRequest={handleMoveFolder}
+                        onDelete={async () => {
+                          await loadContent();
+                        }}
+                        viewMode={viewMode}
+                      />
+                    ))}
+                  </div>
+                )
               ) : (
-                <p className="text-gray-500 italic mb-8">No folders found.</p>
+                !loadingFolders && displayedFolders.length === 0 && (
+                  <p className="text-gray-500 italic mb-8">No folders found.</p>
+                )
+              )}
+              
+              {!loadingFolders && paginatedFolders.length === 0 && displayedFolders.length > 0 && (
+                <p className="text-gray-500 italic mb-8">No folders on this page.</p>
               )}
 
               {/* File Upload Inputs */}
@@ -738,41 +913,237 @@ export default function Storage() {
               {uploadError && <span className="text-red-600 text-sm">{uploadError}</span>}
 
               {/* Files */}
-              <div className="flex items-center justify-between mb-3">
-  <h3 className="text-lg font-semibold">
-    {selectedFolder ? `Files in ${selectedFolder.folderName}` : 'Files'}
-  </h3>
-  <FileViewToggle mode={fileViewMode} onChange={setFileViewMode} />
-
-</div>
+              <h3 className="text-lg font-semibold mb-3">
+                {selectedFolder ? `Files in ${selectedFolder.folderName}` : 'Files'}
+              </h3>
               {loadingRootFiles || loadingFolderDetails ? (
                 <Loader message="Loading files..." />
-              ) : displayedFiles.length ? (
-                 <div
-  className={
-    fileViewMode === "grid"
-      ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"
-      : "flex flex-col divide-y"
-  }
->
-  {displayedFiles.map((file, idx) => (
-    <FileComponent
-      key={file._id || file.name || idx}
-      file={file}
-      index={idx}
-      isMenuOpen={openFileMenu === `file-${idx}`}
-      toggleMenu={toggleFileMenu}
-      onMoveRequest={handleMoveFile}
-      parentFolderId={selectedFolder?._id}
-      onDelete={async () => {
-        await loadContent();
-      }}
-      viewMode={fileViewMode} // optional if FileComponent supports layout variation
-    />
-  ))}
-</div>
+              ) : paginatedFiles.length ? (
+                viewMode === "table" ? (
+                  // Table View for Files
+                  <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
+                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Owner</th>
+                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Last Modified</th>
+                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Size</th>
+                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider w-16">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {paginatedFiles.map((file, idx) => {
+                          const fileName = file.name || file.originalName || file.fileName || 'Untitled';
+                          const fileSize = file.size ? `${(file.size / 1024).toFixed(2)} KB` : '-';
+                          
+                          return (
+                            <tr 
+                              key={file._id || idx} 
+                              className="hover:bg-blue-50 transition-colors"
+                            >
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <File className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                                  <span className="font-medium text-gray-900">{fileName}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600">
+                                {file.owner?.name || 'Unknown'}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600">
+                                {formatDate(file.uploadedAt || file.createdAt)}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600">
+                                {fileSize}
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => toggleFileMenu(`file-${file._id || idx}`, e)}
+                                    className="p-1 rounded-full hover:bg-gray-300"
+                                  >
+                                    <MoreVertical className="w-5 h-5 text-gray-600" />
+                                  </button>
+                                  {openFileMenu === `file-${file._id || idx}` && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50">
+                                      <ul className="text-sm text-gray-700">
+                                        <li
+                                          className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            console.log("Download file");
+                                            setOpenFileMenu(null);
+                                          }}
+                                        >
+                                          <Download size={16} className="text-gray-600" /> Download
+                                        </li>
+                                       <li
+                                          className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setItemToRename(file);
+                                            setRenameType("file");
+                                            setShowRenameModal(true);
+                                            setOpenFileMenu(null);
+                                          }}
+                                        >
+                                          <Pencil size={16} className="text-gray-600" /> Rename
+                                        </li>
+                                        <hr className="my-1" />
+                                        <li
+                                          className="relative flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                          onMouseEnter={() => setOpenOrganizeSubmenu(`file-${file._id || idx}`)}
+                                          onMouseLeave={() => setOpenOrganizeSubmenu(null)}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <FolderCog size={16} className="text-gray-600" /> Organize
+                                          </div>
+                                          <span className="text-gray-500 text-xs">▶</span>
+                                          {openOrganizeSubmenu === `file-${file._id || idx}` && (
+                                            <ul className="absolute top-0 right-full mr-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50">
+                                              <li
+                                                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleMoveFile(file);
+                                                  setOpenFileMenu(null);
+                                                }}
+                                              >
+                                                <Move size={16} className="text-gray-600" /> Move
+                                              </li>
+                                            </ul>
+                                          )}
+                                        </li>
+                                        <li
+                                          className="relative flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                          onMouseEnter={() => setOpenShareSubmenu(`file-${file._id || idx}`)}
+                                          onMouseLeave={() => setOpenShareSubmenu(null)}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <Share2 size={16} className="text-gray-600" /> Share
+                                          </div>
+                                          <span className="text-gray-500 text-xs">▶</span>
+                                          {openShareSubmenu === `file-${file._id || idx}` && (
+                                            <ul 
+                                              className="absolute top-0 right-full mr-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50"
+                                              onMouseEnter={() => setOpenShareSubmenu(`file-${file._id || idx}`)}
+                                              onMouseLeave={() => setOpenShareSubmenu(null)}
+                                            >
+                                              <li
+                                                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  console.log("Share file");
+                                                  setOpenFileMenu(null);
+                                                }}
+                                              >
+                                                <Share2 size={16} className="text-gray-600" /> Share
+                                              </li>
+                                              <li
+                                                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  console.log("Copy link");
+                                                  setOpenFileMenu(null);
+                                                }}
+                                              >
+                                                <Copy size={16} className="text-gray-600" /> Get Link
+                                              </li>
+                                            </ul>
+                                          )}
+                                        </li>
+                                        <hr className="my-1" />
+                                        <li
+                                          className="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 cursor-pointer"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setItemToRemove(folder);
+                                            setRemoveType("folder");
+                                            setShowRemoveModal(true);
+                                            setOpenFolderMenu(null);
+                                          }}
+                                        >
+                                          <Trash2 size={16} className="text-red-600" /> Archive
+                                        </li>
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  // Grid View for Files
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {paginatedFiles.map((file, idx) => (
+                      <FileComponent
+                        key={file._id || file.name || idx}
+                        file={file}
+                        index={idx}
+                        isMenuOpen={openFileMenu === `file-${idx}`}
+                        toggleMenu={toggleFileMenu}
+                        onMoveRequest={handleMoveFile}
+                        parentFolderId={selectedFolder?._id}
+                        onDelete={async () => {
+                          await loadContent();
+                        }}
+                        viewMode={viewMode}
+                      />
+                    ))}
+                  </div>
+                )
               ) : (
-                <p className="text-gray-500 italic">No files found.</p>
+                !loadingRootFiles && !loadingFolderDetails && displayedFiles.length === 0 && (
+                  <p className="text-gray-500 italic">No files found.</p>
+                )
+              )}
+              
+              {!loadingRootFiles && !loadingFolderDetails && paginatedFiles.length === 0 && displayedFiles.length > 0 && (
+                <p className="text-gray-500 italic">No files on this page.</p>
+              )}
+
+              {/* Pagination */}
+              {needsPagination && (
+                <div className="flex justify-center items-center mt-6 gap-2">
+                  <button
+                    onClick={pagination.handlePrev}
+                    disabled={pagination.currentPage === 1}
+                    className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  {pagination.getPageNumbers().map((num, idx) =>
+                    num === "..." ? (
+                      <span key={idx} className="px-2 text-gray-400">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={num}
+                        onClick={() => pagination.handlePage(num)}
+                        className={`px-3 py-1 rounded border ${
+                          pagination.currentPage === num
+                            ? "bg-blue-600 text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-100"
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    )
+                  )}
+                  <button
+                    onClick={pagination.handleNext}
+                    disabled={pagination.currentPage === totalPages}
+                    className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
               )}
             </>
           )}

@@ -411,7 +411,7 @@ export default function FileComponent({
                   }}
                 >
                   <Trash2 size={16} className="text-red-600" />
-                  Remove
+                  Archive
                 </li>
               </ul>
             </div>
@@ -540,7 +540,7 @@ export default function FileComponent({
                 <Download size={18} /> Download
               </button>
               <button className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
-                <Trash2 size={18} /> Remove
+                <Trash2 size={18} /> Archive
               </button>
             </div>
           </div>
