@@ -4,6 +4,69 @@ import axios from "axios";
 import { getActorFromReq } from '../utils/actorUtils.js';
 import { fetchUsersProfiles, buildUserServiceHeaders } from '../utils/userServiceUtils.js';
 
+// Helper: normalize role names to expected display values
+const normalizeRole = (role) => {
+  if (!role) return null;
+  const r = String(role).toLowerCase();
+  if (r.includes('document') && r.includes('controller')) return 'Document Controller';
+  if (r === 'dean') return 'Dean';
+  if (r === 'secretary') return 'Secretary';
+  if (r.includes('department') && r.includes('head')) return 'Department Head';
+  if (r === 'faculty') return 'Faculty';
+  return role; // fallback as-is
+};
+
+// Helper: choose a deep-link per recipient role and event type
+const linkFor = (type, templateId, role) => {
+  const r = normalizeRole(role);
+  switch (type) {
+    case 'template_assignment':
+      if (r === 'Document Controller') return `/document-controller/create-template?templateId=${templateId}`;
+      if (r === 'Secretary' || r === 'Dean') return `/templates/${templateId}`;
+      return `/templates/${templateId}`;
+    case 'template_deadline_update':
+    case 'template_returned':
+    case 'template_rejected':
+    case 'template_partially_approved':
+    case 'template_fully_approved':
+      if (r === 'Document Controller') return `/document-controller/create-template?templateId=${templateId}`;
+      return `/templates/${templateId}`; // Dean/Secretary land on the review/manage page
+    case 'template_review_requested':
+      return `/templates/${templateId}`; // approvers
+    case 'template_published':
+    case 'template_unpublished':
+      return `/templates/published/${templateId}`; // everyone can view published details
+    default:
+      return `/templates/${templateId}`;
+  }
+};
+
+// Helper: group a list of userIds by their role using user-service
+const groupTargetsByRole = async (ids = [], req) => {
+  try {
+    if (!Array.isArray(ids) || ids.length === 0) return {};
+    const headers = buildUserServiceHeaders(req);
+    const profiles = await fetchUsersProfiles(ids, headers); // [{id,email,name,role}]
+    const map = {};
+    for (const p of profiles) {
+      const r = normalizeRole(typeof p.role === 'string' ? p.role : (p.role?.name || p.role));
+      if (!r) continue;
+      if (!map[r]) map[r] = [];
+      map[r].push(String(p.id));
+    }
+    // Include any ids we couldn't resolve to a role under a generic bucket
+    const resolved = new Set(Object.values(map).flat());
+    const unresolved = ids.map(String).filter(id => !resolved.has(id));
+    if (unresolved.length) {
+      map['Unknown'] = (map['Unknown'] || []).concat(unresolved);
+    }
+    return map;
+  } catch (_e) {
+    // If lookup fails, just return a single bucket with all ids
+    return { Unknown: Array.from(new Set(ids.map(String))) };
+  }
+};
+
 
 /**
  * @desc Create the template, assign users + approver, then email everyone involved
@@ -122,40 +185,35 @@ export const assignUsersToCreateTemplate = async (req, res) => {
       const targetedUserIds = combinedTargets.filter(id => id && String(id) !== String(req.user.id));
 
       if (targetedUserIds.length > 0) {
-        const payload = {
-          recipientUser: targetedUserIds.length === 1 ? targetedUserIds[0] : undefined,
-          recipientRoles: ['Dean','Secretary','Document Controller'],
-          message: `You have been assigned a template \"${template.title}\" to create.`,
-          type: 'template_assignment',
-          link: `/document-controller/create-template?templateId=${template._id}`,
-          targetedUserIds
-        };
-
-        // internal route: /api/notifications/internal (protected by gateway/internal token)
-        try {
-          const resp = await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Internal-Token': process.env.INTERNAL_TOKEN || ''
-            },
-            timeout: 5000
-          });
-
-          console.log('Notification service responded:', resp.status, resp.data);
-        } catch (err) {
-          // More descriptive logging to aid debugging (network vs response error)
-          if (err.response) {
-            // Server responded with a status outside 2xx
-            console.error('Notification service error response:', {
-              status: err.response.status,
-              data: err.response.data
+        // Group targets by role and send role-specific deep links
+        const byRole = await groupTargetsByRole(targetedUserIds, req);
+        const message = `You have been assigned a template "${template.title}" to create.`;
+        const type = 'template_assignment';
+        for (const [roleName, ids] of Object.entries(byRole)) {
+          if (!ids || ids.length === 0) continue;
+          const link = linkFor(type, template._id, roleName);
+          const payload = {
+            recipientUser: ids.length === 1 ? ids[0] : undefined,
+            recipientRoles: [roleName],
+            message,
+            type,
+            link,
+            targetedUserIds: ids
+          };
+          try {
+            const resp = await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
+              timeout: 5000
             });
-          } else if (err.request) {
-            // Request made but no response received
-            console.error('No response from Notification service, request sent:', err.request && err.request._currentUrl ? err.request._currentUrl : 'request sent');
-          } else {
-            // Something else happened when setting up the request
-            console.error('Error while calling Notification service:', err.message || err);
+            console.log('Notification (assignment) sent for role', roleName, resp.status);
+          } catch (err) {
+            if (err.response) {
+              console.error('Notification service error response (assignment):', { status: err.response.status, data: err.response.data });
+            } else if (err.request) {
+              console.error('No response from Notification service (assignment).');
+            } else {
+              console.error('Error while calling Notification service (assignment):', err.message || err);
+            }
           }
         }
       } else {
@@ -272,31 +330,34 @@ export const assignControllersToTemplate = async (req, res) => {
       ])).filter(id => id && id !== assignerId);
 
       if (targets.length > 0) {
-        const payload = {
-          recipientUser: targets.length === 1 ? targets[0] : undefined,
-          recipientRoles: ['Document Controller', 'Secretary'],
-          message: `You have been assigned to work on template "${template.title}"`,
-          type: 'template_assignment',
-          link: `/document-controller/templates?highlight=${template._id}`,
-          targetedUserIds: targets
-        };
-
-        try {
-          const resp = await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Internal-Token': process.env.INTERNAL_TOKEN || ''
-            },
-            timeout: 5000
-          });
-          console.log('Notification (assign controllers) responded:', resp.status, resp.data);
-        } catch (err) {
-          if (err.response) {
-            console.error('Notification service error (assign controllers):', { status: err.response.status, data: err.response.data });
-          } else if (err.request) {
-            console.error('No response from Notification service (assign controllers).');
-          } else {
-            console.error('Error calling Notification service (assign controllers):', err.message || err);
+        const byRole = await groupTargetsByRole(targets, req);
+        const message = `You have been assigned to work on template "${template.title}"`;
+        const type = 'template_assignment';
+        for (const [roleName, ids] of Object.entries(byRole)) {
+          if (!ids || ids.length === 0) continue;
+          const link = linkFor(type, template._id, roleName);
+          const payload = {
+            recipientUser: ids.length === 1 ? ids[0] : undefined,
+            recipientRoles: [roleName],
+            message,
+            type,
+            link,
+            targetedUserIds: ids
+          };
+          try {
+            const resp = await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
+              timeout: 5000
+            });
+            console.log('Notification (assign controllers) for role', roleName, resp.status);
+          } catch (err) {
+            if (err.response) {
+              console.error('Notification service error (assign controllers):', { status: err.response.status, data: err.response.data });
+            } else if (err.request) {
+              console.error('No response from Notification service (assign controllers).');
+            } else {
+              console.error('Error calling Notification service (assign controllers):', err.message || err);
+            }
           }
         }
       }
@@ -341,30 +402,34 @@ export const adjustTemplateDeadline = async (req, res) => {
         .filter(id => id && id !== assignerId);
 
       if (targets.length > 0) {
-        const payload = {
-          recipientUser: targets.length === 1 ? targets[0] : undefined,
-          recipientRoles: ['Document Controller', 'Secretary', 'Dean'],
-          message: `Deadline for template "${template.title}" has been updated.`,
-          type: 'template_deadline_update',
-          link: `/document-controller/templates?highlight=${template._id}`,
-          targetedUserIds: targets
-        };
-        try {
-          const resp = await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Internal-Token': process.env.INTERNAL_TOKEN || ''
-            },
-            timeout: 5000
-          });
-          console.log('Notification (deadline update) responded:', resp.status, resp.data);
-        } catch (err) {
-          if (err.response) {
-            console.error('Notification service error (deadline update):', { status: err.response.status, data: err.response.data });
-          } else if (err.request) {
-            console.error('No response from Notification service (deadline update).');
-          } else {
-            console.error('Error calling Notification service (deadline update):', err.message || err);
+        const byRole = await groupTargetsByRole(targets, req);
+        const message = `Deadline for template "${template.title}" has been updated.`;
+        const type = 'template_deadline_update';
+        for (const [roleName, ids] of Object.entries(byRole)) {
+          if (!ids || ids.length === 0) continue;
+          const link = linkFor(type, template._id, roleName);
+          const payload = {
+            recipientUser: ids.length === 1 ? ids[0] : undefined,
+            recipientRoles: [roleName],
+            message,
+            type,
+            link,
+            targetedUserIds: ids
+          };
+          try {
+            const resp = await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
+              timeout: 5000
+            });
+            console.log('Notification (deadline update) for role', roleName, resp.status);
+          } catch (err) {
+            if (err.response) {
+              console.error('Notification service error (deadline update):', { status: err.response.status, data: err.response.data });
+            } else if (err.request) {
+              console.error('No response from Notification service (deadline update).');
+            } else {
+              console.error('Error calling Notification service (deadline update):', err.message || err);
+            }
           }
         }
       }
@@ -459,30 +524,72 @@ export const approveTemplate = async (req, res) => {
       const notificationServiceUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8008';
       const actorId = String(req.user?.id || req.user?._id || '');
       const controllerIds = Array.isArray(template.assigned) ? template.assigned.map(String) : [];
-      const targets = Array.from(new Set(controllerIds)).filter(id => id && id !== actorId);
+      // Also include created_by as a fallback target (some flows may not populate assigned controllers yet)
+      const createdBy = template.created_by ? String(template.created_by) : null;
+      const fallback = createdBy && createdBy !== actorId ? [createdBy] : [];
+      const targets = Array.from(new Set([...controllerIds, ...fallback])).filter(id => id && id !== actorId);
       if (targets.length > 0) {
         const actionMsg = bothApproved
           ? `Template "${template.title}" has been fully approved.`
           : `Template "${template.title}" was approved by the ${role}.`;
-        const payload = {
-          recipientUser: targets.length === 1 ? targets[0] : undefined,
-          recipientRoles: ['Document Controller'],
-          message: actionMsg,
-          type: bothApproved ? 'template_fully_approved' : 'template_partially_approved',
-          link: `/document-controller/templates?highlight=${template._id}`,
-          targetedUserIds: targets
-        };
-        try {
-          await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
-            headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
-            timeout: 5000
-          });
-        } catch (err) {
-          console.error('Notification service error (approve):', err?.response?.status || err?.message || err);
+        const type = bothApproved ? 'template_fully_approved' : 'template_partially_approved';
+        // Only controllers here; still use role-based link helper for safety
+        const byRole = await groupTargetsByRole(targets, req);
+        for (const [roleName, ids] of Object.entries(byRole)) {
+          if (!ids || ids.length === 0) continue;
+          const link = linkFor(type, template._id, roleName);
+          const payload = {
+            recipientUser: ids.length === 1 ? ids[0] : undefined,
+            recipientRoles: [roleName],
+            message: actionMsg,
+            type,
+            link,
+            targetedUserIds: ids
+          };
+          try {
+            await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
+              timeout: 5000
+            });
+          } catch (err) {
+            console.error('Notification service error (approve):', err?.response?.status || err?.message || err);
+          }
         }
       }
     } catch (notifyErr) {
       console.error('Failed to notify on approval:', notifyErr?.message || notifyErr);
+    }
+
+    // If Secretary approved, send a callback notification to the Dean to manage/review template
+    try {
+      const notificationServiceUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8008';
+      const actorId = String(req.user?.id || req.user?._id || '');
+      const approvals = template?.status_meta?.approvals || {};
+      if (role === 'secretary' && !bothApproved) {
+        const deanId = approvals?.dean?.assigned_to ? String(approvals.dean.assigned_to) : null;
+        if (deanId && deanId !== actorId) {
+          const type = 'template_partially_approved';
+          const link = linkFor(type, template._id, 'Dean');
+          const payload = {
+            recipientUser: deanId,
+            recipientRoles: ['Dean'],
+            message: `Secretary approved template "${template.title}". Please review and manage.`,
+            type,
+            link,
+            targetedUserIds: [deanId]
+          };
+          try {
+            await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
+              timeout: 5000
+            });
+          } catch (err) {
+            console.error('Notification service error (secretary->dean callback):', err?.response?.status || err?.message || err);
+          }
+        }
+      }
+    } catch (cbErr) {
+      console.error('Failed to send dean callback after secretary approval:', cbErr?.message || cbErr);
     }
     return res.status(200).json({ success:true, message:'Approval recorded', template: template.toObject(), approvalMeta });
   } catch (err) {
@@ -526,21 +633,28 @@ export const rejectTemplate = async (req, res) => {
       const controllerIds = Array.isArray(template.assigned) ? template.assigned.map(String) : [];
       const targets = Array.from(new Set(controllerIds)).filter(id => id && id !== actorId);
       if (targets.length > 0) {
-        const payload = {
-          recipientUser: targets.length === 1 ? targets[0] : undefined,
-          recipientRoles: ['Document Controller'],
-          message: `Template "${template.title}" was rejected by the ${role}${reason ? `: ${reason}` : ''}.`,
-          type: 'template_rejected',
-          link: `/document-controller/templates?highlight=${template._id}`,
-          targetedUserIds: targets
-        };
-        try {
-          await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
-            headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
-            timeout: 5000
-          });
-        } catch (err) {
-          console.error('Notification service error (reject):', err?.response?.status || err?.message || err);
+        const message = `Template "${template.title}" was rejected by the ${role}${reason ? `: ${reason}` : ''}.`;
+        const type = 'template_rejected';
+        const byRole = await groupTargetsByRole(targets, req);
+        for (const [roleName, ids] of Object.entries(byRole)) {
+          if (!ids || ids.length === 0) continue;
+          const link = linkFor(type, template._id, roleName);
+          const payload = {
+            recipientUser: ids.length === 1 ? ids[0] : undefined,
+            recipientRoles: [roleName],
+            message,
+            type,
+            link,
+            targetedUserIds: ids
+          };
+          try {
+            await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
+              timeout: 5000
+            });
+          } catch (err) {
+            console.error('Notification service error (reject):', err?.response?.status || err?.message || err);
+          }
         }
       }
     } catch (notifyErr) {
@@ -591,21 +705,28 @@ export const submitTemplate = async (req, res) => {
       const secAssigned = approvals.secretary?.assigned_to ? String(approvals.secretary.assigned_to) : null;
       const targets = Array.from(new Set([deanAssigned, secAssigned].filter(Boolean))).filter(id => id !== actorId);
       if (targets.length > 0) {
-        const payload = {
-          recipientUser: targets.length === 1 ? targets[0] : undefined,
-          recipientRoles: ['Dean','Secretary'],
-          message: `Template "${template.title}" has been submitted for your approval.`,
-          type: 'template_review_requested',
-          link: `/approvals/templates?highlight=${template._id}`,
-          targetedUserIds: targets
-        };
-        try {
-          await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
-            headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
-            timeout: 5000
-          });
-        } catch (err) {
-          console.error('Notification service error (submit):', err?.response?.status || err?.message || err);
+        const byRole = await groupTargetsByRole(targets, req);
+        const message = `Template "${template.title}" has been submitted for your approval.`;
+        const type = 'template_review_requested';
+        for (const [roleName, ids] of Object.entries(byRole)) {
+          if (!ids || ids.length === 0) continue;
+          const link = linkFor(type, template._id, roleName);
+          const payload = {
+            recipientUser: ids.length === 1 ? ids[0] : undefined,
+            recipientRoles: [roleName],
+            message,
+            type,
+            link,
+            targetedUserIds: ids
+          };
+          try {
+            await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
+              timeout: 5000
+            });
+          } catch (err) {
+            console.error('Notification service error (submit):', err?.response?.status || err?.message || err);
+          }
         }
       }
     } catch (notifyErr) {
@@ -678,21 +799,28 @@ export const returnTemplate = async (req, res) => {
       const controllerIds = Array.isArray(template.assigned) ? template.assigned.map(String) : [];
       const targets = Array.from(new Set(controllerIds)).filter(id => id && id !== actorId);
       if (targets.length > 0) {
-        const payload = {
-          recipientUser: targets.length === 1 ? targets[0] : undefined,
-          recipientRoles: ['Document Controller'],
-          message: `Template "${template.title}" was returned for changes${reason ? `: ${reason}` : ''}.`,
-          type: 'template_returned',
-          link: `/document-controller/templates?highlight=${template._id}`,
-          targetedUserIds: targets
-        };
-        try {
-          await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
-            headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
-            timeout: 5000
-          });
-        } catch (err) {
-          console.error('Notification service error (return):', err?.response?.status || err?.message || err);
+        const byRole = await groupTargetsByRole(targets, req);
+        const message = `Template "${template.title}" was returned for changes${reason ? `: ${reason}` : ''}.`;
+        const type = 'template_returned';
+        for (const [roleName, ids] of Object.entries(byRole)) {
+          if (!ids || ids.length === 0) continue;
+          const link = linkFor(type, template._id, roleName);
+          const payload = {
+            recipientUser: ids.length === 1 ? ids[0] : undefined,
+            recipientRoles: [roleName],
+            message,
+            type,
+            link,
+            targetedUserIds: ids
+          };
+          try {
+            await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
+              timeout: 5000
+            });
+          } catch (err) {
+            console.error('Notification service error (return):', err?.response?.status || err?.message || err);
+          }
         }
       }
     } catch (notifyErr) {
@@ -737,32 +865,62 @@ export const publishTemplate = async (req, res) => {
       const USER_BASE = process.env.USER_SERVICE_URL || '';
       const notificationServiceUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8008';
       const headers = buildUserServiceHeaders(req);
-      const staffResp = await axios.get(`${USER_BASE}/api/user/schoolStaff`, { headers, timeout: 8000 });
-      const docControllers = staffResp?.data?.docControllers || [];
-      const secretaries = staffResp?.data?.secretaries || [];
-      const deans = staffResp?.data?.deans || [];
+      let docControllers = [];
+      let secretaries = [];
+      let deans = [];
+      try {
+        const staffResp = await axios.get(`${USER_BASE}/api/user/schoolStaff`, { headers, timeout: 8000 });
+        docControllers = staffResp?.data?.docControllers || [];
+        secretaries = staffResp?.data?.secretaries || [];
+        deans = staffResp?.data?.deans || [];
+      } catch (staffErr) {
+        console.warn('Failed to fetch school staff; falling back to local participants:', staffErr?.response?.status || staffErr?.message || staffErr);
+      }
       const actorId = String(req.user?.id || req.user?._id || '');
-      const targets = Array.from(new Set([
+      let targets = Array.from(new Set([
         ...docControllers.map(u => String(u.id)),
         ...secretaries.map(u => String(u.id)),
         ...deans.map(u => String(u.id))
       ])).filter(id => id && id !== actorId);
+      // Fallback: if staff list empty (e.g., auth issues), notify assigned users + approvers
+      if (targets.length === 0) {
+        const approvals = template?.status_meta?.approvals || {};
+        const deanId = approvals?.dean?.assigned_to ? String(approvals.dean.assigned_to) : null;
+        const secId = approvals?.secretary?.assigned_to ? String(approvals.secretary.assigned_to) : null;
+        const assignedIds = Array.isArray(template.assigned) ? template.assigned.map(String) : [];
+        targets = Array.from(new Set([ ...assignedIds, deanId, secId ].filter(Boolean))).filter(id => id !== actorId);
+      }
       if (targets.length > 0) {
-        const payload = {
-          recipientUser: targets.length === 1 ? targets[0] : undefined,
-          recipientRoles: ['Document Controller','Secretary','Dean'],
-          message: `A new template "${template.title}" has been published and is now available.`,
-          type: 'template_published',
-          link: `/document-controller/templates?highlight=${template._id}`,
-          targetedUserIds: targets
-        };
-        try {
-          await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
-            headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
-            timeout: 5000
-          });
-        } catch (err) {
-          console.error('Notification service error (publish):', err?.response?.status || err?.message || err);
+        // If we have staff lists, use them to avoid an extra lookup
+        let byRole = {};
+        if ((docControllers && docControllers.length) || (secretaries && secretaries.length) || (deans && deans.length)) {
+          if (docControllers?.length) byRole['Document Controller'] = docControllers.map(u => String(u.id));
+          if (secretaries?.length) byRole['Secretary'] = secretaries.map(u => String(u.id));
+          if (deans?.length) byRole['Dean'] = deans.map(u => String(u.id));
+        } else {
+          byRole = await groupTargetsByRole(targets, req);
+        }
+        const message = `A new template "${template.title}" has been published and is now available.`;
+        const type = 'template_published';
+        for (const [roleName, ids] of Object.entries(byRole)) {
+          if (!ids || ids.length === 0) continue;
+          const link = linkFor(type, template._id, roleName);
+          const payload = {
+            recipientUser: ids.length === 1 ? ids[0] : undefined,
+            recipientRoles: [roleName],
+            message,
+            type,
+            link,
+            targetedUserIds: ids
+          };
+          try {
+            await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
+              timeout: 5000
+            });
+          } catch (err) {
+            console.error('Notification service error (publish):', err?.response?.status || err?.message || err);
+          }
         }
       }
     } catch (notifyErr) {
@@ -795,32 +953,60 @@ export const unpublishTemplate = async (req, res) => {
       const USER_BASE = process.env.USER_SERVICE_URL || '';
       const notificationServiceUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8008';
       const headers = buildUserServiceHeaders(req);
-      const staffResp = await axios.get(`${USER_BASE}/api/user/schoolStaff`, { headers, timeout: 8000 });
-      const docControllers = staffResp?.data?.docControllers || [];
-      const secretaries = staffResp?.data?.secretaries || [];
-      const deans = staffResp?.data?.deans || [];
+      let docControllers = [];
+      let secretaries = [];
+      let deans = [];
+      try {
+        const staffResp = await axios.get(`${USER_BASE}/api/user/schoolStaff`, { headers, timeout: 8000 });
+        docControllers = staffResp?.data?.docControllers || [];
+        secretaries = staffResp?.data?.secretaries || [];
+        deans = staffResp?.data?.deans || [];
+      } catch (staffErr) {
+        console.warn('Failed to fetch school staff; falling back to local participants (unpublish):', staffErr?.response?.status || staffErr?.message || staffErr);
+      }
       const actorId = String(req.user?.id || req.user?._id || '');
-      const targets = Array.from(new Set([
+      let targets = Array.from(new Set([
         ...docControllers.map(u => String(u.id)),
         ...secretaries.map(u => String(u.id)),
         ...deans.map(u => String(u.id))
       ])).filter(id => id && id !== actorId);
+      if (targets.length === 0) {
+        const approvals = template?.status_meta?.approvals || {};
+        const deanId = approvals?.dean?.assigned_to ? String(approvals.dean.assigned_to) : null;
+        const secId = approvals?.secretary?.assigned_to ? String(approvals.secretary.assigned_to) : null;
+        const assignedIds = Array.isArray(template.assigned) ? template.assigned.map(String) : [];
+        targets = Array.from(new Set([ ...assignedIds, deanId, secId ].filter(Boolean))).filter(id => id !== actorId);
+      }
       if (targets.length > 0) {
-        const payload = {
-          recipientUser: targets.length === 1 ? targets[0] : undefined,
-          recipientRoles: ['Document Controller','Secretary','Dean'],
-          message: `Template "${template.title}" has been unpublished.`,
-          type: 'template_unpublished',
-          link: `/document-controller/templates?highlight=${template._id}`,
-          targetedUserIds: targets
-        };
-        try {
-          await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
-            headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
-            timeout: 5000
-          });
-        } catch (err) {
-          console.error('Notification service error (unpublish):', err?.response?.status || err?.message || err);
+        let byRole = {};
+        if ((docControllers && docControllers.length) || (secretaries && secretaries.length) || (deans && deans.length)) {
+          if (docControllers?.length) byRole['Document Controller'] = docControllers.map(u => String(u.id));
+          if (secretaries?.length) byRole['Secretary'] = secretaries.map(u => String(u.id));
+          if (deans?.length) byRole['Dean'] = deans.map(u => String(u.id));
+        } else {
+          byRole = await groupTargetsByRole(targets, req);
+        }
+        const message = `Template "${template.title}" has been unpublished.`;
+        const type = 'template_unpublished';
+        for (const [roleName, ids] of Object.entries(byRole)) {
+          if (!ids || ids.length === 0) continue;
+          const link = linkFor(type, template._id, roleName);
+          const payload = {
+            recipientUser: ids.length === 1 ? ids[0] : undefined,
+            recipientRoles: [roleName],
+            message,
+            type,
+            link,
+            targetedUserIds: ids
+          };
+          try {
+            await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
+              timeout: 5000
+            });
+          } catch (err) {
+            console.error('Notification service error (unpublish):', err?.response?.status || err?.message || err);
+          }
         }
       }
     } catch (notifyErr) {

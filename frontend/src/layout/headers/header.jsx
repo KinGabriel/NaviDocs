@@ -1,6 +1,6 @@
 // This is the header component for the application, which includes a logo, title, notifications, and user profile information.
 import { useNavigate } from 'react-router-dom';
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import NotificationDropdown from "../../components/dropdowns/notificationDropdown";
 import '../../assets/css/global.css'
 import naviLogo from '../../assets/images/navilogo.png';
@@ -18,33 +18,53 @@ export default function Header({ user }) {
   const [notifications, setNotifications] = useState([]);
   const bellRef = useRef();
 
-  // Poll notifications every 30s
-  useEffect(() => {
-    let mounted = true;
-    const fetchNotifications = async () => {
-      try {
-        const res = await fetch('/api/notifications', { credentials: 'include' });
-        if (!mounted) return;
-        if (res.ok) {
-          const data = await res.json();
-          // Expecting array: { _id, message, link, isRead, createdAt }
-          setNotifications(data.map(n => ({
-            id: n._id,
-            message: n.message,
-            link: n.link,
-            isRead: !!n.isRead,
-            createdAt: n.createdAt
-          })));
-        }
-      } catch (err) {
-        console.error('Failed to fetch notifications:', err);
+  // Unified fetcher so we can call it on interval, open, focus, or custom events
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await fetch('/api/notifications', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.map(n => ({
+          id: n._id,
+          message: n.message,
+          link: n.link,
+          isRead: !!n.isRead,
+          createdAt: n.createdAt
+        })));
       }
-    };
-
-    fetchNotifications();
-    const id = setInterval(fetchNotifications, 30000);
-    return () => { mounted = false; clearInterval(id); };
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    }
   }, []);
+
+  // Initial load + periodic refresh (lighter interval for fresher UX)
+  useEffect(() => {
+    let alive = true;
+    fetchNotifications();
+    const id = setInterval(() => { if (alive) fetchNotifications(); }, 15000);
+    return () => { alive = false; clearInterval(id); };
+  }, [fetchNotifications]);
+
+  // Refetch when dropdown opens so users see the latest instantly
+  useEffect(() => {
+    if (showDropdown) fetchNotifications();
+  }, [showDropdown, fetchNotifications]);
+
+  // Refetch when the tab gains focus or becomes visible
+  useEffect(() => {
+    const onFocus = () => fetchNotifications();
+    const onVisibility = () => { if (document.visibilityState === 'visible') fetchNotifications(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    // Optional: allow other parts of the app to request a refresh
+    const onCustom = () => fetchNotifications();
+    window.addEventListener('notifications:refresh', onCustom);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('notifications:refresh', onCustom);
+    };
+  }, [fetchNotifications]);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
