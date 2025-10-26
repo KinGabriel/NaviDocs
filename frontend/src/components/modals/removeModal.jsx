@@ -61,7 +61,7 @@ export default function RemoveModal({
               <Trash2 className="w-5 h-5 text-red-600" />
             </div>
             <h2 id="remove-modal-title" className="text-xl font-semibold text-gray-900">
-              Remove {displayName}
+              Archive {displayName}
             </h2>
           </div>
           <button
@@ -77,16 +77,15 @@ export default function RemoveModal({
         {/* Content */}
         <div className="px-6 py-6 text-center">
           <p className="text-gray-700 text-sm leading-relaxed">
-            Are you sure you want to remove this{" "}
+            Are you sure you want to archive this{" "}
             <span className="font-semibold text-gray-900">{displayName}</span>{" "}
             {itemTitle && (
               <>
                 named <span className="font-semibold text-gray-900">“{itemTitle}”</span>
               </>
             )}
-            ? This action{" "}
-            <span className="text-red-600 font-medium">cannot be undone</span>.
-          </p>
+            ? This action can be undone later from the archive.
+          </p>  
           {(localError || error) && (
             <p className="text-sm text-red-600 mt-3">{localError || error}</p>
           )}
@@ -124,12 +123,12 @@ export default function RemoveModal({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                Removing…
+                Archiving…
               </>
             ) : (
               <>
                 <Trash2 className="w-4 h-4" />
-                Remove
+                Archive
               </>
             )}
           </button>
