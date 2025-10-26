@@ -21,7 +21,7 @@ import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import DateFormatPanel from "../../layout/create_template/dateformatPanel";
 import FieldsPanel from "../../layout/create_template/fieldsPanel";
-import HeaderFooterPanel from "../../layout/create_template/headerFooterPanel"; 
+import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel"; 
 
 // Sidebar
 import TemplateSidebar from "../../layout/sidebars/templateSidebar";
@@ -57,6 +57,39 @@ function useHeaderHeight() {
   return h;
 }
 
+// Sensible defaults for header/footer so something shows on first render
+const DEFAULT_HEADER_CONFIG = {
+  headerEnabled: true,
+  footerEnabled: false,
+  headerMarginIn: 0.5, // reserved band ~0.5in
+  footerMarginIn: 0.5,
+  assets: {
+    slu: "/assets/images/slu-logo.png",
+    cicm: "/assets/images/cicm-logo.png",
+  },
+  header: {
+    logos: {
+      slu: { enabled: true, sizePx: 72, xPercent: 6 },
+      cicm: { enabled: false, sizePx: 72, xPercent: 94 },
+    },
+    centerText: {
+      enabled: true,
+      line1: "Saint Louis University",
+      line2: "",
+      line3: "",
+      line4: "",
+      showLine4: false,
+      fontFamily: "Inter, system-ui, sans-serif",
+      fontSize: 14,
+      bold: false,
+      italic: false,
+      color: "#000000",
+      showHeaderLine: false,
+    },
+  },
+  documentStamp: { docCode: "", revisionNo: "", effectivity: "" },
+};
+
 // --- Component ---------------------------------------------------------------
 export default function DocumentControllerCreateTemplate() {
   const navigate = useNavigate();
@@ -84,13 +117,13 @@ export default function DocumentControllerCreateTemplate() {
   const [dateFormat, setDateFormat] = useState({ style: "numeric" });
   const [editableFields, setEditableFields] = useState([]);
 
-  // HeaderFooter panel state (logos)
-  const [headerConfig, setHeaderConfig] = useState({});
-  // Top-level document stamp fields (persisted at top-level)
-  const [documentCode, setDocumentCode] = useState(null);
-  const [revisionNo, setRevisionNo] = useState(0);
-  const [effectivity, setEffectivity] = useState(null);
+  // HeaderFooter panel state (now seeded with real defaults)
+  const [headerConfig, setHeaderConfig] = useState(DEFAULT_HEADER_CONFIG);
 
+  // Top-level document stamp fields (persisted at top-level)
+  const [documentCode, setDocumentCode] = useState("");
+  const [revisionNo, setRevisionNo] = useState(0);
+  const [effectivity, setEffectivity] = useState("");
 
   // Track last saved state for autosave/dirty
   const [lastSavedContent, setLastSavedContent] = useState(null);
@@ -106,6 +139,8 @@ export default function DocumentControllerCreateTemplate() {
 
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   // template loading using shared loader
   const loadTemplate = async (id) => {
@@ -140,11 +175,16 @@ export default function DocumentControllerCreateTemplate() {
       if (normalized.dateFormat) setDateFormat(normalized.dateFormat);
       if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
 
-  
-  if (normalized.headerConfig) setHeaderConfig(normalized.headerConfig || {});
-  if (normalized.document_code !== undefined) setDocumentCode(normalized.document_code);
-  if (normalized.revision_no !== undefined) setRevisionNo(normalized.revision_no);
-  if (normalized.effectivity !== undefined) setEffectivity(normalized.effectivity);
+      // Bring in header/footer config (fallback to our defaults so bands render)
+      const loadedHeader = normalized.headerConfig && Object.keys(normalized.headerConfig).length
+        ? normalized.headerConfig
+        : DEFAULT_HEADER_CONFIG;
+      setHeaderConfig(loadedHeader);
+
+      // Top-level doc stamp fallbacks
+      if (normalized.document_code !== undefined) setDocumentCode(normalized.document_code ?? "");
+      if (normalized.revision_no !== undefined) setRevisionNo(normalized.revision_no ?? 0);
+      if (normalized.effectivity !== undefined) setEffectivity(normalized.effectivity ?? "");
     } catch (e) {
       console.error(e);
       toast.error("Failed to load template.");
@@ -189,23 +229,15 @@ export default function DocumentControllerCreateTemplate() {
       const pages_json = Array.isArray(rawPagesJson) ? rawPagesJson : [rawPagesJson];
 
       // Normalize top-level stamp fields
-      const normDocumentCode = documentCode === null || documentCode === undefined ? "" : String(documentCode);
+      const normDocumentCode = documentCode == null ? "" : String(documentCode);
       const normRevisionNo = Number.isNaN(Number(revisionNo)) ? 0 : Number(revisionNo);
       let normEffectivity = null;
       if (effectivity !== undefined && effectivity !== null && effectivity !== "") {
-        // Accept several shapes but send an ISO date string (not {$date: ...}) so
-        // Mongoose can cast it to Date on the backend.
-        if (typeof effectivity === 'object' && effectivity.$date) {
-          // incoming form like { $date: ISO }
+        if (typeof effectivity === "object" && effectivity.$date) {
           normEffectivity = effectivity.$date;
         } else {
           const d = new Date(effectivity);
-          if (!isNaN(d)) {
-            normEffectivity = d.toISOString();
-          } else {
-            // fallback: store raw string
-            normEffectivity = effectivity;
-          }
+          normEffectivity = isNaN(d) ? effectivity : d.toISOString();
         }
       }
 
@@ -244,8 +276,6 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
-  const [saving, setSaving] = useState(false);
-
   // Autosave
   useEffect(() => {
     if (!templateId && !templateTitle && !templateContent) return;
@@ -254,7 +284,9 @@ export default function DocumentControllerCreateTemplate() {
       templateContent !== lastSavedContent ||
       templateTitle !== lastSavedTitle ||
       JSON.stringify(pageSetup) !== JSON.stringify(DEFAULT_PAGE_SETUP) ||
-      JSON.stringify(dateFormat) !== JSON.stringify({ style: "numeric" });
+      JSON.stringify(dateFormat) !== JSON.stringify({ style: "numeric" }) ||
+      // include headerConfig in dirty check so toggles save
+      JSON.stringify(headerConfig) !== JSON.stringify(DEFAULT_HEADER_CONFIG);
 
     setDirty(isDirty);
     if (!isDirty) return;
@@ -263,7 +295,7 @@ export default function DocumentControllerCreateTemplate() {
       handleSave();
     }, 2000);
     return () => clearTimeout(timeout);
-  }, [templateContent, templateTitle, pageSetup, dateFormat]);
+  }, [templateContent, templateTitle, pageSetup, dateFormat, headerConfig]);
 
   // Save on unmount/navigation if dirty
   useEffect(() => {
@@ -317,7 +349,7 @@ export default function DocumentControllerCreateTemplate() {
 
       if (Array.isArray(approverIds)) {
         [deanId, secretaryId] = approverIds;
-      } else if (typeof approverIds === "object") {
+      } else if (typeof approverIds) {
         deanId = approverIds.dean || approverIds.deanId;
         secretaryId = approverIds.secretary || approverIds.secretaryId;
       }
@@ -342,8 +374,6 @@ export default function DocumentControllerCreateTemplate() {
       }
     }
   };
-
-  const [error, setError] = useState("");
 
   // handle status updates from modal
   const handleStatusUpdate = (newStatus) => {
@@ -388,31 +418,48 @@ export default function DocumentControllerCreateTemplate() {
         );
       case "dateformat":
         return <DateFormatPanel value={dateFormat} onChange={setDateFormat} />;
-      case "headerfooter":
+      case "headerfooter": {
+        // Compose panel value with top-level doc stamp mirrors
         const headerValue = {
           ...(headerConfig || {}),
-          docCode: (documentCode ?? headerConfig?.documentStamp?.docCode ?? headerConfig?.docCode ?? headerConfig?.document_code ?? ""),
-          revisionNo: (revisionNo ?? headerConfig?.documentStamp?.revisionNo ?? headerConfig?.revisionNo ?? headerConfig?.revision_no ?? 0),
-          effectivity: (effectivity ?? headerConfig?.documentStamp?.effectivity ?? headerConfig?.effectivity ?? null),
+          docCode:
+            documentCode ??
+            headerConfig?.documentStamp?.docCode ??
+            headerConfig?.docCode ??
+            headerConfig?.document_code ??
+            "",
+          revisionNo:
+            revisionNo ??
+            headerConfig?.documentStamp?.revisionNo ??
+            headerConfig?.revisionNo ??
+            headerConfig?.revision_no ??
+            0,
+          effectivity:
+            effectivity ??
+            headerConfig?.documentStamp?.effectivity ??
+            headerConfig?.effectivity ??
+            "",
         };
 
         return (
           <HeaderFooterPanel
             value={headerValue}
             onChange={(val) => {
-              // HeaderFooterPanel emits a nested documentStamp for backwards compat.
-              // Prefer top-level fields when present, otherwise pull from nested shape.
-              const topDocCode = val?.document_code ?? val?.docCode ?? val?.documentStamp?.docCode ?? "";
-              const topRevisionNo = val?.revision_no ?? val?.revisionNo ?? val?.documentStamp?.revisionNo ?? 0;
-              const topEffectivity = val?.effectivity ?? val?.effectivity ?? val?.documentStamp?.effectivity ?? null;
+              // Lift top-level doc stamp fields
+              const topDocCode =
+                val?.document_code ?? val?.docCode ?? val?.documentStamp?.docCode ?? "";
+              const topRevisionNo =
+                val?.revision_no ?? val?.revisionNo ?? val?.documentStamp?.revisionNo ?? 0;
+              const topEffectivity =
+                val?.effectivity ?? val?.documentStamp?.effectivity ?? "";
 
-              if (topDocCode !== undefined) setDocumentCode(topDocCode);
-              if (topRevisionNo !== undefined) setRevisionNo(topRevisionNo);
-              if (topEffectivity !== undefined) setEffectivity(topEffectivity);
+              setDocumentCode(topDocCode);
+              setRevisionNo(topRevisionNo);
+              setEffectivity(topEffectivity);
 
-              // store the rest of the logo config but strip nested documentStamp to avoid duplication
+              // Store remaining panel config, without nested mirrors
               const copy = { ...val };
-              if (copy.documentStamp) delete copy.documentStamp;
+              delete copy.documentStamp;
               delete copy.document_code;
               delete copy.revision_no;
               delete copy.effectivity;
@@ -420,6 +467,7 @@ export default function DocumentControllerCreateTemplate() {
             }}
           />
         );
+      }
       case "fields":
         return (
           <FieldsPanel
@@ -486,7 +534,7 @@ export default function DocumentControllerCreateTemplate() {
                   pageSetup={pageSetup}
                   onEditorReady={handleEditorReady}
                   onContentChange={setTemplateContent}
-                  headerConfig={headerConfig}
+                  headerConfig={headerConfig}   
                   templateStatus={status}
                   documentCode={documentCode}
                   revisionNo={revisionNo}
