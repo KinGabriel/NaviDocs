@@ -5,7 +5,8 @@ import DownloadingModal from "../../components/modals/downloadingModal";
 import DocumentVersionHistory from '../../pages/version_history/documentVersionHistory';
 import ShareDocumentModal from "../../components/modals/shareDocumentModal";
 import { shareDocumentAPI } from "../../api/documentsAPI";
-import { ChevronDown, Copy, Send, FileDown, MoreHorizontal, Share2 } from "lucide-react";
+import { ChevronDown, Copy, Send, FileDown, MoreHorizontal, Share2, FolderPlus } from "lucide-react";
+import StoragePickerModal from "../../components/modals/storagePickerModal";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export default function EditableFieldsHeader({ 
@@ -41,6 +42,7 @@ export default function EditableFieldsHeader({
   const [isQuickOpen, setIsQuickOpen] = useState(false);
   const shareMenuRef = useRef(null);
   const quickMenuRef = useRef(null);
+  const [showStoragePicker, setShowStoragePicker] = useState(false);
 
 
   useEffect(() => {
@@ -75,11 +77,12 @@ export default function EditableFieldsHeader({
     if (onArchive) onArchive();
   };
 
-  async function handleExportPDF() {
+  async function handleExportPDF(options = { store: true }) {
     setDlErr("");
     setDlOpen(true);
     try {
-      await onExportPDF?.();
+      // forward the options object to the parent handler so it can choose store vs download
+      await onExportPDF?.(options);
       setDlOpen(false);
     } catch (err) {
       setDlErr(
@@ -266,19 +269,54 @@ export default function EditableFieldsHeader({
                     </div>
                   </button>
 
-                  <button className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3" 
-                    onClick={async () => {
+                  <div className="px-2 py-2">
+                    <button className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3 rounded-md" 
+                      onClick={async () => {
                         setIsQuickOpen(false);
-                        await handleExportPDF();
+                        // Save to file service (store=true)
+                        await handleExportPDF({ store: true });
                       }}
                     >
-                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <FileDown className="w-4 h-4 text-purple-600" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 text-sm">Export as PDF</div>
-                    </div>
-                  </button>
+                      <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <FileDown className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 text-sm">Export & Save to Files</div>
+                        <div className="text-xs text-gray-500">Generates PDF and uploads to your file storage</div>
+                      </div>
+                    </button>
+
+                    <button className="w-full text-left mt-2 px-4 py-3 hover:bg-purple-50 flex items-center gap-3 rounded-md" 
+                      onClick={async () => {
+                        setIsQuickOpen(false);
+                        // Direct download (store=false)
+                        await handleExportPDF({ store: false });
+                      }}
+                    >
+                      <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <FileDown className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 text-sm">Export & Download</div>
+                        <div className="text-xs text-gray-500">Generate PDF and download directly to your browser</div>
+                      </div>
+                    </button>
+
+                    <button className="w-full text-left mt-2 px-4 py-3 hover:bg-blue-50 flex items-center gap-3 rounded-md" 
+                      onClick={() => {
+                        setIsQuickOpen(false);
+                        setShowStoragePicker(true);
+                      }}
+                    >
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <FolderPlus className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 text-sm">Export to Storage & Download…</div>
+                        <div className="text-xs text-gray-500">Choose folder or create new, then save and download</div>
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -342,6 +380,28 @@ export default function EditableFieldsHeader({
           }
         }}
         submitting={shareSubmitting}
+      />
+
+      {/* Storage Picker Modal */}
+      <StoragePickerModal
+        open={showStoragePicker}
+        onClose={() => setShowStoragePicker(false)}
+        user={user}
+        onConfirm={async (folderId) => {
+          setDlErr("");
+          setDlOpen(true);
+          try {
+            // Let backend store directly into the selected folder
+            await onExportPDF?.({ store: true, folderId });
+            setDlOpen(false);
+          } catch (err) {
+            setDlErr(
+              err?.response?.data?.message ||
+              err?.message ||
+              "We couldn’t generate the PDF right now. Please try again."
+            );
+          }
+        }}
       />
     </div>
     

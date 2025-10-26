@@ -3,7 +3,8 @@ import axios from 'axios';
 import FormData from 'form-data';
 import path from 'path';
 import { createVersionData } from './documentVersionController.js';
-import { escapeHtml, buildDocumentHtml, pagesJsonToHtml, generatePdfBuffer, uploadPdfBuffer } from '../utils/pdfExportUtil.js';
+import { escapeHtml, buildDocumentHtml, pagesJsonToHtml, generatePdfBuffer, uploadPdfToStorage, uploadPdfBuffer } from '../utils/pdfExportUtil.js';
+import { buildUserServiceHeaders } from '../utils/userServiceUtils.js';
 
 /**
  * @route POST /api/documents/:id/share
@@ -299,14 +300,14 @@ export const submitDocumentLink = async (req, res) => {
 /**
  * @desc Export a document to PDF and upload to file-service
  * @route POST /api/documents/:id/export-pdf
- * Body (optional): { store: boolean }
+ * Body (optional): { store: boolean, folderId?: string|null, filename?: string, pageSetup?: object, html?: string }
  */
 export const exportDocumentPdf = async (req, res) => {
 	try {
 		const { id } = req.params;
 		if (!id) return res.status(400).json({ message: 'id required' });
 
-		const { store = true } = req.body || {};
+	const { store = true, folderId = undefined, filename: requestedFilename } = req.body || {};
 
 		const doc = await Document.findById(id).lean();
 		if (!doc) return res.status(404).json({ message: 'document not found' });
@@ -392,10 +393,44 @@ export const exportDocumentPdf = async (req, res) => {
 				return res.status(500).json({ success: false, message: 'PDF generation produced empty output', dataLength: 0 });
 			}
 
-			// For now we do not upload exports to file-service. Return inline base64 PDF and length metadata.
-			const base64 = pdfBuffer.toString('base64');
-			console.debug && console.debug('exportDocumentPdf: returning inline base64 PDF, length =', htmlFull);
-			return res.json({ success: true, message: 'Document exported (inline)', data: base64, contentType: 'application/pdf', dataLength: pdfBuffer.length });
+						// Determine a safe filename
+						const rawTitle = (doc.title || 'document').toString();
+						const safeBase = rawTitle.replace(/[^a-z0-9\-_. ]/gi, '_').trim() || 'document';
+						const fileName = (requestedFilename && typeof requestedFilename === 'string') ? requestedFilename : `${safeBase}.pdf`;
+
+						// If store=true, upload to storage service, else return inline
+									if (store) {
+							try {
+								const ownerId = req.user?.id || req.user?._id || 'unknown';
+								const fileServiceUrl = process.env.FILE_SERVICE_URL || null;
+											const authHeaders = { ...buildUserServiceHeaders(req) };
+											if (req.headers?.authorization) authHeaders['Authorization'] = req.headers.authorization;
+											if (process.env.FILE_SERVICE_INTERNAL_TOKEN) authHeaders['x-internal-token'] = process.env.FILE_SERVICE_INTERNAL_TOKEN;
+											if (req.headers && req.headers['x-user-school']) authHeaders['X-User-School'] = req.headers['x-user-school'];
+											const uploadRes = await uploadPdfToStorage(
+												pdfBuffer,
+												{
+													fileServerUrl: fileServiceUrl,
+													owner: ownerId,
+													folderId: (folderId === null ? null : folderId),
+													filename: fileName,
+													authHeaders,
+												}
+											);
+								// Return a normalized response compatible with frontend (filePath preferred)
+								return res.json({ success: true, message: 'Document exported and stored', filePath: uploadRes.filePath || null, target: uploadRes.target, details: uploadRes.raw });
+							} catch (uploadErr) {
+								console.error('exportDocumentPdf: storage upload failed, falling back to inline', uploadErr?.message || uploadErr);
+								// Fallback to inline to avoid total failure
+								const base64 = pdfBuffer.toString('base64');
+								return res.json({ success: true, message: 'Document exported (inline, storage upload failed)', data: base64, contentType: 'application/pdf', dataLength: pdfBuffer.length, error: uploadErr?.message || String(uploadErr) });
+							}
+						}
+
+						// store=false: Return inline base64 PDF and length metadata.
+						const base64 = pdfBuffer.toString('base64');
+						console.debug && console.debug('exportDocumentPdf: returning inline base64 PDF, length =', pdfBuffer.length);
+						return res.json({ success: true, message: 'Document exported (inline)', data: base64, contentType: 'application/pdf', dataLength: pdfBuffer.length });
 		} catch (e) {
 			console.error('exportDocumentPdf error (generate/upload)', e?.message || e);
 			return res.status(500).json({ message: 'Failed to render or upload PDF', error: e?.message || String(e) });

@@ -352,3 +352,68 @@ export const uploadPdfBuffer = async (pdfBuffer, { fileServerUrl = null, docId =
   const resp = await axios.post(`${fileServer}/api/files/upload/document`, form, { headers, timeout: 60000, maxContentLength: Infinity, maxBodyLength: Infinity });
   return resp?.data?.filePath || resp?.data?.path || null;
 };
+
+// Upload a single PDF to the File Service storage system, either to a folder (folderId) or as an orphan (root)
+// Returns a normalized payload: { target: 'folder'|'root', filePath: string|null, raw: any }
+export const uploadPdfToStorage = async (pdfBuffer, {
+  fileServerUrl = null,
+  owner = 'unknown',
+  folderId = null,
+  filename = 'export.pdf',
+  authHeaders = {},
+} = {}) => {
+  const fileServer = fileServerUrl || process.env.FILE_SERVICE_URL || 'http://localhost:5004';
+  const form = new FormData();
+  const stream = Readable.from(pdfBuffer);
+  // The storage service expects field name 'files'
+  form.append('files', stream, { filename, contentType: 'application/pdf' });
+  form.append('owner', String(owner));
+  form.append('user_id', String(owner));
+
+  const headers = { ...form.getHeaders(), ...(authHeaders || {}) };
+  if (folderId) {
+    // Upload to a specific folder
+    const resp = await axios.post(`${fileServer}/api/storage/folders/${folderId}/files`, form, {
+      headers,
+      timeout: 60000,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+      withCredentials: true,
+    });
+    const data = resp?.data || {};
+    // Try to locate the uploaded file path from response.folder (dbfiles or files)
+    let filePath = null;
+    const folder = data.folder || {};
+    const candidates = Array.isArray(folder.dbfiles) ? folder.dbfiles : (Array.isArray(folder.files) ? folder.files : []);
+    if (Array.isArray(candidates) && candidates.length) {
+      // Prefer the entry with matching originalName when available
+      const byName = candidates.find(f => (f.originalName || f.filename) === filename);
+      if (byName && (byName.path || byName.filePath)) filePath = byName.path || byName.filePath;
+      if (!filePath) {
+        const last = candidates[candidates.length - 1];
+        if (last && (last.path || last.filePath)) filePath = last.path || last.filePath;
+      }
+    }
+    return { target: 'folder', filePath: filePath || null, raw: data };
+  }
+  // Upload as orphan (root)
+  const resp = await axios.post(`${fileServer}/api/storage/files/upload-orphan`, form, {
+    headers,
+    timeout: 60000,
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity,
+    withCredentials: true,
+  });
+  const data = resp?.data || {};
+  let filePath = null;
+  const files = Array.isArray(data.files) ? data.files : [];
+  if (files.length) {
+    const byName = files.find(f => (f.originalName || f.filename) === filename);
+    if (byName && (byName.path || byName.filePath)) filePath = byName.path || byName.filePath;
+    if (!filePath) {
+      const last = files[files.length - 1];
+      if (last && (last.path || last.filePath)) filePath = last.path || last.filePath;
+    }
+  }
+  return { target: 'root', filePath: filePath || null, raw: data };
+};
