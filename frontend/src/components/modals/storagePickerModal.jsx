@@ -38,10 +38,17 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
   }, [open, user]);
 
   const subfolders = useMemo(() => {
-    return folders.filter(f => {
+    // List only real subfolders of the current location and filter out any phantom/placeholder entries like "..."
+    const list = folders.filter(f => {
       const pid = f.parentFolder || null;
       return (pid || null) === (currentFolderId || null);
-    }).sort((a, b) => a.folderName.localeCompare(b.folderName));
+    })
+    .filter(f => {
+      const name = (f.folderName ?? '').trim();
+      return name.length > 0 && name !== '...';
+    })
+    .sort((a, b) => (a.folderName || '').localeCompare(b.folderName || ''));
+    return list;
   }, [folders, currentFolderId]);
 
   const currentLocationName = useMemo(() => {
@@ -111,7 +118,7 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
         <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
             <div className="text-lg font-semibold text-gray-800">Export to Storage</div>
-            <div className="text-xs text-gray-500 mt-0.5">Choose a folder (or root) to save the PDF, then it will download</div>
+            <div className="text-xs text-gray-500 mt-0.5">Choose a location to save the PDF, then it will download</div>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
         </div>
@@ -144,8 +151,8 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
                   <div key={folder._id} className="flex items-center justify-between p-3 hover:bg-gray-50">
                     <div className="flex items-center gap-3">
                       <span className="inline-block"><FolderPlus className="w-4 h-4 text-blue-600" /></span>
-                      <button className="text-sm font-medium text-gray-800 hover:underline" onClick={() => handleEnterFolder(folder)}>
-                        {folder.folderName}
+                      <button className="text-sm font-medium text-gray-800 hover:underline" onClick={() => handleEnterFolder(folder)} title={(folder.folderName || '').trim() || 'Untitled folder'}>
+                        {(folder.folderName || '').trim() || 'Untitled folder'}
                       </button>
                     </div>
                     <button
