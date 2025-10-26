@@ -89,6 +89,8 @@ export default function Sidebar({ user }) {
     }
   }
 
+  const isTrashActive = location.pathname.startsWith("/recently-deleted");
+
   const widthPx = collapsed ? 72 : 320;
   const avatarClasses = (isMobile && !mobileOpen) || collapsed
     ? "h-10 w-10 rounded-full object-cover border-2 border-gray-100 mb-4"
@@ -136,6 +138,27 @@ export default function Sidebar({ user }) {
             )}
           </nav>
 
+          <div className="w-full px-0 mb-3">
+            <div
+              className={`flex items-center w-full px-8 py-3 rounded transition-colors cursor-pointer relative
+                ${isTrashActive ? "bg-gray-100 font-bold" : "hover:bg-gray-50"}`}
+              onClick={() => navigate("/recently-deleted")}
+            >
+              {isTrashActive && (
+                <div className="absolute left-0 top-0 h-full w-1 bg-yellow-400 rounded-r"></div>
+              )}
+              {/* Trash icon on the LEFT */}
+              <div className="mr-4 flex-shrink-0">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M3 6h18M9 6v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              {/* Text on the RIGHT, like your reference */}
+              <span className="text-base">Recently Deleted</span>
+            </div>
+          </div>
+
+
           <div className="absolute bottom-4 left-0 w-full text-center text-[10px] text-gray-400 select-none">
             Copyright ©2025 NaviDocs
           </div>
@@ -182,6 +205,28 @@ export default function Sidebar({ user }) {
           <div className="text-gray-400 text-center py-4">No menu available for this role.</div>
         )}
       </nav>
+
+      <div className="w-full px-0 mb-3">
+        <div
+          className={`flex items-center w-full px-8 py-3 rounded transition-colors cursor-pointer relative
+            ${isTrashActive ? "bg-gray-100 font-bold" : "hover:bg-gray-50"}`}
+          onClick={() => navigate("/recently-deleted")}
+        >
+          {isTrashActive && (
+            <div className="absolute left-0 top-0 h-full w-1 bg-yellow-400 rounded-r"></div>
+          )}
+          {/* Trash icon on the LEFT */}
+          <div className="mr-4 flex-shrink-0">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M3 6h18M9 6v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          {/* Text on the RIGHT, like your reference */}
+          <span className="text-base">Recently Deleted</span>
+        </div>
+      </div>
+
+      
 
       {!collapsed && (
         <div className="absolute bottom-4 left-0 w-full text-center text-[10px] text-gray-400 select-none">
