@@ -3,7 +3,7 @@ import StatusBadge from "./statusBadge";
 
 export default function UpcomingDeadlines({ 
   deadlines = [], 
-  title = "Upcoming Deadlines",
+  title = "Deadlines",
   icon = "📌",
   maxHeight = "max-h-80",
   formatDate,
