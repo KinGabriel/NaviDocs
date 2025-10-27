@@ -191,7 +191,7 @@ export default function DocumentControllerDashboard() {
           {/* Tables and Upcoming Deadlines */}
           <div className="grid grid-cols-4 gap-6 flex-1">
             <div className="col-span-3 space-y-6">
-              {/* Templates Table */}
+              {/* Pending Templates Table */}
               <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
                 <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
                   <div>
@@ -208,7 +208,7 @@ export default function DocumentControllerDashboard() {
               <UpcomingDeadlines deadlines={upcomingDeadlines} formatDate={formatDate} />
             </div>
 
-            {/* Documents Table */}
+            {/* Recently Published Templates Table */}
             <div className="col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
               <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
                 <div>

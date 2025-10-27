@@ -34,7 +34,7 @@ export default function FacultyDashboard() {
       { id: 5, code: "FM-SAA-002", rev: "00", date: "2026-05-10", title: "Hospitality Course Syllabi 26-27", createdBy: "Jana Aquino", status: "Returned" },
     ];
   
-    const pendingDocs = [
+    const recentlySubmittedTemplates = [
       { id: 1, code: "FM-SAA-003", rev: "00", date: "2025-01-16", title: "3D Modeling and Animation Course Syllabi 26-27", createdBy: "Mae Santos" },
       { id: 2, code: "FM-SAA-001", rev: "00", date: "2025-12-17", title: "Motion Graphics Design Course Syllabi 26-27", createdBy: "Mae Santos" },
       { id: 3, code: "FM-SAA-006", rev: "00", date: "2025-01-26", title: "Special Topics 2 Course Syllabi 26-27", createdBy: "Jennie Zhang" },
@@ -244,14 +244,14 @@ export default function FacultyDashboard() {
         <div className="col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
             <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
             <div>
-                <h2 className="font-bold text-sm text-gray-800 tracking-wide">PENDING DOCUMENTS</h2>
+                <h2 className="font-bold text-sm text-gray-800 tracking-wide">RECENTLY SUBMITTED TEMPLATES</h2>
                 <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
             </div>
             <button className="mr-12 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F]">
                 View All
             </button>
             </div>
-            <Table columns={pendingDocColumns} data={pendingDocs} />
+            <Table columns={pendingDocColumns} data={recentlySubmittedTemplates} />
             </div>
           </div>
         </main>
