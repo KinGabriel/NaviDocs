@@ -28,11 +28,54 @@ export default function FacultyDashboard() {
   // still to be replaced with actual data fetching logic
   // Sample Requested Templates
 const requestedTemplates = [
-  { id: 1, title: "Graphic Design Course Syllabi 26-27", createdBy: "Daniela Torres", deanStatus: "Yes", secStatus: "No", headStatus: "Yes" },
-  { id: 2, title: "Multimedia Design Course Syllabi 26-27", createdBy: "Mae Santos", deanStatus: "No", secStatus: "No", headStatus: "Yes" },
-  { id: 3, title: "Photography Course Syllabi 26-27", createdBy: "Jennie Zhang", deanStatus: "Yes", secStatus: "Yes", headStatus: "Yes" },
-  { id: 4, title: "Art Direction Course Syllabi 26-27", createdBy: "Candice Gomez", deanStatus: "No", secStatus: "Yes", headStatus: "No" },
-  { id: 5, title: "Animation Course Syllabi 26-27", createdBy: "Stacey Dixon", deanStatus: "Yes", secStatus: "Yes", headStatus: "No" },
+  {
+    id: 1,
+    title: "Research Proposal Template",
+    createdBy: "Admin User",
+    deanStatus: "Yes",
+    secStatus: "Yes", 
+    headStatus: "Yes",
+  },
+  {
+    id: 2,
+    title: "Thesis Format Guide",
+    createdBy: "Admin User",
+    deanStatus: "No",
+    secStatus: "No", 
+    headStatus: "Yes",
+  },
+  {
+    id: 3,
+    title: "Internship Report Template",
+    createdBy: "Admin User",
+    deanStatus: "No",
+    secStatus: "Returned", 
+    headStatus: "Returned",
+  },
+  {
+    id: 4,
+    title: "Course Syllabus Template",
+    createdBy: "Admin User",
+    deanStatus: "Returned",
+    secStatus: "Yes", 
+    headStatus: "Returned",
+  },
+  {
+    id: 5,
+    title: "Capstone Project Template",
+    createdBy: "Admin User",
+    deanStatus: "No",
+    secStatus: "No",
+    headStatus: "Returned",
+  },
+  {
+    id: 6,
+    title: "Department Memo Format",
+    createdBy: "Admin User",
+    deanStatus: "Yes",
+    secStatus: "Returned", 
+    headStatus: "Yes",
+  },
 ];
 
 // Requested Templates Table Columns
@@ -51,46 +94,84 @@ const requestedTemplatesColumn = [
     label: "Approval Status",
     render: (row) => (
       <div className="flex flex-col text-xs font-medium text-gray-700 space-y-1">
-        {/* Dean Status */}
+           {/* Dean Status */}
         <div className="flex items-center gap-2">
-          <span
-            className={`w-2.5 h-2.5 rounded-full ${
-              row.deanStatus === "Yes"
-                ? "bg-green-500"
-                : row.deanStatus === "No"
-                ? "bg-red-500"
-                : "bg-gray-400"
-            }`}
-          ></span>
+        <span
+  title={
+    row.deanStatus === "Yes"
+      ? "Approved"
+      : row.deanStatus === "No"
+      ? "Rejected"
+      : row.deanStatus === "Returned"
+      ? "Returned"
+      : "Pending"
+  }
+  className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
+    row.deanStatus === "Yes"
+      ? "bg-green-500"    // Approved
+      : row.deanStatus === "No"
+      ? "bg-red-500"      // Rejected
+      : row.deanStatus === "Returned"
+      ? "bg-purple-500"   // Returned
+      : "bg-yellow-400"     // Default / Pending
+  }`}
+></span>
+
           <span>Dean</span>
         </div>
 
-        {/* Secretary Status */}
+             {/* Secretary Status */}
         <div className="flex items-center gap-2">
           <span
-            className={`w-2.5 h-2.5 rounded-full ${
-              row.secStatus === "Yes"
-                ? "bg-green-500"
-                : row.secStatus === "No"
-                ? "bg-red-500"
-                : "bg-gray-400"
-            }`}
-          ></span>
+  title={
+    row.secStatus === "Yes"
+      ? "Approved"
+      : row.secStatus === "No"
+      ? "Rejected"
+      : row.secStatus === "Returned"
+      ? "Returned"
+      : "Pending"
+  }
+  className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
+    row.secStatus === "Yes"
+      ? "bg-green-500"
+      : row.secStatus === "No"
+      ? "bg-red-500"
+      : row.secStatus === "Returned"
+      ? "bg-purple-500"
+      : "bg-yellow-400"
+  }`}
+></span>
+
+
           <span>Secretary</span>
         </div>
 
         {/* Department Head Status */}
         <div className="flex items-center gap-2">
           <span
-            className={`w-2.5 h-2.5 rounded-full ${
-              row.headStatus === "Yes"
-                ? "bg-green-500"
-                : row.headStatus === "No"
-                ? "bg-red-500"
-                : "bg-gray-400"
-            }`}
-          ></span>
-          <span>Dept. Head</span>
+  title={
+    row.headStatus === "Yes"
+      ? "Approved"
+      : row.headStatus === "No"
+      ? "Rejected"
+      : row.headStatus === "Returned"
+      ? "Returned"
+      : "Pending"
+  }
+  className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
+    row.headStatus === "Yes"
+      ? "bg-green-500"
+      : row.headStatus === "No"
+      ? "bg-red-500"
+      : row.headStatus === "Returned"
+      ? "bg-purple-500"
+      : "bg-yellow-400"
+  }`}
+></span>
+
+
+          <span>Department Head</span>
         </div>
       </div>
     ),
@@ -237,19 +318,41 @@ const requestedTemplatesColumn = [
         {/* Tables and Upcoming Deadlines */}
         <div className="grid grid-cols-4 gap-6 flex-1">
         <div className="col-span-3 space-y-6">
-            {/* Requested Templates Table */}
-            <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
-            <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
-                <div>
-                <h2 className="font-bold text-sm text-gray-800 tracking-wide">REQUESTED TEMPLATES</h2>
-                <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
-                </div>
-                <button className="mr-4 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F]">
-                View All
-                </button>
-            </div>
-            <Table columns={requestedTemplatesColumn} data={requestedTemplates} />
-          </div>
+          {/* Requested Templates Table */}
+<div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
+  <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
+    {/* Left side: Title */}
+    <div>
+      <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+        REQUESTED TEMPLATES
+      </h2>
+      <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+    </div>
+
+    {/* Right side: Status Legend */}
+    <div className="flex items-center gap-4 text-xs text-gray-600 mr-6">
+      <div className="flex items-center gap-1">
+        <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+        <span>Approved</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+        <span>Rejected</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+        <span>Returned</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
+        <span>Pending</span>
+      </div>
+    </div>
+  </div>
+
+  <Table columns={requestedTemplatesColumn} data={requestedTemplates} />
+</div>
+
         </div>
 
         {/* Upcoming Deadlines*/}
