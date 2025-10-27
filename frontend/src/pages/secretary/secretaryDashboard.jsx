@@ -25,11 +25,43 @@ export default function SecretaryDashboard() {
 
   // Example data
   const requestedTemplates = [
- { id: 1, title: "Template for Research Proposal", createdBy: "Admin User", deanStatus: "Yes"},
-    { id: 2, title: "Template for Research Proposal", createdBy: "Admin User", deanStatus: "Yes"},
-    { id: 3, title: "Template for Research Proposal", createdBy: "Admin User", deanStatus: "No" },
-        { id: 3, title: "Template for Research Proposal", createdBy: "Admin User", deanStatus: "No" },
-  ];
+  {
+    id: 1,
+    title: "Research Proposal Template",
+    createdBy: "Admin User",
+    deanStatus: "Yes",
+  },
+  {
+    id: 2,
+    title: "Thesis Format Guide",
+    createdBy: "Admin User",
+    deanStatus: "Yes",
+  },
+  {
+    id: 3,
+    title: "Internship Report Template",
+    createdBy: "Admin User",
+    deanStatus: "No",
+  },
+  {
+    id: 4,
+    title: "Course Syllabus Template",
+    createdBy: "Admin User",
+    deanStatus: "Returned",
+  },
+  {
+    id: 5,
+    title: "Capstone Project Template",
+    createdBy: "Admin User",
+    deanStatus: "No",
+  },
+  {
+    id: 6,
+    title: "Department Memo Format",
+    createdBy: "Admin User",
+    deanStatus: "Yes",
+  },
+];
 
   const recentlySubmittedTemplates = [
     { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
@@ -48,16 +80,28 @@ export default function SecretaryDashboard() {
     render: (row) => (
       <div className="flex flex-col text-xs font-medium text-gray-700 space-y-1">
         {/* Dean Status */}
-        <div className="flex items-center gap-2">
-          <span
-            className={`w-2.5 h-2.5 rounded-full ${
-              row.deanStatus === "Yes"
-                ? "bg-green-500"
-                : row.deanStatus === "No"
-                ? "bg-red-500"
-                : "bg-gray-400"
-            }`}
-          ></span>
+         <div className="flex items-center gap-2">
+        <span
+  title={
+    row.deanStatus === "Yes"
+      ? "Approved"
+      : row.deanStatus === "No"
+      ? "Rejected"
+      : row.deanStatus === "Returned"
+      ? "Returned"
+      : "Pending"
+  }
+  className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
+    row.deanStatus === "Yes"
+      ? "bg-green-500"    // Approved
+      : row.deanStatus === "No"
+      ? "bg-red-500"      // Rejected
+      : row.deanStatus === "Returned"
+      ? "bg-purple-500"   // Returned
+      : "bg-yellow-400"     // Default / Pending
+  }`}
+></span>
+
           <span>Dean</span>
         </div>
       </div>
@@ -164,12 +208,25 @@ export default function SecretaryDashboard() {
                     <h2 className="font-bold text-sm text-gray-800 tracking-wide">REQUESTED TEMPLATES</h2>
                     <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                   </div>
-                  <button
-                  onClick={() => navigate("/secretary/templates")}
-                  className="mr-4 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F]"
-                  >
-                    View All
-                  </button>
+                  {/* Right: Color Legend */}
+    <div className="flex items-center gap-4 text-xs text-gray-700 font-medium mr-4">
+      <div className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded-full bg-green-500"></span>
+        <span>Approved</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded-full bg-red-500"></span>
+        <span>Rejected</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded-full bg-purple-500"></span>
+        <span>Returned</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
+        <span>Pending</span>
+      </div>
+    </div>
                 </div>
                 <Table columns={requestedTemplatesColumn} data={requestedTemplates} />
               </div>
