@@ -24,12 +24,50 @@ export default function DocumentControllerDashboard() {
   }
 
   // Sample data
-  const templates = [
-    { id: 1, title: "Template for Research Proposal", createdBy: "Admin User", deanStatus: "Yes", secStatus: "No" },
-    { id: 2, title: "Template for Research Proposal", createdBy: "Admin User", deanStatus: "Yes", secStatus: "Yes" },
-    { id: 3, title: "Template for Research Proposal", createdBy: "Admin User", deanStatus: "No", secStatus: "No" },
-        { id: 3, title: "Template for Research Proposal", createdBy: "Admin User", deanStatus: "No", secStatus: "No" },
-  ];
+const templates = [
+  {
+    id: 1,
+    title: "Research Proposal Template",
+    createdBy: "Admin User",
+    deanStatus: "Yes",
+    secStatus: "Yes", // Approved by both
+  },
+  {
+    id: 2,
+    title: "Thesis Format Guide",
+    createdBy: "Admin User",
+    deanStatus: "Yes",
+    secStatus: "No", // Approved by Dean, rejected by Secretary
+  },
+  {
+    id: 3,
+    title: "Internship Report Template",
+    createdBy: "Admin User",
+    deanStatus: "No",
+    secStatus: "Returned", // Rejected by Dean, returned by Secretary
+  },
+  {
+    id: 4,
+    title: "Course Syllabus Template",
+    createdBy: "Admin User",
+    deanStatus: "Returned",
+    secStatus: "Yes", // Returned by Dean, approved by Secretary
+  },
+  {
+    id: 5,
+    title: "Capstone Project Template",
+    createdBy: "Admin User",
+    deanStatus: "No",
+    secStatus: "No", // Rejected by both
+  },
+  {
+    id: 6,
+    title: "Department Memo Format",
+    createdBy: "Admin User",
+    deanStatus: "Yes",
+    secStatus: "Returned", // Approved by Dean, returned by Secretary
+  },
+];
 
   const publishedTemplates = [
     { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
@@ -49,29 +87,54 @@ export default function DocumentControllerDashboard() {
       <div className="flex flex-col text-xs font-medium text-gray-700 space-y-1">
         {/* Dean Status */}
         <div className="flex items-center gap-2">
-          <span
-            className={`w-2.5 h-2.5 rounded-full ${
-              row.deanStatus === "Yes"
-                ? "bg-green-500"
-                : row.deanStatus === "No"
-                ? "bg-red-500"
-                : "bg-gray-400"
-            }`}
-          ></span>
+        <span
+  title={
+    row.deanStatus === "Yes"
+      ? "Approved"
+      : row.deanStatus === "No"
+      ? "Rejected"
+      : row.deanStatus === "Returned"
+      ? "Returned"
+      : "Pending"
+  }
+  className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
+    row.deanStatus === "Yes"
+      ? "bg-green-500"    // Approved
+      : row.deanStatus === "No"
+      ? "bg-red-500"      // Rejected
+      : row.deanStatus === "Returned"
+      ? "bg-purple-500"   // Returned
+      : "bg-yellow-400"     // Default / Pending
+  }`}
+></span>
+
           <span>Dean</span>
         </div>
 
         {/* Secretary Status */}
         <div className="flex items-center gap-2">
           <span
-            className={`w-2.5 h-2.5 rounded-full ${
-              row.secStatus === "Yes"
-                ? "bg-green-500"
-                : row.secStatus === "No"
-                ? "bg-red-500"
-                : "bg-gray-400"
-            }`}
-          ></span>
+  title={
+    row.secStatus === "Yes"
+      ? "Approved"
+      : row.secStatus === "No"
+      ? "Rejected"
+      : row.secStatus === "Returned"
+      ? "Returned"
+      : "Pending"
+  }
+  className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
+    row.secStatus === "Yes"
+      ? "bg-green-500"
+      : row.secStatus === "No"
+      ? "bg-red-500"
+      : row.secStatus === "Returned"
+      ? "bg-purple-500"
+      : "bg-yellow-400"
+  }`}
+></span>
+
+
           <span>Secretary</span>
         </div>
       </div>
@@ -191,15 +254,42 @@ export default function DocumentControllerDashboard() {
           <div className="grid grid-cols-4 gap-6 flex-1">
             <div className="col-span-3 space-y-6">
               {/* Pending Templates Table */}
-              <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
-                <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
-                  <div>
-                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">PENDING TEMPLATES</h2>
-                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
-                  </div>
-                </div>
-                <Table columns={templateColumns} data={templates} />
-              </div>
+<div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
+  {/* Header with title + color guide aligned on one line */}
+  <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
+    {/* Left: Section Title */}
+    <div>
+      <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+        PENDING TEMPLATES
+      </h2>
+      <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
+    </div>
+
+    {/* Right: Color Legend */}
+    <div className="flex items-center gap-4 text-xs text-gray-700 font-medium mr-4">
+      <div className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded-full bg-green-500"></span>
+        <span>Approved</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded-full bg-red-500"></span>
+        <span>Rejected</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded-full bg-purple-500"></span>
+        <span>Returned</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
+        <span>Pending</span>
+      </div>
+    </div>
+  </div>
+
+  {/* Table */}
+  <Table columns={templateColumns} data={templates} />
+</div>
+
             </div>
 
             {/* Upcoming Deadlines */}
