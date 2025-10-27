@@ -5,7 +5,6 @@ import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
 import Greeting from "../../components/greeting";
 import UpcomingDeadlines from "../../components/upcomingDeadlines";
-import { FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
