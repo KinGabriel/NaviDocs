@@ -182,8 +182,11 @@ export default function DocumentControllerTemplates() {
 
             {/* Controls row: stacks on small screens */}
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+              
+              
               {/* Create button (keeps full size; stacks above filters on small screens) */}
               <div className="flex flex-col sm:flex-row gap-3">
+                
                 <button
                   onClick={handleCreateTemplate}
                   className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
@@ -196,8 +199,26 @@ export default function DocumentControllerTemplates() {
                 </button>
               </div>
 
+              
+
               {/* Filters + Search */}
               <div className="flex items-center gap-2">
+                {/* Recently Deleted */}
+                <button
+                  type="button"
+                  onClick={() => navigate("/recently-deleted")}
+                  className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
+                  aria-label="Recently deleted"
+                  title="Recently deleted"
+                >
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#0035DA]" fill="none" aria-hidden="true">
+                    <path
+                      d="M3 6h18M9 6v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
+                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                
                 {/* School Filter */}
                 <Dropdown
                   options={["All", ...Object.keys(schoolIdentifiers)]}
