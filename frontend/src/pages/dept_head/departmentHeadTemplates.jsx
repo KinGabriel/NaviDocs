@@ -191,8 +191,11 @@ export default function DepartmentHeadTemplates() {
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                 />
               </svg>
-              
               </button>
+
+              <div className="w-64">
+                <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
                 
               <Dropdown
                 options={["All", ...Object.keys(schoolIdentifiers)]}
@@ -206,9 +209,7 @@ export default function DepartmentHeadTemplates() {
                 onChange={setSortOrder}
                 width="w-36"
               />
-                <div className="w-64">
-                <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
-                </div>
+              
             </div>
 
             {/* Templates Grid */}

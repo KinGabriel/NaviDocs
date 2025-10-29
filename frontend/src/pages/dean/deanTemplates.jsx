@@ -184,20 +184,29 @@ export default function DeanTemplates() {
           <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-end">
             
             {/* Recently Deleted */}
-                <button
-                  type="button"
-                  onClick={() => navigate("/recently-deleted")}
-                  className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
-                  aria-label="Recently deleted"
-                  title="Recently deleted"
-                >
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#0035DA]" fill="none" aria-hidden="true">
-                    <path
-                      d="M3 6h18M9 6v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
-                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
+            <button
+              type="button"
+              onClick={() => navigate("/recently-deleted")}
+              className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
+              aria-label="Recently deleted"
+              title="Recently deleted"
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#0035DA]" fill="none" aria-hidden="true">
+                <path
+                  d="M3 6h18M9 6v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+
+            {/* Search first */}
+            <div className="flex justify-start lg:justify-end">
+              <div className="flex items-center gap-2">
+                <div className="w-64">
+                  <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
+                </div>
+              </div>
+            </div>
 
             {/* Dropdowns + small-screen Assign beside them */}
             <div className="flex flex-wrap items-center gap-2 justify-start lg:justify-end">
@@ -213,14 +222,7 @@ export default function DeanTemplates() {
                 onChange={setSortOrder}
                 width="w-36"
               />
-            {/* Search first */}
-            <div className="flex justify-start lg:justify-end">
-              <div className="flex items-center gap-2">
-                <div className="w-64">
-                  <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
-                </div>
-              </div>
-            </div>
+            
 
             
               {/* Small-screen Assign button beside dropdowns */}

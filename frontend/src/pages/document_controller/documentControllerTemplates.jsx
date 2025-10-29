@@ -199,8 +199,6 @@ export default function DocumentControllerTemplates() {
                 </button>
               </div>
 
-              
-
               {/* Filters + Search */}
               <div className="flex items-center gap-2">
                 {/* Recently Deleted */}
