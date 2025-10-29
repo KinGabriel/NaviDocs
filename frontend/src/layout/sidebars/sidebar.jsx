@@ -89,8 +89,6 @@ export default function Sidebar({ user }) {
     }
   }
 
-  const isTrashActive = location.pathname.startsWith("/recently-deleted");
-
   const widthPx = collapsed ? 72 : 320;
   const avatarClasses = (isMobile && !mobileOpen) || collapsed
     ? "h-10 w-10 rounded-full object-cover border-2 border-gray-100 mb-4"
@@ -138,31 +136,6 @@ export default function Sidebar({ user }) {
             )}
           </nav>
 
-          {/* Recently Deleted */}
-          <div
-            className={`flex items-center w-full px-8 py-3 gap-4 rounded transition-colors cursor-pointer relative
-              ${isTrashActive ? "bg-gray-100 font-bold" : "hover:bg-gray-50"}`}
-            onClick={() => navigate("/recently-deleted")}
-          >
-            {isTrashActive && (
-              <div className="absolute left-0 inset-y-0 w-1 bg-yellow-400 rounded-r"></div>
-            )}
-
-            {/* Trash icon */}
-            <span className="w-7 h-7 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" className="w-6 h-6 text-[#0035DA]" fill="none" aria-hidden="true">
-                <path
-                  d="M3 6h18M9 6v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-
-            {/* Label */}
-            <span className="text-base">Recently Deleted</span>
-          </div>
-
-
           <div className="absolute bottom-4 left-0 w-full text-center text-[10px] text-gray-400 select-none">
             Copyright ©2025 NaviDocs
           </div>
@@ -209,32 +182,6 @@ export default function Sidebar({ user }) {
           <div className="text-gray-400 text-center py-4">No menu available for this role.</div>
         )}
       </nav>
-
-      {/* Recently Deleted */}
-      <div
-        className={`flex items-center w-full px-8 py-3 gap-4 rounded transition-colors cursor-pointer relative
-          ${isTrashActive ? "bg-gray-100 font-bold" : "hover:bg-gray-50"}`}
-        onClick={() => navigate("/recently-deleted")}
-      >
-        {isTrashActive && (
-          <div className="absolute left-0 inset-y-0 w-1 bg-yellow-400 rounded-r"></div>
-        )}
-          
-        {/* Trash icon on the LEFT */}
-        <span className="w-6 h-6 flex items-center justify-center shrink-0">
-          <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#0035DA]" fill="none" aria-hidden="true">
-            <path
-              d="M3 6h18M9 6v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            />
-          </svg>
-        </span>
-
-        {/* LABEL */}
-        <span className="text-base leading-6">Recently Deleted</span>
-      </div>
-
-      
 
       {!collapsed && (
         <div className="absolute bottom-4 left-0 w-full text-center text-[10px] text-gray-400 select-none">
