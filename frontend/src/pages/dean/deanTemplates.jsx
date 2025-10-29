@@ -182,10 +182,8 @@ export default function DeanTemplates() {
 
           {/* Controls (search on top; dropdowns + small-screen button below) */}
           <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-end">
-            {/* Search first */}
-            <div className="flex justify-start lg:justify-end">
-              <div className="flex items-center gap-2">
-                {/* Recently Deleted */}
+            
+            {/* Recently Deleted */}
                 <button
                   type="button"
                   onClick={() => navigate("/recently-deleted")}
@@ -200,12 +198,6 @@ export default function DeanTemplates() {
                     />
                   </svg>
                 </button>
-                
-                <div className="w-64">
-                  <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
-                </div>
-              </div>
-            </div>
 
             {/* Dropdowns + small-screen Assign beside them */}
             <div className="flex flex-wrap items-center gap-2 justify-start lg:justify-end">
@@ -221,6 +213,16 @@ export default function DeanTemplates() {
                 onChange={setSortOrder}
                 width="w-36"
               />
+            {/* Search first */}
+            <div className="flex justify-start lg:justify-end">
+              <div className="flex items-center gap-2">
+                <div className="w-64">
+                  <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            
               {/* Small-screen Assign button beside dropdowns */}
               <button
                 onClick={() => setIsAssignmentModalOpen(true)}

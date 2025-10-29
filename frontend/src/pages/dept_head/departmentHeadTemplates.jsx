@@ -177,22 +177,39 @@ export default function DepartmentHeadTemplates() {
 
             {/* Filters */}
             <div className="flex items-center gap-2 mb-4 justify-start lg:justify-end">
-                 <Dropdown
-                   options={["All", ...Object.keys(schoolIdentifiers)]}
-                   value={selectedSchool}
-                   onChange={setSelectedSchool}
-                  width="w-50"
+              {/* Recently Deleted */}
+              <button
+                type="button"
+                onClick={() => navigate("/recently-deleted")}
+                className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
+                aria-label="Recently deleted"
+                title="Recently deleted"
+              >
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#0035DA]" fill="none" aria-hidden="true">
+                <path
+                  d="M3 6h18M9 6v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                 />
-                   <Dropdown
-                    options={["Recent", "A-Z", "Z-A"]}
-                    value={sortOrder}
-                    onChange={setSortOrder}
-                    width="w-36"
-               />
-                  <div className="w-64">
-                  <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
-                 </div>
+              </svg>
+              
+              </button>
+                
+              <Dropdown
+                options={["All", ...Object.keys(schoolIdentifiers)]}
+                value={selectedSchool}
+                onChange={setSelectedSchool}
+                width="w-50"
+              />
+                <Dropdown
+                options={["Recent", "A-Z", "Z-A"]}
+                value={sortOrder}
+                onChange={setSortOrder}
+                width="w-36"
+              />
+                <div className="w-64">
+                <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
+            </div>
 
             {/* Templates Grid */}
             <div className="grid [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))] gap-5 sm:gap-6">
