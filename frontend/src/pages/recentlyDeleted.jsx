@@ -14,6 +14,7 @@ export default function RecentlyDeleted() {
   const user = useUser();
   const navigate = useNavigate();
 
+  // state
   const PAGE_SIZE = 8;
   const [viewMode, setViewMode] = useState("grid"); // "table" | "grid"
   const [search, setSearch] = useState("");
@@ -22,14 +23,21 @@ export default function RecentlyDeleted() {
   const [deletedTotalPages, setDeletedTotalPages] = useState(1);
   const pagination = usePagination(deletedTotalPages, 1);
 
+  // columns for table mode
   const deletedColumns = [
-    { key: "title", label: "Document Name", render: (row) => row.title || "Untitled" },
+    {
+      key: "title",
+      label: "Document Name",
+      render: (row) => row.title || "Untitled",
+    },
     {
       key: "assignedTo",
       label: "Assigned To",
       render: (row) => {
         const list = row.assignedNames || row.assigned || [];
-        if (Array.isArray(list) && list.length) return list.filter(Boolean).join(", ");
+        if (Array.isArray(list) && list.length) {
+          return list.filter(Boolean).join(", ");
+        }
         return row.createdByName || row.created_by_name || "-";
       },
     },
@@ -46,10 +54,13 @@ export default function RecentlyDeleted() {
     {
       key: "actions",
       label: "Actions",
-      render: () => <span className="text-gray-400 text-sm">No actions</span>,
+      render: () => (
+        <span className="text-gray-400 text-sm select-none">No actions</span>
+      ),
     },
   ];
 
+  // fetch deleted docs
   const fetchDeleted = async () => {
     if (!user) return;
     setDeletedLoading(true);
@@ -73,13 +84,16 @@ export default function RecentlyDeleted() {
         arr = result;
         setDeletedTotalPages(1);
       }
+
+      // newest deleted first
       arr.sort((a, b) => {
         const ad = new Date(a.deletedAt || a.updatedAt || 0).getTime();
         const bd = new Date(b.deletedAt || b.updatedAt || 0).getTime();
         return bd - ad;
       });
+
       setDeletedDocs(arr);
-    } catch (e) {
+    } catch (err) {
       setDeletedDocs([]);
       setDeletedTotalPages(1);
     } finally {
@@ -95,31 +109,47 @@ export default function RecentlyDeleted() {
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
-      <div className="flex flex-1">
+
+      <div className="flex flex-1 flex-col lg:flex-row">
         <Sidebar user={user} />
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <div className="flex-1 px-1 py-5">
-            <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">
+
+        {/* main content */}
+        <div className="flex-1 flex flex-col bg-white shadow
+                        pt-1 pb-4
+                        px-4 sm:px-6 lg:px-8
+                        mx-0 lg:mx-6
+                        mt-4 lg:mt-8
+                        rounded-none lg:rounded-xl">
+          <div className="flex-1 px-0 lg:px-1 py-5">
+            {/* header / title */}
+            <h1 className="text-2xl lg:text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">
               RECENTLY DELETED
             </h1>
-            <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
+            <div className="w-24 lg:w-30 h-1 bg-yellow-400 mb-4 lg:mb-6 rounded" />
 
-            {/* Top controls: ONLY search + view toggle (no "Select Template" or "Manage saved values") */}
-            <div className="flex items-center justify-between gap-2 mb-4">
-              <div className="flex-1" />
-              <div className="flex items-center gap-2">
-                <div className="w-64">
+            {/* controls row */}
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              {/* left spacer on desktop to push controls right, hidden mobile */}
+              <div className="flex-1 hidden sm:block" />
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+                {/* search full width on mobile */}
+                <div className="w-full sm:w-64">
                   <SearchBar
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search deleted documents..."
                   />
                 </div>
-                <ViewToggle mode={viewMode} onChange={setViewMode} />
+
+                {/* view toggle sits next to it on desktop, below it on mobile */}
+                <div className="self-start sm:self-auto">
+                  <ViewToggle mode={viewMode} onChange={setViewMode} />
+                </div>
               </div>
             </div>
 
-            {/* CONTENT */}
+            {/* content */}
             {deletedLoading ? (
               <div className="w-full flex justify-center py-10">
                 <Loader message="Loading recently deleted..." />
@@ -127,26 +157,30 @@ export default function RecentlyDeleted() {
             ) : (
               <>
                 {viewMode === "table" ? (
-                  <Table columns={deletedColumns} data={deletedDocs} />
+                  // table mode (scrollable on small screens)
+                  <div className="w-full overflow-x-auto rounded-lg border border-gray-200 sm:border-0 sm:overflow-visible sm:rounded-none">
+                    <Table columns={deletedColumns} data={deletedDocs} />
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
+                  // grid mode (1->2->3->4 cols)
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
                     {deletedDocs.length === 0 ? (
                       <div className="col-span-full text-center py-8">
                         <p className="text-gray-600">No deleted documents</p>
                       </div>
                     ) : (
-                      deletedDocs.map((template, i) => {
-                        const id = template._id || i;
+                      deletedDocs.map((doc, i) => {
+                        const id = doc._id || i;
                         return (
                           <div key={id} className="relative">
                             <span className="absolute top-2 right-2 z-10 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
                               Deleted
                             </span>
                             <DocumentCard
-                              document={template}
+                              document={doc}
                               user={user}
                               onSelect={() => {
-                                // read-only or noop
+                                /* read-only in trash */
                               }}
                             />
                           </div>
@@ -158,8 +192,8 @@ export default function RecentlyDeleted() {
               </>
             )}
 
-            {/* Pagination */}
-            <div className="flex justify-center items-center mt-6 gap-2">
+            {/* pagination */}
+            <div className="flex flex-col sm:flex-row justify-center items-center mt-6 gap-2 flex-wrap">
               <button
                 onClick={pagination.handlePrev}
                 disabled={pagination.currentPage === 1}
@@ -167,9 +201,12 @@ export default function RecentlyDeleted() {
               >
                 Prev
               </button>
+
               {pagination.getPageNumbers().map((num, idx) =>
                 num === "..." ? (
-                  <span key={idx} className="px-2 text-gray-400">...</span>
+                  <span key={idx} className="px-2 text-gray-400 select-none">
+                    ...
+                  </span>
                 ) : (
                   <button
                     key={num}
@@ -184,6 +221,7 @@ export default function RecentlyDeleted() {
                   </button>
                 )
               )}
+
               <button
                 onClick={pagination.handleNext}
                 disabled={pagination.currentPage === deletedTotalPages}
@@ -199,26 +237,37 @@ export default function RecentlyDeleted() {
   );
 }
 
-/* same small toggle you use elsewhere */
+/* View toggle stays the same, just make sure it doesn't explode layout */
 function ViewToggle({ mode = "grid", onChange }) {
   const isTable = mode === "table";
+
   return (
     <div className="inline-flex items-stretch rounded-full border border-gray-300 overflow-hidden">
       <button
         type="button"
         onClick={() => onChange("table")}
-        className={`px-3 py-2 flex items-center ${isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"}`}
+        className={`px-3 py-2 flex items-center ${
+          isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
+        }`}
         aria-label="List view"
         title="List view"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path
+            d="M4 7h16M4 12h16M4 17h16"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
         </svg>
       </button>
+
       <button
         type="button"
         onClick={() => onChange("grid")}
-        className={`px-3 py-2 flex items-center ${!isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"}`}
+        className={`px-3 py-2 flex items-center ${
+          !isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
+        }`}
         aria-label="Grid view"
         title="Grid view"
       >

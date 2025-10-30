@@ -24,57 +24,57 @@ export default function DocumentControllerDashboard() {
   }
 
   // Sample data
-const templates = [
-  {
-    id: 1,
-    title: "Research Proposal Template",
-    createdBy: "Admin User",
-    deanStatus: "Yes",
-    secStatus: "Yes", // Approved by both
-  },
-  {
-    id: 2,
-    title: "Thesis Format Guide",
-    createdBy: "Admin User",
-    deanStatus: "Yes",
-    secStatus: "No", // Approved by Dean, rejected by Secretary
-  },
-  {
-    id: 3,
-    title: "Internship Report Template",
-    createdBy: "Admin User",
-    deanStatus: "No",
-    secStatus: "Returned", // Rejected by Dean, returned by Secretary
-  },
-  {
-    id: 4,
-    title: "Course Syllabus Template",
-    createdBy: "Admin User",
-    deanStatus: "Returned",
-    secStatus: "Yes", // Returned by Dean, approved by Secretary
-  },
-  {
-    id: 5,
-    title: "Capstone Project Template",
-    createdBy: "Admin User",
-    deanStatus: "No",
-    secStatus: "No", // Rejected by both
-  },
-  {
-    id: 6,
-    title: "Department Memo Format",
-    createdBy: "Admin User",
-    deanStatus: "Yes",
-    secStatus: "Returned", // Approved by Dean, returned by Secretary
-  },
-];
+  const templates = [
+    {
+      id: 1,
+      title: "Research Proposal Template",
+      createdBy: "Admin User",
+      deanStatus: "Yes",
+      secStatus: "Yes", // Approved by both
+    },
+    {
+      id: 2,
+      title: "Thesis Format Guide",
+      createdBy: "Admin User",
+      deanStatus: "Yes",
+      secStatus: "No", // Approved by Dean, rejected by Secretary
+    },
+    {
+      id: 3,
+      title: "Internship Report Template",
+      createdBy: "Admin User",
+      deanStatus: "No",
+      secStatus: "Returned", // Rejected by Dean, returned by Secretary
+    },
+    {
+      id: 4,
+      title: "Course Syllabus Template",
+      createdBy: "Admin User",
+      deanStatus: "Returned",
+      secStatus: "Yes", // Returned by Dean, approved by Secretary
+    },
+    {
+      id: 5,
+      title: "Capstone Project Template",
+      createdBy: "Admin User",
+      deanStatus: "No",
+      secStatus: "No", // Rejected by both
+    },
+    {
+      id: 6,
+      title: "Department Memo Format",
+      createdBy: "Admin User",
+      deanStatus: "Yes",
+      secStatus: "Returned", // Approved by Dean, returned by Secretary
+    },
+  ];
 
   const publishedTemplates = [
     { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
     { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
     { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-        { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-            { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
   ];
 
   const templateColumns = [
@@ -87,54 +87,51 @@ const templates = [
       <div className="flex flex-col text-xs font-medium text-gray-700 space-y-1">
         {/* Dean Status */}
         <div className="flex items-center gap-2">
-        <span
-  title={
-    row.deanStatus === "Yes"
-      ? "Approved"
-      : row.deanStatus === "No"
-      ? "Rejected"
-      : row.deanStatus === "Returned"
-      ? "Returned"
-      : "Pending"
-  }
-  className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
-    row.deanStatus === "Yes"
-      ? "bg-green-500"    // Approved
-      : row.deanStatus === "No"
-      ? "bg-red-500"      // Rejected
-      : row.deanStatus === "Returned"
-      ? "bg-purple-500"   // Returned
-      : "bg-yellow-400"     // Default / Pending
-  }`}
-></span>
-
+          <span
+            title={
+              row.deanStatus === "Yes"
+                ? "Approved"
+                : row.deanStatus === "No"
+                ? "Rejected"
+                : row.deanStatus === "Returned"
+                ? "Returned"
+                : "Pending"
+            }
+            className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
+              row.deanStatus === "Yes"
+                ? "bg-green-500"    // Approved
+                : row.deanStatus === "No"
+                ? "bg-red-500"      // Rejected
+                : row.deanStatus === "Returned"
+                ? "bg-purple-500"   // Returned
+                : "bg-yellow-400"     // Default / Pending
+            }`}
+          ></span>
           <span>Dean</span>
         </div>
 
         {/* Secretary Status */}
         <div className="flex items-center gap-2">
           <span
-  title={
-    row.secStatus === "Yes"
-      ? "Approved"
-      : row.secStatus === "No"
-      ? "Rejected"
-      : row.secStatus === "Returned"
-      ? "Returned"
-      : "Pending"
-  }
-  className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
-    row.secStatus === "Yes"
-      ? "bg-green-500"
-      : row.secStatus === "No"
-      ? "bg-red-500"
-      : row.secStatus === "Returned"
-      ? "bg-purple-500"
-      : "bg-yellow-400"
-  }`}
-></span>
-
-
+            title={
+              row.secStatus === "Yes"
+                ? "Approved"
+                : row.secStatus === "No"
+                ? "Rejected"
+                : row.secStatus === "Returned"
+                ? "Returned"
+                : "Pending"
+            }
+            className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
+              row.secStatus === "Yes"
+                ? "bg-green-500"
+                : row.secStatus === "No"
+                ? "bg-red-500"
+                : row.secStatus === "Returned"
+                ? "bg-purple-500"
+                : "bg-yellow-400"
+            }`}
+          ></span>
           <span>Secretary</span>
         </div>
       </div>
@@ -153,8 +150,6 @@ const templates = [
     ),
   },
 ];
-
-
 
   const publishedTemplatesColumns = [
     { key: "code", label: "Document Code" },
@@ -206,106 +201,113 @@ const templates = [
       <div className="flex flex-1">
         <Sidebar user={user} active="Dashboard" />
 
-        <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+        <main className="flex-1 flex flex-col bg-white lg:shadow pt-1 pb-4 px-4 sm:px-6 lg:px-8 mx-0 lg:mx-6 mt-4 lg:mt-8 rounded-none lg:rounded-xl w-full max-w-full">
           <Greeting name={user?.firstname || "Document Controller"} />
 
           {/* Stat cards */}
-<div className="flex flex-wrap justify-between items-center mb-8">
-  <div className="flex gap-4 flex-wrap mt-4">
-    
-    {/* Upcoming Deadlines */}
-    <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
-      <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
-        <CalendarClock className="h-6 w-6 text-white" />
-      </div>
-      <div>
-        <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
-        <div className="text-3xl font-bold text-gray-900">1</div>
-      </div>
-    </div>
+          <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
+            {/* Upcoming Deadlines */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+                <CalendarClock className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
+              </div>
+            </div>
 
-    {/* Due Today */}
-    <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
-      <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-        <CalendarCheck className="h-6 w-6 text-white" />
-      </div>
-      <div>
-        <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
-        <div className="text-3xl font-bold text-gray-900">1</div>
-      </div>
-    </div>
+            {/* Due Today */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                <CalendarCheck className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
+              </div>
+            </div>
 
-    {/* Overdue Deadlines */}
-    <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
-      <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
-        <CalendarX className="h-6 w-6 text-white" />
-      </div>
-      <div>
-        <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
-        <div className="text-3xl font-bold text-gray-900">1</div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
+            {/* Overdue Deadlines */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                <CalendarX className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
+              </div>
+            </div>
+          </div>
 
           {/* Tables and Upcoming Deadlines */}
-          <div className="grid grid-cols-4 gap-6 flex-1">
-            <div className="col-span-3 space-y-6">
-              {/* Pending Templates Table */}
-<div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
-  {/* Header with title + color guide aligned on one line */}
-  <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
-    {/* Left: Section Title */}
-    <div>
-      <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-        PENDING TEMPLATES
-      </h2>
-      <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
-    </div>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
+            {/* left column (pending templates) */}
+            <div className="lg:col-span-3 space-y-6">
+              <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
+                {/* header row */}
+                <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+                  {/* title */}
+                  <div>
+                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                      PENDING TEMPLATES
+                    </h2>
+                    <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
+                  </div>
 
-    {/* Right: Color Legend */}
-    <div className="flex items-center gap-4 text-xs text-gray-700 font-medium mr-4">
-      <div className="flex items-center gap-1">
-        <span className="w-3 h-3 rounded-full bg-green-500"></span>
-        <span>Approved</span>
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="w-3 h-3 rounded-full bg-red-500"></span>
-        <span>Rejected</span>
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="w-3 h-3 rounded-full bg-purple-500"></span>
-        <span>Returned</span>
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
-        <span>Pending</span>
-      </div>
-    </div>
-  </div>
+                  {/* legend */}
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-gray-700 font-medium lg:mr-4">
+                    <div className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                      <span>Approved</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                      <span>Rejected</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded-full bg-purple-500"></span>
+                      <span>Returned</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
+                      <span>Pending</span>
+                    </div>
+                  </div>
+                </div>
 
-  {/* Table */}
-  <Table columns={templateColumns} data={templates} />
-</div>
-
+                {/* table wrapper for horizontal scroll on mobile */}
+                <div className="overflow-x-auto">
+                  <Table columns={templateColumns} data={templates} />
+                </div>
+              </div>
             </div>
 
-            {/* Upcoming Deadlines */}
-            <div className="col-span-1 space-y-6">
-              <UpcomingDeadlines deadlines={upcomingDeadlines} formatDate={formatDate} />
+            {/* right column (upcoming deadlines) */}
+            <div className="lg:col-span-1 space-y-6">
+              <UpcomingDeadlines
+                deadlines={upcomingDeadlines}
+                formatDate={formatDate}
+              />
             </div>
 
-            {/* Recently Published Templates Table */}
-            <div className="col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
-              <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
+            {/* bottom full width recently published */}
+            <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
+              <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
                 <div>
-                  <h2 className="font-bold text-sm text-gray-800 tracking-wide">RECENTLY PUBLISHED TEMPLATES</h2>
+                  <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                    RECENTLY PUBLISHED TEMPLATES
+                  </h2>
                   <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                 </div>
               </div>
-              <Table columns={publishedTemplatesColumns} data={publishedTemplates} />
+
+              <div className="overflow-x-auto">
+                <Table
+                  columns={publishedTemplatesColumns}
+                  data={publishedTemplates}
+                />
+              </div>
             </div>
           </div>
         </main>
