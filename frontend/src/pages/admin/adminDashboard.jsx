@@ -33,10 +33,10 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-gray-200 flex flex-col">
         <Header user={user} />
-        <div className="flex flex-1">
-          <Sidebar user={user} />
-          <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-            <div className="flex-1 flex items-center justify-center">
+        <div className="flex flex-col lg:flex-row flex-1">
+          <Sidebar user={user} active="Dashboard" />
+          <div className="flex-1 flex flex-col bg-white lg:shadow pt-1 pb-4 px-4 sm:px-6 lg:px-8 mx-0 lg:mx-6 mt-4 lg:mt-8 roundednone lg:rounded-xl w-full max-w-full">
+            <div className="flex-1 flex items-center justify-center py-10">
               <Loader message="Loading..." />
             </div>
           </div>
@@ -49,13 +49,13 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-gray-200 flex flex-col">
         <Header user={user} />
-        <div className="flex flex-1">
-          <Sidebar user={user} />
-          <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-            <div className="flex-1 flex items-center justify-center text-center">
+        <div className="flex flex-col lg:flex-row flex-1">
+          <Sidebar user={user} active="Dashboard" />
+          <div className="flex-1 flex flex-col bg-white lg:shadow pt-1 pb-4 px-4 sm:px-6 lg:px-8 mx-0 lg:mx-6 mt-4 lg:mt-8 rounded-none lg:rounded-xl w-full max-w-full">
+            <div className="flex-1 flex items-center justify-center text-center py-10">
               <div>
-                <h2 className="text-xl font-semibold text-red-600 mb-2">Unable to load dashboard</h2>
-                <p className="text-gray-500">Please check your connection or try again later.</p>
+                <h2 className="text-lg lg:text-xl font-semibold text-red-600 mb-2">Unable to load dashboard</h2>
+                <p className="text-gray-500 text-sm lg:text-base">Please check your connection or try again later.</p>
               </div>
             </div>
           </div>
@@ -98,36 +98,40 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
-      <div className="flex flex-1">
-        <Sidebar user={user} />
+      <div className="flex flex-col lg:flex-row flex-1">
+        <Sidebar user={user} active="Dashboard"/>
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <main className="p-1 flex-1 overflow-y-auto">
+          <main className="flex-1 flex flex-col bg-white lg:shadow pt-1 pb-4 px-4 sm:px-6 lg:px-8 mx-0 lg:mx-6 mt-4 lg:mt-8 rounded-none lg:rounded-xl w-full max-w-full">
             <Greeting name={user?.firstname || 'Admin'} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-              {stats.map((stat) => (
-                <StatCard key={stat.title} title={stat.title} value={stat.value} />
-              ))}
-            </div>
+            {/* stats row */}
+          <div className="flex flex-wrap gap-4 items-stretch mt-6">
+            {stats.map((stat) => (
+              <div key={stat.title}
+                className="flex-1 sm:flex-none min-w-[12rem]">
+                <StatCard title={stat.title} value={stat.value} />
+              </div>
+            ))}
+          </div>
 
             {/* table */}
-            <div className="mt-10 bg-[#f7faff] rounded-t-xl p-6">
-              <div className="flex items-center justify-between">
+            <div className="mt-10 bg-[#f7faff] rounded-t-xl p-4 sm:p-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
-                  <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase">
+                  <h2 className="text-xs sm:text-sm font-semibold tracking-widest text-gray-800 uppercase">
                     Recently Added Users
                   </h2>
-                  <div className="w-30 h-0.5 bg-yellow-400 mt-1 rounded" />
+                  <div className="w-24 sm:w-30 h-0.5 bg-yellow-400 mt-1 rounded" />
                 </div>
                 <button
                   onClick={() => navigate("/admin/accounts")}
-                  className="bg-[#003DA5] text-white text-sm px-4 py-2 h-9 w-30 rounded-md hover:bg-[#002B7F]"
+                  className="bg-[#003DA5] text-white text-xs sm:text-sm px-4 py-2 h-9 w-full sm:w-auto rounded-md hover:bg-[#002B7F] text-center"
                 >
                   View All
                 </button>
               </div>
             </div>
 
-            <div className="-mt-2">
+            <div className="-mt-2 overflow-x-auto">
               <Table columns={recentUserColumns} data={dashboardInfo.recentUsers} />
             </div>
           </main>
