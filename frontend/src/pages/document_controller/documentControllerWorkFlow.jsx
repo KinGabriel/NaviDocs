@@ -7,9 +7,8 @@ import usePagination from "../../hooks/usePagination";
 import Table from "../../components/table";
 import Dropdown from "../../components/dropdowns/dropdown";
 import SearchBar from "../../components/searchbar";
-import DocumentCard from "../../components/cards/documentCard"; // NEW
+import DocumentCard from "../../components/cards/documentCard";
 
-// --- placeholder docs (now with id) ---
 const PLACEHOLDER_DOCS = Array.from({ length: 20 }, (_, i) => ({
   id: i + 1,
   code: "FM-XXX-000",
@@ -27,15 +26,12 @@ const SORT_OPTIONS = ["Recent", "A–Z", "Z–A"];
 export default function DocumentControllerWorkflow() {
   const user = useUser();
   const navigate = useNavigate();
-  const [tab, setTab] = useState("submitted"); // 'submitted' | 'published'
+  const [tab, setTab] = useState("submitted");
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("Recent");
   const [peopleFilter, setPeopleFilter] = useState("All");
+  const [viewMode, setViewMode] = useState("table");
 
-  // list/grid view
-  const [viewMode, setViewMode] = useState("table"); // "table" | "grid"
-
-  // rows for current tab
   const baseRows = useMemo(
     () =>
       PLACEHOLDER_DOCS.filter((r) =>
@@ -44,23 +40,19 @@ export default function DocumentControllerWorkflow() {
     [tab]
   );
 
-  // People options update with tab
   const peopleOptions = useMemo(() => {
     const s = new Set();
     baseRows.forEach((r) => s.add(tab === "submitted" ? r.createdBy : r.ownedBy));
     return ["All", ...Array.from(s)];
   }, [baseRows, tab]);
 
-  // filter + search + sort
   const filtered = useMemo(() => {
     let rows = [...baseRows];
-
     if (peopleFilter !== "All") {
       rows = rows.filter((r) =>
         tab === "submitted" ? r.createdBy === peopleFilter : r.ownedBy === peopleFilter
       );
     }
-
     if (query.trim()) {
       const q = query.toLowerCase();
       rows = rows.filter((r) =>
@@ -69,14 +61,11 @@ export default function DocumentControllerWorkflow() {
           .includes(q)
       );
     }
-
     if (sortBy === "A–Z") rows.sort((a, b) => a.title.localeCompare(b.title));
     if (sortBy === "Z–A") rows.sort((a, b) => b.title.localeCompare(a.title));
-    // "Recent" is a no-op for placeholders
     return rows;
   }, [baseRows, peopleFilter, query, sortBy, tab]);
 
-  // pagination
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pagination = usePagination(totalPages, 1);
@@ -90,7 +79,6 @@ export default function DocumentControllerWorkflow() {
     [filtered, pagination.currentPage]
   );
 
-  // dynamic columns based on tab (Created By vs Owned By)
   const columns = useMemo(() => {
     const common = [
       { key: "code", label: "Document Code" },
@@ -130,58 +118,50 @@ export default function DocumentControllerWorkflow() {
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
-        {/* Sidebar fixed width */}
         <Sidebar user={user} />
 
-        {/* Main content wrapper (aligned with other pages) */}
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-3 mx-6 mt-8 rounded-xl">
-          <main className="p-5 flex-1 overflow-y-auto">
-            {/* Heading */}
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-3 md:px-6 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl">
+          <main className="p-4 md:p-5 flex-1 overflow-y-auto">
             <div className="flex-1 px-1 py-3">
-              <h1 className="text-3xl font-bold tracking-widest uppercase">
+              <h1 className="text-2xl md:text-3xl font-bold tracking-widest uppercase">
                 {tab === "submitted" ? "SUBMITTED DOCUMENTS" : "PUBLISHED DOCUMENTS"}
               </h1>
-              <div className="w-28 h-1 bg-yellow-400 mb-6 rounded" />
+              <div className="w-24 md:w-28 h-1 bg-yellow-400 mb-4 md:mb-6 rounded" />
             </div>
 
             {/* Controls */}
-            <div className="flex items-center justify-end gap-2 mb-1">
-              {/* People filter */}
+            <div className="controls-row flex flex-wrap items-center justify-end gap-2 md:gap-3 mb-2">
               <Dropdown
                 options={peopleOptions}
                 value={peopleFilter}
                 onChange={setPeopleFilter}
-                width="w-56"
+                width="w-48 md:w-56"
                 label="Filter"
                 buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
               />
-
-              {/* Sort */}
               <Dropdown
                 options={SORT_OPTIONS}
                 value={sortBy}
                 onChange={setSortBy}
-                width="w-36"
+                width="w-32 md:w-36"
                 label="Sort"
                 buttonClass="bg-[#0035DA] hover:bg-[#043485] text-white"
               />
-
-              {/* Search */}
-              <div className="w-40 md:w-64">
+              <div className="search w-full sm:w-64 order-3 sm:order-none">
                 <SearchBar
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search..."
                 />
               </div>
-
-              {/* view toggle pill */}
-              <ViewToggle mode={viewMode} onChange={setViewMode} />
+              <div className="ml-auto sm:ml-0 order-2 sm:order-none">
+                <ViewToggle mode={viewMode} onChange={setViewMode} />
+              </div>
             </div>
 
             {/* Tabs */}
             <div className="mb-4 border-b border-gray-200">
-              <div className="flex space-x-8">
+              <div className="flex flex-wrap gap-x-8">
                 <button
                   onClick={() => setTab("submitted")}
                   className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
@@ -207,10 +187,13 @@ export default function DocumentControllerWorkflow() {
 
             {/* Table OR Cards */}
             {viewMode === "table" ? (
-              /* Reusable Table */
-              <Table columns={columns} data={pageRows} />
+              <div className="table-wrapper max-w-full overflow-x-auto md:overflow-visible">
+                <div className="min-w-[640px] md:min-w-0">
+                  <Table columns={columns} data={pageRows} />
+                </div>
+              </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 mt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 mt-2">
                 {pageRows.map((row, i) => {
                   const docForCard = {
                     _id: row.id || i,
@@ -244,7 +227,7 @@ export default function DocumentControllerWorkflow() {
               </div>
             )}
 
-            {/* Pagination Controls */}
+            {/* Pagination */}
             <div className="flex justify-center items-center mt-6 gap-2">
               <button
                 onClick={pagination.handlePrev}
@@ -255,13 +238,17 @@ export default function DocumentControllerWorkflow() {
               </button>
               {pagination.getPageNumbers().map((num, idx) =>
                 num === "..." ? (
-                  <span key={idx} className="px-2 text-gray-400">...</span>
+                  <span key={idx} className="px-2 text-gray-400">
+                    ...
+                  </span>
                 ) : (
                   <button
                     key={num}
                     onClick={() => pagination.handlePage(num)}
                     className={`px-3 py-1 rounded border ${
-                      pagination.currentPage === num ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100"
+                      pagination.currentPage === num
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-100"
                     }`}
                   >
                     {num}
@@ -279,11 +266,40 @@ export default function DocumentControllerWorkflow() {
           </main>
         </div>
       </div>
+
+      {/* Custom CSS media queries */}
+      <style>{`
+        @media (max-width: 768px) {
+          /* Table: make cells wrap nicely and scroll horizontally */
+          .table-wrapper table {
+            font-size: 13px;
+          }
+          .table-wrapper th, .table-wrapper td {
+            padding: 6px 8px;
+          }
+        }
+        @media (max-width: 500px) {
+          /* Hide less important columns on mobile for better visibility */
+          .table-wrapper th:nth-child(2),
+          .table-wrapper td:nth-child(2),
+          .table-wrapper th:nth-child(6),
+          .table-wrapper td:nth-child(6) {
+            display: none;
+          }
+        }
+        @media (max-width: 400px) {
+          /* tighter controls + search adjustments */
+          .controls-row { gap: 6px; }
+          .controls-row .search input { font-size: 14px; }
+          .table-wrapper table {
+            font-size: 12px;
+          }
+        }
+      `}</style>
     </div>
   );
 }
 
-// Status pill (Submitted / Published)
 function StatusBadge({ type }) {
   const status = String(type).toLowerCase();
   const styles = {
@@ -292,7 +308,7 @@ function StatusBadge({ type }) {
   };
   return (
     <span
-      className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${styles[status]}`}
+      className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-semibold ${styles[status]}`}
     >
       <span
         className={`h-2 w-2 rounded-full ${
@@ -304,12 +320,10 @@ function StatusBadge({ type }) {
   );
 }
 
-/* ---------- Inline helper: Toggle pill ---------- */
 function ViewToggle({ mode = "table", onChange }) {
   const isTable = mode === "table";
   return (
     <div className="inline-flex items-stretch rounded-full border border-gray-300 overflow-hidden">
-      {/* List / Table */}
       <button
         type="button"
         onClick={() => onChange("table")}
@@ -320,10 +334,9 @@ function ViewToggle({ mode = "table", onChange }) {
         title="List view"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </button>
-      {/* Grid */}
       <button
         type="button"
         onClick={() => onChange("grid")}
