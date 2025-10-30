@@ -34,22 +34,24 @@ export default function DocumentWorkflowView() {
       <div className="flex flex-1">
         <Sidebar user={user} />
 
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-6 px-3 mx-6 mt-8 rounded-xl">
-          <main className="p-5 flex-1 overflow-y-auto">
+        {/* Main content wrapper (responsive paddings & margins) */}
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-6 px-3 md:px-6 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl">
+          <main className="p-4 md:p-5 flex-1 overflow-y-auto">
             {/* Page heading */}
             <div className="flex-1 px-1 py-3">
-              <h1 className="text-3xl font-bold tracking-widest uppercase">Documents</h1>
-              <div className="w-28 h-1 bg-yellow-400 mb-6 rounded" />
+              <h1 className="text-2xl md:text-3xl font-bold tracking-widest uppercase">
+                Documents
+              </h1>
+              <div className="w-24 md:w-28 h-1 bg-yellow-400 mb-4 md:mb-6 rounded" />
             </div>
 
-            {/* Back button (upper-left) - now styled like other buttons */}
+            {/* Back button */}
             <div className="mb-3">
               <button
                 onClick={() => navigate(-1)}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#0035DA] hover:bg-[#043485] text-white text-sm transition shadow-sm"
                 title="Back"
               >
-                {/* Arrow-left (inline SVG) */}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -68,20 +70,19 @@ export default function DocumentWorkflowView() {
               </button>
             </div>
 
-            {/* Doc header bar */}
-            <div className="flex items-center justify-between bg-gray-100 rounded-lg px-4 py-3 mb-4">
-              <div>
-                <div className="font-semibold">{doc.title}</div>
+            {/* Doc header bar (stacks on small screens) */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-100 rounded-lg px-4 py-3 mb-4">
+              <div className="min-w-0">
+                <div className="font-semibold truncate">{doc.title}</div>
                 <div className="text-xs text-gray-500">Updated about 1 hour ago</div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => window.alert("Downloading PDF… (placeholder)")}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#0035DA] hover:bg-[#043485] text-white text-sm transition shadow-sm"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-[#0035DA] hover:bg-[#043485] text-white text-sm transition shadow-sm w-full xs:w-auto"
                   title="Download as PDF"
                 >
-                  {/* Download icon (inline SVG) */}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -99,13 +100,11 @@ export default function DocumentWorkflowView() {
                   <span>Download as PDF</span>
                 </button>
 
-                {/* Edit button now same primary style/color */}
                 <button
                   onClick={() => window.alert("Edit UI will be wired later")}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#0035DA] hover:bg-[#043485] text-white text-sm transition shadow-sm"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-[#0035DA] hover:bg-[#043485] text-white text-sm transition shadow-sm w-full xs:w-auto"
                   title="Edit"
                 >
-                  {/* Edit icon (inline SVG) */}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -127,25 +126,25 @@ export default function DocumentWorkflowView() {
                   </svg>
                   <span>Edit</span>
                 </button>
-
-                {/* Intentionally no "Unpublish" button */}
               </div>
             </div>
 
-            {/* Content grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Content grid (1 col on mobile, 9/3 split on lg) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6">
               {/* Preview */}
               <section className="lg:col-span-9">
                 <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                  {/* Placeholder preview area (use your PDF/image renderer later) */}
-                  <div className="aspect-[8.5/11] bg-gray-50 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-gray-700">
-                        Document Preview
+                  {/* Allow horizontal scroll on very narrow screens */}
+                  <div className="max-w-full overflow-x-auto">
+                    <div className="aspect-[8.5/11] bg-gray-50 flex items-center justify-center min-w-[280px]">
+                      <div className="text-center px-3">
+                        <div className="text-base md:text-lg font-semibold text-gray-700">
+                          Document Preview
+                        </div>
+                        <p className="text-xs md:text-sm text-gray-500">
+                          (placeholder image / PDF render goes here)
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-500">
-                        (placeholder image / PDF render goes here)
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -174,6 +173,16 @@ export default function DocumentWorkflowView() {
           </main>
         </div>
       </div>
+
+      {/* ultra-small tweaks */}
+      <style>{`
+        /* Tailwind covers most breakpoints; add a tiny helper for sub-360px phones */
+        @media (max-width: 360px) {
+          .rounded-xl { border-radius: 0.65rem; }
+          .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
+          .bg-[#0035DA] { padding-left: 0.65rem; padding-right: 0.65rem; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -182,7 +191,7 @@ function DetailRow({ label, value }) {
   return (
     <div className="flex items-start justify-between gap-3">
       <span className="text-gray-500">{label}</span>
-      <span className="font-medium text-gray-900">{value}</span>
+      <span className="font-medium text-gray-900 text-right">{value}</span>
     </div>
   );
 }
