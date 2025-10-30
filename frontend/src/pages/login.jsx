@@ -44,6 +44,15 @@ export default function Login() {
         case 'Document Controller':
           navigate('/document-controller/dashboard');
           break;
+        case 'Lead Document Controller':
+          navigate('/document-controller/dashboard');
+          break;
+        case 'Document Control Officer':
+          navigate('/document-controller/dashboard');
+          break;
+        case 'Unit Document Controller':
+          navigate('/document-controller/dashboard');
+          break;
         case 'Department Head':
           navigate('/dept-head/dashboard');
           break;

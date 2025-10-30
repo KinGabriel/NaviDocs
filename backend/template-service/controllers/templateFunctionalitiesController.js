@@ -396,18 +396,124 @@ export const getTemplateById = async (req, res) => {
 export const getTemplates = async (req, res) => {
   try {
     const { school, status, search, limit = 50, page = 1 } = req.query;
+    // Determine user's approver role (if any)
+  const userRoleRaw = req.user?.role?.name || req.user?.role || '';
+  // Normalize to space-delimited lowercase 
+  const userRole = String(userRoleRaw).toLowerCase();
+  const userRoleNorm = userRole.replace(/[_\s]+/g, ' ').trim();
 
+    // Role-turn visibility filter to enforce hierarchical receipt: UDC -> LDC -> DCO
+    // A template is visible to a role if it's currently that role's turn to act.
+    const myTurnFilter = (() => {
+      // UDC step is only required when status === 'pending' (Faculty submission).
+      if (userRole === 'unit_document_controller' || userRoleNorm === 'unit document controller') {
+        return {
+          $or: [
+            {
+              $and: [
+                { status: 'pending' },
+                { $or: [
+                  { "status_meta.approvals.unit_document_controller.approved_at": { $exists: false } },
+                  { "status_meta.approvals.unit_document_controller.approved_at": null }
+                ]}
+              ]
+            },
+            {
+              // Also show returned items if it has reached UDC at any point:
+              $and: [
+                { status: 'returned' },
+               
+              ]
+            }
+          ]
+        };
+      }
+      if (userRole === 'lead_document_controller' || userRoleNorm === 'lead document controller') {
+        return {
+          $or: [
+            {
+              $and: [
+                { $or: [
+                  // If UDC is required (pending), show after UDC endorsed
+                  { $and: [
+                    { status: 'pending' },
+                    { "status_meta.approvals.unit_document_controller.approved_at": { $ne: null } }
+                  ]},
+                  // If UDC not required (e.g., endorsed flow), show immediately
+                  { status: 'endorsed' }
+                ]},
+                { $or: [
+                  { "status_meta.approvals.lead_document_controller.approved_at": { $exists: false } },
+                  { "status_meta.approvals.lead_document_controller.approved_at": null }
+                ]}
+              ]
+            },
+            {
+              // Also show returned items if it has reached LDC at any point:
+              $and: [
+                { status: 'returned' },
+                { $or: [
+                  { "status_meta.approvals.unit_document_controller.approved_at":  { $exists: true } },
+                ]}
+              ]
+            }
+          ]
+        };
+      }
+      if (userRole === 'document_controller_officer' || userRoleNorm === 'document control officer') {
+        return {
+          $or: [
+            {
+              $and: [
+                // LDC must have approved
+                { "status_meta.approvals.lead_document_controller.approved_at": { $ne: null } },
+                // If UDC step required (pending), ensure it is approved; otherwise allow
+                { $or: [
+                  { status: { $ne: 'pending' } },
+                  { "status_meta.approvals.unit_document_controller.approved_at": { $ne: null } }
+                ]},
+                // DCO must not have approved yet
+                { $or: [
+                  { "status_meta.approvals.document_controller_officer.approved_at": { $exists: false } },
+                  { "status_meta.approvals.document_controller_officer.approved_at": null }
+                ]}
+              ]
+            },
+            {
+              // Also show returned items if it has reached DCO at any point:
+              $and: [
+                { status: 'returned' },
+                { "status_meta.approvals.lead_document_controller.approved_at": { $ne: null } },
+                { $or: [
+                  { "status_meta.approvals.document_controller_officer.approved_at": { $ne: null } }
+                ]}
+              ]
+            }
+          ]
+        };
+      }
+      // Non-approver roles: no additional filter
+      return null;
+    })();
+
+    // Base visibility: creator, assigned, or explicitly assigned approver
     let query = {
       $or: [
         { created_by: req.user.id },
         { assigned: req.user.id },
-        { "status_meta.approvals.dean.assigned_to": req.user.id },
-        { "status_meta.approvals.secretary.assigned_to": req.user.id }
+        { "status_meta.approvals.lead_document_controller.assigned_to": req.user.id },
+        { "status_meta.approvals.document_controller_officer.assigned_to": req.user.id },
+        { "status_meta.approvals.unit_document_controller.assigned_to": req.user.id }
       ],
       $and: [
         { $or: [{ isArchived: { $exists: false } }, { isArchived: false }] }
       ]
     };
+
+    // Enforce hierarchical turn-based visibility: include current role's turn even if assigned_to is blank
+    if (myTurnFilter) {
+      query.$or.push(myTurnFilter);
+    }
 
     // School filtering
     if (school && school !== 'All') {
@@ -420,19 +526,18 @@ export const getTemplates = async (req, res) => {
 
     // Search
     if (search) {
+      // Rebuild the OR set with myTurnFilter included for search contexts
+      const baseOr = [
+        { created_by: req.user.id },
+        { assigned: req.user.id },
+        { "status_meta.approvals.lead_document_controller.assigned_to": req.user.id },
+        { "status_meta.approvals.document_controller_officer.assigned_to": req.user.id },
+        { "status_meta.approvals.unit_document_controller.assigned_to": req.user.id }
+      ];
+      if (myTurnFilter) baseOr.push(myTurnFilter);
       query.$or = [
-        { $and: [ { $or: [
-          { created_by: req.user.id },
-          { assigned: req.user.id },
-          { "status_meta.approvals.dean.assigned_to": req.user.id },
-          { "status_meta.approvals.secretary.assigned_to": req.user.id }
-        ] }, { title: { $regex: search, $options: 'i' } } ] },
-        { $and: [ { $or: [
-          { created_by: req.user.id },
-          { assigned: req.user.id },
-          { "status_meta.approvals.dean.assigned_to": req.user.id },
-          { "status_meta.approvals.secretary.assigned_to": req.user.id }
-        ] }, { document_code: { $regex: search, $options: 'i' } } ] }
+        { $and: [ { $or: baseOr }, { title: { $regex: search, $options: 'i' } } ] },
+        { $and: [ { $or: baseOr }, { document_code: { $regex: search, $options: 'i' } } ] }
       ];
     }
 
@@ -834,8 +939,8 @@ export const getArchivedTemplates = async (req, res) => {
       $or: [
         { created_by: req.user.id },
         { assigned: req.user.id },
-        { "status_meta.approvals.dean.assigned_to": req.user.id },
-        { "status_meta.approvals.secretary.assigned_to": req.user.id }
+        { "status_meta.approvals.lead_document_controller.assigned_to": req.user.id },
+        { "status_meta.approvals.document_controller_officer.assigned_to": req.user.id }
       ]
     };
 
@@ -854,14 +959,14 @@ export const getArchivedTemplates = async (req, res) => {
         { $and: [ { $or: [
           { created_by: req.user.id },
           { assigned: req.user.id },
-          { "status_meta.approvals.dean.assigned_to": req.user.id },
-          { "status_meta.approvals.secretary.assigned_to": req.user.id }
+          { "status_meta.approvals.lead_document_controller.assigned_to": req.user.id },
+          { "status_meta.approvals.document_controller_officer.assigned_to": req.user.id }
         ] }, { title: { $regex: search, $options: 'i' } } ] },
         { $and: [ { $or: [
           { created_by: req.user.id },
           { assigned: req.user.id },
-          { "status_meta.approvals.dean.assigned_to": req.user.id },
-          { "status_meta.approvals.secretary.assigned_to": req.user.id }
+          { "status_meta.approvals.lead_document_controller.assigned_to": req.user.id },
+          { "status_meta.approvals.document_controller_officer.assigned_to": req.user.id }
         ] }, { document_code: { $regex: search, $options: 'i' } } ] }
       ];
     }

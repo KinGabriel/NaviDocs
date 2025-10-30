@@ -32,6 +32,30 @@ export async function fetchAndNormalizeTemplate(id) {
   const approvalsObj = tpl.approvals || (tpl.status_meta && tpl.status_meta.approvals) || {};
   const approversArr = [];
 
+  // Approver roles
+  if (approvalsObj.document_controller_officer && approvalsObj.document_controller_officer.assigned_to) {
+    approversArr.push({
+      _id: approvalsObj.document_controller_officer.assigned_to,
+      id: approvalsObj.document_controller_officer.assigned_to,
+  name: approvalsObj.document_controller_officer.assigned_to_name || 'Document Control Officer',
+      firstname: approvalsObj.document_controller_officer.assigned_to_firstname,
+      lastname: approvalsObj.document_controller_officer.assigned_to_lastname,
+  role: { name: 'Document Control Officer' },
+      ...approvalsObj.document_controller_officer
+    });
+  }
+  if (approvalsObj.lead_document_controller && approvalsObj.lead_document_controller.assigned_to) {
+    approversArr.push({
+      _id: approvalsObj.lead_document_controller.assigned_to,
+      id: approvalsObj.lead_document_controller.assigned_to,
+      name: approvalsObj.lead_document_controller.assigned_to_name || 'Lead Document Controller',
+      firstname: approvalsObj.lead_document_controller.assigned_to_firstname,
+      lastname: approvalsObj.lead_document_controller.assigned_to_lastname,
+      role: { name: 'Lead Document Controller' },
+      ...approvalsObj.lead_document_controller
+    });
+  }
+  // Legacy roles (for backwards compatibility)
   if (approvalsObj.dean && approvalsObj.dean.assigned_to) {
     approversArr.push({
       _id: approvalsObj.dean.assigned_to,

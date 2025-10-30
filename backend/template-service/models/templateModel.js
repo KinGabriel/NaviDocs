@@ -45,17 +45,24 @@ const templateSchema = new mongoose.Schema({
     ]
   },
   // footer: { type: mongoose.Schema.Types.Mixed, default: [] },
-  status: { type: String, enum: ['assigned','draft','pending','approved','published','returned','rejected'], default: 'draft' },
+  status: { type: String, enum: ['assigned','draft','pending','endorsed','approved','published','returned','rejected'], default: 'draft' },
   status_meta: {
     approved_at: { type: Date, default: null },
     published_at: { type: Date, default: null },
     approvals: {
-      dean: {
+      // Optional first stage approver (only required when submitted by Faculty)
+      unit_document_controller: {
         assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
         isApproved: { type: Boolean, default: false },
         approved_at: { type: Date, default: null }
       },
-      secretary: {
+      // Approver roles
+      lead_document_controller: {
+        assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+        isApproved: { type: Boolean, default: false },
+        approved_at: { type: Date, default: null }
+      },
+      document_controller_officer: {
         assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
         isApproved: { type: Boolean, default: false },
         approved_at: { type: Date, default: null }
@@ -74,11 +81,16 @@ const templateSchema = new mongoose.Schema({
   isArchived: { type: Boolean, default: false },
 }, { timestamps: true });
 
-// to check if both dean & secretary approvals are complete (Virtual)
+// to check if both approver approvals are complete (Virtual)
 templateSchema.virtual('isFullyApproved').get(function() {
   try {
-    const approvals = this.status_meta?.approvals;
-    return !!(approvals?.dean?.approved_at && approvals?.secretary?.approved_at);
+    const approvals = this.status_meta?.approvals || {};
+    const leadApproved = !!approvals?.lead_document_controller?.approved_at;
+    const officerApproved = !!approvals?.document_controller_officer?.approved_at;
+    const unitApproved = !!approvals?.unit_document_controller?.approved_at;
+    // If submitted by Faculty, status will be 'pending' at submission time -> require UDC endorsement
+    const requiresUDC = this.status === 'pending';
+    return requiresUDC ? (leadApproved && officerApproved && unitApproved) : (leadApproved && officerApproved);
   } catch (e) {
     return false;
   }

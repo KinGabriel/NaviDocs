@@ -1,27 +1,41 @@
 import User from "../models/userModel.js";
 
 /**
- * @desc Get approvers (Secretary & Dean) filtered by school
- * @route GET /api/doc-controller/approvers?school=SchoolName
- * @access Private ( Document Controller)
+ * @desc Get approvers (university-wide), based on approval workflow roles
+ *       Always include Lead Document Controller and Document Control Officer.
+ *       Include Unit Document Controller only when the requester is Faculty.
+ * @route GET /api/doc-controller/approvers
+ * @access Private (Any authenticated user)
  */
 export const getApprovers = async (req, res) => {
   try {
-    console.log("Fetching approvers for school:", req.query.school || req.user?.role?.school || 'All');
-      const school = req.user?.role?.school;
-    const roles = ["Secretary", "Dean"];
-    const approvers = [];
-    for (const role of roles) {
-        const query = { "role.name": role, "role.school": school };
-        const user = await User.findOne(query)
-        .select("firstname lastname email role.school role.name createdAt")
-        .sort({ createdAt: -1 }); 
-      if (user) approvers.push(user);
+    const requesterRole = String(req.user?.role?.name || '').trim();
+
+    console.log("Fetching approvers:", {
+      requesterRole,
+      requesterId: req.user?.id || req.user?._id,
+    });
+
+    // Base approver roles for the workflow
+    const approverRoles = [
+      'Lead Document Controller',
+      'Document Control Officer',
+    ];
+
+    // Unit Document Controller endorses first only when submission is initiated by Faculty
+    if (requesterRole === 'Faculty') {
+      approverRoles.push('Unit Document Controller');
     }
-    console.log(approvers);
-    res.status(200).json({ success: true, approvers });
+
+    // University-wide: return ALL users with the approver roles, no school filter
+    const approvers = await User.find({ 'role.name': { $in: approverRoles } })
+      .select('firstname lastname email role.school role.name createdAt')
+      .sort({ 'role.name': 1, createdAt: -1 });
+
+    return res.status(200).json({ success: true, approvers, rolesConsidered: approverRoles, scope: 'university' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('getApprovers error:', error?.message || error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to fetch approvers' });
   }
 };
 

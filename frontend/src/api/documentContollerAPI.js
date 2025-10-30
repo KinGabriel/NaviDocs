@@ -205,7 +205,7 @@ export const duplicateTemplateFromVersionAPI = async (templateId, versionNoOrId,
   return res.data;
 };
 /**
- * Approve a template for a specific role (dean or secretary).
+ * Approve a template for a specific role (Lead Document Controller or Document Control Officer).
  * Backend records approved_by & approved_at inside status_meta.approvals.<role>.
  * Returns updated template plus approvalMeta (helper summary).
  * @param {string} templateId - Template id.
@@ -222,7 +222,7 @@ export const approveTemplateAPI = async (templateId, data) => {
 };
 
 /**
- * Insert / set document code, effectivity, and revision number (Dean-only action).
+ * Insert / set document code, effectivity, and revision number (Document Control Officer only).
  * @param {string} templateId
  * @param {Object} params - { document_code, effectivity, revision_no }
  * @returns {Promise<{success:boolean,message:string,template:Object,approvalMeta:Object}>}
@@ -245,7 +245,7 @@ export const insertDocumentCodeAPI = async (templateId, params) => {
   }
 };
 /**
- * Reject a template for a specific role (dean or secretary).
+ * Reject a template (Document Control Officer only).
  * Backend will add a rejection note and set status to 'rejected'.
  * @param {string} templateId - Template id.
  * @param {string} reason - Reason for rejection.
@@ -279,14 +279,15 @@ export const returnTemplateAPI = async (templateId, reason) => {
  * Submit a template for approval.
  * Backend will set status to 'pending'.
  * @param {string} templateId - Template id.
- * @param {string} dean_id - Dean user id to assign as approver.
- * @param {string} secretary_id - Secretary user id to assign as approver.
+ * @param {string} lead_document_controller_id - Lead Document Controller user id to assign as approver.
+ * @param {string} document_controller_officer_id - Document Control Officer user id to assign as approver.
  * @returns {Promise<{success:boolean,message:string,template:Object}>}
  */
-export const submitTemplateAPI = async (templateId, dean_id, secretary_id) => {
+export const submitTemplateAPI = async (templateId, lead_document_controller_id, document_controller_officer_id, unit_document_controller_id) => {
   const payload = {};
-  if (dean_id) payload.dean_id = dean_id;
-  if (secretary_id) payload.secretary_id = secretary_id;
+  if (lead_document_controller_id) payload.lead_document_controller_id = lead_document_controller_id;
+  if (document_controller_officer_id) payload.document_controller_officer_id = document_controller_officer_id;
+  if (unit_document_controller_id) payload.unit_document_controller_id = unit_document_controller_id;
   const res = await axios.patch(
     `${API_URL}/api/templates/${templateId}/submit`,
     payload,
@@ -344,8 +345,8 @@ export const assignControllersToTemplateAPI = async (templateId, controllers) =>
  * @param {string} templateId - Template id.
  * @returns {Promise<{success:boolean,message:string,template:Object,approvalMeta:Object}>}
  */
-export const publishTemplateAPI = async (templateId) => {
-  const res = await axios.patch(`${API_URL}/api/templates/${templateId}/publish`, {}, { withCredentials: true });
+export const publishTemplateAPI = async (templateId, payload = {}) => {
+  const res = await axios.patch(`${API_URL}/api/templates/${templateId}/publish`, payload || {}, { withCredentials: true });
   return res.data;
 };
 /**
@@ -368,15 +369,18 @@ export const unsubmitTemplateAPI = async (templateId) => {
   return res.data;
 };
 /**
- * Fetch approvers (Secretary & Dean) for a given school (used for displaying who can approve).
- * @param {string} [school] - School name or code (optional; if omitted backend may infer or return global list).
- * @returns {Promise<{success?:boolean,approvers?:Array}>}
+ * Fetch approvers (university-wide; no school filter) used for displaying who can approve.
+ * Backend returns:
+ *  - Lead Document Controller and Document Control Officer always
+ *  - Unit Document Controller only when the requester is Faculty
+ * @param {string} [school] - Ignored by backend (kept for backward compatibility).
+ * @returns {Promise<{success?:boolean,approvers?:Array,rolesConsidered?:Array}>}
  * @throws {Error} - When the HTTP request fails.
  */
-export const fetchApproversAPI = async (school) => {
+export const fetchApproversAPI = async (_schoolIgnored) => {
   try {
-    const params = school ? `?school=${encodeURIComponent(school)}` : '';
-    const res = await axios.get(`${API_URL}/api/doc-controller/approvers${params}`, {
+    // University-wide; backend ignores school, so we don't send a query param.
+    const res = await axios.get(`${API_URL}/api/doc-controller/approvers`, {
       withCredentials: true
     });
     return res.data; 

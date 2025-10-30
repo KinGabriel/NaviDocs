@@ -108,6 +108,8 @@ export default function EditableFieldsHeader({
               const role = user?.role?.name;
               if (role === "Secretary") navigate("/documents");
               else if (role === "Dean") navigate("/documents");
+              else if (role === "Lead Document Controller") navigate("/documents");
+              else if (role === "Document Control Officer") navigate("/documents");
               else if (role === "Department Head") navigate("/documents");
               else if (role === "Faculty") navigate("/documents");
               else if (role === "Document Controller") navigate("/documents")

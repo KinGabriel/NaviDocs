@@ -58,7 +58,7 @@ export default function Header2({
   const statusConfig = () => {
     const fullyApproved =
       (approvalMeta && approvalMeta.isFullyApproved) ||
-      (approvals && approvals.dean?.approved_at && approvals.secretary?.approved_at);
+      (approvals && approvals.lead_document_controller?.approved_at && approvals.document_controller_officer?.approved_at);
 
     switch (templateStatus) {
       case 'draft':
@@ -91,8 +91,8 @@ export default function Header2({
         }
 
         const hasAnyApprovals =
-          (approvals && (approvals.dean?.approved_at || approvals.secretary?.approved_at)) ||
-          (approvalMeta && (approvalMeta.deanApproved || approvalMeta.secretaryApproved));
+          (approvals && (approvals.lead_document_controller?.approved_at || approvals.document_controller_officer?.approved_at)) ||
+          (approvalMeta && ((approvalMeta.leadApproved || approvalMeta.officerApproved) || (approvalMeta.deanApproved || approvalMeta.secretaryApproved)));
 
         if (hasAnyApprovals) {
           return {
@@ -109,13 +109,14 @@ export default function Header2({
           };
         }
 
-        const role = user?.role?.name?.toLowerCase();
-        const slotApproved = role && approvals && approvals[role]?.approved_at;
+        const roleName = user?.role?.name || '';
+  const approvalsKey = roleName === 'Lead Document Controller' ? 'lead_document_controller' : ((roleName === 'Document Control Officer') ? 'document_controller_officer' : null);
+        const slotApproved = approvalsKey && approvals && approvals[approvalsKey]?.approved_at;
         const metaCanApprove = approvalMeta
-          ? !approvalMeta.hasApprovedCurrentUser && ['dean', 'secretary'].includes(role)
+          ? !approvalMeta.hasApprovedCurrentUser && (roleName === 'Lead Document Controller')
           : null;
         const canApprove =
-          metaCanApprove !== null ? metaCanApprove : ['dean', 'secretary'].includes(role) && !slotApproved;
+          metaCanApprove !== null ? metaCanApprove : (!!approvalsKey && !slotApproved);
 
         return {
           label: canApprove ? 'Approve' : 'Pending Approval',
@@ -180,10 +181,10 @@ export default function Header2({
 
       case 'returned':
         return {
-          label: 'Returned',
-          disabled: true,
-          onClick: undefined,
-          className: 'bg-orange-600 text-white cursor-default',
+          label: 'Resubmit for Review',
+          disabled: saving,
+          onClick: () => setIsSubmitModalOpen(true),
+          className: 'bg-orange-600 hover:bg-orange-700 text-white',
           icon: (
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
           ),

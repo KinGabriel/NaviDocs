@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { 
-  X, CheckCircle2, Clock, UserCheck, Send, 
-  Users, MessageCircle, AlertCircle 
+  X, CheckCircle2, Clock, Send, 
+  MessageCircle, AlertCircle 
 } from "lucide-react";
-import { fetchSchoolStaffAPI } from '../../api/userAPI';
 import { submitTemplateAPI } from '../../api/documentContollerAPI';
-import SingleSelectDropdown from '../dropdowns/singleSelectDropdown';
 
 export default function SubmitApprovalModal({
   isOpen,
@@ -23,53 +21,31 @@ export default function SubmitApprovalModal({
   approvalMeta = null,
   template = null,
 }) {
-  const [selectedSecretary, setSelectedSecretary] = useState("");
-  const [selectedDean, setSelectedDean] = useState("");
-  const [secretaries, setSecretaries] = useState([]);
-  const [deans, setDeans] = useState([]);
   const [instructions, setInstructions] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [localApprovers, setLocalApprovers] = useState(approversProp);
   const [error, setError] = useState(false);
 
-   // In draft mode, selected approvers are the selected secretary and dean (if any)
-  const selectedApprovers = [
-    secretaries.find(s => s.id === selectedSecretary),
-    deans.find(d => d.id === selectedDean)
-  ].filter(Boolean);
 
   useEffect(() => {
-    if (isOpen && (status === "draft" || status === "assigned")) {
+    if (isOpen && (status === "draft" || status === "assigned" || status === "returned")) {
       setInstructions("");
-      setSelectedSecretary("");
-      setSelectedDean("");
       setError(false);
-      fetchSchoolStaffAPI().then(({ secretaries = [], deans = [] }) => {
-        setSecretaries(secretaries);
-        setDeans(deans);
-        if (secretaries.length > 0) setSelectedSecretary(secretaries[0].id);
-        if (deans.length > 0) setSelectedDean(deans[0].id);
-      });
     }
     setIsSubmitting(false);
   }, [isOpen, status]);
 
-  useEffect(() => {
-    if (approversProp?.length > 0) {
-      setLocalApprovers(approversProp);
-    }
-  }, [approversProp]);
+
 
   if (!isOpen) return null;
 
   const hasExistingApprovals = () => {
     if (status === "pending") return true;
     if (approvals) {
-      return Boolean(approvals.dean?.approved_at || approvals.secretary?.approved_at);
+      return Boolean(approvals.document_controller_officer?.approved_at || approvals.lead_document_controller?.approved_at || approvals.dean?.approved_at || approvals.secretary?.approved_at);
     }
     if (approvalMeta) {
-      return Boolean(approvalMeta.deanApproved || approvalMeta.secretaryApproved);
+      return Boolean(approvalMeta.officerApproved || approvalMeta.leadApproved || approvalMeta.deanApproved || approvalMeta.secretaryApproved);
     }
     return false;
   };
@@ -97,54 +73,33 @@ export default function SubmitApprovalModal({
       if (!templateId) return;
 
       if (status === "draft") {
-        if (selectedDean && selectedSecretary) {
-          await submitTemplateAPI(templateId, selectedDean, selectedSecretary);
-
-          const updatedApprovers = [
-            secretaries.find(s => s.id === selectedSecretary),
-            deans.find(d => d.id === selectedDean)
-          ].filter(Boolean);
-
-          setLocalApprovers(updatedApprovers);
-
-          if (typeof onSubmit === "function") {
-            await onSubmit(updatedApprovers.map(a => a.id), instructions);
-          }
-
-          if (onSubmitSuccess) {
-            onSubmitSuccess("pending", instructions, updatedApprovers);
-          }
-
-          setSubmitSuccess(true);
-          setTimeout(() => {
-            setSubmitSuccess(false);
-            onClose();
-          }, 1500);
-        }
-      }
-
-      if (status === "assigned") {
-        // Submit using selected dean/secretary (if any)
-        await submitTemplateAPI(templateId, selectedDean, selectedSecretary);
-
-        const updatedApprovers = [
-          secretaries.find(s => s.id === selectedSecretary),
-          deans.find(d => d.id === selectedDean)
-        ].filter(Boolean);
-
-        setLocalApprovers(updatedApprovers);
+        await submitTemplateAPI(templateId);
 
         if (typeof onSubmit === "function") {
-          // Prefer approvers provided by parent (approversProp) when present
-          const approverIdsToSend = (Array.isArray(approversProp) && approversProp.length > 0)
-            ? approversProp.map(a => a.id || a._id)
-            : updatedApprovers.map(a => a.id || a._id);
-
-          await onSubmit(approverIdsToSend, instructions);
+          await onSubmit(undefined, instructions);
         }
 
         if (onSubmitSuccess) {
-          onSubmitSuccess("pending", instructions, updatedApprovers);
+          onSubmitSuccess("pending", instructions, approversProp || []);
+        }
+
+        setSubmitSuccess(true);
+        setTimeout(() => {
+          setSubmitSuccess(false);
+          onClose();
+        }, 1500);
+      }
+
+      if (status === "assigned" || status === "returned") {
+        // Submit without selecting approvers; backend determines recipients by role chain
+        await submitTemplateAPI(templateId);
+
+        if (typeof onSubmit === "function") {
+          await onSubmit(undefined, instructions);
+        }
+
+        if (onSubmitSuccess) {
+          onSubmitSuccess("pending", instructions, approversProp || []);
         }
 
         setSubmitSuccess(true);
@@ -166,7 +121,7 @@ export default function SubmitApprovalModal({
       await onPublish?.();
 
       if (onSubmitSuccess) {
-        onSubmitSuccess("published", null, localApprovers);
+        onSubmitSuccess("published", null, approversProp || []);
       }
       onClose();
     } catch (error) {
@@ -191,12 +146,7 @@ export default function SubmitApprovalModal({
   };
 
   // Build approvers for progress display
-  const approvers = status === 'assigned' && approversProp.length > 0
-    ? approversProp
-    : [
-        ...secretaries.map(s => ({ id: s.id, name: s.name, role: 'Secretary' })),
-        ...deans.map(d => ({ id: d.id, name: d.name, role: 'Dean' })),
-      ];
+  const approvers = approversProp || [];
 
   const allApproved = approvers.every(approver => 
     getApprovalStatus(approver.id) === 'approved'
@@ -205,7 +155,7 @@ export default function SubmitApprovalModal({
   const statusConfig = {
     draft: {
       title: hasExistingApprovals() ? "Approval Progress" : "Submit for Approval",
-      description: hasExistingApprovals() ? "Track the current status of your submission" : "Select recipients and send your template for review",
+      description: hasExistingApprovals() ? "Track the current status of your submission" : "Add instructions and submit your template for review",
       icon: hasExistingApprovals() ? <Clock className="h-6 w-6 text-yellow-600" /> : <Send className="h-6 w-6 text-blue-600" />,
       color: hasExistingApprovals() ? "yellow" : "blue"
     },
@@ -217,9 +167,15 @@ export default function SubmitApprovalModal({
     },
     assigned: {
       title: hasExistingApprovals() ? "Approval Progress" : "Submit for Approval",
-      description: hasExistingApprovals() ? "Track the current status of your submission" : "Complete the approval submission process",
+      description: hasExistingApprovals() ? "Track the current status of your submission" : "Add instructions and submit your template for review",
       icon: hasExistingApprovals() ? <Clock className="h-6 w-6 text-yellow-600" /> : <Send className="h-6 w-6 text-blue-600" />,
       color: hasExistingApprovals() ? "yellow" : "blue"
+    },
+    returned: {
+      title: "Resubmit for Review",
+      description: "Add instructions and resubmit to the approver who returned it",
+      icon: <Send className="h-6 w-6 text-blue-600" />,
+      color: "orange"
     },
     submitted: {
       title: "Approval Progress",
@@ -239,15 +195,22 @@ export default function SubmitApprovalModal({
 
   const getApprovalStatusFromData = (approver) => {
     const approverId = approver._id || approver.id;
-    const roleName = (approver?.role?.name || approver?.role || '').toLowerCase();
+  const roleName = (approver?.role?.name || approver?.role || '').toLowerCase();
+  const key = roleName === 'lead document controller'
+    ? 'lead_document_controller'
+    : roleName === 'document control officer'
+      ? 'document_controller_officer'
+      : roleName === 'unit document controller'
+        ? 'unit_document_controller'
+        : roleName;
     
     // Check template's status_meta first
     if (template?.status_meta?.approvals) {
-      const statusApprovals = template.status_meta.approvals;
+  const statusApprovals = template.status_meta.approvals;
       
-      // Check by role
-      if (statusApprovals[roleName]?.isApproved === true) return 'approved';
-      if (statusApprovals[roleName]?.isRejected === true) return 'rejected';
+  // Check by role
+  if (statusApprovals[key]?.isApproved === true) return 'approved';
+  if (statusApprovals[key]?.isRejected === true) return 'rejected';
       
       // Check by approver ID
       if (statusApprovals[approverId]?.isApproved === true) return 'approved';
@@ -256,14 +219,16 @@ export default function SubmitApprovalModal({
 
     // Check approvals prop
     if (approvals) {
-      if (approvals[roleName]?.approved_at || approvals[roleName]?.isApproved) return 'approved';
+      if (approvals[key]?.approved_at || approvals[key]?.isApproved) return 'approved';
       if (approvals[approverId]?.approved_at || approvals[approverId]?.isApproved) return 'approved';
     }
     
     // Check approvalMeta
     if (approvalMeta) {
-      if (roleName === 'dean' && approvalMeta.deanApproved) return 'approved';
-      if (roleName === 'secretary' && approvalMeta.secretaryApproved) return 'approved';
+      if (((roleName === 'document control officer') && (approvalMeta.officerApproved || approvalMeta.deanApproved)) ||
+          (roleName === 'lead document controller' && (approvalMeta.leadApproved || approvalMeta.secretaryApproved))) {
+        return 'approved';
+      }
     }
     
     return 'pending';
@@ -271,13 +236,20 @@ export default function SubmitApprovalModal({
 
   const getApprovalTimestamp = (approver) => {
     const approverId = approver._id || approver.id;
-    const roleName = (approver?.role?.name || approver?.role || '').toLowerCase();
+  const roleName = (approver?.role?.name || approver?.role || '').toLowerCase();
+  const key = roleName === 'lead document controller'
+    ? 'lead_document_controller'
+    : (roleName === 'document control officer')
+      ? 'document_controller_officer'
+      : roleName === 'unit document controller'
+        ? 'unit_document_controller'
+        : roleName;
     
     // Check template status_meta first
     if (template?.status_meta?.approvals) {
       const statusApprovals = template.status_meta.approvals;
-      if (statusApprovals[roleName]?.approved_at) {
-        return new Date(statusApprovals[roleName].approved_at);
+      if (statusApprovals[key]?.approved_at) {
+        return new Date(statusApprovals[key].approved_at);
       }
       if (statusApprovals[approverId]?.approved_at) {
         return new Date(statusApprovals[approverId].approved_at);
@@ -285,8 +257,8 @@ export default function SubmitApprovalModal({
     }
     
     // Check approvals prop
-    if (approvals && roleName && approvals[roleName]?.approved_at) {
-      return new Date(approvals[roleName].approved_at);
+    if (approvals && roleName && approvals[key]?.approved_at) {
+      return new Date(approvals[key].approved_at);
     }
     
     return null;
@@ -363,8 +335,8 @@ export default function SubmitApprovalModal({
                         : 'bg-yellow-100 text-yellow-800'
                     }`}>
                       {approvalStatus === 'approved'
-                        ? `Approved${timeStr ? ` ${timeStr}` : ''}`
-                        : 'Pending Approval'
+                        ? `${(approver.role?.name || approver.role || '').toString() === 'Unit Document Controller' ? 'Endorsed' : 'Approved'}${timeStr ? ` ${timeStr}` : ''}`
+                        : `${(approver.role?.name || approver.role || '').toString() === 'Unit Document Controller' ? 'Pending Endorsement' : 'Pending Approval'}`
                       }
                     </div>
                   </div>
@@ -392,36 +364,9 @@ export default function SubmitApprovalModal({
             </div>
           )}
 
-          {/* Draft state - Show form only when no existing approvals */}
+          {/* Draft state - Only instructions when no existing approvals */}
           {status === "draft" && !hasExistingApprovals() && (
             <>
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Users className="h-5 w-5 text-slate-500" />
-                  <h3 className="text-base font-medium text-slate-900">
-                    Select Recipients
-                  </h3>
-                </div>
-                <div className="grid gap-3">
-                  <SingleSelectDropdown
-                    label={<span>Secretary <span className="text-red-500">*</span></span>}
-                    icon={UserCheck}
-                    options={secretaries.map(s => ({ value: s.id, label: s.name, email: s.email }))}
-                    value={selectedSecretary}
-                    onChange={setSelectedSecretary}
-                    placeholder="Select secretary..."
-                  />
-                  <SingleSelectDropdown
-                    label={<span>Dean <span className="text-red-500">*</span></span>}
-                    icon={UserCheck}
-                    options={deans.map(d => ({ value: d.id, label: d.name, email: d.email }))}
-                    value={selectedDean}
-                    onChange={setSelectedDean}
-                    placeholder="Select dean..."
-                  />
-                </div>
-              </div>
-
               <div className="space-y-3">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -448,7 +393,6 @@ export default function SubmitApprovalModal({
                     rows={4}
                     placeholder="Add notes or specific instructions for the approvers..."
                   />
-                  {/* Character Counter */}
                   <span
                     className={`absolute bottom-2 right-3 text-xs ${
                       instructions.length > 300 ? "text-red-500" : "text-slate-400"
@@ -473,8 +417,8 @@ export default function SubmitApprovalModal({
             </>
           )}
 
-          {/* Assigned state - Show form only when no existing approvals */}
-          {status === "assigned" && !hasExistingApprovals() && (
+          {/* Assigned/Returned state - Show form only when no existing approvals */}
+          {(status === "assigned" || status === "returned") && !hasExistingApprovals() && (
             <div className="space-y-6">
               <div>
                 {notes && notes.length > 0 && (
@@ -497,26 +441,7 @@ export default function SubmitApprovalModal({
                 )}
               </div>
 
-              <div>
-                <h3 className="text-base font-medium text-slate-900 mb-3 flex items-center gap-2">
-                  <Users className="h-5 w-5 text-slate-500" />
-                  Approvers
-                </h3>
-                <div className="grid gap-3">
-                  {approvers.map((approver) => (
-                    <div
-                      key={approver.id}
-                      className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-lg"
-                    >
-                      <UserCheck className="h-5 w-5 text-blue-600" />
-                      <div className="flex-1">
-                        <div className="font-medium text-slate-900">{approver.name}</div>
-                        <div className="text-sm text-slate-500">{approver.role?.name || approver.role || "Approver"}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* Approvers list removed per request to keep only instructions */}
 
               {/* Add instructions field*/}
               <div className="space-y-3">
@@ -701,9 +626,6 @@ export default function SubmitApprovalModal({
 
         <div className="flex items-center justify-between gap-4 bg-slate-50 border-t border-slate-200 px-6 py-4">
           <div className="text-xs text-slate-500">
-            {status === "draft" && selectedApprovers.length > 0 && !hasExistingApprovals() && (
-              `${selectedApprovers.length} recipient${selectedApprovers.length === 1 ? '' : 's'} selected`
-            )}
             {status === "submitted" && (
               `${approvalProgress.filter(p => p.status === 'approved').length}/${approvers.length} approvals complete`
             )}
@@ -722,10 +644,10 @@ export default function SubmitApprovalModal({
             </button>
 
             {/* Show Submit button only when no approvals exist yet */}
-            {((status === "draft" || status === "assigned") && !hasExistingApprovals()) && (
+            {((status === "draft" || status === "assigned" || status === "returned") && !hasExistingApprovals()) && (
               <button
                 onClick={handleSubmit}
-                disabled={(status === "draft" && selectedApprovers.length === 0) || isSubmitting || submitSuccess}
+                disabled={isSubmitting || submitSuccess}
                 className="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-sm"
               >
                 {isSubmitting ? (

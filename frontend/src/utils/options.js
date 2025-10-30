@@ -7,7 +7,7 @@ export const ROLE_OPTIONS = [
   "Secretary",
   "Unit Document Controller",
   "Lead Document Controller",
-  "Document Controll Officer"
+  "Document Control Officer"
 ];
 
 export const SCHOOL_OPTIONS = [

@@ -52,6 +52,32 @@ export default function ApprovalModal({
 
   if (!isOpen || !template) return null;
 
+  const roleName = (user?.role?.name || user?.role || '').toString();
+  const isUDC = roleName === 'Unit Document Controller';
+  const isLDC = roleName === 'Lead Document Controller';
+  const isDCO = roleName === 'Document Control Officer';
+
+  const canApprove = isUDC || isLDC || isDCO;
+  const canReject = isDCO; // Only DCO can reject
+  const canReturn = isUDC || isLDC; // UDC and LDC can return
+  const approveLabel = isUDC ? 'Endorse' : 'Approve';
+  const approveTitle = isUDC ? 'Endorse Template' : 'Approve Template';
+  const approvedDoneTitle = isUDC ? 'Template Endorsed' : 'Template Approved';
+  const approvedDoneBody = isUDC
+    ? 'Your endorsement has been recorded and the status is now Endorsed.'
+    : 'Your approval has been recorded and the status is now Approved.';
+
+  // If this role has already approved, prevent duplicate approves (avoids 400s)
+  const approvals = template?.status_meta?.approvals || {};
+  const mySlot = isUDC
+    ? approvals?.unit_document_controller
+    : isLDC
+    ? approvals?.lead_document_controller
+    : isDCO
+    ? approvals?.document_controller_officer
+    : {};
+  const alreadyApproved = !!(mySlot?.isApproved === true || mySlot?.approved_at);
+
   const handleApprove = async () => {
     if (loading) return;
     setError("");
@@ -203,34 +229,49 @@ export default function ApprovalModal({
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3 justify-center">
             {/* Approve (opens confirmation overlay) */}
-            <button
-              onClick={() => setConfirmOpen(true)}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-green-600 text-white hover:bg-green-700 hover:shadow-md font-medium transition-all min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              {loading ? "Processing..." : "Approve"}
-            </button>
+            {canApprove && (
+              <button
+                onClick={() => setConfirmOpen(true)}
+                disabled={loading || alreadyApproved}
+                className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-green-600 text-white hover:bg-green-700 hover:shadow-md font-medium transition-all min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                {alreadyApproved ? "Already Approved" : loading ? "Processing..." : approveLabel}
+              </button>
+            )}
 
             {/* Reject (opens confirmation overlay) */}
-            <button
-              onClick={() => setConfirmRejectOpen(true)}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-red-600 text-white hover:bg-red-700 hover:shadow-md font-medium transition-all min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <X className="h-4 w-4" />
-              {loading ? "Processing..." : "Reject"}
-            </button>
+            {canReject && (
+              <button
+                onClick={() => {
+                  // If already rejected, don't open confirmation; inform user inline
+                  if (template?.status === 'rejected') {
+                    setError('This template is already rejected. You can still approve to override.');
+                    return;
+                  }
+                  setRejectDone(false);
+                  setRejectError('');
+                  setConfirmRejectOpen(true);
+                }}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-red-600 text-white hover:bg-red-700 hover:shadow-md font-medium transition-all min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <X className="h-4 w-4" />
+                {loading ? "Processing..." : "Reject"}
+              </button>
+            )}
 
             {/* Return (opens confirmation overlay) */}
-            <button
-              onClick={() => setConfirmReturnOpen(true)}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-amber-600 text-white hover:bg-amber-700 hover:shadow-md font-medium transition-all min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Undo2 className="h-4 w-4" />
-              {loading ? "Processing..." : "Return"}
-            </button>
+            {canReturn && (
+              <button
+                onClick={() => setConfirmReturnOpen(true)}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 rounded-md shadow-lg bg-amber-600 text-white hover:bg-amber-700 hover:shadow-md font-medium transition-all min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Undo2 className="h-4 w-4" />
+                {loading ? "Processing..." : "Return"}
+              </button>
+            )}
           </div>
 
           {/* Cancel */}
@@ -256,7 +297,7 @@ export default function ApprovalModal({
                 {/* Header */}
                 <div className="px-5 py-4 border-b">
                   <h3 id="approve-confirm-title" className="text-lg font-semibold">
-                    {approvedDone ? "Template Approved" : "Approve Template"}
+                    {approvedDone ? approvedDoneTitle : approveTitle}
                   </h3>
                 </div>
 
@@ -273,11 +314,11 @@ export default function ApprovalModal({
                       </svg>
                       <div>
                         <p className="text-base font-medium text-gray-900">
-                          This template has been approved.
-                        </p>
-                        <p className="text-sm text-gray-600 mt-1">
-                          Your approval has been recorded and the status is now <span className="font-semibold">Approved</span>.
-                        </p>
+                              {approvedDoneTitle}
+                            </p>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {approvedDoneBody}
+                            </p>
                       </div>
                     </div>
                   )}
@@ -326,7 +367,7 @@ export default function ApprovalModal({
                         className="px-4 py-2 rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-60"
                         disabled={loading}
                       >
-                        {loading ? "Approving..." : "Yes"}
+                        {loading ? (isUDC ? "Endorsing..." : "Approving...") : "Yes"}
                       </button>
                     </>
                   ) : (
@@ -426,10 +467,16 @@ export default function ApprovalModal({
                           }
                           setLoading(true);
                           try {
+                            // Prevent success overlay if it's already rejected
+                            if (template?.status === 'rejected') {
+                              setRejectError('This template is already rejected.');
+                              return;
+                            }
                             await onReject(template, message);
                             setRejectDone(true);
                           } catch (e) {
-                            setRejectError("Failed to reject template.");
+                            const apiMsg = e?.response?.data?.message || e?.message || 'Failed to reject template.';
+                            setRejectError(apiMsg);
                             console.error("Error rejecting template:", e);
                           } finally {
                             setLoading(false);

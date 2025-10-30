@@ -347,19 +347,20 @@ export default function DocumentControllerCreateTemplate() {
       setError("");
       let deanId, secretaryId;
 
+      // Backward compatibility: if approverIds are provided, attempt to parse
       if (Array.isArray(approverIds)) {
         [deanId, secretaryId] = approverIds;
-      } else if (typeof approverIds) {
+      } else if (approverIds && typeof approverIds === 'object') {
         deanId = approverIds.dean || approverIds.deanId;
         secretaryId = approverIds.secretary || approverIds.secretaryId;
       }
 
+      // If none provided, submit without IDs; backend determines recipients by role chain
       if (!deanId && !secretaryId) {
-        toast.error("Please select at least one approver.");
-        return;
+        await submitTemplateAPI(templateId);
+      } else {
+        await submitTemplateAPI(templateId, deanId, secretaryId);
       }
-
-      await submitTemplateAPI(templateId, deanId, secretaryId);
       setStatus("pending");
       toast.success("Template successfully submitted for approval!");
       await loadTemplate(templateId);

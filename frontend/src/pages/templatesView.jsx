@@ -24,6 +24,7 @@ import TextEditor from "../layout/create_template/textEditor";
 import DocumentDetailsCard from "../components/cards/documentDetailsCard";
 import Loader from "../components/loader";  
 import fetchAndNormalizeTemplate from "../utils/templateLoader";
+import { publishTemplateAPI, unpublishTemplateAPI } from "../api/documentContollerAPI";
 
 export default function TemplatesView() {
   // Hooks
@@ -307,7 +308,7 @@ export default function TemplatesView() {
       setError(null);
     } catch (err) {
       console.error("Reject error:", err);
-      setError("Failed to reject template");
+        setError(err?.response?.data?.message || err?.message || "Failed to reject template");
       await refreshTemplate(templateData._id);
       throw err;
     }
@@ -382,7 +383,7 @@ export default function TemplatesView() {
       setError(null);
     } catch (err) {
       console.error("Return error:", err);
-      setError("Failed to return template");
+        setError(err?.response?.data?.message || err?.message || "Failed to return template");
       await refreshTemplate(templateData._id);
       throw err;
     }
@@ -453,6 +454,36 @@ const handleUpdateISOCode = async ({ iso_code }) => {
    */
   const handleAddInstructions = async () => {
     await refreshTemplate(id);
+  };
+
+  // Publish handler (DCO-only; button lives in header)
+  const handlePublish = async (templateData, payload = {}) => {
+    if (!templateData?._id) return;
+    try {
+      await publishTemplateAPI(templateData._id, payload || {});
+      await refreshTemplate(templateData._id);
+      setError(null);
+    } catch (err) {
+      console.error("Publish error:", err);
+      const apiMsg = err?.response?.data?.message || err?.message;
+      setError(apiMsg || "Failed to publish template");
+      throw err;
+    }
+  };
+
+  // Unpublish handler (DCO-only)
+  const handleUnpublish = async (templateData) => {
+    if (!templateData?._id) return;
+    try {
+      await unpublishTemplateAPI(templateData._id);
+      await refreshTemplate(templateData._id);
+      setError(null);
+    } catch (err) {
+      console.error("Unpublish error:", err);
+      const apiMsg = err?.response?.data?.message || err?.message;
+      setError(apiMsg || "Failed to unpublish template");
+      throw err;
+    }
   };
 
   /**
@@ -556,12 +587,15 @@ const handleUpdateISOCode = async ({ iso_code }) => {
     if (actionNote) {
       // Update the approver who performed the action
       const actorName = actionNote.added_by_name || actionNote.added_by;
+      const actorRole = actionNote.role_snapshot || actionNote.role || '';
       console.log("Actor name from note:", actorName);
       console.log("Current user:", user?.name);
       
       approvalsArr = approvalsArr.map(approver => {
         console.log("Checking approver:", approver.name, "vs actor:", actorName);
-        if (approver.name === actorName) {
+        const approverRoleName = (approver.role?.name || approver.role || '').toString();
+        const roleMatches = actorRole && approverRoleName && approverRoleName.toLowerCase() === actorRole.toLowerCase();
+        if (approver.name === actorName || roleMatches) {
           console.log("Updating approver:", approver.name, "to status:", t.status);
           return {
             ...approver,
@@ -619,6 +653,8 @@ const handleUpdateISOCode = async ({ iso_code }) => {
         handleApprove={handleApprove}
         handleReject={handleReject}
         handleReturn={handleReturn}
+        handlePublish={handlePublish}
+        handleUnpublish={handleUnpublish}
         onUpdateDeadline={handleUpdateDeadline}
         onAddInstructions={handleAddInstructions}
       />
@@ -700,14 +736,27 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                         {t.status === 'assigned' && (
                           <>Document controllers are still working on the template.</>
                         )}
-                        {t.status === 'pending' && (
-                          ((user?.role?.name === "Dean" && t.status_meta?.approvals?.secretary?.isApproved !== false) ||
-                          (user?.role?.name === "Secretary" && t.status_meta?.approvals?.secretary?.isApproved !== true)) ? (
-                            <>Template is awaiting your approval.</>
-                          ) : (
-                            <>Template is awaiting approval from assigned approvers.</>
-                          )
-                        )}
+                        {t.status === 'pending' && (() => {
+                          const approvals = t.status_meta?.approvals || {};
+                          const udc = approvals?.unit_document_controller || {};
+                          const ldc = approvals?.lead_document_controller || {};
+                          const dco = approvals?.document_controller_officer || {};
+                          const role = user?.role?.name;
+
+                          const isUndecided = (entry = {}) =>
+                            entry?.isApproved !== true && entry?.isRejected !== true && entry?.isReturned !== true;
+
+                          if (role === 'Unit Document Controller' && isUndecided(udc)) {
+                            return <>Template is awaiting your endorsement.</>; 
+                          }
+                          if (role === 'Lead Document Controller' && (udc?.isApproved === true || udc === undefined) && isUndecided(ldc)) {
+                            return <>Template is awaiting your approval.</>;
+                          }
+                          if (role === 'Document Control Officer' && (ldc?.isApproved === true || ldc === undefined) && isUndecided(dco)) {
+                            return <>Template is awaiting your approval.</>;
+                          }
+                          return <>Template is awaiting approval from assigned approvers.</>;
+                        })()}
                         {t.status === 'approved' && (
                           <>Template has been fully approved and is ready for publishing by the document controller.</>
                         )}
@@ -731,7 +780,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                     template={template}
                     onUpdateDocumentDetails={handleUpdateDocumentDetails}
                     onUpdateISOCode={handleUpdateISOCode}
-                    canEdit={user?.role?.name === "Dean"}
+                    canEdit={user?.role?.name === "Document Control Officer"}
                   />
                 )}
                 
@@ -773,6 +822,8 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                       {approvalsArr.length > 0 ? (
                         approvalsArr.map((approver, idx) => {
                           let statusBadge;
+                          const approverRoleName = (approver.role?.name || approver.role || '').toString();
+                          const isUDC = approverRoleName === 'Unit Document Controller';
                           if (approver.isRejected) {
                             statusBadge = (
                               <span className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-medium">
@@ -788,13 +839,13 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                           } else if (approver.isApproved) {
                             statusBadge = (
                               <span className="ml-2 px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">
-                                Approved
+                                {isUDC ? 'Endorsed' : 'Approved'}
                               </span>
                             );
                           } else {
                             statusBadge = (
                               <span className="ml-2 px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs font-medium">
-                                Pending
+                                {isUDC ? 'Pending Endorsement' : 'Pending'}
                               </span>
                             );
                           }

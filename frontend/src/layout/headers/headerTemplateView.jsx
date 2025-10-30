@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI } from "../../api/documentContollerAPI";
+import { approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI, publishTemplateAPI, unpublishTemplateAPI } from "../../api/documentContollerAPI";
 import { UserPlus, CheckCircle2, Calendar, FileText, ChevronDown } from "lucide-react";
 import UpdateDeadlineModal from "../../components/modals/updateDeadlineModal";
 import naviLogo from "../../assets/images/navilogo.png";
 import { useNavigate } from "react-router-dom";
 import ApprovalModal from "../../components/modals/approvalModal"; 
+import PublishModal from "../../components/modals/publishModal"; 
 import AddInstructionsModal from "../../components/modals/addInstructionsModal";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -20,7 +21,9 @@ export default function HeaderTemplateView({
   onAddInstructions,
   handleApprove,
   handleReject,
-  handleReturn 
+  handleReturn,
+  handlePublish,
+  handleUnpublish,
 }) {
   const navigate = useNavigate();
   const roleValue = user?.role?.name || user?.role;
@@ -29,6 +32,8 @@ export default function HeaderTemplateView({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isDeadlineModalOpen, setDeadlineModalOpen] = useState(false);
   const [isInstructionsModalOpen, setInstructionsModalOpen] = useState(false);
+  const [isPublishModalOpen, setPublishModalOpen] = useState(false);
+  const [isUnpublishConfirmOpen, setUnpublishConfirmOpen] = useState(false);
   // Approval Modal handlers
   const handleApproveClick = () => setIsApprovalModalOpen(true);
   // Import your API functions at the top of the file:
@@ -90,6 +95,35 @@ export default function HeaderTemplateView({
     }
   };
 
+  const handleModalPublish = async (templateData, payload) => {
+    try {
+      // If parent provides a publish handler, use it; else call API directly
+      if (typeof handlePublish === 'function') {
+        await handlePublish(templateData, payload);
+      } else {
+        await publishTemplateAPI(templateData._id, payload || {});
+      }
+      setPublishModalOpen(false);
+    } catch (error) {
+      console.error("Error publishing template:", error);
+      throw error;
+    }
+  };
+
+  const handleModalUnpublish = async (templateData) => {
+    try {
+      if (typeof handleUnpublish === 'function') {
+        await handleUnpublish(templateData);
+      } else {
+        await unpublishTemplateAPI(templateData._id);
+      }
+      setUnpublishConfirmOpen(false);
+    } catch (error) {
+      console.error("Error unpublishing template:", error);
+      throw error;
+    }
+  };
+
   return (
     <>
       <div className="sticky top-0 z-50 bg-[#f3f3f3] shadow-sm">
@@ -104,20 +138,13 @@ export default function HeaderTemplateView({
               alt="Logo"
               className="w-15 h-10 cursor-pointer"
               onClick={() => {
-                const role = user?.role?.name;
-                if (role === "Secretary") navigate("/secretary/templates");
-                else if (role === "Dean") navigate("/dean/templates");
-                else if (role === "Document Controller") navigate("/document-controller/templates")
+                navigate("/templates");
               }}
             />
 
             <button
               onClick={() => {
-                const role = user?.role?.name;
-                if (role === "Secretary") navigate("/secretary/templates");
-                else if (role === "Dean") navigate("/dean/templates");
-                else if (role === "Department Head") navigate("/dept-head/templates");
-                else if (role === "Document Controller") navigate("/document-controller/templates")
+                navigate("/templates");
               }}
               className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
               aria-label="Back"
@@ -148,77 +175,127 @@ export default function HeaderTemplateView({
           {/* Action buttons */}
           <div className="flex items-center gap-3">
             {/* Assign Members btn */}
-            <button
-              onClick={handleAssign}
-              className="inline-flex drop-shadow-lg items-center gap-2 px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
-            >
-              <UserPlus className="h-4 w-4" />
-              <span className="text-sm font-semibold">Assign Members</span>
-            </button>
-
-            {/* Approve Templates btn */}
-            {t.status === "pending" && (
-              (roleValue === "Dean" && t.status_meta?.approvals?.secretary?.isApproved !== false) ||
-              (roleValue === "Secretary" && t.status_meta?.approvals?.secretary?.isApproved !== true)
-            ) && (
+            {roleValue === "Document Controller" && (
               <button
-                onClick={handleApproveClick}
-                className="inline-flex drop-shadow-md items-center gap-2 px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 transition"
+                onClick={handleAssign}
+                className="inline-flex drop-shadow-lg items-center gap-2 px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
               >
-                <CheckCircle2 className="h-4 w-4" />
-                <span className="text-sm font-semibold">Manage Template</span>
+                <UserPlus className="h-4 w-4" />
+                <span className="text-sm font-semibold">Assign Members</span>
+              </button>
+            )}
+
+            {/* Approve/Manage button (appears only when it's this role's turn) */}
+            {(() => {
+              const approvals = t?.status_meta?.approvals || {};
+              const udc = approvals?.unit_document_controller || {};
+              const ldc = approvals?.lead_document_controller || {};
+              const dco = approvals?.document_controller_officer || {};
+
+              const isUndecided = (entry = {}) =>
+                entry?.isApproved !== true && entry?.isRejected !== true && entry?.isReturned !== true;
+
+              // UDC is only required for Faculty submissions; backend uses status === 'pending' to signal this
+              const requiresUDC = t.status === "pending";
+
+              const canUDCAct = requiresUDC && isUndecided(udc);
+              const canLDCAct = isUndecided(ldc) && (requiresUDC ? udc?.isApproved === true : true);
+              const canDCOAct = isUndecided(dco) && (ldc?.isApproved === true) && (requiresUDC ? udc?.isApproved === true : true);
+
+              // Allow DCO to override decisions on terminal states (Approved/Rejected)
+              const allowDCOOverride =
+                roleValue === "Document Control Officer" &&
+                (t?.status === "approved" || t?.status === "rejected");
+
+              const showManage =
+                (roleValue === "Unit Document Controller" && canUDCAct) ||
+                (roleValue === "Lead Document Controller" && canLDCAct) ||
+                (roleValue === "Document Control Officer" && (canDCOAct || allowDCOOverride));
+
+              return showManage ? (
+                <button
+                  onClick={handleApproveClick}
+                  className="inline-flex drop-shadow-md items-center gap-2 px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 transition"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-sm font-semibold">Manage Template</span>
+                </button>
+              ) : null;
+            })()}
+
+            {/* Publish button (DCO only, status approved) */}
+            {roleValue === "Document Control Officer" && t?.status === "approved" && (
+              <button
+                onClick={() => setPublishModalOpen(true)}
+                className="inline-flex drop-shadow-md items-center gap-2 px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
+              >
+                <FileText className="h-4 w-4" />
+                <span className="text-sm font-semibold">Publish</span>
+              </button>
+            )}
+
+            {/* Unpublish button (DCO only, status published) */}
+            {roleValue === "Document Control Officer" && t?.status === "published" && (
+              <button
+                onClick={() => setUnpublishConfirmOpen(true)}
+                className="inline-flex drop-shadow-md items-center gap-2 px-4 py-2 rounded bg-amber-600 text-white hover:bg-amber-700 transition"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22C6.477 22 2 17.522 2 12S6.477 2 12 2s10 4.478 10 10-4.477 10-10 10Zm4.243-13.657a1 1 0 0 0-1.486-1.337l-4.51 5.012-1.979-1.98a1 1 0 1 0-1.414 1.415l2.75 2.75a1 1 0 0 0 1.46-.036l5.179-5.824Z"/></svg>
+                <span className="text-sm font-semibold">Unpublish</span>
               </button>
             )}
 
             {/* Actions Dropdown */}
-            <div className="relative inline-block">
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded bg-gray-600 text-white hover:bg-gray-700 transition"
-              >
-                <FileText className="h-4 w-4" />
-                <span className="text-sm font-semibold">Actions</span>
-                <ChevronDown className="h-4 w-4" />
-              </button>
+            {roleValue === "Document Controller" && (
+              <div className="relative inline-block">
+                <button
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded bg-gray-600 text-white hover:bg-gray-700 transition"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span className="text-sm font-semibold">Actions</span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
 
-              {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden backdrop-blur-sm">
-                  <div className="py-2">
-                    <button
-                      onClick={() => {
-                        setDeadlineModalOpen(true);
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-3 hover:bg-gradient-to-r hover:from-yellow-50 hover:to-amber-50 text-gray-800 flex items-center gap-3 transition-all duration-150 group"
-                    >
-                      <div className="p-1.5 bg-yellow-100 rounded-lg group-hover:bg-yellow-200 transition-colors">
-                        <Calendar className="h-4 w-4 text-yellow-600" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium">Update Deadline</div>
-                        <div className="text-xs text-gray-500">Modify template due date</div>
-                      </div>
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        setInstructionsModalOpen(true);
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-3 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 text-gray-800 flex items-center gap-3 transition-all duration-150 group"
-                    >
-                      <div className="p-1.5 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
-                        <FileText className="h-4 w-4 text-purple-600" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium">Add Instructions</div>
-                        <div className="text-xs text-gray-500">Provide additional instructions</div>
-                      </div>
-                    </button>
+                {dropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden backdrop-blur-sm">
+                    <div className="py-2">
+                      <button
+                        onClick={() => {
+                          setDeadlineModalOpen(true);
+                          setDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-gradient-to-r hover:from-yellow-50 hover:to-amber-50 text-gray-800 flex items-center gap-3 transition-all duration-150 group"
+                      >
+                        <div className="p-1.5 bg-yellow-100 rounded-lg group-hover:bg-yellow-200 transition-colors">
+                          <Calendar className="h-4 w-4 text-yellow-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">Update Deadline</div>
+                          <div className="text-xs text-gray-500">Modify template due date</div>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setInstructionsModalOpen(true);
+                          setDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 text-gray-800 flex items-center gap-3 transition-all duration-150 group"
+                      >
+                        <div className="p-1.5 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
+                          <FileText className="h-4 w-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">Add Instructions</div>
+                          <div className="text-xs text-gray-500">Provide additional instructions</div>
+                        </div>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Profile picture */}
             <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
@@ -270,6 +347,34 @@ export default function HeaderTemplateView({
           onUpdate={onAddInstructions}
           templateTitle={template?.title}
         />
+      )}
+
+      {/* Publish Modal */}
+      {isPublishModalOpen && (
+        <PublishModal
+          isOpen={isPublishModalOpen}
+          onClose={() => setPublishModalOpen(false)}
+          template={template}
+          onPublish={handleModalPublish}
+        />
+      )}
+
+      {/* Unpublish Confirm */}
+      {isUnpublishConfirmOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="p-5 border-b">
+              <h3 className="text-lg font-semibold">Unpublish Template</h3>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-gray-700">This will revert the template status back to Approved. Continue?</p>
+            </div>
+            <div className="flex justify-end gap-3 p-5 border-t">
+              <button onClick={() => setUnpublishConfirmOpen(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
+              <button onClick={() => handleModalUnpublish(template)} className="px-4 py-2 rounded-lg text-white bg-amber-600 hover:bg-amber-700">Unpublish</button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
