@@ -82,24 +82,27 @@ const normalizeInitialContent = (content) => (content ? content : DEFAULT_DOC);
 const { TablePlus, TableRowPlus, TableCellPlus, TableHeaderPlus } = PaginationTable;
 
 /* ----------------------- normalize header/footer config ----------------------- */
+// Normalize date into the shared display format; gracefully fall back to the raw value
+const normDate = (val) => {
+  try {
+    if (val == null || val === "") return "";
+    return formatDate(val);
+  } catch {
+    try {
+      const d = new Date(val);
+      if (!isNaN(d)) return formatDate(d.toISOString());
+    } catch {}
+    return String(val ?? "");
+  }
+};
+
 const getCfg = (cfg) => {
   const center = cfg?.header?.centerText || cfg?.center || {};
   const logos = cfg?.header?.logos || {};
-  const normDate = (v) => {
-    try {
-      if (v && typeof v === "object" && "$date" in v) return formatDate(v.$date);
-      return v ? formatDate(v) : "";
-    } catch {
-      return v ?? "";
-    }
-  };
-
-  const f = cfg?.footer || {};
-  const pageNumber = f.pageNumber || {};
-  const body = f.body || {};
-
-  const headerMarginIn = Number(cfg?.headerMarginIn ?? 0.5);
-
+  // Merge footer sub-sections with permissive defaults
+  const headerMarginIn = Number(cfg?.headerMarginIn ?? cfg?.header?.marginIn ?? 0);
+  const pageNumber = cfg?.footer?.pageNumber || {};
+  const body = cfg?.footer?.body || {};
   return {
     headerEnabled: !!cfg?.headerEnabled,
     footerEnabled: !!cfg?.footerEnabled,
