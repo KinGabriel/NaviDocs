@@ -10,17 +10,27 @@ export const createInternalNotification = async (req, res) => {
   try {
     const { recipientUser, recipientRoles, message, type, link, targetedUserIds } = req.body;
 
-    // This block replaces the need for the Notification Service to fetch User data.
-    // The calling service (e.g., Document-Service) must send the IDs of the users to be notified.
-    if (!targetedUserIds || targetedUserIds.length === 0) {
-        return res.status(400).json({ message: 'Missing targetedUserIds for notification creation.' });
+    // Support two modes:
+    // A) Targeted users (preferred when caller knows IDs)
+    // B) Role-based broadcast (when approver IDs are not yet known)
+    // At least one of targetedUserIds, recipientUser, recipientRoles must be provided
+    if ((!targetedUserIds || targetedUserIds.length === 0) && !recipientUser && (!recipientRoles || recipientRoles.length === 0)) {
+      return res.status(400).json({ message: 'Provide targetedUserIds, recipientUser, or recipientRoles.' });
     }
 
-    // 1. Create the initial isRead Map (all targeted users unread)
-    const initialReadStatus = targetedUserIds.reduce((acc, userId) => {
-      acc[userId] = false;
-      return acc;
-    }, {});
+    // 1. Create the initial isRead Map
+    // - If targetedUserIds are provided, mark all as unread
+    // - Else, start with an empty map (users will match via recipientRoles/recipientUser)
+    const initialReadStatus = Array.isArray(targetedUserIds) && targetedUserIds.length > 0
+      ? targetedUserIds.reduce((acc, userId) => {
+          acc[userId] = false;
+          return acc;
+        }, {})
+      : {};
+    // Optionally mark direct recipientUser as unread for convenience
+    if (recipientUser) {
+      initialReadStatus[recipientUser] = false;
+    }
 
     const newNotification = new Notification({
       recipientUser,
