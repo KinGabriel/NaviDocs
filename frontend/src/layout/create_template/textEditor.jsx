@@ -96,6 +96,18 @@ const normDate = (val) => {
   }
 };
 
+// Always render revision as two digits (e.g., 01, 12). If non-numeric, fall back to string.
+const normRevision = (val) => {
+  if (val == null || val === "") return "";
+  const n = parseInt(val, 10);
+  if (Number.isNaN(n)) {
+    const str = String(val).trim();
+    if (/^\d+$/.test(str)) return str.padStart(2, "0");
+    return str;
+  }
+  return String(n).padStart(2, "0");
+};
+
 const getCfg = (cfg) => {
   const center = cfg?.header?.centerText || cfg?.center || {};
   const logos = cfg?.header?.logos || {};
@@ -148,11 +160,12 @@ const getCfg = (cfg) => {
         cfg?.documentStamp?.document_code ??
         cfg?.document_code ??
         "",
-      revisionNo:
+      revisionNo: normRevision(
         cfg?.documentStamp?.revisionNo ??
-        cfg?.documentStamp?.revision_no ??
-        cfg?.revision_no ??
-        "",
+          cfg?.documentStamp?.revision_no ??
+          cfg?.revision_no ??
+          ""
+      ),
       effectivity: normDate(
         cfg?.documentStamp?.effectivity ??
           cfg?.documentStamp?.effectivity_date ??

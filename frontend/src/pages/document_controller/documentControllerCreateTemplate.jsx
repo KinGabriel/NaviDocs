@@ -611,7 +611,14 @@ export default function DocumentControllerCreateTemplate() {
                   pageSetup={pageSetup}
                   onEditorReady={handleEditorReady}
                   onContentChange={setTemplateContent}
-                  headerConfig={headerConfig}
+                  headerConfig={{
+                    ...(headerConfig || {}),
+                    documentStamp: {
+                      docCode: documentCode ?? "",
+                      revisionNo: revisionNo ?? 0,
+                      effectivity: effectivity ?? "",
+                    },
+                  }}
                   templateStatus={status}
                   documentCode={documentCode}
                   revisionNo={revisionNo}
