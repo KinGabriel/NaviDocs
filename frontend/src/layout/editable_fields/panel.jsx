@@ -3,18 +3,38 @@ import SectionHeader from "../../layout/editable_fields/sectionHeader";
 import { saveFieldSuggestionAPI } from "../../api/documentsAPI";
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function Panel({ number, title, color, fields, formData, onChange, onFocusField, user, duplicateCounts = {}, duplicateIndices = {}, onCycleDuplicate }) {
-  // saving state and messages per field
+export default function Panel({
+  number,
+  title,
+  color,
+  fields,
+  formData,
+  onChange,
+  onFocusField,
+  user,
+  duplicateCounts = {},
+  duplicateIndices = {},
+  onCycleDuplicate
+}) {
   const [savingState, setSavingState] = useState({});
-  const [saveMessage, setSaveMessage] = useState({}); 
-  const [selectedScopes, setSelectedScopes] = useState({}); 
+  const [saveMessage, setSaveMessage] = useState({});
+  const [selectedScopes, setSelectedScopes] = useState({});
 
   const allowSchoolScope = (user) => {
     if (!user) return false;
-    // Accept various shapes: role string, role object, or roles array
     if (typeof user.role === 'string' && user.role.toLowerCase() === 'document_controller') return true;
-    if (user.role && typeof user.role === 'object' && ((user.role.name && String(user.role.name).toLowerCase() === 'document controller') || (user.role.slug && String(user.role.slug).toLowerCase() === 'document_controller'))) return true;
-    if (Array.isArray(user.roles) && (user.roles.includes('Document Controller') || user.roles.includes('document_controller'))) return true;
+    if (
+      user.role &&
+      typeof user.role === 'object' &&
+      (
+        (user.role.name && String(user.role.name).toLowerCase() === 'document controller') ||
+        (user.role.slug && String(user.role.slug).toLowerCase() === 'document_controller')
+      )
+    ) return true;
+    if (
+      Array.isArray(user.roles) &&
+      (user.roles.includes('Document Controller') || user.roles.includes('document_controller'))
+    ) return true;
     return false;
   };
 
@@ -58,10 +78,12 @@ export default function Panel({ number, title, color, fields, formData, onChange
           const fieldValue = formData?.[field.name] || "";
           const dupCount = duplicateCounts[field.name] || 0;
           const dupIndex = duplicateIndices[field.name] || 0;
+
           return (
             <div key={idx}>
               <label className="block text-sm font-medium mb-1 flex items-center justify-between">
                 <span>{field.label}</span>
+
                 {dupCount > 1 && (
                   <div className="inline-flex items-center text-xs text-gray-600 space-x-2">
                     <button
@@ -86,48 +108,50 @@ export default function Panel({ number, title, color, fields, formData, onChange
                   </div>
                 )}
               </label>
-              {field.type === 'input' ? (
-              <input 
-                type="text"
-                value={fieldValue}
-                onChange={(e) => onChange(field.name, e.target.value)}
-                onFocus={() => {
-                  if (onFocusField) onFocusField(field.name);
-                }}
-                onClick={() => {
-                  // trigger on click to ensure it works even if already focused
-                  if (onFocusField) onFocusField(field.name);
-                }}
-                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                placeholder={field.placeholder}
-              />
-            ) : field.type === 'textarea' ? (
-              <textarea
-                value={fieldValue}
-                onChange={(e) => onChange(field.name, e.target.value)}
-                onFocus={() => {
-                  if (onFocusField) onFocusField(field.name);
-                }}
-                onClick={() => {
-                  // trigger on click to ensure it works even if already focused
-                  if (onFocusField) onFocusField(field.name);
-                }}
-                className="w-full p-2 border border-gray-300 rounded h-24 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                placeholder={field.placeholder}
-              />
-            ) : null}
 
-              {/* Controls: Save suggestion (scope-aware) */}
-              <div className="flex items-center space-x-2 mt-2">
+              {field.type === 'input' ? (
+                <input 
+                  type="text"
+                  value={fieldValue}
+                  onChange={(e) => onChange(field.name, e.target.value)}
+                  onFocus={() => {
+                    if (onFocusField) onFocusField(field.name);
+                  }}
+                  onClick={() => {
+                    if (onFocusField) onFocusField(field.name);
+                  }}
+                  className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  placeholder={field.placeholder}
+                />
+              ) : field.type === 'textarea' ? (
+                <textarea
+                  value={fieldValue}
+                  onChange={(e) => onChange(field.name, e.target.value)}
+                  onFocus={() => {
+                    if (onFocusField) onFocusField(field.name);
+                  }}
+                  onClick={() => {
+                    if (onFocusField) onFocusField(field.name);
+                  }}
+                  className="w-full p-2 border border-gray-300 rounded h-24 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  placeholder={field.placeholder}
+                />
+              ) : null}
+
+              {/* Controls under each field */}
+              <div className="flex items-center flex-wrap gap-2 mt-2">
                 <button
                   onClick={() => handleSaveSuggestion(field.name)}
                   disabled={!!savingState[field.name]}
-                  className={`inline-flex items-center px-3 py-1.5 rounded text-sm font-medium transition-colors ${savingState[field.name] ? 'bg-gray-100 text-gray-500 border border-gray-200 cursor-wait' : 'bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100'}`}
+                  className={`inline-flex items-center px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                    savingState[field.name]
+                      ? 'bg-gray-100 text-gray-500 border border-gray-200 cursor-wait'
+                      : 'bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100'
+                  }`}
                 >
                   {savingState[field.name] ? 'Saving…' : 'Save field'}
                 </button>
 
-                {/* If user can save at school scope, show a small selector to pick scope per-field */}
                 {allowSchoolScope(user) ? (
                   <select
                     value={selectedScopes[field.name] || 'user'}
