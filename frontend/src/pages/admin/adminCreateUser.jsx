@@ -88,7 +88,6 @@ export default function CreateUser() {
     });
     setErrors({ firstname: '', lastname: '', email: '' });
     setImage(null);
-    setAlertMessage("");
   };
 
   // Role-based required fields validation
@@ -126,8 +125,11 @@ export default function CreateUser() {
     }
   };
 
-  const showSchool = ["Faculty", "Dean", "Secretary", "Document Controller", "Department Head"].includes(formData.role.name);
-  const showDepartment = ["Faculty", "Document Controller", "Department Head"].includes(formData.role.name);
+
+  const showSchool = ["Faculty", "Dean", "Secretary", "Department Head"].includes(formData.role.name);
+
+
+  const showDepartment = ["Faculty", "Department Head"].includes(formData.role.name);
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
