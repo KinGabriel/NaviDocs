@@ -1,38 +1,23 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import Loader from "../../components/loader";
 import SearchBar from "../../components/searchbar";
 import Dropdown from "../../components/dropdowns/dropdown";
 import useUser from "../../hooks/useUser";
-
-const mockLogs = [
-  { id: 1, name: "johndoe@gmail.com", role: "Lead Document Controller", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
-  { id: 2, name: "hello@gmail.com", role: "Unit Document Controller", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
-  { id: 3, name: "maria@gmail.com", role: "Document Controller Officer", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
-  { id: 4, name: "john@gmail.com", role: "Lead Document Controller", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
-  { id: 5, name: "doe@gmail.com", role: "Unit Document Controller", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
-  { id: 6, name: "smith@gmail.com", role: "Document Controller Officer", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
-  { id: 7, name: "low@gmail.com", role: "Lead Document Controller", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
-  { id: 8, name: "test@gmail.com", role: "Unit Document Controller", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
-  { id: 9, name: "name@gmail.com", role: "Document Controller Officer", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
-  { id: 10, name: "hi@gmail.com", role: "Lead Document Controller", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
-  { id: 11, name: "pety@gmail.com", role: "Unit Document Controller", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
-  { id: 12, name: "betty@gmail.com", role: "Document Controller Officer", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
-  { id: 13, name: "l@gmail.com", role: "Lead Document Controller", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
-  { id: 14, name: "ss@gmail.com", role: "Unit Document Controller", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
-  { id: 15, name: "sf@gmail.com", role: "Document Controller Officer", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
-];
+import { fetchLoginActivityAPI } from "../../api/adminAPI";
 
 export default function AdminLoginActivity() {
   const user = useUser();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const itemsPerPage = 10;
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const statusOptions = ["All Status", "Active", "Logged Out"];
   const [statusFilter, setStatusFilter] = useState("All Status");
@@ -41,46 +26,71 @@ export default function AdminLoginActivity() {
   const [roleFilter, setRoleFilter] = useState("All Roles");
 
 
+  // Helper to build API filter params
+  const apiParams = useMemo(() => {
+    const params = { page: currentPage, limit: itemsPerPage };
+    if (search && search.trim()) params.search = search.trim();
+    if (selectedDate) params.date = selectedDate; // yyyy-mm-dd
+    if (statusFilter === "Active") params.status = "active";
+    else if (statusFilter === "Logged Out") params.status = "inactive";
+    if (roleFilter && roleFilter !== "All Roles") params.role = roleFilter;
+    return params;
+  }, [search, selectedDate, statusFilter, roleFilter, currentPage]);
+
   useEffect(() => {
-    setTimeout(() => {
-      setLogs(mockLogs);
-      setLoading(false);
-    }, 800);
-  }, []);
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await fetchLoginActivityAPI(apiParams);
+        const items = Array.isArray(res?.data) ? res.data : [];
+        if (!cancelled) {
+          // Normalize to table shape
+          const mapped = items.map((it, idx) => ({
+            id: it._id || `${it.email}-${it.login_time || idx}`,
+            email: it.email,
+            role: it.role,
+            ip: it.ip,
+            login_time: it.login_time,
+            logout_time: it.logout_time,
+          }));
+          setLogs(mapped);
+          setTotalPages(Number(res?.pages || 1));
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e?.message || "Failed to fetch login activity");
+          setLogs([]);
+          setTotalPages(1);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [apiParams]);
 
-  // Search filter
-  const searchedLogs = search
-    ? logs.filter(
-      (log) =>
-        log.name.toLowerCase().includes(search.toLowerCase()) ||
-        log.ip.toLowerCase().includes(search.toLowerCase()) ||
-        log.loginAt.toLowerCase().includes(search.toLowerCase())
-    )
-    : logs;
+  // Reset page to 1 when filters (except page) change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedDate, statusFilter, roleFilter]);
 
-  // Status filter
-  const filteredLogs = searchedLogs
-    .filter((log) => {
-      if (statusFilter === "Active") return log.logoutAt === "—";
-      if (statusFilter === "Logged Out") return log.logoutAt !== "—";
-      return true;
-    })
-    .filter((log) => {
-      if (roleFilter === "All Roles") return true;
-      return log.role === roleFilter;
-    });
+  // Current page logs are directly from the API already paginated
+  const currentLogs = logs;
 
-
-  // Date filter
-  const dateFilteredLogs = selectedDate
-    ? filteredLogs.filter((log) =>
-      log.loginAt.startsWith(selectedDate)
-    )
-    : filteredLogs;
-
-  const totalPages = Math.ceil(dateFilteredLogs.length / itemsPerPage);
-  const startIdx = (currentPage - 1) * itemsPerPage;
-  const currentLogs = dateFilteredLogs.slice(startIdx, startIdx + itemsPerPage);
+  const formatTimestamp = (ts) => {
+    if (!ts) return null;
+    try {
+      const d = new Date(ts);
+      if (Number.isNaN(d.getTime())) return null;
+      return d.toLocaleString(undefined, {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: true
+      });
+    } catch { return null; }
+  };
 
   const handlePrev = () => currentPage > 1 && setCurrentPage(currentPage - 1);
   const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
@@ -167,14 +177,16 @@ export default function AdminLoginActivity() {
                       {currentLogs.length > 0 ? (
                         currentLogs.map((log) => (
                           <tr key={log.id} className="hover:bg-blue-50 transition-colors">
-                            <td className="px-6 py-4 text-gray-900 font-medium">{log.name}</td>
+                            <td className="px-6 py-4 text-gray-900 font-medium">{log.email}</td>
                             <td className="px-6 py-4 text-gray-700">{log.role}</td>
                             <td className="px-6 py-4 text-gray-700">{log.ip}</td>
-                            <td className="px-6 py-4 text-gray-700">{log.loginAt}</td>
+                            <td className="px-6 py-4 text-gray-700">{formatTimestamp(log.login_time) || '—'}</td>
                             <td className="px-6 py-4 text-gray-700">
-                              {log.logoutAt === "—"
-                                ? <span className="text-blue-700 font-medium">Active</span>
-                                : log.logoutAt}
+                              {log.logout_time ? (
+                                formatTimestamp(log.logout_time)
+                              ) : (
+                                <span className="text-blue-700 font-medium">Active</span>
+                              )}
                             </td>
                           </tr>
                         ))
