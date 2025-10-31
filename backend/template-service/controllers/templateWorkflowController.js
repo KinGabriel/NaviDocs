@@ -4,58 +4,8 @@ import axios from "axios";
 import { getActorFromReq } from '../utils/actorUtils.js';
 import { fetchUsersProfiles, buildUserServiceHeaders } from '../utils/userServiceUtils.js';
 import { normalizeRoleDisplay, toApprovalKey, toDisplayFromKey, isRole, APPROVAL_KEYS } from '../utils/roleUtils.js';
+import { linkFor, groupTargetsByRole, preservePriorApprovals } from '../utils/workflowUtils.js';
 
-// Role helpers are centralized in utils/roleUtils.js
-
-// Helper: choose a deep-link per recipient role and event type
-const linkFor = (type, templateId, role) => {
-  const r = normalizeRoleDisplay(role);
-  switch (type) {
-    case 'template_assignment':
-      // All roles land on the unified template view
-      return `/templates/${templateId}`;
-    case 'template_deadline_update':
-    case 'template_returned':
-    case 'template_rejected':
-    case 'template_partially_approved':
-    case 'template_fully_approved':
-    // Approvers (Lead/Unit Document Controller, Document Control Officer) land on review/manage page
-    return `/templates/${templateId}`;
-    case 'template_review_requested':
-      return `/templates/${templateId}`; // approvers
-    case 'template_published':
-    case 'template_unpublished':
-      return `/templates/published/${templateId}`; // everyone can view published details
-    default:
-      return `/templates/${templateId}`;
-  }
-};
-
-// Helper: group a list of userIds by their role using user-service
-const groupTargetsByRole = async (ids = [], req) => {
-  try {
-    if (!Array.isArray(ids) || ids.length === 0) return {};
-    const headers = buildUserServiceHeaders(req);
-    const profiles = await fetchUsersProfiles(ids, headers); // [{id,email,name,role}]
-    const map = {};
-    for (const p of profiles) {
-      const r = normalizeRoleDisplay(typeof p.role === 'string' ? p.role : (p.role?.name || p.role));
-      if (!r) continue;
-      if (!map[r]) map[r] = [];
-      map[r].push(String(p.id));
-    }
-    // Include any ids we couldn't resolve to a role under a generic bucket
-    const resolved = new Set(Object.values(map).flat());
-    const unresolved = ids.map(String).filter(id => !resolved.has(id));
-    if (unresolved.length) {
-      map['Unknown'] = (map['Unknown'] || []).concat(unresolved);
-    }
-    return map;
-  } catch (_e) {
-    // If lookup fails, just return a single bucket with all ids
-    return { Unknown: Array.from(new Set(ids.map(String))) };
-  }
-};
 
 
 /**
@@ -659,8 +609,10 @@ export const rejectTemplate = async (req, res) => {
       message: reason || 'No Reason provided',
       created_at: new Date()
     });
-    template.status = 'rejected';
-    await template.save();
+  // Preserve any previously approved slots (do not clear UDC/LDC/DCO approvals)
+  template.status = 'rejected';
+  template.status_meta.approvals = preservePriorApprovals(template.status_meta.approvals, template.status_meta.approvals);
+  await template.save();
 
   // Notify assigned Document Controllers of rejection
     try {
@@ -721,9 +673,10 @@ export const submitTemplate = async (req, res) => {
     template.status_meta = template.status_meta || {};
     template.status_meta.approvals = template.status_meta.approvals || { unit_document_controller: {}, lead_document_controller: {}, document_controller_officer: {} };
 
-    // Capture existing approvals and whether this is a resubmission
+  // Capture existing approvals and whether this is a resubmission
   const submitterRole = normalizeRoleDisplay(String(req.user?.role?.name || ''));
-    const approvals = template.status_meta.approvals;
+  const approvals = template.status_meta.approvals;
+  const priorApprovals = JSON.parse(JSON.stringify(approvals || {}));
     const wasReturned = template.status === 'returned';
     const preUnit = approvals?.unit_document_controller || {};
     const preLead = approvals?.lead_document_controller || {};
@@ -748,7 +701,7 @@ export const submitTemplate = async (req, res) => {
     // Decide next role and status
     let nextRoleFriendly = null; // 'Unit Document Controller' | 'Lead Document Controller' | 'Document Control Officer'
     let nextAssignedUser = null;
-    if (unitApproved) {
+  if (unitApproved) {
       // UDC already endorsed → status endorsed, go to LDC or DCO depending on LDC state
       template.status = 'endorsed';
       if (!leadApproved) {
@@ -769,21 +722,42 @@ export const submitTemplate = async (req, res) => {
       }
     } else {
       // UDC not approved yet
+      const requiresUDC = (submitterRole === 'Faculty') || !!approvals?.unit_document_controller?.assigned_to;
       if (wasReturned) {
-        // On resubmission while UDC not approved, send back to UDC; keep status pending
-        template.status = 'pending';
-        nextRoleFriendly = 'Unit Document Controller';
-        if (template.status_meta?.returned_role === 'unit_document_controller' && template.status_meta?.returned_by) {
-          nextAssignedUser = String(template.status_meta.returned_by);
-          approvals.unit_document_controller.assigned_to = nextAssignedUser;
+        // On resubmission, non-Faculty flows should not go to 'pending'; they stay endorsed and route to who returned.
+        if (requiresUDC) {
+          template.status = 'pending';
+          nextRoleFriendly = 'Unit Document Controller';
+          if (template.status_meta?.returned_role === 'unit_document_controller' && template.status_meta?.returned_by) {
+            nextAssignedUser = String(template.status_meta.returned_by);
+            approvals.unit_document_controller.assigned_to = nextAssignedUser;
+          }
+        } else {
+          // No UDC required -> keep endorsed and target the returning approver (LDC or DCO)
+          template.status = 'endorsed';
+          if (template.status_meta?.returned_role === 'lead_document_controller') {
+            nextRoleFriendly = 'Lead Document Controller';
+            if (template.status_meta?.returned_by) {
+              nextAssignedUser = String(template.status_meta.returned_by);
+              approvals.lead_document_controller.assigned_to = nextAssignedUser;
+            }
+          } else {
+            nextRoleFriendly = 'Document Control Officer';
+            if (template.status_meta?.returned_by) {
+              nextAssignedUser = String(template.status_meta.returned_by);
+              approvals.document_controller_officer.assigned_to = nextAssignedUser;
+            }
+          }
         }
       } else {
         // Fresh submission
-  template.status = (submitterRole === 'Faculty') ? 'pending' : 'endorsed';
-  nextRoleFriendly = (submitterRole === 'Faculty') ? 'Unit Document Controller' : 'Lead Document Controller';
+        template.status = requiresUDC ? 'pending' : 'endorsed';
+        nextRoleFriendly = requiresUDC ? 'Unit Document Controller' : 'Lead Document Controller';
       }
     }
-    await template.save();
+  // Preserve any prior approvals (especially UDC endorsement) from being lost
+  template.status_meta.approvals = preservePriorApprovals(approvals, priorApprovals);
+  await template.save();
 
   // Notify initial approver (based on approvals state and resubmission context)
     try {
@@ -893,8 +867,10 @@ export const returnTemplate = async (req, res) => {
     template.status_meta.returned_role = roleKey;
     template.status_meta.returned_at = new Date();
     if (reason) template.status_meta.returned_reason = reason;
-    template.status = 'returned';
-    await template.save();
+  // Preserve any previously approved slots (do not clear UDC/LDC/DCO approvals)
+  template.status = 'returned';
+  template.status_meta.approvals = preservePriorApprovals(template.status_meta.approvals, template.status_meta.approvals);
+  await template.save();
 
     // Notify assigned Document Controllers of return
     try {

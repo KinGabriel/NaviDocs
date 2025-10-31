@@ -502,20 +502,24 @@ export default function TextEditor({
       rightRow.appendChild(cicmImg);
     }
 
-    const stamp = document.createElement("table");
-    stamp.style.border = "1px solid #000";
-    stamp.style.borderCollapse = "collapse";
-    stamp.style.fontSize = "11px";
-    stamp.style.fontFamily = "Arial,sans-serif";
-    stamp.style.background = "#fff";
-    stamp.innerHTML = `
-      <tbody>
-        <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(cfg.stamp.docCode)}</td></tr>
-        <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.revisionNo))}</td></tr>
-        <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.effectivity))}</td></tr>
-        <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${pageNo} of ${total}</td></tr>
-      </tbody>`;
-    rightRow.appendChild(stamp);
+    // Only render the Document Stamp when a Document Code exists
+    const hasDocCode = String(cfg.stamp.docCode || "").trim().length > 0;
+    if (hasDocCode) {
+      const stamp = document.createElement("table");
+      stamp.style.border = "1px solid #000";
+      stamp.style.borderCollapse = "collapse";
+      stamp.style.fontSize = "11px";
+      stamp.style.fontFamily = "Arial,sans-serif";
+      stamp.style.background = "#fff";
+      stamp.innerHTML = `
+        <tbody>
+          <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(cfg.stamp.docCode)}</td></tr>
+          <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.revisionNo))}</td></tr>
+          <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.effectivity))}</td></tr>
+          <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${pageNo} of ${total}</td></tr>
+        </tbody>`;
+      rightRow.appendChild(stamp);
+    }
 
     trip.right.appendChild(rightRow);
 
