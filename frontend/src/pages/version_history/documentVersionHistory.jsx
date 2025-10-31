@@ -42,7 +42,7 @@ export default function DocumentVersionHistory({
   const [bookmarkTarget, setBookmarkTarget] = useState(null);
   const [bookmarkName, setBookmarkName] = useState('');
 
-  // Compose a headerConfig for preview with documentStamp values injected
+  // Compose a headerConfig for preview with documentStamp injected (prefer selected version fields, fallback to doc data)
   const normalizedHeaderConfig = useMemo(() => {
     if (!docData) return null;
     const base =
@@ -52,27 +52,51 @@ export default function DocumentVersionHistory({
       docData?.from_template?.logoConfig ||
       null;
 
-    const stamp = {
-      document_code:
-        docData?.document_code ||
-        docData?.document?.document_code ||
-        docData?.from_template?.document_code ||
-        '',
-      revision_no:
-        docData?.revision_no ??
-        docData?.document?.revision_no ??
-        docData?.from_template?.revision_no ??
-        '',
-      effectivity:
-        docData?.effectivity ||
-        docData?.document?.effectivity ||
-        docData?.from_template?.effectivity ||
-        '',
+    const vFields = (versions.flatMap(g => g.items).find(v => v.id === selectedVersion) || {}).fields || {};
+    const valFrom = (...keys) => {
+      for (const k of keys) {
+        const v = vFields[k];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+      }
+      return undefined;
     };
 
-    if (!base) return { documentStamp: stamp };
-    return { ...base, documentStamp: { ...(base.documentStamp || {}), ...stamp } };
-  }, [docData]);
+    // Prefer version fields, then doc data
+    // Document stamp in TextEditor renders only when a non-empty docCode is present.
+    // To ensure the table shows up in version previews even if the code isn't set,
+    // we fall back to '-' so the stamp always renders.
+    const docCode =
+      valFrom('document_code', 'docCode') ||
+      docData?.document_code ||
+      docData?.document?.document_code ||
+      docData?.from_template?.document_code ||
+      '-';
+    const revRaw =
+      valFrom('revision_no', 'revision_number', 'revisionNo', 'revisionNumber') ??
+      docData?.revision_no ??
+      docData?.document?.revision_no ??
+      docData?.from_template?.revision_no ??
+      '';
+    const effRaw =
+      valFrom('effectivity', 'effectivity_date') ||
+      docData?.effectivity ||
+      docData?.document?.effectivity ||
+      docData?.from_template?.effectivity ||
+      '';
+
+    const stamp = {
+      // TextEditor accepts either documentStamp.docCode or .document_code
+      document_code: String(docCode || '-'),
+      // Keep revision as provided; TextEditor will normalize to two digits
+      revision_no: revRaw,
+      // Let TextEditor format effectivity
+      effectivity: effRaw,
+    };
+
+    // Always enable header in version preview so the document stamp renders
+    if (!base) return { headerEnabled: true, documentStamp: stamp };
+    return { ...base, headerEnabled: true, documentStamp: { ...(base.documentStamp || {}), ...stamp } };
+  }, [docData, versions, selectedVersion]);
   // Helper: format a raw field key into a human label (Title Case)
   const formatFieldLabel = (key) => {
     if (!key) return '';
@@ -936,15 +960,33 @@ return (
               <>
   
               <TextEditor
-                content={contentForEditor}
-                pageSetup={docData?.pageSetup || docData?.from_template?.pageSetup || pageSetup}
-                mode="document"
-                editable={false}
-                headerConfig={normalizedHeaderConfig}
-                templateStatus={docData?.from_template?.status || docData?.status || null}
-                documentCode={docData?.document_code || docData?.document?.document_code || docData?.from_template?.document_code || null}
-                revisionNo={docData?.revision_no ?? docData?.document?.revision_no ?? docData?.from_template?.revision_no ?? null}
-                effectivity={docData?.effectivity || docData?.document?.effectivity || docData?.from_template?.effectivity || null}
+               content={contentForEditor}
+                  pageSetup={docData?.pageSetup}
+                  mode="document"
+                  headerConfig={{
+                    ...(docData?.headerConfig ||
+                      docData?.from_template?.headerConfig ||
+                      docData?.logoConfig ||
+                      docData?.from_template?.logoConfig ||
+                      {}),
+                    documentStamp: {
+                      docCode:
+                        docData?.document_code ||
+                        docData?.document?.document_code ||
+                        docData?.from_template?.document_code ||
+                        "",
+                      revisionNo:
+                        docData?.revision_no ??
+                        docData?.document?.revision_no ??
+                        docData?.from_template?.revision_no ??
+                        "",
+                      effectivity:
+                        docData?.effectivity ||
+                        docData?.document?.effectivity ||
+                        docData?.from_template?.effectivity ||
+                        "",
+                    },
+                    }}
                 onEditorReady={(editor) => (editorRef.current = editor)}
                 onContentChange={() => {}}
               />
