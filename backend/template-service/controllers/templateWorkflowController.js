@@ -540,7 +540,7 @@ export const approveTemplate = async (req, res) => {
           const payload = {
             recipientUser: ldcId,
             recipientRoles: ['Lead Document Controller'],
-            message: `Unit Document Controller endorsed template "${template.title}". Please review and manage.`,
+            message: `"${template.title}" has been endorsed by the Unit Document Controller. Please review and manage.`,
             type,
             link,
             targetedUserIds: ldcId ? [ldcId] : undefined
@@ -557,7 +557,7 @@ export const approveTemplate = async (req, res) => {
           const payload = {
             recipientUser: dcoId,
             recipientRoles: ['Document Control Officer'],
-            message: `Lead Document Controller approved template "${template.title}". Please review and manage.`,
+            message: `"${template.title}" has been endorsed by the Unit Document Controller, and has been approved by the Lead Document Controller. Please review and manage.`,
             type,
             link,
             targetedUserIds: dcoId ? [dcoId] : undefined
@@ -779,7 +779,9 @@ export const submitTemplate = async (req, res) => {
           console.error('Notification service error (submit/targeted):', err?.response?.status || err?.message || err);
         }
       } else {
-        const message = `Template \"${template.title}\" has been submitted for your approval.`;
+        const message = (nextRoleFriendly === 'Unit Document Controller' && submitterRole === 'Faculty')
+          ? `"${template.title}" has been submitted for your endorsement.`
+          : `"${template.title}" has been submitted for your approval.`;
         const link = linkFor(type, template._id, nextRoleFriendly);
         const payload = { recipientRoles: [nextRoleFriendly], message, type, link };
         try {

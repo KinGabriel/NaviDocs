@@ -10,7 +10,14 @@ const notificationSchema = new mongoose.Schema({
   // Roles this notification applies to (e.g., ['document controller', 'department head'])
   recipientRoles: [{ 
     type: String,
-    enum: ['Admin', 'Faculty', 'Secretary', 'Dean', 'Department Head', 'Document Controller'], 
+    enum: [
+      // Core org roles
+      'Admin', 'Faculty', 'Secretary', 'Dean', 'Department Head',
+      // Generalized role (kept for backward compatibility)
+      'Document Controller',
+      // New, explicit roles used in the template workflow
+      'Unit Document Controller', 'Lead Document Controller', 'Document Control Officer'
+    ], 
     required: true,
   }],
   message: {
