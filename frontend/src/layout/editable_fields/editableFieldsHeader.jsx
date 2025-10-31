@@ -5,12 +5,13 @@ import DownloadingModal from "../../components/modals/downloadingModal";
 import DocumentVersionHistory from '../../pages/version_history/documentVersionHistory';
 import ShareDocumentModal from "../../components/modals/shareDocumentModal";
 import { shareDocumentAPI } from "../../api/documentsAPI";
-import { ChevronDown, Copy, Send, FileDown, MoreHorizontal, Share2, FolderPlus } from "lucide-react";
+import { ChevronDown, Copy, Send, FileDown, MoreHorizontal, Share2, FolderPlus, Menu } from "lucide-react";
 import StoragePickerModal from "../../components/modals/storagePickerModal";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export default function EditableFieldsHeader({ 
-   title = "Course Syllabus FTS", 
+  title = "Course Syllabus FTS", 
   user,
   setTitle, 
   onSave,
@@ -21,29 +22,31 @@ export default function EditableFieldsHeader({
   dirty = false,
   documentId,
   documentData, 
-  onDocumentUpdate, 
+  onDocumentUpdate,
+
+  // for mobile sidebar toggle
+  mobileSidebarOpen,
+  setMobileSidebarOpen,
 }) {
   const navigate = useNavigate();
-  const handleSave = () => {
-    if (onSave) onSave();
-  };
-
   const [showVersionHistory, setShowVersionHistory] = useState(false);
 
-  // Inline title edit state
   const [editing, setEditing] = useState(false);
   const [localTitle, setLocalTitle] = useState(title || '');
   const inputRef = useRef(null);
+
   const [dlOpen, setDlOpen] = useState(false);
   const [dlErr, setDlErr] = useState("");
+
   const [shareOpen, setShareOpen] = useState(false);
   const [shareSelectedIds, setShareSelectedIds] = useState([]);
   const [shareSubmitting, setShareSubmitting] = useState(false);
+
   const [isQuickOpen, setIsQuickOpen] = useState(false);
   const shareMenuRef = useRef(null);
   const quickMenuRef = useRef(null);
-  const [showStoragePicker, setShowStoragePicker] = useState(false);
 
+  const [showStoragePicker, setShowStoragePicker] = useState(false);
 
   useEffect(() => {
     setLocalTitle(title || '');
@@ -73,7 +76,7 @@ export default function EditableFieldsHeader({
     }
   };
 
-    const handleArchive = () => {
+  const handleArchive = () => {
     if (onArchive) onArchive();
   };
 
@@ -81,7 +84,6 @@ export default function EditableFieldsHeader({
     setDlErr("");
     setDlOpen(true);
     try {
-      // forward the options object to the parent handler so it can choose store vs download
       await onExportPDF?.(options);
       setDlOpen(false);
     } catch (err) {
@@ -96,14 +98,16 @@ export default function EditableFieldsHeader({
   return (
     <div className="sticky top-0 z-50 bg-[#f3f3f3] shadow-sm">
       <div className="h-4 bg-[#063c8d] w-full" /> 
-      <div className="flex items-center justify-between bg-[#f3f3f3] px-8 py-3 border-b border-gray-200">
-        <div className="flex items-center gap-3">
+
+      <div className="flex flex-wrap items-center justify-between bg-[#f3f3f3] px-4 lg:px-8 py-3 border-b border-gray-200">
+        {/* LEFT CLUSTER: logo, hamburger (mobile), back (desktop), title */}
+        <div className="flex items-center gap-3 min-w-0">
           {/* Logo */}
           <img 
             title="Navidocs home"
             src={naviLogo} 
             alt="Logo" 
-            className="w-15 h-10 cursor-pointer" 
+            className="w-15 h-10 cursor-pointer flex-shrink-0" 
             onClick={() => {
               const role = user?.role?.name;
               if (role === "Secretary") navigate("/documents");
@@ -116,10 +120,19 @@ export default function EditableFieldsHeader({
             }}
           />
 
-          {/* Back button */}
+          {/* Hamburger (mobile only) */}
+          <button
+            className="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
+            title="Toggle sidebar"
+            onClick={() => setMobileSidebarOpen?.(!mobileSidebarOpen)}
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          {/* Back button (desktop only) */}
           <button
             onClick={() => navigate("/documents")}
-            className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
+            className="hidden lg:flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
             aria-label="Back"
             title="Back"
           >
@@ -130,14 +143,15 @@ export default function EditableFieldsHeader({
             </svg>
           </button>
 
+          {/* Divider (desktop aesthetic only) */}
           <span
             aria-hidden="true"
-            className="h-6 w-px bg-gray-300 mx-1"
+            className="h-6 w-px bg-gray-300 mx-1 hidden lg:inline-block"
           />
-          
-          {/* Title */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center">
+
+          {/* Title / inline edit */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center min-w-0">
               {editing ? (
                 <input
                   ref={inputRef}
@@ -145,17 +159,25 @@ export default function EditableFieldsHeader({
                   onChange={(e) => setLocalTitle(e.target.value)}
                   onBlur={commitTitle}
                   onKeyDown={onKeyDownTitle}
-                  className="text-xl font-medium text-gray-800 border-b border-gray-300 focus:outline-none px-1 py-0.5"
+                  className="text-xl font-medium text-gray-800 border-b border-gray-300 focus:outline-none px-1 py-0.5 bg-transparent min-w-0"
                 />
               ) : (
-                <div className="flex items-center space-x-5">
-                  <span className="text-xl font-medium text-gray-800">{title}</span>
+                <div className="flex items-center space-x-2 min-w-0">
+                  <span className="text-xl font-medium text-gray-800 truncate max-w-[160px] sm:max-w-[240px] md:max-w-[320px] lg:max-w-none">
+                    {title}
+                  </span>
                   <button
                     title="Edit title"
                     onClick={() => setEditing(true)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600 flex-shrink-0"
                   >
-                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-square-pen-icon lucide-square-pen"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                      viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                      strokeLinecap="round" strokeLinejoin="round"
+                      className="lucide lucide-square-pen-icon lucide-square-pen">
+                      <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/>
+                    </svg>
                   </button>
                 </div>
               )}
@@ -163,78 +185,77 @@ export default function EditableFieldsHeader({
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-3">
+        {/* RIGHT CLUSTER: status, buttons, avatar */}
+        <div className="flex flex-wrap items-center gap-3 mt-3 lg:mt-0">
           {/* Save status */}
-          <div className="flex flex-col items-start">
+          <div className="flex flex-col items-start leading-tight">
             {lastSavedAt && (
-              <span className="text-[10px] text-gray-500 leading-tight">
+              <span className="text-[10px] text-gray-500">
                 Saved {lastSavedAt.toLocaleTimeString()}
               </span>
             )}
             {dirty && !saving && (
-              <span className="text-[10px] text-amber-600 leading-tight">
+              <span className="text-[10px] text-amber-600">
                 Unsaved changes
               </span>
             )}
             {saving && (
-              <span className="text-[10px] text-blue-600 leading-tight">
+              <span className="text-[10px] text-blue-600">
                 Saving...
               </span>
             )}
           </div>
 
-          { /* Version History btn*/} 
-            <button 
-              onClick={() => setShowVersionHistory(true)}
-              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded" 
-              title="History"
-            > 
-              <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24">
-                <path fill="#7D7D7D" 
-                  d="M12 21q-3.45 0-6.012-2.287T3.05 13H5.1q.35 2.6 2.313 4.3T12 19q2.925 0 4.963-2.037T19 12t-2.037-4.962T12 5q-1.725 0-3.225.8T6.25 8H9v2H3V4h2v2.35q1.275-1.6 3.113-2.475T12 3q1.875 0 3.513.713t2.85 1.924t1.925 2.85T21 12t-.712 3.513t-1.925 2.85t-2.85 1.925T12 21m2.8-4.8L11 12.4V7h2v4.6l3.2 3.2z"
-                />
-              </svg> 
-            </button>
-
-          {/* Save/Action btn */}
-          <div className="relative" ref={shareMenuRef}>
-          <button
-            onClick={() => {
-              // open share modal and prefill selected ids from documentData.assigned if present
-              const extractId = (a) => {
-                if (!a) return null;
-                if (typeof a === "string" || typeof a === "number") return String(a);
-                if (typeof a === "object")
-                  return String(a.userId || a.id || a._id || a.user || "");
-                return null;
-              };
-
-              const src = Array.isArray(documentData?.assigned)
-                ? documentData.assigned
-                : Array.isArray(documentData?.from_template?.assigned)
-                ? documentData.from_template.assigned
-                : [];
-
-              const assigned = Array.isArray(src)
-                ? src.map(extractId).filter(Boolean)
-                : [];
-
-              setShareSelectedIds(assigned);
-              setShareOpen(true);
-            }}
-            className="ml-3 flex items-center space-x-3 bg-[#063c8d] text-white rounded text-sm font-semibold hover:bg-[#052c6d] px-4 py-2.5 shadow-sm transition-all"
-          >
-            <div className="w-4 h-4 rounded flex items-center justify-center">
-              <Share2 color="#ffffff" />
-            </div>
-            <div className="text-left">
-              <div className="font-medium text-white text-sm font-semibold">
-                Share
-              </div>
-            </div>
+          {/* Version History btn */}
+          <button 
+            onClick={() => setShowVersionHistory(true)}
+            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded" 
+            title="History"
+          > 
+            <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24">
+              <path fill="#7D7D7D" 
+                d="M12 21q-3.45 0-6.012-2.287T3.05 13H5.1q.35 2.6 2.313 4.3T12 19q2.925 0 4.963-2.037T19 12t-2.037-4.962T12 5q-1.725 0-3.225.8T6.25 8H9v2H3V4h2v2.35q1.275-1.6 3.113-2.475T12 3q1.875 0 3.513.713t2.85 1.924t1.925 2.85T21 12t-.712 3.513t-1.925 2.85t-2.85 1.925T12 21m2.8-4.8L11 12.4V7h2v4.6l3.2 3.2z"
+              />
+            </svg> 
           </button>
-        </div>
+
+          {/* Share */}
+          <div className="relative" ref={shareMenuRef}>
+            <button
+              onClick={() => {
+                const extractId = (a) => {
+                  if (!a) return null;
+                  if (typeof a === "string" || typeof a === "number") return String(a);
+                  if (typeof a === "object")
+                    return String(a.userId || a.id || a._id || a.user || "");
+                  return null;
+                };
+
+                const src = Array.isArray(documentData?.assigned)
+                  ? documentData.assigned
+                  : Array.isArray(documentData?.from_template?.assigned)
+                  ? documentData.from_template.assigned
+                  : [];
+
+                const assigned = Array.isArray(src)
+                  ? src.map(extractId).filter(Boolean)
+                  : [];
+
+                setShareSelectedIds(assigned);
+                setShareOpen(true);
+              }}
+              className="flex items-center space-x-2 bg-[#063c8d] text-white rounded text-sm font-semibold hover:bg-[#052c6d] px-4 py-2.5 shadow-sm transition-all"
+            >
+              <div className="w-4 h-4 rounded flex items-center justify-center">
+                <Share2 color="#ffffff" />
+              </div>
+              <div className="text-left">
+                <div className="font-medium text-white text-sm font-semibold">
+                  Share
+                </div>
+              </div>
+            </button>
+          </div>
 
           {/* Quick Actions dropdown */}
           <div className="relative" ref={quickMenuRef}>
@@ -243,11 +264,10 @@ export default function EditableFieldsHeader({
               className="bg-gray-700 hover:bg-gray-800 text-white rounded px-5 py-2.5 text-sm font-medium flex items-center gap-2 shadow-lg"
             >
               <MoreHorizontal className="w-5 h-5" />
-              <span className="font-semibold">Quick Actions</span>
+              <span className="font-semibold whitespace-nowrap">Quick Actions</span>
               <ChevronDown className={`w-4 h-4 transition-transform ${isQuickOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Dropdown menu */}
             {isQuickOpen && (
               <div className="absolute right-0 mt-2 w-64 z-50">
                 <div className="bg-white rounded-lg shadow-xl border border-gray-200 py-2">
@@ -272,10 +292,10 @@ export default function EditableFieldsHeader({
                   </button>
 
                   <div className="px-2 py-2">
-                    <button className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3 rounded-md" 
+                    <button
+                      className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3 rounded-md" 
                       onClick={async () => {
                         setIsQuickOpen(false);
-                        // Direct download (store=false)
                         await handleExportPDF({ store: false });
                       }}
                     >
@@ -288,7 +308,8 @@ export default function EditableFieldsHeader({
                       </div>
                     </button>
 
-                    <button className="w-full text-left mt-2 px-4 py-3 hover:bg-blue-50 flex items-center gap-3 rounded-md" 
+                    <button
+                      className="w-full text-left mt-2 px-4 py-3 hover:bg-blue-50 flex items-center gap-3 rounded-md" 
                       onClick={() => {
                         setIsQuickOpen(false);
                         setShowStoragePicker(true);
@@ -309,28 +330,28 @@ export default function EditableFieldsHeader({
           </div>
 
           {/* Profile picture */}
-            <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
-              <img
-                src={
-                  user && user.profile_picture
-                    ? `${API_URL}${user.profile_picture}`
-                    : "/default-avatar.png"
-                }
-                alt="Profile"
-                className="w-full h-full object-cover"
-              />
-            </div>
+          <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
+            <img
+              src={
+                user && user.profile_picture
+                  ? `${API_URL}${user.profile_picture}`
+                  : "/default-avatar.png"
+              }
+              alt="Profile"
+              className="w-full h-full object-cover"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Version History Full Screen Overlay */}
+      {/* Version History */}
       {showVersionHistory && (
         <div className="fixed inset-0 z-[100] bg-white">
           <DocumentVersionHistory onClose={() => setShowVersionHistory(false)} documentId={documentId} />
         </div>
       )}
 
-      {/* Downloading Modal */  }
+      {/* Downloading Modal */}
       <DownloadingModal
         open={dlOpen || !!dlErr}
         onClose={() => { setDlOpen(false); setDlErr(""); }}
@@ -340,7 +361,7 @@ export default function EditableFieldsHeader({
         errorText={dlErr}
       />
 
-      {/* Share Document Modal */   }
+      {/* Share Modal */}
       <ShareDocumentModal
         open={shareOpen}
         onClose={() => setShareOpen(false)}
@@ -351,14 +372,12 @@ export default function EditableFieldsHeader({
           try {
             setShareSubmitting(true);
             await shareDocumentAPI(documentId, assignees);
-            // update local docData.assigned to reflect change
             if (onDocumentUpdate) {
               onDocumentUpdate({ assigned: Array.isArray(assignees) ? assignees : [] });
             }
             setShareOpen(false);
           } catch (err) {
             console.error('Failed to share document', err);
-             // prefer server message
             const serverMsg = err.responseData?.message || err.message || 'Failed to share document';
             try { toast.error(serverMsg); } catch(e) { /* ignore toast failures */ }
           } finally {
@@ -377,7 +396,6 @@ export default function EditableFieldsHeader({
           setDlErr("");
           setDlOpen(true);
           try {
-            // Let backend store directly into the selected folder
             await onExportPDF?.({ store: true, folderId });
             setDlOpen(false);
           } catch (err) {
@@ -390,6 +408,5 @@ export default function EditableFieldsHeader({
         }}
       />
     </div>
-    
   );
 }
