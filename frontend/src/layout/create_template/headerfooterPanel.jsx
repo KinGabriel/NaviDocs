@@ -5,10 +5,9 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
  * Header & Footer Panel (Tabbed)
  * - Two tabs: Header / Footer
  * - Enable toggles for each band
- * - Margin controls (inches) shown when enabled
- * - SLU/CICM logo toggles + size (px) + horizontal position (% from left)
- * - Center header text (multi-line) with font, size, weight, color
- * - Footer tab currently scaffolded (no content controls yet)
+ * - Margin controls (inches)
+ * - Header: Logos + center text + document stamp
+ * - Footer: Page number + freeform text, both with alignment & font styling
  *
  * Backward compatibility:
  *  - Preserves/reads legacy fields: showSLULogo, showCICMLogo, document_code, revision_no, effectivity
@@ -30,13 +29,12 @@ const DEFAULTS = {
   // Assets
   assets: { slu: SLU_LOGO_SRC, cicm: CICM_LOGO_SRC },
 
-  // Header logos
+  // Header
   header: {
     logos: {
       slu: { enabled: true, sizePx: 72, xPercent: 6 },
       cicm: { enabled: false, sizePx: 72, xPercent: 94 },
     },
-    // Center text block (multi-line) + styling
     centerText: {
       enabled: true,
       line1: "Saint Louis University",
@@ -53,20 +51,40 @@ const DEFAULTS = {
     },
   },
 
-  // Document stamp (right-side table in header)
+  // Document stamp
   documentStamp: { docCode: "", revisionNo: "", effectivity: "" },
 
-  // Footer (future)
-  footer: {},
+  // Footer
+  footer: {
+    pageNumber: {
+      enabled: true,
+      pattern: "{page} of {total}",
+      align: "center", // left | center | right
+      fontFamily: "Inter, system-ui, sans-serif",
+      fontSize: 12,
+      bold: false,
+      italic: false,
+      color: "#000000",
+    },
+    body: {
+      enabled: false,
+      text: "",
+      align: "left", // left | center | right
+      fontFamily: "Inter, system-ui, sans-serif",
+      fontSize: 12,
+      bold: false,
+      italic: false,
+      color: "#000000",
+    },
+  },
 };
 
-// normalize to strict yyyy-mm-dd (local), accept Date | ISO | yyyy-mm-dd | {$date}
+// normalize to strict yyyy-mm-dd (local)
 const normalizeEffectivityLocal = (val) => {
   if (val === undefined || val === null || val === "") return "";
   if (typeof val === "object" && val.$date) val = val.$date;
   const d = new Date(val);
   if (isNaN(d)) {
-    // If it's already a date-only string, pass through
     if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
     return String(val);
   }
@@ -83,7 +101,12 @@ function mergeDefaults(value) {
     ...v,
     assets: { ...DEFAULTS.assets, ...(v.assets || {}) },
     header: { ...DEFAULTS.header, ...(v.header || {}) },
-    footer: { ...DEFAULTS.footer, ...(v.footer || {}) },
+    footer: {
+      ...DEFAULTS.footer,
+      ...(v.footer || {}),
+      pageNumber: { ...DEFAULTS.footer.pageNumber, ...(v.footer?.pageNumber || {}) },
+      body: { ...DEFAULTS.footer.body, ...(v.footer?.body || {}) },
+    },
     documentStamp: { ...DEFAULTS.documentStamp, ...(v.documentStamp || {}) },
   };
 
@@ -123,7 +146,7 @@ function mergeDefaults(value) {
     v.effectivity ?? out.documentStamp.effectivity ?? ""
   );
 
-  // Margins & toggles (if present at top-level)
+  // Margins & toggles
   if (typeof v.headerMarginIn === "number") out.headerMarginIn = v.headerMarginIn;
   if (typeof v.footerMarginIn === "number") out.footerMarginIn = v.footerMarginIn;
   if (typeof v.headerEnabled === "boolean") out.headerEnabled = v.headerEnabled;
@@ -138,7 +161,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
   // Tabs
   const [tab, setTab] = useState("header");
 
-  // Assets (preserve caller overrides; no UI yet, but keep in state so we don't clobber)
+  // Assets
   const [assets, setAssets] = useState(initial.assets);
 
   // Toggles & margins
@@ -151,18 +174,16 @@ export default function HeaderFooterPanel({ value, onChange }) {
   const [sluEnabled, setSluEnabled] = useState(initial.header.logos.slu.enabled);
   const [sluSizePx, setSluSizePx] = useState(initial.header.logos.slu.sizePx);
   const [sluXPercent, setSluXPercent] = useState(initial.header.logos.slu.xPercent);
-
   const [cicmEnabled, setCicmEnabled] = useState(initial.header.logos.cicm.enabled);
   const [cicmSizePx, setCicmSizePx] = useState(initial.header.logos.cicm.sizePx);
   const [cicmXPercent, setCicmXPercent] = useState(initial.header.logos.cicm.xPercent);
 
-  // Center text (multi-line) + style
+  // Center text + style
   const [line1, setLine1] = useState(initial.header.centerText.line1);
   const [line2, setLine2] = useState(initial.header.centerText.line2);
   const [line3, setLine3] = useState(initial.header.centerText.line3);
   const [line4, setLine4] = useState(initial.header.centerText.line4);
   const [showLine4, setShowLine4] = useState(initial.header.centerText.showLine4);
-
   const [centerEnabled, setCenterEnabled] = useState(initial.header.centerText.enabled);
   const [fontFamily, setFontFamily] = useState(initial.header.centerText.fontFamily);
   const [fontSize, setFontSize] = useState(initial.header.centerText.fontSize);
@@ -177,6 +198,26 @@ export default function HeaderFooterPanel({ value, onChange }) {
   const [effectivity, setEffectivity] = useState(
     normalizeEffectivityLocal(initial.documentStamp.effectivity)
   );
+
+  // Footer: page number
+  const [footerPNEnabled, setFooterPNEnabled] = useState(initial.footer.pageNumber.enabled);
+  const [footerPNPattern, setFooterPNPattern] = useState(initial.footer.pageNumber.pattern);
+  const [footerPNAlign, setFooterPNAlign] = useState(initial.footer.pageNumber.align);
+  const [footerPNFontFamily, setFooterPNFontFamily] = useState(initial.footer.pageNumber.fontFamily);
+  const [footerPNFontSize, setFooterPNFontSize] = useState(initial.footer.pageNumber.fontSize);
+  const [footerPNBold, setFooterPNBold] = useState(initial.footer.pageNumber.bold);
+  const [footerPNItalic, setFooterPNItalic] = useState(initial.footer.pageNumber.italic);
+  const [footerPNColor, setFooterPNColor] = useState(initial.footer.pageNumber.color);
+
+  // Footer: body text
+  const [footerBodyEnabled, setFooterBodyEnabled] = useState(initial.footer.body.enabled);
+  const [footerBodyText, setFooterBodyText] = useState(initial.footer.body.text);
+  const [footerBodyAlign, setFooterBodyAlign] = useState(initial.footer.body.align);
+  const [footerBodyFontFamily, setFooterBodyFontFamily] = useState(initial.footer.body.fontFamily);
+  const [footerBodyFontSize, setFooterBodyFontSize] = useState(initial.footer.body.fontSize);
+  const [footerBodyBold, setFooterBodyBold] = useState(initial.footer.body.bold);
+  const [footerBodyItalic, setFooterBodyItalic] = useState(initial.footer.body.italic);
+  const [footerBodyColor, setFooterBodyColor] = useState(initial.footer.body.color);
 
   // Sync in from parent
   const isSyncingRef = useRef(false);
@@ -217,6 +258,25 @@ export default function HeaderFooterPanel({ value, onChange }) {
     setRevisionNo(next.documentStamp.revisionNo);
     setEffectivity(normalizeEffectivityLocal(next.documentStamp.effectivity));
 
+    // Footer
+    setFooterPNEnabled(next.footer.pageNumber.enabled);
+    setFooterPNPattern(next.footer.pageNumber.pattern);
+    setFooterPNAlign(next.footer.pageNumber.align);
+    setFooterPNFontFamily(next.footer.pageNumber.fontFamily);
+    setFooterPNFontSize(next.footer.pageNumber.fontSize);
+    setFooterPNBold(next.footer.pageNumber.bold);
+    setFooterPNItalic(next.footer.pageNumber.italic);
+    setFooterPNColor(next.footer.pageNumber.color);
+
+    setFooterBodyEnabled(next.footer.body.enabled);
+    setFooterBodyText(next.footer.body.text);
+    setFooterBodyAlign(next.footer.body.align);
+    setFooterBodyFontFamily(next.footer.body.fontFamily);
+    setFooterBodyFontSize(next.footer.body.fontSize);
+    setFooterBodyBold(next.footer.body.bold);
+    setFooterBodyItalic(next.footer.body.italic);
+    setFooterBodyColor(next.footer.body.color);
+
     const t = setTimeout(() => {
       isSyncingRef.current = false;
     }, 0);
@@ -225,8 +285,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
 
   // Debounced emit up to parent
   const emitRef = useRef();
-  const coerceNum = (n, fallback) =>
-    n === "" || Number.isNaN(Number(n)) ? fallback : Number(n);
+  const coerceNum = (n, fb) => (n === "" || Number.isNaN(Number(n)) ? fb : Number(n));
 
   useEffect(() => {
     if (isSyncingRef.current) return;
@@ -237,7 +296,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
       headerMarginIn: coerceNum(headerMarginIn, DEFAULTS.headerMarginIn),
       footerMarginIn: coerceNum(footerMarginIn, DEFAULTS.footerMarginIn),
 
-      assets, // preserve caller-provided URLs
+      assets,
 
       header: {
         logos: {
@@ -268,7 +327,28 @@ export default function HeaderFooterPanel({ value, onChange }) {
         },
       },
 
-      footer: {},
+      footer: {
+        pageNumber: {
+          enabled: !!footerPNEnabled,
+          pattern: footerPNPattern,
+          align: footerPNAlign,
+          fontFamily: footerPNFontFamily,
+          fontSize: coerceNum(footerPNFontSize, DEFAULTS.footer.pageNumber.fontSize),
+          bold: !!footerPNBold,
+          italic: !!footerPNItalic,
+          color: footerPNColor,
+        },
+        body: {
+          enabled: !!footerBodyEnabled,
+          text: footerBodyText,
+          align: footerBodyAlign,
+          fontFamily: footerBodyFontFamily,
+          fontSize: coerceNum(footerBodyFontSize, DEFAULTS.footer.body.fontSize),
+          bold: !!footerBodyBold,
+          italic: !!footerBodyItalic,
+          color: footerBodyColor,
+        },
+      },
 
       documentStamp: {
         docCode,
@@ -276,10 +356,10 @@ export default function HeaderFooterPanel({ value, onChange }) {
         effectivity: normalizeEffectivityLocal(effectivity),
       },
 
-      // Legacy mirrors for existing consumers
+      // Legacy mirrors
       showSLULogo: !!sluEnabled,
       showCICMLogo: !!cicmEnabled,
-      showHeaderLine: !!showHeaderLine, // mirror of centerText.showHeaderLine
+      showHeaderLine: !!showHeaderLine,
       center: { line1, line2, line3, line4, showLine4: !!showLine4 },
       document_code: docCode,
       revision_no: revisionNo,
@@ -296,6 +376,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
     footerEnabled,
     headerMarginIn,
     footerMarginIn,
+    // header
     sluEnabled,
     sluSizePx,
     sluXPercent,
@@ -314,17 +395,35 @@ export default function HeaderFooterPanel({ value, onChange }) {
     italic,
     color,
     showHeaderLine,
+    // stamp
     docCode,
     revisionNo,
     effectivity,
+    // footer
+    footerPNEnabled,
+    footerPNPattern,
+    footerPNAlign,
+    footerPNFontFamily,
+    footerPNFontSize,
+    footerPNBold,
+    footerPNItalic,
+    footerPNColor,
+    footerBodyEnabled,
+    footerBodyText,
+    footerBodyAlign,
+    footerBodyFontFamily,
+    footerBodyFontSize,
+    footerBodyBold,
+    footerBodyItalic,
+    footerBodyColor,
     onChange,
   ]);
 
   return (
-    <div className="p-5 bg-white rounded-2xl shadow-md w-full overflow-auto">
+    <div className="p-5 bg-white rounded-2xl shadow-md w-full overflow-auto rm-panel">
       <h2 className="text-lg font-semibold text-gray-800 mb-1">Header &amp; Footer</h2>
       <p className="text-sm text-gray-500 mb-4">
-        Configure header/footer visibility, margins, logos, and center text styling.
+        Configure header/footer visibility, margins, logos, and text styling.
       </p>
 
       {/* Tabs */}
@@ -349,16 +448,8 @@ export default function HeaderFooterPanel({ value, onChange }) {
 
       {/* Global toggles */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mb-4">
-        <Toggle
-          label="Enable Header"
-          checked={!!headerEnabled}
-          onChange={setHeaderEnabled}
-        />
-        <Toggle
-          label="Enable Footer"
-          checked={!!footerEnabled}
-          onChange={setFooterEnabled}
-        />
+        <Toggle label="Enable Header" checked={!!headerEnabled} onChange={setHeaderEnabled} />
+        <Toggle label="Enable Footer" checked={!!footerEnabled} onChange={setFooterEnabled} />
       </div>
 
       {/* Margins */}
@@ -437,7 +528,49 @@ export default function HeaderFooterPanel({ value, onChange }) {
           }}
         />
       ) : (
-        <FooterTab disabled={!footerEnabled} />
+        <FooterTab
+          disabled={!footerEnabled}
+          pageNumber={{
+            enabled: footerPNEnabled,
+            pattern: footerPNPattern,
+            align: footerPNAlign,
+            fontFamily: footerPNFontFamily,
+            fontSize: footerPNFontSize,
+            bold: footerPNBold,
+            italic: footerPNItalic,
+            color: footerPNColor,
+          }}
+          setPageNumber={{
+            setEnabled: setFooterPNEnabled,
+            setPattern: setFooterPNPattern,
+            setAlign: setFooterPNAlign,
+            setFontFamily: setFooterPNFontFamily,
+            setFontSize: setFooterPNFontSize,
+            setBold: setFooterPNBold,
+            setItalic: setFooterPNItalic,
+            setColor: setFooterPNColor,
+          }}
+          body={{
+            enabled: footerBodyEnabled,
+            text: footerBodyText,
+            align: footerBodyAlign,
+            fontFamily: footerBodyFontFamily,
+            fontSize: footerBodyFontSize,
+            bold: footerBodyBold,
+            italic: footerBodyItalic,
+            color: footerBodyColor,
+          }}
+          setBody={{
+            setEnabled: setFooterBodyEnabled,
+            setText: setFooterBodyText,
+            setAlign: setFooterBodyAlign,
+            setFontFamily: setFooterBodyFontFamily,
+            setFontSize: setFooterBodyFontSize,
+            setBold: setFooterBodyBold,
+            setItalic: setFooterBodyItalic,
+            setColor: setFooterBodyColor,
+          }}
+        />
       )}
     </div>
   );
@@ -461,7 +594,6 @@ function HeaderTab({
       <div className="rounded-xl border p-4">
         <div className="mb-3 text-sm font-semibold text-slate-700">Logos</div>
 
-        {/* STACKED: SLU on top, CICM below */}
         <div className="flex flex-col gap-6">
           <LogoBlock
             title="SLU Logo"
@@ -524,7 +656,7 @@ function HeaderTab({
               onChange={setCenter.setShowLine4}
             />
             {center.showLine4 && (
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <input
                   type="text"
                   className="border rounded-md px-3 py-2 w-full text-sm"
@@ -557,16 +689,8 @@ function HeaderTab({
               step={1}
               onChange={setCenter.setFontSize}
             />
-            <CheckboxField
-              label="Bold"
-              checked={!!center.bold}
-              onChange={setCenter.setBold}
-            />
-            <CheckboxField
-              label="Italic"
-              checked={!!center.italic}
-              onChange={setCenter.setItalic}
-            />
+            <CheckboxField label="Bold" checked={!!center.bold} onChange={setCenter.setBold} />
+            <CheckboxField label="Italic" checked={!!center.italic} onChange={setCenter.setItalic} />
           </div>
 
           <ColorField label="Text color" value={center.color} onChange={setCenter.setColor} />
@@ -636,17 +760,165 @@ function HeaderTab({
   );
 }
 
-function FooterTab({ disabled }) {
+function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
   return (
-    <div className={`rounded-xl border p-4 ${disabled ? "opacity-60 pointer-events-none" : ""}`}>
-      <div className="mb-2 text-sm font-semibold text-slate-700">Footer</div>
-      <p className="text-sm text-slate-600">
-        No footer content controls yet. Use the <span className="font-medium">Enable Footer</span> toggle and
-        set the <span className="font-medium">footer margin</span> above.
-      </p>
+    <div className={`space-y-6 ${disabled ? "opacity-60 pointer-events-none" : ""}`}>
+      {/* ---------------- PAGE NUMBER ---------------- */}
+      <div className="rounded-xl border p-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold text-slate-700">Page Number</div>
+          <Toggle
+            label="Enabled"
+            checked={!!pageNumber.enabled}
+            onChange={setPageNumber.setEnabled}
+            compact
+            disabled={disabled}
+          />
+        </div>
+
+        <div
+          className={`flex flex-col gap-3 ${
+            !pageNumber.enabled ? "opacity-60 pointer-events-none" : ""
+          }`}
+        >
+          <TextField
+            label="Pattern"
+            value={pageNumber.pattern}
+            onChange={setPageNumber.setPattern}
+            placeholder="Use {page} and {total}, e.g., {page} of {total}"
+          />
+
+          <SelectField
+            label="Alignment"
+            value={pageNumber.align}
+            onChange={setPageNumber.setAlign}
+            options={[
+              { label: "Left", value: "left" },
+              { label: "Center", value: "center" },
+              { label: "Right", value: "right" },
+            ]}
+          />
+
+          <SelectField
+            label="Font Family"
+            value={pageNumber.fontFamily}
+            onChange={setPageNumber.setFontFamily}
+            options={[
+              { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
+              { label: "Times New Roman", value: "\"Times New Roman\", Times, serif" },
+              { label: "Georgia", value: "Georgia, serif" },
+              { label: "Arial", value: "Arial, Helvetica, sans-serif" },
+              { label: "Courier New", value: "\"Courier New\", Courier, monospace" },
+            ]}
+          />
+
+          <NumberField
+            label="Font Size (px)"
+            value={pageNumber.fontSize}
+            min={8}
+            max={48}
+            step={1}
+            onChange={setPageNumber.setFontSize}
+          />
+
+          <CheckboxField
+            label="Bold"
+            checked={!!pageNumber.bold}
+            onChange={setPageNumber.setBold}
+          />
+
+          <CheckboxField
+            label="Italic"
+            checked={!!pageNumber.italic}
+            onChange={setPageNumber.setItalic}
+          />
+
+          <ColorField
+            label="Text Color"
+            value={pageNumber.color}
+            onChange={setPageNumber.setColor}
+          />
+
+          <Hint>
+            The renderer replaces tokens: {"{page}"} → current page, {"{total}"} → total pages.
+          </Hint>
+        </div>
+      </div>
+
+      {/* ---------------- FOOTER TEXT ---------------- */}
+      <div className="rounded-xl border p-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold text-slate-700">Footer Text</div>
+          <Toggle
+            label="Enabled"
+            checked={!!body.enabled}
+            onChange={setBody.setEnabled}
+            compact
+            disabled={disabled}
+          />
+        </div>
+
+        <div
+          className={`flex flex-col gap-3 ${
+            !body.enabled ? "opacity-60 pointer-events-none" : ""
+          }`}
+        >
+          <Label>Text</Label>
+          <textarea
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+            rows={3}
+            value={body.text ?? ""}
+            onChange={(e) => setBody.setText(e.target.value)}
+            placeholder="Any footer text (address, phone, confidentiality note, etc.)"
+          />
+
+          <SelectField
+            label="Alignment"
+            value={body.align}
+            onChange={setBody.setAlign}
+            options={[
+              { label: "Left", value: "left" },
+              { label: "Center", value: "center" },
+              { label: "Right", value: "right" },
+            ]}
+          />
+
+          <SelectField
+            label="Font Family"
+            value={body.fontFamily}
+            onChange={setBody.setFontFamily}
+            options={[
+              { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
+              { label: "Times New Roman", value: "\"Times New Roman\", Times, serif" },
+              { label: "Georgia", value: "Georgia, serif" },
+              { label: "Arial", value: "Arial, Helvetica, sans-serif" },
+              { label: "Courier New", value: "\"Courier New\", Courier, monospace" },
+            ]}
+          />
+
+          <NumberField
+            label="Font Size (px)"
+            value={body.fontSize}
+            min={8}
+            max={48}
+            step={1}
+            onChange={setBody.setFontSize}
+          />
+
+          <CheckboxField label="Bold" checked={!!body.bold} onChange={setBody.setBold} />
+          <CheckboxField label="Italic" checked={!!body.italic} onChange={setBody.setItalic} />
+
+          <ColorField label="Text Color" value={body.color} onChange={setBody.setColor} />
+
+          <Hint>
+            The footer text appears stacked under the page number when both are enabled.
+          </Hint>
+        </div>
+      </div>
     </div>
   );
 }
+
 
 /* --------------------- UI Blocks & Inputs --------------------- */
 
@@ -691,7 +963,7 @@ function LabeledRow({ label, children }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm font-medium text-gray-700 w-1/3">{label}</span>
-      <div className="flex-1">{children}</div>
+      <div className="flex-1 min-w-0">{children}</div>
     </div>
   );
 }
@@ -703,7 +975,7 @@ function Label({ children }) {
 
 function TextField({ label, value, onChange, placeholder }) {
   return (
-    <div>
+    <div className="min-w-0">
       {label ? <Label>{label}</Label> : null}
       <input
         type="text"
@@ -722,7 +994,7 @@ function NumberField({ label, value, onChange, min, max, step = 1, disabled }) {
     onChange(v === "" ? "" : Number(v));
   };
   return (
-    <div>
+    <div className="min-w-0">
       {label ? <Label>{label}</Label> : null}
       <input
         type="number"
@@ -741,7 +1013,7 @@ function NumberField({ label, value, onChange, min, max, step = 1, disabled }) {
 function SliderField({ label, value, onChange, min = 0, max = 100, step = 1, disabled }) {
   const clamp = (n) => Math.max(min, Math.min(max, Number(n)));
   return (
-    <div>
+    <div className="min-w-0">
       <div className="flex items-center justify-between">
         {label ? <Label>{label}</Label> : null}
         <span className="text-xs tabular-nums text-slate-500">{value}%</span>
@@ -764,9 +1036,10 @@ function SliderField({ label, value, onChange, min = 0, max = 100, step = 1, dis
 }
 
 function ColorField({ label, value, onChange, disabled }) {
-  const val = typeof value === "string" && /^#([0-9a-fA-F]{6})$/.test(value) ? value : (value || "#000000");
+  const val =
+    typeof value === "string" && /^#([0-9a-fA-F]{6})$/.test(value) ? value : value || "#000000";
   return (
-    <div>
+    <div className="min-w-0">
       {label ? <Label>{label}</Label> : null}
       <div className="flex items-center gap-3">
         <input
@@ -780,7 +1053,7 @@ function ColorField({ label, value, onChange, disabled }) {
           type="text"
           value={val}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-100"
+          className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-100 w-full"
           disabled={disabled}
         />
       </div>
@@ -824,7 +1097,7 @@ function CheckboxField({ label, checked, onChange, disabled }) {
 
 function SelectField({ label, value, onChange, options, disabled }) {
   return (
-    <div>
+    <div className="min-w-0">
       {label ? <Label>{label}</Label> : null}
       <select
         className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-100"
