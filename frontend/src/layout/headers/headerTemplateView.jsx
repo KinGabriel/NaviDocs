@@ -203,15 +203,22 @@ export default function HeaderTemplateView({
               const canLDCAct = isUndecided(ldc) && (requiresUDC ? udc?.isApproved === true : true);
               const canDCOAct = isUndecided(dco) && (ldc?.isApproved === true) && (requiresUDC ? udc?.isApproved === true : true);
 
-              // Allow DCO to override decisions on terminal states (Approved/Rejected)
-              const allowDCOOverride =
-                roleValue === "Document Control Officer" &&
-                (t?.status === "approved" || t?.status === "rejected");
+              // Determine if current role already acted (approve/endorse/reject/return)
+              const mySlot = roleValue === 'Unit Document Controller' ? udc
+                : roleValue === 'Lead Document Controller' ? ldc
+                : roleValue === 'Document Control Officer' ? dco
+                : {};
+              const alreadyActed = Boolean(
+                mySlot?.isApproved || mySlot?.approved_at ||
+                mySlot?.isRejected || mySlot?.rejected_at ||
+                mySlot?.isReturned || mySlot?.returned_at
+              );
 
               const showManage =
-                (roleValue === "Unit Document Controller" && canUDCAct) ||
+                ((roleValue === "Unit Document Controller" && canUDCAct) ||
                 (roleValue === "Lead Document Controller" && canLDCAct) ||
-                (roleValue === "Document Control Officer" && (canDCOAct || allowDCOOverride));
+                (roleValue === "Document Control Officer" && canDCOAct)) &&
+                !alreadyActed;
 
               return showManage ? (
                 <button

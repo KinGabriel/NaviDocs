@@ -166,6 +166,41 @@ export default function TemplatesView() {
     setAssignOpen(true);
   };
 
+  // Helpers to prevent overriding actions once taken
+  const normalizeRoleKeys = (roleName) => {
+    const norm = String(roleName || '')
+      .toLowerCase()
+      .replace(/[_\s]+/g, ' ')
+      .trim();
+    const key = norm.replace(/\s+/g, '_');
+    const variants = new Set([key]);
+    if (key.includes('document') && key.includes('officer')) {
+      variants.add('document_controller_officer');
+      variants.add('document_control_officer');
+    }
+    return Array.from(variants);
+  };
+
+  const getApprovalEntryForUser = (tpl, usr) => {
+    const approvals = tpl?.status_meta?.approvals || {};
+    const keys = normalizeRoleKeys(usr?.role?.name);
+    for (const k of keys) {
+      if (approvals && approvals[k]) return approvals[k];
+    }
+    return null;
+  };
+
+  const alreadyActed = (entry) => {
+    if (!entry) return false;
+    const st = String(entry?.status || '').toLowerCase();
+    return Boolean(
+      entry?.isApproved || entry?.approved_at ||
+      entry?.isRejected || entry?.rejected_at ||
+      entry?.isReturned || entry?.returned_at ||
+      st === 'approved' || st === 'rejected' || st === 'returned' || st === 'endorsed'
+    );
+  };
+
   /**
    * Approves a template
    * Updates local state optimistically, then syncs with server
@@ -176,6 +211,12 @@ export default function TemplatesView() {
    */
   const handleApprove = async (templateData, message) => {
     if (!templateData || !user) return;
+    // Disallow overriding past actions (approve/endorse once only)
+    const myEntry = getApprovalEntryForUser(templateData, user);
+    if (alreadyActed(myEntry)) {
+      setError("You've already taken an action on this template and cannot change it.");
+      return;
+    }
     
     // Optimistic update: immediately update local state
     setTemplate(prev => {
@@ -249,6 +290,12 @@ export default function TemplatesView() {
    */
   const handleReject = async (templateData, message) => {
     if (!templateData || !user) return;
+    // Disallow overriding past actions
+    const myEntry = getApprovalEntryForUser(templateData, user);
+    if (alreadyActed(myEntry)) {
+      setError("You've already taken an action on this template and cannot change it.");
+      return;
+    }
     
     // Validate rejection reason
     if (!message || !message.trim()) {
@@ -324,6 +371,12 @@ export default function TemplatesView() {
    */
   const handleReturn = async (templateData, message) => {
     if (!templateData || !user) return;
+    // Disallow overriding past actions
+    const myEntry = getApprovalEntryForUser(templateData, user);
+    if (alreadyActed(myEntry)) {
+      setError("You've already taken an action on this template and cannot change it.");
+      return;
+    }
     
     // Validate return reason
     if (!message || !message.trim()) {
@@ -756,27 +809,6 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                         {t.status === 'assigned' && (
                           <>Document controllers are still working on the template.</>
                         )}
-                        {t.status === 'pending' && (() => {
-                          const approvals = t.status_meta?.approvals || {};
-                          const udc = approvals?.unit_document_controller || {};
-                          const ldc = approvals?.lead_document_controller || {};
-                          const dco = approvals?.document_controller_officer || {};
-                          const role = user?.role?.name;
-
-                          const isUndecided = (entry = {}) =>
-                            entry?.isApproved !== true && entry?.isRejected !== true && entry?.isReturned !== true;
-
-                          if (role === 'Unit Document Controller' && isUndecided(udc)) {
-                            return <>Template is awaiting your endorsement.</>; 
-                          } 
-                          if (role === 'Lead Document Controller' && (udc?.isApproved === true || udc === undefined) && isUndecided(ldc)) {
-                            return <>Template is awaiting your approval.</>;
-                          }
-                          if (role === 'Document Control Officer' && (ldc?.isApproved === true || ldc === undefined) && isUndecided(dco)) {
-                            return <>Template is awaiting your approval.</>;
-                          }
-                          return <>Template is awaiting approval from assigned approvers.</>;
-                        })()}
                         {t.status === 'approved' && (
                           <>Template has been fully approved and is ready for publishing by the document control officer.</>
                         )}
@@ -789,21 +821,30 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                         {t.status === 'returned' && (
                           <>Template was returned for changes.</>
                         )}
-                  
+                        {t.status === 'pending' && (
+                          <>Template is awaiting your endorsement.</>
+                        )}
                         {/* Show when LDC has approved but DCO hasn't yet (derived from status_meta) */}
                         {(() => {
                           const approvals = t.status_meta?.approvals || {};
                           const ldc = approvals?.lead_document_controller || {};
                           const dco = approvals?.document_controller_officer || {};
+                          const udc = approvals?.unit_document_controller || {};
                           const ldcApproved = ldc?.isApproved === true || Boolean(ldc?.approved_at);
                           const dcoApproved = dco?.isApproved === true || Boolean(dco?.approved_at);
+                          const udcApproved = udc?.isApproved === true || Boolean(udc?.approved_at);
                           // Only show this interim message when the template isn't in a terminal/final state
                           const isFinal = ['approved', 'published', 'rejected', 'returned'].includes(String(t.status || '').toLowerCase());
                           if (ldcApproved && !dcoApproved && !isFinal) {
                             return (
                               <>Template has been approved by the Lead Document Controller and is awaiting Document Control  Officer approval.</>
                             );
-                          }else if (!ldcApproved && (t.status === 'endorsed' && !isFinal))   {
+                          }else if (!udcApproved && (t.status === 'endorsed' || t.status === 'assigned') && !isFinal)   {
+                            return (
+                              <>Template is awaiting for approval from the School Officials.</>
+                            );
+                          }
+                          else if (!ldcApproved && (t.status === 'endorsed' && !isFinal))   {
                             return (
                               <>Template has been endorsed and is awaiting for approvals.</>
                             );
