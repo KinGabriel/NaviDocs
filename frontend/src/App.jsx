@@ -20,6 +20,7 @@ import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/unauthorizedPage';
 import useUser from './hooks/useUser';
 import SecretaryDashboard from './pages/secretary/secretaryDashboard';
+import SecretaryWorkflow from './pages/secretary/secretaryWorkflow';
 import TemplatesView from './pages/templatesView';
 import DeanDashboard from './pages/dean/deanDashboard';
 import DeanStatistics from './pages/dean/deanStatistics';
@@ -38,6 +39,7 @@ import Storage from './pages/storage';
 import SelectTemplate from './pages/selectTemplate'; 
 import { Toaster } from 'react-hot-toast';
 import RecentlyDeleted from "./pages/recentlyDeleted";
+import SubmissionBin from './pages/submissionbinDetails';
 
 /** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {
@@ -193,6 +195,15 @@ function App() {
          }
        />
 
+        <Route
+         path="/secretary/document-workflow"
+         element={
+           <ProtectedRoute allowedRoles={["Secretary"]}>
+             <SecretaryWorkflow />
+           </ProtectedRoute>
+         }
+       />
+
   {/* Dean Module */}
        <Route
          path="/dean/dashboard"
@@ -313,6 +324,15 @@ function App() {
          element={
             <ProtectedRoute allowedRoles={["Secretary","Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
              <EditableFields />
+           </ProtectedRoute>
+         }
+       />
+
+        <Route
+         path="/submission-details/:id"
+         element={
+            <ProtectedRoute allowedRoles={["Secretary","Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+             <SubmissionBin />
            </ProtectedRoute>
          }
        />
