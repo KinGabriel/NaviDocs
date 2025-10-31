@@ -881,7 +881,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                     
                     {/* Assigned Members Section (Owner + Assigned) */}
                     <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
-                      Assigned Members
+                      Submitted By: 
                     </h3>
                     
                     <ul className="mb-6">
@@ -904,10 +904,30 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                     
                     <ul className="mb-6">
                       {approvalsArr.length > 0 ? (
-                        approvalsArr.map((approver, idx) => {
+                        (() => {
+                          // Determine if we should hide the UDC row when both UDC and LDC are still pending
+                          const normKey = (r) => String((r?.name || r) || '')
+                            .toLowerCase()
+                            .replace(/\s+/g, '_');
+                          const isPending = (a) => !a.isApproved && !a.isRejected && !a.isReturned;
+                          const udc = approvalsArr.find(a => normKey(a.role) === 'unit_document_controller');
+                          const ldc = approvalsArr.find(a => normKey(a.role) === 'lead_document_controller');
+                          const dco = approvalsArr.find(a => normKey(a.role) === 'document_controller_officer');
+                          // Hide UDC if:
+                          // if udc is pending but receive by ldc or dco
+                          const hideUDC = Boolean(
+                            (udc && ldc && isPending(udc) && isPending(ldc)) ||
+                            (udc && dco && isPending(udc) && isPending(dco))
+                          );
+
+                          return approvalsArr.map((approver, idx) => {
                           let statusBadge;
                           const approverRoleName = (approver.role?.name || approver.role || '').toString();
-                          const isUDC = approverRoleName === 'Unit Document Controller';
+                          const approverRoleKey = normKey(approver.role);
+                          const isUDC = approverRoleKey === 'unit_document_controller';
+
+                          // Hide UDC in the list when both UDC and LDC are pending (per request)
+                          if (hideUDC && isUDC) return null;
                           if (approver.isRejected) {
                             statusBadge = (
                               <span className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-medium">
@@ -945,7 +965,8 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                               </div>
                             </li>
                           );
-                        })
+                          });
+                        })()
                       ) : (
                         <li className="text-sm text-gray-400">No approvers assigned.</li>
                       )}
