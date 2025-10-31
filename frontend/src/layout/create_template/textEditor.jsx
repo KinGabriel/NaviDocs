@@ -296,23 +296,15 @@ export default function TextEditor({
 
     const { marginLeftPx, marginRightPx } = dimsRef.current;
 
-    // Align band to the text area: use true outer margins + width calc
     bandEl.style.display = "flex";
     bandEl.style.alignItems = "center";
     bandEl.style.justifyContent = "space-between";
     bandEl.style.gap = "16px";
+    bandEl.style.paddingTop = "0";
+    bandEl.style.paddingBottom = "0";
     bandEl.style.boxSizing = "border-box";
     bandEl.style.position = "relative";
     bandEl.style.background = "white";
-
-    // No inner padding (so content edge aligns with body text area)
-    bandEl.style.paddingLeft = "0";
-    bandEl.style.paddingRight = "0";
-
-    // Apply margins to match page content area, and adjust width accordingly
-    bandEl.style.marginLeft = px(marginLeftPx);
-    bandEl.style.marginRight = px(marginRightPx);
-    bandEl.style.width = `calc(100% - ${px(marginLeftPx + marginRightPx)})`;
 
     let left =
       bandEl.querySelector(":scope > .rm-page-header-left") ||
@@ -401,7 +393,7 @@ export default function TextEditor({
       </div>
     `;
 
-    /* RIGHT: CICM logo + stamp table */
+    /* RIGHT: CICM logo (near center) + stamp table */
     const rightRow = document.createElement("div");
     rightRow.style.display = "flex";
     rightRow.style.alignItems = "center";
@@ -414,7 +406,7 @@ export default function TextEditor({
       cicmImg.style.height = px(cfg.logos.cicm.sizePx || 52);
       cicmImg.style.objectFit = "contain";
       cicmImg.style.pointerEvents = "none";
-      rightRow.appendChild(cicmImg);
+      rightRow.appendChild(cicmImg); // sits to the right of the center text
     }
 
     const stamp = document.createElement("table");
@@ -462,21 +454,11 @@ export default function TextEditor({
       footer.innerHTML = "";
       return;
     }
-
-    // Align footer to text area using true margins + calc width
-    const { marginLeftPx, marginRightPx } = dimsRef.current;
     footer.style.display = "flex";
     footer.style.justifyContent = "center";
     footer.style.alignItems = "center";
-    footer.style.boxSizing = "border-box";
-    footer.style.background = "white";
-
-    footer.style.paddingLeft = "0";
-    footer.style.paddingRight = "0";
-    footer.style.marginLeft = px(marginLeftPx);
-    footer.style.marginRight = px(marginRightPx);
-    footer.style.width = `calc(100% - ${px(marginLeftPx + marginRightPx)})`;
-
+    footer.style.paddingLeft = px(dimsRef.current.marginLeftPx);
+    footer.style.paddingRight = px(dimsRef.current.marginRightPx);
     footer.innerHTML = `<div style="font-family:Arial;font-size:12px;">Page ${pageNo} of ${total}</div>`;
 
     autoFitBand(editor, footer, "footer", getFooterBasePx(getCfg(headerConfig)));
