@@ -19,6 +19,7 @@ export function formatDateTime(dateValue, options) {
     ...options
   });
 }
+
 /**
  * Format a date value to a readable time string (e.g., 2:30 PM)
  * @param {string|Date} dateValue
@@ -76,13 +77,28 @@ export function toISODate(val) {
 }
 
 /**
+ * Convert status string to Pascal Case for display
+ * Examples: "active" -> "Active", "overdue" -> "Overdue", "pending_review" -> "Pending Review"
+ * @param {string} status
+ * @returns {string}
+ */
+function toPascalCase(status) {
+  return status
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+/**
  * StatusBadge Component
  *
  * Renders a colored badge with a dot and label for various status types.
  * Supports:
- *  - Document/Template Statuses: Approved, Pending, Late, Returned, Ongoing, Published, Rejected
+ *  - Document/Template Statuses: Approved, Submitted, Pending, Late, Returned, Ongoing, Published, Rejected, Draft
+ *  - Submission Statuses: Active, Completed, Overdue
  *  - Priority/Delay Statuses: Severe Delay, Significant Delay, Moderate Delay, Minor Delay
  *  - Deadline Statuses: Overdue, Due Today, Due This Week, Upcoming, Future Deadline
+ *  - Review Statuses: Pending Review
  *
  * @param {Object} props
  * @param {string} props.type - The status type to display
@@ -102,6 +118,12 @@ export function StatusBadge({ type }) {
     draft: "bg-gray-50 text-gray-700 border border-gray-200",
     published: "bg-blue-50 text-blue-700 border border-blue-200",
     pending_review: "bg-purple-50 text-purple-700 border border-purple-200",
+    ongoing: "bg-cyan-50 text-cyan-700 border border-cyan-200",
+
+    // Submission statuses
+    active: "bg-blue-50 text-blue-700 border border-blue-200", // The submission has been published/sent out, Faculty members can now submit their documents
+    completed: "bg-green-50 text-green-700 border border-green-200",
+    overdue: "bg-red-50 text-red-700 border border-red-200",
 
     // Priority/Delay statuses
     severe_delay: "bg-red-50 text-red-700 border border-red-200",
@@ -110,7 +132,6 @@ export function StatusBadge({ type }) {
     minor_delay: "bg-blue-50 text-blue-700 border border-blue-200",
 
     // Deadline statuses
-    overdue: "bg-red-50 text-red-700 border border-red-200",
     due_today: "bg-orange-50 text-orange-700 border border-orange-200",
     due_this_week: "bg-yellow-50 text-yellow-700 border border-yellow-200",
     upcoming: "bg-blue-50 text-blue-700 border border-blue-200",
@@ -128,6 +149,12 @@ export function StatusBadge({ type }) {
     draft: "bg-gray-500",
     published: "bg-blue-500",
     pending_review: "bg-purple-500",
+    ongoing: "bg-cyan-500",
+
+    // Submission statuses
+    active: "bg-blue-500",
+    completed: "bg-green-500",
+    overdue: "bg-red-500",
 
     // Priority/Delay statuses
     severe_delay: "bg-red-500",
@@ -154,7 +181,7 @@ export function StatusBadge({ type }) {
           dotColors[status] || "bg-gray-500"
         }`}
       />
-      {type}
+      {toPascalCase(status)}
     </span>
   );
 }
