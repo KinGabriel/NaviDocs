@@ -7,21 +7,21 @@ import Dropdown from "../../components/dropdowns/dropdown";
 import useUser from "../../hooks/useUser";
 
 const mockLogs = [
-  { id: 1, name: "johndoe@gmail.com", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
-  { id: 2, name: "hello@gmail.com", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
-  { id: 3, name: "maria@gmail.com", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
-    { id: 4, name: "john@gmail.com", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
-  { id: 5, name: "doe@gmail.com", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
-  { id: 6, name: "smith@gmail.com", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
-    { id: 7, name: "low@gmail.com", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
-  { id: 8, name: "test@gmail.com", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
-  { id: 9, name: "name@gmail.com", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
-    { id: 10, name: "hi@gmail.com", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
-  { id: 11, name: "pety@gmail.com", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
-  { id: 12, name: "betty@gmail.com", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
-    { id: 13, name: "l@gmail.com", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
-  { id: 14, name: "ss@gmail.com", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
-  { id: 15, name: "sf@gmail.com", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
+  { id: 1, name: "johndoe@gmail.com", role: "Lead Document Controller", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
+  { id: 2, name: "hello@gmail.com", role: "Unit Document Controller", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
+  { id: 3, name: "maria@gmail.com", role: "Document Controller Officer", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
+  { id: 4, name: "john@gmail.com", role: "Lead Document Controller", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
+  { id: 5, name: "doe@gmail.com", role: "Unit Document Controller", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
+  { id: 6, name: "smith@gmail.com", role: "Document Controller Officer", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
+  { id: 7, name: "low@gmail.com", role: "Lead Document Controller", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
+  { id: 8, name: "test@gmail.com", role: "Unit Document Controller", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
+  { id: 9, name: "name@gmail.com", role: "Document Controller Officer", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
+  { id: 10, name: "hi@gmail.com", role: "Lead Document Controller", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
+  { id: 11, name: "pety@gmail.com", role: "Unit Document Controller", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
+  { id: 12, name: "betty@gmail.com", role: "Document Controller Officer", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
+  { id: 13, name: "l@gmail.com", role: "Lead Document Controller", ip: "192.168.0.21", loginAt: "2025-10-28 09:10 AM", logoutAt: "2025-10-28 10:05 AM" },
+  { id: 14, name: "ss@gmail.com", role: "Unit Document Controller", ip: "172.16.15.42", loginAt: "2025-10-28 08:50 AM", logoutAt: "2025-10-28 09:30 AM" },
+  { id: 15, name: "sf@gmail.com", role: "Document Controller Officer", ip: "203.84.119.88", loginAt: "2025-10-27 04:15 PM", logoutAt: "—" },
 ];
 
 export default function AdminLoginActivity() {
@@ -30,12 +30,16 @@ export default function AdminLoginActivity() {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
-  const [selectedDate, setSelectedDate] = useState(""); // Calendar filter
+  const [selectedDate, setSelectedDate] = useState("");
   const itemsPerPage = 10;
   const [currentPage, setCurrentPage] = useState(1);
 
   const statusOptions = ["All Status", "Active", "Logged Out"];
   const [statusFilter, setStatusFilter] = useState("All Status");
+
+  const roleOptions = ["All Roles", "Lead Document Controller", "Unit Document Controller", "Document Controller Officer"];
+  const [roleFilter, setRoleFilter] = useState("All Roles");
+
 
   useEffect(() => {
     setTimeout(() => {
@@ -47,25 +51,31 @@ export default function AdminLoginActivity() {
   // Search filter
   const searchedLogs = search
     ? logs.filter(
-        (log) =>
-          log.name.toLowerCase().includes(search.toLowerCase()) ||
-          log.ip.toLowerCase().includes(search.toLowerCase()) ||
-          log.loginAt.toLowerCase().includes(search.toLowerCase())
-      )
+      (log) =>
+        log.name.toLowerCase().includes(search.toLowerCase()) ||
+        log.ip.toLowerCase().includes(search.toLowerCase()) ||
+        log.loginAt.toLowerCase().includes(search.toLowerCase())
+    )
     : logs;
 
   // Status filter
-  const filteredLogs = searchedLogs.filter((log) => {
-    if (statusFilter === "Active") return log.logoutAt === "—";
-    if (statusFilter === "Logged Out") return log.logoutAt !== "—";
-    return true;
-  });
+  const filteredLogs = searchedLogs
+    .filter((log) => {
+      if (statusFilter === "Active") return log.logoutAt === "—";
+      if (statusFilter === "Logged Out") return log.logoutAt !== "—";
+      return true;
+    })
+    .filter((log) => {
+      if (roleFilter === "All Roles") return true;
+      return log.role === roleFilter;
+    });
+
 
   // Date filter
   const dateFilteredLogs = selectedDate
     ? filteredLogs.filter((log) =>
-        log.loginAt.startsWith(selectedDate)
-      )
+      log.loginAt.startsWith(selectedDate)
+    )
     : filteredLogs;
 
   const totalPages = Math.ceil(dateFilteredLogs.length / itemsPerPage);
@@ -89,7 +99,7 @@ export default function AdminLoginActivity() {
             </h2>
             <div className="w-25 h-1 bg-yellow-500 mb-8"></div>
 
-            {/* Filter, Calendar, Search */}
+            {/* Filter, Calendar, Search, Role */}
             <div className="flex items-center gap-2 mb-4">
               <Dropdown
                 value={statusFilter}
@@ -101,11 +111,21 @@ export default function AdminLoginActivity() {
                 width="w-52"
               />
 
+              <Dropdown
+                value={roleFilter}
+                onChange={(value) => {
+                  setRoleFilter(value);
+                  setCurrentPage(1);
+                }}
+                options={roleOptions}
+                width="w-64"
+              />
+
               {/* Calendar date filter */}
               <input
                 type="date"
                 className="h-10 w-36 border border-gray-300 rounded-lg px-3 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-blue-500"
+               focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={selectedDate}
                 onChange={(e) => {
                   setSelectedDate(e.target.value);
@@ -126,6 +146,7 @@ export default function AdminLoginActivity() {
               </div>
             </div>
 
+
             {loading ? (
               <Loader message="Fetching Activity Logs..." />
             ) : (
@@ -135,6 +156,7 @@ export default function AdminLoginActivity() {
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Email Address</th>
+                        <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Role</th>
                         <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">IP Address</th>
                         <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Login Time</th>
                         <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Logout Time</th>
@@ -146,6 +168,7 @@ export default function AdminLoginActivity() {
                         currentLogs.map((log) => (
                           <tr key={log.id} className="hover:bg-blue-50 transition-colors">
                             <td className="px-6 py-4 text-gray-900 font-medium">{log.name}</td>
+                            <td className="px-6 py-4 text-gray-700">{log.role}</td>
                             <td className="px-6 py-4 text-gray-700">{log.ip}</td>
                             <td className="px-6 py-4 text-gray-700">{log.loginAt}</td>
                             <td className="px-6 py-4 text-gray-700">
@@ -157,12 +180,13 @@ export default function AdminLoginActivity() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="4" className="text-center py-4 text-gray-500">
+                          <td colSpan="5" className="text-center py-4 text-gray-500">
                             No results found
                           </td>
                         </tr>
                       )}
                     </tbody>
+
                   </table>
                 </div>
 
@@ -179,11 +203,10 @@ export default function AdminLoginActivity() {
                     <button
                       key={i}
                       onClick={() => setCurrentPage(i + 1)}
-                      className={`px-3 py-1 rounded border ${
-                        currentPage === i + 1
-                          ? "bg-blue-600 text-white"
-                          : "bg-white text-gray-700 hover:bg-gray-100"
-                      }`}
+                      className={`px-3 py-1 rounded border ${currentPage === i + 1
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-100"
+                        }`}
                     >
                       {i + 1}
                     </button>
