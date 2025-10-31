@@ -21,7 +21,7 @@ import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import DateFormatPanel from "../../layout/create_template/dateformatPanel";
 import FieldsPanel from "../../layout/create_template/fieldsPanel";
-import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel"; 
+import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
 
 // Sidebar
 import TemplateSidebar from "../../layout/sidebars/templateSidebar";
@@ -57,10 +57,25 @@ function useHeaderHeight() {
   return h;
 }
 
+// Deep merge utility (keeps nested structure like footer.pageNumber/body)
+function deepMerge(base, over) {
+  if (!over || typeof over !== "object") return base;
+  const out = Array.isArray(base) ? [...base] : { ...base };
+  for (const k of Object.keys(over)) {
+    const bv = base?.[k];
+    const ov = over[k];
+    out[k] =
+      bv && typeof bv === "object" && !Array.isArray(bv) && ov && typeof ov === "object" && !Array.isArray(ov)
+        ? deepMerge(bv, ov)
+        : ov;
+  }
+  return out;
+}
+
 // Sensible defaults for header/footer so something shows on first render
 const DEFAULT_HEADER_CONFIG = {
   headerEnabled: true,
-  footerEnabled: false,
+  footerEnabled: true, // enable so users see it immediately (you can toggle off in panel)
   headerMarginIn: 0.5, // reserved band ~0.5in
   footerMarginIn: 0.5,
   assets: {
@@ -88,7 +103,41 @@ const DEFAULT_HEADER_CONFIG = {
     },
   },
   documentStamp: { docCode: "", revisionNo: "", effectivity: "" },
+
+  // NEW: Footer matches headerfooterPanel.jsx structure
+  footer: {
+    pageNumber: {
+      enabled: true,
+      pattern: "{page} of {total}",
+      align: "center", // left | center | right
+      fontFamily: "Inter, system-ui, sans-serif",
+      fontSize: 12,
+      bold: false,
+      italic: false,
+      color: "#000000",
+    },
+    body: {
+      enabled: false,
+      text: "",
+      align: "left", // left | center | right
+      fontFamily: "Inter, system-ui, sans-serif",
+      fontSize: 12,
+      bold: false,
+      italic: false,
+      color: "#000000",
+    },
+  },
 };
+
+// Ensure any loaded config has the full structure (esp. footer block)
+function withHeaderDefaults(cfg) {
+  const merged = deepMerge(DEFAULT_HEADER_CONFIG, cfg || {});
+  // guard: make sure footer subtree exists even if cfg.footer was null/undefined
+  if (!merged.footer) merged.footer = DEFAULT_HEADER_CONFIG.footer;
+  if (!merged.footer.pageNumber) merged.footer.pageNumber = DEFAULT_HEADER_CONFIG.footer.pageNumber;
+  if (!merged.footer.body) merged.footer.body = DEFAULT_HEADER_CONFIG.footer.body;
+  return merged;
+}
 
 // --- Component ---------------------------------------------------------------
 export default function DocumentControllerCreateTemplate() {
@@ -175,10 +224,12 @@ export default function DocumentControllerCreateTemplate() {
       if (normalized.dateFormat) setDateFormat(normalized.dateFormat);
       if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
 
-      // Bring in header/footer config (fallback to our defaults so bands render)
-      const loadedHeader = normalized.headerConfig && Object.keys(normalized.headerConfig).length
-        ? normalized.headerConfig
-        : DEFAULT_HEADER_CONFIG;
+      // Bring in header/footer config with DEFAULTS merged so bands render
+      const loadedHeader = withHeaderDefaults(
+        normalized.headerConfig && Object.keys(normalized.headerConfig).length
+          ? normalized.headerConfig
+          : DEFAULT_HEADER_CONFIG
+      );
       setHeaderConfig(loadedHeader);
 
       // Top-level doc stamp fallbacks
@@ -350,7 +401,7 @@ export default function DocumentControllerCreateTemplate() {
       // Backward compatibility: if approverIds are provided, attempt to parse
       if (Array.isArray(approverIds)) {
         [deanId, secretaryId] = approverIds;
-      } else if (approverIds && typeof approverIds === 'object') {
+      } else if (approverIds && typeof approverIds === "object") {
         deanId = approverIds.dean || approverIds.deanId;
         secretaryId = approverIds.secretary || approverIds.secretaryId;
       }
@@ -458,13 +509,14 @@ export default function DocumentControllerCreateTemplate() {
               setRevisionNo(topRevisionNo);
               setEffectivity(topEffectivity);
 
-              // Store remaining panel config, without nested mirrors
+              // Store remaining panel config, merged with defaults to keep full shape
               const copy = { ...val };
               delete copy.documentStamp;
               delete copy.document_code;
               delete copy.revision_no;
               delete copy.effectivity;
-              setHeaderConfig(copy);
+
+              setHeaderConfig(withHeaderDefaults(copy));
             }}
           />
         );
@@ -535,7 +587,7 @@ export default function DocumentControllerCreateTemplate() {
                   pageSetup={pageSetup}
                   onEditorReady={handleEditorReady}
                   onContentChange={setTemplateContent}
-                  headerConfig={headerConfig}   
+                  headerConfig={headerConfig}
                   templateStatus={status}
                   documentCode={documentCode}
                   revisionNo={revisionNo}
