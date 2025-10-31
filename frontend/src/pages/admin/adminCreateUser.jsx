@@ -135,7 +135,7 @@ export default function CreateUser() {
       <div className="flex flex-1">
         <Sidebar user={user} />
         <main className="flex-1 p-10">
-          <div className="bg-white rounded-xl shadow-lg p-10">
+          <div className="bg-white rounded-xl shadow-lg p-10 h-230">
             <h2 className="text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">Create New User</h2>
             <div className="w-25 h-1 bg-yellow-500 mb-8"></div>
             

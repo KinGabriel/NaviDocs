@@ -4,6 +4,7 @@ import Login from './pages/login';
 import AdminDashboard from './pages/admin/adminDashboard';
 import AdminAccounts from './pages/admin/adminAccounts';
 import CreateUser from './pages/admin/adminCreateUser';
+import AdminLoginActivity from './pages/admin/adminLoginActivity';
 import AccountSettings from "./pages/accountSettings";
 import Documents from "./pages/documents";
 import PublishedTemplateView from "./pages/publishedTemplateView";
@@ -112,6 +113,14 @@ function App() {
          element={
            <ProtectedRoute allowedRoles={["Admin"]}>
              <CreateUser />
+           </ProtectedRoute>
+         }
+       />
+       <Route
+         path="/admin/login-activity"
+         element={
+           <ProtectedRoute allowedRoles={["Admin"]}>
+             <AdminLoginActivity />
            </ProtectedRoute>
          }
        />
