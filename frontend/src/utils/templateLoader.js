@@ -55,6 +55,18 @@ export async function fetchAndNormalizeTemplate(id) {
       ...approvalsObj.lead_document_controller
     });
   }
+  // Include Unit Document Controller when present
+  if (approvalsObj.unit_document_controller && approvalsObj.unit_document_controller.assigned_to) {
+    approversArr.push({
+      _id: approvalsObj.unit_document_controller.assigned_to,
+      id: approvalsObj.unit_document_controller.assigned_to,
+      name: approvalsObj.unit_document_controller.assigned_to_name || 'Unit Document Controller',
+      firstname: approvalsObj.unit_document_controller.assigned_to_firstname,
+      lastname: approvalsObj.unit_document_controller.assigned_to_lastname,
+      role: { name: 'Unit Document Controller' },
+      ...approvalsObj.unit_document_controller
+    });
+  }
 
 
   const templateContent = (tpl.pages_json && tpl.pages_json.length > 0) ? tpl.pages_json[0] : DEFAULT_CONTENT;

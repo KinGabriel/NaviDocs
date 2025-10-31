@@ -517,8 +517,12 @@ const handleUpdateISOCode = async ({ iso_code }) => {
   // Use template data or fallback to placeholder for loading state
   const t = template || { status: 'loading' };
 
-  // Extract assigned members names
-  const assignedNames = t.assignedNames || [];
+  // Extract owner and assigned members; display should include owner + assigned
+  const ownerName = t.createdByName || t.created_by_name || null;
+  const assignedNames = Array.isArray(t.assignedNames) ? t.assignedNames : [];
+  const assignedDisplay = Array.from(
+    new Set([ownerName, ...assignedNames].filter(Boolean))
+  );
   
   // Format deadline for display
   const deadline = t.deadline ? formatDateTime(t.deadline) : null;
@@ -531,6 +535,22 @@ const handleUpdateISOCode = async ({ iso_code }) => {
    * Handles both object and array structures from API
    */
   let approvalsArr = [];
+
+  // Helper to convert internal role keys to display labels
+  const roleKeyToDisplay = (roleLike) => {
+    const raw = (typeof roleLike === 'string') ? roleLike : (roleLike?.name || '');
+    const key = String(raw).toLowerCase().replace(/[\s]+/g, '_');
+    switch (key) {
+      case 'unit_document_controller':
+        return 'Unit Document Controller';
+      case 'lead_document_controller':
+        return 'Lead Document Controller';
+      case 'document_controller_officer':
+        return 'Document Control Officer';
+      default:
+        return raw || 'Approver';
+    }
+  };
   
   if (t.approvals && typeof t.approvals === 'object' && !Array.isArray(t.approvals)) {
     approvalsArr = Object.entries(t.approvals).map(([role, appr]) => ({
@@ -748,7 +768,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
 
                           if (role === 'Unit Document Controller' && isUndecided(udc)) {
                             return <>Template is awaiting your endorsement.</>; 
-                          }
+                          } 
                           if (role === 'Lead Document Controller' && (udc?.isApproved === true || udc === undefined) && isUndecided(ldc)) {
                             return <>Template is awaiting your approval.</>;
                           }
@@ -758,7 +778,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                           return <>Template is awaiting approval from assigned approvers.</>;
                         })()}
                         {t.status === 'approved' && (
-                          <>Template has been fully approved and is ready for publishing by the document controller.</>
+                          <>Template has been fully approved and is ready for publishing by the document control officer.</>
                         )}
                         {t.status === 'published' && (
                           <>Template is published and available for use.</>
@@ -769,40 +789,63 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                         {t.status === 'returned' && (
                           <>Template was returned for changes.</>
                         )}
+                  
+                        {/* Show when LDC has approved but DCO hasn't yet (derived from status_meta) */}
+                        {(() => {
+                          const approvals = t.status_meta?.approvals || {};
+                          const ldc = approvals?.lead_document_controller || {};
+                          const dco = approvals?.document_controller_officer || {};
+                          const ldcApproved = ldc?.isApproved === true || Boolean(ldc?.approved_at);
+                          const dcoApproved = dco?.isApproved === true || Boolean(dco?.approved_at);
+                          // Only show this interim message when the template isn't in a terminal/final state
+                          const isFinal = ['approved', 'published', 'rejected', 'returned'].includes(String(t.status || '').toLowerCase());
+                          if (ldcApproved && !dcoApproved && !isFinal) {
+                            return (
+                              <>Template has been approved by the Lead Document Controller and is awaiting Document Control  Officer approval.</>
+                            );
+                          }else if (!ldcApproved && (t.status === 'endorsed' && !isFinal))   {
+                            return (
+                              <>Template has been endorsed and is awaiting for approvals.</>
+                            );
+                          }
+                          return null;
+                        })()}
+                
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* DocumentDetailsCard - editable for Dean, non-editable for other modules */}
-                {template && (
+                {/* DocumentDetailsCard - show only when status is approved or published; hide edit pencil for now */}
+                {template && (template.status === 'approved' || template.status === 'published') && (
                   <DocumentDetailsCard 
                     template={template}
                     onUpdateDocumentDetails={handleUpdateDocumentDetails}
                     onUpdateISOCode={handleUpdateISOCode}
-                    canEdit={user?.role?.name === "Document Control Officer"}
+                    canEdit={false}
                   />
                 )}
                 
                 {/* Details Panel */}
                 <div className="bg-white border rounded-md shadow-sm">
                   <div className="p-5">
-                    {/* Deadline Section */}
+                    {/* Deadline Section (hidden for now)
                     <div className="mb-4">
                       <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
                         Deadline
                       </h3>
                       <div className="text-base text-gray-900">{deadline || "No deadline set"}</div>
                     </div>
+                    */}
                     
-                    {/* Assigned Members Section */}
+                    {/* Assigned Members Section (Owner + Assigned) */}
                     <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
                       Assigned Members
                     </h3>
                     
                     <ul className="mb-6">
-                      {assignedNames.length > 0 ? (
-                        assignedNames.map((name, idx) => (
+                      {assignedDisplay.length > 0 ? (
+                        assignedDisplay.map((name, idx) => (
                           <li key={idx} className="text-sm text-gray-800 mb-1 flex items-center">
                             <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2" aria-hidden="true"></span>
                             {name}
@@ -855,7 +898,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                               <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0" aria-hidden="true"></span>
                               <div className="flex flex-col">
                                 <span className="font-medium text-gray-800 flex items-center flex-wrap">
-                                  {approver.name} ({approver.role?.name || approver.role})
+                                  {(approver.name && String(approver.name).trim()) ? approver.name : 'To Be Reviewed'} ({roleKeyToDisplay(approver.role)})
                                   {statusBadge}
                                 </span>
                               </div>

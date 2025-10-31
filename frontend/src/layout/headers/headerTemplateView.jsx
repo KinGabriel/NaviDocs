@@ -174,8 +174,8 @@ export default function HeaderTemplateView({
 
           {/* Action buttons */}
           <div className="flex items-center gap-3">
-            {/* Assign Members btn (approvers) */}
-            {(["Unit Document Controller","Lead Document Controller","Document Control Officer"].includes(roleValue)) && (
+            {/* Assign Members btn (hidden for now)
+            {["Unit Document Controller","Lead Document Controller","Document Control Officer"].includes(roleValue) && (
               <button
                 onClick={handleAssign}
                 className="inline-flex drop-shadow-lg items-center gap-2 px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
@@ -184,6 +184,7 @@ export default function HeaderTemplateView({
                 <span className="text-sm font-semibold">Assign Members</span>
               </button>
             )}
+            */}
 
             {/* Approve/Manage button (appears only when it's this role's turn) */}
             {(() => {
@@ -260,6 +261,7 @@ export default function HeaderTemplateView({
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden backdrop-blur-sm">
                     <div className="py-2">
+                      {/* Update Deadline action (hidden for now)
                       <button
                         onClick={() => {
                           setDeadlineModalOpen(true);
@@ -275,6 +277,7 @@ export default function HeaderTemplateView({
                           <div className="text-xs text-gray-500">Modify template due date</div>
                         </div>
                       </button>
+                      */}
                       
                       <button
                         onClick={() => {
@@ -326,7 +329,7 @@ export default function HeaderTemplateView({
         />
       )}
 
-      {/* Update Deadline Modal */}
+      {/* Update Deadline Modal (hidden for now)
       {isDeadlineModalOpen && (
         <UpdateDeadlineModal
           currentDeadline={template?.deadline}
@@ -336,6 +339,7 @@ export default function HeaderTemplateView({
           onUpdate={onUpdateDeadline}
         />
       )}
+      */}
 
       {/* Add Instructions Modal */}
       {isInstructionsModalOpen && (
