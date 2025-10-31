@@ -285,8 +285,11 @@ export default function PublishedTemplateView() {
     }
   };
 
-  const normalizedLogoConfig = (() => {
-    const src = d?.logoConfig || d?.headerFooter || {};
+  const normalizedHeaderConfig = (() => {
+    const src = d?.headerConfig || d?.logoConfig || d?.headerFooter || {};
+    const docCode = d?.document_code || d?.docCode || d?.documentCode || src?.documentStamp?.docCode || src?.document_code || src?.docCode || "";
+    const revisionNo = (d?.revision_no ?? d?.revisionNo ?? src?.documentStamp?.revisionNo ?? src?.revision_no ?? src?.revisionNo ?? 0);
+    const effectivity = d?.effectivity || d?.effectivity_date || d?.effectivity_date_iso || src?.documentStamp?.effectivity || src?.effectivity || "";
     return {
       ...src,
       showSLULogo: src.showSLULogo ?? src.showSLU ?? !!src.assets?.slu,
@@ -296,6 +299,16 @@ export default function PublishedTemplateView() {
         cicm: src?.assets?.cicm || src?.cicm || "/assets/images/cicm-logo.png",
       },
       center: src.center || {},
+      // Ensure TextEditor can render stamp values via getCfg()
+      documentStamp: {
+        docCode,
+        revisionNo,
+        effectivity,
+      },
+      // Back-compat for getCfg() fallbacks
+      document_code: docCode,
+      revision_no: revisionNo,
+      effectivity,
     };
   })();
 
@@ -410,7 +423,7 @@ export default function PublishedTemplateView() {
                       editor && editor.setEditable(false)
                     }
                     mode="template"
-                    logoConfig={normalizedLogoConfig}
+                    headerConfig={normalizedHeaderConfig}
                     templateStatus={d?.status || "published"}
                     documentCode={
                       d?.document_code || d?.docCode || d?.documentCode

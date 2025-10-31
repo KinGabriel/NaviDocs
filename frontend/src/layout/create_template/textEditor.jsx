@@ -16,6 +16,7 @@ import { Extension } from "@tiptap/core";
 
 import RichImage from "../../extensions/image/ImageNode";
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
+import { formatDate } from "../../utils/formatters.jsx";
 
 /* ---------------------------- TextStyle extra attrs ---------------------------- */
 const TextStyleAttrs = Extension.create({
@@ -84,6 +85,14 @@ const { TablePlus, TableRowPlus, TableCellPlus, TableHeaderPlus } = PaginationTa
 const getCfg = (cfg) => {
   const center = cfg?.header?.centerText || cfg?.center || {};
   const logos = cfg?.header?.logos || {};
+  const normDate = (v) => {
+    try {
+      if (v && typeof v === "object" && "$date" in v) return formatDate(v.$date);
+      return v ? formatDate(v) : "";
+    } catch {
+      return v ?? "";
+    }
+  };
   return {
     headerEnabled: !!cfg?.headerEnabled,
     footerEnabled: !!cfg?.footerEnabled,
@@ -115,9 +124,23 @@ const getCfg = (cfg) => {
       },
     },
     stamp: {
-      docCode: cfg?.documentStamp?.docCode ?? cfg?.document_code ?? "",
-      revisionNo: cfg?.documentStamp?.revisionNo ?? cfg?.revision_no ?? "",
-      effectivity: cfg?.documentStamp?.effectivity ?? cfg?.effectivity ?? "",
+      // accept both camelCase and snake_case keys from either documentStamp or top-level
+      docCode:
+        cfg?.documentStamp?.docCode ??
+        cfg?.documentStamp?.document_code ??
+        cfg?.document_code ??
+        "",
+      revisionNo:
+        cfg?.documentStamp?.revisionNo ??
+        cfg?.documentStamp?.revision_no ??
+        cfg?.revision_no ??
+        "",
+      effectivity: normDate(
+        cfg?.documentStamp?.effectivity ??
+          cfg?.documentStamp?.effectivity_date ??
+          cfg?.effectivity ??
+          ""
+      ),
     },
   };
 };

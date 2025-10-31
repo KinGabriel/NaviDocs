@@ -23,6 +23,12 @@ export const createTemplate = async (req, res) => {
       templateData.created_by =  req.user?.id;
     }
 
+    // Normalize header config naming: accept logoConfig but store headerConfig
+    if (templateData.logoConfig && !templateData.headerConfig) {
+      templateData.headerConfig = templateData.logoConfig;
+      delete templateData.logoConfig;
+    }
+
     // Accept only pages_json (array of page JSONs) and body (HTML)
     if (!Array.isArray(templateData.pages_json)) {
       templateData.pages_json = [
@@ -101,6 +107,11 @@ export const updateTemplate = async (req, res) => {
     }
 
     const updatePayload = { ...req.body };
+    // Normalize header config naming: accept logoConfig but store headerConfig
+    if (updatePayload.logoConfig && !updatePayload.headerConfig) {
+      updatePayload.headerConfig = updatePayload.logoConfig;
+      delete updatePayload.logoConfig;
+    }
     // Map content (HTML) to body if present
     if (typeof updatePayload.content === 'string') {
       updatePayload.body = updatePayload.content;
@@ -154,7 +165,7 @@ export const updateTemplate = async (req, res) => {
           fields: updatedTemplate.fields,
           pageSetup: updatedTemplate.pageSetup,
           dateFormat: updatedTemplate.dateFormat,
-          logoConfig: updatedTemplate.logoConfig || {}
+          headerConfig: updatedTemplate.headerConfig || updatedTemplate.logoConfig || {}
         };
       // fire-and-forget; createTemplateVersion contains its own try/catch where necessary
       createTemplateVersion({ templateId: updatedTemplate._id, snapshot, userId: req.user?.id, note }).catch(e => {
@@ -325,6 +336,10 @@ export const getTemplateById = async (req, res) => {
     };
 
     const tObj = template.toObject();
+    // Ensure headerConfig is present for clients; fallback to legacy logoConfig
+    if (!tObj.headerConfig && tObj.logoConfig) {
+      tObj.headerConfig = tObj.logoConfig;
+    }
 
     // created_by
     let createdByName = null;

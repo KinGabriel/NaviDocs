@@ -42,22 +42,11 @@ export async function fetchAndNormalizeDocument(id) {
   const pageSetup = doc.pageSetup || doc.from_template?.pageSetup || null;
   const dateFormat = doc.dateFormat || null;
 
-  // Normalize logo/header configuration so UI can rely on a single shape
-  const rawLogo = doc.logoConfig || doc.from_template?.logoConfig || doc.from_template || {};
-  const logoConfig = {
-    assets: {
-      slu: (rawLogo.assets && rawLogo.assets.slu) || rawLogo.slu || null,
-      cicm: (rawLogo.assets && rawLogo.assets.cicm) || rawLogo.cicm || null,
-    },
-    showSLULogo: rawLogo.showSLULogo ?? rawLogo.show_slu_logo ?? true,
-    showCICMLogo: rawLogo.showCICMLogo ?? rawLogo.show_cicm_logo ?? true,
-    documentStamp: {
-      document_code: rawLogo.document_code || rawLogo.documentCode || document_code || null,
-      revision_no: rawLogo.revision_no || rawLogo.revisionNo || revision_no || null,
-      effectivity: rawLogo.effectivity || rawLogo.effectivity_date || effectivity || null,
-    },
-    center: rawLogo.center || rawLogo.center_text || null,
-  };
+  // Prefer headerConfig; fall back to logoConfig (from template or doc)
+  const headerConfig = doc.headerConfig || doc.from_template?.headerConfig || doc.logoConfig || doc.from_template?.logoConfig || null;
+
+  // Include HTML body if present (some flows persist body alongside pages_json)
+  const body = doc.body || doc.content || null;
 
   const assigned = Array.isArray(doc.assigned) ? doc.assigned : [];
   const status = doc.status || "draft";
@@ -92,7 +81,10 @@ export async function fetchAndNormalizeDocument(id) {
     status_meta,
     createdAt,
     updatedAt,
-    logoConfig,
+    headerConfig,
+    // Back-compat alias for older callers still expecting logoConfig
+    logoConfig: headerConfig,
+    body,
     rawResponse: res,
   };
 }

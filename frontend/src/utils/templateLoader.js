@@ -27,6 +27,7 @@ export async function fetchAndNormalizeTemplate(id) {
   const status = tpl.status || "draft";
   const approvals = tpl.approvals || null;
   const approvalMeta = tpl.approvalMeta || null;
+  const body = tpl.body || tpl.content || null;
 
   // Build approvers array (compatible with different response shapes)
   const approvalsObj = tpl.approvals || (tpl.status_meta && tpl.status_meta.approvals) || {};
@@ -83,9 +84,9 @@ export async function fetchAndNormalizeTemplate(id) {
 
   const pageSetup = tpl.pageSetup || null;
   const fontSettings = tpl.fontSettings || null;
-  // Prefer explicit logoConfig, fall back to older headerFooter/header_footer shapes.
-  // Keep a single canonical `logoConfig` to avoid redundancy in the UI.
-  const logoConfig = tpl.logoConfig || tpl.headerFooter || tpl.header_footer || null;
+  // Prefer explicit headerConfig; fall back to logoConfig and older shapes.
+  // Keep a single canonical `headerConfig` to avoid redundancy in the UI.
+  const headerConfig = tpl.headerConfig || tpl.logoConfig || tpl.headerFooter || tpl.header_footer || null;
   // Keep a small compatibility reference to the older headerFooter shape
   const headerFooter = tpl.headerFooter || tpl.header_footer || null;
   const dateFormat = tpl.dateFormat || null;
@@ -114,13 +115,13 @@ export async function fetchAndNormalizeTemplate(id) {
   // Derive top-level document stamp values from several possible shapes for
   // compatibility with older data.
   const document_code = (
-    tpl.document_code ?? tpl.docCode ?? tpl.documentStamp?.docCode ?? logoConfig?.documentStamp?.docCode ?? headerFooter?.documentStamp?.docCode ?? ""
+    tpl.document_code ?? tpl.docCode ?? tpl.documentStamp?.docCode ?? headerConfig?.documentStamp?.docCode ?? headerFooter?.documentStamp?.docCode ?? ""
   );
   const revision_no = (
-    tpl.revision_no ?? tpl.revisionNo ?? tpl.documentStamp?.revisionNo ?? logoConfig?.documentStamp?.revisionNo ?? headerFooter?.documentStamp?.revisionNo ?? 0
+    tpl.revision_no ?? tpl.revisionNo ?? tpl.documentStamp?.revisionNo ?? headerConfig?.documentStamp?.revisionNo ?? headerFooter?.documentStamp?.revisionNo ?? 0
   );
   const effectivityRaw = (
-    tpl.effectivity ?? tpl.effectivityDate ?? tpl.documentStamp?.effectivity ?? logoConfig?.documentStamp?.effectivity ?? null
+    tpl.effectivity ?? tpl.effectivityDate ?? tpl.documentStamp?.effectivity ?? headerConfig?.documentStamp?.effectivity ?? null
   );
   const effectivity = normalizeEffectivity(effectivityRaw);
 
@@ -131,12 +132,15 @@ export async function fetchAndNormalizeTemplate(id) {
     status,
     approvals,
     approvalMeta,
+    body,
     approvers: approversArr,
     templateContent,
     templatePages,
     pageSetup,
     fontSettings,
-    logoConfig,
+    headerConfig,
+    // Back-compat alias for older callers still expecting logoConfig
+    logoConfig: headerConfig,
     document_code,
     revision_no,
     effectivity,

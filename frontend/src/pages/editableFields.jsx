@@ -813,6 +813,40 @@ export default function EditableFields() {
       console.debug('computeDuplicatePositions error', err);
     }
   };
+  
+// Build a headerConfig including the document stamp so TextEditor renders it
+  const normalizedHeaderConfig = useMemo(() => {
+    if (!docData) return null;
+    const base =
+      docData?.headerConfig ||
+      docData?.from_template?.headerConfig ||
+      docData?.logoConfig ||
+      docData?.from_template?.logoConfig ||
+      null;
+
+    const stamp = {
+      document_code:
+        docData?.document_code ||
+        docData?.document?.document_code ||
+        docData?.from_template?.document_code ||
+        "",
+      revision_no:
+        docData?.revision_no ??
+        docData?.document?.revision_no ??
+        docData?.from_template?.revision_no ??
+        "",
+      effectivity:
+        docData?.effectivityFormatted ||
+        docData?.effectivity ||
+        docData?.document?.effectivity ||
+        docData?.from_template?.effectivityFormatted ||
+        docData?.from_template?.effectivity ||
+        "",
+    };
+
+    if (!base) return { documentStamp: stamp };
+    return { ...base, documentStamp: { ...(base.documentStamp || {}), ...stamp } };
+  }, [docData]);
 
   const scrollToEditorPos = (editor, pos) => {
     try {
@@ -1199,9 +1233,9 @@ return (
               ) : docData && contentForEditor ? (
                 <TextEditor
                   content={contentForEditor}
-                  pageSetup={docData?.pageSetup}
+                  pageSetup={docData?.pageSetup || docData?.from_template?.pageSetup}
                   mode="document"
-                  logoConfig={docData?.logoConfig || docData?.from_template?.logoConfig || null}
+                  headerConfig={normalizedHeaderConfig}
                   templateStatus={docData?.from_template?.status || docData?.status || null}
                   documentCode={docData?.document_code || docData?.document?.document_code || docData?.from_template?.document_code || null}
                   revisionNo={docData?.revision_no ?? docData?.document?.revision_no ?? docData?.from_template?.revision_no ?? null}

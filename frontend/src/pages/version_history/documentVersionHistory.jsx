@@ -41,6 +41,38 @@ export default function DocumentVersionHistory({
   const [showBookmarkModal, setShowBookmarkModal] = useState(false);
   const [bookmarkTarget, setBookmarkTarget] = useState(null);
   const [bookmarkName, setBookmarkName] = useState('');
+
+  // Compose a headerConfig for preview with documentStamp values injected
+  const normalizedHeaderConfig = useMemo(() => {
+    if (!docData) return null;
+    const base =
+      docData?.headerConfig ||
+      docData?.from_template?.headerConfig ||
+      docData?.logoConfig ||
+      docData?.from_template?.logoConfig ||
+      null;
+
+    const stamp = {
+      document_code:
+        docData?.document_code ||
+        docData?.document?.document_code ||
+        docData?.from_template?.document_code ||
+        '',
+      revision_no:
+        docData?.revision_no ??
+        docData?.document?.revision_no ??
+        docData?.from_template?.revision_no ??
+        '',
+      effectivity:
+        docData?.effectivity ||
+        docData?.document?.effectivity ||
+        docData?.from_template?.effectivity ||
+        '',
+    };
+
+    if (!base) return { documentStamp: stamp };
+    return { ...base, documentStamp: { ...(base.documentStamp || {}), ...stamp } };
+  }, [docData]);
   // Helper: format a raw field key into a human label (Title Case)
   const formatFieldLabel = (key) => {
     if (!key) return '';
@@ -202,6 +234,11 @@ export default function DocumentVersionHistory({
         
         if ((!normalized.pages_json || normalized.pages_json.length === 0) && (normalized.document?.pages_html || normalized.document?.html || normalized.pages_html)) {
           const html = normalized.document?.pages_html || normalized.document?.html || normalized.pages_html;
+          normalized.pages_json = Array.isArray(html) ? html : [html];
+        }
+        // And finally fallback to HTML under from_template
+        if ((!normalized.pages_json || normalized.pages_json.length === 0) && (normalized.from_template?.pages_html || normalized.from_template?.html || normalized.from_template?.body)) {
+          const html = normalized.from_template?.pages_html || normalized.from_template?.html || normalized.from_template?.body;
           normalized.pages_json = Array.isArray(html) ? html : [html];
         }
         
@@ -900,9 +937,14 @@ return (
   
               <TextEditor
                 content={contentForEditor}
-                pageSetup={docData?.pageSetup || pageSetup}
+                pageSetup={docData?.pageSetup || docData?.from_template?.pageSetup || pageSetup}
                 mode="document"
                 editable={false}
+                headerConfig={normalizedHeaderConfig}
+                templateStatus={docData?.from_template?.status || docData?.status || null}
+                documentCode={docData?.document_code || docData?.document?.document_code || docData?.from_template?.document_code || null}
+                revisionNo={docData?.revision_no ?? docData?.document?.revision_no ?? docData?.from_template?.revision_no ?? null}
+                effectivity={docData?.effectivity || docData?.document?.effectivity || docData?.from_template?.effectivity || null}
                 onEditorReady={(editor) => (editorRef.current = editor)}
                 onContentChange={() => {}}
               />

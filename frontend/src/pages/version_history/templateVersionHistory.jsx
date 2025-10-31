@@ -22,6 +22,8 @@ export default function TemplateVersionHistory({
   const [expandedDates, setExpandedDates] = useState({});
   const [loading, setLoading] = useState(true);
   const [versionContent, setVersionContent] = useState(null);
+  const [versionHeaderConfig, setVersionHeaderConfig] = useState(null);
+  const [versionPageSetup, setVersionPageSetup] = useState(null);
   const [filterType, setFilterType] = useState('all'); // 'all' or 'named'
   const [menuOpen, setMenuOpen] = useState(null);
   const menuRef = useRef(null);
@@ -113,6 +115,17 @@ export default function TemplateVersionHistory({
               ? v.snapshot.pages_json[0]
               : null;
 
+            // extract headerConfig and pageSetup from snapshot (with legacy fallbacks)
+            const snapshotHeaderConfig = v?.snapshot?.headerConfig || v?.snapshot?.logoConfig || null;
+            const snapshotPageSetup = v?.snapshot?.pageSetup || v?.snapshot?.page_setup || null;
+
+            // optional stamp fields if present in snapshot
+            const snap = v?.snapshot || {};
+            const stampSrc = snap?.documentStamp || {};
+            const stampDocCode = stampSrc.docCode || stampSrc.document_code || snap.document_code || v.document_code || '';
+            const stampRevisionNo = stampSrc.revisionNo || stampSrc.revision_no || snap.revision_no || v.revision_no || '';
+            const stampEffectivity = stampSrc.effectivity || stampSrc.effectivity_date || snap.effectivity || snap.effectivity_date || v.effectivity || '';
+
             // bookmark flag support (various shapes)
             const isBookmarked = v.isBookmarked === true || v.is_bookmarked === true || v.bookmarked === true || false;
 
@@ -122,6 +135,11 @@ export default function TemplateVersionHistory({
               created_at: createdAt,
               last_activity_at: lastActivity,
               content: firstPage || v.content || null,
+              headerConfig: snapshotHeaderConfig,
+              pageSetup: snapshotPageSetup,
+              stampDocCode,
+              stampRevisionNo,
+              stampEffectivity,
               author,
               isBookmarked,
               versionName: v.name || v.note || '',
@@ -135,6 +153,15 @@ export default function TemplateVersionHistory({
           const latestFromGroup = grouped?.[0]?.items?.[0] || normalized[0];
           setSelectedVersion(latestFromGroup.id);
           setVersionContent(latestFromGroup.content);
+          // inject stamps into headerConfig if available
+          const baseCfg = latestFromGroup.headerConfig || null;
+          const injectedCfg = baseCfg
+            ? { ...baseCfg, documentStamp: { ...(baseCfg.documentStamp || {}), docCode: latestFromGroup.stampDocCode || '', revisionNo: latestFromGroup.stampRevisionNo || '', effectivity: latestFromGroup.stampEffectivity || '' } }
+            : (latestFromGroup.stampDocCode || latestFromGroup.stampRevisionNo || latestFromGroup.stampEffectivity)
+              ? { documentStamp: { docCode: latestFromGroup.stampDocCode || '', revisionNo: latestFromGroup.stampRevisionNo || '', effectivity: latestFromGroup.stampEffectivity || '' } }
+              : null;
+          setVersionHeaderConfig(injectedCfg);
+          setVersionPageSetup(latestFromGroup.pageSetup || null);
           
           const expanded = {};
           grouped.forEach(group => { expanded[group.date] = true; });
@@ -193,6 +220,11 @@ export default function TemplateVersionHistory({
                   : version.created_by?.email?.split('@')[0] || 
                     version.author || 'Unknown',
         content: version.content,
+        headerConfig: version.headerConfig || null,
+        pageSetup: version.pageSetup || null,
+        stampDocCode: version.stampDocCode || '',
+        stampRevisionNo: version.stampRevisionNo || '',
+        stampEffectivity: version.stampEffectivity || '',
         fieldValues: version.field_values,
         isBookmarked: !!version.isBookmarked,
         versionName: version.versionName || version.name || version.note || '',
@@ -263,6 +295,14 @@ export default function TemplateVersionHistory({
     // If version has content, use it; otherwise fetch it
     if (version.content) {
       setVersionContent(version.content);
+      const baseCfg = version.headerConfig || null;
+      const injectedCfg = baseCfg
+        ? { ...baseCfg, documentStamp: { ...(baseCfg.documentStamp || {}), docCode: version.stampDocCode || '', revisionNo: version.stampRevisionNo || '', effectivity: version.stampEffectivity || '' } }
+        : (version.stampDocCode || version.stampRevisionNo || version.stampEffectivity)
+          ? { documentStamp: { docCode: version.stampDocCode || '', revisionNo: version.stampRevisionNo || '', effectivity: version.stampEffectivity || '' } }
+          : null;
+      setVersionHeaderConfig(injectedCfg);
+      setVersionPageSetup(version.pageSetup || null);
       } else {
       try {
         const data = await getTemplateVersionAPI(id, version.id);
@@ -270,11 +310,27 @@ export default function TemplateVersionHistory({
         const fetchedFirst = Array.isArray(data?.version?.snapshot?.pages_json) && data.version.snapshot.pages_json.length > 0
           ? data.version.snapshot.pages_json[0]
           : null;
+        const snap = data?.version?.snapshot || {};
+        const fetchedHeaderCfg = snap?.headerConfig || snap?.logoConfig || null;
+        const fetchedPageSetup = snap?.pageSetup || snap?.page_setup || null;
+        const stampSrc = snap?.documentStamp || {};
+        const stampDocCode = stampSrc.docCode || stampSrc.document_code || snap.document_code || '';
+        const stampRevisionNo = stampSrc.revisionNo || stampSrc.revision_no || snap.revision_no || '';
+        const stampEffectivity = stampSrc.effectivity || stampSrc.effectivity_date || snap.effectivity || snap.effectivity_date || '';
         setVersionContent(fetchedFirst || data.version?.snapshot || currentContent);
+        const injectedCfg = fetchedHeaderCfg
+          ? { ...fetchedHeaderCfg, documentStamp: { ...(fetchedHeaderCfg.documentStamp || {}), docCode: stampDocCode || '', revisionNo: stampRevisionNo || '', effectivity: stampEffectivity || '' } }
+          : (stampDocCode || stampRevisionNo || stampEffectivity)
+            ? { documentStamp: { docCode: stampDocCode || '', revisionNo: stampRevisionNo || '', effectivity: stampEffectivity || '' } }
+            : null;
+        setVersionHeaderConfig(injectedCfg);
+        setVersionPageSetup(fetchedPageSetup || null);
       } catch (error) {
         console.error('Failed to fetch version content:', error);
         // Fallback to current content
         setVersionContent(currentContent);
+        setVersionHeaderConfig(null);
+        setVersionPageSetup(null);
       }
     }
   };
@@ -316,7 +372,6 @@ export default function TemplateVersionHistory({
        if (resp && resp.success) {
          // Refresh versions and document preview
          try { await fetchVersions(); } catch (e) { console.warn('Failed to refresh versions after restore', e); }
-         try { const normalized = await fetchAndNormalizeDocument(templateId); setDocData(normalized); } catch (e) { console.warn('Failed to reload document after restore', e); }
          setShowRestoreModal(false);
          toast.success('Version restored successfully!');
        } else {
@@ -495,8 +550,9 @@ export default function TemplateVersionHistory({
             ) : TextEditor ? (
               <TextEditor
                 content={versionContent || currentContent}
-                pageSetup={pageSetup}
+                pageSetup={versionPageSetup || pageSetup}
                 readOnly={true}
+                headerConfig={versionHeaderConfig || null}
                 onContentChange={() => {}}
               />
             ) : (

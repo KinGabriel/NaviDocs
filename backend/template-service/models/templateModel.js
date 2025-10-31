@@ -16,7 +16,9 @@ const templateSchema = new mongoose.Schema({
   thumbnailUrl: { type: String, default: null },
   school: { type: String, default: '' },
   pageSetup: { type: mongoose.Schema.Types.Mixed, default: {} },
-  logoConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
+  // Prefer headerConfig; keep logoConfig for backward compatibility with older records
+  headerConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
+
 //  fontSettings: { type: mongoose.Schema.Types.Mixed, default: {} },
   dateFormat: { type: mongoose.Schema.Types.Mixed, default: {} },
   fields: { type: [mongoose.Schema.Types.Mixed], default: [] },

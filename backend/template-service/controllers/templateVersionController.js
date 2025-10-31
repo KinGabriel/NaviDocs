@@ -14,7 +14,7 @@ const MIN_TEMPLATE_VERSION_INTERVAL_MS = process.env.MIN_TEMPLATE_VERSION_INTERV
  * Accepts { templateId, snapshot = null, userId = null, note = '' }
  */
 export const createTemplateVersion = async ({ templateId, snapshot = null, userId = null, note = '' }) => {
-  const allowedKeys = ['pages_json', 'fields', 'pageSetup', 'dateFormat'];
+  const allowedKeys = ['pages_json', 'fields', 'pageSetup', 'dateFormat', 'headerConfig'];
   let snapToStore = {};
   if (snapshot && typeof snapshot === 'object') {
     allowedKeys.forEach(k => { if (snapshot[k] !== undefined) snapToStore[k] = snapshot[k]; });
@@ -167,7 +167,7 @@ export const listTemplateVersions = async (req, res) => {
     const groupIntervalMs = req.query.group_interval_ms ? parseInt(req.query.group_interval_ms, 10) : (5 * 60 * 1000);
 
     // helper to normalize snapshot for comparison (allowed keys)
-    const allowedKeys = ['pages_json', 'fields', 'pageSetup', 'dateFormat'];
+    const allowedKeys = ['pages_json', 'fields', 'pageSetup', 'dateFormat', 'headerConfig'];
     const normSnapshot = (s) => {
       if (!s || typeof s !== 'object') return {};
       const out = {};
@@ -354,7 +354,7 @@ export const restoreTemplateVersion = async (req, res) => {
 */
   // structural snapshot is stored in version.snapshot
   const snap = version.snapshot || {};
-    const allowedKeys = ['pages_json','fields','pageSetup','dateFormat'];
+    const allowedKeys = ['pages_json','fields','pageSetup','dateFormat','headerConfig'];
     allowedKeys.forEach((k) => { if (snap[k] !== undefined) template[k] = snap[k]; });
 
     // Add a note about restore
@@ -414,12 +414,13 @@ export const duplicateTemplateFromVersion = async (req, res) => {
       return res.status(400).json({ success: false, message: 'version_no (number) required in body' });
     }
 
-    const snap = version.snapshot || {};
+  const snap = version.snapshot || {};
     // allowed snapshot keys we care about
-    const pages_json = Array.isArray(snap.pages_json) ? snap.pages_json : [];
-    const fields = Array.isArray(snap.fields) ? snap.fields : [];
-    const pageSetup = snap.pageSetup || {};
-    const dateFormat = snap.dateFormat || {};
+  const pages_json = Array.isArray(snap.pages_json) ? snap.pages_json : [];
+  const fields = Array.isArray(snap.fields) ? snap.fields : [];
+  const pageSetup = snap.pageSetup || {};
+  const dateFormat = snap.dateFormat || {};
+  const headerConfig = snap.headerConfig || {};
 
     // Fetch original template to preserve other metadata when possible
     let original = null;
@@ -433,6 +434,7 @@ export const duplicateTemplateFromVersion = async (req, res) => {
       pageSetup: Object.keys(pageSetup).length ? pageSetup : (original && original.pageSetup ? original.pageSetup : {}),
       dateFormat: Object.keys(dateFormat).length ? dateFormat : (original && original.dateFormat ? original.dateFormat : {}),
       fields: Array.isArray(fields) && fields.length ? fields : (original && Array.isArray(original.fields) ? original.fields : []),
+      headerConfig: Object.keys(headerConfig).length ? headerConfig : (original && original.headerConfig ? original.headerConfig : {}),
       status: 'draft',
       thumbnailUrl: null
     };
@@ -451,7 +453,7 @@ export const duplicateTemplateFromVersion = async (req, res) => {
 
     // create initial version for the new template using the snapshot we duplicated from
     try {
-      const snapshotForVersion = { pages_json: newTemplate.pages_json, fields: newTemplate.fields, pageSetup: newTemplate.pageSetup, dateFormat: newTemplate.dateFormat };
+      const snapshotForVersion = { pages_json: newTemplate.pages_json, fields: newTemplate.fields, pageSetup: newTemplate.pageSetup, dateFormat: newTemplate.dateFormat, headerConfig: newTemplate.headerConfig };
       await createTemplateVersion({ templateId: newTemplate._id, snapshot: snapshotForVersion, userId: req.user?.id, note: 'Duplicated from version' });
     } catch (e) {
       console.warn('createTemplateVersion for duplicated template failed', e);

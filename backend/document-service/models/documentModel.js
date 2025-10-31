@@ -28,7 +28,8 @@ const FromTemplateSchema = new Schema({
   fields: { type: [Schema.Types.Mixed], default: [] },
   pages_json: { type: [Schema.Types.Mixed], default: [] },
   pageSetup: { type: Schema.Types.Mixed, default: {} },
-  logoConfig: { type: Schema.Types.Mixed, default: {} },
+  headerConfig: { type: Schema.Types.Mixed, default: {} },
+
   dateFormat: { type: Schema.Types.Mixed, default: {} },
   assigned: { type: [Schema.Types.ObjectId], ref: 'User', default: [] }
 }, { _id: false });

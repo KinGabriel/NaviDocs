@@ -160,7 +160,7 @@ export const assignFacultyByDeptHead = async (req, res) => {
 					fields: Array.isArray(template.fields) ? template.fields : [],
 					pages_json: Array.isArray(template.pages_json) ? template.pages_json : [],
 					pageSetup: template.pageSetup || {},
-					logoConfig: template.logoConfig || {},
+					headerConfig: template.headerConfig || template.logoConfig || {},
 					status_meta: template.status_meta || {},
 					dateFormat: template.dateFormat || {},
 					assigned: Array.isArray(template.assigned) ? template.assigned : [],

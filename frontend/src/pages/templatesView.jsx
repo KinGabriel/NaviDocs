@@ -776,7 +776,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                     key={`${template?._id || template?.id || 'tpl'}-${currentPage}`}
                     content={contentForEditor}
                     pageSetup={template?.pageSetup}
-                    logoConfig={template?.logoConfig}
+                    headerConfig={template?.headerConfig || template?.logoConfig}
                     templateStatus={template?.status}
                     documentCode={template?.document_code || template?.documentCode}
                     revisionNo={template?.revision_no || template?.revisionNo}

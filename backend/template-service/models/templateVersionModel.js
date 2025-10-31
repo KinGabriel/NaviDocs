@@ -6,7 +6,8 @@ const templateHistorySchema = new mongoose.Schema({
     pages_json: { type: [mongoose.Schema.Types.Mixed], default: undefined },
     fields: { type: [mongoose.Schema.Types.Mixed], default: undefined },
     pageSetup: { type: mongoose.Schema.Types.Mixed, default: undefined },
-    dateFormat: { type: mongoose.Schema.Types.Mixed, default: undefined }
+    dateFormat: { type: mongoose.Schema.Types.Mixed, default: undefined },
+    headerConfig: { type: mongoose.Schema.Types.Mixed, default: undefined },
   },
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   note: { type: String, default: '' },

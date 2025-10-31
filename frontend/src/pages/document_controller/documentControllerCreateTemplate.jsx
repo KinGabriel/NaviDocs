@@ -129,6 +129,12 @@ export default function DocumentControllerCreateTemplate() {
   const [lastSavedContent, setLastSavedContent] = useState(null);
   const [lastSavedTitle, setLastSavedTitle] = useState("");
   const [lastSavedId, setLastSavedId] = useState(null);
+  const [lastSavedHeaderConfig, setLastSavedHeaderConfig] = useState(DEFAULT_HEADER_CONFIG);
+  const [lastSavedPageSetup, setLastSavedPageSetup] = useState(DEFAULT_PAGE_SETUP);
+  const [lastSavedDateFormat, setLastSavedDateFormat] = useState({ style: "numeric" });
+  const [lastSavedDocumentCode, setLastSavedDocumentCode] = useState("");
+  const [lastSavedRevisionNo, setLastSavedRevisionNo] = useState(0);
+  const [lastSavedEffectivity, setLastSavedEffectivity] = useState(null);
   const [dirty, setDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -175,7 +181,7 @@ export default function DocumentControllerCreateTemplate() {
       if (normalized.dateFormat) setDateFormat(normalized.dateFormat);
       if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
 
-      // Bring in header/footer config (fallback to our defaults so bands render)
+      // Bring in header/footer config from headerConfig (fallback to our defaults so bands render)
       const loadedHeader = normalized.headerConfig && Object.keys(normalized.headerConfig).length
         ? normalized.headerConfig
         : DEFAULT_HEADER_CONFIG;
@@ -185,6 +191,15 @@ export default function DocumentControllerCreateTemplate() {
       if (normalized.document_code !== undefined) setDocumentCode(normalized.document_code ?? "");
       if (normalized.revision_no !== undefined) setRevisionNo(normalized.revision_no ?? 0);
       if (normalized.effectivity !== undefined) setEffectivity(normalized.effectivity ?? "");
+
+      // Initialize last-saved baselines from loaded values to avoid autosave loops
+      setLastSavedTitle(normalized.templateTitle || "");
+      setLastSavedPageSetup(normalized.pageSetup || DEFAULT_PAGE_SETUP);
+      setLastSavedDateFormat(normalized.dateFormat || { style: "numeric" });
+      setLastSavedHeaderConfig(loadedHeader);
+      setLastSavedDocumentCode((normalized.document_code ?? "").toString());
+      setLastSavedRevisionNo(Number(normalized.revision_no ?? 0));
+      setLastSavedEffectivity(normalized.effectivity ?? null);
     } catch (e) {
       console.error(e);
       toast.error("Failed to load template.");
@@ -244,6 +259,7 @@ export default function DocumentControllerCreateTemplate() {
       const payload = {
         title: (templateTitle || "").trim() || "Untitled Template",
         pages_json,
+        body: editor ? editor.getHTML() : (typeof templateContent === 'string' ? templateContent : ''),
         pageSetup,
         dateFormat,
         fields: editableFields,
@@ -263,9 +279,15 @@ export default function DocumentControllerCreateTemplate() {
         if (res?.template?._id) setTemplateId(res.template._id);
         toast.success("Template created successfully.");
       }
-      setLastSavedContent(editor ? editor.getHTML() : templateContent);
-      setLastSavedTitle(payload.title);
-      setLastSavedId(res?.template?._id || templateId);
+  setLastSavedContent(editor ? editor.getHTML() : templateContent);
+  setLastSavedTitle(payload.title);
+  setLastSavedId(res?.template?._id || templateId);
+  setLastSavedHeaderConfig(headerConfig);
+  setLastSavedPageSetup(pageSetup);
+  setLastSavedDateFormat(dateFormat);
+  setLastSavedDocumentCode(normDocumentCode.toString());
+  setLastSavedRevisionNo(Number(normRevisionNo));
+  setLastSavedEffectivity(normEffectivity ?? null);
       setLastSavedAt(new Date());
       setDirty(false);
     } catch (e) {
@@ -283,10 +305,12 @@ export default function DocumentControllerCreateTemplate() {
     const isDirty =
       templateContent !== lastSavedContent ||
       templateTitle !== lastSavedTitle ||
-      JSON.stringify(pageSetup) !== JSON.stringify(DEFAULT_PAGE_SETUP) ||
-      JSON.stringify(dateFormat) !== JSON.stringify({ style: "numeric" }) ||
-      // include headerConfig in dirty check so toggles save
-      JSON.stringify(headerConfig) !== JSON.stringify(DEFAULT_HEADER_CONFIG);
+      JSON.stringify(pageSetup) !== JSON.stringify(lastSavedPageSetup) ||
+      JSON.stringify(dateFormat) !== JSON.stringify(lastSavedDateFormat) ||
+      JSON.stringify(headerConfig) !== JSON.stringify(lastSavedHeaderConfig) ||
+      String(documentCode ?? '') !== String(lastSavedDocumentCode ?? '') ||
+      Number(revisionNo ?? 0) !== Number(lastSavedRevisionNo ?? 0) ||
+      (effectivity ?? null) !== (lastSavedEffectivity ?? null);
 
     setDirty(isDirty);
     if (!isDirty) return;
@@ -295,7 +319,7 @@ export default function DocumentControllerCreateTemplate() {
       handleSave();
     }, 2000);
     return () => clearTimeout(timeout);
-  }, [templateContent, templateTitle, pageSetup, dateFormat, headerConfig]);
+  }, [templateContent, templateTitle, pageSetup, dateFormat, headerConfig, documentCode, revisionNo, effectivity, lastSavedPageSetup, lastSavedDateFormat, lastSavedHeaderConfig, lastSavedDocumentCode, lastSavedRevisionNo, lastSavedEffectivity]);
 
   // Save on unmount/navigation if dirty
   useEffect(() => {

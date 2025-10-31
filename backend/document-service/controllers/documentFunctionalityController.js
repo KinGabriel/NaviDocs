@@ -50,7 +50,7 @@ export const createDocument = async (req, res) => {
             fields: Array.isArray(template.fields) ? template.fields : [],
             pages_json: Array.isArray(template.pages_json) ? template.pages_json : [],
             pageSetup: template.pageSetup || {},
-            logoConfig: template.logoConfig || {},
+            headerConfig: template.headerConfig || template.logoConfig || {},
             status_meta: template.status_meta || {},
             dateFormat: template.dateFormat || {},
             assigned: Array.isArray(template.assigned) ? template.assigned : [],
@@ -60,6 +60,10 @@ export const createDocument = async (req, res) => {
           // Only set values that are not explicitly provided in the payload 
           payload.title = payload.title || template.title || payload.title;
           payload.pages_json = Array.isArray(payload.pages_json) && payload.pages_json.length ? payload.pages_json : template.pages_json || payload.pages_json;
+          // Prefer headerConfig from template for new documents
+          if (!payload.headerConfig && (template.headerConfig || template.logoConfig)) {
+            payload.headerConfig = template.headerConfig || template.logoConfig;
+          }
           // Copy document_code and revision_no if template has document_code
           if (template.document_code) payload.document_code = payload.document_code || template.document_code;
           if (template.revision_no !== undefined && template.revision_no !== null) payload.revision_no = payload.revision_no || String(template.revision_no);
