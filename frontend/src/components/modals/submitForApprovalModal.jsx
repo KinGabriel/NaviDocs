@@ -3,7 +3,7 @@ import {
   X, CheckCircle2, Clock, Send, 
   MessageCircle, AlertCircle 
 } from "lucide-react";
-import { submitTemplateAPI } from '../../api/documentContollerAPI';
+import { submitTemplateAPI, addTemplateNoteAPI } from '../../api/documentContollerAPI';
 
 export default function SubmitApprovalModal({
   isOpen,
@@ -82,6 +82,12 @@ export default function SubmitApprovalModal({
 
       if (status === "draft") {
         await submitTemplateAPI(templateId);
+        // Persist submit instructions as a note so approvers can see context
+        try {
+          await addTemplateNoteAPI(templateId, instructions.trim());
+        } catch (noteErr) {
+          console.error("Add note (instructions) failed:", noteErr);
+        }
 
         if (typeof onSubmit === "function") {
           await onSubmit(undefined, instructions);
@@ -101,6 +107,12 @@ export default function SubmitApprovalModal({
       if (status === "assigned" || status === "returned") {
         // Submit without selecting approvers; backend determines recipients by role chain
         await submitTemplateAPI(templateId);
+        // Persist resubmission instructions as a note
+        try {
+          await addTemplateNoteAPI(templateId, instructions.trim());
+        } catch (noteErr) {
+          console.error("Add note (instructions) failed:", noteErr);
+        }
 
         if (typeof onSubmit === "function") {
           await onSubmit(undefined, instructions);
