@@ -29,7 +29,6 @@ const MOCK_SUBMISSION = {
       submittedBy: "John Doe",
       submittedAt: "2024-10-20T14:30:00Z",
       files: ["Financial Report - Q1.pdf"],
-      comment: null,
       status: "submitted",
     },
     {
@@ -38,7 +37,6 @@ const MOCK_SUBMISSION = {
       submittedBy: "Juan Dela Cruz",
       submittedAt: "2024-10-22T09:15:00Z",
       files: ["Financial Report - Q2.pdf"],
-      comment: null,
       status: "submitted",
     },
     {
@@ -47,7 +45,6 @@ const MOCK_SUBMISSION = {
       submittedBy: "Ana Reyes",
       submittedAt: null,
       files: [],
-      comment: null,
       status: "pending",
     },
     {
@@ -56,7 +53,6 @@ const MOCK_SUBMISSION = {
       submittedBy: "Carlos Mendoza",
       submittedAt: null,
       files: [],
-      comment: null,
       status: "late",
     },
     {
@@ -65,7 +61,6 @@ const MOCK_SUBMISSION = {
       submittedBy: "Lisa Garcia",
       submittedAt: null,
       files: [],
-      comment: null,
       status: "pending",
     },
   ],
@@ -81,7 +76,6 @@ export default function SubmissionDetails() {
   const user = useUser();
   const navigate = useNavigate();
   const { id } = useParams();
-  const [newComment, setNewComment] = useState("");
 
   const submission = MOCK_SUBMISSION;
 
@@ -104,12 +98,14 @@ export default function SubmissionDetails() {
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} />
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-3 mx-6 mt-8 rounded-xl">
+          <div className="w-full px-4 max-w-8xl">
         <div className="flex-1 flex flex-col">
           <main className="flex-1 p-4 md:p-6 lg:p-8">
             {/* Back Button */}
             <button
               onClick={handleBack}
-              className="inline-flex items-center gap-2 text-[#0035DA] hover:bg-blue-50 mb-6 font-medium transition-colors"
+              className="inline-flex items-center px-4 py-2 gap-2 text-[#0035DA] hover:bg-blue-50 rounded-lg mb-6 font-medium transition-colors"
             >
               <ArrowLeft size={20} />
               Back
@@ -256,6 +252,8 @@ export default function SubmissionDetails() {
         </div>
       </div>
     </div>
+  </div>
+  </div>
   );
 }
 
