@@ -263,6 +263,7 @@ export default function GlobalTemplates() {
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Documents" />
+
         {/* Prevent horizontal overflow inside the white panel */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
           <div className="flex-1 px-1 py-5">
@@ -272,7 +273,7 @@ export default function GlobalTemplates() {
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
             {/* Controls Row */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4 w-full">
               {/* Buttons stack on small screens */}
               <div className="flex flex-col sm:flex-row gap-3 justify-start ml-1">
                 <button
@@ -286,7 +287,12 @@ export default function GlobalTemplates() {
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
                   </svg>
                   Select Template
                 </button>
@@ -319,7 +325,10 @@ export default function GlobalTemplates() {
                         setDocumentsCache(docsRes.data.documents);
                       else if (Array.isArray(docsRes)) setDocumentsCache(docsRes);
                     } catch (err) {
-                      console.error("Failed to prefetch published templates or documents:", err);
+                      console.error(
+                        "Failed to prefetch published templates or documents:",
+                        err
+                      );
                     } finally {
                       setPublishedLoading(false);
                       setDocumentsCacheLoading(false);
@@ -332,54 +341,77 @@ export default function GlobalTemplates() {
                 </button>
               </div>
 
-              {/* Filters + Search + View toggle */}
-              <div className="flex items-center gap-2">
-                {/* Recently Deleted */}
-                <button
-                  type="button"
-                  onClick={() => navigate("/recently-deleted")}
-                  className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
-                  aria-label="Recently deleted"
-                  title="Recently deleted"
-                >
-                  {/* trash icon */}
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#0035DA]" fill="none" aria-hidden="true">
-                    <path
-                      d="M3 6h18M9 6v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
-                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
+              {/* Filters / search / view toggle */}
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-end gap-3 w-full">
+                {/* row 1: trash + dropdowns + (desktop toggle) */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Recently Deleted */}
+                  <button
+                    type="button"
+                    onClick={() => navigate("/recently-deleted")}
+                    className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
+                    aria-label="Recently deleted"
+                    title="Recently deleted"
+                  >
+                    {/* trash icon */}
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="w-5 h-5 text-[#0035DA]"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M3 6h18M9 6v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
 
-                <Dropdown
-                  options={["All", ...Object.keys(schoolIdentifiers)]}
-                  value={selectedSchool}
-                  onChange={(v) => {
-                    setSelectedSchool(v);
-                    pagination.handlePage(1);
-                  }}
-                  width="w-50"
-                />
-
-                <Dropdown
-                  options={["Recent", "A-Z", "Z-A"]}
-                  value={sortOrder}
-                  onChange={(v) => {
-                    setSortOrder(v);
-                    pagination.handlePage(1);
-                  }}
-                  width="w-36"
-                />
-
-                <div className="w-64">
-                  <SearchBar
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search documents..."
+                  <Dropdown
+                    options={["All", ...Object.keys(schoolIdentifiers)]}
+                    value={selectedSchool}
+                    onChange={(v) => {
+                      setSelectedSchool(v);
+                      pagination.handlePage(1);
+                    }}
+                    width="w-50"
                   />
+
+                  <Dropdown
+                    options={["Recent", "A-Z", "Z-A"]}
+                    value={sortOrder}
+                    onChange={(v) => {
+                      setSortOrder(v);
+                      pagination.handlePage(1);
+                    }}
+                    width="w-36"
+                  />
+
+                  {/* desktop view toggle (>=lg) */}
+                  <div className="hidden lg:block">
+                    <ViewToggle mode={viewMode} onChange={setViewMode} />
+                  </div>
                 </div>
 
-                <ViewToggle mode={viewMode} onChange={setViewMode} />
+                {/* row 2: search + (mobile/tablet toggle) */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
+                  {/* search full width on mobile, fixed on desktop */}
+                  <div className="w-full sm:w-64 lg:w-64">
+                    <SearchBar
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search documents..."
+                    />
+                  </div>
+
+                  {/* toggle <lg */}
+                  <div className="flex sm:justify-start lg:hidden">
+                    <ViewToggle mode={viewMode} onChange={setViewMode} />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -414,10 +446,6 @@ export default function GlobalTemplates() {
                 <Table columns={columns} data={templates} />
               )
             ) : (
-              /* 
-                 Auto-fill grid prevents overlap by creating as many 280px+ columns as fit.
-                 min-w-0 wrapper prevents children from spilling out of their cell.
-              */
               <div className="grid [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))] gap-5 sm:gap-6">
                 {loading ? (
                   <div className="col-span-full text-center py-8">
@@ -432,7 +460,6 @@ export default function GlobalTemplates() {
                     const id = template._id || i;
                     return (
                       <div key={id} className="min-w-0">
-                        {/* Ensure the card fits its grid cell */}
                         <DocumentCard
                           document={{ ...template }}
                           user={user}
@@ -506,20 +533,25 @@ function ViewToggle({ mode = "grid", onChange }) {
       <button
         type="button"
         onClick={() => onChange("table")}
-        className={`px-3 py-2 flex items-center ${
+        className={`px-2.5 py-2 sm:px-3 sm:py-2 flex items-center ${
           isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
         }`}
         aria-label="List view"
         title="List view"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path
+            d="M4 7h16M4 12h16M4 17h16"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
         </svg>
       </button>
       <button
         type="button"
         onClick={() => onChange("grid")}
-        className={`px-3 py-2 flex items-center ${
+        className={`px-2.5 py-2 sm:px-3 sm:py-2 flex items-center ${
           !isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
         }`}
         aria-label="Grid view"
