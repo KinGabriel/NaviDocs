@@ -150,7 +150,7 @@ const autoFitBand = (editor, bandEl, kind /* 'header' | 'footer' */, basePx) => 
   const key = kind === "footer" ? "pageFooterHeight" : "pageHeaderHeight";
   if (ext.options[key] !== next) {
     ext.options[key] = next;
-    requestAnimationFrame(() => {}); // let PaginationPlus relayout, our observer will re-render
+    requestAnimationFrame(() => {});
   }
 };
 
@@ -294,20 +294,25 @@ export default function TextEditor({
   const ensureFlexBand = (bandEl) => {
     if (!bandEl) return null;
 
-    // Align header/footers with the same left/right margins as the page body
     const { marginLeftPx, marginRightPx } = dimsRef.current;
 
+    // Align band to the text area: use true outer margins + width calc
     bandEl.style.display = "flex";
     bandEl.style.alignItems = "center";
     bandEl.style.justifyContent = "space-between";
     bandEl.style.gap = "16px";
-    bandEl.style.paddingLeft = px(marginLeftPx);
-    bandEl.style.paddingRight = px(marginRightPx);
-    bandEl.style.paddingTop = "0";
-    bandEl.style.paddingBottom = "0";
     bandEl.style.boxSizing = "border-box";
     bandEl.style.position = "relative";
     bandEl.style.background = "white";
+
+    // No inner padding (so content edge aligns with body text area)
+    bandEl.style.paddingLeft = "0";
+    bandEl.style.paddingRight = "0";
+
+    // Apply margins to match page content area, and adjust width accordingly
+    bandEl.style.marginLeft = px(marginLeftPx);
+    bandEl.style.marginRight = px(marginRightPx);
+    bandEl.style.width = `calc(100% - ${px(marginLeftPx + marginRightPx)})`;
 
     let left =
       bandEl.querySelector(":scope > .rm-page-header-left") ||
@@ -365,30 +370,20 @@ export default function TextEditor({
     trip.center.innerHTML = "";
     trip.right.innerHTML = "";
 
-    // LEFT logos
+    /* LEFT: SLU logo only */
     if (cfg.logos.slu?.enabled && cfg.assets?.slu) {
-      const img = document.createElement("img");
-      img.src = cfg.assets.slu;
-      img.alt = "SLU";
-      img.style.height = px(cfg.logos.slu.sizePx || 56);
-      img.style.maxHeight = "100%";
-      img.style.objectFit = "contain";
-      img.style.pointerEvents = "none";
-      trip.left.appendChild(img);
-    }
-    if (cfg.logos.cicm?.enabled && cfg.assets?.cicm) {
-      const img = document.createElement("img");
-      img.src = cfg.assets.cicm;
-      img.alt = "CICM";
-      img.style.height = px(cfg.logos.cicm.sizePx || 52);
-      img.style.maxHeight = "100%";
-      img.style.objectFit = "contain";
-      img.style.pointerEvents = "none";
-      img.style.marginLeft = "8px";
-      trip.left.appendChild(img);
+      const sluImg = document.createElement("img");
+      sluImg.src = cfg.assets.slu;
+      sluImg.alt = "SLU";
+      sluImg.style.height = px(cfg.logos.slu.sizePx || 56);
+      sluImg.style.objectFit = "contain";
+      sluImg.style.pointerEvents = "none";
+      trip.left.style.display = "flex";
+      trip.left.style.alignItems = "center";
+      trip.left.appendChild(sluImg);
     }
 
-    // CENTER text
+    /* CENTER: text block */
     const weight = cfg.center.bold ? 700 : 400;
     const styleStr = `
       display:flex;flex-direction:column;align-items:center;line-height:1.15;
@@ -406,17 +401,38 @@ export default function TextEditor({
       </div>
     `;
 
-    // RIGHT table
-    trip.right.innerHTML = `
-      <table style="border:1px solid #000;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;background:#fff;">
-        <tbody>
-          <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(cfg.stamp.docCode)}</td></tr>
-          <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.revisionNo))}</td></tr>
-          <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.effectivity))}</td></tr>
-          <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${pageNo} of ${total}</td></tr>
-        </tbody>
-      </table>
-    `;
+    /* RIGHT: CICM logo + stamp table */
+    const rightRow = document.createElement("div");
+    rightRow.style.display = "flex";
+    rightRow.style.alignItems = "center";
+    rightRow.style.gap = "8px";
+
+    if (cfg.logos.cicm?.enabled && cfg.assets?.cicm) {
+      const cicmImg = document.createElement("img");
+      cicmImg.src = cfg.assets.cicm;
+      cicmImg.alt = "CICM";
+      cicmImg.style.height = px(cfg.logos.cicm.sizePx || 52);
+      cicmImg.style.objectFit = "contain";
+      cicmImg.style.pointerEvents = "none";
+      rightRow.appendChild(cicmImg);
+    }
+
+    const stamp = document.createElement("table");
+    stamp.style.border = "1px solid #000";
+    stamp.style.borderCollapse = "collapse";
+    stamp.style.fontSize = "11px";
+    stamp.style.fontFamily = "Arial,sans-serif";
+    stamp.style.background = "#fff";
+    stamp.innerHTML = `
+      <tbody>
+        <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(cfg.stamp.docCode)}</td></tr>
+        <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.revisionNo))}</td></tr>
+        <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.effectivity))}</td></tr>
+        <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${pageNo} of ${total}</td></tr>
+      </tbody>`;
+    rightRow.appendChild(stamp);
+
+    trip.right.appendChild(rightRow);
 
     // Optional bottom rule
     const wantLine = !!cfg.center.showHeaderLine;
@@ -446,14 +462,23 @@ export default function TextEditor({
       footer.innerHTML = "";
       return;
     }
+
+    // Align footer to text area using true margins + calc width
+    const { marginLeftPx, marginRightPx } = dimsRef.current;
     footer.style.display = "flex";
     footer.style.justifyContent = "center";
     footer.style.alignItems = "center";
-    footer.style.paddingLeft = px(dimsRef.current.marginLeftPx);
-    footer.style.paddingRight = px(dimsRef.current.marginRightPx);
+    footer.style.boxSizing = "border-box";
+    footer.style.background = "white";
+
+    footer.style.paddingLeft = "0";
+    footer.style.paddingRight = "0";
+    footer.style.marginLeft = px(marginLeftPx);
+    footer.style.marginRight = px(marginRightPx);
+    footer.style.width = `calc(100% - ${px(marginLeftPx + marginRightPx)})`;
+
     footer.innerHTML = `<div style="font-family:Arial;font-size:12px;">Page ${pageNo} of ${total}</div>`;
 
-    // Auto-fit footer if needed (keeps at least MIN_FOOTER_PX)
     autoFitBand(editor, footer, "footer", getFooterBasePx(getCfg(headerConfig)));
   };
 
