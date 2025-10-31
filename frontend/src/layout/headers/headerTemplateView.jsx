@@ -174,8 +174,8 @@ export default function HeaderTemplateView({
 
           {/* Action buttons */}
           <div className="flex items-center gap-3">
-            {/* Assign Members btn */}
-            {roleValue === "Document Controller" && (
+            {/* Assign Members btn (hidden for now)
+            {["Unit Document Controller","Lead Document Controller","Document Control Officer"].includes(roleValue) && (
               <button
                 onClick={handleAssign}
                 className="inline-flex drop-shadow-lg items-center gap-2 px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
@@ -184,6 +184,7 @@ export default function HeaderTemplateView({
                 <span className="text-sm font-semibold">Assign Members</span>
               </button>
             )}
+            */}
 
             {/* Approve/Manage button (appears only when it's this role's turn) */}
             {(() => {
@@ -202,15 +203,22 @@ export default function HeaderTemplateView({
               const canLDCAct = isUndecided(ldc) && (requiresUDC ? udc?.isApproved === true : true);
               const canDCOAct = isUndecided(dco) && (ldc?.isApproved === true) && (requiresUDC ? udc?.isApproved === true : true);
 
-              // Allow DCO to override decisions on terminal states (Approved/Rejected)
-              const allowDCOOverride =
-                roleValue === "Document Control Officer" &&
-                (t?.status === "approved" || t?.status === "rejected");
+              // Determine if current role already acted (approve/endorse/reject/return)
+              const mySlot = roleValue === 'Unit Document Controller' ? udc
+                : roleValue === 'Lead Document Controller' ? ldc
+                : roleValue === 'Document Control Officer' ? dco
+                : {};
+              const alreadyActed = Boolean(
+                mySlot?.isApproved || mySlot?.approved_at ||
+                mySlot?.isRejected || mySlot?.rejected_at ||
+                mySlot?.isReturned || mySlot?.returned_at
+              );
 
               const showManage =
-                (roleValue === "Unit Document Controller" && canUDCAct) ||
+                ((roleValue === "Unit Document Controller" && canUDCAct) ||
                 (roleValue === "Lead Document Controller" && canLDCAct) ||
-                (roleValue === "Document Control Officer" && (canDCOAct || allowDCOOverride));
+                (roleValue === "Document Control Officer" && canDCOAct)) &&
+                !alreadyActed;
 
               return showManage ? (
                 <button
@@ -245,8 +253,8 @@ export default function HeaderTemplateView({
               </button>
             )}
 
-            {/* Actions Dropdown */}
-            {roleValue === "Document Controller" && (
+            {/* Actions Dropdown (approvers) */}
+            {(["Unit Document Controller","Lead Document Controller","Document Control Officer"].includes(roleValue)) && (
               <div className="relative inline-block">
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -260,6 +268,7 @@ export default function HeaderTemplateView({
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden backdrop-blur-sm">
                     <div className="py-2">
+                      {/* Update Deadline action (hidden for now)
                       <button
                         onClick={() => {
                           setDeadlineModalOpen(true);
@@ -275,6 +284,7 @@ export default function HeaderTemplateView({
                           <div className="text-xs text-gray-500">Modify template due date</div>
                         </div>
                       </button>
+                      */}
                       
                       <button
                         onClick={() => {
@@ -326,7 +336,7 @@ export default function HeaderTemplateView({
         />
       )}
 
-      {/* Update Deadline Modal */}
+      {/* Update Deadline Modal (hidden for now)
       {isDeadlineModalOpen && (
         <UpdateDeadlineModal
           currentDeadline={template?.deadline}
@@ -336,6 +346,7 @@ export default function HeaderTemplateView({
           onUpdate={onUpdateDeadline}
         />
       )}
+      */}
 
       {/* Add Instructions Modal */}
       {isInstructionsModalOpen && (

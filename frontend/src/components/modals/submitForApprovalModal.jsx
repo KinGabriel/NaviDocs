@@ -3,7 +3,7 @@ import {
   X, CheckCircle2, Clock, Send, 
   MessageCircle, AlertCircle 
 } from "lucide-react";
-import { submitTemplateAPI } from '../../api/documentContollerAPI';
+import { submitTemplateAPI, addTemplateNoteAPI } from '../../api/documentContollerAPI';
 
 export default function SubmitApprovalModal({
   isOpen,
@@ -42,10 +42,18 @@ export default function SubmitApprovalModal({
   const hasExistingApprovals = () => {
     if (status === "pending") return true;
     if (approvals) {
-      return Boolean(approvals.document_controller_officer?.approved_at || approvals.lead_document_controller?.approved_at || approvals.dean?.approved_at || approvals.secretary?.approved_at);
+      return Boolean(
+        approvals.document_controller_officer?.approved_at ||
+        approvals.lead_document_controller?.approved_at ||
+        approvals.unit_document_controller?.approved_at
+      );
     }
     if (approvalMeta) {
-      return Boolean(approvalMeta.officerApproved || approvalMeta.leadApproved || approvalMeta.deanApproved || approvalMeta.secretaryApproved);
+      return Boolean(
+        approvalMeta.officerApproved ||
+        approvalMeta.leadApproved ||
+        approvalMeta.unitApproved
+      );
     }
     return false;
   };
@@ -73,14 +81,21 @@ export default function SubmitApprovalModal({
       if (!templateId) return;
 
       if (status === "draft") {
-        await submitTemplateAPI(templateId);
+        const submitRes = await submitTemplateAPI(templateId);
+        // Persist submit instructions as a note so approvers can see context
+        try {
+          await addTemplateNoteAPI(templateId, instructions.trim());
+        } catch (noteErr) {
+          console.error("Add note (instructions) failed:", noteErr);
+        }
 
         if (typeof onSubmit === "function") {
           await onSubmit(undefined, instructions);
         }
 
         if (onSubmitSuccess) {
-          onSubmitSuccess("pending", instructions, approversProp || []);
+          const newStatus = submitRes?.template?.status || "pending";
+          onSubmitSuccess(newStatus, instructions, approversProp || []);
         }
 
         setSubmitSuccess(true);
@@ -92,14 +107,21 @@ export default function SubmitApprovalModal({
 
       if (status === "assigned" || status === "returned") {
         // Submit without selecting approvers; backend determines recipients by role chain
-        await submitTemplateAPI(templateId);
+        const submitRes = await submitTemplateAPI(templateId);
+        // Persist resubmission instructions as a note
+        try {
+          await addTemplateNoteAPI(templateId, instructions.trim());
+        } catch (noteErr) {
+          console.error("Add note (instructions) failed:", noteErr);
+        }
 
         if (typeof onSubmit === "function") {
           await onSubmit(undefined, instructions);
         }
 
         if (onSubmitSuccess) {
-          onSubmitSuccess("pending", instructions, approversProp || []);
+          const newStatus = submitRes?.template?.status || "pending";
+          onSubmitSuccess(newStatus, instructions, approversProp || []);
         }
 
         setSubmitSuccess(true);
@@ -225,8 +247,11 @@ export default function SubmitApprovalModal({
     
     // Check approvalMeta
     if (approvalMeta) {
-      if (((roleName === 'document control officer') && (approvalMeta.officerApproved || approvalMeta.deanApproved)) ||
-          (roleName === 'lead document controller' && (approvalMeta.leadApproved || approvalMeta.secretaryApproved))) {
+      if (
+        (roleName === 'document control officer' && approvalMeta.officerApproved) ||
+        (roleName === 'lead document controller' && approvalMeta.leadApproved) ||
+        (roleName === 'unit document controller' && approvalMeta.unitApproved)
+      ) {
         return 'approved';
       }
     }
@@ -292,8 +317,8 @@ export default function SubmitApprovalModal({
         </div>
 
         <div className="p-6 space-y-6 max-h-96 overflow-y-auto">
-          {/* Show approval progress when status is pending or when draft/assigned has existing approvals */}
-          {(status === "pending" || (status === "draft" && hasExistingApprovals()) || (status === "assigned" && hasExistingApprovals())) && (
+          {/* Show approval progress when status is pending or when draft/assigned/returned has existing approvals */}
+          {(status === "pending" || (status === "draft" && hasExistingApprovals()) || (status === "assigned" && hasExistingApprovals()) || (status === "returned" && hasExistingApprovals())) && (
             <div className="space-y-4">
               <h3 className="text-base font-medium text-slate-900 mb-4 flex items-center gap-2">
                 <Clock className="h-5 w-5 text-slate-500" />
@@ -417,15 +442,17 @@ export default function SubmitApprovalModal({
             </>
           )}
 
-          {/* Assigned/Returned state - Show form only when no existing approvals */}
-          {(status === "assigned" || status === "returned") && !hasExistingApprovals() && (
+          {/* Instructions when assigned or returned
+              - Assigned: only when no existing approvals (initial submission flow)
+              - Returned: always show so user can resubmit with instructions even if prior approvals exist */}
+          {(((status === "assigned") && !hasExistingApprovals()) || status === "returned") && (
             <div className="space-y-6">
               <div>
                 {notes && notes.length > 0 && (
                   <div className="mt-4">
                     <h3 className="text-base font-medium text-slate-900 mb-3 flex items-center gap-2">
                       <MessageCircle className="h-5 w-5 text-slate-500" />
-                      Instructions from Assignor
+                      {status === 'returned' ? 'Instructions from Reviewer' : 'Instructions from Assignor'}
                     </h3>
                     <ul className="space-y-2">
                       {notes.map((note, i) => (
@@ -448,8 +475,8 @@ export default function SubmitApprovalModal({
                 <div className="flex items-center gap-2">
                   <MessageCircle className="h-5 w-5 text-slate-500" />
                   <h3 className="text-base font-medium text-slate-900">
-                    Add Instructions
-                     <span className="text-red-500">*</span>
+                    {status === 'returned' ? 'Add Resubmission Instructions' : 'Add Instructions'}
+                    <span className="text-red-500">*</span>
                   </h3>
                 </div>
                 <textarea
@@ -459,12 +486,14 @@ export default function SubmitApprovalModal({
                     error ? 'border-red-300 bg-red-50' : 'border-slate-200'
                   }`}
                   rows={3}
-                  placeholder="Add notes or specific instructions for the approvers..."
+                  placeholder={status === 'returned' 
+                    ? 'Briefly describe what you changed and any context for the reviewer...'
+                    : 'Add notes or specific instructions for the approvers...'}
                 />
                 {error && (
                   <div className="flex items-center gap-2 text-sm text-red-600">
                     <AlertCircle className="h-4 w-4" />
-                    Instructions are required before submitting.
+                    {status === 'returned' ? 'Resubmission instructions are required.' : 'Instructions are required before submitting.'}
                   </div>
                 )}
               </div>
@@ -643,8 +672,10 @@ export default function SubmitApprovalModal({
               {status === "publish" ? "Close" : "Cancel"}
             </button>
 
-            {/* Show Submit button only when no approvals exist yet */}
-            {((status === "draft" || status === "assigned" || status === "returned") && !hasExistingApprovals()) && (
+             {/* Show Submit button
+                - Draft/Assigned: only when no approvals yet
+                - Returned: always allow resubmission (even if prior approvals exist) */}
+            {(status === "returned" || ((status === "draft" || status === "assigned") && !hasExistingApprovals())) && (
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || submitSuccess}

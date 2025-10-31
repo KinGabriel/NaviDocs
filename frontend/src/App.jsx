@@ -4,6 +4,7 @@ import Login from './pages/login';
 import AdminDashboard from './pages/admin/adminDashboard';
 import AdminAccounts from './pages/admin/adminAccounts';
 import CreateUser from './pages/admin/adminCreateUser';
+import AdminLoginActivity from './pages/admin/adminLoginActivity';
 import AccountSettings from "./pages/accountSettings";
 import Documents from "./pages/documents";
 import PublishedTemplateView from "./pages/publishedTemplateView";
@@ -44,7 +45,6 @@ function LoginRoute() {
  if (user) {
    const role = user.role?.name;
    if (role === "Admin")               return <Navigate to="/admin/dashboard" replace />;
-   if (role === "Document Controller") return <Navigate to="/document-controller/dashboard" replace />;
    if (role === "Lead Document Controller") return <Navigate to="/document-controller/dashboard" replace />;
    if (role === "Document Control Officer") return <Navigate to="/document-controller/dashboard" replace />;
    if (role === "Unit Document Controller") return <Navigate to="/document-controller/dashboard" replace />;
@@ -71,7 +71,6 @@ function RoleTemplatesRouter() {
  }
  // Everyone else (excluding Admin) sees the main templates list
  if (
-   role === "Document Controller" ||
    role === "Secretary" ||
    role === "Dean" ||
    role === "Department Head" ||
@@ -118,6 +117,14 @@ function App() {
          }
        />
        <Route
+         path="/admin/login-activity"
+         element={
+           <ProtectedRoute allowedRoles={["Admin"]}>
+             <AdminLoginActivity />
+           </ProtectedRoute>
+         }
+       />
+       <Route
          path="/admin/edit-user/:id"
          element={
            <ProtectedRoute allowedRoles={["Admin"]}>
@@ -131,7 +138,7 @@ function App() {
        <Route
          path="/document-controller/dashboard"
          element={
-           <ProtectedRoute allowedRoles={["Document Controller", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+          <ProtectedRoute allowedRoles={["Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
              <DocumentControllerDashboard />
            </ProtectedRoute>
          }
@@ -140,7 +147,7 @@ function App() {
        <Route
          path="/templates"
          element={
-           <ProtectedRoute allowedRoles={["Document Controller","Secretary","Dean","Department Head","Faculty","Lead Document Controller","Document Control Officer","Unit Document Controller"]}>
+          <ProtectedRoute allowedRoles={["Secretary","Dean","Department Head","Faculty","Lead Document Controller","Document Control Officer","Unit Document Controller"]}>
              <RoleTemplatesRouter />
            </ProtectedRoute>
          }
@@ -148,7 +155,7 @@ function App() {
        <Route
          path="/document-controller/create-template"
          element={
-           <ProtectedRoute allowedRoles={["Document Controller", "Secretary", "Dean", "Department Head", "Faculty"]}>
+         <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head", "Faculty"]}>
              <DocumentControllerCreateTemplate />
            </ProtectedRoute>
          }
@@ -156,7 +163,7 @@ function App() {
        <Route
          path="/document-controller/document-workflow"
          element={
-           <ProtectedRoute allowedRoles={["Document Controller", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+          <ProtectedRoute allowedRoles={["Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
              <DocumentControllerWorkFlow />
            </ProtectedRoute>
          }
@@ -295,7 +302,7 @@ function App() {
        <Route
          path="/account/settings"
          element={
-           <ProtectedRoute allowedRoles={["Admin","Document Controller","Secretary","Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+          <ProtectedRoute allowedRoles={["Admin","Secretary","Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
              <AccountSettings />
            </ProtectedRoute>
          }
@@ -304,7 +311,7 @@ function App() {
         <Route
          path="/documents/editable-fields/:id"
          element={
-           <ProtectedRoute allowedRoles={["Document Controller","Secretary","Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+            <ProtectedRoute allowedRoles={["Secretary","Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
              <EditableFields />
            </ProtectedRoute>
          }
@@ -313,7 +320,7 @@ function App() {
         <Route
          path="/storage"
          element={
-           <ProtectedRoute allowedRoles={["Document Controller","Secretary","Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+            <ProtectedRoute allowedRoles={["Secretary","Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
              <Storage />
            </ProtectedRoute>
          }
@@ -331,7 +338,7 @@ function App() {
        <Route
          path="/documents"
          element={
-           <ProtectedRoute allowedRoles={["Document Controller","Dean", "Department Head", "Faculty", "Secretary", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+          <ProtectedRoute allowedRoles={["Dean", "Department Head", "Faculty", "Secretary", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
              <Documents />
            </ProtectedRoute>
          }
@@ -340,7 +347,7 @@ function App() {
        <Route
         path="/templates/published/:id"
         element={
-          <ProtectedRoute allowedRoles={["Document Controller","Dean","Department Head","Faculty", "Secretary", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+          <ProtectedRoute allowedRoles={["Dean","Department Head","Faculty", "Secretary", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
             <PublishedTemplateView />
           </ProtectedRoute>
         }
@@ -357,7 +364,7 @@ function App() {
 
        <Route path="/select-template"
        element={
-       <ProtectedRoute allowedRoles={["Document Controller","Dean","Department Head","Faculty", "Secretary"]}>
+     <ProtectedRoute allowedRoles={["Dean","Department Head","Faculty", "Secretary", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
            <SelectTemplate />
       </ProtectedRoute>
        }
@@ -366,7 +373,7 @@ function App() {
       <Route
         path="/recently-deleted"
         element={
-          <ProtectedRoute allowedRoles={["Document Controller", "Dean", "Department Head", "Secretary", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+          <ProtectedRoute allowedRoles={["Dean", "Department Head", "Secretary", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
             <RecentlyDeleted />
           </ProtectedRoute>
         }

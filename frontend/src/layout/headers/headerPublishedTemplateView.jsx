@@ -48,7 +48,6 @@ export default function HeaderPublishedTemplateView({
                 else if (role === "Lead Document Controller") navigate("/documents");
                 else if (role === "Document Control Officer") navigate("/documents");
                 else if (role === "Department Head") navigate("/documents");
-                else if (role === "Document Controller") navigate("/documents");
             }}
           />
 

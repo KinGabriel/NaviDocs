@@ -284,61 +284,68 @@ export default function FontPanel({ editor }) {
       {/* SIZE CONTROL */}
       <div className="mb-3">
         <label className="block text-xs text-gray-600 mb-1">Size</label>
-        <div className="relative flex items-stretch border rounded">
+        <div className="flex items-stretch border rounded">
+          {/* − button */}
           <button
             className="px-3 select-none"
             onClick={() => step(-1)}
             title="Decrease size"
-          >−</button>
+            type="button"
+          >
+            −
+          </button>
 
-          <input
-            ref={inputRef}
-            className="px-3 py-1.5 border-l border-r w-16 text-center outline-none"
-            value={fontSizePt === "Mixed" ? "" : sizeInput}
-            placeholder={fontSizePt === "Mixed" ? "Mixed" : ""}
-            onChange={(e) => {
-              const v = e.target.value.replace(/[^\d]/g, "");
-              setSizeInput(v);
-              const n = parseInt(v, 10);
-              if (Number.isFinite(n)) applySizePt(n);
-            }}
-            inputMode="numeric"
-            aria-haspopup="listbox"
-            aria-expanded={sizeMenuOpen}
-            onFocus={() => setSizeMenuOpen(true)}
-          />
+          {/* number field + compact dropdown (no extra caret button) */}
+          <div className="relative border-l border-r">
+            <input
+              ref={inputRef}
+              className="px-2 py-1.5 w-[56px] text-center outline-none"
+              value={sizeInput}
+              onChange={(e) => {
+                const v = e.target.value.replace(/[^\d]/g, "");
+                setSizeInput(v);
+                const n = parseInt(v, 10);
+                if (Number.isFinite(n)) applySizePt(n);
+              }}
+              inputMode="numeric"
+              aria-haspopup="listbox"
+              aria-expanded={sizeMenuOpen}
+              onFocus={() => setSizeMenuOpen(true)}
+              onClick={() => setSizeMenuOpen(true)}
+            />
 
+            {sizeMenuOpen && (
+              <div
+                ref={menuRef}
+                role="listbox"
+                className="absolute left-1/2 -translate-x-1/2 top-full mt-1 w-[70px] max-h-72 overflow-auto border bg-white rounded shadow z-10"
+              >
+                {PRESET_SIZES_PT.map((pt) => (
+                  <button
+                    key={pt}
+                    role="option"
+                    type="button"
+                    onClick={() => applySizePt(pt)}
+                    className={`w-full text-left px-2 py-1 hover:bg-gray-50 ${
+                      fontSizePt === pt ? "bg-gray-100" : ""
+                    }`}
+                  >
+                    {pt}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* + button */}
           <button
-            className="px-3 border-r select-none"
+            className="px-3 select-none"
             onClick={() => step(+1)}
             title="Increase size"
-          >+</button>
-
-          <button
             type="button"
-            className="px-2 text-gray-600"
-            onClick={() => { setSizeMenuOpen((o) => !o); inputRef.current?.focus(); }}
-            aria-label="Toggle size presets"
-          >▾</button>
-
-          {sizeMenuOpen && (
-            <div
-              ref={menuRef}
-              role="listbox"
-              className="absolute z-10 left-0 right-0 top-full mt-1 max-h-64 overflow-auto border bg-white rounded shadow"
-            >
-              {PRESET_SIZES_PT.map((pt) => (
-                <button
-                  key={pt}
-                  role="option"
-                  onClick={() => applySizePt(pt)}
-                  className={`w-full text-left px-3 py-1.5 hover:bg-gray-50 ${fontSizePt === pt ? "bg-gray-100" : ""}`}
-                >
-                  {pt}
-                </button>
-              ))}
-            </div>
-          )}
+          >
+            +
+          </button>
         </div>
       </div>
 

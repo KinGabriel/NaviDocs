@@ -16,6 +16,10 @@ services:
       - user-service
       - template-service
       - file-service
+      - document-service
+      - mail-service
+      - analytics-service
+      - notification-service
     restart: unless-stopped
     networks:
       - navidocs

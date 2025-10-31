@@ -55,29 +55,19 @@ export async function fetchAndNormalizeTemplate(id) {
       ...approvalsObj.lead_document_controller
     });
   }
-  // Legacy roles (for backwards compatibility)
-  if (approvalsObj.dean && approvalsObj.dean.assigned_to) {
+  // Include Unit Document Controller when present
+  if (approvalsObj.unit_document_controller && approvalsObj.unit_document_controller.assigned_to) {
     approversArr.push({
-      _id: approvalsObj.dean.assigned_to,
-      id: approvalsObj.dean.assigned_to,
-      name: approvalsObj.dean.assigned_to_name || 'Dean',
-      firstname: approvalsObj.dean.assigned_to_firstname,
-      lastname: approvalsObj.dean.assigned_to_lastname,
-      role: { name: 'Dean' },
-      ...approvalsObj.dean
+      _id: approvalsObj.unit_document_controller.assigned_to,
+      id: approvalsObj.unit_document_controller.assigned_to,
+      name: approvalsObj.unit_document_controller.assigned_to_name || 'Unit Document Controller',
+      firstname: approvalsObj.unit_document_controller.assigned_to_firstname,
+      lastname: approvalsObj.unit_document_controller.assigned_to_lastname,
+      role: { name: 'Unit Document Controller' },
+      ...approvalsObj.unit_document_controller
     });
   }
-  if (approvalsObj.secretary && approvalsObj.secretary.assigned_to) {
-    approversArr.push({
-      _id: approvalsObj.secretary.assigned_to,
-      id: approvalsObj.secretary.assigned_to,
-      name: approvalsObj.secretary.assigned_to_name || 'Secretary',
-      firstname: approvalsObj.secretary.assigned_to_firstname,
-      lastname: approvalsObj.secretary.assigned_to_lastname,
-      role: { name: 'Secretary' },
-      ...approvalsObj.secretary
-    });
-  }
+
 
   const templateContent = (tpl.pages_json && tpl.pages_json.length > 0) ? tpl.pages_json[0] : DEFAULT_CONTENT;
 

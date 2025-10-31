@@ -238,7 +238,6 @@ export default function Header2({
                 if (role === "Secretary") navigate("/secretary/templates");
                 else if (role === "Dean") navigate("/dean/templates");
                 else if (role === "Department Head") navigate("/dept-head/templates");
-                else if (role === "Document Controller") navigate("/document-controller/templates")
               }}
             />
 
@@ -247,7 +246,6 @@ export default function Header2({
                 const role = user?.role?.name;
                 if (role === "Secretary") navigate("/secretary/templates");
                 else if (role === "Dean") navigate("/dean/templates");
-                else if (role === "Document Controller") navigate("/document-controller/templates")
               }}
               className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
               aria-label="Back"
@@ -338,73 +336,47 @@ export default function Header2({
                     <div className="flex flex-col gap-1">
                    {approvers.map(a => {
                     const roleName = a?.role?.name || '';
-                    const roleKey = roleName?.toLowerCase();
-                    const deanData = approvals?.dean || {};
-                    const secretaryData = approvals?.secretary || {};
+                    const raw = (roleName || '').toLowerCase();
+                    const toKey = (r) => {
+                      const lc = (r||'').toLowerCase();
+                      if (lc.includes('unit') && lc.includes('document') && lc.includes('controller')) return 'unit_document_controller';
+                      if (lc.includes('lead') && lc.includes('document') && lc.includes('controller')) return 'lead_document_controller';
+                      if (lc.includes('document') && (lc.includes('control') || lc.includes('controller')) && lc.includes('officer')) return 'document_controller_officer';
+                      // legacy roles
+                      if (lc === 'dean' || lc.includes('dean')) return 'dean';
+                      if (lc === 'secretary' || lc.includes('secretary')) return 'secretary';
+                      return lc;
+                    };
+                    const key = toKey(roleName);
+                    const ap = approvals?.[key] || template?.status_meta?.approvals?.[key] || {};
 
+                    // Compute status
                     let itemStatus = 'pending';
-                    const deanApproved = deanData?.isApproved === true;
-                    const deanRejected = deanData?.isApproved === false;
-                    const secApproved = secretaryData?.isApproved === true;
-                    const secRejected = secretaryData?.isApproved === false;
+                    const approved = ap?.isApproved === true || !!ap?.approved_at;
+                    const rejected = ap?.isRejected === true || !!ap?.rejected_at;
+                    const returnedThis = (templateStatus === 'returned') && (template?.status_meta?.returned_role === key);
 
-                    // Get timestamp data and calculate relative time
+                    if (approved) itemStatus = 'approved';
+                    else if (rejected) itemStatus = 'rejected';
+                    else if (returnedThis) itemStatus = 'returned';
+                    else itemStatus = 'pending';
+
+                    // Timestamp for chip
                     let atDate = null;
-                    let timeStr = '';
-                    
+                    if (ap?.approved_at) atDate = new Date(ap.approved_at);
                     const getRelativeTime = (date) => {
                       const now = new Date();
                       const diff = now - date;
-                      const seconds = Math.floor(diff / 1000);
-                      const minutes = Math.floor(seconds / 60);
-                      const hours = Math.floor(minutes / 60);
-                      const days = Math.floor(hours / 24);
-                      
-                      if (seconds < 60) return 'just now';
+                      const minutes = Math.floor(diff / 60000);
+                      if (minutes < 1) return 'just now';
                       if (minutes < 60) return `${minutes}m ago`;
+                      const hours = Math.floor(minutes / 60);
                       if (hours < 24) return `${hours}h ago`;
+                      const days = Math.floor(hours / 24);
                       if (days < 7) return `${days}d ago`;
                       return date.toLocaleDateString();
                     };
-                    
-                    if (roleKey === 'dean' && deanData?.approved_at) {
-                      atDate = new Date(deanData.approved_at);
-                      timeStr = getRelativeTime(atDate);
-                    } else if (roleKey === 'secretary' && secretaryData?.approved_at) {
-                      atDate = new Date(secretaryData.approved_at);
-                      timeStr = getRelativeTime(atDate);
-                    }
-
-                    // Map per-user state
-                    const mapSimple = (rk) => {
-                      if (templateStatus === 'rejected') {
-                        return 'pending';
-                      }
-                      if (rk === 'dean') {
-                        if (deanApproved) return 'approved';
-                        return 'pending';
-                      } else {
-                        if (secApproved) return 'approved';
-                        return 'pending';
-                      }
-                    };
-
-                    // Final status decision
-                    if (templateStatus === 'rejected') {
-                      if (secRejected) {
-                        if (roleKey === 'secretary') itemStatus = 'rejected';
-                        else if (roleKey === 'dean') itemStatus = deanApproved ? 'approved' : 'cancelled';
-                      } else if (deanRejected && secApproved) {
-                        if (roleKey === 'dean') itemStatus = 'rejected';
-                        if (roleKey === 'secretary') itemStatus = 'approved';
-                      } else {
-                        itemStatus = (roleKey === 'dean')
-                          ? (deanApproved ? 'approved' : 'pending')
-                          : (secApproved ? 'approved' : 'pending');
-                      }
-                    } else {
-                      itemStatus = mapSimple(roleKey);
-                    }
+                    const timeStr = atDate ? getRelativeTime(atDate) : '';
 
                     const displayName = a.firstname && a.lastname 
                       ? `${a.firstname} ${a.lastname}`
@@ -415,7 +387,6 @@ export default function Header2({
                         itemStatus === 'approved' ? 'border-green-200' :
                         itemStatus === 'returned' ? 'border-orange-200' :
                         itemStatus === 'rejected' ? 'border-red-200' :
-                        itemStatus === 'cancelled' ? 'border-gray-200' :
                         'border-gray-200'
                       }`}>
                         <div className="flex flex-col">
@@ -435,22 +406,17 @@ export default function Header2({
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
                             </svg>
-                            Approved{timeStr ? ` ${timeStr}` : ''}
+                            {key==='unit_document_controller' ? 'Endorsed' : 'Approved'}{timeStr ? ` ${timeStr}` : ''}
                           </span>
                         )}
                         {itemStatus === 'returned' && (
                           <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                            Returned{timeStr ? ` ${timeStr}` : ''}
+                            Returned
                           </span>
                         )}
                         {itemStatus === 'rejected' && (
                           <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
-                            Rejected{timeStr ? ` ${timeStr}` : ''}
-                          </span>
-                        )}
-                        {itemStatus === 'cancelled' && (
-                          <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
-                            Cancelled
+                            Rejected
                           </span>
                         )}
                         {itemStatus === 'pending' && (
@@ -462,24 +428,28 @@ export default function Header2({
                     );
                   })}
 
-                       {(approvals || approvalMeta) && (
+                       {(approvals || approvalMeta || template?.status_meta?.approvals) && (
                         <div className="mt-2">
                           {(() => {
-                            // progress bar counts only approved slots
-                            const expected = ['secretary','dean'].filter(r => 
-                              approvers.some(a=> (a?.role?.name || '').toLowerCase()===r)
-                            );
-                            const total = expected.length || 2;
+                            // progress bar counts only present approver slots (UDC/LDC/DCO)
+                            const toKey = (r) => {
+                              const lc = (r||'').toLowerCase();
+                              if (lc.includes('unit') && lc.includes('document') && lc.includes('controller')) return 'unit_document_controller';
+                              if (lc.includes('lead') && lc.includes('document') && lc.includes('controller')) return 'lead_document_controller';
+                              if (lc.includes('document') && (lc.includes('control') || lc.includes('controller')) && lc.includes('officer')) return 'document_controller_officer';
+                              return null;
+                            };
+                            const expectedKeys = approvers
+                              .map(a => toKey(a?.role?.name || ''))
+                              .filter(Boolean);
+                            const uniqueKeys = Array.from(new Set(expectedKeys));
+                            const total = uniqueKeys.length || 2;
+                            const ap = approvals || template?.status_meta?.approvals || {};
                             let count = 0;
-
-                            if (approvals?.secretary?.isApproved === true) count += 1;
-                            if (approvals?.dean?.isApproved === true) count += 1;
-
-                            if (count === 0) {
-                              if (approvals?.secretary?.approved_at) count += 1;
-                              if (approvals?.dean?.approved_at) count += 1;
+                            for (const k of uniqueKeys) {
+                              const slot = ap?.[k] || {};
+                              if (slot.isApproved === true || !!slot.approved_at) count += 1;
                             }
-
                             const pct = Math.round((count/total)*100);
                             return (
                               <div>

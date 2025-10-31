@@ -6,13 +6,13 @@
  */
 export function validateUserRoleFields(form) {
   const role = form?.role?.name;
-  if (["Faculty", "Document Controller", "Department Head"].includes(role)) {
+  if (["Faculty", "Department Head"].includes(role)) {
     if (!form.role.school) {
       return { valid: false, error: "School is required for this role." };
     } else if (!form.role.department) {
       return { valid: false, error: "Department is required for this role." };
     }
-  } else if (["Dean", "Secretary", "Lead Document Controller", "Document Control Officer", "Document Controller Officer"].includes(role)) {
+  } else if (["Dean", "Secretary"].includes(role)) {
     if (!form.role.school) {
       return { valid: false, error: "School is required for this role." };
     }

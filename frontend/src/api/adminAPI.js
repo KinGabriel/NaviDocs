@@ -128,3 +128,27 @@ export const fetchUserAccountByIdAPI = async (userId) => {
     throw new Error(error.response?.data?.message || "Failed to fetch user details.");
   }
 };
+
+/**
+ * Fetch login activity logs for the Admin Login Activity table
+ * @param {Object} params
+ * @param {number} [params.page=1] - Page number
+ * @param {number} [params.limit=10] - Page size 
+ * @param {string} [params.role] - Exact role filter 
+ * @param {string} [params.status] - 'active' | 'inactive'
+ * @param {string} [params.date] - Filter by login date 'YYYY-MM-DD'
+ * @param {string} [params.search] - Case-insensitive substring match for email
+ * @returns {Promise<{success:boolean,data:Array,page:number,limit:number,total:number,pages:number}>}
+ */
+export const fetchLoginActivityAPI = async (params = {}) => {
+  const { page = 1, limit = 10, role, status, date, search } = params;
+  try {
+    const res = await axios.get(`${API_URL}/api/auth/logs`, {
+      withCredentials: true,
+      params: { page, limit, role, status, date, search }
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to fetch login activity.');
+  }
+};

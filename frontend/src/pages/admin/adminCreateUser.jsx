@@ -88,7 +88,6 @@ export default function CreateUser() {
     });
     setErrors({ firstname: '', lastname: '', email: '' });
     setImage(null);
-    setAlertMessage("");
   };
 
   // Role-based required fields validation
@@ -126,8 +125,11 @@ export default function CreateUser() {
     }
   };
 
-  const showSchool = ["Faculty", "Dean", "Secretary", "Document Controller", "Department Head"].includes(formData.role.name);
-  const showDepartment = ["Faculty", "Document Controller", "Department Head"].includes(formData.role.name);
+
+  const showSchool = ["Faculty", "Dean", "Secretary", "Department Head"].includes(formData.role.name);
+
+
+  const showDepartment = ["Faculty", "Department Head"].includes(formData.role.name);
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -135,7 +137,7 @@ export default function CreateUser() {
       <div className="flex flex-1">
         <Sidebar user={user} />
         <main className="flex-1 p-10">
-          <div className="bg-white rounded-xl shadow-lg p-10">
+          <div className="bg-white rounded-xl shadow-lg p-10 h-230">
             <h2 className="text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">Create New User</h2>
             <div className="w-25 h-1 bg-yellow-500 mb-8"></div>
             

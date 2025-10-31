@@ -52,16 +52,11 @@ export function buildApprovalMeta(template, currentUserId) {
   ].filter(Boolean);
 
   const canPublish = template.status === 'approved';
-  // Legacy aliases for consumers expecting old keys
-  const deanApproved = officerApproved; // dean mapped to officer
-  const secretaryApproved = leadApproved; // secretary mapped to lead
 
   return {
     leadApproved,
     officerApproved,
     unitApproved,
-    deanApproved,
-    secretaryApproved,
     isFullyApproved,
     hasApprovedCurrentUser,
     remainingRoles,
