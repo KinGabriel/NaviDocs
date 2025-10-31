@@ -82,20 +82,22 @@ const { TablePlus, TableRowPlus, TableCellPlus, TableHeaderPlus } = PaginationTa
 
 /* ----------------------- normalize header/footer config ----------------------- */
 const getCfg = (cfg) => {
-  // Header
   const center = cfg?.header?.centerText || cfg?.center || {};
   const logos = cfg?.header?.logos || {};
 
-  // Footer
   const f = cfg?.footer || {};
   const pageNumber = f.pageNumber || {};
   const body = f.body || {};
 
+  const headerMarginIn = Number(cfg?.headerMarginIn ?? 0.5);
+
   return {
     headerEnabled: !!cfg?.headerEnabled,
     footerEnabled: !!cfg?.footerEnabled,
-    headerMarginIn: Number(cfg?.headerMarginIn ?? 0.5),
-    footerMarginIn: Number(cfg?.footerMarginIn ?? 0.5),
+
+    // footer mirrors header by default
+    headerMarginIn,
+    footerMarginIn: Number(cfg?.footerMarginIn ?? headerMarginIn),
 
     assets: cfg?.assets || {},
 
@@ -133,12 +135,11 @@ const getCfg = (cfg) => {
       effectivity: cfg?.documentStamp?.effectivity ?? cfg?.effectivity ?? "",
     },
 
-    // Footer normalized
     footer: {
       pageNumber: {
         enabled: !!pageNumber.enabled,
         pattern: pageNumber.pattern ?? "{page} of {total}",
-        align: pageNumber.align ?? "center", // left|center|right
+        align: pageNumber.align ?? "center",
         fontFamily: pageNumber.fontFamily ?? "Inter, system-ui, sans-serif",
         fontSize: Number(pageNumber.fontSize ?? 12),
         bold: !!pageNumber.bold,
@@ -148,7 +149,7 @@ const getCfg = (cfg) => {
       body: {
         enabled: !!body.enabled,
         text: body.text ?? "",
-        align: body.align ?? "left", // left|center|right
+        align: body.align ?? "left",
         fontFamily: body.fontFamily ?? "Inter, system-ui, sans-serif",
         fontSize: Number(body.fontSize ?? 12),
         bold: !!body.bold,
@@ -174,17 +175,17 @@ const stripDefaultPageNumber = (scopeEl) => {
 };
 
 /* ---------------------------- dynamic header/footer --------------------------- */
-const MIN_HEADER_PX = 90;
-const MIN_FOOTER_PX = 28;
+// unified minimums
+const MIN_HEADER_FOOTER_PX = 90;
 
 const getHeaderBasePx = (cfg) =>
-  cfg.headerEnabled ? Math.max(MIN_HEADER_PX, inchToPx(cfg.headerMarginIn ?? 0)) : 0;
+  cfg.headerEnabled ? Math.max(MIN_HEADER_FOOTER_PX, inchToPx(cfg.headerMarginIn ?? 0)) : 0;
 
 const getFooterBasePx = (cfg) =>
-  cfg.footerEnabled ? Math.max(MIN_FOOTER_PX, inchToPx(cfg.footerMarginIn ?? 0)) : 0;
+  cfg.footerEnabled ? Math.max(MIN_HEADER_FOOTER_PX, inchToPx(cfg.footerMarginIn ?? 0)) : 0;
 
-// Only increases band to fit content; never smaller than base
-const autoFitBand = (editor, bandEl, kind /* 'header' | 'footer' */, basePx) => {
+// fit to content but never below base
+const autoFitBand = (editor, bandEl, kind, basePx) => {
   if (!editor || !bandEl) return;
   const needed = Math.ceil(bandEl.scrollHeight);
   const next = Math.max(basePx, needed);
@@ -334,8 +335,9 @@ export default function TextEditor({
   }, [editor, headerConfig]);
 
   /* --------------------------- header/footer renderer ------------------------- */
-  const ensureFlexBand = (bandEl) => {
+  const ensureFlexBand = (bandEl, kind /* 'header' | 'footer' */) => {
     if (!bandEl) return null;
+    const isFooter = kind === "footer" || bandEl.classList.contains("rm-page-footer");
 
     bandEl.style.display = "flex";
     bandEl.style.alignItems = "center";
@@ -347,25 +349,29 @@ export default function TextEditor({
     bandEl.style.position = "relative";
     bandEl.style.background = "white";
 
+    // Prefer built-in slots if they exist; otherwise create our own generic ones.
     let left =
-      bandEl.querySelector(":scope > .rm-page-header-left") ||
-      bandEl.querySelector(":scope > .rm-first-page-header-left") ||
-      bandEl.querySelector(":scope > .nv-header-left");
+      bandEl.querySelector(isFooter ? ":scope > .rm-page-footer-left" : ":scope > .rm-page-header-left") ||
+      bandEl.querySelector(isFooter ? ":scope > .rm-first-page-footer-left" : ":scope > .rm-first-page-header-left") ||
+      bandEl.querySelector(":scope > .nv-band-left");
+
     if (!left) {
       left = document.createElement("div");
-      left.className = "nv-header-left";
+      left.className = "nv-band-left";
       bandEl.insertBefore(left, bandEl.firstChild);
     }
 
     let right =
-      bandEl.querySelector(":scope > .rm-page-header-right") ||
-      bandEl.querySelector(":scope > .rm-first-page-header-right") ||
-      bandEl.querySelector(":scope > .nv-header-right");
+      bandEl.querySelector(isFooter ? ":scope > .rm-page-footer-right" : ":scope > .rm-page-header-right") ||
+      bandEl.querySelector(isFooter ? ":scope > .rm-first-page-footer-right" : ":scope > .rm-first-page-header-right") ||
+      bandEl.querySelector(":scope > .nv-band-right");
+
     if (!right) {
       right = document.createElement("div");
-      right.className = "nv-header-right";
+      right.className = "nv-band-right";
       bandEl.appendChild(right);
     }
+
     right.style.display = "flex";
     right.style.alignItems = "center";
     right.style.justifyContent = "flex-end";
@@ -377,13 +383,18 @@ export default function TextEditor({
       center.className = "nv-center";
       center.style.flex = "1";
       center.style.display = "flex";
-      center.style.flexDirection = "row";
+      center.style.flexDirection = isFooter ? "column" : "row";
       center.style.alignItems = "center";
       center.style.justifyContent = "center";
-      center.style.gap = "8px";
+      center.style.gap = isFooter ? "2px" : "8px";
       center.style.textAlign = "center";
       bandEl.insertBefore(center, right);
     }
+
+    // If both built-in and our old nv-header-left/right are present, hide the extras.
+    bandEl.querySelectorAll(":scope > .nv-header-left, :scope > .nv-header-right").forEach((el) => {
+      if (el !== left && el !== right) el.remove();
+    });
 
     return { left, center, right, bandEl };
   };
@@ -469,7 +480,6 @@ export default function TextEditor({
 
     trip.right.appendChild(rightRow);
 
-    // Optional bottom rule
     const wantLine = !!cfg.center.showHeaderLine;
     let lineEl = trip.bandEl.querySelector(":scope > .nv-header-line");
     if (wantLine && !lineEl) {
@@ -489,14 +499,12 @@ export default function TextEditor({
     autoFitBand(editor, trip.bandEl, "header", getHeaderBasePx(getCfg(headerConfig)));
   };
 
-  // helper: choose container by alignment
-  const pickSlot = (trip, align /* left|center|right */) => {
+  const pickSlot = (trip, align) => {
     if (align === "left") return trip.left;
     if (align === "right") return trip.right;
     return trip.center;
   };
 
-  // Footer renderer driven by Footer tab config
   const renderFooterContent = (trip, rawCfg, pageNo, total) => {
     const cfg = getCfg(rawCfg);
     trip.bandEl.style.visibility = cfg.footerEnabled ? "visible" : "hidden";
@@ -507,15 +515,12 @@ export default function TextEditor({
       return;
     }
 
-    // Kill PaginationPlus default PN first
     stripDefaultPageNumber(trip.bandEl);
 
-    // reset
     trip.left.innerHTML = "";
     trip.center.innerHTML = "";
     trip.right.innerHTML = "";
 
-    // Build stacked block per alignment (PN on top, Body below if enabled)
     const blockFor = (align) => {
       const host = pickSlot(trip, align);
       host.style.display = "flex";
@@ -527,7 +532,6 @@ export default function TextEditor({
       return host;
     };
 
-    // Page Number
     if (cfg.footer.pageNumber.enabled) {
       const pn = cfg.footer.pageNumber;
       const weight = pn.bold ? 700 : 400;
@@ -544,7 +548,6 @@ export default function TextEditor({
         .replace("{total}", String(total));
       pnHost.appendChild(el);
 
-      // Footer body text stacks under the PN when both share the same alignment
       if (cfg.footer.body.enabled && cfg.footer.body.align === pn.align && cfg.footer.body.text) {
         const b = cfg.footer.body;
         const w2 = b.bold ? 700 : 400;
@@ -561,7 +564,6 @@ export default function TextEditor({
       }
     }
 
-    // Footer body text in a different alignment than PN
     if (
       cfg.footer.body.enabled &&
       cfg.footer.body.text &&
@@ -592,28 +594,25 @@ export default function TextEditor({
     const breakers = root.querySelectorAll(".rm-page-break");
     const total = breakers.length;
 
-    // First page header
     const firstHeader = root.querySelector(".rm-first-page-header");
     if (firstHeader) {
-      const trip = ensureFlexBand(firstHeader);
+      const trip = ensureFlexBand(firstHeader, "header");
       renderHeaderContent(trip, headerConfig, 1, total);
     }
 
     breakers.forEach((brk, i) => {
       const pageNo = i + 1;
 
-      // Footer for this page
       const footer = brk.querySelector(".rm-page-footer");
       if (footer) {
-        stripDefaultPageNumber(footer); // ensure it's gone even if added late
-        const tripF = ensureFlexBand(footer);
+        stripDefaultPageNumber(footer);
+        const tripF = ensureFlexBand(footer, "footer");
         renderFooterContent(tripF, headerConfig, pageNo, total);
       }
 
-      // Header for subsequent pages
       const header = brk.querySelector(".rm-page-header");
       if (header && pageNo < total) {
-        const trip = ensureFlexBand(header);
+        const trip = ensureFlexBand(header, "header");
         renderHeaderContent(trip, headerConfig, pageNo + 1, total);
       }
     });
@@ -635,14 +634,14 @@ export default function TextEditor({
 
   /* ----------------------------------- ui ------------------------------------ */
   return (
-      <div className="flex justify-center my-6">
-    <div style={{ width: "816px" }}>
-      {editor ? (
-        <EditorContent editor={editor} className="prose max-w-none" />
-      ) : (
-        <div className="text-sm text-gray-500">Loading editor…</div>
-      )}
+    <div className={`flex justify-center my-6 ${className}`}>
+      <div style={{ width: "816px" }}>
+        {editor ? (
+          <EditorContent editor={editor} className="prose max-w-none" />
+        ) : (
+          <div className="text-sm text-gray-500">Loading editor…</div>
+        )}
+      </div>
     </div>
-  </div>
   );
 }
