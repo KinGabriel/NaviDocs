@@ -2,7 +2,7 @@
  * TemplatesView Component
  * 
  * Displays detailed view of a template with approval workflow management.
- * Allows approvers (Dean/Secretary) to approve, reject, or return templates.
+ * Allows approvers (Unit/Lead Document Controller, Document Control Officer) to approve, reject, or return templates.
  * Document controllers can assign members and set deadlines.
  * 
  * @component

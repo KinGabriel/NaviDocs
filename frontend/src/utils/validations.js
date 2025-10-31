@@ -6,7 +6,7 @@
  */
 export function validateUserRoleFields(form) {
   const role = form?.role?.name;
-  if (["Faculty", "Document Controller", "Department Head"].includes(role)) {
+  if (["Faculty", "Department Head"].includes(role)) {
     if (!form.role.school) {
       return { valid: false, error: "School is required for this role." };
     } else if (!form.role.department) {

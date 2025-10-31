@@ -41,9 +41,6 @@ export default function Login() {
         case 'Secretary':
           navigate('/secretary/dashboard');
           break;
-        case 'Document Controller':
-          navigate('/document-controller/dashboard');
-          break;
         case 'Lead Document Controller':
           navigate('/document-controller/dashboard');
           break;

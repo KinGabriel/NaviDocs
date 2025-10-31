@@ -174,8 +174,8 @@ export default function HeaderTemplateView({
 
           {/* Action buttons */}
           <div className="flex items-center gap-3">
-            {/* Assign Members btn */}
-            {roleValue === "Document Controller" && (
+            {/* Assign Members btn (approvers) */}
+            {(["Unit Document Controller","Lead Document Controller","Document Control Officer"].includes(roleValue)) && (
               <button
                 onClick={handleAssign}
                 className="inline-flex drop-shadow-lg items-center gap-2 px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
@@ -245,8 +245,8 @@ export default function HeaderTemplateView({
               </button>
             )}
 
-            {/* Actions Dropdown */}
-            {roleValue === "Document Controller" && (
+            {/* Actions Dropdown (approvers) */}
+            {(["Unit Document Controller","Lead Document Controller","Document Control Officer"].includes(roleValue)) && (
               <div className="relative inline-block">
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}

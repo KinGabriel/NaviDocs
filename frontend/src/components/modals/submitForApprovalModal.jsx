@@ -42,10 +42,18 @@ export default function SubmitApprovalModal({
   const hasExistingApprovals = () => {
     if (status === "pending") return true;
     if (approvals) {
-      return Boolean(approvals.document_controller_officer?.approved_at || approvals.lead_document_controller?.approved_at || approvals.dean?.approved_at || approvals.secretary?.approved_at);
+      return Boolean(
+        approvals.document_controller_officer?.approved_at ||
+        approvals.lead_document_controller?.approved_at ||
+        approvals.unit_document_controller?.approved_at
+      );
     }
     if (approvalMeta) {
-      return Boolean(approvalMeta.officerApproved || approvalMeta.leadApproved || approvalMeta.deanApproved || approvalMeta.secretaryApproved);
+      return Boolean(
+        approvalMeta.officerApproved ||
+        approvalMeta.leadApproved ||
+        approvalMeta.unitApproved
+      );
     }
     return false;
   };
@@ -225,8 +233,11 @@ export default function SubmitApprovalModal({
     
     // Check approvalMeta
     if (approvalMeta) {
-      if (((roleName === 'document control officer') && (approvalMeta.officerApproved || approvalMeta.deanApproved)) ||
-          (roleName === 'lead document controller' && (approvalMeta.leadApproved || approvalMeta.secretaryApproved))) {
+      if (
+        (roleName === 'document control officer' && approvalMeta.officerApproved) ||
+        (roleName === 'lead document controller' && approvalMeta.leadApproved) ||
+        (roleName === 'unit document controller' && approvalMeta.unitApproved)
+      ) {
         return 'approved';
       }
     }
