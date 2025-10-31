@@ -780,14 +780,14 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                       ...(template?.headerConfig || template?.logoConfig || {}),
                       documentStamp: {
                         docCode: template?.document_code || template?.documentCode || "",
-                        revisionNo: template?.revision_no || template?.revisionNo || "",
-                        effectivity: template?.effectivity || "",
+                          revisionNo: template?.revision_number || template?.revision_no || template?.revisionNo || "",
+                          effectivity: template?.effectivity || template?.effectivity_date || "",
                       },
                     }}
                     templateStatus={template?.status}
                     documentCode={template?.document_code || template?.documentCode}
-                    revisionNo={template?.revision_no || template?.revisionNo}
-                    effectivity={template?.effectivity}
+                      revisionNo={template?.revision_number || template?.revision_no || template?.revisionNo}
+                      effectivity={template?.effectivity || template?.effectivity_date}
                     className="pointer-events-none opacity-100 w-full"
                     onEditorReady={editor => {
                       try { editor.setEditable(false); } catch {}

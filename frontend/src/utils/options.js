@@ -31,3 +31,24 @@ export const DEPARTMENT_OPTIONS = {
 };
 
 export const YEAR_OPTIONS = ["—", "1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
+
+// Document-related options
+// Allowed prefixes for document codes (e.g., FM-VAA-001)
+export const DOCUMENT_PREFIX_OPTIONS = [
+  'FM',
+  'PM'
+];
+
+// Allowed identifiers (middle segment) for document codes
+export const DOCUMENT_IDENTIFIER_OPTIONS = [
+  'VAA', // University-wide
+  'SMI', // SAMCIS
+  'STL', // STELA
+];
+
+// Mapping of school labels to identifier codes
+export const SCHOOL_TO_IDENTIFIER_MAP = {
+  'University Wide': 'VAA',
+  'SAMCIS': 'SMI',
+  'STELA': 'STL',
+};

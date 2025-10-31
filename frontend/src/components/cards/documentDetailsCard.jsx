@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, FileText, Shield, X, Check, Edit2 } from 'lucide-react';
 import { insertDocumentCodeAPI } from '../../api/documentContollerAPI';
 import { formatDate, toISODate } from '../../utils/formatters';
+import { DOCUMENT_PREFIX_OPTIONS, DOCUMENT_IDENTIFIER_OPTIONS, SCHOOL_TO_IDENTIFIER_MAP } from '../../utils/options';
 
 /**
  * DocumentDetailsCard 
@@ -22,6 +23,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   const [effectivityDate, setEffectivityDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [conflictError, setConflictError] = useState(null);
+  const [docPrefix, setDocPrefix] = useState(DOCUMENT_PREFIX_OPTIONS?.[0] || 'FM');
 
   // State for ISO Code modal
   const [isISOModalOpen, setIsISOModalOpen] = useState(false);
@@ -38,14 +40,16 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   setRevisionNumber(revStr);
     // effectivity may be ISO string, Date, or { $date: '...' }; normalize to YYYY-MM-DD
   setEffectivityDate(toISODate(template?.effectivity ?? template?.effectivity_date));
-    // Parse document_code into FM-<ID>-<NO>
+    // Parse document_code into <PREFIX>-<IDENTIFIER>-<SERIAL>
     const existing = template?.document_code || '';
-    const match = typeof existing === 'string' ? existing.match(/^FM-([A-Z]{2,})-?(\d*)$/i) : null;
+    const match = typeof existing === 'string' ? existing.match(/^([A-Z]{2,})-([A-Z]{2,})-?(\d*)$/i) : null;
     if (match) {
-      setDocumentIdentifier((match[1] || 'VAA').toUpperCase());
-      setDocumentSerial(match[2] || '');
+      const parsedPrefix = (match[1] || 'FM').toUpperCase();
+      setDocPrefix(DOCUMENT_PREFIX_OPTIONS.includes(parsedPrefix) ? parsedPrefix : (DOCUMENT_PREFIX_OPTIONS?.[0] || 'FM'));
+      setDocumentIdentifier((match[2] || 'VAA').toUpperCase());
+      setDocumentSerial(match[3] || '');
     } else {
-      // default identifier: VAA or mapped school
+      setDocPrefix(DOCUMENT_PREFIX_OPTIONS?.[0] || 'FM');
       setDocumentSerial('');
     }
     setIsEditing(true);
@@ -74,22 +78,41 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   };
 
   // Handle saving document code and effectivity date
+  // Validation helpers (same rules as publish modal)
+  const schoolCode = SCHOOL_TO_IDENTIFIER_MAP[template?.school] || template?.school?.toUpperCase?.();
+  const identifierOptions = Array.from(new Set([...(DOCUMENT_IDENTIFIER_OPTIONS || []), schoolCode].filter(Boolean)));
+  const prefixValid = DOCUMENT_PREFIX_OPTIONS.includes(String(docPrefix || '').trim().toUpperCase());
+  const identifierValid = identifierOptions.includes(String(documentIdentifier || '').trim().toUpperCase());
+  const serialValid = /^\d{1,3}$/.test(String(documentSerial || '').trim());
+  const revisionValid = /^\d{1,2}$/.test(String(revisionNumber || '').trim());
+  // Effectivity must be present and not earlier than today (local)
+  const todayStr = (() => {
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    const adj = new Date(now.getTime() - now.getTimezoneOffset()*60000);
+    return adj.toISOString().slice(0,10);
+  })();
+  const hasEffectivity = Boolean(effectivityDate && String(effectivityDate).trim().length > 0);
+  const notPast = hasEffectivity ? String(effectivityDate) >= todayStr : false;
+  const effectivityValid = hasEffectivity && notPast;
+  const canSubmit = prefixValid && identifierValid && serialValid && revisionValid && effectivityValid;
+
   const handleSave = async () => {
-    if (!effectivityDate) {
-      alert('Please fill in the Effectivity Date');
+    if (!canSubmit) {
+      alert('Please complete all required fields with valid values.');
       return;
     }
 
     setIsSaving(true);
     try {
-      // Build document_code from parts: FM-<IDENT>-<SERIAL>
+      // Build document_code from parts: <PREFIX>-<IDENT>-<SERIAL>
       let finalDocumentCode = documentCode;
       // If user edited using the new parts, prefer those
       if ((documentIdentifier || documentSerial) && (!template?.document_code || documentCode === template?.document_code)) {
-        // Ensure identifier
+        const prefix = (docPrefix || 'FM').toUpperCase();
         const id = (documentIdentifier || 'VAA').toUpperCase();
-        const serial = documentSerial ? String(documentSerial).trim() : '';
-        finalDocumentCode = `FM-${id}${serial ? `-${serial}` : ''}`;
+        const serial = serialValid ? String(documentSerial).trim().padStart(3, '0') : '';
+        finalDocumentCode = `${prefix}-${id}${serial ? `-${serial}` : ''}`;
       }
 
       // Call API to insert document code (Dean-only)
@@ -97,7 +120,8 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
         const payload = {
           document_code: finalDocumentCode || undefined,
           effectivity: effectivityDate || undefined,
-          revision_no: revisionNumber !== '' ? Number(revisionNumber) : undefined
+          // Send revision_no as a zero-padded string for consistency
+          revision_no: revisionNumber !== '' ? String(revisionNumber).padStart(2, '0') : undefined
         };
         try {
           await insertDocumentCodeAPI(template._id, payload);
@@ -159,6 +183,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
     setRevisionNumber(String(rawRevCancel ?? '').padStart(2, '0'));
   setEffectivityDate(toISODate(template?.effectivity ?? template?.effectivity_date));
     // reset document code parts
+    setDocPrefix(DOCUMENT_PREFIX_OPTIONS?.[0] || 'FM');
     setDocumentIdentifier('VAA');
     setDocumentSerial('');
     setIsEditing(false);
@@ -213,10 +238,18 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
               </div>
               <div className="text-base text-gray-900">
                 {isEditing ? (
+                  <>
                   <div className="flex gap-2 relative z-50 overflow-visible">
-                    <span className="inline-flex items-center px-3 rounded-l-md border border-gray-300 bg-gray-50 text-sm">
-                      FM-
-                    </span>
+                    {/* Changeable prefix as select so all options show even when a value is present */}
+                    <select
+                      value={docPrefix}
+                      onChange={(e) => { setDocPrefix(e.target.value); setConflictError(null); }}
+                      className={`px-3 py-2 border border-gray-300 text-sm rounded-l-md focus:outline-none focus:ring-2 bg-white ${!prefixValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                    >
+                      {DOCUMENT_PREFIX_OPTIONS.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
 
                     {/* Identifier dropdown */}
                     <select
@@ -225,39 +258,23 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                         setDocumentIdentifier(e.target.value);
                         setConflictError(null);
                       }}
-                      className="px-3 py-2 border border-gray-300 text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      className={`px-3 py-2 border border-gray-300 text-sm rounded-none focus:outline-none focus:ring-2 bg-white ${!identifierValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
                     >
-                          {/* Always include VAA */}
-                          <option value="VAA">VAA</option>
-                          {/* Include template school identifier if present and not VAA */}
-                          {(() => {
-                            const schoolMap = {
-                              'University Wide': 'VAA',
-                              SAMCIS: 'SMI',
-                              STELA: 'STL',
-                            };
-                            const schoolId =
-                              schoolMap[template?.school] ||
-                              template?.school?.toUpperCase?.();
-                            if (schoolId && schoolId !== 'VAA') {
-                              return <option value={schoolId}>{schoolId}</option>;
-                            }
-                            return null;
-                          })()}
-                        </select>
+                      {identifierOptions.map(code => (
+                        <option key={code} value={code}>{code}</option>
+                      ))}
+                    </select>
 
                     {/* Serial number dropdown but typeable */}
-                    <input
-                      list="document-serial-options"
+                    <select
                       value={documentSerial}
                       onChange={(e) => {
                         setDocumentSerial(e.target.value);
                         setConflictError(null);
                       }}
-                      placeholder="--"
-                      className="w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-r-md"
-                    />
-                    <datalist id="document-serial-options">
+                      className={`w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 rounded-r-md bg-white ${!serialValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                    >
+                      <option value="" disabled>--</option>
                       {Array.from({ length: 999 }, (_, i) => i + 1).map((n) => {
                         const code = String(n).padStart(3, '0');
                         return (
@@ -266,8 +283,19 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                           </option>
                         );
                       })}
-                    </datalist>
+                    </select>
                   </div>
+                  {/* Inline validation messages */}
+                  {!prefixValid && (
+                    <p className="mt-1 text-xs text-red-600">Prefix is required and must match allowed options.</p>
+                  )}
+                  {!identifierValid && (
+                    <p className="mt-1 text-xs text-red-600">Identifier is required and must match allowed options.</p>
+                  )}
+                  {!serialValid && (
+                    <p className="mt-1 text-xs text-red-600">Serial is required and must be 1-3 digits (will be padded to 3).</p>
+                  )}
+                  </>
                 ) : (
                   template?.document_code || (
                     <span className="text-gray-400 text-md italic">Not set</span>
@@ -288,17 +316,15 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
               </div>
               {isEditing ? (
                 <>
-                  <input
-                    list="revision-options"
+                  <select
                     value={revisionNumber}
                     onChange={(e) => {
                       setRevisionNumber(e.target.value);
                       setConflictError(null);
                     }}
-                    placeholder="00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <datalist id="revision-options">
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 bg-white ${!revisionValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                  >
+                    <option value="" disabled>00</option>
                     {Array.from({ length: 100 }, (_, i) => i).map((n) => {
                       const code = String(n).padStart(2, '0');
                       return (
@@ -307,7 +333,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                         </option>
                       );
                     })}
-                  </datalist>
+                  </select>
                 </>
               ) : (
                 <div className="text-base text-gray-900">
@@ -343,8 +369,9 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                   <input
                     type="date"
                     value={effectivityDate}
+                    min={todayStr}
                     onChange={(e) => setEffectivityDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 ${!effectivityValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
                   />
                 ) : (
                   <div className="text-base text-gray-900">
@@ -355,12 +382,17 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
             </div>
           </div>
 
+          {/* Validation message for effectivity */}
+          {isEditing && !effectivityValid && (
+            <p className="mt-1 text-xs text-red-600">Effectivity date is required and cannot be earlier than today.</p>
+          )}
+
           {/* Action Buttons (shown when editing) */}
           {isEditing && (
             <div className="flex gap-2 mb-4">
               <button
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || !canSubmit}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
               >
                 <Check className="w-4 h-4" />

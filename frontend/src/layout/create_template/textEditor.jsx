@@ -163,7 +163,11 @@ const getCfg = (cfg) => {
       revisionNo: normRevision(
         cfg?.documentStamp?.revisionNo ??
           cfg?.documentStamp?.revision_no ??
+          cfg?.documentStamp?.revisionNumber ??
+          cfg?.documentStamp?.revision_number ??
           cfg?.revision_no ??
+          cfg?.revisionNumber ??
+          cfg?.revision_number ??
           ""
       ),
       effectivity: normDate(

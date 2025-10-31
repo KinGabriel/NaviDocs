@@ -6,7 +6,7 @@ const templateSchema = new mongoose.Schema({
     default: null
   },
   revision_no: {
-    type: Number,
+    type: String,
     default: 0
   },
   effectivity: {
