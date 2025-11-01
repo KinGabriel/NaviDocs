@@ -781,13 +781,6 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                     <h4 className="text-sm font-semibold text-gray-700">
                       {userSearch.trim() ? 'Search Results' : 'Suggested People'}
                     </h4>
-                    {!loadingUsers && allUsers.length > 0 && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {userSearch.trim() 
-                          ? `${filteredUsers.filter(u => !assignedUsers.includes(u._id || u.id)).length} result${filteredUsers.filter(u => !assignedUsers.includes(u._id || u.id)).length !== 1 ? 's' : ''} found`
-                          : `${allUsers.filter(u => !assignedUsers.includes(u._id || u.id)).length} available`}
-                      </p>
-                    )}
                   </div>
 
                   <div className="max-h-80 overflow-y-auto">

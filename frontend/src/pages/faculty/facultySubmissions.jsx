@@ -17,18 +17,18 @@ const PLACEHOLDER_DOCS = Array.from({ length: 20 }, (_, i) => ({
   rev: `0${i % 3}`,
   eff: "2025-01-15",
   title: `Document Title ${i + 1}`,
-  createdBy: i % 3 === 0 ? "John Doe" : i % 3 === 1 ? "Jane Smith" : "Mike Johnson",
+  createdBy: i % 3 === 0 ? "Nikola Jokic" : i % 3 === 1 ? "Luka Doncic" : "Alyas Pogi",
   ownedBy: i % 2 === 0 ? "Dept Head" : "Dean",
   due: "2025-12-31",
-  status: i % 4 === 0 ? "Draft" : i % 4 === 1 ? "Submitted" : i % 4 === 2 ? "Published" : "Pending Review",
+  status: i % 2 === 0 ? "Draft" : "Submitted",
   pdfUrl: `/documents/${i + 1}.pdf`,
   submittedTo: i % 3 === 0 ? "Department Head" : i % 3 === 1 ? "Secretary" : "Dean",
   submittedDate: "2025-10-20",
-  currentHolder: i % 4 === 1 ? "Department Head" : i % 4 === 2 ? "Secretary" : null,
+  currentHolder: i % 4 === 1 ? "Department Head" : i % 4 === 2 ? "Secretary" : "Dean", // refers to the person or role who currently has possession or control of the document
 }));
 
 const SORT_OPTIONS = ["Recent", "A–Z", "Z–A", "Status"];
-const STATUS_FILTERS = ["All", "Draft", "Submitted", "Published", "Pending Review"];
+const STATUS_FILTERS = ["All", "Draft", "Submitted"];
 
 export default function FacultySubmissions() {
   const user = useUser();
@@ -44,7 +44,6 @@ export default function FacultySubmissions() {
   const baseRows = useMemo(() => {
     if (tab === "draft") return PLACEHOLDER_DOCS.filter((r) => r.status === "Draft");
     if (tab === "submitted") return PLACEHOLDER_DOCS.filter((r) => r.status === "Submitted" || r.status === "Pending Review");
-    if (tab === "published") return PLACEHOLDER_DOCS.filter((r) => r.status === "Published");
     return PLACEHOLDER_DOCS;
   }, [tab]);
 
@@ -86,55 +85,68 @@ export default function FacultySubmissions() {
 
   // Dynamic columns for table view
   const columns = useMemo(
-    () => [
-      { key: "code", label: "Document Code" },
-      { key: "rev", label: "Rev" },
-      { key: "eff", label: "Effectivity" },
-      { key: "title", label: "Title" },
-      { key: "createdBy", label: "Created By" },
-      {
-        key: "currentHolder",
-        label: "Current Holder",
-        render: (row) =>
-          row.currentHolder ? (
-            <span className="text-blue-600 font-medium">{row.currentHolder}</span>
-          ) : (
-            <span className="text-gray-400">—</span>
-          ),
-      },
-      {
-        key: "status",
-        label: "Status",
-        render: (row) => <StatusBadge type={row.status} />,
-      },
-      {
-        key: "actions",
-        label: "Actions",
-        render: (row) => (
-          <div className="flex gap-2">
-            <button
-              onClick={() =>
-                navigate(`/faculty/document-workflow/${row.id}`, {
-                  state: { from: "workflow", doc: row },
-                })
-              }
-              className="inline-flex items-center justify-center px-4 py-1.5 rounded-lg bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 transition-colors"
-            >
-              View
-            </button>
-          </div>
+  () => [
+    { key: "code", label: "Document Code" },
+    { key: "rev", label: "Rev" },
+    { key: "eff", label: "Effectivity" },
+    { key: "title", label: "Title" },
+    { key: "createdBy", label: "Created By" },
+    {
+      key: "currentHolder",
+      label: "Current Holder",
+      render: (row) =>
+        row.currentHolder ? (
+          <span className="text-blue-600 font-medium">{row.currentHolder}</span>
+        ) : (
+          <span className="text-gray-400">—</span>
         ),
-      },
-    ],
-    [navigate]
-  );
+    },
+    {
+      key: "due",
+      label: "Due On",
+      render: (row) => (
+        <span className="text-gray-900 font-medium">
+          {new Date(row.due).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) => <StatusBadge type={row.status} />,
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex gap-2">
+          <button
+            onClick={() =>
+              navigate(`/faculty/document-workflow/${row.id}`, {
+                state: { from: "workflow", doc: row },
+              })
+            }
+            className="inline-flex items-center justify-center px-4 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+          >
+            View
+          </button>
+        </div>
+      ),
+    },
+  ],
+  [navigate]
+);
+
 
   const stats = useMemo(
     () => ({
       total: PLACEHOLDER_DOCS.length,
       drafts: PLACEHOLDER_DOCS.filter((d) => d.status === "Draft").length,
       submitted: PLACEHOLDER_DOCS.filter((d) => d.status === "Submitted" || d.status === "Pending Review").length,
-      published: PLACEHOLDER_DOCS.filter((d) => d.status === "Published").length,
     }),
     []
   );
@@ -149,8 +161,8 @@ export default function FacultySubmissions() {
           <main className="p-5 flex-1 overflow-y-auto">
             {/* Heading */}
             <div className="flex-1 px-1 py-2 mb-2">
-              <h1 className="text-3xl font-bold tracking-widest uppercase">DOCUMENT WORKFLOW</h1>
-              <p className="text-sm text-gray-600 mb-2">Manage and track your documents</p>
+              <h1 className="text-3xl font-bold tracking-widest uppercase">Assigned Tasks</h1>
+              <p className="text-sm text-gray-600 mb-2">Manage and track your assignments</p>
               <div className="w-28 h-1 bg-yellow-400 rounded" />
             </div>
 
@@ -175,7 +187,6 @@ export default function FacultySubmissions() {
                 <TabButton active={tab === "all"} onClick={() => setTab("all")} label="All Documents" count={stats.total} />
                 <TabButton active={tab === "draft"} onClick={() => setTab("draft")} label="Drafts" count={stats.drafts} />
                 <TabButton active={tab === "submitted"} onClick={() => setTab("submitted")} label="Submitted" count={stats.submitted} />
-                <TabButton active={tab === "published"} onClick={() => setTab("published")} label="Published" count={stats.published} />
               </div>
             </div>
 
