@@ -48,6 +48,25 @@ const TextStyleAttrs = Extension.create({
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
 const px = (n) => `${Math.max(0, Number(n) || 0)}px`;
 
+// Environment-aware API base and static asset resolver
+// Supports comma-separated VITE_API_URL for multi-env deployments
+const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URLS = rawUrls.split(",");
+const API_URL = API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
+
+// Resolve static/relative asset paths against API_URL; ensure they live under /uploads
+const resolveAssetUrl = (val) => {
+  const v = String(val ?? "").trim();
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v) || v.startsWith("data:")) return v; // already absolute
+  const base = String(API_URL || "").replace(/\/+$/, "");
+  let path = v.replace(/^\/+/, "");
+  if (!path.startsWith("uploads/")) {
+    path = `uploads/${path}`;
+  }
+  return `${base}/${path}`;
+};
+
 const DEFAULT_SETUP = {
   paperSize: "A4",
   orientation: "Portrait",
@@ -460,7 +479,7 @@ export default function TextEditor({
     /* LEFT: SLU logo only */
     if (cfg.logos.slu?.enabled && cfg.assets?.slu) {
       const sluImg = document.createElement("img");
-      sluImg.src = cfg.assets.slu;
+      sluImg.src = resolveAssetUrl(cfg.assets.slu);
       sluImg.alt = "SLU";
       sluImg.style.height = px(cfg.logos.slu.sizePx || 56);
       sluImg.style.objectFit = "contain";
@@ -497,7 +516,7 @@ export default function TextEditor({
 
     if (cfg.logos.cicm?.enabled && cfg.assets?.cicm) {
       const cicmImg = document.createElement("img");
-      cicmImg.src = cfg.assets.cicm;
+      cicmImg.src = resolveAssetUrl(cfg.assets.cicm);
       cicmImg.alt = "CICM";
       cicmImg.style.height = px(cfg.logos.cicm.sizePx || 52);
       cicmImg.style.objectFit = "contain";
