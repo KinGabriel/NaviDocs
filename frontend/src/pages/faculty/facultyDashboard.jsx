@@ -3,7 +3,7 @@ import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
-import StatusBadge from "../../components/statusBadge";
+import { StatusBadge } from "../../utils/formatters";
 import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
 import Greeting from "../../components/greeting";
 import UpcomingDeadlines from "../../components/upcomingDeadlines";
@@ -48,49 +48,37 @@ export default function FacultyDashboard() {
       id: 1,
       title: "Research Proposal Template",
       createdBy: "Admin User",
-      deanStatus: "Yes",
-      secStatus: "Yes",
-      headStatus: "Yes",
+      status: "Approved",
     },
     {
       id: 2,
       title: "Thesis Format Guide",
       createdBy: "Admin User",
-      deanStatus: "No",
-      secStatus: "No",
-      headStatus: "Yes",
+      status: "Rejected",
     },
     {
       id: 3,
       title: "Internship Report Template",
       createdBy: "Admin User",
-      deanStatus: "No",
-      secStatus: "Returned",
-      headStatus: "Returned",
+      status: "Returned",
     },
     {
       id: 4,
       title: "Course Syllabus Template",
       createdBy: "Admin User",
-      deanStatus: "Returned",
-      secStatus: "Yes",
-      headStatus: "Returned",
+      status: "Approved",
     },
     {
       id: 5,
       title: "Capstone Project Template",
       createdBy: "Admin User",
-      deanStatus: "No",
-      secStatus: "No",
-      headStatus: "Returned",
+      status: "Pending",
     },
     {
       id: 6,
       title: "Department Memo Format",
       createdBy: "Admin User",
-      deanStatus: "Yes",
-      secStatus: "Returned",
-      headStatus: "Yes",
+      status: "Endorsed",
     },
   ];
 
@@ -108,95 +96,18 @@ export default function FacultyDashboard() {
       label: "Created By",
     },
     {
-      key: "approvalStatus",
-      label: "Approval Status",
-      render: (row) => (
-        <div className="flex flex-col text-xs font-medium text-gray-700 space-y-1">
-          {/* Dean Status */}
-          <div className="flex items-center gap-2">
-            <span
-              title={
-                row.deanStatus === "Yes"
-                  ? "Approved"
-                  : row.deanStatus === "No"
-                  ? "Rejected"
-                  : row.deanStatus === "Returned"
-                  ? "Returned"
-                  : "Pending"
-              }
-              className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
-                row.deanStatus === "Yes"
-                  ? "bg-green-500" // Approved
-                  : row.deanStatus === "No"
-                  ? "bg-red-500" // Rejected
-                  : row.deanStatus === "Returned"
-                  ? "bg-purple-500" // Returned
-                  : "bg-yellow-400" // Default / Pending
-              }`}
-            ></span>
-
-            <span>Dean</span>
-          </div>
-
-          {/* Secretary Status */}
-          <div className="flex items-center gap-2">
-            <span
-              title={
-                row.secStatus === "Yes"
-                  ? "Approved"
-                  : row.secStatus === "No"
-                  ? "Rejected"
-                  : row.secStatus === "Returned"
-                  ? "Returned"
-                  : "Pending"
-              }
-              className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
-                row.secStatus === "Yes"
-                  ? "bg-green-500"
-                  : row.secStatus === "No"
-                  ? "bg-red-500"
-                  : row.secStatus === "Returned"
-                  ? "bg-purple-500"
-                  : "bg-yellow-400"
-              }`}
-            ></span>
-
-            <span>Secretary</span>
-          </div>
-
-          {/* Department Head Status */}
-          <div className="flex items-center gap-2">
-            <span
-              title={
-                row.headStatus === "Yes"
-                  ? "Approved"
-                  : row.headStatus === "No"
-                  ? "Rejected"
-                  : row.headStatus === "Returned"
-                  ? "Returned"
-                  : "Pending"
-              }
-              className={`w-2.5 h-2.5 rounded-full cursor-pointer ${
-                row.headStatus === "Yes"
-                  ? "bg-green-500"
-                  : row.headStatus === "No"
-                  ? "bg-red-500"
-                  : row.headStatus === "Returned"
-                  ? "bg-purple-500"
-                  : "bg-yellow-400"
-              }`}
-            ></span>
-
-            <span>Department Head</span>
-          </div>
-        </div>
-      ),
-    },
+          key: "status",
+          label: "Status",
+          render: (row) => <StatusBadge type={row.status} />,
+        },
     {
       key: "action",
       label: "Action",
       render: () => (
-        <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">
+        <button
+          onClick={() => navigate("")}
+          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200 whitespace-nowrap"
+        >
           Review
         </button>
       ),
@@ -276,7 +187,10 @@ export default function FacultyDashboard() {
       key: "action",
       label: "Action",
       render: () => (
-        <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">
+        <button
+          onClick={() => navigate("")}
+          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200 whitespace-nowrap"
+        >
           Review
         </button>
       ),
@@ -396,26 +310,12 @@ export default function FacultyDashboard() {
                     </h2>
                     <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                   </div>
-
-                  {/* Legend */}
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-gray-600 md:mr-6">
-                    <div className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
-                      <span>Approved</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                      <span>Rejected</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                      <span>Returned</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
-                      <span>Pending</span>
-                    </div>
-                  </div>
+                  <button
+                    onClick={() => navigate("")}
+                    className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+                  >
+                    View All
+                  </button>
                 </div>
 
                 {/* table wrapper with horizontal scroll on mobile */}
@@ -448,9 +348,12 @@ export default function FacultyDashboard() {
                   <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                 </div>
 
-                <button className="md:mr-12 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-fit">
-                  View All
-                </button>
+                <button
+                    onClick={() => navigate("")}
+                    className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+                  >
+                    View All
+                  </button>
               </div>
 
               {/* table wrapper with scroll on small screens */}

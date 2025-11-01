@@ -111,11 +111,11 @@ export default function SecretaryDashboard() {
   const requestedTemplatesColumn = [
     { key: "title", label: "Title" },
     { key: "createdBy", label: "Created By" },
-   {
-         key: "status",
-         label: "Status",
-         render: (row) => <StatusBadge type={row.status} />,
-       },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) => <StatusBadge type={row.status} />,
+    },
     {
       key: "action",
       label: "Action",
@@ -274,7 +274,7 @@ export default function SecretaryDashboard() {
                     <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                   </div>
 
-         <button
+                  <button
                     onClick={() => navigate("")}
                     className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
                   >
@@ -312,12 +312,12 @@ export default function SecretaryDashboard() {
                   <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                 </div>
 
-               <button
-                    onClick={() => navigate("")}
-                    className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
-                  >
-                    View All
-                  </button>
+                <button
+                  onClick={() => navigate("")}
+                  className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+                >
+                  View All
+                </button>
               </div>
 
               {/* scrollable on mobile */}
