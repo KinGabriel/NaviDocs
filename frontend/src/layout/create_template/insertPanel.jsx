@@ -104,7 +104,7 @@ export default function InsertPanel({ editor }) {
     e.target.value = '';
   };
 
-  const isInTable = editor?.isActive('table');
+  const isInTable = editor?.isActive?.('table');
 
   return (
     <div className="w-full p-4 space-y-6">
@@ -184,6 +184,35 @@ export default function InsertPanel({ editor }) {
                 </button>
                 <button onClick={() => editor.chain().focus().deleteTable().run()} className="col-span-2 bg-red-200 text-black px-3 py-1 rounded hover:bg-red-400">
                   Delete Table
+                </button>
+              </div>
+            </div>
+
+            {/* ——— Selection Helpers ——— */}
+            <div>
+              <h3 className="text-sm font-semibold mb-1">Select</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => editor.chain().focus().selectRow().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Select Row
+                </button>
+                <button onClick={() => editor.chain().focus().selectColumn().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Select Column
+                </button>
+              </div>
+            </div>
+
+            {/* ——— Alignment (via TextAlign extension) ——— */}
+            <div>
+              <h3 className="text-sm font-semibold mb-1">Text Align</h3>
+              <div className="grid grid-cols-3 gap-2">
+                <button onClick={() => editor.chain().focus().setTextAlign('left').run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Left
+                </button>
+                <button onClick={() => editor.chain().focus().setTextAlign('center').run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Center
+                </button>
+                <button onClick={() => editor.chain().focus().setTextAlign('right').run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
+                  Right
                 </button>
               </div>
             </div>
