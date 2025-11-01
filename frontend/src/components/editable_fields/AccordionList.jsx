@@ -1,4 +1,4 @@
-// src/components/editable_fields/AccordionList.jsx
+// src/components/editable_fields/accordionList.jsx
 import React, { useState } from "react";
 import { ChevronDown, ChevronRight, Plus, Trash2, Edit3, Check, X, Tag } from "lucide-react";
 import TagPicker from "./TagPicker";
