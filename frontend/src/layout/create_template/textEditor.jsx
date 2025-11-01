@@ -267,14 +267,20 @@ export default function TextEditor({
       Color,
       FontFamily,
       Highlight.configure({ multicolor: true }),
-      TextAlign.configure({ types: ["heading", "paragraph" ] }),
+      // include table cell & header so alignment menus can target table nodes
+      TextAlign.configure({ types: ["heading", "paragraph", "tableCell", "tableHeader"] }),
       Underline,
       Superscript,
       Subscript,
-      TablePlus.configure({ resizeHandleStyle: { width: "3px" } }),
+
+      // Table with pagination support (as per Tiptap Plus docs)
+      TablePlus.configure({
+        resizeHandleStyle: { width: "3px" }, // doc-style example; just handle styling
+      }),
       TableRowPlus,
       TableCellPlus,
       TableHeaderPlus,
+
       RichImage.configure({ onOpenImageOptions: () => {} }),
 
       // Editable field node (atom + caret placed after on insert)
