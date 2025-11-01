@@ -10,21 +10,19 @@ import usePagination from "../hooks/usePagination";
 import Loader from "../components/loader";
 import { listDocumentsAPI } from "../api/documentsAPI";
 
-export default function RecentlyDeleted() {
+export default function ArchivedDocuments() {
   const user = useUser();
   const navigate = useNavigate();
 
-  // state
   const PAGE_SIZE = 8;
   const [viewMode, setViewMode] = useState("grid"); // "table" | "grid"
   const [search, setSearch] = useState("");
-  const [deletedDocs, setDeletedDocs] = useState([]);
-  const [deletedLoading, setDeletedLoading] = useState(false);
-  const [deletedTotalPages, setDeletedTotalPages] = useState(1);
-  const pagination = usePagination(deletedTotalPages, 1);
+  const [archivedDocs, setArchivedDocs] = useState([]);
+  const [archivedLoading, setArchivedLoading] = useState(false);
+  const [archivedTotalPages, setArchivedTotalPages] = useState(1);
+  const pagination = usePagination(archivedTotalPages, 1);
 
-  // columns for table mode
-  const deletedColumns = [
+  const archivedColumns = [
     {
       key: "title",
       label: "Document Name",
@@ -43,7 +41,7 @@ export default function RecentlyDeleted() {
     },
     {
       key: "deletedAt",
-      label: "Deleted On",
+      label: "Archived On",
       render: (row) =>
         row.deletedAt
           ? new Date(row.deletedAt).toLocaleString()
@@ -60,15 +58,14 @@ export default function RecentlyDeleted() {
     },
   ];
 
-  // fetch deleted docs
-  const fetchDeleted = async () => {
+  const fetchArchived = async () => {
     if (!user) return;
-    setDeletedLoading(true);
+    setArchivedLoading(true);
     try {
       const params = {
         limit: PAGE_SIZE,
         page: pagination.currentPage,
-        deleted: true,
+        deleted: true, // still using deleted=true to pull soft-deleted docs
         search: search?.trim() || undefined,
       };
       const result = await listDocumentsAPI(params);
@@ -76,33 +73,33 @@ export default function RecentlyDeleted() {
       let arr = [];
       if (result && Array.isArray(result.documents)) {
         arr = result.documents;
-        setDeletedTotalPages(result.pagination?.total_pages || 1);
+        setArchivedTotalPages(result.pagination?.total_pages || 1);
       } else if (result?.success && Array.isArray(result.data?.documents)) {
         arr = result.data.documents;
-        setDeletedTotalPages(result.data?.pagination?.total_pages || 1);
+        setArchivedTotalPages(result.data?.pagination?.total_pages || 1);
       } else if (Array.isArray(result)) {
         arr = result;
-        setDeletedTotalPages(1);
+        setArchivedTotalPages(1);
       }
 
-      // newest deleted first
+      // newest archived first
       arr.sort((a, b) => {
         const ad = new Date(a.deletedAt || a.updatedAt || 0).getTime();
         const bd = new Date(b.deletedAt || b.updatedAt || 0).getTime();
         return bd - ad;
       });
 
-      setDeletedDocs(arr);
+      setArchivedDocs(arr);
     } catch (err) {
-      setDeletedDocs([]);
-      setDeletedTotalPages(1);
+      setArchivedDocs([]);
+      setArchivedTotalPages(1);
     } finally {
-      setDeletedLoading(false);
+      setArchivedLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDeleted();
+    fetchArchived();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, search, pagination.currentPage]);
 
@@ -113,74 +110,70 @@ export default function RecentlyDeleted() {
       <div className="flex flex-1 flex-col lg:flex-row">
         <Sidebar user={user} />
 
-        {/* main content */}
-        <div className="flex-1 flex flex-col bg-white shadow
-                        pt-1 pb-4
-                        px-4 sm:px-6 lg:px-8
-                        mx-0 lg:mx-6
-                        mt-4 lg:mt-8
-                        rounded-none lg:rounded-xl">
+        <div
+          className="flex-1 flex flex-col bg-white shadow
+                      pt-1 pb-4
+                      px-4 sm:px-6 lg:px-8
+                      mx-0 lg:mx-6
+                      mt-4 lg:mt-8
+                      rounded-none lg:rounded-xl"
+        >
           <div className="flex-1 px-0 lg:px-1 py-5">
-            {/* header / title */}
+            {/* Page title */}
             <h1 className="text-2xl lg:text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">
-              RECENTLY DELETED
+              ARCHIVED DOCUMENTS
             </h1>
             <div className="w-24 lg:w-30 h-1 bg-yellow-400 mb-4 lg:mb-6 rounded" />
 
-            {/* controls row */}
+            {/* Controls: search + view toggle */}
             <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-              {/* left spacer on desktop to push controls right, hidden mobile */}
               <div className="flex-1 hidden sm:block" />
 
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                {/* search full width on mobile */}
                 <div className="w-full sm:w-64">
                   <SearchBar
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search deleted documents..."
+                    placeholder="Search archived documents..."
                   />
                 </div>
 
-                {/* view toggle sits next to it on desktop, below it on mobile */}
                 <div className="self-start sm:self-auto">
                   <ViewToggle mode={viewMode} onChange={setViewMode} />
                 </div>
               </div>
             </div>
 
-            {/* content */}
-            {deletedLoading ? (
+            {/* Content section */}
+            {archivedLoading ? (
               <div className="w-full flex justify-center py-10">
-                <Loader message="Loading recently deleted..." />
+                <Loader message="Loading archived documents..." />
               </div>
             ) : (
               <>
                 {viewMode === "table" ? (
-                  // table mode (scrollable on small screens)
                   <div className="w-full overflow-x-auto rounded-lg border border-gray-200 sm:border-0 sm:overflow-visible sm:rounded-none">
-                    <Table columns={deletedColumns} data={deletedDocs} />
+                    <Table columns={archivedColumns} data={archivedDocs} />
                   </div>
                 ) : (
-                  // grid mode (1->2->3->4 cols)
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                    {deletedDocs.length === 0 ? (
+                    {archivedDocs.length === 0 ? (
                       <div className="col-span-full text-center py-8">
-                        <p className="text-gray-600">No deleted documents</p>
+                        <p className="text-gray-600">No archived documents</p>
                       </div>
                     ) : (
-                      deletedDocs.map((doc, i) => {
+                      archivedDocs.map((doc, i) => {
                         const id = doc._id || i;
                         return (
                           <div key={id} className="relative">
                             <span className="absolute top-2 right-2 z-10 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
-                              Deleted
+                              Archived
                             </span>
                             <DocumentCard
                               document={doc}
                               user={user}
                               onSelect={() => {
-                                /* read-only in trash */
+                                /* read-only in archive */
                               }}
                             />
                           </div>
@@ -192,7 +185,7 @@ export default function RecentlyDeleted() {
               </>
             )}
 
-            {/* pagination */}
+            {/* Pagination */}
             <div className="flex flex-col sm:flex-row justify-center items-center mt-6 gap-2 flex-wrap">
               <button
                 onClick={pagination.handlePrev}
@@ -204,7 +197,10 @@ export default function RecentlyDeleted() {
 
               {pagination.getPageNumbers().map((num, idx) =>
                 num === "..." ? (
-                  <span key={idx} className="px-2 text-gray-400 select-none">
+                  <span
+                    key={idx}
+                    className="px-2 text-gray-400 select-none"
+                  >
                     ...
                   </span>
                 ) : (
@@ -224,7 +220,7 @@ export default function RecentlyDeleted() {
 
               <button
                 onClick={pagination.handleNext}
-                disabled={pagination.currentPage === deletedTotalPages}
+                disabled={pagination.currentPage === archivedTotalPages}
                 className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
                 Next
@@ -237,7 +233,6 @@ export default function RecentlyDeleted() {
   );
 }
 
-/* View toggle stays the same, just make sure it doesn't explode layout */
 function ViewToggle({ mode = "grid", onChange }) {
   const isTable = mode === "table";
 

@@ -348,10 +348,10 @@ export default function GlobalTemplates() {
                   {/* Recently Deleted */}
                   <button
                     type="button"
-                    onClick={() => navigate("/recently-deleted")}
+                    onClick={() => navigate("/archived-documents")}
                     className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
-                    aria-label="Recently deleted"
-                    title="Recently deleted"
+                    aria-label="Archived documents"
+                    title="Archived documents"
                   >
                     {/* trash icon */}
                     <svg

@@ -38,7 +38,7 @@ import EditableFields from './pages/editableFields';
 import Storage from './pages/storage';
 import SelectTemplate from './pages/selectTemplate'; 
 import { Toaster } from 'react-hot-toast';
-import RecentlyDeleted from "./pages/recentlyDeleted";
+import ArchivedDocuments from "./pages/archivedDocuments";
 import SubmissionBin from './pages/submissionbinDetails';
 
 /** Redirect logged-in users by role; otherwise show Login */
@@ -391,10 +391,10 @@ function App() {
       />
 
       <Route
-        path="/recently-deleted"
+        path="/archived-documents"
         element={
           <ProtectedRoute allowedRoles={["Dean", "Department Head", "Secretary", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
-            <RecentlyDeleted />
+            <ArchivedDocuments />
           </ProtectedRoute>
         }
        />
