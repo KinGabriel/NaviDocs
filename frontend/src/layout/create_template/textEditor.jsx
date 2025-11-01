@@ -61,6 +61,7 @@ const resolveAssetUrl = (val) => {
   if (/^https?:\/\//i.test(v) || v.startsWith("data:")) return v; // already absolute
   const base = String(API_URL || "").replace(/\/+$/, "");
   let path = v.replace(/^\/+/, "");
+  // If DB stored path starts at assets/... or any relative path, force under uploads/
   if (!path.startsWith("uploads/")) {
     path = `uploads/${path}`;
   }

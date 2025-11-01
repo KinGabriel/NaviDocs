@@ -138,7 +138,9 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
       try {
         const paper = String(pageSetup.paperSize || 'A4');
         const orient = String(pageSetup.orientation || 'Portrait').toLowerCase();
-  const cleanupCss = `\n<style>\n/* Export-only PaginationPlus variable overrides */\n:root, .rm-with-pagination {\n  --pageGap: 0px !important;\n  --pageGapBorderSize: 0px !important;\n  --pageBreakBackground: #ffffff !important;\n}\n/* Always hide common watermark nodes (not gated by @media to work with screen emulation) */\n.rm-watermark, .nd-watermark, .rm-editor-watermark, .rm-page-watermark, [data-watermark], .watermark, [class*="watermark"], [id*="watermark"], [data-role*="watermark"] {\n  display: none !important;\n  visibility: hidden !important;\n}\n/* Disable common watermark pseudo-elements */\n.rm-watermark::before, .rm-watermark::after,\n.nd-watermark::before, .nd-watermark::after,\n.rm-editor-watermark::before, .rm-editor-watermark::after,\n.rm-page-watermark::before, .rm-page-watermark::after,\n[data-watermark]::before, [data-watermark]::after,\n.watermark::before, .watermark::after,\n[class*="watermark"]::before, [class*="watermark"]::after,\n[id*="watermark"]::before, [id*="watermark"]::after,\n[data-role*="watermark"]::before, [data-role*="watermark"]::after {\n  content: none !important;\n  background: none !important;\n}\n/* Ensure page containers have no background image applied */\n.rm-with-pagination, .rm-page, .rm-page-break, .ProseMirror, body {\n  background-image: none !important;\n  background: #ffffff !important;\n}\n/* Remove editor chrome around editable fields in export */\n.nd-editable-field, .editable-field, [data-node=\"editable-field\"] {\n  background: transparent !important;\n  border: none !important;\n  outline: none !important;\n  box-shadow: none !important;\n  padding: 0 !important;\n  filter: none !important;\n}\n@page { size: ${paper} ${orient}; margin: 0; }\n@media print {\n  html, body { margin:0; padding:0; width:100%; height:100%; box-sizing:border-box; }\n  /* Remove preview frames and scaling */\n  .rm-with-pagination, .rm-page, .rm-page-break, .ProseMirror, .nd-editor-canvas {\n    transform: none !important;\n    zoom: 1 !important;\n    width: 100% !important;\n    max-width: none !important;\n    margin: 0 !important;\n    padding: 0 !important;\n    background: transparent !important;\n    box-shadow: none !important;\n    border: none !important;\n    outline: none !important;\n  }\n  img { max-width: 100% !important; height: auto !important; }\n  /* Hide preview-only separators/overlays */\n  .rm-page-separator, .rm-preview-separator, .preview-only, [data-preview], [data-rm-preview] {\n    display: none !important;\n  }\n}\n</style>`;
+  const cleanupCss = `\n<style>\n/* Export-only PaginationPlus variable overrides */\n:root, .rm-with-pagination {\n  --pageGap: 0px !important;\n  --pageGapBorderSize: 0px !important;\n  --pageBreakBackground: #ffffff !important;\n}\n/* Always hide common watermark nodes (not gated by @media to work with screen emulation) */\n.rm-watermark, .nd-watermark, .rm-editor-watermark, .rm-page-watermark, [data-watermark], .watermark, [class*=\"watermark\"], [id*=\"watermark\"], [data-role*=\"watermark\"] {\n  display: none !important;\n  visibility: hidden !important;\n}\n/* Disable common watermark pseudo-elements */\n.rm-watermark::before, .rm-watermark::after,\n.nd-watermark::before, .nd-watermark::after,\n.rm-editor-watermark::before, .rm-editor-watermark::after,\n.rm-page-watermark::before, .rm-page-watermark::after,\n[data-watermark]::before, [data-watermark]::after,\n.watermark::before, .watermark::after,\n[class*=\"watermark\"]::before, [class*=\"watermark\"]::after,\n[id*=\"watermark\"]::before, [id*=\"watermark\"]::after,\n[data-role*=\"watermark\"]::before, [data-role*=\"watermark\"]::after {\n  content: none !important;\n  background: none !important;\n}\n/* Ensure page containers have no background image applied */\n.rm-with-pagination, .rm-page, .rm-page-break, .ProseMirror, body {\n  background-image: none !important;\n  background: #ffffff !important;\n}\n/* Ensure headers can anchor absolute children like the header rule */\n.rm-first-page-header, .rm-page-header {\n  position: relative !important;\n}\n/* Visible horizontal rules in content and header */\nhr, .horizontal-rule, .tiptap hr {\n  border: 0 !important;\n  border-top: 1px solid #000 !important;\n  height: 0 !important;\n  margin: 6px 0 !important;\n  break-inside: avoid !important;\n  page-break-inside: avoid !important;\n}
+/* Header bottom line injected by the editor */\n.nv-header-line {\n  position: absolute !important;\n  left: 0 !important;\n  right: 0 !important;\n  bottom: 0 !important;\n  height: 1px !important;\n  background: #000 !important;\n}
+/* Remove editor chrome around editable fields in export */\n.nd-editable-field, .editable-field, [data-node=\"editable-field\"] {\n  background: transparent !important;\n  border: none !important;\n  outline: none !important;\n  box-shadow: none !important;\n  padding: 0 !important;\n  filter: none !important;\n}\n@page { size: ${paper} ${orient}; margin: 0; }\n@media print {\n  html, body { margin:0; padding:0; width:100%; height:100%; box-sizing:border-box; }\n  /* Remove preview frames and scaling */\n  .rm-with-pagination, .rm-page, .rm-page-break, .ProseMirror, .nd-editor-canvas {\n    transform: none !important;\n    zoom: 1 !important;\n    width: 100% !important;\n    max-width: none !important;\n    margin: 0 !important;\n    padding: 0 !important;\n    background: transparent !important;\n    box-shadow: none !important;\n    border: none !important;\n    outline: none !important;\n  }\n  img { max-width: 100% !important; height: auto !important; }\n  /* Hide preview-only separators/overlays */\n  .rm-page-separator, .rm-preview-separator, .preview-only, [data-preview], [data-rm-preview] {\n    display: none !important;\n  }\n}\n</style>`;
         if (typeof html === 'string' && html.length > 0) {
           if (html.includes('<head')) {
             html = html.replace(/<head([^>]*)>/i, (m) => `${m}${cleanupCss}`);
@@ -200,6 +202,31 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
             }
           `
         });
+      } catch (_) {}
+
+      // Conditionally enable a fallback header rule only when the document intends to show it
+      try {
+        const wantHeaderRule = await page.evaluate(() => {
+          try {
+            // If any nv-header-line exists, the header rule is intended
+            if (document.querySelector('.nv-header-line')) return true;
+            // Or if a global opt-in flag is present on body or documentElement
+            const bodyFlag = (document.body && document.body.getAttribute('data-header-line')) === 'true';
+            const rootFlag = (document.documentElement && document.documentElement.getAttribute('data-header-line')) === 'true';
+            return bodyFlag || rootFlag;
+          } catch (_) {
+            return false;
+          }
+        });
+
+        if (wantHeaderRule) {
+          await page.addStyleTag({
+            content: `
+              .rm-first-page-header, .rm-page-header { position: relative !important; overflow: visible !important; }
+              .rm-first-page-header::after, .rm-page-header::after { content: ""; position: absolute !important; left: 0; right: 0; bottom: 0; border-bottom: 1px solid #000; height: 0; }
+            `
+          });
+        }
       } catch (_) {}
 
       // Runtime safety: enforce export-only PaginationPlus vars, hide watermarks, and clear backgrounds
@@ -285,6 +312,29 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
                 }
               } catch (_) {}
             });
+          } catch (_) {}
+          try {
+            // Only add header rule if any .nv-header-line exists in the DOM (signals intent)
+            const wantsRule = !!document.querySelector('.nv-header-line')
+              || (document.body && document.body.getAttribute('data-header-line') === 'true')
+              || (document.documentElement && document.documentElement.getAttribute('data-header-line') === 'true');
+            if (wantsRule) {
+              const ensureHeaderRule = (hdr) => {
+                if (!hdr) return;
+                if (!hdr.querySelector(':scope > .nv-header-line')) {
+                  const line = document.createElement('div');
+                  line.className = 'nv-header-line';
+                  line.style.position = 'absolute';
+                  line.style.left = '0';
+                  line.style.right = '0';
+                  line.style.bottom = '0';
+                  line.style.height = '1px';
+                  line.style.background = '#000';
+                  hdr.appendChild(line);
+                }
+              };
+              document.querySelectorAll('.rm-first-page-header, .rm-page-header').forEach(ensureHeaderRule);
+            }
           } catch (_) {}
         });
       } catch (e) {
