@@ -25,7 +25,7 @@ const MOCK_SUBMISSIONS = Array.from({ length: 15 }, (_, i) => ({
 const STATUS_OPTIONS = ["All Status", "Active", "Completed", "Overdue", "Draft"];
 const SORT_OPTIONS = ["Recent", "Oldest", "Due Soon", "A–Z"];
 
-export default function SecretaryWorkflow() {
+export default function DepartmentHeadSubmissions() {
   const user = useUser();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");

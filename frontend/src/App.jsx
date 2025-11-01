@@ -13,26 +13,26 @@ import DocumentControllerDashboard from './pages/document_controller/documentCon
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
-import DocumentControllerWorkFlow from './pages/document_controller/documentControllerWorkFlow';
+import DocumentControllerSubmissions from './pages/document_controller/documentControllerSubmissions';
 import DocumentControllerWorkflowView from './pages/document_controller/documentControllerWorkflowView';
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/unauthorizedPage';
 import useUser from './hooks/useUser';
 import SecretaryDashboard from './pages/secretary/secretaryDashboard';
-import SecretaryWorkflow from './pages/secretary/secretaryWorkflow';
+import SecretarySubmissions from './pages/secretary/secretarySubmissions';
 import TemplatesView from './pages/templatesView';
 import DeanDashboard from './pages/dean/deanDashboard';
 import DeanStatistics from './pages/dean/deanStatistics';
-import DeanDocumentWorkflow from './pages/dean/deanDocumentWorkflow';
+import DeanSubmissions from './pages/dean/deanSubmissions';
 import DeanDocumentWorkflowView from './pages/dean/deanDocumentWorkflowView';
 import DocControllerTemplates from "./pages/document_controller/documentControllerHandleTemplates.jsx";
 import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
-import DepartmentHeadDocumentWorkflow from './pages/dept_head/departmentHeadDocumentWorkflow';
+import DepartmentHeadSubmissions from './pages/dept_head/departmentHeadSubmissions';
 import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics';
 import DepartmentHeadDocumentWorkflowView from './pages/dept_head/departmentHeadDocumentWorkflowView';
 import FacultyDashboard from './pages/faculty/facultyDashboard';
-import FacultyWorkFlow from './pages/faculty/facultyWorkFlow';
+import FacultySubmissions from './pages/faculty/facultySubmissions';
 import FacultyWorkflowView from './pages/faculty/facultyWorkflowView';
 import EditableFields from './pages/editableFields';
 import Storage from './pages/storage';
@@ -166,7 +166,7 @@ function App() {
          path="/document-controller/document-workflow"
          element={
           <ProtectedRoute allowedRoles={["Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
-             <DocumentControllerWorkFlow />
+             <DocumentControllerSubmissions />
            </ProtectedRoute>
          }
        />
@@ -199,7 +199,7 @@ function App() {
          path="/secretary/document-workflow"
          element={
            <ProtectedRoute allowedRoles={["Secretary"]}>
-             <SecretaryWorkflow />
+             <SecretarySubmissions/>
            </ProtectedRoute>
          }
        />
@@ -226,7 +226,7 @@ function App() {
          path="/dean/document-workflow"
          element={
            <ProtectedRoute allowedRoles={["Dean"]}>
-             <DeanDocumentWorkflow />
+             <DeanSubmissions />
            </ProtectedRoute>
          }
        />
@@ -263,7 +263,7 @@ function App() {
          path="/dept-head/document-workflow"
          element={
            <ProtectedRoute allowedRoles={["Department Head"]}>
-             <DepartmentHeadDocumentWorkflow/>
+             <DepartmentHeadSubmissions/>
            </ProtectedRoute>
          }
        />
@@ -292,7 +292,7 @@ function App() {
          path="/faculty/document-workflow"
          element={
            <ProtectedRoute allowedRoles={["Faculty"]}>
-             <FacultyWorkFlow />
+             <FacultySubmissions />
            </ProtectedRoute>
          }
        />

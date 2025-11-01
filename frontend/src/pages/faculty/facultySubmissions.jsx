@@ -30,7 +30,7 @@ const PLACEHOLDER_DOCS = Array.from({ length: 20 }, (_, i) => ({
 const SORT_OPTIONS = ["Recent", "A–Z", "Z–A", "Status"];
 const STATUS_FILTERS = ["All", "Draft", "Submitted", "Published", "Pending Review"];
 
-export default function FacultyWorkflow() {
+export default function FacultySubmissions() {
   const user = useUser();
   const navigate = useNavigate();
   const [tab, setTab] = useState("all");
