@@ -48,23 +48,18 @@ const TextStyleAttrs = Extension.create({
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
 const px = (n) => `${Math.max(0, Number(n) || 0)}px`;
 
-// Environment-aware API base and static asset resolver
-// Supports comma-separated VITE_API_URL for multi-env deployments
+// Env-aware API base
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 const API_URL = API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
 
-// Resolve static/relative asset paths against API_URL; ensure they live under /uploads
 const resolveAssetUrl = (val) => {
   const v = String(val ?? "").trim();
   if (!v) return "";
-  if (/^https?:\/\//i.test(v) || v.startsWith("data:")) return v; // already absolute
+  if (/^https?:\/\//i.test(v) || v.startsWith("data:")) return v;
   const base = String(API_URL || "").replace(/\/+$/, "");
   let path = v.replace(/^\/+/, "");
-  // If DB stored path starts at assets/... or any relative path, force under uploads/
-  if (!path.startsWith("uploads/")) {
-    path = `uploads/${path}`;
-  }
+  if (!path.startsWith("uploads/")) path = `uploads/${path}`;
   return `${base}/${path}`;
 };
 
@@ -102,7 +97,6 @@ const normalizeInitialContent = (content) => (content ? content : DEFAULT_DOC);
 const { TablePlus, TableRowPlus, TableCellPlus, TableHeaderPlus } = PaginationTable;
 
 /* ----------------------- normalize header/footer config ----------------------- */
-// Normalize date into the shared display format; gracefully fall back to the raw value
 const normDate = (val) => {
   try {
     if (val == null || val === "") return "";
@@ -116,7 +110,6 @@ const normDate = (val) => {
   }
 };
 
-// Always render revision as two digits (e.g., 01, 12). If non-numeric, fall back to string.
 const normRevision = (val) => {
   if (val == null || val === "") return "";
   const n = parseInt(val, 10);
@@ -131,20 +124,15 @@ const normRevision = (val) => {
 const getCfg = (cfg) => {
   const center = cfg?.header?.centerText || cfg?.center || {};
   const logos = cfg?.header?.logos || {};
-  // Merge footer sub-sections with permissive defaults
   const headerMarginIn = Number(cfg?.headerMarginIn ?? cfg?.header?.marginIn ?? 0);
   const pageNumber = cfg?.footer?.pageNumber || {};
   const body = cfg?.footer?.body || {};
   return {
     headerEnabled: !!cfg?.headerEnabled,
     footerEnabled: !!cfg?.footerEnabled,
-
-    // footer mirrors header by default
     headerMarginIn,
     footerMarginIn: Number(cfg?.footerMarginIn ?? headerMarginIn),
-
     assets: cfg?.assets || {},
-
     center: {
       enabled: center.enabled ?? true,
       line1: center.line1 ?? cfg?.center?.line1 ?? "Saint Louis University",
@@ -159,7 +147,6 @@ const getCfg = (cfg) => {
       color: center.color ?? "#000000",
       showHeaderLine: !!(center.showHeaderLine ?? cfg?.showHeaderLine),
     },
-
     logos: {
       slu: {
         enabled: !!(logos.slu?.enabled ?? cfg?.showSLULogo),
@@ -172,9 +159,7 @@ const getCfg = (cfg) => {
         xPercent: Number(logos.cicm?.xPercent ?? 94),
       },
     },
-
     stamp: {
-      // accept both camelCase and snake_case keys from either documentStamp or top-level
       docCode:
         cfg?.documentStamp?.docCode ??
         cfg?.documentStamp?.document_code ??
@@ -197,7 +182,6 @@ const getCfg = (cfg) => {
           ""
       ),
     },
-
     footer: {
       pageNumber: {
         enabled: !!pageNumber.enabled,
@@ -231,23 +215,18 @@ const escapeHtml = (v) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
-/* ---- remove PaginationPlus' built-in page number (we render our own) -------- */
 const stripDefaultPageNumber = (scopeEl) => {
   if (!scopeEl) return;
   scopeEl.querySelectorAll(".rm-page-number").forEach((n) => n.remove());
 };
 
 /* ---------------------------- dynamic header/footer --------------------------- */
-// unified minimums
 const MIN_HEADER_FOOTER_PX = 90;
-
 const getHeaderBasePx = (cfg) =>
   cfg.headerEnabled ? Math.max(MIN_HEADER_FOOTER_PX, inchToPx(cfg.headerMarginIn ?? 0)) : 0;
-
 const getFooterBasePx = (cfg) =>
   cfg.footerEnabled ? Math.max(MIN_HEADER_FOOTER_PX, inchToPx(cfg.footerMarginIn ?? 0)) : 0;
 
-// fit to content but never below base
 const autoFitBand = (editor, bandEl, kind, basePx) => {
   if (!editor || !bandEl) return;
   const needed = Math.ceil(bandEl.scrollHeight);
@@ -268,7 +247,7 @@ export default function TextEditor({
   onEditorReady,
   onContentChange,
   className = "",
-  mode = "template",
+  mode = "template", // "template" | "document"
   readOnly = false,
   headerConfig = {},
 }) {
@@ -288,7 +267,7 @@ export default function TextEditor({
       Color,
       FontFamily,
       Highlight.configure({ multicolor: true }),
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      TextAlign.configure({ types: ["heading", "paragraph" ] }),
       Underline,
       Superscript,
       Subscript,
@@ -297,7 +276,11 @@ export default function TextEditor({
       TableCellPlus,
       TableHeaderPlus,
       RichImage.configure({ onOpenImageOptions: () => {} }),
+
+      // Editable field node (atom + caret placed after on insert)
       EditableField,
+
+      // Pagination and page bands
       PaginationPlus.configure({
         pageGap: 2,
         pageGapBorderSize: 1,
@@ -313,6 +296,7 @@ export default function TextEditor({
       },
     },
     onCreate: ({ editor }) => {
+      // Install lock policy plugin once; keep a setter to flip at runtime
       const { plugin, setPolicy } = createLockOutsideFieldsPlugin({
         initialPolicy: mode === "document" ? "document" : "template",
         nodeTypeName: "editableField",
@@ -320,7 +304,10 @@ export default function TextEditor({
       });
       setPolicyRef.current = setPolicy;
       editor.registerPlugin(plugin);
+
+      // Respect readOnly flag
       editor.setEditable(!readOnly);
+
       onEditorReady?.(editor);
       requestAnimationFrame(applyHeaderFooterBands);
     },
@@ -338,11 +325,13 @@ export default function TextEditor({
     } catch {}
   }, [editor, readOnly]);
 
+  // Flip edit policy depending on mode
   useEffect(() => {
     if (!setPolicyRef.current) return;
     setPolicyRef.current(mode === "document" ? "document" : "template");
   }, [mode]);
 
+  // Apply page size/margins
   useEffect(() => {
     if (!editor) return;
     const d = computeDims(pageSetup);
@@ -361,6 +350,7 @@ export default function TextEditor({
     queueMicrotask(() => requestAnimationFrame(applyHeaderFooterBands));
   }, [editor, pageSetup]);
 
+  // Safe external content set (avoid matchesNode null by briefly disabling policy)
   useEffect(() => {
     if (!editor) return;
     const setWithPolicy = (val) => {
@@ -412,7 +402,6 @@ export default function TextEditor({
     bandEl.style.position = "relative";
     bandEl.style.background = "white";
 
-    // Prefer built-in slots if they exist; otherwise create our own generic ones.
     let left =
       bandEl.querySelector(isFooter ? ":scope > .rm-page-footer-left" : ":scope > .rm-page-header-left") ||
       bandEl.querySelector(isFooter ? ":scope > .rm-first-page-footer-left" : ":scope > .rm-first-page-header-left") ||
@@ -454,7 +443,6 @@ export default function TextEditor({
       bandEl.insertBefore(center, right);
     }
 
-    // If both built-in and our old nv-header-left/right are present, hide the extras.
     bandEl.querySelectorAll(":scope > .nv-header-left, :scope > .nv-header-right").forEach((el) => {
       if (el !== left && el !== right) el.remove();
     });
@@ -477,7 +465,7 @@ export default function TextEditor({
     trip.center.innerHTML = "";
     trip.right.innerHTML = "";
 
-    /* LEFT: SLU logo only */
+    // LEFT: SLU logo
     if (cfg.logos.slu?.enabled && cfg.assets?.slu) {
       const sluImg = document.createElement("img");
       sluImg.src = resolveAssetUrl(cfg.assets.slu);
@@ -491,7 +479,7 @@ export default function TextEditor({
       trip.left.appendChild(sluImg);
     }
 
-    /* CENTER: text block */
+    // CENTER: header text block
     const weight = cfg.center.bold ? 700 : 400;
     const styleStr = `
       display:flex;flex-direction:column;align-items:center;line-height:1.15;
@@ -509,7 +497,7 @@ export default function TextEditor({
       </div>
     `;
 
-    /* RIGHT: CICM logo + stamp table */
+    // RIGHT: CICM + stamp table
     const rightRow = document.createElement("div");
     rightRow.style.display = "flex";
     rightRow.style.alignItems = "center";
@@ -526,7 +514,6 @@ export default function TextEditor({
       rightRow.appendChild(cicmImg);
     }
 
-    // Only render the Document Stamp when a Document Code exists
     const hasDocCode = String(cfg.stamp.docCode || "").trim().length > 0;
     if (hasDocCode) {
       const stamp = document.createElement("table");
