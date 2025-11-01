@@ -26,15 +26,15 @@ export default function AdminLoginActivity() {
     "All Roles",
     "Lead Document Controller",
     "Unit Document Controller",
-    "Document Controller Officer",
+    "Document Controller Officer"
   ];
   const [roleFilter, setRoleFilter] = useState("All Roles");
 
-  // Helper to build API filter params
+  // Build params for API
   const apiParams = useMemo(() => {
     const params = { page: currentPage, limit: itemsPerPage };
     if (search && search.trim()) params.search = search.trim();
-    if (selectedDate) params.date = selectedDate; // yyyy-mm-dd
+    if (selectedDate) params.date = selectedDate;
     if (statusFilter === "Active") params.status = "active";
     else if (statusFilter === "Logged Out") params.status = "inactive";
     if (roleFilter && roleFilter !== "All Roles") params.role = roleFilter;
@@ -50,7 +50,6 @@ export default function AdminLoginActivity() {
         const res = await fetchLoginActivityAPI(apiParams);
         const items = Array.isArray(res?.data) ? res.data : [];
         if (!cancelled) {
-          // Normalize to table shape
           const mapped = items.map((it, idx) => ({
             id: it._id || `${it.email}-${it.login_time || idx}`,
             email: it.email,
@@ -73,12 +72,10 @@ export default function AdminLoginActivity() {
       }
     }
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [apiParams]);
 
-  // Reset page to 1 when filters (except page) change
+  // whenever filters change, reset page to 1
   useEffect(() => {
     setCurrentPage(1);
   }, [search, selectedDate, statusFilter, roleFilter]);
@@ -91,12 +88,12 @@ export default function AdminLoginActivity() {
       const d = new Date(ts);
       if (Number.isNaN(d.getTime())) return null;
       return d.toLocaleString(undefined, {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
       });
     } catch {
       return null;
@@ -104,33 +101,28 @@ export default function AdminLoginActivity() {
   };
 
   const handlePrev = () => currentPage > 1 && setCurrentPage(currentPage - 1);
-  const handleNext = () =>
-    currentPage < totalPages && setCurrentPage(currentPage + 1);
+  const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
-      {/* Header stays fixed on top / full width */}
       <Header user={user} />
+      <div className="flex flex-1">
+        
+        <Sidebar user={user} active="Login Activity" />
 
-      <div className="flex flex-1 flex-col lg:flex-row">
-        {/* Sidebar: show on desktop, collapse on mobile */}
-        <div className="hidden lg:block">
-          <Sidebar user={user} active="Login Activity" />
-        </div>
+        {/* MAIN CONTENT */}
+        <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 lg:p-10">
 
-        {/* Main content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-10">
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 lg:p-10 h-auto">
             {/* Title */}
             <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black tracking-widest uppercase mb-2">
               Login Activity
             </h2>
-            <div className="w-24 h-1 bg-yellow-500 mb-6 sm:mb-8"></div>
+            <div className="h-1 bg-yellow-500 mb-6 rounded w-20 sm:w-24"></div>
 
             {/* Filters row */}
-            {/* mobile: wrap into rows; desktop: single row aligned center/right */}
-            <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:flex-wrap lg:items-center lg:gap-2">
-              {/* Status Filter */}
+            <div className="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap sm:items-center gap-3 mb-4">
+              {/* Status filter */}
               <div className="w-full sm:w-auto">
                 <Dropdown
                   value={statusFilter}
@@ -143,7 +135,7 @@ export default function AdminLoginActivity() {
                 />
               </div>
 
-              {/* Role Filter */}
+              {/* Role filter */}
               <div className="w-full sm:w-auto">
                 <Dropdown
                   value={roleFilter}
@@ -156,12 +148,12 @@ export default function AdminLoginActivity() {
                 />
               </div>
 
-              {/* Date Picker */}
+              {/* Date picker */}
               <div className="w-full sm:w-auto">
                 <input
                   type="date"
                   className="h-10 w-full sm:w-36 border border-gray-300 rounded-lg px-3 text-sm
-                  focus:outline-none focus:ring-2 focus:ring-blue-500"
+                             focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={selectedDate}
                   onChange={(e) => {
                     setSelectedDate(e.target.value);
@@ -170,9 +162,9 @@ export default function AdminLoginActivity() {
                 />
               </div>
 
-              {/* Search Bar */}
-              <div className="w-full sm:w-auto sm:ml-auto lg:ml-auto">
-                <div className="w-full sm:w-64 ml-auto">
+              {/* Search (goes right on desktop, full width on mobile) */}
+              <div className="w-full sm:flex-1 flex sm:justify-end">
+                <div className="w-full sm:w-64">
                   <SearchBar
                     value={search}
                     onChange={(e) => {
@@ -184,13 +176,15 @@ export default function AdminLoginActivity() {
               </div>
             </div>
 
+            {/* Table / Loader */}
             {loading ? (
-              <Loader message="Fetching Activity Logs..." />
+              <div className="min-h-[200px] flex items-center justify-center">
+                <Loader message="Fetching Activity Logs..." />
+              </div>
             ) : (
               <>
-                {/* Table wrapper with scroll for small screens */}
                 <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                  <table className="w-full min-w-[600px] text-sm">
+                  <table className="w-full min-w-[600px]">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th className="text-left px-4 sm:px-6 py-3 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-600">
@@ -216,19 +210,19 @@ export default function AdminLoginActivity() {
                         currentLogs.map((log) => (
                           <tr
                             key={log.id}
-                            className="hover:bg-blue-50 transition-colors"
+                            className="hover:bg-blue-50 transition-colors text-sm"
                           >
                             <td className="px-4 sm:px-6 py-4 text-gray-900 font-medium break-all">
                               {log.email}
                             </td>
-                            <td className="px-4 sm:px-6 py-4 text-gray-700 break-words">
+                            <td className="px-4 sm:px-6 py-4 text-gray-700 whitespace-nowrap">
                               {log.role}
                             </td>
                             <td className="px-4 sm:px-6 py-4 text-gray-700 break-all">
                               {log.ip}
                             </td>
                             <td className="px-4 sm:px-6 py-4 text-gray-700 whitespace-nowrap">
-                              {formatTimestamp(log.login_time) || "—"}
+                              {formatTimestamp(log.login_time) || '—'}
                             </td>
                             <td className="px-4 sm:px-6 py-4 text-gray-700 whitespace-nowrap">
                               {log.logout_time ? (
@@ -256,35 +250,33 @@ export default function AdminLoginActivity() {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex flex-col sm:flex-row justify-center sm:justify-center items-center mt-6 gap-2 flex-wrap">
+                <div className="flex flex-wrap justify-center items-center mt-6 gap-2 text-sm">
                   <button
                     onClick={handlePrev}
                     disabled={currentPage === 1}
-                    className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50 text-sm"
+                    className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                   >
                     Prev
                   </button>
 
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {Array.from({ length: totalPages }, (_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setCurrentPage(i + 1)}
-                        className={`px-3 py-1 rounded border text-sm ${
-                          currentPage === i + 1
-                            ? "bg-blue-600 text-white"
-                            : "bg-white text-gray-700 hover:bg-gray-100"
-                        }`}
-                      >
-                        {i + 1}
-                      </button>
-                    ))}
-                  </div>
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`px-3 py-1 rounded border ${
+                        currentPage === i + 1
+                          ? "bg-blue-600 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
 
                   <button
                     onClick={handleNext}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50 text-sm"
+                    className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                   >
                     Next
                   </button>
@@ -293,6 +285,7 @@ export default function AdminLoginActivity() {
             )}
           </div>
         </main>
+        {/* /MAIN CONTENT */}
       </div>
     </div>
   );
