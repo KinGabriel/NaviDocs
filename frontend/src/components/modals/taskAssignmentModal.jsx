@@ -3,6 +3,7 @@ import {Users, CheckCircle, User, FileText, File, Clock, AlertCircle, X, Calenda
 import { fetchPublishedTemplatesAPI } from '../../api/documentContollerAPI';
 import { fetchSchoolStaffAPI } from '../../api/userAPI';
 import TextEditor from '../../layout/create_template/textEditor';
+import Loader from '../loader';
 
 const ProgressSteps = ({ currentStep }) => {
   const steps = [
@@ -117,18 +118,12 @@ const DocumentPreview = ({ template, onClose, onSelect }) => {
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading preview...</p>
+                <Loader message='Loading preview...' />
               </div>
             </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-lg p-8 max-w-4xl mx-auto">
-              <div className="mb-6 pb-6 border-b border-gray-200">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Description</h4>
-                <p className="text-gray-900">{template.description || 'No description available'}</p>
-              </div>
-
-              <div ref={previewRef} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+            ) : (
+              <div className="bg-white rounded-lg shadow-lg p-8 max-w-4xl mx-auto">
+              <div ref={previewRef} className="overflow-hidden bg-white">
                 {template?.pages_json && template.pages_json.length > 0 ? (
                   <TextEditor
                     content={contentForEditor}
@@ -289,8 +284,7 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
     const searchLower = templateSearch.toLowerCase();
     const matchesSearch = (
       template.title?.toLowerCase().includes(searchLower) ||
-      template.document_code?.toLowerCase().includes(searchLower) ||
-      template.description?.toLowerCase().includes(searchLower)
+      template.document_code?.toLowerCase().includes(searchLower)
     );
     
     const matchesCode = selectedDocCode === 'All' || template.document_code === selectedDocCode;
@@ -607,8 +601,7 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
 
               {loadingTemplates ? (
                 <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Loading templates...</p>
+                  <Loader message="Loading templates..." />
                 </div>
               ) : (
                 <>
@@ -640,7 +633,6 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                                     <CheckCircle size={20} className="text-blue-600 flex-shrink-0" />
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-600 line-clamp-2">{template.description || 'No description available'}</p>
                                 
                                 <div className="flex gap-2 mt-2">
                                   {template.document_code && (
@@ -801,8 +793,7 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                   <div className="max-h-80 overflow-y-auto">
                     {loadingUsers ? (
                       <div className="p-8 text-center">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
-                        <p className="text-sm text-gray-600">Loading faculty members...</p>
+                        <Loader message="Loading faculty members..." />
                       </div>
                     ) : allUsers.length === 0 ? (
                       <div className="p-8 text-center">
@@ -890,7 +881,6 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                       <h4 className="text-sm font-medium text-gray-700">Selected Template</h4>
                       <div className="mt-2 p-3 bg-white border border-gray-200 rounded-lg">
                         <p className="font-medium text-gray-900">{selectedTemplate.title}</p>
-                        <p className="text-sm text-gray-600 mt-1">{selectedTemplate.description}</p>
                         <div className="flex gap-2 mt-2">
                           {selectedTemplate.document_code && (
                             <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
@@ -921,7 +911,6 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 truncate">{getUserDisplayName(user)}</p>
-                              <p className="text-xs text-gray-500 truncate">{user.email || 'No email'}</p>
                             </div>
                             <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
                           </div>
