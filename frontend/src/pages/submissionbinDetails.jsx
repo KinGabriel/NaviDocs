@@ -120,15 +120,13 @@ export default function SubmissionDetails() {
 
   const handleBack = () => navigate(-1);
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+ return (
+    <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} />
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-3 mx-6 mt-8 rounded-xl">
-          <div className="w-full px-4 max-w-8xl">
-        <div className="flex-1 flex flex-col">
-          <main className="flex-1 p-4 md:p-6 lg:p-8">
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
+          <div className="flex-1 px-1 py-5">
             {/* Back Button */}
             <button
               onClick={handleBack}
@@ -163,15 +161,15 @@ export default function SubmissionDetails() {
 
                 <div className="flex items-center gap-3">
                   <StatusBadge type={submission.status} />
-                  {/* <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                     <MoreVertical size={20} className="text-gray-600" />
-                  </button> */}
+                  </button>
                 </div>
               </div>
 
-              {/* Instructions and Deadline*/}
+              {/* Instructions and Deadline - Same Width */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Instructions Banner */}
+                {/* Instructions */}
                 {submission.instructions && (
                   <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <p className="text-sm font-medium text-gray-700 mb-1">Instructions:</p>
@@ -296,12 +294,10 @@ export default function SubmissionDetails() {
                 </table>
               </div>
             </div>
-          </main>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-  </div>
   );
 }
 
