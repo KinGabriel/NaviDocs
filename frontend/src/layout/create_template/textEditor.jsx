@@ -273,9 +273,10 @@ export default function TextEditor({
       Superscript,
       Subscript,
 
-      // Table with pagination support (as per Tiptap Plus docs)
+      // IMPORTANT: TablePlus suite must be registered (and not mixed with vanilla tiptap table)
       TablePlus.configure({
-        resizeHandleStyle: { width: "3px" }, // doc-style example; just handle styling
+        // minor quality of life: slimmer resize handles
+        resizeHandleStyle: { width: "3px" },
       }),
       TableRowPlus,
       TableCellPlus,
@@ -286,7 +287,7 @@ export default function TextEditor({
       // Editable field node (atom + caret placed after on insert)
       EditableField,
 
-      // Pagination and page bands
+      // Pagination last, after table nodes, per Tiptap Plus docs
       PaginationPlus.configure({
         pageGap: 2,
         pageGapBorderSize: 1,
@@ -298,7 +299,11 @@ export default function TextEditor({
     content: normalizeInitialContent(content),
     editorProps: {
       attributes: {
+        // Critical styles to prevent the entire content (or table wrappers) from being treated as atomic
+        // This helps ensure tables can split BETWEEN ROWS during pagination.
         class: "tiptap ProseMirror nd-editor-canvas rm-with-pagination",
+        style:
+          "break-inside:auto; page-break-inside:auto; overflow:visible; contain:layout style size paint;",
       },
     },
     onCreate: ({ editor }) => {
