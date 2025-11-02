@@ -15,69 +15,96 @@ import {
   MoreVertical,
 } from "lucide-react";
 
-const MOCK_SUBMISSION = {
-  id: 1,
-  title: "Submission Bin Title",
-  instructions: "Please review.",
-  createdAt: "2024-10-15T10:30:00Z",
-  deadline: "2024-11-15T23:59:00Z",
-  status: "active",
-  submission: [
-    {
-      id: 1,
-      documentName: "Title",
-      submittedBy: "John Doe",
-      submittedAt: "2024-10-20T14:30:00Z",
-      files: ["Financial Report - Q1.pdf"],
-      status: "submitted",
-    },
-    {
-      id: 2,
-     documentName: "Title",
-      submittedBy: "Juan Dela Cruz",
-      submittedAt: "2024-10-22T09:15:00Z",
-      files: ["Financial Report - Q2.pdf"],
-      status: "submitted",
-    },
-    {
-      id: 3,
-      documentName: "Title",
-      submittedBy: "Ana Reyes",
-      submittedAt: null,
-      files: [],
-      status: "pending",
-    },
-    {
-      id: 4,
-      documentName: "Title",
-      submittedBy: "Carlos Mendoza",
-      submittedAt: null,
-      files: [],
-      status: "late",
-    },
-    {
-      id: 5,
-      documentName: "Title",
-      submittedBy: "Lisa Garcia",
-      submittedAt: null,
-      files: [],
-      status: "pending",
-    },
-  ],
-  approver: {
-    id: 10,
-    name: "Secretary Jane Smith",
-    email: "secretary@university.edu",
-    role: "Secretary",
-  },
-};
+// Dummy data for submissions - FOR DEMO PURPOSES ONLY
+const MOCK_SUBMISSIONS = Array.from({ length: 15 }, (_, i) => {
+  const createdDate = new Date('2025-10-01');
+  createdDate.setDate(createdDate.getDate() + i * 2);
+  
+  const deadlineDate = new Date('2025-11-15');
+  deadlineDate.setDate(deadlineDate.getDate() + (i * 3) - 15);
+  
+  let status;
+  const now = new Date();
+  const daysUntilDue = Math.ceil((deadlineDate - now) / (1000 * 60 * 60 * 24));
+  
+  if (i % 5 === 0) {
+    status = "draft";
+  } else if (daysUntilDue < 0) {
+    status = "overdue";
+  } else if (i % 7 === 0) {
+    status = "completed";
+  } else {
+    status = "active";
+  }
+  
+  const numSubmissions = 3 + (i % 5);
+  const submissions = Array.from({ length: numSubmissions }, (_, j) => {
+    const names = ["John Doe", "Ana Reyes", "Carlos Mendoza", "Joshua Garcia", "Maria Santos", "Gigi Gonzales"];
+    
+    let itemStatus;
+    if (j < Math.floor(numSubmissions * 0.6)) {
+      itemStatus = "submitted";
+    } else if (daysUntilDue < 0) {
+      itemStatus = "late";
+    } else {
+      itemStatus = "pending";
+    }
+    
+    const submittedDate = itemStatus === "submitted" 
+      ? new Date(createdDate.getTime() + (j + 1) * 86400000 * 2) 
+      : null;
+    
+    return {
+      id: j + 1,
+      documentName: `Document Title ${j + 1}`,
+      submittedBy: names[j % names.length],
+      submittedAt: submittedDate ? submittedDate.toISOString() : null,
+      files: itemStatus === "submitted" ? [`Report-Q${j + 1}.pdf`] : [],
+      status: itemStatus,
+    };
+  });
+  
+  return {
+    id: i + 1,
+    title: `Submission Bin Title ${i + 1}`,
+    instructions: `Please review and provide feedback on the attached documents for submission ${i + 1}. Ensure all requirements are met before the deadline.`,
+    createdAt: createdDate.toISOString(),
+    deadline: deadlineDate.toISOString(),
+    status: status,
+    submission: submissions,
+  };
+});
 
 export default function SubmissionDetails() {
   const user = useUser();
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const submission = MOCK_SUBMISSION;
+  // Find the submission by ID from the URL parameter
+  const submission = MOCK_SUBMISSIONS.find(s => s.id === parseInt(id));
+
+  // If submission not found, show error state
+  if (!submission) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
+          <div className="flex-1 flex flex-col items-center justify-center p-8">
+            <FileText size={64} className="text-gray-300 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Submission Not Found</h2>
+            <p className="text-gray-600 mb-6">The submission you're looking for doesn't exist.</p>
+            <button
+              onClick={() => navigate(-1)}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const stats = useMemo(() => {
     const total = submission.submission.length;
@@ -136,59 +163,70 @@ export default function SubmissionDetails() {
 
                 <div className="flex items-center gap-3">
                   <StatusBadge type={submission.status} />
-                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  {/* <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                     <MoreVertical size={20} className="text-gray-600" />
-                  </button>
+                  </button> */}
                 </div>
               </div>
 
-              {/* Deadline Banner */}
-              <div
-                className={`p-4 rounded-lg flex items-center gap-3 ${
-                  isOverdue
-                    ? "bg-red-50 border border-red-200"
-                    : daysUntilDue <= 3
-                    ? "bg-orange-50 border border-orange-200"
-                    : "bg-blue-50 border border-blue-200"
-                }`}
-              >
-                <Calendar
-                  size={20}
-                  className={
+              {/* Instructions and Deadline*/}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Instructions Banner */}
+                {submission.instructions && (
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm font-medium text-gray-700 mb-1">Instructions:</p>
+                    <p className="text-sm text-gray-600">{submission.instructions}</p>
+                  </div>
+                )}
+
+                {/* Deadline Banner */}
+                <div
+                  className={`p-4 rounded-lg flex items-center gap-3 ${
                     isOverdue
-                      ? "text-red-600"
+                      ? "bg-red-50 border border-red-200"
                       : daysUntilDue <= 3
-                      ? "text-orange-600"
-                      : "text-blue-600"
-                  }
-                />
-                <div className="flex-1">
-                  <p
-                    className={`font-semibold ${
+                      ? "bg-orange-50 border border-orange-200"
+                      : "bg-blue-50 border border-blue-200"
+                  }`}
+                >
+                  <Calendar
+                    size={20}
+                    className={
                       isOverdue
-                        ? "text-red-900"
+                        ? "text-red-600"
                         : daysUntilDue <= 3
-                        ? "text-orange-900"
-                        : "text-blue-900"
-                    }`}
-                  >
-                    Due {formatDateTime(submission.deadline)}
-                  </p>
-                  <p
-                    className={`text-sm ${
-                      isOverdue
-                        ? "text-red-700"
-                        : daysUntilDue <= 3
-                        ? "text-orange-700"
-                        : "text-blue-700"
-                    }`}
-                  >
-                    {isOverdue
-                      ? `Overdue by ${Math.abs(daysUntilDue)} day${
-                          Math.abs(daysUntilDue) !== 1 ? "s" : ""
-                        }`
-                      : `${daysUntilDue} day${daysUntilDue !== 1 ? "s" : ""} remaining`}
-                  </p>
+                        ? "text-orange-600"
+                        : "text-blue-600"
+                    }
+                  />
+                  <div className="flex-1">
+                    <p
+                      className={`font-semibold ${
+                        isOverdue
+                          ? "text-red-900"
+                          : daysUntilDue <= 3
+                          ? "text-orange-900"
+                          : "text-blue-900"
+                      }`}
+                    >
+                      Due {formatDateTime(submission.deadline)}
+                    </p>
+                    <p
+                      className={`text-sm ${
+                        isOverdue
+                          ? "text-red-700"
+                          : daysUntilDue <= 3
+                          ? "text-orange-700"
+                          : "text-blue-700"
+                      }`}
+                    >
+                      {isOverdue
+                        ? `Overdue by ${Math.abs(daysUntilDue)} day${
+                            Math.abs(daysUntilDue) !== 1 ? "s" : ""
+                          }`
+                        : `${daysUntilDue} day${daysUntilDue !== 1 ? "s" : ""} remaining`}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -217,6 +255,9 @@ export default function SubmissionDetails() {
                         Submitted By
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Submitted On
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -231,16 +272,23 @@ export default function SubmissionDetails() {
                           {item.documentName}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700">{item.submittedBy}</td>
+                        <td className="px-6 py-4">
+                          <StatusBadge type={item.status} />
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
                           {item.submittedAt ? formatDateTime(item.submittedAt) : "-"}
                         </td>
                         <td className="px-6 py-4">
-                          <button
-                            className="inline-flex items-center justify-center px-4 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
-                            onClick={() => alert(`Viewing ${item.documentName}`)}
-                          >
-                            View
-                          </button>
+                          {item.status === "submitted" ? (
+                            <button
+                              className="inline-flex items-center justify-center px-4 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+                              onClick={() => alert(`Viewing ${item.documentName} by ${item.submittedBy}`)}
+                            >
+                              View
+                            </button>
+                          ) : (
+                            <span className="text-sm text-gray-400">N/A</span>
+                          )}
                         </td>
                       </tr>
                     ))}
