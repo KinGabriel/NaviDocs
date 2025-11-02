@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import { dbConnection } from "./config/db.js";
 import templateRoutes from "./routes/templateRoutes.js";
+import fieldGroupDefinitionRoutes from "./routes/fieldGroupDefinitionRoutes.js";
 
 dotenv.config();
 
@@ -14,7 +15,9 @@ const HOST = process.env.HOST || "127.0.0.1";
 app.use(express.json());
 app.use(cookieParser());
 
-// Templates routes
+// Mount specific routes BEFORE generic /api/templates to avoid :id capturing 'field-groups'
+app.use("/api/templates/field-groups", fieldGroupDefinitionRoutes);
+// Templates routes (generic)
 app.use("/api/templates", templateRoutes);
 
 dbConnection();
