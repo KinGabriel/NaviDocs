@@ -5,7 +5,10 @@ export const EditableField = Node.create({
   name: "editableField",
   group: "inline",
   inline: true,
-  atom: true, // makes it behave as a single unit (not editable inside)
+  // Render from node content so textContent updates are visible
+  // (no longer an atom)
+  atom: false,
+  content: 'text*',
   selectable: true,
 
   addAttributes() {
@@ -78,7 +81,7 @@ export const EditableField = Node.create({
           class: "nd-editable-field__text",
           "data-placeholder": placeholder,
         },
-        placeholder,
+        0,
       ],
     ];
   },

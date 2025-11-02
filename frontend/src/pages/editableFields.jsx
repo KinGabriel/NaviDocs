@@ -385,34 +385,105 @@ export default function EditableFields() {
     },
   ];
 
-  // panels from template (if backend provides)
+  // panels from template (prefer rich labels/instructions; supports grouped sections)
   const panelsFromTemplate = useMemo(() => {
-    if (
-      !docData ||
-      !docData.from_template ||
-      !Array.isArray(docData.from_template.fields)
-    )
-      return null;
-
+    if (!docData || !docData.from_template) return null;
     const tpl = docData.from_template;
+    const list = Array.isArray(tpl.fields) ? tpl.fields : [];
+    if (list.length === 0) return null;
 
-    const fields = tpl.fields.map((f) => {
-      const orig = f.name || f.key || f._id || f.id;
-      const name = orig;
-      return {
-        type: f.type || "input",
-        name,
-        label: f.label || f.title || f.name || f.key,
-        placeholder: f.placeholder || "",
+    // Build a set of keys that actually appear in the editor to avoid orphan fields
+    const keysInDoc = new Set();
+    try {
+      const base = docData.pages_json?.[0];
+      const walk = (node) => {
+        if (!node) return;
+        if (node.type === 'editableField') {
+          const k = node.attrs?.key || node.attrs?.name;
+          if (k) keysInDoc.add(k);
+        }
+        if (Array.isArray(node.content)) node.content.forEach(walk);
       };
-    });
+      if (base && typeof base !== 'string' && Array.isArray(base.content)) {
+        base.content.forEach(walk);
+      }
+    } catch (_) { /* ignore */ }
 
+    // Grouped sections shape: [{ name, scope, fields: [...] }]
+    if (list[0] && Array.isArray(list[0].fields)) {
+      let number = 1;
+      const panels = [];
+      const localFieldsBucket = [];
+      for (const section of list) {
+        if (!section) continue;
+        const sectionFields = Array.isArray(section.fields) ? section.fields : [];
+        const mapped = sectionFields
+          .filter((f) => {
+            const key = f.key || f.id || f.name || f._id;
+            return keysInDoc.size === 0 || (key && keysInDoc.has(key));
+          })
+          .map((f) => {
+            const key = f.key || f.id || f.name || f._id;
+            return {
+              type: (f.type === 'text' ? 'input' : f.type) || 'input',
+              name: key,
+              label: f.label || f.name || key,
+              placeholder: f.placeholder || '',
+              instructions: f.instructions || '',
+              required: !!f.required,
+              options: f.options ?? null,
+            };
+          });
+        if (mapped.length === 0) continue;
+
+        if (section.isLocalOnly) {
+          localFieldsBucket.push(...mapped);
+        } else {
+          panels.push({
+            number: number++,
+            title: section.name || 'Section',
+            subtitle: section.scope ? `Scope: ${section.scope}` : undefined,
+            color: 'bg-blue-500',
+            fields: mapped,
+          });
+        }
+      }
+      if (localFieldsBucket.length > 0) {
+        panels.push({
+          number: number++,
+          title: 'Other fields',
+          color: 'bg-blue-500',
+          fields: localFieldsBucket,
+        });
+      }
+      return panels.length ? panels : null;
+    }
+
+    // Flat fields fallback
+    const fields = list
+      .filter((f) => {
+        const key = f.key || f.id || f.name || f._id;
+        return keysInDoc.size === 0 || (key && keysInDoc.has(key));
+      })
+      .map((f) => {
+        const key = f.key || f.id || f.name || f._id;
+        return {
+          type: (f.type === 'text' ? 'input' : f.type) || 'input',
+          name: key,
+          label: f.label || f.title || f.name || f.key,
+          placeholder: f.placeholder || '',
+          instructions: f.instructions || '',
+          required: !!f.required,
+          options: f.options ?? null,
+        };
+      });
+    if (!fields.length) return null;
     return [
       {
         number: 1,
-        title: tpl.title || "Template Fields",
-        subtitle: tpl.description || "",
-        color: "bg-blue-500",
+        title: tpl.title || 'Template Fields',
+        subtitle: tpl.description || '',
+        color: 'bg-blue-500',
         fields,
       },
     ];
@@ -437,6 +508,10 @@ export default function EditableFields() {
           seen.add(origKey);
           const placeholder = node.attrs?.placeholder || node.attrs?.ph || "";
           const fieldType = node.attrs?.type || "input";
+          const labelAttr = node.attrs?.label;
+          const instructionsAttr = node.attrs?.instructions || node.attrs?.hint || node.attrs?.help;
+          const requiredAttr = !!node.attrs?.required;
+          const optionsAttr = node.attrs?.options || null;
 
           // make a nice label from "myFieldName"
           const label = origKey
@@ -454,8 +529,11 @@ export default function EditableFields() {
           extracted.push({
             type: fieldType === "text" ? "input" : fieldType,
             name: origKey,
-            label: label || origKey,
+            label: labelAttr || label || origKey,
             placeholder,
+            instructions: instructionsAttr || "",
+            required: requiredAttr,
+            options: optionsAttr,
           });
         }
       }
@@ -478,9 +556,9 @@ export default function EditableFields() {
     ];
   }, [docData]);
 
-  // choose which panel source we use
+  // choose which panel source we use (prefer template for rich labels/instructions)
   const panelsToUse =
-    panelsFromDoc || panelsFromTemplate || panelsConfig;
+    panelsFromTemplate || panelsFromDoc || panelsConfig;
 
   // pagination logic for left panel
   const sectionsPerPage = 2;
@@ -990,11 +1068,12 @@ export default function EditableFields() {
         if (String(existing) !== String(newVal)) {
           const from = pos + 1;
           const to = pos + node.nodeSize - 1;
-          tr.replaceWith(
-            from,
-            to,
-            state.schema.text(String(newVal))
-          );
+          // If new value is empty, delete content to allow :empty CSS placeholder
+          if (newVal === undefined || newVal === null || String(newVal) === "") {
+            tr.delete(from, to);
+          } else {
+            tr.replaceWith(from, to, state.schema.text(String(newVal)));
+          }
           changed = true;
         }
       }
@@ -1957,7 +2036,7 @@ export default function EditableFields() {
                   }}
                   onEditorReady={(editor) => {
                     editorRef.current = editor;
-                    console.log('✅ Editor ready:', editor);
+                    console.log('Editor ready:', editor);
                     try {
                       isApplyingRef.current = true;
                       applyFormDataToEditor(editor);
