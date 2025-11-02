@@ -146,15 +146,14 @@ export default function SecretarySubmissions() {
     setShowAssignModal(false);
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    return (
+    <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} />
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-3 mx-6 mt-8 rounded-xl">
-          <div className="w-full px-4 max-w-8xl">
-        <div className="flex-1 flex flex-col">
-          <main className="flex-1 p-4 md:p-6 lg:p-8">
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
+          <div className="flex-1 px-1 py-5">
+            
             {/* Header Section */}
             <div className="mb-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
@@ -303,7 +302,7 @@ export default function SecretarySubmissions() {
               </button>
             </div>
             )}
-          </main>
+          </div>
         </div>
       </div>
 
@@ -321,8 +320,6 @@ export default function SecretarySubmissions() {
         </div>
       )}
     </div>
-    </div>
-  </div>
   );
 }
 
