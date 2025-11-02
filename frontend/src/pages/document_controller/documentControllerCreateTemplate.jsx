@@ -29,10 +29,9 @@ import TemplateSidebar from "../../layout/sidebars/templateSidebar";
 // Text editor
 import TextEditor from "../../layout/create_template/textEditor";
 
-// --- Helpers -----------------------------------------------------------------
+/* ---------------------------------- consts ---------------------------------- */
 const DEFAULT_CONTENT = null;
 
-// Page setup (no header/footer band heights)
 const DEFAULT_PAGE_SETUP = {
   paperSize: "A4",
   orientation: "Portrait",
@@ -75,8 +74,8 @@ function deepMerge(base, over) {
 // Sensible defaults for header/footer so something shows on first render
 const DEFAULT_HEADER_CONFIG = {
   headerEnabled: true,
-  footerEnabled: true, // enable so users see it immediately (you can toggle off in panel)
-  headerMarginIn: 0.5, // reserved band ~0.5in
+  footerEnabled: true,
+  headerMarginIn: 0.5,
   footerMarginIn: 0.5,
   assets: {
     slu: "/assets/images/slu-logo.png",
@@ -103,13 +102,11 @@ const DEFAULT_HEADER_CONFIG = {
     },
   },
   documentStamp: { docCode: "", revisionNo: "", effectivity: "" },
-
-  // NEW: Footer matches headerfooterPanel.jsx structure
   footer: {
     pageNumber: {
       enabled: true,
       pattern: "{page} of {total}",
-      align: "center", // left | center | right
+      align: "center",
       fontFamily: "Inter, system-ui, sans-serif",
       fontSize: 12,
       bold: false,
@@ -119,7 +116,7 @@ const DEFAULT_HEADER_CONFIG = {
     body: {
       enabled: false,
       text: "",
-      align: "left", // left | center | right
+      align: "left",
       fontFamily: "Inter, system-ui, sans-serif",
       fontSize: 12,
       bold: false,
@@ -132,18 +129,17 @@ const DEFAULT_HEADER_CONFIG = {
 // Ensure any loaded config has the full structure (esp. footer block)
 function withHeaderDefaults(cfg) {
   const merged = deepMerge(DEFAULT_HEADER_CONFIG, cfg || {});
-  // guard: make sure footer subtree exists even if cfg.footer was null/undefined
   if (!merged.footer) merged.footer = DEFAULT_HEADER_CONFIG.footer;
   if (!merged.footer.pageNumber) merged.footer.pageNumber = DEFAULT_HEADER_CONFIG.footer.pageNumber;
   if (!merged.footer.body) merged.footer.body = DEFAULT_HEADER_CONFIG.footer.body;
   return merged;
 }
 
-// --- Component ---------------------------------------------------------------
+/* --------------------------------- component -------------------------------- */
 export default function DocumentControllerCreateTemplate() {
   const navigate = useNavigate();
   const location = useLocation();
-  const user = useUser(); // Current logged-in user
+  const user = useUser();
 
   const editorRef = useRef(null);
   const [editorInstance, setEditorInstance] = useState(null);
@@ -160,21 +156,21 @@ export default function DocumentControllerCreateTemplate() {
   const [approvalMeta, setApprovalMeta] = useState(null);
   const [template, setTemplate] = useState(null);
 
-  // Layout/config state
+  // Layout/config
   const [pageSetup, setPageSetup] = useState(DEFAULT_PAGE_SETUP);
   const [fontSettings, setFontSettings] = useState({});
   const [dateFormat, setDateFormat] = useState({ style: "numeric" });
   const [editableFields, setEditableFields] = useState([]);
 
-  // HeaderFooter panel state (now seeded with real defaults)
+  // HeaderFooter config
   const [headerConfig, setHeaderConfig] = useState(DEFAULT_HEADER_CONFIG);
 
-  // Top-level document stamp fields (persisted at top-level)
+  // Document stamp (top-level)
   const [documentCode, setDocumentCode] = useState("");
   const [revisionNo, setRevisionNo] = useState(0);
   const [effectivity, setEffectivity] = useState("");
 
-  // Track last saved state for autosave/dirty
+  // Dirty tracking
   const [lastSavedContent, setLastSavedContent] = useState(null);
   const [lastSavedTitle, setLastSavedTitle] = useState("");
   const [lastSavedId, setLastSavedId] = useState(null);
@@ -188,7 +184,7 @@ export default function DocumentControllerCreateTemplate() {
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
 
-  // Parse templateId from query string
+  // Query param
   const params = new URLSearchParams(location.search);
   const templateIdFromQuery = params.get("templateId");
 
@@ -197,7 +193,7 @@ export default function DocumentControllerCreateTemplate() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // template loading using shared loader
+  /* ------------------------------- load template ------------------------------ */
   const loadTemplate = async (id) => {
     try {
       setLoading(true);
@@ -212,7 +208,6 @@ export default function DocumentControllerCreateTemplate() {
       setApprovers(normalized.approvers);
       setTemplateContent(normalized.templateContent || DEFAULT_CONTENT);
 
-      // Page setup
       if (normalized.pageSetup) {
         setPageSetup({
           paperSize: normalized.pageSetup.paperSize || DEFAULT_PAGE_SETUP.paperSize,
@@ -230,20 +225,15 @@ export default function DocumentControllerCreateTemplate() {
       if (normalized.dateFormat) setDateFormat(normalized.dateFormat);
       if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
 
-
-      // Bring in header/footer config from headerConfig (fallback to our defaults so bands render)
       const loadedHeader = normalized.headerConfig && Object.keys(normalized.headerConfig).length
         ? normalized.headerConfig
         : DEFAULT_HEADER_CONFIG;
-
       setHeaderConfig(loadedHeader);
 
-      // Top-level doc stamp fallbacks
       if (normalized.document_code !== undefined) setDocumentCode(normalized.document_code ?? "");
       if (normalized.revision_no !== undefined) setRevisionNo(normalized.revision_no ?? 0);
       if (normalized.effectivity !== undefined) setEffectivity(normalized.effectivity ?? "");
 
-      // Initialize last-saved baselines from loaded values to avoid autosave loops
       setLastSavedTitle(normalized.templateTitle || "");
       setLastSavedPageSetup(normalized.pageSetup || DEFAULT_PAGE_SETUP);
       setLastSavedDateFormat(normalized.dateFormat || { style: "numeric" });
@@ -259,7 +249,6 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
-  // Load existing template if navigated with an id
   useEffect(() => {
     const id = templateIdFromQuery || null;
     if (!id) return;
@@ -267,6 +256,7 @@ export default function DocumentControllerCreateTemplate() {
     loadTemplate(id);
   }, [templateIdFromQuery]);
 
+  /* --------------------------------- editor ---------------------------------- */
   const handleEditorReady = (editor) => {
     editorRef.current = editor;
     setEditorInstance(editor);
@@ -286,7 +276,7 @@ export default function DocumentControllerCreateTemplate() {
     };
   };
 
-  // Save handler matching backend expectations
+  /* ----------------------------------- save ---------------------------------- */
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -294,7 +284,6 @@ export default function DocumentControllerCreateTemplate() {
       const rawPagesJson = editor ? editor.getJSON() : htmlToBasicJSON(templateContent);
       const pages_json = Array.isArray(rawPagesJson) ? rawPagesJson : [rawPagesJson];
 
-      // Normalize top-level stamp fields
       const normDocumentCode = documentCode == null ? "" : String(documentCode);
       const normRevisionNo = Number.isNaN(Number(revisionNo)) ? 0 : Number(revisionNo);
       let normEffectivity = null;
@@ -310,7 +299,7 @@ export default function DocumentControllerCreateTemplate() {
       const payload = {
         title: (templateTitle || "").trim() || "Untitled Template",
         pages_json,
-        body: editor ? editor.getHTML() : (typeof templateContent === 'string' ? templateContent : ''),
+        body: editor ? editor.getHTML() : (typeof templateContent === "string" ? templateContent : ""),
         pageSetup,
         dateFormat,
         fields: editableFields,
@@ -330,15 +319,16 @@ export default function DocumentControllerCreateTemplate() {
         if (res?.template?._id) setTemplateId(res.template._id);
         toast.success("Template created successfully.");
       }
-  setLastSavedContent(editor ? editor.getHTML() : templateContent);
-  setLastSavedTitle(payload.title);
-  setLastSavedId(res?.template?._id || templateId);
-  setLastSavedHeaderConfig(headerConfig);
-  setLastSavedPageSetup(pageSetup);
-  setLastSavedDateFormat(dateFormat);
-  setLastSavedDocumentCode(normDocumentCode.toString());
-  setLastSavedRevisionNo(Number(normRevisionNo));
-  setLastSavedEffectivity(normEffectivity ?? null);
+
+      setLastSavedContent(editor ? editor.getHTML() : templateContent);
+      setLastSavedTitle(payload.title);
+      setLastSavedId(res?.template?._id || templateId);
+      setLastSavedHeaderConfig(headerConfig);
+      setLastSavedPageSetup(pageSetup);
+      setLastSavedDateFormat(dateFormat);
+      setLastSavedDocumentCode(normDocumentCode.toString());
+      setLastSavedRevisionNo(Number(normRevisionNo));
+      setLastSavedEffectivity(normEffectivity ?? null);
       setLastSavedAt(new Date());
       setDirty(false);
     } catch (e) {
@@ -359,7 +349,7 @@ export default function DocumentControllerCreateTemplate() {
       JSON.stringify(pageSetup) !== JSON.stringify(lastSavedPageSetup) ||
       JSON.stringify(dateFormat) !== JSON.stringify(lastSavedDateFormat) ||
       JSON.stringify(headerConfig) !== JSON.stringify(lastSavedHeaderConfig) ||
-      String(documentCode ?? '') !== String(lastSavedDocumentCode ?? '') ||
+      String(documentCode ?? "") !== String(lastSavedDocumentCode ?? "") ||
       Number(revisionNo ?? 0) !== Number(lastSavedRevisionNo ?? 0) ||
       (effectivity ?? null) !== (lastSavedEffectivity ?? null);
 
@@ -370,7 +360,22 @@ export default function DocumentControllerCreateTemplate() {
       handleSave();
     }, 2000);
     return () => clearTimeout(timeout);
-  }, [templateContent, templateTitle, pageSetup, dateFormat, headerConfig, documentCode, revisionNo, effectivity, lastSavedPageSetup, lastSavedDateFormat, lastSavedHeaderConfig, lastSavedDocumentCode, lastSavedRevisionNo, lastSavedEffectivity]);
+  }, [
+    templateContent,
+    templateTitle,
+    pageSetup,
+    dateFormat,
+    headerConfig,
+    documentCode,
+    revisionNo,
+    effectivity,
+    lastSavedPageSetup,
+    lastSavedDateFormat,
+    lastSavedHeaderConfig,
+    lastSavedDocumentCode,
+    lastSavedRevisionNo,
+    lastSavedEffectivity,
+  ]);
 
   // Save on unmount/navigation if dirty
   useEffect(() => {
@@ -385,7 +390,7 @@ export default function DocumentControllerCreateTemplate() {
     return () => window.removeEventListener("beforeunload", beforeUnload);
   }, [dirty]);
 
-  // approval and publish handlers that refresh state
+  /* ----------------------------- approval actions ---------------------------- */
   const handleApprove = async () => {
     if (!templateId) return;
     try {
@@ -411,26 +416,20 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
-  // handle submission from modal
   const handleSubmitForApproval = async (approverIds) => {
     if (!templateId) {
       toast.error("Please save the template before submitting for approval.");
       return;
     }
-
     try {
       setError("");
       let deanId, secretaryId;
-
-      // Backward compatibility: if approverIds are provided, attempt to parse
       if (Array.isArray(approverIds)) {
         [deanId, secretaryId] = approverIds;
       } else if (approverIds && typeof approverIds === "object") {
         deanId = approverIds.dean || approverIds.deanId;
         secretaryId = approverIds.secretary || approverIds.secretaryId;
       }
-
-      // If none provided, submit without IDs; backend determines recipients by role chain
       if (!deanId && !secretaryId) {
         await submitTemplateAPI(templateId);
       } else {
@@ -451,18 +450,15 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
-  // handle status updates from modal
-  const handleStatusUpdate = (newStatus) => {
-    setStatus(newStatus);
-  };
+  const handleStatusUpdate = (newStatus) => setStatus(newStatus);
 
-  // handle approval updates from modal
   const handleApprovalsUpdate = (updatedApprovals, updatedApprovers) => {
     if (updatedApprovals) setApprovals(updatedApprovals);
     if (updatedApprovers) setApprovers(updatedApprovers);
     if (templateId) loadTemplate(templateId);
   };
 
+  /* ---------------------------------- panels --------------------------------- */
   const [selectedPanel, setSelectedPanel] = useState("font");
 
   const renderPanel = () => {
@@ -495,7 +491,6 @@ export default function DocumentControllerCreateTemplate() {
       case "dateformat":
         return <DateFormatPanel value={dateFormat} onChange={setDateFormat} />;
       case "headerfooter": {
-        // Compose panel value with top-level doc stamp mirrors
         const headerValue = {
           ...(headerConfig || {}),
           docCode:
@@ -521,7 +516,6 @@ export default function DocumentControllerCreateTemplate() {
           <HeaderFooterPanel
             value={headerValue}
             onChange={(val) => {
-              // Lift top-level doc stamp fields
               const topDocCode =
                 val?.document_code ?? val?.docCode ?? val?.documentStamp?.docCode ?? "";
               const topRevisionNo =
@@ -533,7 +527,6 @@ export default function DocumentControllerCreateTemplate() {
               setRevisionNo(topRevisionNo);
               setEffectivity(topEffectivity);
 
-              // Store remaining panel config, merged with defaults to keep full shape
               const copy = { ...val };
               delete copy.documentStamp;
               delete copy.document_code;
@@ -558,6 +551,7 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
+  /* ----------------------------------- ui ------------------------------------ */
   return (
     <div>
       {showVersionHistory ? (

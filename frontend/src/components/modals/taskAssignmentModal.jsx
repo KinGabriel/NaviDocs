@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import {Users, CheckCircle, User, FileText, Clock, AlertCircle, X, Calendar, Search, FileCode, History, Eye, ChevronRight, ZoomIn, Download} from 'lucide-react';
-import Loader from '../loader';
-import useUser from '../../hooks/useUser';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import {Users, CheckCircle, User, FileText, File, Clock, AlertCircle, X, Calendar, Search, FileCode, History, Eye, ChevronRight, ZoomIn, Download, Filter} from 'lucide-react';
+import { fetchPublishedTemplatesAPI } from '../../api/documentContollerAPI';
 import { fetchSchoolStaffAPI } from '../../api/userAPI';
-import { assignUsersToTemplate } from '../../api/assignmentAPI';
-import MultiSelectDropdown from '../dropdowns/multiSelectDropdown';
-import SingleSelectDropdown from '../dropdowns/singleSelectDropdown';
+import TextEditor from '../../layout/create_template/textEditor';
+import Loader from '../loader';
 
 const ProgressSteps = ({ currentStep }) => {
   const steps = [
-    { id: 1, name: 'Assignment Details', icon: FileText },
+    { id: 1, name: 'Assignment Details', icon: File },
     { id: 2, name: 'Select Template', icon: FileText },
     { id: 3, name: 'Assign People', icon: Users },
     { id: 4, name: 'Review & Submit', icon: CheckCircle }
@@ -46,38 +44,57 @@ const ProgressSteps = ({ currentStep }) => {
 
 // Document Preview Component
 const DocumentPreview = ({ template, onClose, onSelect }) => {
-  const [previewUrl, setPreviewUrl] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const previewRef = useRef(null);
+
+  const pageNodes = useMemo(() => {
+    const baseDoc = template?.pages_json?.[0] || { type: "doc", content: [] };
+    return (baseDoc.content || []).filter((n) => n.type === "page");
+  }, [template]);
+
+  const totalPages = pageNodes.length || 0;
+
+  const contentForEditor = useMemo(() => {
+    const baseDoc = template?.pages_json?.[0] || { type: "doc", content: [] };
+    const pageNode = pageNodes[currentPage] || (baseDoc.content || []).find((n) => n.type === "page");
+    if (!pageNode) return baseDoc;
+    return { ...baseDoc, content: [pageNode] };
+  }, [template, pageNodes, currentPage]);
+
+  const normalizedHeaderConfig = useMemo(() => {
+    const src = template?.headerConfig || template?.logoConfig || template?.headerFooter || {};
+    const docCode = template?.document_code || template?.docCode || template?.documentCode || src?.documentStamp?.docCode || "";
+    const revisionNo = (template?.revision_no ?? template?.revisionNo ?? src?.documentStamp?.revisionNo ?? 0);
+    const effectivity = template?.effectivity || template?.effectivity_date || src?.documentStamp?.effectivity || "";
+    return {
+      ...src,
+      showSLULogo: src.showSLULogo ?? src.showSLU ?? !!src.assets?.slu,
+      showCICMLogo: src.showCICMLogo ?? src.showCICM ?? !!src.assets?.cicm,
+      assets: {
+        slu: src?.assets?.slu || src?.slu || "/assets/images/slu-logo.png",
+        cicm: src?.assets?.cicm || src?.cicm || "/assets/images/cicm-logo.png",
+      },
+      center: src.center || {},
+      documentStamp: { docCode, revisionNo, effectivity },
+      document_code: docCode,
+      revision_no: revisionNo,
+      effectivity,
+    };
+  }, [template]);
 
   useEffect(() => {
-    const loadPreview = async () => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const mockUrl = template.file_url || template.document_url || '';
-        setPreviewUrl(mockUrl);
-      } catch (err) {
-        setError('Failed to load document preview');
-        console.error('Preview error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (template) {
-      loadPreview();
+      setLoading(false);
     }
   }, [template]);
 
   return (
-    <div className="fixed inset-0 backdrop-blue-[2px] bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 backdrop-blur-[2px] bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-6 border-b border-gray-200 flex items-start justify-between bg-gray-50">
           <div className="flex-1">
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Document Preview</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Template Preview</h3>
             <p className="text-sm text-gray-600 mb-2">{template.title}</p>
             <div className="flex gap-2">
               {template.document_code && (
@@ -92,10 +109,7 @@ const DocumentPreview = ({ template, onClose, onSelect }) => {
               )}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X size={24} />
           </button>
         </div>
@@ -104,50 +118,33 @@ const DocumentPreview = ({ template, onClose, onSelect }) => {
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <Loader message='Loading published templates..'  />
+                <Loader message='Loading preview...' />
               </div>
             </div>
-          ) : error ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <AlertCircle size={48} className="mx-auto text-red-400 mb-4" />
-                <p className="text-red-600 mb-2">{error}</p>
-                <p className="text-sm text-gray-500">Unable to load document preview</p>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-lg p-8 max-w-4xl mx-auto">
-              <div className="mb-6 pb-6 border-b border-gray-200">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Description</h4>
-                <p className="text-gray-900">{template.description || 'No description available'}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-1">School</h4>
-                  <p className="text-gray-900">{template.school || 'N/A'}</p>
-                </div>
-              </div>
-
-              {previewUrl ? (
-                <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-                  <div className="aspect-[8.5/11] bg-gray-50 flex items-center justify-center">
-                    <iframe
-                      src={previewUrl}
-                      className="w-full h-full"
-                      title="Document Preview"
-                    />
+            ) : (
+              <div className="bg-white rounded-lg shadow-lg p-8 max-w-4xl mx-auto">
+              <div ref={previewRef} className="overflow-hidden bg-white">
+                {template?.pages_json && template.pages_json.length > 0 ? (
+                  <TextEditor
+                    content={contentForEditor}
+                    pageSetup={template?.pageSetup}
+                    className="pointer-events-none opacity-100 w-full"
+                    onEditorReady={(editor) => editor && editor.setEditable(false)}
+                    mode="template"
+                    headerConfig={normalizedHeaderConfig}
+                    templateStatus={template?.status || "published"}
+                    documentCode={template?.document_code || template?.docCode}
+                    revisionNo={template?.revision_no ?? template?.revisionNo}
+                    effectivity={template?.effectivity || template?.effectivity_date}
+                  />
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
+                    <FileText size={48} className="mx-auto text-gray-300 mb-4" />
+                    <p className="text-gray-600 mb-2">Template preview not available</p>
+                    <p className="text-sm text-gray-500">No content to display</p>
                   </div>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
-                  <FileText size={48} className="mx-auto text-gray-300 mb-4" />
-                  <p className="text-gray-600 mb-2">Document preview not available</p>
-                  <p className="text-sm text-gray-500">
-                    The document will be accessible after assignment
-                  </p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -189,62 +186,55 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [assignedUsers, setAssignedUsers] = useState([]);
   const [errors, setErrors] = useState({});
+  
+  // state for user management - TODO: CHANGE THIS PART, SHOULD FETCH FACULTY MEMBERS
+  const [docControllers, setDocControllers] = useState([]);
+  const [secretaries, setSecretaries] = useState([]);
+  const [deans, setDeans] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  
+  // Template filtering state
+  const [selectedDocCode, setSelectedDocCode] = useState('All');
+  const [selectedRevision, setSelectedRevision] = useState('All');
+  const [showTemplateFilters, setShowTemplateFilters] = useState(false);
 
-  const assignUserOptions = [
-    { id: 1, name: "John Doe", email: "johndoe@slu.edu.ph" },
-    { id: 2, name: "John Doe", email: "johndoe@slu.edu.ph" },
-    { id: 3,  name: "John Doe", email: "johndoe@slu.edu.ph" }
-  ];
-
-
+  // Fetch templates from API
   useEffect(() => {
     if (isOpen && currentStep === 2 && templates.length === 0) {
       fetchTemplates();
     }
   }, [isOpen, currentStep]);
 
+  // Fetch users from API 
+  useEffect(() => {
+    if (isOpen && docControllers.length === 0) {
+      fetchUsers();
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (isOpen) {
       setDeadlineTime('00:00');
-      setAssignedUsers(assignUserOptions.length > 0 ? [assignUserOptions[0].id] : []);
+      setAssignedUsers([]);
     }
   }, [isOpen]);
 
   const fetchTemplates = async () => {
     setLoadingTemplates(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const mockTemplates = [
-        {
-          _id: '1',
-          title: 'Document Title',
-          description: 'description of the document template',
-          document_code: 'FA-VAA-001',
-          revision_number: 3,
-          school: 'STELA',
-          file_url: null,
-        },
-        {
-          _id: '2',
-          title: 'Document Title',
-          description: 'description of the document template',
-          document_code: 'FA-VAA-001',
-          revision_number: 5,
-          school: 'STELA',
-          file_url: null,
-        },
-        {
-          _id: '3',
-          title: 'Document Title',
-          description: 'description of the document template',
-          document_code: 'FA-VAA-001',
-          revision_number: 2,
-          school: 'STELA',
-          file_url: null,
-        }
-      ];
+      const result = await fetchPublishedTemplatesAPI({ limit: 100, page: 1 });
       
-      setTemplates(mockTemplates);
+      let templateList = [];
+      if (result?.success && result.data?.templates) {
+        templateList = result.data.templates;
+      } else if (result?.templates) {
+        templateList = result.templates;
+      } else if (Array.isArray(result)) {
+        templateList = result;
+      }
+      
+      setTemplates(templateList);
     } catch (error) {
       console.error('Error fetching templates:', error);
       setTemplates([]);
@@ -253,14 +243,64 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
     }
   };
 
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      console.log('Starting to fetch users...'); 
+      const result = await fetchSchoolStaffAPI();
+      console.log('Fetched staff:', result); 
+      
+      // TODO: should be adjusted, must fetch faculty members 
+      setDocControllers(result?.docControllers || []);
+      setSecretaries(result?.secretaries || []);
+      setDeans(result?.deans || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setDocControllers([]);
+      setSecretaries([]);
+      setDeans([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  // Combine all users into a single array for the assignment step
+  const allUsers = useMemo(() => {
+    return [...docControllers, ...secretaries, ...deans];
+  }, [docControllers, secretaries, deans]);
+
   if (!isOpen) return null;
+
+  // Extract unique document codes and revisions
+  const documentCodes = [...new Set(templates.map(t => t.document_code).filter(Boolean))].sort();
+  const revisionNumbers = [...new Set(
+    templates.map(t => {
+      const rev = t.revision_number ?? t.revision_no;
+      return rev !== undefined && rev !== null ? String(rev).padStart(2, '0') : null;
+    }).filter(Boolean)
+  )].sort();
 
   const filteredTemplates = templates.filter(template => {
     const searchLower = templateSearch.toLowerCase();
-    return (
+    const matchesSearch = (
       template.title?.toLowerCase().includes(searchLower) ||
-      template.document_code?.toLowerCase().includes(searchLower) ||
-      template.description?.toLowerCase().includes(searchLower)
+      template.document_code?.toLowerCase().includes(searchLower)
+    );
+    
+    const matchesCode = selectedDocCode === 'All' || template.document_code === selectedDocCode;
+    const matchesRevision = selectedRevision === 'All' || 
+      String(template.revision_number ?? template.revision_no).padStart(2, '0') === selectedRevision;
+    
+    return matchesSearch && matchesCode && matchesRevision;
+  });
+
+  const filteredUsers = allUsers.filter(user => {
+    const searchLower = userSearch.toLowerCase();
+    return (
+      user.name?.toLowerCase().includes(searchLower) ||
+      user.email?.toLowerCase().includes(searchLower) ||
+      user.firstName?.toLowerCase().includes(searchLower) ||
+      user.lastName?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -321,13 +361,15 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
       
       onAssign?.(result);
       
+      // Reset form
       setTitle('');
       setInstructions('');
       setDeadline('');
       setDeadlineTime('00:00');
       setSelectedTemplate(null);
       setTemplateSearch('');
-      setAssignedUsers(assignUserOptions.length > 0 ? [assignUserOptions[0].id] : []);
+      setUserSearch('');
+      setAssignedUsers([]);
       setCurrentStep(1);
       onClose?.();
     }
@@ -343,6 +385,42 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
     if (errors.template) {
       setErrors(prev => ({ ...prev, template: '' }));
     }
+  };
+
+  const toggleUserSelection = (userId) => {
+    setAssignedUsers(prev => {
+      if (prev.includes(userId)) {
+        return prev.filter(id => id !== userId);
+      } else {
+        return [...prev, userId];
+      }
+    });
+    if (errors.assignedUsers) {
+      setErrors(prev => ({ ...prev, assignedUsers: '' }));
+    }
+  };
+
+  const getUserDisplayName = (user) => {
+    if (user.name) return user.name;
+    if (user.firstName && user.lastName) return `${user.firstName} ${user.lastName}`;
+    if (user.firstName) return user.firstName;
+    if (user.lastName) return user.lastName;
+    return 'Unknown User';
+  };
+
+  const addUser = (user) => {
+    const userId = user._id || user.id;
+    if (!assignedUsers.includes(userId)) {
+      setAssignedUsers(prev => [...prev, userId]);
+      if (errors.assignedUsers) {
+        setErrors(prev => ({ ...prev, assignedUsers: '' }));
+      }
+    }
+    setUserSearch('');
+  };
+
+  const removeUser = (userId) => {
+    setAssignedUsers(prev => prev.filter(id => id !== userId));
   };
 
   return (
@@ -456,19 +534,63 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
           
           {currentStep === 2 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <h3 className="text-lg font-semibold text-gray-900">Select a Template</h3>
-                <div className="relative w-80">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                  <input
-                    type="text"
-                    placeholder="Search templates..."
-                    value={templateSearch}
-                    onChange={(e) => setTemplateSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                <div className="flex items-center gap-3">
+                  <div className="relative w-80">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type="text"
+                      placeholder="Search templates..."
+                      value={templateSearch}
+                      onChange={(e) => setTemplateSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setShowTemplateFilters(!showTemplateFilters)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
+                      showTemplateFilters ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Filter size={16} />
+                    Filters
+                  </button>
                 </div>
               </div>
+
+              {showTemplateFilters && (
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-2">Document Code</label>
+                      <select
+                        value={selectedDocCode}
+                        onChange={(e) => setSelectedDocCode(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="All">All Codes</option>
+                        {documentCodes.map(code => (
+                          <option key={code} value={code}>{code}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-2">Revision Number</label>
+                      <select
+                        value={selectedRevision}
+                        onChange={(e) => setSelectedRevision(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="All">All Revisions</option>
+                        {revisionNumbers.map(rev => (
+                          <option key={rev} value={rev}>Revision {rev}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {errors.template && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
@@ -479,8 +601,7 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
 
               {loadingTemplates ? (
                 <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Loading templates...</p>
+                  <Loader message="Loading templates..." />
                 </div>
               ) : (
                 <>
@@ -512,7 +633,6 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                                     <CheckCircle size={20} className="text-blue-600 flex-shrink-0" />
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-600 line-clamp-2">{template.description || 'No description available'}</p>
                                 
                                 <div className="flex gap-2 mt-2">
                                   {template.document_code && (
@@ -599,45 +719,124 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                   <Users size={16} />
                   Assign To <span className="text-red-500">*</span>
                 </label>
-                <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-4 bg-gray-50">
-                  {assignUserOptions.map(user => (
-                    <label
-                      key={user.id}
-                      className="flex items-center p-3 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors border border-transparent hover:border-gray-300"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={assignedUsers.includes(user.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setAssignedUsers(prev => [...prev, user.id]);
-                          } else {
-                            setAssignedUsers(prev => prev.filter(id => id !== user.id));
-                          }
-                          if (errors.assignedUsers) {
-                            setErrors(prev => ({ ...prev, assignedUsers: '' }));
-                          }
-                        }}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <div className="ml-3 flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User size={20} className="text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                          <p className="text-sm text-gray-500">{user.email}</p>
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
+
                 {errors.assignedUsers && (
-                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle size={14} />
-                    {errors.assignedUsers}
-                  </p>
+                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+                    <AlertCircle size={16} />
+                    <span className="text-sm font-medium">{errors.assignedUsers}</span>
+                  </div>
                 )}
+
+                {/* Selected users tags */}
+                {assignedUsers.length > 0 && (
+                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-blue-900">
+                        {assignedUsers.length} {assignedUsers.length === 1 ? 'person' : 'people'} selected
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {allUsers
+                        .filter(u => assignedUsers.includes(u._id || u.id))
+                        .map(user => {
+                          const userId = user._id || user.id;
+                          return (
+                            <div
+                              key={userId}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-blue-300 rounded-full text-sm"
+                            >
+                              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                                <User size={12} className="text-blue-600" />
+                              </div>
+                              <span className="text-gray-900">{getUserDisplayName(user)}</span>
+                              <button
+                                onClick={() => removeUser(userId)}
+                                className="hover:bg-blue-100 rounded-full p-0.5 transition-colors text-gray-600 hover:text-gray-900"
+                                aria-label="Remove user"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Search input */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search people by name or email..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Suggested/Filtered Users List */}
+                <div className="border border-gray-200 rounded-lg bg-white shadow-sm">
+                  <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-700">
+                      {userSearch.trim() ? 'Search Results' : 'Suggested People'}
+                    </h4>
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto">
+                    {loadingUsers ? (
+                      <div className="p-8 text-center">
+                        <Loader message="Loading faculty members..." />
+                      </div>
+                    ) : allUsers.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <Users size={48} className="mx-auto text-gray-300 mb-3" />
+                        <p className="text-sm text-gray-600 font-medium">No faculty members available</p>
+                      </div>
+                    ) : (
+                      (userSearch.trim() ? filteredUsers : allUsers)
+                        .filter(user => !assignedUsers.includes(user._id || user.id))
+                        .slice(0, 10)
+                        .map(user => {
+                          const userId = user._id || user.id;
+                          return (
+                            <button
+                              key={userId}
+                              onClick={() => addUser(user)}
+                              className="w-full flex items-center gap-3 p-4 hover:bg-blue-50 transition-colors border-b last:border-b-0 text-left group"
+                            >
+                              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
+                                <User size={24} className="text-blue-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {getUserDisplayName(user)}
+                                </p>
+                              </div>
+                              <div className="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <ChevronRight size={20} />
+                              </div>
+                            </button>
+                          );
+                        })
+                    )}
+                  </div>
+
+                  {/* Show "Load more" if there are more users */}
+                  {!userSearch.trim() && 
+                   allUsers.filter(u => !assignedUsers.includes(u._id || u.id)).length > 10 && (
+                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 text-center">
+                      <p className="text-xs text-gray-600">
+                        Showing 10 of {allUsers.filter(u => !assignedUsers.includes(u._id || u.id)).length} people. 
+                        <span className="text-blue-600 font-medium"> Use search to find more</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <p className="mt-3 text-xs text-gray-500">
+                  Click on a person to add them to this assignment
+                </p>
               </div>
             </div>
           )}
@@ -675,7 +874,6 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                       <h4 className="text-sm font-medium text-gray-700">Selected Template</h4>
                       <div className="mt-2 p-3 bg-white border border-gray-200 rounded-lg">
                         <p className="font-medium text-gray-900">{selectedTemplate.title}</p>
-                        <p className="text-sm text-gray-600 mt-1">{selectedTemplate.description}</p>
                         <div className="flex gap-2 mt-2">
                           {selectedTemplate.document_code && (
                             <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
@@ -692,19 +890,24 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                     </div>
                   )}
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700">Assigned To</h4>
-                      <div className="mt-1">
-                        {assignUserOptions
-                          .filter(u => assignedUsers.includes(u.id))
-                          .map(user => (
-                            <div key={user.id} className="flex items-center gap-2 text-gray-900">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              {user.name}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">
+                      Assigned To ({assignedUsers.length} {assignedUsers.length === 1 ? 'person' : 'people'})
+                    </h4>
+                    <div className="space-y-2">
+                      {allUsers
+                        .filter(u => assignedUsers.includes(u._id || u.id))
+                        .map(user => (
+                          <div key={user._id || user.id} className="flex items-center gap-3 p-2 bg-white border border-gray-200 rounded-lg">
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                              <User size={16} className="text-blue-600" />
                             </div>
-                          ))}
-                      </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{getUserDisplayName(user)}</p>
+                            </div>
+                            <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
+                          </div>
+                        ))}
                     </div>
                   </div>
                 </div>

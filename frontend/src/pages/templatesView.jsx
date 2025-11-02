@@ -780,14 +780,14 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                       ...(template?.headerConfig || template?.logoConfig || {}),
                       documentStamp: {
                         docCode: template?.document_code || template?.documentCode || "",
-                        revisionNo: template?.revision_no || template?.revisionNo || "",
-                        effectivity: template?.effectivity || "",
+                          revisionNo: template?.revision_number || template?.revision_no || template?.revisionNo || "",
+                          effectivity: template?.effectivity || template?.effectivity_date || "",
                       },
                     }}
                     templateStatus={template?.status}
                     documentCode={template?.document_code || template?.documentCode}
-                    revisionNo={template?.revision_no || template?.revisionNo}
-                    effectivity={template?.effectivity}
+                      revisionNo={template?.revision_number || template?.revision_no || template?.revisionNo}
+                      effectivity={template?.effectivity || template?.effectivity_date}
                     className="pointer-events-none opacity-100 w-full"
                     onEditorReady={editor => {
                       try { editor.setEditable(false); } catch {}
@@ -920,12 +920,12 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                           const udc = approvalsArr.find(a => normKey(a.role) === 'unit_document_controller');
                           const ldc = approvalsArr.find(a => normKey(a.role) === 'lead_document_controller');
                           const dco = approvalsArr.find(a => normKey(a.role) === 'document_controller_officer');
-                          // Hide UDC if:
-                          // if udc is pending but receive by ldc or dco
-                          const hideUDC = Boolean(
-                            (udc && ldc && isPending(udc) && isPending(ldc)) ||
-                            (udc && dco && isPending(udc) && isPending(dco))
-                          );
+                          // UDC visibility rule:
+                          // - Show UDC when status is 'pending'
+                          // - Otherwise (including 'endorsed'), only show if UDC has approved
+                          const statusKey = String(t?.status || '').toLowerCase();
+                          const shouldShowUDC = statusKey === 'pending' || Boolean(udc && udc.isApproved);
+                          const hideUDC = !shouldShowUDC;
 
                           return approvalsArr.map((approver, idx) => {
                           let statusBadge;
@@ -934,7 +934,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                           const isUDC = approverRoleKey === 'unit_document_controller';
 
                           // Hide UDC in the list when both UDC and LDC are pending (per request)
-                          if (hideUDC && isUDC) return null;
+                          if (hideUDC && isUDC ) return null;
                           if (approver.isRejected) {
                             statusBadge = (
                               <span className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-medium">

@@ -1,32 +1,82 @@
-/* --- keep these --- */
+/* src/global.css */
+
+/* Tailwind + fonts */
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
 @import "tw-animate-css";
 
+/* Dark variant helper */
 @custom-variant dark (&:is(.dark *));
 body { font-family: 'Poppins', sans-serif; }
 
-/* ProseMirror table styling (safe to keep) */
+/* -------------------------------------------------------------------------- */
+/*  PAGINATION-FRIENDLY EDITOR DEFAULTS                                       */
+/* -------------------------------------------------------------------------- */
+
+/* Ensure the pagination flow container itself doesn't make content atomic */
+.rm-with-pagination,
+.ProseMirror {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+  overflow: visible !important;
+  contain: layout style size paint; /* avoid accidental clipping/atomic behavior */
+}
+
+/* Generic content hygiene */
+.ProseMirror img { max-width: 100%; height: auto; }
+
+/* -------------------------------------------------------------------------- */
+/*  TABLES (tiptap-table-plus + tiptap-pagination-plus)                       */
+/*  - Split BETWEEN rows (no mid-row split)                                   */
+/* -------------------------------------------------------------------------- */
+
+/* Table base */
 .ProseMirror table {
   border-collapse: collapse;
   table-layout: fixed;
   width: 100%;
   margin: 0;
-  overflow: hidden;
+  overflow: visible !important;
+  /* Crucial: allow table to be broken between rows */
+  break-inside: auto !important;
+  page-break-inside: auto !important;
 }
-.ProseMirror td, .ProseMirror th {
+
+/* Rows should be breakable so the NEXT row can flow to the next page */
+.ProseMirror tr {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+}
+
+/* Cells */
+.ProseMirror td,
+.ProseMirror th {
   min-width: 1em;
   border: 2px solid #ced4da;
   padding: 3px 5px;
   vertical-align: top;
   box-sizing: border-box;
   position: relative;
+  /* Allow splitting between rows (not inside a single row) */
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible !important;
 }
+
+/* Header cells */
 .ProseMirror th {
   font-weight: bold;
   text-align: left;
   background-color: #f1f3f4;
 }
+
+/* Repeat table header/footer for print/PDF */
+.ProseMirror table thead { display: table-header-group; }
+.ProseMirror table tfoot { display: table-footer-group; }
+
+/* Selected cell visual */
 .ProseMirror .selectedCell:after {
   z-index: 2;
   position: absolute;
@@ -36,7 +86,77 @@ body { font-family: 'Poppins', sans-serif; }
   pointer-events: none;
 }
 
-/* your CSS variable theme (keep as is) */
+/* -------------------------------------------------------------------------- */
+/*  TABLE PLUS NODE-VIEW WRAPPER PATCH                                        */
+/*  Your DOM often renders:                                                   */
+/*    <div contenteditable="false"> [resize handles] <table class="table-plus"> */
+/*  Make sure wrapper & table are NOT atomic, rows remain intact.             */
+/* -------------------------------------------------------------------------- */
+
+/* The outer node-view wrapper (contenteditable=false) should not be atomic */
+.ProseMirror [contenteditable="false"] {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+  overflow: visible !important;
+}
+
+/* The actual Table Plus element */
+.ProseMirror .table-plus {
+  width: 100%;
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+  overflow: visible !important;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* Table Plus renders rows as grid; keep each row intact (splits happen BETWEEN rows) */
+.ProseMirror .table-plus > tr {
+  break-inside: avoid-page !important;
+  page-break-inside: avoid !important;
+  position: relative; /* matches the inline style in your DOM */
+}
+
+/* Cells inside .table-plus (use your 1px black borders in that mode) */
+.ProseMirror .table-plus th,
+.ProseMirror .table-plus td {
+  border: 1px solid #000;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible !important;
+}
+
+/* Column resize handles (keep visible on screen, hide for print) */
+.ProseMirror .handle,
+.ProseMirror .table-plus ~ .handle {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  cursor: ew-resize;
+  background: #353535;
+  z-index: 9999;
+  border-radius: 50%;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  PAGE BANDS (headers/footers rendered by PaginationPlus)                   */
+/*  Keep band boxes intact, but do not trap content flow.                     */
+/* -------------------------------------------------------------------------- */
+
+.rm-first-page-header,
+.rm-page-header,
+.rm-first-page-footer,
+.rm-page-footer {
+  break-inside: avoid !important;     /* keep band itself intact */
+  page-break-inside: avoid !important;
+  overflow: visible !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  THEME TOKENS                                                              */
+/* -------------------------------------------------------------------------- */
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -74,6 +194,7 @@ body { font-family: 'Poppins', sans-serif; }
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
+
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -108,6 +229,7 @@ body { font-family: 'Poppins', sans-serif; }
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 }
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -141,31 +263,60 @@ body { font-family: 'Poppins', sans-serif; }
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+
+/* Base layer hookup for Tailwind tokens */
 @layer base {
   * { @apply border-border outline-ring/50; }
   body { @apply bg-background text-foreground; }
 }
 
-/* Editable-field visuals */
+/* -------------------------------------------------------------------------- */
+/*  Editable-field visuals                                                     */
+/* -------------------------------------------------------------------------- */
 .nd-editable-field {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  position: relative;
   min-width: 1.5rem;
-  padding: 0 0.25rem;
-  border-radius: 0.375rem;
-  outline: 1px dashed rgba(99,102,241,.45);
-  background: rgba(99,102,241,.06);
+  min-height: 1.75rem;
+  padding: 0 0.35rem;
+  border-radius: 0.4rem;
+  outline: 1px dashed rgba(99, 102, 241, 0.45);
+  background: rgba(99, 102, 241, 0.06);
+  transition: background 0.2s ease, outline-color 0.2s ease;
+  vertical-align: middle;
+  user-select: none;
+  cursor: default;
 }
+
+/* Hover / focus */
+.nd-editable-field:hover {
+  outline-color: rgba(79, 70, 229, 0.7);
+  background: rgba(99, 102, 241, 0.12);
+}
+.nd-editable-field:focus-visible {
+  outline-color: rgba(79, 70, 229, 0.9);
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+}
+
+/* Type-specific */
 .nd-editable-field--text { color: #334155; }
 .nd-editable-field--text:is(:empty)::before {
   content: attr(data-ph);
   color: #94a3b8;
+  font-style: italic;
 }
+
+/* Image field */
+.nd-editable-field--image { padding: 0; }
 .nd-image-field-frame {
   display: inline-flex;
+  justify-content: center;
+  align-items: center;
   width: 64px;
   height: 48px;
-  border: 1px dashed #ffffff;
+  border: 1px dashed #cbd5e1;
   border-radius: 0.375rem;
   background: #f8fafc;
   position: relative;
@@ -173,15 +324,55 @@ body { font-family: 'Poppins', sans-serif; }
 .nd-image-field-frame::after {
   content: attr(data-placeholder);
   font-size: 11px;
-  color: #ffffff;
-  position: absolute; inset: 0; display: grid; place-items: center;
+  color: #94a3b8;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0 4px;
 }
 
+/* Tag coloration strip */
+[data-tags]:not([data-tags=""]) {
+  outline: 1.5px dashed transparent;
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.25);
+}
+[data-tags]:not([data-tags=""]):hover { outline-color: rgba(99, 102, 241, 0.6); }
+[data-tags]:not([data-tags=""])::before {
+  content: "";
+  position: absolute;
+  left: -2px; top: -2px; bottom: -2px;
+  width: 4px; border-radius: 4px 0 0 4px;
+  background: linear-gradient(to bottom, #818cf8, #a78bfa, #c084fc);
+}
+.nd-editable-field::after {
+  content: attr(data-tags);
+  position: absolute; bottom: -1.1rem; left: 0;
+  font-size: 10px; color: #818cf8; opacity: 0.7; white-space: nowrap;
+}
+
+/* Editor canvas container (don’t hide overflow to avoid atomic blocks) */
 .nd-editor-canvas {
-  overflow-y: auto;      
+  overflow-y: auto;
   height: 100%;
   background: #ffffff;
-  padding: 32prgb(255, 255, 255)
+  padding: 32px;
 }
 
-
+/* -------------------------------------------------------------------------- */
+/*  PRINT                                                                     */
+/* -------------------------------------------------------------------------- */
+@media print {
+  .ProseMirror table { page-break-inside: auto !important; }
+  .ProseMirror tr { page-break-inside: auto !important; }
+  .ProseMirror td, .ProseMirror th { page-break-inside: auto !important; }
+  .rm-first-page-header,
+  .rm-page-header,
+  .rm-first-page-footer,
+  .rm-page-footer {
+    page-break-inside: avoid !important;
+  }
+  /* Hide UI handles on print */
+  .ProseMirror .handle { display: none !important; }
+}

@@ -77,3 +77,63 @@ export const isRole = (role, displayLabel) => normalizeRoleDisplay(role) === dis
 
 export const isApproverKey = (key) => APPROVAL_KEYS.includes(key);
 export const isApproverDisplay = (role) => APPROVER_DISPLAY_ROLES.includes(normalizeRoleDisplay(role));
+
+/**
+ * Get a normalized role name string from assorted user/role shapes.
+ * Accepts user object, role object, or raw string and returns a trimmed string.
+ * @param {object|string} userOrRole
+ * @returns {string}
+ */
+export const getRoleName = (userOrRole) => {
+  if (!userOrRole) return '';
+  if (typeof userOrRole === 'string') return String(userOrRole).trim();
+  if (typeof userOrRole.role === 'string') return String(userOrRole.role).trim();
+  if (userOrRole.role && (userOrRole.role.name || userOrRole.role.slug)) {
+    return String(userOrRole.role.name || userOrRole.role.slug).trim();
+  }
+  return '';
+};
+
+/**
+ * Check if a user has Dean or Secretary role.
+ * @param {object|string} user
+ * @returns {boolean}
+ */
+export const isDeanOrSecretary = (user) => {
+  const r = getRoleName(user).toLowerCase();
+  return r === 'dean' || r === 'secretary';
+};
+
+/**
+ * Check if a user is part of the Document Controller roles collection.
+ * Accepts raw string, { role: string|{name,slug} }, or { roles: [] } shapes.
+ * @param {object|string} user
+ * @returns {boolean}
+ */
+export const isDocumentController = (user) => {
+  if (!user) return false;
+  const allow = new Set([
+    'lead document controller',
+    'document control officer',
+    'unit document controller',
+  ]);
+  const norm = (v) => (v ? String(v).trim().toLowerCase() : '');
+  // direct string
+  if (allow.has(norm(user))) return true;
+  if (typeof user === 'object') {
+    // object role can be string or object with name/slug
+    const r = user.role;
+    if (r) {
+      if (allow.has(norm(r))) return true;
+      if (allow.has(norm(r.name))) return true;
+      if (allow.has(norm(r.slug))) return true;
+    }
+    if (Array.isArray(user.roles)) {
+      for (const x of user.roles) {
+        if (allow.has(norm(x))) return true;
+        if (x && (allow.has(norm(x.name)) || allow.has(norm(x.slug)))) return true;
+      }
+    }
+  }
+  return false;
+};

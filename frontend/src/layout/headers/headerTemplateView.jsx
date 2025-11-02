@@ -215,6 +215,7 @@ export default function HeaderTemplateView({
               );
 
               const showManage =
+                String(t?.status || '').toLowerCase() !== 'returned' &&
                 ((roleValue === "Unit Document Controller" && canUDCAct) ||
                 (roleValue === "Lead Document Controller" && canLDCAct) ||
                 (roleValue === "Document Control Officer" && canDCOAct)) &&

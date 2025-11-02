@@ -27,56 +27,30 @@ export const createTemplateVersion = async ({ templateId, snapshot = null, userI
   // determine latest version for this template (scoped by template_id only)
   const latest = await TemplateHistory.findOne({ template_id: templateId }).sort({ version_no: -1 }).lean();
 
-  // helper: compare snapshots for equality on the allowed keys
-  const snapshotsEqual = (a, b) => {
-    try {
-      // both may be undefined/null -> treat as equal
-      if (!a && !b) return true;
-      // ensure deterministic serialization by building object with allowedKeys order
-      const norm = (s) => {
-        if (!s || typeof s !== 'object') return {};
-        const out = {};
-        allowedKeys.forEach(k => { if (s[k] !== undefined) out[k] = s[k]; });
-        return out;
-      };
-      const sa = JSON.stringify(norm(a));
-      const sb = JSON.stringify(norm(b));
-      if (sa === sb) return true;
-      // lightweight similarity heuristic: if lengths are very close and prefixes match, treat as equal
-      const maxLen = Math.max(sa.length, sb.length) || 1;
-      const lenDiffRatio = Math.abs(sa.length - sb.length) / maxLen;
-      if (lenDiffRatio <= 0.05) {
-        // compare prefixes (first 40 chars) to avoid small re-ordering changes
-        if (sa.slice(0, 40) === sb.slice(0, 40)) return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  };
+  // Note: Content-based comparison removed. Versioning is time-window based only.
 
-  // If latest exists and snapshot matches, decide based on interval
+  // Time-window based decision: within interval -> update latest; otherwise create new version
   if (latest) {
     const lastSnapshot = latest.snapshot || {};
-    const lastCreatedRaw = latest.created_at || latest.createdAt || latest.created_at?.$date || null;
-    const lastCreatedMs = lastCreatedRaw ? new Date(lastCreatedRaw).getTime() : 0;
+    // Use last activity time if available; fallback to created_at
+    const lastActivityRaw = latest.last_activity_at || latest.lastActivityAt || latest.last_activity_at?.$date || latest.created_at || latest.createdAt || latest.created_at?.$date || null;
+    const lastActivityMs = lastActivityRaw ? new Date(lastActivityRaw).getTime() : 0;
     const nowMs = Date.now();
 
-    const similar = snapshotsEqual(snapToStore, lastSnapshot);
-    const diffMs = nowMs - lastCreatedMs;
+    const diffMs = nowMs - lastActivityMs;
     //console.debug && console.debug('createTemplateVersion debug', { templateId, similar, diffMs, interval: MIN_TEMPLATE_VERSION_INTERVAL_MS });
 
-    // If snapshot identical and the last version is newer than interval, skip creating a new version
-    if (similar && diffMs < MIN_TEMPLATE_VERSION_INTERVAL_MS) {
+    // If within interval, do not create a new version; update latest's snapshot and last activity
+    if (diffMs < MIN_TEMPLATE_VERSION_INTERVAL_MS) {
      // console.debug && console.debug('createTemplateVersion - skipping creation (within interval, snapshots similar)', { templateId, latestId: latest._id, diffMs });
       // touch the latest version's timestamp so it represents the most recent activity
       try {
         const now = new Date();
-        // Use per-operation timestamps so Mongoose updates the mapped `updated_at` automatically.
-        // Keep explicit last_activity_at so history retains a separate activity marker.
+        // Update snapshot to reflect latest content and bump last_activity_at; preserve created_at.
+        // Use timestamps:true so updated_at is maintained by Mongoose.
         const bumped = await TemplateHistory.findByIdAndUpdate(
           latest._id,
-          { $set: { created_at: now, createdAt: now, last_activity_at: now } },
+          { $set: { last_activity_at: now, snapshot: lastSnapshot && Object.keys(snapToStore).length ? snapToStore : lastSnapshot } },
           { new: true, timestamps: true }
         );
         return bumped || latest;
@@ -89,7 +63,7 @@ export const createTemplateVersion = async ({ templateId, snapshot = null, userI
 
   // create a new version (next version_no)
   const next = latest ? (latest.version_no || 0) + 1 : 1;
-  const v = new TemplateHistory({ template_id: templateId, snapshot: snapToStore, version_no: next, created_by: userId, note });
+  const v = new TemplateHistory({ template_id: templateId, snapshot: snapToStore, version_no: next, created_by: userId, note, last_activity_at: new Date() });
   await v.save();
   // console.debug && console.debug('createTemplateVersion - created new version', { templateId, version_no: next, id: v._id });
   return v;

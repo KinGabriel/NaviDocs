@@ -11,21 +11,69 @@ import { StatusBadge, formatDate } from "../../utils/formatters";
 import { Plus, Calendar, Users, FileText, Clock, CheckCircle, AlertCircle, Eye, TrendingUp } from 'lucide-react';
 
 // Dummy data for submissions - FOR DEMO PURPOSES ONLY
-const MOCK_SUBMISSIONS = Array.from({ length: 15 }, (_, i) => ({
-  id: i + 1,
-  title: `Submission Bin Title ${i + 1}`,
-  instructions: "Please review and provide feedback on the attached documents.",
-  createdAt: new Date(Date.now() - Math.random() * 10000000000).toISOString(),
-  deadline: new Date(Date.now() + Math.random() * 10000000000).toISOString(),
-  assignedTo: Math.floor(Math.random() * 5) + 1,
-  submitted: Math.floor(Math.random() * 4),
-  status: i % 4 === 0 ? "overdue" : i % 4 === 1 ? "active" : i % 4 === 2 ? "completed" : "draft",
-}));
+const MOCK_SUBMISSIONS = Array.from({ length: 15 }, (_, i) => {
+  const createdDate = new Date('2025-10-01');
+  createdDate.setDate(createdDate.getDate() + i * 2);
+  
+  const deadlineDate = new Date('2025-11-15');
+  deadlineDate.setDate(deadlineDate.getDate() + (i * 3) - 15);
+  
+  let status;
+  const now = new Date();
+  const daysUntilDue = Math.ceil((deadlineDate - now) / (1000 * 60 * 60 * 24));
+  
+  if (i % 5 === 0) {
+    status = "draft";
+  } else if (daysUntilDue < 0) {
+    status = "overdue";
+  } else if (i % 7 === 0) {
+    status = "completed";
+  } else {
+    status = "active";
+  }
+  
+  const numSubmissions = 3 + (i % 5);
+  const submissions = Array.from({ length: numSubmissions }, (_, j) => {
+    const names = ["John Doe", "Ana Reyes", "Carlos Mendoza", "Joshua Garcia", "Maria Santos", "Gigi Gonzales"];
+    
+    let itemStatus;
+    if (j < Math.floor(numSubmissions * 0.6)) {
+      itemStatus = "submitted";
+    } else if (daysUntilDue < 0) {
+      itemStatus = "late";
+    } else {
+      itemStatus = "pending";
+    }
+    
+    const submittedDate = itemStatus === "submitted" 
+      ? new Date(createdDate.getTime() + (j + 1) * 86400000 * 2) 
+      : null;
+    
+    return {
+      id: j + 1,
+      documentName: `Document Title ${j + 1}`,
+      submittedBy: names[j % names.length],
+      submittedAt: submittedDate ? submittedDate.toISOString() : null,
+      files: itemStatus === "submitted" ? [`Report-Q${j + 1}.pdf`] : [],
+      status: itemStatus,
+    };
+  });
+  
+  return {
+    id: i + 1,
+    title: `Submission Bin Title ${i + 1}`,
+    instructions: `Please review and provide feedback on the attached documents for submission ${i + 1}. Ensure all requirements are met before the deadline.`,
+    createdAt: createdDate.toISOString(),
+    deadline: deadlineDate.toISOString(),
+    status: status,
+    submission: submissions,
+  };
+});
 
 const STATUS_OPTIONS = ["All Status", "Active", "Completed", "Overdue", "Draft"];
 const SORT_OPTIONS = ["Recent", "Oldest", "Due Soon", "A–Z"];
 
-export default function SecretaryWorkflow() {
+export default function SecretarySubmissions() {
   const user = useUser();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -70,7 +118,7 @@ export default function SecretaryWorkflow() {
     const active = MOCK_SUBMISSIONS.filter(s => s.status === "active").length;
     const completed = MOCK_SUBMISSIONS.filter(s => s.status === "completed").length;
     const overdue = MOCK_SUBMISSIONS.filter(s => s.status === "overdue").length;
-    const totalAssigned = MOCK_SUBMISSIONS.reduce((sum, s) => sum + s.assignedTo, 0);
+    const totalAssigned = MOCK_SUBMISSIONS.reduce((sum, s) => sum + s.submission.length, 0);
     
     return { active, completed, overdue, totalAssigned };
   }, []);
@@ -98,15 +146,14 @@ export default function SecretaryWorkflow() {
     setShowAssignModal(false);
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    return (
+    <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} />
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-3 mx-6 mt-8 rounded-xl">
-          <div className="w-full px-4 max-w-8xl">
-        <div className="flex-1 flex flex-col">
-          <main className="flex-1 p-4 md:p-6 lg:p-8">
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
+          <div className="flex-1 px-1 py-5">
+            
             {/* Header Section */}
             <div className="mb-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
@@ -255,7 +302,7 @@ export default function SecretaryWorkflow() {
               </button>
             </div>
             )}
-          </main>
+          </div>
         </div>
       </div>
 
@@ -273,8 +320,6 @@ export default function SecretaryWorkflow() {
         </div>
       )}
     </div>
-    </div>
-  </div>
   );
 }
 
@@ -303,6 +348,8 @@ function StatCard({ icon: Icon, label, value, color }) {
 
 function SubmissionCard({ submission, onView }) {
   const daysUntilDue = Math.ceil((new Date(submission.deadline) - new Date()) / (1000 * 60 * 60 * 24));
+  const submittedCount = submission.submission.filter(s => s.status === "submitted").length;
+  const totalAssigned = submission.submission.length;
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all hover:border-blue-300 overflow-hidden">
@@ -344,13 +391,13 @@ function SubmissionCard({ submission, onView }) {
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-700">Submission Progress</span>
             <span className="text-sm font-semibold text-gray-900">
-              {submission.submitted}/{submission.assignedTo}
+              {submittedCount}/{totalAssigned}
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
             <div
               className="bg-blue-600 h-full rounded-full transition-all"
-              style={{ width: `${(submission.submitted / submission.assignedTo) * 100}%` }}
+              style={{ width: `${totalAssigned > 0 ? (submittedCount / totalAssigned) * 100 : 0}%` }}
             />
           </div>
         </div>
@@ -359,7 +406,7 @@ function SubmissionCard({ submission, onView }) {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Users size={16} className="text-gray-400" />
-            <span>{submission.assignedTo} assigned</span>
+            <span>{totalAssigned} assigned</span>
           </div>
           <button
             onClick={onView}

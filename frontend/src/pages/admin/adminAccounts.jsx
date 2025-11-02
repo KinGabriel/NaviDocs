@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   fetchUsersAccountsAPI,
   archiveUserAccountAPI,
-  unarchiveUserAccountAPI 
+  unarchiveUserAccountAPI
 } from "../../api/adminAPI";
+
 import useUser from '../../hooks/useUser';
 import Sidebar from '../../layout/sidebars/sidebar';
 import Header from '../../layout/headers/header';
@@ -25,10 +26,20 @@ export default function AdminAccounts() {
   const [roleFilter, setRoleFilter] = useState("All Roles");
   const sortOptions = ["Sort By", "Name (A-Z)", "Name (Z-A)"];
   const [sortBy, setSortBy] = useState(sortOptions[0]);
-  const [search, setSearch] = useState(""); 
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null);
 
+  // Archive modal state
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [targetUser, setTargetUser] = useState(null);
+
+  // Unarchive modal state
+  const [unarchiveOpen, setUnarchiveOpen] = useState(false);
+  const [unarchiving, setUnarchiving] = useState(false);
+  const [targetUserUnarchive, setTargetUserUnarchive] = useState(null);
+
+  // fetch users
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -44,170 +55,43 @@ export default function AdminAccounts() {
     fetchUsers();
   }, []);
 
-  
-  // --- Archive modal state ---
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [archiving, setArchiving] = useState(false);
-  const [targetUser, setTargetUser] = useState(null); // the row being archived
-
-  const openArchiveModal = (row) => {
-    setTargetUser(row);
-    setArchiveOpen(true);
-  };
-  const closeArchiveModal = () => {
-    if (archiving) return;
-    setArchiveOpen(false);
-    setTargetUser(null);
-  };
-  const confirmArchive = async () => {
-    if (!targetUser?._id) return;
-    try {
-      setArchiving(true);
-      await archiveUserAccountAPI(targetUser._id);
-      setUsers(prev => prev.map(u => u._id === targetUser._id ? { ...u, is_deleted: true } : u));
-      toast.success("User archived successfully");
-      setArchiving(false);
-      closeArchiveModal();
-    } catch (err) {
-      toast.error(err.message || "Failed to archive user.");
-      setArchiving(false);
-    }
-  };
-
-  // --- Unarchive modal state ---
-  const [unarchiveOpen, setUnarchiveOpen] = useState(false);
-  const [unarchiving, setUnarchiving] = useState(false);
-  const [targetUserUnarchive, setTargetUserUnarchive] = useState(null);
-
-  const openUnarchiveModal = (row) => {
-    setTargetUserUnarchive(row);
-    setUnarchiveOpen(true);
-  };
-  const closeUnarchiveModal = () => {
-    if (unarchiving) return;
-    setUnarchiveOpen(false);
-    setTargetUserUnarchive(null);
-  };
-  const confirmUnarchive = async () => {
-    if (!targetUserUnarchive?._id) return;
-    try {
-      setUnarchiving(true);
-      await unarchiveUserAccountAPI(targetUserUnarchive._id);
-      setUsers(prev => prev.map(u => u._id === targetUserUnarchive._id ? { ...u, is_deleted: false } : u));
-      toast.success("User unarchived successfully");
-      // clear the unarchiving flag first so the modal close can proceed
-      setUnarchiving(false);
-      closeUnarchiveModal();
-    } catch (err) {
-      toast.error(err.message || "Failed to unarchive user.");
-      setUnarchiving(false);
-    }
-  };
-  const columns = [
-  {
-    key: "name",
-    label: "Name",
-    render: (row) => `${row.firstname} ${row.lastname}`,
-  },
-  { key: "email", label: "School Email" },
-  {
-    key: "department",
-    label: "Department",
-    render: (row) => row.role?.department || "N/A",
-  },
-  {
-    key: "school",
-    label: "School",
-    render: (row) => row.role?.school || "N/A",
-  },
-  {
-    key: "role",
-    label: "Role",
-    render: (row) => row.role?.name || "",
-  },
-  {
-    key: "actions",
-    label: "Actions",
-    render: (row) => (
-      <div className="flex gap-2">
-        <button
-          className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200"
-          onClick={() => navigate(`/admin/edit-user/${row._id}`)}
-        >
-          Edit
-        </button>
-        {row.is_deleted ? (
-          <button
-            className="bg-green-100 text-green-700 px-4 py-1 rounded text-xs font-semibold hover:bg-green-200"
-            onClick={() => openUnarchiveModal(row)}
-          >
-            Unarchive
-          </button>
-        ) : (
-          <button
-            className="bg-red-100 text-red-500 px-4 py-1 rounded text-xs font-semibold hover:bg-red-200"
-            onClick={() => openArchiveModal(row)}
-          >
-            Archive
-          </button>
-        )}
-      </div>
-    ),
-  },
-];
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const data = await fetchUsersAccountsAPI();
-        setUsers(data);
-      } catch (err) {
-        setUsers([]);
-        setAccountsInfo(null)
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUsers();
-  }, []);
-
-  // roles for the filter dropdown
+  // roles for filter dropdown
   const roles = ["All Roles", ...Array.from(new Set(users.map(u => u.role?.name).filter(Boolean)))];
 
-  // filter users by selected role
+  // filter by role
   const filteredUsers = roleFilter === "All Roles"
     ? users
     : users.filter(u => u.role?.name === roleFilter);
 
-  // filter users by search query
+  // search
   const searchedUsers = search
     ? filteredUsers.filter(u =>
-        (`${u.firstname} ${u.lastname}`.toLowerCase().includes(search.toLowerCase()) ||
-         u.email?.toLowerCase().includes(search.toLowerCase()) ||
-         u.role?.school?.toLowerCase().includes(search.toLowerCase()) ||
-         u.role?.department?.toLowerCase().includes(search.toLowerCase()) ||
-         u.role?.name?.toLowerCase().includes(search.toLowerCase()))
-      )
+      (`${u.firstname} ${u.lastname}`.toLowerCase().includes(search.toLowerCase()) ||
+        u.email?.toLowerCase().includes(search.toLowerCase()) ||
+        u.role?.school?.toLowerCase().includes(search.toLowerCase()) ||
+        u.role?.department?.toLowerCase().includes(search.toLowerCase()) ||
+        u.role?.name?.toLowerCase().includes(search.toLowerCase()))
+    )
     : filteredUsers;
 
-  // sort users by name
+  // sort
   const sortedUsers = sortBy === "Sort By"
     ? searchedUsers
     : [...searchedUsers].sort((a, b) => {
-        const nameA = `${a.firstname} ${a.lastname}`.toLowerCase();
-        const nameB = `${b.firstname} ${b.lastname}`.toLowerCase();
-        if (sortBy === "Name (A-Z)") return nameA.localeCompare(nameB);
-        if (sortBy === "Name (Z-A)") return nameB.localeCompare(nameA);
-        return 0;
-      });
+      const nameA = `${a.firstname} ${a.lastname}`.toLowerCase();
+      const nameB = `${b.firstname} ${b.lastname}`.toLowerCase();
+      if (sortBy === "Name (A-Z)") return nameA.localeCompare(nameB);
+      if (sortBy === "Name (Z-A)") return nameB.localeCompare(nameA);
+      return 0;
+    });
 
-  //handle pagination
+  // pagination setup
   const totalPages = Math.ceil(sortedUsers.length / usersPerPage);
   const {
     currentPage,
     setCurrentPage,
     handlePrev,
     handleNext,
-    handlePage,
     getPageNumbers,
   } = usePagination(totalPages);
 
@@ -215,35 +99,152 @@ export default function AdminAccounts() {
   const endIdx = startIdx + usersPerPage;
   const currentUsers = sortedUsers.slice(startIdx, endIdx);
 
-     // loading animation
-  if (loading) {
-   return (
-     <div className="min-h-screen bg-gray-200 flex flex-col">
-       <Header user={user} />
-       <div className="flex flex-1">
-         <Sidebar user={user} />
-         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-           <div className="flex-1 flex items-center justify-center">
-             <Loader message="Loading..." />
-           </div>
-         </div>
-       </div>
-     </div>
-   );
- }
+  // table columns
+  const columns = [
+    {
+      key: "name",
+      label: "Name",
+      render: (row) => `${row.firstname} ${row.lastname}`,
+    },
+    { key: "email", label: "School Email" },
+    {
+      key: "department",
+      label: "Department",
+      render: (row) => row.role?.department || "N/A",
+    },
+    {
+      key: "school",
+      label: "School",
+      render: (row) => row.role?.school || "N/A",
+    },
+    {
+      key: "role",
+      label: "Role",
+      render: (row) => row.role?.name || "",
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+          <button
+            className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200 whitespace-nowrap"
+            onClick={() => navigate(`/admin/edit-user/${row._id}`)}
+          >
+            Edit
+          </button>
 
-    // error state
-    if (!users) {
+          {row.is_deleted ? (
+            <button
+              className="bg-green-100 text-green-700 px-3 py-1 rounded text-xs font-semibold hover:bg-green-200 whitespace-nowrap"
+              onClick={() => openUnarchiveModal(row)}
+            >
+              Unarchive
+            </button>
+          ) : (
+            <button
+              className="bg-red-100 text-red-500 px-3 py-1 rounded text-xs font-semibold hover:bg-red-200 whitespace-nowrap"
+              onClick={() => openArchiveModal(row)}
+            >
+              Archive
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  // archive handlers
+  const openArchiveModal = (row) => {
+    setTargetUser(row);
+    setArchiveOpen(true);
+  };
+
+  const closeArchiveModal = () => {
+    if (archiving) return;
+    setArchiveOpen(false);
+    setTargetUser(null);
+  };
+
+  const confirmArchive = async () => {
+    if (!targetUser?._id) return;
+    try {
+      setArchiving(true);
+      await archiveUserAccountAPI(targetUser._id);
+      setUsers(prev =>
+        prev.map(u => u._id === targetUser._id ? { ...u, is_deleted: true } : u)
+      );
+      toast.success("User archived successfully");
+    } catch (err) {
+      toast.error(err.message || "Failed to archive user.");
+    } finally {
+      setArchiving(false);
+      closeArchiveModal();
+    }
+  };
+
+  // unarchive handlers
+  const openUnarchiveModal = (row) => {
+    setTargetUserUnarchive(row);
+    setUnarchiveOpen(true);
+  };
+
+  const closeUnarchiveModal = () => {
+    if (unarchiving) return;
+    setUnarchiveOpen(false);
+    setTargetUserUnarchive(null);
+  };
+
+  const confirmUnarchive = async () => {
+    if (!targetUserUnarchive?._id) return;
+    try {
+      setUnarchiving(true);
+      await unarchiveUserAccountAPI(targetUserUnarchive._id);
+      setUsers(prev =>
+        prev.map(u => u._id === targetUserUnarchive._id ? { ...u, is_deleted: false } : u)
+      );
+      toast.success("User unarchived successfully");
+    } catch (err) {
+      toast.error(err.message || "Failed to unarchive user.");
+    } finally {
+      setUnarchiving(false);
+      closeUnarchiveModal();
+    }
+  };
+
+  // loading view
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-200 flex flex-col">
         <Header user={user} />
-        <div className="flex flex-1">
+        <div className="flex flex-1 flex-col md:flex-row">
           <Sidebar user={user} />
-          <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+          <div className="flex-1 flex flex-col bg-white shadow pt-4 pb-6 px-4 md:pt-1 md:pb-4 md:px-8 md:mx-6 md:mt-8 rounded-xl mx-4 my-4">
+            <div className="flex-1 flex items-center justify-center">
+              <Loader message="Loading..." />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // error-ish: if no users array at all
+  if (!users) {
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1 flex-col md:flex-row">
+          <Sidebar user={user} />
+          <div className="flex-1 flex flex-col bg-white shadow pt-4 pb-6 px-4 md:pt-1 md:pb-4 md:px-8 md:mx-6 md:mt-8 rounded-xl mx-4 my-4">
             <div className="flex-1 flex items-center justify-center text-center">
               <div>
-                <h2 className="text-xl font-semibold text-red-600 mb-2">Unable to load dashboard</h2>
-                <p className="text-gray-500">Please check your connection or try again later.</p>
+                <h2 className="text-lg md:text-xl font-semibold text-red-600 mb-2">
+                  Unable to load dashboard
+                </h2>
+                <p className="text-gray-500 text-sm md:text-base">
+                  Please check your connection or try again later.
+                </p>
               </div>
             </div>
           </div>
@@ -252,61 +253,93 @@ export default function AdminAccounts() {
     );
   }
 
+  // main view
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
+      {/* HEADER */}
       <Header user={user} />
-      <div className="flex flex-1">
+
+      {/* BODY WRAPPER: column on mobile, row on desktop */}
+      <div className="flex flex-1 flex-col md:flex-row">
+        {/* SIDEBAR (leave as-is, you already made it responsive) */}
         <Sidebar user={user} active="User Accounts" />
-       <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <div className="flex-1 p-10">
-            <h2 className="text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">NAVIDOCS USERS</h2>
+
+        {/* MAIN CARD AREA */}
+        <div className="flex-1 flex flex-col bg-white shadow rounded-xl mx-4 my-4 md:mx-6 md:mt-8">
+          <div className="flex-1 w-full p-4 md:p-10">
+            {/* TITLE */}
+            <h2 className="text-2xl md:text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">
+              NAVIDOCS USERS
+            </h2>
             <div className="w-24 h-1 bg-yellow-400 mb-6 rounded" />
 
-            {/* Filter, Sort, Search */}
-            <div className="flex items-center gap-2 mb-4">
+            {/* CONTROLS: stack on mobile, row on md+ */}
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-2 mb-4">
               {/* Filter by Role */}
-              <Dropdown
-                value={roleFilter}
-                onChange={value => { setRoleFilter(value); setCurrentPage(1); }}
-                options={roles}
-                width='w-52'
-              />
-              {/* Sort by Name */}
-              <Dropdown
-                value={sortBy}
-                onChange={setSortBy}
-                options={sortOptions}
-                width='w-36'
-              />
-              <div className="flex-1 flex justify-end">
-                <div className="w-64">
-                  <SearchBar value={search} onChange={e => setSearch(e.target.value)} />
+              <div className="w-full md:w-auto">
+                <Dropdown
+                  value={roleFilter}
+                  onChange={(value) => { setRoleFilter(value); setCurrentPage(1); }}
+                  options={roles}
+                  width="w-full md:w-52"
+                />
+              </div>
+
+              {/* Sort */}
+              <div className="w-full md:w-auto">
+                <Dropdown
+                  value={sortBy}
+                  onChange={setSortBy}
+                  options={sortOptions}
+                  width="w-full md:w-36"
+                />
+              </div>
+
+              {/* Search (push to right on desktop) */}
+              <div className="w-full md:flex-1 md:flex md:justify-end">
+                <div className="w-full md:w-64">
+                  <SearchBar
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
                 </div>
               </div>
             </div>
 
-            {/* Table */}
-            <div className="bg-white rounded shadow p-0 overflow-x-auto">
-              <Table columns={columns} data={currentUsers} />
+            {/* TABLE WRAPPER */}
+            <div className="bg-white rounded shadow p-0 border border-gray-200 overflow-x-auto">
+              {/* on really narrow screens, allow horizontal scroll */}
+              <div className="min-w-[700px]">
+                <Table columns={columns} data={currentUsers} />
+              </div>
             </div>
 
-            {/* Pagination */}
-            <div className="flex justify-center items-center mt-6 gap-2">
+            {/* PAGINATION */}
+            <div className="flex flex-wrap justify-center items-center mt-6 gap-2">
               <button
                 onClick={handlePrev}
                 disabled={currentPage === 1}
-                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50 text-sm"
               >
                 Prev
               </button>
+
               {getPageNumbers().map((num, idx) =>
                 num === "..." ? (
-                  <span key={idx} className="px-2 text-gray-400">...</span>
+                  <span
+                    key={idx}
+                    className="px-2 text-gray-400 text-sm"
+                  >
+                    ...
+                  </span>
                 ) : (
                   <button
                     key={num}
                     onClick={() => setCurrentPage(num)}
-                    className={`px-3 py-1 rounded border ${
+                    className={`px-3 py-1 rounded border text-sm ${
                       currentPage === num
                         ? "bg-blue-600 text-white"
                         : "bg-white text-gray-700 hover:bg-gray-100"
@@ -316,10 +349,11 @@ export default function AdminAccounts() {
                   </button>
                 )
               )}
+
               <button
                 onClick={handleNext}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50 text-sm"
               >
                 Next
               </button>
@@ -347,13 +381,13 @@ export default function AdminAccounts() {
             {/* Icon */}
             <div className="mx-auto mb-4 mt-2 flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-red-500">
-                <path d="M9 3h6m-9 4h12m-1 0-.7 11.2a2 2 0 0 1-2 1.8H8.7a2 2 0 0 1-2-1.8L6 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M10 10v6M14 10v6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+                <path d="M9 3h6m-9 4h12m-1 0-.7 11.2a2 2 0 0 1-2 1.8H8.7a2 2 0 0 1-2-1.8L6 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M10 10v6M14 10v6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
               </svg>
             </div>
 
             {/* Message */}
-            <p className="text-center text-lg font-semibold text-gray-800">
+            <p className="text-center text-base md:text-lg font-semibold text-gray-800">
               Are you sure you want to archive
               <br />
               <span className="font-bold">
@@ -363,18 +397,18 @@ export default function AdminAccounts() {
             </p>
 
             {/* Actions */}
-            <div className="mt-6 flex items-center justify-center gap-3">
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={closeArchiveModal}
                 disabled={archiving}
-                className="rounded-md bg-gray-200 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:opacity-60"
+                className="w-full sm:w-auto rounded-md bg-gray-200 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:opacity-60"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmArchive}
                 disabled={archiving}
-                className="rounded-md bg-red-600 px-5 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                className="w-full sm:w-auto rounded-md bg-red-600 px-5 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
               >
                 {archiving ? "Archiving…" : "Archive"}
               </button>
@@ -400,7 +434,7 @@ export default function AdminAccounts() {
               </svg>
             </button>
 
-            {/* Icon (green accent) */}
+            {/* Icon */}
             <div className="mx-auto mb-4 mt-2 flex h-12 w-12 items-center justify-center rounded-xl bg-green-100">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-green-600">
                 <path d="M12 3v18m9-9H3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
@@ -408,7 +442,7 @@ export default function AdminAccounts() {
             </div>
 
             {/* Message */}
-            <p className="text-center text-lg font-semibold text-gray-800">
+            <p className="text-center text-base md:text-lg font-semibold text-gray-800">
               Are you sure you want to unarchive
               <br />
               <span className="font-bold">
@@ -418,18 +452,18 @@ export default function AdminAccounts() {
             </p>
 
             {/* Actions */}
-            <div className="mt-6 flex items-center justify-center gap-3">
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={closeUnarchiveModal}
                 disabled={unarchiving}
-                className="rounded-md bg-gray-200 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:opacity-60"
+                className="w-full sm:w-auto rounded-md bg-gray-200 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:opacity-60"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmUnarchive}
                 disabled={unarchiving}
-                className="rounded-md bg-green-600 px-5 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
+                className="w-full sm:w-auto rounded-md bg-green-600 px-5 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
               >
                 {unarchiving ? "Unarchiving…" : "Unarchive"}
               </button>
@@ -438,6 +472,6 @@ export default function AdminAccounts() {
         </div>
       )}
       {/* END UNARCHIVE MODAL */}
-     </div>
+    </div>
   );
 }

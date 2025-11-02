@@ -117,8 +117,7 @@ export function StatusBadge({ type }) {
     returned: "bg-orange-50 text-orange-700 border border-orange-200",
     draft: "bg-gray-50 text-gray-700 border border-gray-200",
     published: "bg-blue-50 text-blue-700 border border-blue-200",
-    pending_review: "bg-purple-50 text-purple-700 border border-purple-200",
-    ongoing: "bg-cyan-50 text-cyan-700 border border-cyan-200",
+    endorsed: "bg-purple-50 text-purple-700 border border-purple-200",
 
     // Submission statuses
     active: "bg-blue-50 text-blue-700 border border-blue-200", // The submission has been published/sent out, Faculty members can now submit their documents
@@ -132,6 +131,7 @@ export function StatusBadge({ type }) {
     minor_delay: "bg-blue-50 text-blue-700 border border-blue-200",
 
     // Deadline statuses
+    overdue: "bg-red-50 text-red-700 border border-red-200",
     due_today: "bg-orange-50 text-orange-700 border border-orange-200",
     due_this_week: "bg-yellow-50 text-yellow-700 border border-yellow-200",
     upcoming: "bg-blue-50 text-blue-700 border border-blue-200",
@@ -148,8 +148,7 @@ export function StatusBadge({ type }) {
     returned: "bg-orange-500",
     draft: "bg-gray-500",
     published: "bg-blue-500",
-    pending_review: "bg-purple-500",
-    ongoing: "bg-cyan-500",
+    endorsed: "bg-purple-500",
 
     // Submission statuses
     active: "bg-blue-500",
