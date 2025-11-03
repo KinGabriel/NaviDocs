@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import { dbConnection } from "./config/db.js";
 import templateRoutes from "./routes/templateRoutes.js";
 import fieldGroupDefinitionRoutes from "./routes/fieldGroupDefinitionRoutes.js";
+import tagRoutes from "./routes/tagRoutes.js";
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.use(cookieParser());
 
 // Mount specific routes BEFORE generic /api/templates to avoid :id capturing 'field-groups'
 app.use("/api/templates/field-groups", fieldGroupDefinitionRoutes);
+app.use("/api/templates/tags", tagRoutes);
 // Templates routes (generic)
 app.use("/api/templates", templateRoutes);
 

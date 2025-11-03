@@ -16,9 +16,6 @@ const FieldGroupDefinitionSchema = new mongoose.Schema(
             placeholder: { type: String, default: '' },
             instructions: { type: String, default: '' },
             tags: { type: [String], default: [] },
-            options: { type: mongoose.Schema.Types.Mixed, default: null },
-            required: { type: Boolean, default: false },
-            defaultValue: { type: mongoose.Schema.Types.Mixed, default: null },
           },
           { _id: false }
         ),

@@ -1,7 +1,8 @@
 // src/components/editable_fields/tagsManager.jsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Trash2, Plus } from "lucide-react";
 import { makeId } from "../../utils/ids";
+import { listTagsAPI, upsertTagAPI, deleteTagAPI } from "../../api/tagsAPI";
 
 export default function TagsManager({
   tags = [],
@@ -10,20 +11,54 @@ export default function TagsManager({
 }) {
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#7e57c2");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const addTag = () => {
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const items = await listTagsAPI();
+        // Normalize: id = key, name = label
+        const reg = (items || []).map((t) => ({ id: t.key, name: t.label, color: t.color || "#7e57c2" }));
+        setTags(reg);
+      } catch (e) {
+        setError(e?.message || "Failed to load tags");
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const addTag = async () => {
     if (!newTagName.trim()) return;
-    const tag = { id: makeId(), name: newTagName.trim(), color: newTagColor };
-    setTags((prev) => [...prev, tag]);
-    setNewTagName("");
+    const key = newTagName.trim().toLowerCase().replace(/[^a-z0-9-_]+/g, '-').replace(/^-+|-+$/g, '');
+    try {
+      const saved = await upsertTagAPI({ key, label: newTagName.trim(), color: newTagColor });
+      const tag = { id: saved.key, name: saved.label, color: saved.color || newTagColor };
+      setTags((prev) => {
+        const existing = prev.find((t) => t.id === tag.id);
+        if (existing) return prev.map((t) => (t.id === tag.id ? tag : t));
+        return [...prev, tag];
+      });
+      setNewTagName("");
+    } catch (e) {
+      setError(e?.message || "Failed to save tag");
+    }
   };
 
-  const removeTag = (id) => {
+  const removeTag = async (id) => {
     const count = getUsageCount(id);
     if (count > 0) {
       if (!window.confirm(`Tag is used by ${count} fields. Remove anyway?`)) return;
     }
-    setTags((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await deleteTagAPI(id);
+      setTags((prev) => prev.filter((t) => t.id !== id));
+    } catch (e) {
+      setError(e?.message || 'Failed to delete tag');
+    }
   };
 
   return (
@@ -50,6 +85,7 @@ export default function TagsManager({
         </button>
       </div>
 
+      {error && <div className="text-xs text-red-600">{error}</div>}
       <div className="space-y-2">
         {tags.length === 0 && (
           <div className="text-sm text-slate-500">No tags yet.</div>

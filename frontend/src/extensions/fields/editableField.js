@@ -37,12 +37,7 @@ export const EditableField = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const { key, type, placeholder, tags = [] } = HTMLAttributes;
-    const tagColors =
-      Array.isArray(tags) && tags.length > 0
-        ? `data-tags="${tags.join(",")}"`
-        : "";
-
+    const { key, type, placeholder } = HTMLAttributes;
     const baseAttrs = {
       "data-node": "editable-field",
       "data-field": key,
@@ -55,7 +50,6 @@ export const EditableField = Node.create({
       tabindex: "0",
       role: "textbox",
       "aria-label": `Editable Field: ${key}`,
-      ...tagColors,
     };
 
     if (type === "image") {
