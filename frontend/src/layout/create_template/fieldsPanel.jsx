@@ -76,19 +76,31 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
   const getTagUsageCount = (tagId) => allFields.filter((f) => f.tags?.includes(tagId)).length;
   // Serialize accordions to the persisted structure expected in template.fields
   const serialize = React.useCallback(() => {
+    // Build a quick lookup for tag colors
+    const colorById = new Map((tagsRegistry || []).map((t) => [t.id, t.color || "#7e57c2"]));
     return accordions.map(({ id, name, fields }) => ({
       id,
       name,
-      fields: (fields || []).map(({ id: fid, name, type, placeholder, tags, instructions }) => ({
-        id: fid,
-        name,
-        type,
-        placeholder,
-        instructions,
-        tags,
-      })),
+      fields: (fields || []).map(({ id: fid, name, type, placeholder, tags, instructions }) => {
+        const tagColors = {};
+        if (Array.isArray(tags)) {
+          for (const tid of tags) {
+            const c = colorById.get(tid);
+            if (c) tagColors[tid] = c;
+          }
+        }
+        return {
+          id: fid,
+          name,
+          type,
+          placeholder,
+          instructions,
+          tags,
+          tagColors,
+        };
+      }),
     }));
-  }, [accordions]);
+  }, [accordions, tagsRegistry]);
 
   // derive recent tags based on current template usage, merged with backend recents
   useEffect(() => {
@@ -169,17 +181,28 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
 
   // --- Persistence -----------------------------------------------------------
   const persistAll = () => {
+    const colorById = new Map((tagsRegistry || []).map((t) => [t.id, t.color || "#7e57c2"]));
     const serialized = accordions.map(({ id, name, fields }) => ({
       id,
       name,
-      fields: fields.map(({ id: fid, name, type, placeholder, tags, instructions }) => ({
-        id: fid,
-        name,
-        type,
-        placeholder,
-        instructions,
-        tags,
-      })),
+      fields: fields.map(({ id: fid, name, type, placeholder, tags, instructions }) => {
+        const tagColors = {};
+        if (Array.isArray(tags)) {
+          for (const tid of tags) {
+            const c = colorById.get(tid);
+            if (c) tagColors[tid] = c;
+          }
+        }
+        return {
+          id: fid,
+          name,
+          type,
+          placeholder,
+          instructions,
+          tags,
+          tagColors,
+        };
+      }),
     }));
     onChange(serialized);
   };

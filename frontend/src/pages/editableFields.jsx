@@ -411,7 +411,7 @@ export default function EditableFields() {
     } catch (_) { /* ignore */ }
 
     // Grouped sections shape: [{ name, scope, fields: [...] }]
-    if (list[0] && Array.isArray(list[0].fields)) {
+  if (list[0] && Array.isArray(list[0].fields)) {
       let number = 1;
       const panels = [];
       const localFieldsBucket = [];
@@ -434,6 +434,7 @@ export default function EditableFields() {
               required: !!f.required,
               options: f.options ?? null,
               tags: Array.isArray(f.tags) ? f.tags : [],
+              tagColors: f.tagColors && typeof f.tagColors === 'object' ? f.tagColors : undefined,
             };
           });
         if (mapped.length === 0) continue;
@@ -478,6 +479,7 @@ export default function EditableFields() {
           required: !!f.required,
           options: f.options ?? null,
           tags: Array.isArray(f.tags) ? f.tags : [],
+          tagColors: f.tagColors && typeof f.tagColors === 'object' ? f.tagColors : undefined,
         };
       });
     if (!fields.length) return null;
@@ -507,6 +509,7 @@ export default function EditableFields() {
         meta[key] = {
           label: f.label || f.title || f.name || key,
           tags: Array.isArray(f.tags) ? f.tags : [],
+          tagColors: f.tagColors && typeof f.tagColors === 'object' ? f.tagColors : undefined,
         };
       });
     } catch {}

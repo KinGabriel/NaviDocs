@@ -20,6 +20,30 @@ export default function Panel({
   const [saveMessage, setSaveMessage] = useState({});
   const [selectedScopes, setSelectedScopes] = useState({});
 
+  // Helpers to style tag chips using stored hex colors
+  const hexToRgb = (hex) => {
+    if (!hex || typeof hex !== 'string') return null;
+    let h = hex.replace('#', '');
+    if (h.length === 3) {
+      h = h.split('').map((c) => c + c).join('');
+    }
+    if (h.length !== 6) return null;
+    const num = parseInt(h, 16);
+    // eslint-disable-next-line no-bitwise
+    const r = (num >> 16) & 255;
+    // eslint-disable-next-line no-bitwise
+    const g = (num >> 8) & 255;
+    // eslint-disable-next-line no-bitwise
+    const b = num & 255;
+    return { r, g, b };
+  };
+
+  const rgba = (hex, a) => {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return null;
+    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`;
+  };
+
   const allowSchoolScope = (user) => {
     if (!user) return false;
     const norm = (v) => (v ? String(v).trim().toLowerCase() : '');
@@ -124,14 +148,26 @@ export default function Panel({
               <div className="mt-1 mb-2">
                 <div className="flex items-center flex-wrap gap-1">
                   {Array.isArray(field.tags) && field.tags.length > 0 ? (
-                    field.tags.map((t, i) => (
-                      <span
-                        key={`${field.name}-tag-${i}`}
-                        className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 text-xs border border-gray-200"
-                      >
-                        {t}
-                      </span>
-                    ))
+                    field.tags.map((t, i) => {
+                      const color = field?.tagColors?.[t] || null;
+                      const style = color
+                        ? {
+                            backgroundColor: rgba(color, 0.12) || undefined,
+                            color: color,
+                            borderColor: rgba(color, 0.35) || color,
+                          }
+                        : undefined;
+                      return (
+                        <span
+                          key={`${field.name}-tag-${i}`}
+                          className="px-1.5 py-0.5 rounded text-xs border"
+                          style={style}
+                          title={t}
+                        >
+                          {t}
+                        </span>
+                      );
+                    })
                   ) : (
                     <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-400 text-xs border border-gray-100">No tags</span>
                   )}
