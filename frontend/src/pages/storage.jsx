@@ -1,7 +1,7 @@
 // src/pages/storage.jsx
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI, moveFolderAPI, moveFileAPI, renameFolderAPI, renameFileAPI, deleteFolderByIDAPI, deleteFileAPI, deleteFileFromFolderAPI, addAccessToFoldersAPI, addAccessToFileAPI,} from "../api/storageAPI";
+import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI, moveFolderAPI, moveFileAPI, renameFolderAPI, renameFileAPI, deleteFolderByIDAPI, deleteFileAPI, deleteFileFromFolderAPI, addAccessToFoldersAPI, addAccessToFileAPI, } from "../api/storageAPI";
 import { searchUsersByEmailAPI, getUserIdByEmailAPI } from "../api/userAPI";
 import { SCHOOL_OPTIONS, DEPARTMENT_OPTIONS } from "../utils/options";
 import Header from "../layout/headers/header";
@@ -19,18 +19,18 @@ import RenameModal from "../components/modals/renameModal";
 import RemoveModal from "../components/modals/removeModal";
 import Loader from "../components/loader";
 import toast, { Toaster } from "react-hot-toast";
-import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ChevronRight, Folder, File, MoreVertical, Download, Pencil, FolderCog, Move, Share2, Copy, Trash2 } from "lucide-react";
+import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ChevronRight, Folder, File, MoreVertical, Download, Pencil, FolderCog, Move, Share2, Copy, Trash2, } from "lucide-react";
 import { formatDate } from "../utils/formatters";
 
 /* ----------------------------- View Toggle ----------------------------- */
 function ViewToggle({ mode = "table", onChange }) {
   const isTable = mode === "table";
   return (
-    <div className="inline-flex items-stretch rounded-full border border-gray-300 overflow-hidden">
+    <div className="inline-flex items-stretch rounded-full border border-gray-300 overflow-hidden shrink-0">
       <button
         type="button"
         onClick={() => onChange("table")}
-        className={`px-3 py-2 flex items-center ${isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"}`}
+        className={`px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center ${isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"}`}
         aria-label="List view"
         title="List view"
       >
@@ -41,7 +41,7 @@ function ViewToggle({ mode = "table", onChange }) {
       <button
         type="button"
         onClick={() => onChange("grid")}
-        className={`px-3 py-2 flex items-center ${!isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"}`}
+        className={`px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center ${!isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"}`}
         aria-label="Grid view"
         title="Grid view"
       >
@@ -479,7 +479,8 @@ export default function Storage() {
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <Toaster position="top-center" />
-      <div className="flex flex-1">
+      {/* Make the main area stack on small screens, side-by-side from md+ */}
+      <div className="flex flex-1 flex-col md:flex-row">
         <Sidebar user={user} active="Filled-Out Documents Storage" />
 
         {/* Move modal */}
@@ -547,24 +548,24 @@ export default function Storage() {
         )}
 
         {/* Main */}
-        <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+        <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 sm:px-6 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl">
           {!selectedFolder && (
             <>
-              <h1 className="text-3xl font-semibold mt-8 tracking-wide">DOCUMENT STORAGE</h1>
-              <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
+              <h1 className="text-2xl md:text-3xl font-semibold mt-6 md:mt-8 tracking-wide">DOCUMENT STORAGE</h1>
+              <div className="w-24 md:w-30 h-1 bg-yellow-400 mb-4 md:mb-6 rounded" />
             </>
           )}
 
           {/* Breadcrumb */}
           {selectedFolder && (
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6 pb-3 md:pb-4 border-b border-gray-100 gap-3">
               <button
                 onClick={goBack}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-[#0035DA] hover:bg-blue-50 transition-all duration-200 font-medium mt-4"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-[#0035DA] hover:bg-blue-50 transition-all duration-200 font-medium"
               >
                 <ArrowLeft size={18} /> Back
               </button>
-              <div className="flex items-center text-sm font-medium mt-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
+              <div className="flex items-center text-sm font-medium overflow-x-auto whitespace-nowrap scrollbar-hide">
                 <button
                   onClick={() => navigateToFolder(null)}
                   className="text-gray-600 hover:text-[#0035DA] hover:underline transition-colors flex-shrink-0"
@@ -593,13 +594,14 @@ export default function Storage() {
           )}
 
           {/* Controls */}
-          <div className="flex items-center justify-between gap-6 mb-3 bg-gray-50/50 p-3 rounded-lg">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-6 mb-3 bg-gray-50/50 p-3 rounded-lg">
+            {/* Left chunk */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
               {/* New */}
               <div className="relative">
                 <button
                   onClick={() => setShowNewMenu((prev) => !prev)}
-                  className="bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm flex items-center gap-2 hover:bg-blue-800 focus:outline-none focus:ring-0"
+                  className="bg-blue-700 text-white px-4 sm:px-5 py-2 rounded font-semibold text-sm flex items-center gap-2 hover:bg-blue-800 focus:outline-none focus:ring-0"
                 >
                   <Plus className="w-5 h-5" /> New
                 </button>
@@ -634,7 +636,7 @@ export default function Storage() {
               </div>
 
               {/* Status filter */}
-              <div className="flex gap-1 ml-2">
+              <div className="flex gap-1 flex-wrap">
                 {statusOptions.map((status) => {
                   const isSelected = selectedStatus === status;
                   return (
@@ -654,17 +656,17 @@ export default function Storage() {
               </div>
             </div>
 
-            {/* Sort/Search/View */}
-            <div className="flex items-center gap-3">
+            {/* Right chunk */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
               <Dropdown
                 options={["Last Modified", "Date Created", "Title"]}
                 value={sortRecent}
                 onChange={setSortRecent}
-                width="w-36"
+                width="w-full sm:w-36"
                 label="Sort"
-                buttonClass="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-sm px-3 py-2.5 shadow-sm"
+                buttonClass="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-sm px-3 py-2.5 shadow-sm w-full sm:w-auto"
               />
-              <div className="w-60">
+              <div className="w-full sm:w-64 md:w-72">
                 <SearchBar
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -682,7 +684,7 @@ export default function Storage() {
           ) : (
             <>
               {/* ------------------------------ FOLDERS ------------------------------ */}
-              <h3 className="text-lg font-semibold mb-3">Folders</h3>
+              <h3 className="text-base md:text-lg font-semibold mb-3">Folders</h3>
               {loadingFolders ? (
                 <Loader message="Loading folders..." />
               ) : paginatedFolders.length ? (
@@ -691,16 +693,16 @@ export default function Storage() {
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Name
                           </th>
-                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Owner
                           </th>
-                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Last Modified
                           </th>
-                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider w-16">
+                          <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider w-16">
                             Actions
                           </th>
                         </tr>
@@ -712,19 +714,19 @@ export default function Storage() {
                             className="hover:bg-blue-50 transition-colors cursor-pointer"
                             onClick={() => openFolder(folder._id)}
                           >
-                            <td className="px-6 py-4">
+                            <td className="px-4 md:px-6 py-4">
                               <div className="flex items-center gap-3">
                                 <Folder className="w-5 h-5 text-blue-500 flex-shrink-0" />
                                 <span className="font-medium text-gray-900">{folder.name}</span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-600">
+                            <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
                               {folder.data?.owner?.name || "Unknown"}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-600">
+                            <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
                               {formatDate(folder.date)}
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-4 md:px-6 py-4">
                               <div className="relative">
                                 <button
                                   onClick={(e) => toggleFolderMenu(`folder-${folder._id}`, e)}
@@ -827,8 +829,8 @@ export default function Storage() {
                                           <ul
                                             className="absolute top-0 right-full mr-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50"
                                             onMouseEnter={(e) => {
-                                            e.stopPropagation();
-                                            setOpenShareSubmenu(`folder-${folder._id}`);
+                                              e.stopPropagation();
+                                              setOpenShareSubmenu(`folder-${folder._id}`);
                                             }}
                                             onMouseLeave={(e) => {
                                               e.stopPropagation();
@@ -886,7 +888,7 @@ export default function Storage() {
                     </table>
                   </div>
                 ) : (
-                  // grid cards (unchanged)
+                  // grid cards
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
                     {paginatedFolders.map((folder, idx) => (
                       <FolderComponent
@@ -970,11 +972,11 @@ export default function Storage() {
               {uploadError && <span className="text-red-600 text-sm">{uploadError}</span>}
 
               {/* ------------------------------- FILES ------------------------------- */}
-              <h3 className="text-lg font-semibold mb-3">
+              <h3 className="text-base md:text-lg font-semibold mb-3">
                 {selectedFolder ? `Files in ${selectedFolder.folderName}` : "Files"}
               </h3>
 
-              {loadingRootFiles || loadingFolderDetails ? (
+              {(loadingRootFiles || loadingFolderDetails) ? (
                 <Loader message="Loading files..." />
               ) : paginatedFiles.length ? (
                 viewMode === "table" ? (
@@ -982,19 +984,19 @@ export default function Storage() {
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Name
                           </th>
-                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Owner
                           </th>
-                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Last Modified
                           </th>
-                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             Size
                           </th>
-                          <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider w-16">
+                          <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider w-16">
                             Actions
                           </th>
                         </tr>
@@ -1010,20 +1012,20 @@ export default function Storage() {
 
                           return (
                             <tr key={fileKey} className="hover:bg-blue-50 transition-colors">
-                              <td className="px-6 py-4">
+                              <td className="px-4 md:px-6 py-4">
                                 <div className="flex items-center gap-3">
                                   <File className="w-5 h-5 text-gray-500 flex-shrink-0" />
                                   <span className="font-medium text-gray-900">{fileName}</span>
                                 </div>
                               </td>
-                              <td className="px-6 py-4 text-sm text-gray-600">
+                              <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
                                 {file.owner?.name || "Unknown"}
                               </td>
-                              <td className="px-6 py-4 text-sm text-gray-600">
+                              <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
                                 {formatDate(file.uploadedAt || file.createdAt)}
                               </td>
-                              <td className="px-6 py-4 text-sm text-gray-600">{fileSize}</td>
-                              <td className="px-6 py-4">
+                              <td className="px-4 md:px-6 py-4 text-sm text-gray-600">{fileSize}</td>
+                              <td className="px-4 md:px-6 py-4">
                                 <div className="relative">
                                   <button
                                     onClick={(e) => toggleFileMenu(`file-${fileKey}`, e)}
@@ -1164,7 +1166,7 @@ export default function Storage() {
                     </table>
                   </div>
                 ) : (
-                  // grid thumbs (unchanged)
+                  // grid thumbs
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     {paginatedFiles.map((file, idx) => (
                       <FileComponent
