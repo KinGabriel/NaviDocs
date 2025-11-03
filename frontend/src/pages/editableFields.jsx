@@ -77,6 +77,7 @@ export default function EditableFields() {
   const [dlErr, setDlErr] = useState("");
   const [autofillOpen, setAutofillOpen] = useState(false);
   const [autofillApplying, setAutofillApplying] = useState(false);
+  const [matchMode, setMatchMode] = useState('label-tags');
 
   // header status
   const [saving, setSaving] = useState(false);
@@ -432,6 +433,7 @@ export default function EditableFields() {
               instructions: f.instructions || '',
               required: !!f.required,
               options: f.options ?? null,
+              tags: Array.isArray(f.tags) ? f.tags : [],
             };
           });
         if (mapped.length === 0) continue;
@@ -475,6 +477,7 @@ export default function EditableFields() {
           instructions: f.instructions || '',
           required: !!f.required,
           options: f.options ?? null,
+          tags: Array.isArray(f.tags) ? f.tags : [],
         };
       });
     if (!fields.length) return null;
@@ -487,6 +490,27 @@ export default function EditableFields() {
         fields,
       },
     ];
+  }, [docData]);
+
+  // Build metadata map for fields: name -> { label, tags }
+  const fieldMetaByName = useMemo(() => {
+    const meta = {};
+    try {
+      const tpl = docData?.from_template;
+      const list = Array.isArray(tpl?.fields) ? tpl.fields : [];
+      const flatten = (arr) => arr.flatMap((s) => (Array.isArray(s?.fields) ? s.fields : [s]));
+      const flat = list[0] && Array.isArray(list[0]?.fields) ? flatten(list) : list;
+      flat.forEach((f) => {
+        if (!f) return;
+        const key = f.key || f.id || f.name || f._id;
+        if (!key) return;
+        meta[key] = {
+          label: f.label || f.title || f.name || key,
+          tags: Array.isArray(f.tags) ? f.tags : [],
+        };
+      });
+    } catch {}
+    return meta;
   }, [docData]);
 
   // panels from docData.pages_json (scan editableField nodes)
@@ -773,7 +797,7 @@ export default function EditableFields() {
       try {
         if (navState && navState.autoFillFromSuggestions) {
           const scope = navState.autoFillScope || "user";
-          await autofillFromSuggestions(panelsToUse, scope);
+          await autofillFromSuggestions(panelsToUse, scope, matchMode);
         }
       } catch (err) {
         console.debug("autofill on nav state failed", err);
@@ -786,9 +810,11 @@ export default function EditableFields() {
   // AUTOFILL HELPERS
   // ---------------------------
 
-  const fetchPreview = async (key, scope) => {
+  const fetchPreview = async (key, scope, mode) => {
     try {
-      const resp = await getFieldSuggestionsAPI(key, scope, 1);
+      const meta = fieldMetaByName[key] || {};
+      const effectiveMode = mode || matchMode;
+      const resp = await getFieldSuggestionsAPI(key, scope, 1, meta.label, meta.tags, effectiveMode);
       const suggestions = Array.isArray(resp)
         ? resp
         : resp && resp.suggestions
@@ -802,7 +828,7 @@ export default function EditableFields() {
     }
   };
 
-  const autofillFromSuggestions = async (fieldsToUse, scope = "user") => {
+  const autofillFromSuggestions = async (fieldsToUse, scope = "user", mode) => {
     if (!fieldsToUse || !Array.isArray(fieldsToUse)) return;
     try {
       const keys = fieldsToUse.flatMap((p) =>
@@ -818,10 +844,14 @@ export default function EditableFields() {
           )
             return;
           try {
+            const meta = fieldMetaByName[key] || {};
             const resp = await getFieldSuggestionsAPI(
               key,
               scope,
-              1
+              1,
+              meta.label,
+              meta.tags,
+              mode || matchMode
             );
             const suggestions = Array.isArray(resp)
               ? resp
@@ -892,7 +922,7 @@ export default function EditableFields() {
       if (idToUse)
         await updateDocumentFieldValuesAPI(idToUse, updates);
 
-      // save suggestions for future scopes
+      // save suggestions for future scopes, including label & tags metadata
       try {
         await Promise.allSettled(
           items.map((it) => {
@@ -903,8 +933,11 @@ export default function EditableFields() {
               desired === "school" && !allowSchoolScope(user)
                 ? "user"
                 : desired;
+            const meta = fieldMetaByName[it.key] || {};
             return saveFieldSuggestionAPI({
               key: it.key,
+              label: meta.label,
+              tags: Array.isArray(meta.tags) ? meta.tags : [],
               value: it.value,
               scope: finalScope,
             });
@@ -2162,6 +2195,8 @@ export default function EditableFields() {
         onApply={handleApplyAutofill}
         applying={autofillApplying}
         user={user}
+        matchMode={matchMode}
+        onChangeMatchMode={setMatchMode}
       />
 
       {/* DOWNLOADING MODAL */}

@@ -147,12 +147,19 @@ export const saveFieldSuggestionAPI = async (suggestion) => {
  * @param {string} key - field key
  * @param {string} [scope] - optional scope ('user'|'school')
  * @param {number} [limit] - optional limit
+ * @param {string} [label] - field label metadata for matching
+ * @param {string[]} [tags] - field tags metadata for matching
+ * @param {('label'|'label-tags'|'any')} [matchMode] - explicit match strategy
  */
-export const getFieldSuggestionsAPI = async (key, scope, limit = 10) => {
+
+export const getFieldSuggestionsAPI = async (key, scope, limit = 10, label, tags, matchMode) => {
 	try {
 		const params = { key };
 		if (scope) params.scope = scope;
 		if (limit) params.limit = limit;
+		if (label) params.label = label;
+		if (Array.isArray(tags) && tags.length) params.tags = tags.join(',');
+    if (matchMode) params.matchMode = matchMode;
 		const res = await axios.get(`${API_URL}/api/documents/field-suggestions`, {
 			params,
 			withCredentials: true,

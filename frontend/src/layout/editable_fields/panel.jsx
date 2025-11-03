@@ -22,19 +22,26 @@ export default function Panel({
 
   const allowSchoolScope = (user) => {
     if (!user) return false;
-    if (typeof user.role === 'string' && user.role.toLowerCase() === 'document_controller') return true;
-    if (
-      user.role &&
-      typeof user.role === 'object' &&
-      (
-        (user.role.name && String(user.role.name).toLowerCase() === 'document controller') ||
-        (user.role.slug && String(user.role.slug).toLowerCase() === 'document_controller')
-      )
-    ) return true;
-    if (
-      Array.isArray(user.roles) &&
-      (user.roles.includes('Document Controller') || user.roles.includes('document_controller'))
-    ) return true;
+    const norm = (v) => (v ? String(v).trim().toLowerCase() : '');
+    const isDean = (v) => {
+      const s = norm(v);
+      return s === 'dean' || s.includes('dean');
+    };
+    const isSecretary = (v) => {
+      const s = norm(v);
+      return s === 'secretary' || s.includes('secretary');
+    };
+    // role can be a string
+    if (isDean(user.role) || isSecretary(user.role)) return true;
+    // role can be an object with name/slug
+    if (user.role && (isDean(user.role.name) || isSecretary(user.role.name) || isDean(user.role.slug) || isSecretary(user.role.slug))) return true;
+    // or roles array of strings/objects
+    if (Array.isArray(user.roles)) {
+      for (const r of user.roles) {
+        if (isDean(r) || isSecretary(r)) return true;
+        if (r && (isDean(r.name) || isSecretary(r.name) || isDean(r.slug) || isSecretary(r.slug))) return true;
+      }
+    }
     return false;
   };
 
@@ -51,10 +58,14 @@ export default function Panel({
     }
 
     const scope = allowSchoolScope(user) ? (selectedScopes[fieldName] || 'user') : 'user';
+    // Find metadata from the provided fields list
+    const metaField = Array.isArray(fields) ? fields.find(f => f && f.name === fieldName) : null;
+    const label = metaField?.label || null;
+    const tags = Array.isArray(metaField?.tags) ? metaField.tags : [];
 
     try {
       setSavingState((s) => ({ ...s, [fieldName]: true }));
-      await saveFieldSuggestionAPI({ key: fieldName, value, scope });
+      await saveFieldSuggestionAPI({ key: fieldName, label, tags, value, scope });
       setSaveMessage((m) => ({ ...m, [fieldName]: { type: 'success', text: `Saved (${scope})` } }));
       setTimeout(() => setSaveMessage((m) => ({ ...m, [fieldName]: undefined })), 2500);
     } catch (err) {
@@ -109,6 +120,29 @@ export default function Panel({
                 )}
               </label>
 
+              {/* Tags under label, before the field */}
+              <div className="mt-1 mb-2">
+                <div className="flex items-center flex-wrap gap-1">
+                  {Array.isArray(field.tags) && field.tags.length > 0 ? (
+                    field.tags.map((t, i) => (
+                      <span
+                        key={`${field.name}-tag-${i}`}
+                        className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 text-xs border border-gray-200"
+                      >
+                        {t}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-400 text-xs border border-gray-100">No tags</span>
+                  )}
+                </div>
+              </div>
+            {/* Instructions  */}
+              {field.instructions && (
+                <div className="text-xs text-gray-500 mt-1">
+                  {field.instructions}
+                </div>
+              )}
               {field.type === 'input' ? (
                 <input 
                   type="text"
@@ -137,6 +171,8 @@ export default function Panel({
                   placeholder={field.placeholder}
                 />
               ) : null}
+
+           
 
               {/* Controls under each field */}
               <div className="flex items-center flex-wrap gap-2 mt-2">
