@@ -609,6 +609,18 @@ export const rejectTemplate = async (req, res) => {
       message: reason || 'No Reason provided',
       created_at: new Date()
     });
+    // Persist the rejecting actor into the DCO approvals slot for attribution
+    try {
+      template.status_meta = template.status_meta || {};
+      template.status_meta.approvals = template.status_meta.approvals || { unit_document_controller: {}, lead_document_controller: {}, document_controller_officer: {} };
+      const actorId = String(req.user?.id || req.user?._id || '');
+      if (actorId) {
+        template.status_meta.approvals.document_controller_officer = template.status_meta.approvals.document_controller_officer || {};
+        template.status_meta.approvals.document_controller_officer.assigned_to = actorId;
+      }
+    } catch (_e) {
+      // best-effort attribution; do not fail rejection if this write fails
+    }
   // Preserve any previously approved slots (do not clear UDC/LDC/DCO approvals)
   template.status = 'rejected';
   template.status_meta.approvals = preservePriorApprovals(template.status_meta.approvals, template.status_meta.approvals);
@@ -698,7 +710,7 @@ export const submitTemplate = async (req, res) => {
       }
     }
 
-    // Decide next role and status
+  // Decide next role and status
     let nextRoleFriendly = null; // 'Unit Document Controller' | 'Lead Document Controller' | 'Document Control Officer'
     let nextAssignedUser = null;
   if (unitApproved) {
@@ -722,9 +734,10 @@ export const submitTemplate = async (req, res) => {
       }
     } else {
       // UDC not approved yet
-      const requiresUDC = (submitterRole === 'Faculty') || !!approvals?.unit_document_controller?.assigned_to;
+      // Replace 'Faculty' with 'Department Head' as the role requiring UDC endorsement
+      const requiresUDC = (submitterRole === 'Department Head') || !!approvals?.unit_document_controller?.assigned_to;
       if (wasReturned) {
-        // On resubmission, non-Faculty flows should not go to 'pending'; they stay endorsed and route to who returned.
+        // On resubmission, non-Department-Head flows should not go to 'pending'; they stay endorsed and route to who returned.
         if (requiresUDC) {
           template.status = 'pending';
           nextRoleFriendly = 'Unit Document Controller';
@@ -835,10 +848,10 @@ export const returnTemplate = async (req, res) => {
   try {
     const { reason } = req.body;
     console.log("Return reason:", reason);
-  // Only Unit Document Controller or Lead Document Controller can return (normalize then map)
+  // Only Unit Document Controller, Lead Document Controller, or Document Control Officer can return (normalize then map)
   const roleKey = toApprovalKey(req.user?.role?.name || req.user?.role || '') || null;
-    if (!['unit_document_controller','lead_document_controller'].includes(roleKey)) {
-      return res.status(403).json({ success:false, message:'Only Unit Document Controller or Lead Document Controller may return for changes.' });
+    if (!['unit_document_controller','lead_document_controller','document_controller_officer'].includes(roleKey)) {
+      return res.status(403).json({ success:false, message:'Only Unit/Lead Document Controller or Document Control Officer may return for changes.' });
     }
     const template = await Template.findById(req.params.id);
     if (!template) return res.status(404).json({ success:false, message:'Template not found' });
@@ -860,7 +873,7 @@ export const returnTemplate = async (req, res) => {
       added_by: req.user.id,
       role_snapshot: req.user?.role?.name || '',
       type: 'change',
-      message: reason || 'No Reason provided',
+      message: reason || 'No reason provided',
       created_at: new Date()
     });
     // Stamp who returned it so resubmission can route back to them
@@ -869,6 +882,19 @@ export const returnTemplate = async (req, res) => {
     template.status_meta.returned_role = roleKey;
     template.status_meta.returned_at = new Date();
     if (reason) template.status_meta.returned_reason = reason;
+    // Ensure approvals object exists and, if UDC is the actor, persist their id in the UDC slot
+    template.status_meta.approvals = template.status_meta.approvals || { unit_document_controller: {}, lead_document_controller: {}, document_controller_officer: {} };
+    const actorId = String(req.user?.id || req.user?._id || '');
+    if (roleKey === 'unit_document_controller') {
+      template.status_meta.approvals.unit_document_controller = template.status_meta.approvals.unit_document_controller || {};
+      template.status_meta.approvals.unit_document_controller.assigned_to = actorId;
+    } else if (roleKey === 'lead_document_controller') {
+      template.status_meta.approvals.lead_document_controller = template.status_meta.approvals.lead_document_controller || {};
+      template.status_meta.approvals.lead_document_controller.assigned_to = actorId;
+    } else if (roleKey === 'document_controller_officer') {
+      template.status_meta.approvals.document_controller_officer = template.status_meta.approvals.document_controller_officer || {};
+      template.status_meta.approvals.document_controller_officer.assigned_to = actorId;
+    }
   // Preserve any previously approved slots (do not clear UDC/LDC/DCO approvals)
   template.status = 'returned';
   template.status_meta.approvals = preservePriorApprovals(template.status_meta.approvals, template.status_meta.approvals);

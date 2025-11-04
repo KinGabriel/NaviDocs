@@ -635,6 +635,27 @@ const handleUpdateISOCode = async ({ iso_code }) => {
     console.log("Initial approvals:", approvalsArr);
     
     let actionNote;
+    // Helper to normalize role-like values to a stable key
+    const roleKey = (r) => String((r?.name || r) || '')
+      .toLowerCase()
+      .replace(/[^a-z]+/g, ' ')
+      .trim()
+      .replace(/\s+/g, '_');
+    const markUDCReturned = () => {
+      approvalsArr = approvalsArr.map(approver => {
+        const isUdc = roleKey(approver.role) === 'unit_document_controller' || roleKey(approver.role) === 'udc';
+        if (isUdc) {
+          return {
+            ...approver,
+            isApproved: false,
+            isRejected: false,
+            isReturned: true,
+            status: 'returned'
+          };
+        }
+        return approver;
+      });
+    };
     
     // Find the most recent rejection or return note
     if (t.status === 'rejected') {
@@ -653,6 +674,27 @@ const handleUpdateISOCode = async ({ iso_code }) => {
           return type === 'return' || type === 'returned' || message.includes('return');
         })
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+      // Fallback: if no explicit return-type note, assume the latest note is the return action
+      if (!actionNote && notes.length > 0) {
+        actionNote = [...notes].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+      }
+      // If returned, explicitly mark UDC as returned when we can infer UDC is the actor
+      try {
+        const udcMetaReturned = Boolean(t.status_meta?.approvals?.unit_document_controller?.isReturned);
+        const anyUdcReturnInNotes = notes.some(note => {
+          const type = (note.type || '').toLowerCase();
+          const message = (note.message || '').toLowerCase();
+          const isReturn = type === 'return' || type === 'returned' || message.includes('return');
+          if (!isReturn) return false;
+          const rk = roleKey(note.role_snapshot || note.role);
+          return rk === 'unit_document_controller' || rk === 'udc';
+        });
+        if (udcMetaReturned || anyUdcReturnInNotes) {
+          markUDCReturned();
+        }
+      } catch (_) {
+        // noop - best-effort enrichment only
+      }
     }
     
     console.log("Found action note:", actionNote);
@@ -667,7 +709,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
       approvalsArr = approvalsArr.map(approver => {
         console.log("Checking approver:", approver.name, "vs actor:", actorName);
         const approverRoleName = (approver.role?.name || approver.role || '').toString();
-        const roleMatches = actorRole && approverRoleName && approverRoleName.toLowerCase() === actorRole.toLowerCase();
+        const roleMatches = actorRole && roleKey(approverRoleName) === roleKey(actorRole);
         if (approver.name === actorName || roleMatches) {
           console.log("Updating approver:", approver.name, "to status:", t.status);
           return {
@@ -679,6 +721,10 @@ const handleUpdateISOCode = async ({ iso_code }) => {
         }
         return approver;
       });
+      // If status is returned and still nobody is marked returned, prefer marking UDC as returned (heuristic)
+      if (t.status === 'returned' && !approvalsArr.some(a => a.isReturned)) {
+        markUDCReturned();
+      }
     } else {
       // Fallback: if no matching note found, try matching by current user's role
       console.log("No action note found, trying fallback with current user");
@@ -695,6 +741,10 @@ const handleUpdateISOCode = async ({ iso_code }) => {
           }
           return approver;
         });
+      }
+      // Additional heuristic for returned status with no actor match
+      if (t.status === 'returned' && !approvalsArr.some(a => a.isReturned)) {
+        markUDCReturned();
       }
     }
     
@@ -922,9 +972,13 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                           const dco = approvalsArr.find(a => normKey(a.role) === 'document_controller_officer');
                           // UDC visibility rule:
                           // - Show UDC when status is 'pending'
+                          // - Show UDC when status is 'returned' for Department Head submissions (heuristic: UDC slot exists)
                           // - Otherwise (including 'endorsed'), only show if UDC has approved
                           const statusKey = String(t?.status || '').toLowerCase();
-                          const shouldShowUDC = statusKey === 'pending' || Boolean(udc && udc.isApproved);
+                          const shouldShowUDC =
+                            statusKey === 'pending' ||
+                            Boolean(udc && udc.isApproved) ||
+                            (statusKey === 'returned' && Boolean(udc));
                           const hideUDC = !shouldShowUDC;
 
                           return approvalsArr.map((approver, idx) => {
@@ -944,7 +998,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                           } else if (approver.isReturned) {
                             statusBadge = (
                               <span className="ml-2 px-2 py-0.5 rounded bg-orange-100 text-orange-700 text-xs font-medium">
-                                Returned
+                                {isUDC ? 'Returned by UDC' : 'Returned'}
                               </span>
                             );
                           } else if (approver.isApproved) {

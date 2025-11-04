@@ -196,7 +196,7 @@ export default function HeaderTemplateView({
               const isUndecided = (entry = {}) =>
                 entry?.isApproved !== true && entry?.isRejected !== true && entry?.isReturned !== true;
 
-              // UDC is only required for Faculty submissions; backend uses status === 'pending' to signal this
+              // UDC is only required for Department Head submissions; backend uses status === 'pending' to signal this
               const requiresUDC = t.status === "pending";
 
               const canUDCAct = requiresUDC && isUndecided(udc);
