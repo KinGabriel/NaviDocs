@@ -5,7 +5,7 @@ import FormData from 'form-data';
 import path from 'path';
 import { createVersionData } from './documentVersionController.js';
 import { escapeHtml, buildDocumentHtml, pagesJsonToHtml, generatePdfBuffer, uploadPdfToStorage, uploadPdfBuffer } from '../utils/pdfExportUtil.js';
-import { buildUserServiceHeaders } from '../utils/userServiceUtils.js';
+import { buildUserServiceHeaders, fetchUserInfoById } from '../utils/userServiceUtils.js';
 import { hasRole } from '../utils/roleUtils.js';
 
 
@@ -109,7 +109,7 @@ export const shareDocument = async (req, res) => {
  */
 export const createSubmissionBin = async (req, res) => {
 	try {
-		if (!hasRole(req, ['department_head', 'dept_head', 'department-head'])) {
+		if (!hasRole(req, ['Department Head'])) {
 			return res.status(403).json({ message: 'Only Department Head can create bins' });
 		}
 
@@ -126,13 +126,14 @@ export const createSubmissionBin = async (req, res) => {
 			target_scope: targetScopeRaw = undefined,
 		} = req.body || {};
 
+		const actorId = req.user?._id || req.user?.id || null;
 		const target_scope = (targetScopeRaw || req.body?.scope || 'department');
 		const bin = await SubmissionBin.create({
 			title,
 			instructions,
 			department,
 			school,
-			created_by: req.user?._id,
+			created_by: actorId,
 			route_to,
 			deadline,
 			template_ids,
@@ -168,7 +169,7 @@ export const listBins = async (req, res) => {
 		const filter = {};
 		if (department) filter.department = department;
 		if (status) filter.status = status;
-		if (mine === 'true') filter.created_by = req.user?._id;
+		if (mine === 'true') filter.created_by = (req.user?._id || req.user?.id);
 
 		// Restrict dean/secretary views to forwarded bins in their school (role-agnostic)
 		if (hasRole(req, ['dean']) || hasRole(req, ['secretary'])) {
@@ -229,7 +230,34 @@ export const getBin = async (req, res) => {
 				return res.status(403).json({ message: 'Not authorized to access this bin' });
 			}
 		}
-		return res.json(bin);
+			// Enrich faculty names for submissions using user-service
+			try {
+				const obj = bin.toObject ? bin.toObject() : JSON.parse(JSON.stringify(bin));
+				const submissions = Array.isArray(obj.submissions) ? obj.submissions : [];
+				const uniqueIds = Array.from(new Set(submissions.map(s => String(s.faculty)).filter(Boolean)));
+				const map = {};
+				await Promise.all(uniqueIds.map(async (uid) => {
+					try {
+						const info = await fetchUserInfoById(uid, req, { basic: true });
+						const data = info?.data || info; // allow either shape
+						const name = data?.name || data?.fullname || [data?.firstname || data?.firstName, data?.lastname || data?.lastName].filter(Boolean).join(' ').trim();
+						map[uid] = {
+							id: uid,
+							name: name || data?.email || uid,
+							email: data?.email || undefined,
+						};
+					} catch (_) { map[uid] = { id: uid, name: uid }; }
+				}));
+				obj.submissions = submissions.map((s) => ({
+					...s,
+					faculty_user: map[String(s.faculty)] || { id: String(s.faculty), name: String(s.faculty) },
+					faculty_name: (map[String(s.faculty)] && map[String(s.faculty)].name) || String(s.faculty),
+				}));
+				return res.json(obj);
+			} catch (e) {
+				// Fallback to original bin if enrichment fails
+				return res.json(bin);
+			}
 	} catch (err) {
 		console.error('getBin error', err);
 		return res.status(500).json({ message: 'Failed to fetch bin', error: err.message });
@@ -243,15 +271,21 @@ export const getBin = async (req, res) => {
  */
 export const forwardBin = async (req, res) => {
 	try {
-		if (!hasRole(req, ['department_head', 'dept_head', 'department-head'])) {
+		if (!hasRole(req, ['Department Head'])) {
 			return res.status(403).json({ message: 'Only Department Head can forward bins' });
 		}
 		const { id } = req.params;
 		const bin = await SubmissionBin.findById(id);
 		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+
+		// Only allow forwarding when the bin has been marked completed
+		const isCompleted = String(bin.status || '').toLowerCase() === 'completed';
+		if (!isCompleted) {
+			return res.status(400).json({ message: 'Bin must be completed before it can be forwarded' });
+		}
 		bin.is_forwarded = true;
 		bin.forwarded_at = new Date();
-		bin.forwarded_by = req.user?._id || null;
+		bin.forwarded_by = req.user?._id || req.user?.id || null;
 		await bin.save();
 		return res.json(bin);
 	} catch (err) {
@@ -270,7 +304,7 @@ export const forwardBin = async (req, res) => {
  */
 export const updateBin = async (req, res) => {
 	try {
-		if (!hasRole(req, ['department_head', 'dept_head', 'department-head'])) {
+		if (!hasRole(req, ['Department Head'])) {
 			return res.status(403).json({ message: 'Only Department Head can update bins' });
 		}
 		const { id } = req.params;
@@ -401,7 +435,7 @@ export const submitDocument = async (req, res) => {
  */
 export const returnSubmission = async (req, res) => {
 	try {
-		if (!hasRole(req, ['secretary', 'dean', 'department_head', 'dept_head', 'department-head'])) {
+		if (!hasRole(req, ['secretary', 'dean', 'Department Head'])) {
 			return res.status(403).json({ message: 'Only Secretary/Dean/Department Head can return submissions' });
 		}
 
@@ -415,9 +449,9 @@ export const returnSubmission = async (req, res) => {
 
 		item.status = 'returned';
 		item.returned_at = new Date();
-		item.returned_by = req.user?._id || null;
+		item.returned_by = req.user?._id || req.user?.id || null;
 		item.returned_reason = reason;
-		item.notes.push({ type: 'returned', message: reason || 'Returned', by: req.user?._id });
+		item.notes.push({ type: 'returned', message: reason || 'Returned', by: (req.user?._id || req.user?.id || null) });
 
 		await bin.save();
 		return res.json(bin);
@@ -450,8 +484,8 @@ export const approveSubmission = async (req, res) => {
 
 		item.status = 'approved';
 		item.approved_at = new Date();
-		item.approved_by = req.user?._id || null;
-		item.notes.push({ type: 'general', message: 'Approved', by: req.user?._id });
+		item.approved_by = req.user?._id || req.user?.id || null;
+		item.notes.push({ type: 'general', message: 'Approved', by: (req.user?._id || req.user?.id || null) });
 
 		await bin.save();
 		return res.json(bin);

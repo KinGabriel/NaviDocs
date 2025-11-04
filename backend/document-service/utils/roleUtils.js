@@ -12,7 +12,7 @@
  */
 export const getUserRole = (req) => {
   try {
-    const role = req?.user?.role ?? req?.user?.type ?? req?.user?.role_name ?? '';
+    const role = req?.user?.role?.name;
     return (typeof role === 'string' ? role : String(role || '')).toLowerCase();
   } catch (_) {
     return '';

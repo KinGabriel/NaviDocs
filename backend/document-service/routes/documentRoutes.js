@@ -12,7 +12,7 @@ import {
   archiveDocumentById,
   listArchivedDocuments,
 } from '../controllers/documentFunctionalityController.js';
-import { shareDocument, assignFacultyByDeptHead, submitDocumentLink, exportDocumentPdf } from '../controllers/documentWorkFlow.js';
+import { shareDocument,   exportDocumentPdf } from '../controllers/documentWorkFlow.js';
 import multer from 'multer';
 import {
   getVersionData,
@@ -50,8 +50,6 @@ router.post('/:id/duplicate-version', authenticateJWT, requireDocumentAccess('vi
 router.get('/:id', authenticateJWT, requireDocumentAccess('view'), getDocumentById);
 router.patch('/:id/field-values', authenticateJWT, requireDocumentAccess('edit'), updateDocumentFieldValues);
 router.post('/:id/share', authenticateJWT, requireDocumentAccess('edit'), shareDocument);
-router.post('/:id/assign-by-dept-head', authenticateJWT, assignFacultyByDeptHead);
-router.patch('/:id/submission', authenticateJWT, requireDocumentAccess('edit'), upload.single('document'), submitDocumentLink);
 router.post('/:id/export-pdf', authenticateJWT, requireDocumentAccess('view'), exportDocumentPdf);
 
 router.delete('/:id', authenticateJWT, requireDocumentAccess('edit'), deleteDocumentById);

@@ -20,10 +20,13 @@ const jsonLimit = process.env.PDF_BODY_LIMIT || '10mb';
 app.use(express.json({ limit: jsonLimit }));
 app.use(express.urlencoded({ extended: true, limit: jsonLimit }));
 app.use(cookieParser());
-//  document routes
-app.use('/api/documents', documentRoutes);
-app.use('/api/submission-bins', submissionBinRoutes);
 
+
+app.use('/api/documents/submission-bins', submissionBinRoutes); 
+
+// document routes
+app.use('/api/documents', documentRoutes);
+app.use('/api/documents/submission-bins', submissionBinRoutes); 
 dbConnection();
 app.listen(PORT, HOST, () => console.log(`Document Service running on port ${PORT}`));
 

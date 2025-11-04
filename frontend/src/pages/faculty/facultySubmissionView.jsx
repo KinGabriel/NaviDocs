@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
@@ -16,41 +16,7 @@ import {
   Upload,
   CheckCircle,
 } from "lucide-react";
-
-// Dummy data for submissions - FOR DEMO PURPOSES ONLY
-export const MOCK_ASSIGNED_SUBMISSIONS = Array.from({ length: 12 }, (_, i) => {
-  const createdDate = new Date('2025-10-01');
-  createdDate.setDate(createdDate.getDate() + i * 2);
-  
-  const deadlineDate = new Date('2025-11-15');
-  deadlineDate.setDate(deadlineDate.getDate() + (i * 3) - 15);
-  
-  const now = new Date();
-  const daysUntilDue = Math.ceil((deadlineDate - now) / (1000 * 60 * 60 * 24));
-  
-  let status;
-  if (i % 5 === 0) {
-    status = "submitted";
-  } else if (daysUntilDue < 0) {
-    status = "overdue";
-  } else {
-    status = "pending";
-  }
-  
-  return {
-    id: i + 1,
-    title: `Submission Bin ${i + 1}`,
-    instructions: `Please review and provide feedback on the attached documents for submission ${i + 1}. Ensure all requirements are met before the deadline.`,
-    assignedBy: "Department Head Luka Doncic",
-    assignedAt: createdDate.toISOString(),
-    deadline: deadlineDate.toISOString(),
-    status: status,
-    submittedAt: status === "submitted" ? new Date(deadlineDate.getTime() - 86400000 * 3).toISOString() : null,
-    submittedFiles: status === "submitted" ? [
-      { name: `Document-${i + 1}.pdf`, size: 2456789, uploadedAt: new Date(deadlineDate.getTime() - 86400000 * 3).toISOString() },
-    ] : []
-  };
-});
+import { getSubmissionBinAPI, submitSubmissionDocumentAPI } from "../../api/assignmentDocumentsAPI";
 
 export default function FacultySubmissionView() {
   const user = useUser();
@@ -60,15 +26,56 @@ export default function FacultySubmissionView() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bin, setBin] = useState(null);
+  const [assignedItem, setAssignedItem] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Find the submission by ID
-  const submission = useMemo(() => 
-    MOCK_ASSIGNED_SUBMISSIONS.find(s => s.id === parseInt(id)),
-    [id]
-  );
+  // Load the bin by ID and find the student's/faculty's assigned submission item
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const data = await getSubmissionBinAPI(id);
+        if (!mounted) return;
+        setBin(data);
+        const uid = user?._id || user?.id;
+        const item = Array.isArray(data?.submissions)
+          ? data.submissions.find(s => String(s.faculty) === String(uid))
+          : null;
+        setAssignedItem(item || null);
+      } catch (e) {
+        if (!mounted) return;
+        setError(e?.message || "Failed to load submission bin");
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
+      }
+    };
+    run();
+    return () => { mounted = false; };
+  }, [id, user?._id, user?.id]);
 
   // If submission not found
-  if (!submission) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
+          <div className="flex-1 flex flex-col items-center justify-center p-8">
+            <FileText size={64} className="text-gray-300 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Loading…</h2>
+            <p className="text-gray-600">Please wait</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!bin || !assignedItem) {
     return (
       <div className="min-h-screen bg-gray-200 flex flex-col">
         <Header user={user} />
@@ -77,7 +84,7 @@ export default function FacultySubmissionView() {
           <div className="flex-1 flex flex-col items-center justify-center p-8">
             <FileText size={64} className="text-gray-300 mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Submission Not Found</h2>
-            <p className="text-gray-600 mb-6">The submission you're looking for doesn't exist.</p>
+            <p className="text-gray-600 mb-6">{error || "The submission you're looking for doesn't exist."}</p>
             <button
               onClick={() => navigate(-1)}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -90,8 +97,26 @@ export default function FacultySubmissionView() {
     );
   }
 
-  const daysUntilDue = Math.ceil((new Date(submission.deadline) - new Date()) / (1000 * 60 * 60 * 24));
-  const isOverdue = submission.status === "overdue";
+  const submission = useMemo(() => {
+    const assignedAt = bin?.createdAt || bin?.created_at;
+    const deadline = bin?.deadline || null;
+    const status = assignedItem?.status || 'assigned';
+    const submittedAt = assignedItem?.submitted_at || null;
+    return {
+      id: assignedItem?._id,
+      title: bin?.title || 'Submission',
+      instructions: assignedItem?.instructions || bin?.instructions || '',
+      assignedBy: 'Department Head',
+      assignedAt,
+      deadline,
+      status,
+      submittedAt,
+      submittedFiles: [],
+    };
+  }, [assignedItem, bin]);
+
+  const daysUntilDue = Math.ceil(((submission.deadline ? new Date(submission.deadline) : new Date()) - new Date()) / (1000 * 60 * 60 * 24));
+  const isOverdue = !!submission.deadline && new Date(submission.deadline) < new Date() && submission.status !== 'submitted';
   const isSubmitted = submission.status === "submitted";
 
   const handleFileChange = (e) => {
@@ -124,15 +149,18 @@ export default function FacultySubmissionView() {
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      const docTitles = selectedFiles.map(f => f.title || f.name || 'Untitled').join(', ');
-      alert(
-        `Submission successful!\n\nDocuments: ${docTitles}\nTotal: ${selectedFiles.length} document(s)\nMessage: ${message || "None"}`
-      );
-      setIsSubmitting(false);
+    try {
+      const first = selectedFiles[0];
+      const docId = first?._id || first?.id;
+      if (!docId) throw new Error('Selected document has no id');
+      await submitSubmissionDocumentAPI(bin?._id || id, assignedItem?._id, { documentId: docId });
+      alert('Submission successful!');
       navigate(-1);
-    }, 2000);
+    } catch (e) {
+      alert(e?.responseData?.message || e?.message || 'Failed to submit');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleBack = () => navigate(-1);

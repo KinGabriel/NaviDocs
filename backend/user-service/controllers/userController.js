@@ -303,9 +303,10 @@ export const getFacultyByDepartment = async (req, res) => {
     const department = req.user?.role?.department;
     if (!department) {
       return res.status(400).json({ message: "Department not found in user role." });
-    } 
-    const facultyMembers = await User.find({ "role.name": "faculty", "role.department": department, is_deleted: false }).select('_id firstname lastname email');
+    }
+    const facultyMembers = await User.find({ "role.name": "Faculty", "role.department": department, is_deleted: false }).select('_id firstname lastname email');
     const mapped = facultyMembers.map(u => ({ id: u._id, name: `${u.firstname} ${u.lastname}`.trim(), email: u.email }));
+    console.log("Fetched faculty members by department:", mapped);
     res.json({ faculty: mapped });
   } catch (error) {
     console.error("Error fetching faculty members by department:", error);

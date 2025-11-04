@@ -39,7 +39,7 @@ export const exportDocumentPdfAPI = async (documentId, options = { store: true, 
  */
 export const listSubmissionBinsAPI = async (params = {}) => {
 	try {
-		const res = await axios.get(`${API_URL}/api/submission-bins`, {
+		const res = await axios.get(`${API_URL}/api/documents/submission-bins`, {
 			params: {
 				department: params.department,
 				status: params.status,
@@ -63,7 +63,7 @@ export const listSubmissionBinsAPI = async (params = {}) => {
  */
 export const getSubmissionBinAPI = async (binId) => {
 	try {
-		const res = await axios.get(`${API_URL}/api/submission-bins/${binId}`, { withCredentials: true });
+		const res = await axios.get(`${API_URL}/api/documents/submission-bins/${binId}`, { withCredentials: true });
 		return res.data;
 	} catch (error) {
 		const message = error.response?.data?.message || error.message || 'Failed to fetch submission bin';
@@ -80,7 +80,7 @@ export const getSubmissionBinAPI = async (binId) => {
  */
 export const createSubmissionBinAPI = async (data) => {
 	try {
-		const res = await axios.post(`${API_URL}/api/submission-bins`, data, { withCredentials: true });
+		const res = await axios.post(`${API_URL}/api/documents/submission-bins`, data, { withCredentials: true });
 		return res.data;
 	} catch (error) {
 		const message = error.response?.data?.message || error.message || 'Failed to create submission bin';
@@ -98,7 +98,7 @@ export const createSubmissionBinAPI = async (data) => {
  */
 export const updateSubmissionBinAPI = async (binId, data) => {
 	try {
-		const res = await axios.patch(`${API_URL}/api/submission-bins/${binId}`, data, { withCredentials: true });
+		const res = await axios.patch(`${API_URL}/api/documents/submission-bins/${binId}`, data, { withCredentials: true });
 		return res.data;
 	} catch (error) {
 		const message = error.response?.data?.message || error.message || 'Failed to update submission bin';
@@ -115,7 +115,7 @@ export const updateSubmissionBinAPI = async (binId, data) => {
  */
 export const forwardSubmissionBinAPI = async (binId) => {
 	try {
-		const res = await axios.post(`${API_URL}/api/submission-bins/${binId}/forward`, {}, { withCredentials: true });
+		const res = await axios.post(`${API_URL}/api/documents/submission-bins/${binId}/forward`, {}, { withCredentials: true });
 		return res.data;
 	} catch (error) {
 		const message = error.response?.data?.message || error.message || 'Failed to forward submission bin';
@@ -133,7 +133,7 @@ export const forwardSubmissionBinAPI = async (binId) => {
  */
 export const upsertSubmissionAPI = async (binId, data) => {
 	try {
-		const res = await axios.put(`${API_URL}/api/submission-bins/${binId}/submissions`, data, { withCredentials: true });
+		const res = await axios.put(`${API_URL}/api/documents/submission-bins/${binId}/submissions`, data, { withCredentials: true });
 		return res.data;
 	} catch (error) {
 		const message = error.response?.data?.message || error.message || 'Failed to upsert submission';
@@ -152,7 +152,7 @@ export const upsertSubmissionAPI = async (binId, data) => {
  */
 export const submitSubmissionDocumentAPI = async (binId, submissionId, data) => {
 	try {
-		const res = await axios.post(`${API_URL}/api/submission-bins/${binId}/submissions/${submissionId}/submit`, data, { withCredentials: true });
+		const res = await axios.post(`${API_URL}/api/documents/submission-bins/${binId}/submissions/${submissionId}/submit`, data, { withCredentials: true });
 		return res.data;
 	} catch (error) {
 		const message = error.response?.data?.message || error.message || 'Failed to submit document';
@@ -171,7 +171,7 @@ export const submitSubmissionDocumentAPI = async (binId, submissionId, data) => 
  */
 export const returnSubmissionAPI = async (binId, submissionId, data = {}) => {
 	try {
-		const res = await axios.post(`${API_URL}/api/submission-bins/${binId}/submissions/${submissionId}/return`, data, { withCredentials: true });
+		const res = await axios.post(`${API_URL}/api/documents/submission-bins/${binId}/submissions/${submissionId}/return`, data, { withCredentials: true });
 		return res.data;
 	} catch (error) {
 		const message = error.response?.data?.message || error.message || 'Failed to return submission';
@@ -188,7 +188,7 @@ export const returnSubmissionAPI = async (binId, submissionId, data = {}) => {
  */
 export const listSubmissionBinsByDocumentAPI = async (documentId) => {
 	try {
-		const res = await axios.get(`${API_URL}/api/submission-bins/by-document/${documentId}`, { withCredentials: true });
+		const res = await axios.get(`${API_URL}/api/documents/submission-bins/by-document/${documentId}`, { withCredentials: true });
 		return res.data;
 	} catch (error) {
 		const message = error.response?.data?.message || error.message || 'Failed to list bins by document';

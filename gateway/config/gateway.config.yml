@@ -21,6 +21,7 @@ apiEndpoints:
   documents:
     paths:
       - /api/documents/*
+
   
   files:
     paths:
