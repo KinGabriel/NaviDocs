@@ -1,0 +1,50 @@
+import mongoose from 'mongoose';
+
+const { Schema } = mongoose;
+
+const SubmissionNoteSchema = new Schema({
+  type: { type: String, enum: ['general','returned','comment'], default: 'general' },
+  message: { type: String, default: '' },
+  by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  at: { type: Date, default: Date.now },
+}, { _id: false });
+
+const SubmissionItemSchema = new Schema({
+  document: { type: Schema.Types.ObjectId, ref: 'Document', default: null },
+  template: { type: Schema.Types.ObjectId, ref: 'Template', required: true },
+  faculty: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  instructions: { type: String, default: '' },
+  status: { type: String, enum: ['assigned','submitted','returned','approved','rejected'], default: 'assigned' },
+  submitted_at: { type: Date, default: null },
+  returned_at: { type: Date, default: null },
+  returned_by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  returned_reason: { type: String, default: '' },
+  approved_at: { type: Date, default: null },
+  approved_by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  notes: { type: [SubmissionNoteSchema], default: [] },
+}, { _id: true, timestamps: false });
+
+const SubmissionBinSchema = new Schema({
+  title: { type: String, required: true },
+  instructions: { type: String, default: '' },
+  department: { type: String, default: null },
+  school: { type: String, default: '' },
+  created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true }, // Department Head
+  route_to: { type: String, enum: ['secretary','dean',null], default: null },
+  deadline: { type: Date, default: null },
+  template_ids: { type: [Schema.Types.ObjectId], ref: 'Template', default: [] },
+  faculty_ids: { type: [Schema.Types.ObjectId], ref: 'User', default: [] },
+  submissions: { type: [SubmissionItemSchema], default: [] },
+  is_forwarded: { type: Boolean, default: false },
+  forwarded_at: { type: Date, default: null },
+  forwarded_by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  target_scope: { type: String, enum: ['department','selected'], default: 'department' },
+  status: { type: String, enum: ['active','completed','archived'], default: 'active' },
+}, { timestamps: true });
+
+SubmissionBinSchema.index({ department: 1, status: 1 });
+SubmissionBinSchema.index({ created_by: 1 });
+SubmissionBinSchema.index({ school: 1, is_forwarded: 1 });
+SubmissionBinSchema.index({ 'submissions.document': 1 });
+
+export default mongoose.models.SubmissionBin || mongoose.model('SubmissionBin', SubmissionBinSchema);
