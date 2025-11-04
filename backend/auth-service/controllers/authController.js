@@ -36,6 +36,7 @@ export const loginUser = async (req, res) => {
         email: user.email,
         role: user.role,
         school: user.role.school,
+        department: user.role.department,
         firstname: user.firstname || user.firstName || user.first_name || '',
         lastname: user.lastname || user.lastName || user.last_name || ''
       },

@@ -292,3 +292,23 @@ export const getUsersInfoByBatch = async (req, res) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+/**
+ * Get faculty members by department
+ * @route GET /api/user/getFacultyByDepartment
+ * @access Private
+ */
+export const getFacultyByDepartment = async (req, res) => {
+  try {
+    const department = req.user?.role?.department;
+    if (!department) {
+      return res.status(400).json({ message: "Department not found in user role." });
+    } 
+    const facultyMembers = await User.find({ "role.name": "faculty", "role.department": department, is_deleted: false }).select('_id firstname lastname email');
+    const mapped = facultyMembers.map(u => ({ id: u._id, name: `${u.firstname} ${u.lastname}`.trim(), email: u.email }));
+    res.json({ faculty: mapped });
+  } catch (error) {
+    console.error("Error fetching faculty members by department:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
