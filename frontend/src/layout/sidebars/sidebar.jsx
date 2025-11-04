@@ -463,7 +463,7 @@ const MENU_CONFIG = {
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M20 13V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H14"/><path d="M16 2v3.4a.6.6 0 0 0 .6.6H20m-4 13h6m0 0l-3-3m3 3l-3 3"/></g></svg>
       ),  
-      route: "/document-controller/document-workflow"
+      route: "/document-workflow"
     },
     { 
       label: "Storage",
@@ -509,7 +509,7 @@ const MENU_CONFIG = {
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M20 13V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H14"/><path d="M16 2v3.4a.6.6 0 0 0 .6.6H20m-4 13h6m0 0l-3-3m3 3l-3 3"/></g></svg>
       ),  
-      route: "/secretary/document-workflow"
+      route: "/document-workflow"
     },
     { 
       label: "Storage",
@@ -555,7 +555,7 @@ const MENU_CONFIG = {
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M20 13V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H14"/><path d="M16 2v3.4a.6.6 0 0 0 .6.6H20m-4 13h6m0 0l-3-3m3 3l-3 3"/></g></svg>
       ),  
-      route: "/dean/document-workflow"
+      route: "/document-workflow"
     },
     { 
       label: "Statistics",
@@ -608,7 +608,7 @@ const MENU_CONFIG = {
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M20 13V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H14"/><path d="M16 2v3.4a.6.6 0 0 0 .6.6H20m-4 13h6m0 0l-3-3m3 3l-3 3"/></g></svg>
       ),
-      route: "/dept-head/document-workflow"
+      route: "/document-workflow"
     },
     { 
       label: "Storage",

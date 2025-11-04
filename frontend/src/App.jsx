@@ -13,22 +13,18 @@ import DocumentControllerDashboard from './pages/document_controller/documentCon
 import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
-import DocumentControllerSubmissions from './pages/document_controller/documentControllerSubmissions';
 import DocumentControllerWorkflowView from './pages/document_controller/documentControllerWorkflowView';
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/unauthorizedPage';
 import useUser from './hooks/useUser';
 import SecretaryDashboard from './pages/secretary/secretaryDashboard';
-import SecretarySubmissions from './pages/secretary/secretarySubmissions';
 import TemplatesView from './pages/templatesView';
 import DeanDashboard from './pages/dean/deanDashboard';
 import DeanStatistics from './pages/dean/deanStatistics';
-import DeanSubmissions from './pages/dean/deanSubmissions';
 import DeanDocumentWorkflowView from './pages/dean/deanDocumentWorkflowView';
 import DocControllerTemplates from "./pages/document_controller/documentControllerHandleTemplates.jsx";
 import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
-import DepartmentHeadSubmissions from './pages/dept_head/departmentHeadSubmissions';
 import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics';
 import DepartmentHeadDocumentWorkflowView from './pages/dept_head/departmentHeadDocumentWorkflowView';
 import FacultyDashboard from './pages/faculty/facultyDashboard';
@@ -41,6 +37,7 @@ import { Toaster } from 'react-hot-toast';
 import ArchivedDocuments from "./pages/archivedDocuments";
 import SubmissionBin from './pages/submissionbinDetails';
 import SubmittedFilesView from './pages/submittedFilesView';
+import SubmissionBins from './pages/submissionBins';
 
 /** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {
@@ -163,14 +160,7 @@ function App() {
            </ProtectedRoute>
          }
        />
-       <Route
-         path="/document-controller/document-workflow"
-         element={
-          <ProtectedRoute allowedRoles={["Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
-             <DocumentControllerSubmissions />
-           </ProtectedRoute>
-         }
-       />
+  
        <Route
          path="/document-controller/document-workflow/:id"
          element={<DocumentControllerWorkflowView />}
@@ -196,14 +186,6 @@ function App() {
          }
        />
 
-        <Route
-         path="/secretary/document-workflow"
-         element={
-           <ProtectedRoute allowedRoles={["Secretary"]}>
-             <SecretarySubmissions/>
-           </ProtectedRoute>
-         }
-       />
 
   {/* Dean Module */}
        <Route
@@ -223,14 +205,7 @@ function App() {
            </ProtectedRoute>
          }
        />
-       <Route
-         path="/dean/document-workflow"
-         element={
-           <ProtectedRoute allowedRoles={["Dean"]}>
-             <DeanSubmissions />
-           </ProtectedRoute>
-         }
-       />
+  
        {/* Legacy dean templates route redirect to unified */}
        <Route path="/dean/templates" element={<Navigate to="/templates" replace />} />
         <Route 
@@ -260,14 +235,7 @@ function App() {
            </ProtectedRoute>
          }
        />
-       <Route
-         path="/dept-head/document-workflow"
-         element={
-           <ProtectedRoute allowedRoles={["Department Head"]}>
-             <DepartmentHeadSubmissions/>
-           </ProtectedRoute>
-         }
-       />
+      
        {/* Legacy dept-head templates route redirect to unified */}
        <Route path="/dept-head/templates" element={<Navigate to="/templates" replace />} />
        <Route 
@@ -344,6 +312,15 @@ function App() {
          element={
           <ProtectedRoute allowedRoles={["Secretary","Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
              <SubmittedFilesView />
+           </ProtectedRoute>
+         }
+       />
+
+       <Route
+         path="/document-workflow"
+         element={
+           <ProtectedRoute allowedRoles={["Secretary","Dean", "Department Head"]}>
+             <SubmissionBins/>
            </ProtectedRoute>
          }
        />

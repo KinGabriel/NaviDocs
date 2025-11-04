@@ -41,9 +41,9 @@ export default function HeaderSubmittedFilesView({
             className="w-15 h-10 cursor-pointer"
             onClick={() => {
               const role = user?.role?.name;
-              if (role === "Secretary") navigate("/secretary/document-workflow");
-                else if (role === "Dean") navigate("/dean/document-workflow");
-                else if (role === "Department Head") navigate("/dept-head/document-workflow");
+              if (role === "Secretary") navigate("/document-workflow");
+                else if (role === "Dean") navigate("/document-workflow");
+                else if (role === "Department Head") navigate("/document-workflow");
                 else if (role === "Faculty") navigate("/faculty/document-workflow");
             }}
           />
@@ -52,9 +52,9 @@ export default function HeaderSubmittedFilesView({
           <button
             onClick={() => {
               const role = user?.role?.name;
-              if (role === "Secretary") navigate("/secretary/document-workflow");
-                else if (role === "Dean") navigate("/dean/document-workflow");
-                else if (role === "Department Head") navigate("/dept-head/document-workflow");
+              if (role === "Secretary") navigate("/document-workflow");
+                else if (role === "Dean") navigate("/document-workflow");
+                else if (role === "Department Head") navigate("/document-workflow");
                 else if (role === "Faculty") navigate("/faculty/document-workflow");
             }}
             className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"

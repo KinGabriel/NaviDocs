@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../../layout/headers/header";
-import Sidebar from "../../layout/sidebars/sidebar";
-import useUser from "../../hooks/useUser";
-import usePagination from "../../hooks/usePagination";
-import Dropdown from "../../components/dropdowns/dropdown";
-import SearchBar from "../../components/searchbar";
-import TaskAssignmentModal from "../../components/modals/taskAssignmentModal";
-import { StatusBadge, formatDate } from "../../utils/formatters";
+import Header from "../layout/headers/header";
+import Sidebar from "../layout/sidebars/sidebar";
+import useUser from "../hooks/useUser";
+import usePagination from "../hooks/usePagination";
+import Dropdown from "../components/dropdowns/dropdown";
+import SearchBar from "../components/searchbar";
+import TaskAssignmentModal from "../components/modals/taskAssignmentModal";
+import { StatusBadge, formatDate } from "../utils/formatters";
 import { Plus, Calendar, Users, FileText, Clock, CheckCircle, AlertCircle, Eye, TrendingUp } from 'lucide-react';
 
 // Dummy data for submissions - FOR DEMO PURPOSES ONLY
@@ -73,7 +73,7 @@ const MOCK_SUBMISSIONS = Array.from({ length: 15 }, (_, i) => {
 const STATUS_OPTIONS = ["All Status", "Active", "Completed", "Overdue", "Draft"];
 const SORT_OPTIONS = ["Recent", "Oldest", "Due Soon", "A–Z"];
 
-export default function SecretarySubmissions() {
+export default function SubmissionBins() {
   const user = useUser();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
