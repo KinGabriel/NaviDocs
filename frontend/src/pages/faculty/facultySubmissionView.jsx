@@ -4,17 +4,17 @@ import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
 import { StatusBadge, formatDate, formatDateTime } from "../../utils/formatters";
+import SelectDocumentsModal from "../../components/modals/selectDocumentsModal"; 
 import {
   ArrowLeft,
   Calendar,
   Clock,
   User,
   FileText,
-  Upload,
+  Plus,
   X,
+  Upload,
   CheckCircle,
-  Download,
-  AlertCircle
 } from "lucide-react";
 
 // Dummy data for submissions - FOR DEMO PURPOSES ONLY
@@ -56,7 +56,7 @@ export default function FacultySubmissionView() {
   const user = useUser();
   const navigate = useNavigate();
   const { id } = useParams();
-
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -118,7 +118,7 @@ export default function FacultySubmissionView() {
 
   const handleSubmit = async () => {
     if (selectedFiles.length === 0) {
-      alert("Please select at least one file to submit");
+      alert("Please select at least one document to submit");
       return;
     }
 
@@ -126,9 +126,9 @@ export default function FacultySubmissionView() {
 
     // Simulate API call
     setTimeout(() => {
-      const fileNames = selectedFiles.map(f => f.name).join(', ');
+      const docTitles = selectedFiles.map(f => f.title || f.name || 'Untitled').join(', ');
       alert(
-        `Submission successful!\n\nFiles: ${fileNames}\nTotal: ${selectedFiles.length} file(s)\nConverted to: PDF\nMessage: ${message || "None"}`
+        `Submission successful!\n\nDocuments: ${docTitles}\nTotal: ${selectedFiles.length} document(s)\nMessage: ${message || "None"}`
       );
       setIsSubmitting(false);
       navigate(-1);
@@ -300,71 +300,65 @@ export default function FacultySubmissionView() {
               /* Upload Form */
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Upload size={20} className="text-blue-600" />
+                  <Plus size={20} className="text-blue-600" />
                   Submit Your Work
                 </h3>
 
-                {/* File Upload Area */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Upload Documents <span className="text-red-500">*</span>
-                  </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition cursor-pointer">
-                    <input
-                      type="file"
-                      onChange={handleFileChange}
-                      className="hidden"
-                      id="file-upload"
-                      accept=".doc,.docx,.txt,.xlsx,.xls"
-                      multiple
-                    />
-                    <label
-                      htmlFor="file-upload"
-                      className="cursor-pointer flex flex-col items-center"
-                    >
-                      <Upload size={48} className="text-gray-400 mb-3" />
-                      <span className="text-sm font-medium text-gray-700">
-                        Click to upload 
-                      </span>
-                    </label>
-                  </div>
+                {/* File Upload Section */}
+             <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Documents <span className="text-red-500">*</span>
+              </label>
+              
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition">
+                <Plus size={48} className="text-gray-400 mb-3 mx-auto" />
+                <p className="text-sm text-gray-600 mb-4">
+                  Choose documents from your library to submit
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowDocumentModal(true)}
+                  className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+                >
+                  <FileText size={18} />
+                  Browse Documents
+                </button>
+              </div>
 
-                  {/* Selected Files List */}
-                  {selectedFiles.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">
-                          Selected Files ({selectedFiles.length})
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          Total: {getTotalSize()}
-                        </span>
-                      </div>
-                      
-                      {selectedFiles.map((file, index) => (
-                        <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200 flex items-center justify-between">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <FileText size={20} className="text-blue-600 flex-shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm font-medium text-gray-900 truncate">
-                                {file.name}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {formatFileSize(file.size)}
-                              </div>
-                            </div>
+              {/* Selected Documents List */}
+              {selectedFiles.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      Selected Documents ({selectedFiles.length})
+                    </span>
+                  </div>
+                  
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200 flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <FileText size={20} className="text-blue-600 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-gray-900 truncate">
+                            {file.title || file.name || 'Untitled Document'}
                           </div>
-                          <button
-                            onClick={() => removeFile(index)}
-                            className="ml-3 text-gray-400 hover:text-red-600 flex-shrink-0 transition-colors"
-                          >
-                            <X size={20} />
-                          </button>
+                          <div className="text-xs text-gray-500">
+                            {file.school && `${file.school} • `}
+                            {file.status || 'Document'}
+                          </div>
                         </div>
-                      ))}
+                      </div>
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="ml-3 text-gray-400 hover:text-red-600 flex-shrink-0 transition-colors"
+                      >
+                        <X size={20} />
+                      </button>
                     </div>
-                  )}
+                  ))}
                 </div>
+              )}
+            </div>
 
                 {/* Message */}
                 <div className="mb-6">
@@ -418,6 +412,16 @@ export default function FacultySubmissionView() {
           </div>
         </div>
       </div>
+
+      {/* Select Documents Modal */ }
+      <SelectDocumentsModal
+        isOpen={showDocumentModal}
+        onClose={() => setShowDocumentModal(false)}
+        onSelectDocuments={(docs) => {
+          setSelectedFiles(docs);
+        }}
+        userId={user?._id || user?.id}
+      />
     </div>
   );
 }
