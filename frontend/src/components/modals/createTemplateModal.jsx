@@ -54,7 +54,17 @@ export default function CreateTemplateModal({
     // Convert University-wide to VAA for submission
     const submissionData = {
       ...templateForm,
-      school_identifier: templateForm.school_identifier === 'University-wide' ? 'VAA' : templateForm.school_identifier
+      school_identifier: templateForm.school_identifier === 'University-wide' ? 'VAA' : templateForm.school_identifier,
+      // Provide structured pageSetup upfront so the backend persists it directly
+      pageSetup: {
+        paperSize: templateForm.document_size?.toLowerCase() === 'letter'
+          ? 'Letter'
+          : templateForm.document_size?.toLowerCase() === 'legal'
+          ? 'Legal'
+          : 'A4',
+        orientation: 'Portrait',
+        margins: { top: 1, bottom: 1, left: 1, right: 1 },
+      }
     };
     
     // Call the parent's onSubmit function with converted data

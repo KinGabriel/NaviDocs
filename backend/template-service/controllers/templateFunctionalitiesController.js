@@ -29,6 +29,21 @@ export const createTemplate = async (req, res) => {
       delete templateData.logoConfig;
     }
 
+    // simple document_size to structured pageSetup if needed
+    try {
+      const hasSetup = templateData.pageSetup && typeof templateData.pageSetup === 'object';
+      const sizeRaw = templateData.document_size || templateData.paper_size || templateData.page_size;
+      if (!hasSetup && sizeRaw) {
+        const s = String(sizeRaw).toLowerCase();
+        const paperSize = s === 'legal' ? 'Legal' : s === 'letter' ? 'Letter' : 'A4';
+        templateData.pageSetup = {
+          paperSize,
+          orientation: 'Portrait',
+          margins: { top: 1, bottom: 1, left: 1, right: 1 },
+        };
+      }
+    } catch {}
+
     // Accept only pages_json (array of page JSONs) and body (HTML)
     if (!Array.isArray(templateData.pages_json)) {
       templateData.pages_json = [
@@ -46,7 +61,8 @@ export const createTemplate = async (req, res) => {
 
   template.school = req.user?.school || req.user?.role?.school || '';
     // Remove transient / client-only fields
-    delete template.school_identifier; // not stored separately
+   // delete template.school_identifier; // not stored separately
+    //delete template.document_size; // normalized into pageSetup 
 
     await template.save();
 

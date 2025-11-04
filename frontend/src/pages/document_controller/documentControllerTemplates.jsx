@@ -51,9 +51,18 @@ export default function DocumentControllerTemplates() {
   const handleModalSubmit = async (templateFormData) => {
     setLoading(true);
     try {
+      // document size selector into a proper pageSetup object
+      const sizeKey = String(templateFormData.document_size || 'A4').toLowerCase();
+      const paperSize = sizeKey === 'letter' ? 'Letter' : sizeKey === 'legal' ? 'Legal' : 'A4';
       const templateData = {
         title: templateFormData.title.trim(),
+        // Keep the original field for backward compatibility, but also provide structured pageSetup
         document_size: templateFormData.document_size,
+        pageSetup: {
+          paperSize,
+          orientation: 'Portrait',
+          margins: { top: 1, bottom: 1, left: 1, right: 1 },
+        },
         created_by: user._id || user.id,
       };
       const result = await createTemplateAPI(templateData);
