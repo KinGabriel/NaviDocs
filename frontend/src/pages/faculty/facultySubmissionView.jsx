@@ -137,6 +137,11 @@ export default function FacultySubmissionView() {
 
   const handleBack = () => navigate(-1);
 
+  const handleViewSubmission = (submissionId) => {
+  navigate(`/submissions/${submissionId}`);
+  };
+
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
@@ -287,10 +292,10 @@ export default function FacultySubmissionView() {
                         </div>
                       </div>
                       <button
-                        onClick={() => alert(`Downloading ${file.name}`)}
-                        className="ml-3 p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
-                      >
-                        <Download size={18} />
+                            className="inline-flex items-center justify-center px-4 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+                            onClick={() => handleViewSubmission(submission.id)}
+                        >
+                      View
                       </button>
                     </div>
                   ))}
