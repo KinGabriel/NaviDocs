@@ -14,7 +14,7 @@ import {
   AlertCircle,
   MoreVertical,
 } from "lucide-react";
-
+  
 // Dummy data for submissions - FOR DEMO PURPOSES ONLY
 const MOCK_SUBMISSIONS = Array.from({ length: 15 }, (_, i) => {
   const createdDate = new Date('2025-10-01');
@@ -75,10 +75,14 @@ const MOCK_SUBMISSIONS = Array.from({ length: 15 }, (_, i) => {
   };
 });
 
+
 export default function SubmissionDetails() {
   const user = useUser();
   const navigate = useNavigate();
   const { id } = useParams();
+  const handleViewSubmission = (submissionId) => {
+  navigate(`/submissions/${submissionId}`);
+  };
 
   // Find the submission by ID from the URL parameter
   const submission = MOCK_SUBMISSIONS.find(s => s.id === parseInt(id));
@@ -278,11 +282,11 @@ export default function SubmissionDetails() {
                         </td>
                         <td className="px-6 py-4">
                           {item.status === "submitted" ? (
-                            <button
-                              className="inline-flex items-center justify-center px-4 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
-                              onClick={() => alert(`Viewing ${item.documentName} by ${item.submittedBy}`)}
-                            >
-                              View
+                             <button
+                            className="inline-flex items-center justify-center px-4 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+                            onClick={() => handleViewSubmission(submission.id)}
+                              >
+                            View
                             </button>
                           ) : (
                             <span className="text-sm text-gray-400">N/A</span>

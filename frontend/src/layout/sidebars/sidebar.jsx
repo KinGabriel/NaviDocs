@@ -505,18 +505,18 @@ const MENU_CONFIG = {
       route: "/templates"
     },
     { 
-      label: "Storage",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="none" stroke="#003DA5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M3 6h5l2 2h11v10.4a.6.6 0 0 1-.6.6H3.6a.6.6 0 0 1-.6-.6V6.6a.6.6 0 0 1 .6-.6Z"/></svg>
-      ),  
-      route: "/storage"
-    },
-     { 
       label: "Submissions",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M20 13V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H14"/><path d="M16 2v3.4a.6.6 0 0 0 .6.6H20m-4 13h6m0 0l-3-3m3 3l-3 3"/></g></svg>
       ),  
       route: "/secretary/document-workflow"
+    },
+    { 
+      label: "Storage",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="none" stroke="#003DA5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M3 6h5l2 2h11v10.4a.6.6 0 0 1-.6.6H3.6a.6.6 0 0 1-.6-.6V6.6a.6.6 0 0 1 .6-.6Z"/></svg>
+      ),  
+      route: "/storage"
     },
     {
       label: "Account Settings",
