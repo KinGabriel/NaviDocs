@@ -244,11 +244,6 @@ export default function FacultySubmissionView() {
                           : "text-blue-700"
                       }`}
                     >
-                      {isOverdue
-                        ? `Overdue by ${Math.abs(daysUntilDue)} day${
-                            Math.abs(daysUntilDue) !== 1 ? "s" : ""
-                          }`
-                        : `${daysUntilDue} day${daysUntilDue !== 1 ? "s" : ""} remaining`}
                     </p>
                   </div>
                 </div>
@@ -309,19 +304,6 @@ export default function FacultySubmissionView() {
                   Submit Your Work
                 </h3>
 
-                {/* Warning for overdue */}
-                {isOverdue && (
-                  <div className="mb-4 p-4 bg-red-50 rounded-lg border border-red-200">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
-                      <div className="text-sm text-red-900">
-                        <p className="font-medium">This submission is overdue</p>
-                        <p className="text-red-700">Please submit as soon as possible to avoid further penalties.</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* File Upload Area */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -343,9 +325,6 @@ export default function FacultySubmissionView() {
                       <Upload size={48} className="text-gray-400 mb-3" />
                       <span className="text-sm font-medium text-gray-700">
                         Click to upload 
-                      </span>
-                      <span className="text-xs text-gray-500 mt-1">
-                        DOC, DOCX, TXT, XLSX (will be converted to PDF)
                       </span>
                     </label>
                   </div>
@@ -371,7 +350,7 @@ export default function FacultySubmissionView() {
                                 {file.name}
                               </div>
                               <div className="text-xs text-gray-500">
-                                {formatFileSize(file.size)} • Ready for PDF conversion
+                                {formatFileSize(file.size)}
                               </div>
                             </div>
                           </div>
@@ -433,12 +412,6 @@ export default function FacultySubmissionView() {
                       </>
                     )}
                   </button>
-                </div>
-
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-xs text-gray-600">
-                    <strong>Note:</strong> All uploaded documents will be automatically converted to PDF format. Once submitted, you cannot edit your submission. Please review all files before submitting.
-                  </p>
                 </div>
               </div>
             )}

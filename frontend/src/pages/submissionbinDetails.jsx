@@ -165,9 +165,6 @@ export default function SubmissionDetails() {
 
                 <div className="flex items-center gap-3">
                   <StatusBadge type={submission.status} />
-                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                    <MoreVertical size={20} className="text-gray-600" />
-                  </button>
                 </div>
               </div>
 
@@ -222,11 +219,6 @@ export default function SubmissionDetails() {
                           : "text-blue-700"
                       }`}
                     >
-                      {isOverdue
-                        ? `Overdue by ${Math.abs(daysUntilDue)} day${
-                            Math.abs(daysUntilDue) !== 1 ? "s" : ""
-                          }`
-                        : `${daysUntilDue} day${daysUntilDue !== 1 ? "s" : ""} remaining`}
                     </p>
                   </div>
                 </div>
