@@ -40,6 +40,7 @@ import SelectTemplate from './pages/selectTemplate';
 import { Toaster } from 'react-hot-toast';
 import ArchivedDocuments from "./pages/archivedDocuments";
 import SubmissionBin from './pages/submissionbinDetails';
+import SubmittedFilesView from './pages/submittedFilesView';
 
 /** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {
@@ -310,6 +311,7 @@ function App() {
          <Route path="/faculty/templates" element={<Navigate to="/templates" replace />} />
 
        {/* Global */}
+
        <Route
          path="/account/settings"
          element={
@@ -333,6 +335,15 @@ function App() {
          element={
             <ProtectedRoute allowedRoles={["Secretary","Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
              <SubmissionBin />
+           </ProtectedRoute>
+         }
+       />
+
+        <Route
+         path="/submissions/:id"
+         element={
+          <ProtectedRoute allowedRoles={["Secretary","Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+             <SubmittedFilesView />
            </ProtectedRoute>
          }
        />
