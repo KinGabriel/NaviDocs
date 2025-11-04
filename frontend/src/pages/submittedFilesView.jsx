@@ -151,7 +151,7 @@ export default function SubmittedFilesView() {
           email: "kai@slu.edu.ph"
         },
         submittedAt: "2025-11-01T14:30:00Z",
-        status: "submitted",
+        status: "pending",
         files: [
           {
             id: 1,

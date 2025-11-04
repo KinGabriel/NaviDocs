@@ -59,7 +59,8 @@ const SORT_OPTIONS = ["Recent", "Due Soon", "Oldest", "A–Z"];
 export default function FacultySubmissions() {
   const user = useUser();
   const navigate = useNavigate();
-  
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);  
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [sortBy, setSortBy] = useState("Due Soon");
@@ -102,6 +103,76 @@ export default function FacultySubmissions() {
     return { total: MOCK_ASSIGNED_SUBMISSIONS.length, pending, submitted, overdue };
   }, []);
 
+  const handleFileUpload = (event) => {
+  const files = Array.from(event.target.files);
+
+  if (files.length === 0) return;
+  
+  if (!files.length) {
+  alert("Please select at least one file to upload.");
+  return;
+  }
+  
+  // Add to uploaded files
+  setUploadedFiles(prev => [
+    ...prev,
+    ...validFiles.map((file, index) => ({
+      id: Date.now() + index,
+      file: file,
+      name: file.name,
+      size: file.size,
+      uploadedAt: new Date().toISOString()
+      }))
+    ]);
+  };
+
+  // Remove file handler
+  const handleRemoveFile = (fileId) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+  };
+
+  const handleSubmitFiles = async () => {
+    if (uploadedFiles.length === 0) return;
+    
+    setIsUploading(true);
+    
+    try {
+      // Create FormData for file upload
+      const formData = new FormData();
+      uploadedFiles.forEach((fileObj) => {
+        formData.append('files', fileObj.file);
+      });
+      formData.append('submissionId', id);
+      
+      // TODO: Replace with your actual API call
+      
+      // Simulate API call for demo
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Update submission state
+      setSubmission(prev => ({
+        ...prev,
+        status: 'submitted',
+        submittedAt: new Date().toISOString(),
+        files: uploadedFiles.map(f => ({
+          id: f.id,
+          name: f.name,
+          size: f.size,
+          uploadedAt: f.uploadedAt,
+          url: `/uploaded/${f.name}` 
+        }))
+      }));
+      
+      setUploadedFiles([]);
+      alert('Files submitted successfully!');
+      
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Failed to upload files. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+};
   // Pagination
   const pageSize = 8;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
