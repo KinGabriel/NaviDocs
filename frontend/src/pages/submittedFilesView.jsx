@@ -9,6 +9,7 @@ import TextEditor from "../layout/create_template/textEditor";
 import DownloadingModal from "../components/modals/downloadingModal";
 import StoragePickerModal from "../components/modals/storagePickerModal";
 import { StatusBadge } from "../utils/formatters";
+import Loader from "../components/loader";
 import { 
   CheckCircle, 
   XCircle, 
@@ -544,7 +545,7 @@ const pageNodes = useMemo(() => {
                     <div className="text-lg font-medium mb-1">
                       Document Preview
                     </div>
-                    <div className="text-sm">Loading preview…</div>
+                    <Loader message="Loading preview..." />
                   </div>
                 </div>
               )}
@@ -569,7 +570,7 @@ const pageNodes = useMemo(() => {
                           <div className="flex-1">
                             <p className="text-xs text-gray-500 mb-0.5">Submitted by</p>
                             <p className="text-sm font-medium text-gray-900">
-                              {submission?.submittedBy?.name || "Loading..."}
+                              {submission?.submittedBy?.name || <Loader message="Loading..." /> }
                             </p>
                             <p className="text-xs text-gray-500">
                               {submission?.submittedBy?.role}
@@ -582,7 +583,7 @@ const pageNodes = useMemo(() => {
                           <div className="flex-1">
                             <p className="text-xs text-gray-500 mb-0.5">Submitted on</p>
                             <p className="text-sm font-medium text-gray-900">
-                              {submission?.submittedAt ? formatDateTime(submission.submittedAt) : "Loading..."}
+                              {submission?.submittedAt ? formatDateTime(submission.submittedAt) : <Loader message="Loading..." /> }
                             </p>
                           </div>
                         </div>
@@ -721,7 +722,7 @@ const pageNodes = useMemo(() => {
                             <StatusBadge type={submission?.status || 'submitted'} />
                           </div>
                           <p className="text-xs text-gray-600">
-                            Submitted on {submission?.submittedAt ? formatDateTime(submission.submittedAt) : "Loading..."}
+                            Submitted on {submission?.submittedAt ? formatDateTime(submission.submittedAt) : <Loader message="Loading..." /> }
                           </p>
                         </div>
 
@@ -836,7 +837,7 @@ const pageNodes = useMemo(() => {
                         Submission Details
                       </h3>
                       <div className="w-24 h-0.5 bg-yellow-400 mt-2 mb-4 rounded" />
-                      <p className="text-sm text-gray-600">Loading submission details...</p>
+                      <Loader message="Loading submission details..." />
                     </>
                   )}
                 </div>
