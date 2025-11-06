@@ -6,6 +6,7 @@ import TemplateVersionHistory from '../../pages/version_history/templateVersionH
 import AssignMembersModal from '../../components/modals/assignMembersModal';
 import React, { useState, useEffect } from "react";
 import { assignControllersToTemplateAPI } from '../../api/documentContollerAPI';
+import defaultProfile from '../../assets/images/profile_picture.png';
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -520,12 +521,22 @@ export default function Header2({
               </button>
             </div>
 
-            {/* Avatar */}
-            <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
+           {/* Avatar */}
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shadow overflow-hidden bg-white border border-gray-200">
               <img
-                src={user && user.profile_picture ? `${API_URL}${user.profile_picture}` : '/default-avatar.png'}
+                src={
+                  user?.profile_picture
+                    ? `${API_URL}${user.profile_picture}`
+                    : defaultProfile
+                }
                 alt="Profile"
-                className="w-full h-full object-cover"
+                className={`object-cover ${
+                  user?.profile_picture ? "w-full h-full" : "w-8 h-8 object-contain opacity-90"
+                }`}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = defaultProfile;
+                }}
               />
             </div>
           </div>

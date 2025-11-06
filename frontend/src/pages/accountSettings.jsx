@@ -6,6 +6,7 @@ import Sidebar from "../layout/sidebars/sidebar.jsx";
 import useUser from "../hooks/useUser";
 import Loader from "../components/loader";
 import PasswordInput from "../components/passwordinput.jsx"; 
+import defaultProfile from '../assets/images/profile_picture.png';
 import { updateAccountSettingsAPI, updateUserPasswordAPI } from "../api/userAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -214,31 +215,54 @@ export default function AdminAccountSettings() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
               {/* Left: avatar + name/role */}
-              <section className="flex flex-col items-center">
-                <div className="w-44 h-44 rounded-full overflow-hidden bg-gray-100 border">
-                  {photoPreview ? (
-                    <img src={photoPreview} alt="Profile" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">No Photo</div>
+             <section className="flex flex-col items-center">
+              <div className="w-44 h-44 rounded-full overflow-hidden bg-gray-100 border flex items-center justify-center">
+                {photoPreview || user?.profile_picture ? (
+                  <img
+                    src={
+                      photoPreview
+                        ? photoPreview
+                        : `${API_URL}${user.profile_picture}`
+                    }
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = defaultProfile;
+                    }}
+                  />
+                ) : (
+                  <img
+                    src={defaultProfile}
+                    alt="Default Profile"
+                    className="w-36 h-36 object-contain opacity-90"
+                  />
+                )}
+              </div>
+
+              <label className="mt-3 text-sm text-blue-700 hover:underline cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+                Upload Photo
+              </label>
+
+              <div className="mt-6 text-center">
+                <div className="text-2xl font-semibold">
+                  {normalizeName(
+                    `${firstName || user?.firstname || ""} ${
+                      lastName || user?.lastname || ""
+                    }`
                   )}
                 </div>
-                <label className="mt-3 text-sm text-blue-700 hover:underline cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
-                    className="hidden"
-                  />
-                  Upload Photo
-                </label>
-
-                <div className="mt-6 text-center">
-                  <div className="text-2xl font-semibold">
-                    {normalizeName(`${firstName || user?.firstname || ""} ${lastName || user?.lastname || ""}`)}
-                  </div>
-                  <div className="text-md text-gray-500 ">{user?.role?.name || "Admin"}</div>
+                <div className="text-md text-gray-500">
+                  {user?.role?.name || "Admin"}
                 </div>
-              </section>
+              </div>
+            </section>
 
               {/* Right: forms */}
               <section className="lg:col-span-2 space-y-10">

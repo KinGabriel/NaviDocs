@@ -33,6 +33,8 @@ export default function CreateUser() {
 
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -146,18 +148,44 @@ export default function CreateUser() {
             ) : (
               <div className="flex flex-col lg:flex-row items-start gap-10">
                 <div className="flex justify-center w-full lg:w-1/3">
-                  <div className="w-48 h-48 bg-gray-200 rounded-full flex items-center justify-center relative group">
-                    <label htmlFor="profile_picture" className="w-full h-full flex items-center justify-center cursor-pointer">
-                      {image ? (
-                        <img src={URL.createObjectURL(image)} alt="Preview" className="w-48 h-48 object-cover rounded-full" />
-                      ) : (
-                        <img src={defaultProfile} alt="Default Profile" className="h-30 w-30 object-cover" />
-                      )}
-                      <input id="profile_picture" name="profile_picture" type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                    </label>
-                  </div>
+              <section className="flex flex-col items-center">
+                <div className="w-44 h-44 rounded-full overflow-hidden bg-gray-100 border flex items-center justify-center">
+                  {photoPreview ? (
+                    <img
+                      src={photoPreview}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={defaultProfile}
+                      alt="Default Profile"
+                      className="w-36 h-36 object-contain opacity-90"
+                    />
+                  )}
                 </div>
 
+                <label className="mt-3 text-sm text-blue-700 hover:underline cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      setPhotoFile(file || null);
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => setPhotoPreview(reader.result);
+                        reader.readAsDataURL(file);
+                      } else {
+                        setPhotoPreview(null);
+                      }
+                    }}
+                  />
+                  Upload Photo
+                </label>
+              </section>
+              </div>
                 <form onSubmit={handleSubmit} className="w-full lg:w-2/3 space-y-8" encType="multipart/form-data">
                   <div>
                     <h3 className="text-blue-900 font-bold text-lg mb-2">Personal Information:</h3>

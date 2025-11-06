@@ -147,7 +147,7 @@ function App() {
        <Route
          path="/templates"
          element={
-          <ProtectedRoute allowedRoles={["Secretary","Dean","Department Head","Faculty","Lead Document Controller","Document Control Officer","Unit Document Controller"]}>
+          <ProtectedRoute allowedRoles={["Secretary","Dean","Department Head","Lead Document Controller","Document Control Officer","Unit Document Controller"]}>
              <RoleTemplatesRouter />
            </ProtectedRoute>
          }
@@ -364,7 +364,7 @@ function App() {
         <Route
          path="/templates/:id"
          element={
-           <ProtectedRoute allowedRoles={["Secretary", "Dean","Faculty", "Department Head", "Lead Document Controller", "Document Control Officer", "Unit Document Controller" ]}>
+           <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head", "Lead Document Controller", "Document Control Officer", "Unit Document Controller" ]}>
              <TemplatesView />
            </ProtectedRoute>
          }

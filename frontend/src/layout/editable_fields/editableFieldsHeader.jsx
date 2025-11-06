@@ -1,6 +1,8 @@
+// header for editable fields
 import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import naviLogo from '../../assets/images/navilogo.png';
+import defaultProfile from '../../assets/images/profile_picture.png';
 import DownloadingModal from "../../components/modals/downloadingModal";
 import DocumentVersionHistory from '../../pages/version_history/documentVersionHistory';
 import ShareDocumentModal from "../../components/modals/shareDocumentModal";
@@ -329,18 +331,24 @@ export default function EditableFieldsHeader({
             )}
           </div>
 
-          {/* Profile picture */}
-          <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
-            <img
-              src={
-                user && user.profile_picture
-                  ? `${API_URL}${user.profile_picture}`
-                  : "/default-avatar.png"
-              }
-              alt="Profile"
-              className="w-full h-full object-cover"
-            />
-          </div>
+           {/* Profile picture */}
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shadow overflow-hidden bg-white border border-gray-200">
+              <img
+                src={
+                  user?.profile_picture
+                    ? `${API_URL}${user.profile_picture}`
+                    : defaultProfile
+                }
+                alt="Profile"
+                className={`object-cover ${
+                  user?.profile_picture ? "w-full h-full" : "w-8 h-8 object-contain opacity-90"
+                }`}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = defaultProfile;
+                }}
+              />
+            </div>
         </div>
       </div>
 
