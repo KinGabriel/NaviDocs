@@ -212,7 +212,7 @@ export default function ApprovalModal({
 
           {/* Instructions */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Instructions (Optional)</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Instructions</label>
             <textarea
               value={message}
               onChange={(e) => {
@@ -412,7 +412,15 @@ export default function ApprovalModal({
                         Are you sure you want to reject this template?
                       </p>
                       <p className="text-xs text-gray-500 mt-2">
-                        A reason is required. Current reason: <span className="font-medium">{message?.trim() || "—"}</span>
+                        {!message?.trim() && (
+                          <span className="text-red-500 font-medium italic">
+                            Please provide a reason for rejecting this submission.
+                          </span>
+                        )}
+                        <br />
+                        <span className="font-semibold">
+                          Current reason: {message?.trim() || "—"}
+                        </span>
                       </p>
                       {rejectError && (
                         <div className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
