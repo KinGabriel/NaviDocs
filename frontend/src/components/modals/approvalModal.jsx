@@ -414,7 +414,7 @@ export default function ApprovalModal({
                       <p className="text-xs text-gray-500 mt-2">
                         {!message?.trim() && (
                           <span className="text-red-500 font-medium italic">
-                            Please provide a reason for rejecting this submission.
+                            A reason is required.
                           </span>
                         )}
                         <br />
@@ -538,8 +538,16 @@ export default function ApprovalModal({
                       <p className="text-sm text-gray-700">
                         Are you sure you want to return this template for changes?
                       </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        A reason is required. Current reason: <span className="font-medium">{message?.trim() || "—"}</span>
+                       <p className="text-xs text-gray-500 mt-2">
+                        {!message?.trim() && (
+                          <span className="text-red-500 font-medium italic">
+                            A reason is required.
+                          </span>
+                        )}
+                        <br />
+                        <span className="font-semibold">
+                          Current reason: {message?.trim() || "—"}
+                        </span>
                       </p>
                       {returnError && (
                         <div className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">

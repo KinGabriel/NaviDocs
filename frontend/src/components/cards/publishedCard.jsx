@@ -70,6 +70,8 @@ export default function PublishedCard({
       case 'returned': return 'bg-orange-100 text-orange-800';
       case 'rejected': return 'bg-red-100 text-red-800';
       case 'assigned': return 'bg-purple-100 text-purple-800';
+      case 'endorsed': return 'bg-teal-100 text-teal-800';
+      case 'disapproved': return 'bg-rose-100 text-rose-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
