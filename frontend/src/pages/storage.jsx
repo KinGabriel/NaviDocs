@@ -1,5 +1,6 @@
 // src/pages/storage.jsx
 import React, { useMemo, useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI, moveFolderAPI, moveFileAPI, renameFolderAPI, renameFileAPI, deleteFolderByIDAPI, deleteFileAPI, deleteFileFromFolderAPI, addAccessToFoldersAPI, addAccessToFileAPI, } from "../api/storageAPI";
 import { searchUsersByEmailAPI, getUserIdByEmailAPI } from "../api/userAPI";
@@ -56,6 +57,63 @@ function ViewToggle({ mode = "table", onChange }) {
   );
 }
 
+
+function KebabMenuPortal({ anchorEl, open, onClose, children, width = 224 }) {
+  const menuRef = React.useRef(null);
+  const [pos, setPos] = React.useState({ left: 0, top: 0 });
+
+  React.useLayoutEffect(() => {
+    if (!open || !anchorEl) return;
+    const rect = anchorEl.getBoundingClientRect();
+    const gap = 8;
+    const menuH = menuRef.current?.offsetHeight ?? 280;
+    const menuW = width;
+    const left = Math.min(window.innerWidth - gap - menuW, rect.right - menuW);
+    let top = rect.bottom + gap;
+    if (top + menuH > window.innerHeight - gap) {
+      top = Math.max(gap, rect.top - gap - menuH);
+    }
+    setPos({ left, top });
+  }, [open, anchorEl, width]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target) && e.target !== anchorEl) onClose?.();
+    };
+    const onEsc = (e) => { if (e.key === "Escape") onClose?.(); };
+    const onScroll = () => onClose?.();
+    const onResize = () => onClose?.();
+
+    document.addEventListener("mousedown", onDocClick, true);
+    window.addEventListener("keydown", onEsc);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick, true);
+      window.removeEventListener("keydown", onEsc);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [open, anchorEl, onClose]);
+
+  if (!open || !anchorEl) return null;
+
+  const menu = (
+    <div
+      ref={menuRef}
+      role="menu"
+      style={{ position: "fixed", left: pos.left, top: pos.top, width }}
+      className="z-[1000] rounded-lg border border-gray-200 bg-white shadow-xl"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {children}
+    </div>
+  );
+  return createPortal(menu, document.body);
+}
+
+
 /* ================================ Page ================================ */
 export default function Storage() {
   const { id } = useParams();
@@ -83,6 +141,12 @@ export default function Storage() {
   const [openFileMenu, setOpenFileMenu] = useState(null);
   const [openOrganizeSubmenu, setOpenOrganizeSubmenu] = useState(null);
   const [openShareSubmenu, setOpenShareSubmenu] = useState(null);
+
+  // Global portal menu state
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuKind, setMenuKind] = useState(null); // "folder" | "file"
+  const [menuId, setMenuId] = useState(null);
+  const anchorEls = useRef({});
 
   /* rename/remove (table) */
   const [itemToRename, setItemToRename] = useState(null);
@@ -269,6 +333,11 @@ export default function Storage() {
   }, []);
 
   /* ================================= Helpers ================================= */
+
+  const openMenu = (kind, id) => { setMenuKind(kind); setMenuId(id); setMenuOpen(true); };
+  const closeMenu = () => { setMenuOpen(false); setMenuId(null); setMenuKind(null); };
+  const currentAnchor = anchorEls.current[menuKind ? `${menuKind}-${menuId}` : ""];
+
 
   const toggleFolderMenu = (id, e) => {
     if (e) e.stopPropagation();
@@ -721,7 +790,12 @@ export default function Storage() {
                               </div>
                             </td>
                             <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
-                              {folder.data?.owner?.name || "Unknown"}
+                              {folder.data?.owner?.name
+                              || (folder.data?.ownerEmail
+                                    ? folder.data.ownerEmail.split("@")[0]
+                                    : (typeof folder.data?.owner === "string"
+                                       ? folder.data.owner.split("@")[0]
+                                       : "Unknown"))}
                             </td>
                             <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
                               {formatDate(folder.date)}
@@ -729,7 +803,7 @@ export default function Storage() {
                             <td className="px-4 md:px-6 py-4">
                               <div className="relative">
                                 <button
-                                  onClick={(e) => toggleFolderMenu(`folder-${folder._id}`, e)}
+                                  ref={(el)=>{ if(el) anchorEls.current[`folder-${folder._id}`]=el; else delete anchorEls.current[`folder-${folder._id}`]; }} onClick={(e)=>{ e.stopPropagation(); openMenu("folder", folder._id); }}
                                   className="p-1 rounded-full hover:bg-gray-300"
                                 >
                                   <MoreVertical className="w-5 h-5 text-gray-600" />
@@ -1019,7 +1093,12 @@ export default function Storage() {
                                 </div>
                               </td>
                               <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
-                                {file.owner?.name || "Unknown"}
+                                {file.owner?.name
+                                || (file.ownerEmail
+                                    ? file.ownerEmail.split("@")[0]
+                                    : (typeof file.owner === "string"
+                                       ? file.owner.split("@")[0]
+                                       : "Unknown"))}
                               </td>
                               <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
                                 {formatDate(file.uploadedAt || file.createdAt)}
@@ -1028,7 +1107,7 @@ export default function Storage() {
                               <td className="px-4 md:px-6 py-4">
                                 <div className="relative">
                                   <button
-                                    onClick={(e) => toggleFileMenu(`file-${fileKey}`, e)}
+                                    ref={(el)=>{ if(el) anchorEls.current[`file-${fileKey}`]=el; else delete anchorEls.current[`file-${fileKey}`]; }} onClick={(e)=>{ e.stopPropagation(); openMenu("file", fileKey); }}
                                     className="p-1 rounded-full hover:bg-gray-300"
                                   >
                                     <MoreVertical className="w-5 h-5 text-gray-600" />
@@ -1611,6 +1690,171 @@ export default function Storage() {
           </div>
         </div>
       )}
+      <KebabMenuPortal anchorEl={currentAnchor} open={menuOpen} onClose={closeMenu} width={256}>
+        {menuKind === "folder" && (
+          <div className="py-1 text-sm text-gray-700 overflow-visible">
+            {/* 1) Download */}
+            <button
+              className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+              onClick={(e)=>{ e.stopPropagation(); toast("Download clicked"); closeMenu(); }}
+            ><Download size={16} className="text-gray-600" /> Download</button>
+
+           {/* 2) Rename */}
+           <button
+             className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+             onClick={(e)=>{ e.stopPropagation(); setItemToRename(displayedFolders.find(f=>f._id===menuId)); setRenameType("folder"); setShowRenameModal(true); closeMenu(); }}
+           ><Pencil size={16} className="text-gray-600" /> Rename</button>
+
+           {/* ---- line after Rename ---- */}
+           <div className="my-1 border-t border-gray-200" />
+
+           {/* 3) Organize (submenu) */}
+           <div className="relative group">
+             <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer">
+               <div className="flex items-center gap-2"><FolderCog size={16} className="text-gray-600" /> Organize</div>
+               <span className="text-gray-500 text-xs">›</span>
+           </div>
+           <div className="absolute left-[-196px] top-0 w-48 rounded-lg border border-gray-200 bg-white shadow-xl hidden group-hover:block z-50">
+             <button
+               className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
+               onClick={(e)=>{ e.stopPropagation(); const folder = displayedFolders.find(f=>f._id===menuId); handleMoveFolder(folder); closeMenu(); }}
+             ><Move size={16} className="text-gray-600" /> Move</button>
+           </div>
+         </div>
+
+            {/* 4) Share (submenu) */}
+            <div className="relative group">
+              <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer">
+               <div className="flex items-center gap-2"><Share2 size={16} className="text-gray-600" /> Share</div>
+               <span className="text-gray-500 text-xs">›</span>
+            </div>
+            <div className="absolute left-[-196px] top-0 w-48 rounded-lg border border-gray-200 bg-white shadow-xl hidden group-hover:block z-50">
+              <button
+                className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
+                onClick={(e)=>{ e.stopPropagation(); const folder = displayedFolders.find(f=>f._id===menuId); handleFolderShareOpen(folder); closeMenu(); }}
+                ><Share2 size={16} className="text-gray-600" /> Share</button>
+              <button
+                className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
+                onClick={(e)=>{ e.stopPropagation(); const folder = displayedFolders.find(f=>f._id===menuId); copyFolderLink(folder); closeMenu(); }}
+              ><Copy size={16} className="text-gray-600" /> Get Link</button>
+             </div>
+            </div>
+
+            {/* ---- line before Archive ---- */}
+            <div className="my-1 border-t border-gray-200" />
+
+            {/* 5) Archive */}
+            <button
+              className="flex w-full items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600"
+              onClick={(e)=>{ e.stopPropagation(); const folder = displayedFolders.find(f=>f._id===menuId); setItemToRemove(folder); setRemoveType("folder"); setShowRemoveModal(true); closeMenu(); }}
+            ><Trash2 size={16} className="text-red-600" /> Archive</button>
+            </div>
+          )}
+
+  {menuKind === "file" && (
+  <div className="py-1 text-sm text-gray-700 overflow-visible">
+    {/* 1) Download */}
+    <button
+      className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+      onClick={(e)=>{ e.stopPropagation(); toast("Download clicked"); closeMenu(); }}
+    ><Download size={16} className="text-gray-600" /> Download</button>
+
+    {/* 2) Rename */}
+    <button
+      className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+      onClick={(e)=>{ 
+        e.stopPropagation(); 
+        const targetFile =
+          displayedFiles.find(f => String(f._id) === String(menuId)) ??
+          paginatedFiles.find((_, i) => String(i) === String(menuId));
+        if (!targetFile) return;
+        setItemToRename(targetFile);
+        setRenameType("file");
+        setShowRenameModal(true);
+        closeMenu();
+      }}
+    ><Pencil size={16} className="text-gray-600" /> Rename</button>
+
+    {/* ---- line after Rename ---- */}
+    <div className="my-1 border-t border-gray-200" />
+
+    {/* 3) Organize (submenu) */}
+    <div className="relative group">
+      <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer">
+        <div className="flex items-center gap-2"><FolderCog size={16} className="text-gray-600" /> Organize</div>
+        <span className="text-gray-500 text-xs">›</span>
+      </div>
+      <div className="absolute left-[-196px] top-0 w-48 rounded-lg border border-gray-200 bg-white shadow-xl hidden group-hover:block z-50">
+        <button
+          className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
+          onClick={(e)=>{ 
+            e.stopPropagation(); 
+            const targetFile =
+              displayedFiles.find(f => String(f._id) === String(menuId)) ??
+              paginatedFiles.find((_, i) => String(i) === String(menuId));
+            if (!targetFile) return;
+            handleMoveFile(targetFile); 
+            closeMenu(); 
+          }}
+        ><Move size={16} className="text-gray-600" /> Move</button>
+      </div>
+    </div>
+
+    {/* 4) Share (submenu) */}
+    <div className="relative group">
+      <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer">
+        <div className="flex items-center gap-2"><Share2 size={16} className="text-gray-600" /> Share</div>
+        <span className="text-gray-500 text-xs">›</span>
+      </div>
+      <div className="absolute left-[-196px] top-0 w-48 rounded-lg border border-gray-200 bg-white shadow-xl hidden group-hover:block z-50">
+        <button
+          className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
+          onClick={(e)=>{ 
+            e.stopPropagation(); 
+            const targetFile =
+              displayedFiles.find(f => String(f._id) === String(menuId)) ??
+              paginatedFiles.find((_, i) => String(i) === String(menuId));
+            if (!targetFile) return;
+            handleFileShareOpen(targetFile); 
+            closeMenu(); 
+          }}
+        ><Share2 size={16} className="text-gray-600" /> Share</button>
+        <button
+          className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
+          onClick={(e)=>{ 
+            e.stopPropagation(); 
+            const targetFile =
+              displayedFiles.find(f => String(f._id) === String(menuId)) ??
+              paginatedFiles.find((_, i) => String(i) === String(menuId));
+            if (!targetFile) return;
+            copyFileLink(targetFile); 
+            closeMenu(); 
+          }}
+        ><Copy size={16} className="text-gray-600" /> Get Link</button>
+      </div>
+    </div>
+
+    {/* ---- line before Archive ---- */}
+    <div className="my-1 border-t border-gray-200" />
+
+    {/* 5) Archive */}
+    <button
+      className="flex w-full items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600"
+      onClick={(e)=>{ 
+        e.stopPropagation(); 
+        const targetFile =
+          displayedFiles.find(f => String(f._id) === String(menuId)) ??
+          paginatedFiles.find((_, i) => String(i) === String(menuId));
+        if (!targetFile) return;
+        setItemToRemove(targetFile); 
+        setRemoveType("file"); 
+        setShowRemoveModal(true); 
+        closeMenu(); 
+      }}
+    ><Trash2 size={16} className="text-red-600" /> Archive</button>
+  </div>
+)}
+</KebabMenuPortal>
     </div>
   );
 }
