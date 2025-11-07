@@ -78,6 +78,7 @@ const isObjectIdString = (s) => typeof s === 'string' && /^[a-fA-F0-9]{24}$/.tes
  */
 export const createVersionData = async (document_id, field_values = {}, opts = {}) => {
   try {
+    console.log(field_values)
     // normalize document id
     let docIdRaw = document_id;
     if (document_id && typeof document_id === 'object') {
