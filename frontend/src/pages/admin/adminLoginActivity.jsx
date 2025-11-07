@@ -60,7 +60,7 @@ export default function AdminLoginActivity() {
           }));
           setLogs(mapped);
           setTotalPages(Number(res?.pages || 1));
-          setTotalItems(Number(res?.total || mapped.length)); // ✅ Total logs tracking
+          setTotalItems(Number(res?.total || mapped.length));
         }
       } catch (e) {
         if (!cancelled) {
@@ -104,7 +104,7 @@ export default function AdminLoginActivity() {
   const handlePrev = () => currentPage > 1 && setCurrentPage(currentPage - 1);
   const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
 
-  /** ✅ Pagination with Ellipsis */
+  /** Pagination with Ellipsis */
   const getPageNumbers = () => {
     const total = totalPages;
     const current = currentPage;
@@ -142,7 +142,7 @@ export default function AdminLoginActivity() {
 
             {/* Filter Row */}
             <div className="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap sm:items-center gap-3 mb-4">
-              
+
               <Dropdown
                 value={statusFilter}
                 onChange={(value) => {
@@ -233,13 +233,13 @@ export default function AdminLoginActivity() {
                   </table>
                 </div>
 
-                {/* ✅ Results Indicator */}
+                {/* Results Indicator */}
                 <div className="text-center text-gray-600 text-sm mt-4">
                   Showing {(currentPage - 1) * itemsPerPage + 1}–
                   {(currentPage - 1) * itemsPerPage + currentLogs.length} of {totalItems} logs
                 </div>
 
-                {/* ✅ Updated Pagination */}
+                {/* Updated Pagination */}
                 <div className="flex flex-wrap justify-center items-center mt-6 gap-2 text-sm">
                   <button
                     onClick={handlePrev}
@@ -256,11 +256,10 @@ export default function AdminLoginActivity() {
                       <button
                         key={num}
                         onClick={() => setCurrentPage(num)}
-                        className={`px-3 py-1 rounded border ${
-                          currentPage === num
+                        className={`px-3 py-1 rounded border ${currentPage === num
                             ? "bg-blue-600 text-white"
                             : "bg-white text-gray-700 hover:bg-gray-100"
-                        }`}
+                          }`}
                       >
                         {num}
                       </button>
