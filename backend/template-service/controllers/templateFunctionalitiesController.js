@@ -1,7 +1,7 @@
 
 import Template from "../models/templateModel.js";
 import { getSchoolCode, buildApprovalMeta, statusQuery } from "../utils/templateUtils.js";
-import { generateTemplateThumbnail } from "../utils/thumbnailUtils.js";
+import { generateTemplateThumbnail, generateTemplateThumbnailInternal } from "../utils/thumbnailUtils.js";
 import axios from "axios";
 import { createTemplateVersion } from './templateVersionController.js';
 import { fetchUserInfoById } from '../utils/userServiceUtils.js';
@@ -71,6 +71,13 @@ export const createTemplate = async (req, res) => {
       await createTemplateVersion({ templateId: template._id, snapshot: template.toObject(), userId: req.user?.id, note: 'Initial version' });
     } catch (e) {
       console.error('Failed to create initial template version', e);
+    }
+
+    // Attempt thumbnail generation (non-blocking strategy but we await once for immediate availability)
+    try {
+      await generateTemplateThumbnailInternal(template);
+    } catch (e) {
+      console.error('[Thumbnail] createTemplate generation failed', e?.message || e);
     }
 
     res.status(201).json({
@@ -203,8 +210,12 @@ export const updateTemplate = async (req, res) => {
       });
     }
     */
-  // Trigger thumbnail generation after update using the updated document
-  await generateTemplateThumbnailInternal(updatedTemplate || template);
+  // Trigger thumbnail generation after update using the updated document (best-effort)
+  try {
+    await generateTemplateThumbnailInternal(updatedTemplate || template);
+  } catch (e) {
+    console.error('[Thumbnail] updateTemplate generation failed', e?.message || e);
+  }
     res.status(200).json({
       success: true,
       message: 'Template updated successfully',
@@ -882,20 +893,9 @@ export const duplicateTemplate = async (req, res) => {
   }
 };
 
-// Helper to generate and save thumbnail URL to template
-export const generateTemplateThumbnailInternal = async (template) => {
-  try {
-    const url = await generateTemplateThumbnail(template);
-    if (url) {
-      template.thumbnailUrl = url;
-      await template.save();
-    }
-    return url;
-  } catch (error) {
-    console.error("Error generating thumbnail (internal):", error);
-    return null;
-  }
-};
+// NOTE: generateTemplateThumbnailInternal is now imported from utils/thumbnailUtils.
+// The previous local definition was removed to avoid duplicate identifier errors and to
+// ensure a single, consistent implementation is used across controllers.
 
 /**
  * @desc Archive template

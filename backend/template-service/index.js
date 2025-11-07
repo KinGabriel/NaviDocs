@@ -13,7 +13,9 @@ const PORT = process.env.PORT || 8002;
 const HOST = process.env.HOST || "127.0.0.1";
 // CORS is handled by the gateway; backend services should not set CORS headers.
 
-app.use(express.json());
+const bodyLimit = process.env.TEMPLATE_SERVICE_BODY_LIMIT || '10mb';
+app.use(express.json({ limit: bodyLimit }));
+app.use(express.urlencoded({ limit: bodyLimit, extended: true }));
 app.use(cookieParser());
 
 // Mount specific routes BEFORE generic /api/templates to avoid :id capturing 'field-groups'
