@@ -184,7 +184,18 @@ export default function EditableFields() {
       state.doc.descendants((node, pos) => {
         if (node.type && node.type.name === "editableField") {
           const key = node.attrs?.key;
-          if (key === fieldName) {
+          // support label-based fieldName by mapping back to original key if available
+          let matches = false;
+          try {
+            const k2l = lastSavedRef.current.__keyToLabel || {};
+            const l2k = {};
+            Object.keys(k2l).forEach(k => { l2k[k2l[k]] = k; });
+            const keyFromLabel = l2k[fieldName] || fieldName;
+            matches = key === keyFromLabel;
+          } catch {
+            matches = key === fieldName;
+          }
+          if (matches) {
             targetPos = pos;
             return false;
           }
@@ -273,12 +284,14 @@ export default function EditableFields() {
     try {
       if (!editor || !editor.state) return;
       const map = {};
+      const k2l = lastSavedRef.current.__keyToLabel || {};
       editor.state.doc.descendants((node, pos) => {
         if (node.type && node.type.name === "editableField") {
           const key = node.attrs?.key || node.attrs?.name;
           if (!key) return;
-          if (!map[key]) map[key] = [];
-          map[key].push(pos);
+          const label = k2l[key] || key;
+          if (!map[label]) map[label] = [];
+          map[label].push(pos);
         }
       });
       duplicatePositionsRef.current = map;
@@ -413,7 +426,7 @@ export default function EditableFields() {
     // Grouped sections shape: [{ name, scope, fields: [...] }]
   if (list[0] && Array.isArray(list[0].fields)) {
       let number = 1;
-      const panels = [];
+  const panels = [];
       const localFieldsBucket = [];
       for (const section of list) {
         if (!section) continue;
@@ -425,10 +438,12 @@ export default function EditableFields() {
           })
           .map((f) => {
             const key = f.key || f.id || f.name || f._id;
+            const label = f.label || f.title || f.display || f.name || key;
             return {
               type: (f.type === 'text' ? 'input' : f.type) || 'input',
-              name: key,
-              label: f.label || f.name || key,
+              name: label,
+              _originalKey: key,
+              label,
               placeholder: f.placeholder || '',
               instructions: f.instructions || '',
               required: !!f.required,
@@ -463,17 +478,19 @@ export default function EditableFields() {
     }
 
     // Flat fields fallback
-    const fields = list
+  const fields = list
       .filter((f) => {
         const key = f.key || f.id || f.name || f._id;
         return keysInDoc.size === 0 || (key && keysInDoc.has(key));
       })
       .map((f) => {
         const key = f.key || f.id || f.name || f._id;
+        const label = f.label || f.title || f.display || f.name || key;
         return {
           type: (f.type === 'text' ? 'input' : f.type) || 'input',
-          name: key,
-          label: f.label || f.title || f.name || f.key,
+          name: label,
+            _originalKey: key,
+          label,
           placeholder: f.placeholder || '',
           instructions: f.instructions || '',
           required: !!f.required,
@@ -506,11 +523,21 @@ export default function EditableFields() {
         if (!f) return;
         const key = f.key || f.id || f.name || f._id;
         if (!key) return;
+        const label = f.label || f.title || f.display || f.name || key;
         meta[key] = {
-          label: f.label || f.title || f.name || key,
+          label,
+          originalKey: key,
           tags: Array.isArray(f.tags) ? f.tags : [],
           tagColors: f.tagColors && typeof f.tagColors === 'object' ? f.tagColors : undefined,
         };
+        if (!meta[label]) {
+          meta[label] = {
+            label,
+            originalKey: key,
+            tags: Array.isArray(f.tags) ? f.tags : [],
+            tagColors: f.tagColors && typeof f.tagColors === 'object' ? f.tagColors : undefined,
+          };
+        }
       });
     } catch {}
     return meta;
@@ -553,10 +580,12 @@ export default function EditableFields() {
             )
             .join(" ");
 
+          const displayLabel = labelAttr || label || origKey;
           extracted.push({
             type: fieldType === "text" ? "input" : fieldType,
-            name: origKey,
-            label: labelAttr || label || origKey,
+            name: displayLabel,
+            _originalKey: origKey,
+            label: displayLabel,
             placeholder,
             instructions: instructionsAttr || "",
             required: requiredAttr,
@@ -714,7 +743,30 @@ export default function EditableFields() {
               /* ignore */
             }
 
-            setFormData(merged);
+            // remap initial data by label for UI
+            try {
+              const remapped = {};
+              const tplFields = normalized.from_template?.fields || [];
+              const keyToLabel = {};
+              tplFields.forEach(f => {
+                const k = f.key || f.id || f.name || f._id;
+                const lbl = f.label || f.title || f.display || f.name || k;
+                if (k) keyToLabel[String(k)] = String(lbl);
+              });
+              Object.keys(merged).forEach(k => {
+                const lbl = keyToLabel[k];
+                if (lbl) {
+                  if (remapped[lbl] === undefined) remapped[lbl] = merged[k];
+                  else remapped[`${lbl}__${k}`] = merged[k];
+                } else {
+                  remapped[k] = merged[k];
+                }
+              });
+              setFormData(remapped);
+              lastSavedRef.current.__keyToLabel = keyToLabel;
+            } catch (e) {
+              setFormData(merged);
+            }
           } catch (e) {
             console.debug(
               "editableFields: failed init formData",
@@ -792,7 +844,30 @@ export default function EditableFields() {
       /* ignore */
     }
 
-    setFormData(merged);
+    // Remap subsequent loads as well
+    try {
+      const remapped = {};
+      const tplFields = docData.from_template?.fields || [];
+      const keyToLabel = {};
+      tplFields.forEach(f => {
+        const k = f.key || f.id || f.name || f._id;
+        const lbl = f.label || f.title || f.display || f.name || k;
+        if (k) keyToLabel[String(k)] = String(lbl);
+      });
+      Object.keys(merged).forEach(k => {
+        const lbl = keyToLabel[k];
+        if (lbl) {
+          if (remapped[lbl] === undefined) remapped[lbl] = merged[k];
+          else remapped[`${lbl}__${k}`] = merged[k];
+        } else {
+          remapped[k] = merged[k];
+        }
+      });
+      setFormData(remapped);
+      lastSavedRef.current.__keyToLabel = keyToLabel;
+    } catch (e) {
+      setFormData(merged);
+    }
     setCurrentPage(0);
 
     // optional autofill (navigated here w/ autoFillFromSuggestions flag)
@@ -985,11 +1060,24 @@ export default function EditableFields() {
 
     // deep clone so we don't mutate original
     const cloned = JSON.parse(JSON.stringify(base));
+    const keyToLabel = {};
+    try {
+      const tplFields = docData?.from_template?.fields || [];
+      const flatten = (arr) => arr.flatMap((s) => (Array.isArray(s?.fields) ? s.fields : [s]));
+      const flat = tplFields[0] && Array.isArray(tplFields[0]?.fields) ? flatten(tplFields) : tplFields;
+      flat.forEach((f) => {
+        if (!f) return;
+        const k = f.key || f.id || f.name || f._id;
+        const lbl = f.label || f.title || f.display || f.name || k;
+        if (k) keyToLabel[String(k)] = String(lbl);
+      });
+    } catch {}
     const walk = (node) => {
       if (!node) return;
       if (node.type === "editableField") {
         const key = node.attrs?.key;
-        const val = formData?.[key];
+        const label = keyToLabel[key] || key;
+        const val = formData?.[label];
         if (
           val !== undefined &&
           val !== null &&
@@ -1069,11 +1157,9 @@ export default function EditableFields() {
   }, [formData, lastSavedAt]);
 
   // update formData on input
-  const handleInputChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+  // update formData by label (panel names are labels now)
+  const handleInputChange = (fieldLabel, value) => {
+    setFormData((prev) => ({ ...(prev || {}), [fieldLabel]: value }));
   };
 
   // push formData into editor nodes (replace editableField text)
@@ -1090,15 +1176,17 @@ export default function EditableFields() {
       ) {
         const key = node.attrs?.key;
         if (!key) return;
-
-        const shouldApply =
-          !partial ||
-          Object.prototype.hasOwnProperty.call(partial, key);
+        // translate original key -> label if mapping exists
+        let label = key;
+        try {
+          const k2l = lastSavedRef.current.__keyToLabel || {};
+          if (k2l[key]) label = k2l[key];
+        } catch {}
+        const shouldApply = !partial || Object.prototype.hasOwnProperty.call(partial, label);
 
         if (!shouldApply) return;
 
-        const newVal =
-          (partial ? partial[key] : formData[key]) ?? "";
+        const newVal = (partial ? partial[label] : formData[label]) ?? "";
         const existing = node.textContent || "";
 
         if (String(existing) !== String(newVal)) {
@@ -1134,13 +1222,17 @@ export default function EditableFields() {
       return;
     }
 
-    // diff formData vs lastSavedRef
+    // diff formData (labels) vs lastSavedRef, convert back to original keys
     const changed = {};
-    Object.keys(formData || {}).forEach((k) => {
-      const prevVal = lastSavedRef.current?.[k];
-      const curVal = formData[k];
+    const keyToLabel = lastSavedRef.current.__keyToLabel || {};
+    const labelToKey = {};
+    Object.keys(keyToLabel).forEach(k => { labelToKey[keyToLabel[k]] = k; });
+    Object.keys(formData || {}).forEach((label) => {
+      const origKey = labelToKey[label] || label;
+      const prevVal = lastSavedRef.current?.[label];
+      const curVal = formData[label];
       if (String(prevVal || "") !== String(curVal || "")) {
-        changed[k] = curVal;
+        changed[origKey] = curVal;
       }
     });
 
@@ -1178,10 +1270,10 @@ export default function EditableFields() {
           titleToSend
         );
 
-        lastSavedRef.current = {
-          ...(lastSavedRef.current || {}),
-          ...changed,
-        };
+        // store snapshot using labels for dirty checks
+        const nextSaved = { ...(lastSavedRef.current || {}) };
+        Object.keys(formData || {}).forEach(l => { nextSaved[l] = formData[l]; });
+        lastSavedRef.current = nextSaved;
         if (titleChanged)
           lastSavedRef.current.__title = curTitle;
 
@@ -2093,7 +2185,10 @@ export default function EditableFields() {
                             if (node.type && node.type.name === 'editableField') {
                               const origKey = node.attrs?.key;
                               if (!origKey) return;
-                              newValues[origKey] = node.textContent || '';
+                              // translate original key -> label if mapping exists
+                              const k2l = lastSavedRef.current.__keyToLabel || {};
+                              const label = k2l[origKey] || origKey;
+                              newValues[label] = node.textContent || '';
                             }
                           });
                           setFormData((prev) => {
