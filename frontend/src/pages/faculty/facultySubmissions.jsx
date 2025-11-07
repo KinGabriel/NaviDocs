@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
@@ -7,6 +7,8 @@ import usePagination from "../../hooks/usePagination";
 import Dropdown from "../../components/dropdowns/dropdown";
 import SearchBar from "../../components/searchbar";
 import { StatusBadge, formatDate } from "../../utils/formatters";
+import Loader from "../../components/loader";
+import { listSubmissionBinsAPI} from "../../api/assignmentDocumentsAPI";
 import { 
   Calendar, 
   Clock, 
@@ -18,40 +20,6 @@ import {
   User
 } from 'lucide-react';
 
-// Dummy data for submissions - FOR DEMO PURPOSES ONLY
-export const MOCK_ASSIGNED_SUBMISSIONS = Array.from({ length: 12 }, (_, i) => {
-  const createdDate = new Date('2025-10-01');
-  createdDate.setDate(createdDate.getDate() + i * 2);
-  
-  const deadlineDate = new Date('2025-11-15');
-  deadlineDate.setDate(deadlineDate.getDate() + (i * 3) - 15);
-  
-  const now = new Date();
-  const daysUntilDue = Math.ceil((deadlineDate - now) / (1000 * 60 * 60 * 24));
-  
-  let status;
-  if (i % 5 === 0) {
-    status = "submitted";
-  } else if (daysUntilDue < 0) {
-    status = "overdue";
-  } else {
-    status = "pending";
-  }
-  
-  return {
-    id: i + 1,
-    title: `Submission Bin ${i + 1}`,
-    instructions: `Please review and provide feedback on the attached documents for submission ${i + 1}. Ensure all requirements are met before the deadline.`,
-    assignedBy: "Department Head Luka Doncic",
-    assignedAt: createdDate.toISOString(),
-    deadline: deadlineDate.toISOString(),
-    status: status,
-    submittedAt: status === "submitted" ? new Date(deadlineDate.getTime() - 86400000 * 3).toISOString() : null,
-    submittedFiles: status === "submitted" ? [
-      { name: `Document-${i + 1}.pdf`, size: 2456789, uploadedAt: new Date(deadlineDate.getTime() - 86400000 * 3).toISOString() },
-    ] : []
-  };
-});
 
 const STATUS_FILTERS = ["All Status", "Pending", "Submitted", "Overdue"];
 const SORT_OPTIONS = ["Recent", "Due Soon", "Oldest", "A–Z"];
@@ -63,11 +31,80 @@ export default function FacultySubmissions() {
   const [isUploading, setIsUploading] = useState(false);  
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
-  const [sortBy, setSortBy] = useState("Due Soon");
+  const [sortBy, setSortBy] = useState("Recent");
+  const [submissions, setSubmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  useEffect(() => {
+    const fetchSubmissions = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch ALL bins and filter on frontend
+        const response = await listSubmissionBinsAPI();
+        
+        const bins = Array.isArray(response) ? response : (response.data || []);
+        
+        // Transform bins into submission items for the current user
+        const transformedSubmissions = bins.flatMap(bin => {
+                 
+          // Find submissions in this bin that belong to current user
+          const userSubmissions = (bin.submissions || []).filter(sub => {
+            const facultyId = sub.faculty?._id || sub.faculty?.id || sub.faculty;
+            const userId = user?._id || user?.id;
+            
+            return facultyId === userId;
+          });
+          
+          return userSubmissions.map(sub => {
+            // Determine status
+            let status = 'pending';
+            if (sub.document && sub.submitted_at) {
+              status = 'submitted';
+            } else if (new Date(bin.deadline) < new Date()) {
+              status = 'overdue';
+            }
+            
+            return {
+              id: sub._id || sub.id,
+              binId: bin._id || bin.id,
+              title: bin.title || 'Submission Bin',
+              instructions: sub.instructions || bin.instructions || '',
+              assignedBy: bin.createdBy?.name || bin.createdBy?.email || "Department Head",
+              assignedAt: bin.createdAt || new Date().toISOString(),
+              deadline: bin.deadline || new Date().toISOString(),
+              status: status,
+              submittedAt: sub.submitted_at || null,
+              submittedFiles: sub.document ? [{ 
+                id: sub.document,
+                name: 'Document.pdf', 
+                uploadedAt: sub.submitted_at 
+              }] : [],
+              templateId: sub.template,
+              documentId: sub.document
+            };
+          });
+        });
+        
+        setSubmissions(transformedSubmissions);
+      } catch (err) {
+        console.error('Failed to fetch submissions:', err);
+        setError(err.message || 'Failed to load submissions');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchSubmissions();
+    }
+  }, [user]);
 
   // Filter and sort
   const filtered = useMemo(() => {
-    let rows = [...MOCK_ASSIGNED_SUBMISSIONS];
+    let rows = [...submissions];
     
     if (statusFilter !== "All Status") {
       rows = rows.filter(r => r.status.toLowerCase() === statusFilter.toLowerCase());
@@ -92,36 +129,90 @@ export default function FacultySubmissions() {
     }
     
     return rows;
-  }, [query, statusFilter, sortBy]);
+  }, [query, statusFilter, sortBy, submissions]);
 
   // Stats
   const stats = useMemo(() => {
-    const pending = MOCK_ASSIGNED_SUBMISSIONS.filter(s => s.status === "pending").length;
-    const submitted = MOCK_ASSIGNED_SUBMISSIONS.filter(s => s.status === "submitted").length;
-    const overdue = MOCK_ASSIGNED_SUBMISSIONS.filter(s => s.status === "overdue").length;
-    
-    return { total: MOCK_ASSIGNED_SUBMISSIONS.length, pending, submitted, overdue };
-  }, []);
+  const pending = submissions.filter(s => s.status === "pending").length; 
+  const submitted = submissions.filter(s => s.status === "submitted").length;
+  const overdue = submissions.filter(s => s.status === "overdue").length;
+  
+  return { total: submissions.length, pending, submitted, overdue };
+  }, [submissions]); 
+
+  // Pagination
+  const pageSize = 8;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pagination = usePagination(totalPages, 1);
+
+  const pageRows = useMemo(
+    () =>
+      filtered.slice(
+        (pagination.currentPage - 1) * pageSize,
+        pagination.currentPage * pageSize
+      ),
+    [filtered, pagination.currentPage]
+  );
+
+  const handleViewSubmission = (submissionId) => {
+    navigate(`/faculty/document-workflow/${submissionId}`);
+  };
+
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <Loader message="Loading submissions..." />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load</h3>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleFileUpload = (event) => {
-  const files = Array.from(event.target.files);
+    const files = Array.from(event.target.files);
 
-  if (files.length === 0) return;
-  
-  if (!files.length) {
-  alert("Please select at least one file to upload.");
-  return;
-  }
-  
-  // Add to uploaded files
-  setUploadedFiles(prev => [
-    ...prev,
-    ...validFiles.map((file, index) => ({
-      id: Date.now() + index,
-      file: file,
-      name: file.name,
-      size: file.size,
-      uploadedAt: new Date().toISOString()
+    if (files.length === 0) return;
+    
+    // Add files directly 
+    setUploadedFiles(prev => [
+      ...prev,
+      ...files.map((file, index) => ({
+        id: Date.now() + index,
+        file: file,
+        name: file.name,
+        size: file.size,
+        uploadedAt: new Date().toISOString()
       }))
     ]);
   };
@@ -173,23 +264,6 @@ export default function FacultySubmissions() {
       setIsUploading(false);
     }
 };
-  // Pagination
-  const pageSize = 8;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pagination = usePagination(totalPages, 1);
-
-  const pageRows = useMemo(
-    () =>
-      filtered.slice(
-        (pagination.currentPage - 1) * pageSize,
-        pagination.currentPage * pageSize
-      ),
-    [filtered, pagination.currentPage]
-  );
-
-  const handleViewSubmission = (submissionId) => {
-    navigate(`/faculty/document-workflow/${submissionId}`);
-  };
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -382,11 +456,17 @@ function SubmissionCard({ submission, onView }) {
         </div>
 
         {/* Instructions */}
-        {submission.instructions && (
-          <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-            {submission.instructions}
-          </p>
-        )}
+        <div className="mb-4 min-h-[2.5rem]">
+          {submission.instructions ? (
+            <p className="text-sm text-gray-600 line-clamp-2">
+              {submission.instructions}
+            </p>
+          ) : (
+            <p className="text-sm text-gray-400 italic">
+              No instructions provided
+            </p>
+          )}
+        </div>
 
         {/* Meta Info */}
         <div className="flex flex-wrap gap-4 mb-4 pb-4 border-b border-gray-100">

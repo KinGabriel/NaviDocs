@@ -389,7 +389,6 @@ export const fetchApproversAPI = async (_schoolIgnored) => {
   }
 };
 
-// REPLACE WITH ACTUAL BACKEND ENDPOINTS IF DIFFERENT - I TRIED LANG HEHE -KOLS
 /**
  * Rename a template
  * @param {string} templateId - The ID of the template to rename
