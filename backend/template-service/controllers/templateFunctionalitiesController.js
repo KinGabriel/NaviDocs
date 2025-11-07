@@ -294,17 +294,34 @@ export const deleteTemplate = async (req, res) => {
       });
     }
 
-    // Owner proceed to delete
+    // Capture thumbnail URL before deleting template doc
+    const originalThumbnailUrl = template.thumbnailUrl || null;
+
+    // Owner proceed to delete template document first (DB)
     await Template.findByIdAndDelete(req.params.id);
 
-    //  delete the thumbnail from the file-service if present
     try {
-      const fileServerUrl = process.env.FILE_SERVICE_URL || 'http://localhost:5005';
-      if (template.thumbnailUrl) {
-        // file-service expects DELETE /api/files/delete with JSON body { filePath }
-        const filePath = template.thumbnailUrl;
-        await axios.delete(fileServerUrl + '/api/files/delete', { data: { filePath } });
-        console.log(`Thumbnail deleted from file-service: ${filePath}`);
+      if (originalThumbnailUrl) {
+        const fileServerUrl = process.env.FILE_SERVICE_URL || 'http://localhost:5005';
+        let normalizedPath = null;
+        if (/^https?:\/\//i.test(originalThumbnailUrl)) {
+          // Extract the /uploads/... tail
+            const m = originalThumbnailUrl.match(/\/uploads[^?\s#]*/i);
+            if (m) normalizedPath = m[0];
+        } else if (originalThumbnailUrl.startsWith('/uploads/')) {
+          normalizedPath = originalThumbnailUrl;
+        }
+        // Fallback: attempt to trim leading domain-esque portion
+        if (!normalizedPath) {
+          const idx = originalThumbnailUrl.indexOf('/uploads/');
+          if (idx !== -1) normalizedPath = originalThumbnailUrl.slice(idx);
+        }
+        if (normalizedPath) {
+          await axios.delete(fileServerUrl + '/api/files/delete', { data: { filePath: normalizedPath } });
+          console.log(`Thumbnail deleted from file-service: ${normalizedPath}`);
+        } else {
+          console.warn('Thumbnail deletion skipped: could not normalize path from', originalThumbnailUrl);
+        }
       }
     } catch (err) {
       console.error('Error deleting thumbnail from file-service:', err?.message || err);
