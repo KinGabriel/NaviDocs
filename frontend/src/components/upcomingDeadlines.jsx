@@ -4,7 +4,7 @@ import StatusBadge from "./statusBadge";
 
 export default function UpcomingDeadlines({
   deadlines = [],
-  title = "Deadlines",
+  title = "DEADLINES",
   icon = "📌",
   formatDate,
   className = "",
@@ -29,7 +29,7 @@ export default function UpcomingDeadlines({
   return (
     <div className={`space-y-6 ${className}`}>
       <div className="bg-white shadow-sm rounded-lg border border-gray-100
-        h-[24rem] flex flex-col">
+        h-[23rem] flex flex-col">
 
         {/* Header */}
         <div className="bg-[#FBFBFB] px-4 md:px-6 py-3 md:py-4
