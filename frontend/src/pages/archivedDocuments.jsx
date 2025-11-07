@@ -1,25 +1,64 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import Header from "../layout/headers/header";
 import Sidebar from "../layout/sidebars/sidebar";
 import useUser from "../hooks/useUser";
 import SearchBar from "../components/searchbar";
 import Table from "../components/table";
-import DocumentCard from "../components/cards/documentCard";
 import usePagination from "../hooks/usePagination";
 import Loader from "../components/loader";
 import { listDocumentsAPI } from "../api/documentsAPI";
 
 export default function ArchivedDocuments() {
   const user = useUser();
-  const navigate = useNavigate();
 
   const PAGE_SIZE = 8;
   const [search, setSearch] = useState("");
   const [archivedDocs, setArchivedDocs] = useState([]);
   const [archivedLoading, setArchivedLoading] = useState(false);
   const [archivedTotalPages, setArchivedTotalPages] = useState(1);
+  const [rowBusy, setRowBusy] = useState(null);
   const pagination = usePagination(archivedTotalPages, 1);
+
+  // -- Actions (safe dynamic import so missing exports won't crash the app) --
+  const handleUnarchive = async (doc) => {
+    const id = doc?._id || doc?.id;
+    if (!id) return;
+    setRowBusy(id);
+    try {
+      const mod = await import("../api/documentsAPI").catch(() => ({}));
+      const fn = mod.restoreDocumentAPI;
+      if (typeof fn === "function") {
+        await fn(id);
+      }
+      // Optimistic UI: remove from list either way
+      setArchivedDocs((prev) => prev.filter((d) => (d._id || d.id) !== id));
+    } catch (e) {
+      console.error("Failed to unarchive:", e);
+    } finally {
+      setRowBusy(null);
+    }
+  };
+
+  const handlePermanentDelete = async (doc) => {
+    const id = doc?._id || doc?.id;
+    if (!id) return;
+    if (!window.confirm("Permanently delete this document? This cannot be undone.")) return;
+
+    setRowBusy(id);
+    try {
+      const mod = await import("../api/documentsAPI").catch(() => ({}));
+      const fn = mod.permanentlyDeleteDocumentAPI;
+      if (typeof fn === "function") {
+        await fn(id);
+      }
+      // Optimistic UI: remove from list either way
+      setArchivedDocs((prev) => prev.filter((d) => (d._id || d.id) !== id));
+    } catch (e) {
+      console.error("Failed to permanently delete:", e);
+    } finally {
+      setRowBusy(null);
+    }
+  };
 
   const archivedColumns = [
     {
@@ -32,9 +71,7 @@ export default function ArchivedDocuments() {
       label: "Assigned To",
       render: (row) => {
         const list = row.assignedNames || row.assigned || [];
-        if (Array.isArray(list) && list.length) {
-          return list.filter(Boolean).join(", ");
-        }
+        if (Array.isArray(list) && list.length) return list.filter(Boolean).join(", ");
         return row.createdByName || row.created_by_name || "-";
       },
     },
@@ -49,11 +86,41 @@ export default function ArchivedDocuments() {
           : "-",
     },
     {
-      key: "actions",
+      key: "action",
       label: "Actions",
-      render: () => (
-        <span className="text-gray-400 text-sm select-none">No actions</span>
-      ),
+      render: (row) => {
+        const busy = rowBusy === (row._id || row.id);
+        return (
+          <div className="inline-flex items-center gap-2 whitespace-nowrap pl-2">
+            <button 
+              type="button"
+              onClick={() => handleUnarchive(row)}
+              disabled={busy}
+              className={`px-3 py-1 rounded text-xs font-semibold border ${
+                busy
+                  ? "bg-green-100 text-green-500 opacity-60 cursor-not-allowed"
+                  : "bg-green-100 text-green-700 hover:bg-green-200"
+              }`}
+              title="Unarchive"
+            >
+              Unarchive
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePermanentDelete(row)}
+              disabled={busy}
+              className={`px-3 py-1 rounded text-xs font-semibold border ${
+                busy
+                  ? "bg-red-100 text-red-500 opacity-60 cursor-not-allowed"
+                  : "bg-red-100 text-red-700 hover:bg-red-200"
+              }`}
+              title="Permanently delete"
+            >
+              Delete
+            </button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -64,7 +131,7 @@ export default function ArchivedDocuments() {
       const params = {
         limit: PAGE_SIZE,
         page: pagination.currentPage,
-        deleted: true, // still using deleted=true to pull soft-deleted docs
+        deleted: true, // soft-deleted = archived
         search: search?.trim() || undefined,
       };
       const result = await listDocumentsAPI(params);
@@ -102,6 +169,9 @@ export default function ArchivedDocuments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, search, pagination.currentPage]);
 
+  // Map _id → id so your Table has a stable key
+  const rows = archivedDocs.map((d) => ({ id: d._id || d.id, ...d }));
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
@@ -118,13 +188,12 @@ export default function ArchivedDocuments() {
                       rounded-none lg:rounded-xl"
         >
           <div className="flex-1 px-0 lg:px-1 py-5">
-            {/* Page title */}
             <h1 className="text-2xl lg:text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">
               ARCHIVED DOCUMENTS
             </h1>
             <div className="w-24 lg:w-30 h-1 bg-yellow-400 mb-4 lg:mb-6 rounded" />
 
-            {/* Controls: search  */}
+            {/* Controls: search */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 mb-4">
               <div className="w-full sm:w-64">
                 <SearchBar
@@ -135,14 +204,14 @@ export default function ArchivedDocuments() {
               </div>
             </div>
 
-            {/* Content: table only */}
+            {/* Content: table */}
             {archivedLoading ? (
               <div className="w-full flex justify-center py-10">
                 <Loader message="Loading archived documents..." />
               </div>
             ) : (
               <div className="w-full overflow-x-auto rounded-lg border border-gray-200 sm:border-0 sm:overflow-visible sm:rounded-none">
-                <Table columns={archivedColumns} data={archivedDocs} />
+                <Table columns={archivedColumns} data={rows} />
               </div>
             )}
 
@@ -158,10 +227,7 @@ export default function ArchivedDocuments() {
 
               {pagination.getPageNumbers().map((num, idx) =>
                 num === "..." ? (
-                  <span
-                    key={idx}
-                    className="px-2 text-gray-400 select-none"
-                  >
+                  <span key={idx} className="px-2 text-gray-400 select-none">
                     ...
                   </span>
                 ) : (
