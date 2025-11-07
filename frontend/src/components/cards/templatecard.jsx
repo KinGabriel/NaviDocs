@@ -75,8 +75,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
       case 'published': return 'bg-blue-100 text-blue-800';
       case 'returned': return 'bg-orange-100 text-orange-800';
       case 'rejected': return 'bg-red-100 text-red-800';
-      case 'assigned': return 'bg-purple-100 text-purple-800';
-      case 'endorsed': return 'bg-teal-100 text-teal-800';
+      case 'endorsed': return 'bg-purple-100 text-purple-800';
       case 'disapproved': return 'bg-rose-100 text-rose-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -319,48 +318,6 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
               </svg>
               <span>Created {formatDate(template.createdAt || template.created_at)}</span>
             </div>
-
-                  {/* Approval role indicators */}
-              {approvalMeta && (
-                <div className="flex items-center gap-2 mt-2">
-                  {['secretary', 'dean'].map((r) => {
-                    // Green if that specific role approved OR if it's fully approved
-                    const approved =
-                      approvalMeta.isFullyApproved || approvalMeta[`${r}Approved`];
-
-                    return (
-                      <div
-                        key={r}
-                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${
-                          approved
-                            ? "bg-green-50 border-green-500 text-green-700"
-                            : "bg-gray-50 border-gray-300 text-gray-500"
-                        }`}
-                        title={`${r.charAt(0).toUpperCase() + r.slice(1)} ${
-                          approved ? "approved" : "pending"
-                        }`}
-                      >
-                        <span
-                          className={`w-2 h-2 rounded-full ${
-                            approved ? "bg-green-500" : "bg-gray-300"
-                          }`}
-                        ></span>
-                        {r === "secretary" ? "Sec" : "Dean"}
-                      </div>
-                    );
-                  })}
-
-                  {/* Fully approved indicator (optional 2/2 badge to indicate good for publishing) */}
-                  {approvalMeta.isFullyApproved && !["published"].includes(status) && (
-                    <div
-                      className="text-[10px] text-green-600 font-semibold"
-                      title="Fully approved awaiting publish"
-                    >
-                      2/2
-                    </div>
-                  )}
-                </div>
-              )}
           </div>
 
           {/* 3-dot menu with dropdown */}
