@@ -73,7 +73,7 @@ export const createTemplate = async (req, res) => {
       console.error('Failed to create initial template version', e);
     }
 
-    // Attempt thumbnail generation (non-blocking strategy but we await once for immediate availability)
+    // Attempt thumbnail generation
     try {
       await generateTemplateThumbnailInternal(template);
     } catch (e) {
