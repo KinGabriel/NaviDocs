@@ -154,10 +154,9 @@ export default function FacultySubmissions() {
     [filtered, pagination.currentPage]
   );
 
-  const handleViewSubmission = (submissionId) => {
-    navigate(`/faculty/document-workflow/${submissionId}`);
+  const handleViewSubmission = (binId, submissionId) => {
+    navigate(`/faculty/document-workflow/${binId}`);
   };
-
 
   if (loading) {
     return (
@@ -359,7 +358,7 @@ export default function FacultySubmissions() {
                   <SubmissionCard
                     key={submission.id}
                     submission={submission}
-                    onView={() => handleViewSubmission(submission.id)}
+                    onView={() => handleViewSubmission(submission.binId, submission.id)}
                   />
                 ))}
               </div>
