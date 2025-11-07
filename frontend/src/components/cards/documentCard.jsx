@@ -4,7 +4,6 @@ import ShareDocumentModal from '../modals/shareDocumentModal';
 import DuplicateModal from '../modals/duplicateModal';
 import DeleteModal from '../modals/deleteModal';
 import { toast } from 'react-hot-toast';
-
 import { assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
 import { renameDocumentAPI, deleteDocumentAPI,duplicateDocumentAPI, shareDocumentAPI } from "../../api/documentsAPI";
 
