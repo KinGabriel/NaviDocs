@@ -18,6 +18,7 @@ export default function AdminLoginActivity() {
   const itemsPerPage = 10;
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   const statusOptions = ["All Status", "Active", "Logged Out"];
   const [statusFilter, setStatusFilter] = useState("All Status");
@@ -30,7 +31,6 @@ export default function AdminLoginActivity() {
   ];
   const [roleFilter, setRoleFilter] = useState("All Roles");
 
-  // Build params for API
   const apiParams = useMemo(() => {
     const params = { page: currentPage, limit: itemsPerPage };
     if (search && search.trim()) params.search = search.trim();
@@ -60,12 +60,14 @@ export default function AdminLoginActivity() {
           }));
           setLogs(mapped);
           setTotalPages(Number(res?.pages || 1));
+          setTotalItems(Number(res?.total || mapped.length)); // ✅ Total logs tracking
         }
       } catch (e) {
         if (!cancelled) {
           setError(e?.message || "Failed to fetch login activity");
           setLogs([]);
           setTotalPages(1);
+          setTotalItems(0);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -75,7 +77,6 @@ export default function AdminLoginActivity() {
     return () => { cancelled = true; };
   }, [apiParams]);
 
-  // whenever filters change, reset page to 1
   useEffect(() => {
     setCurrentPage(1);
   }, [search, selectedDate, statusFilter, roleFilter]);
@@ -103,66 +104,76 @@ export default function AdminLoginActivity() {
   const handlePrev = () => currentPage > 1 && setCurrentPage(currentPage - 1);
   const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
 
+  /** ✅ Pagination with Ellipsis */
+  const getPageNumbers = () => {
+    const total = totalPages;
+    const current = currentPage;
+    const maxDisplayed = 5;
+    let pages = [];
+
+    if (total <= maxDisplayed) {
+      for (let i = 1; i <= total; i++) pages.push(i);
+    } else {
+      if (current <= 3) {
+        pages = [1, 2, 3, "...", total];
+      } else if (current >= total - 2) {
+        pages = [1, "...", total - 2, total - 1, total];
+      } else {
+        pages = [1, "...", current - 1, current, current + 1, "...", total];
+      }
+    }
+    return pages;
+  };
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
-        
+
         <Sidebar user={user} active="Login Activity" />
 
-        {/* MAIN CONTENT */}
         <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
           <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 lg:p-10">
 
-            {/* Title */}
             <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black tracking-widest uppercase mb-2">
               Login Activity
             </h2>
             <div className="h-1 bg-yellow-500 mb-6 rounded w-20 sm:w-24"></div>
 
-            {/* Filters row */}
+            {/* Filter Row */}
             <div className="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap sm:items-center gap-3 mb-4">
-              {/* Status filter */}
-              <div className="w-full sm:w-auto">
-                <Dropdown
-                  value={statusFilter}
-                  onChange={(value) => {
-                    setStatusFilter(value);
-                    setCurrentPage(1);
-                  }}
-                  options={statusOptions}
-                  width="w-full sm:w-52"
-                />
-              </div>
+              
+              <Dropdown
+                value={statusFilter}
+                onChange={(value) => {
+                  setStatusFilter(value);
+                  setCurrentPage(1);
+                }}
+                options={statusOptions}
+                width="w-full sm:w-52"
+              />
 
-              {/* Role filter */}
-              <div className="w-full sm:w-auto">
-                <Dropdown
-                  value={roleFilter}
-                  onChange={(value) => {
-                    setRoleFilter(value);
-                    setCurrentPage(1);
-                  }}
-                  options={roleOptions}
-                  width="w-full sm:w-64"
-                />
-              </div>
+              <Dropdown
+                value={roleFilter}
+                onChange={(value) => {
+                  setRoleFilter(value);
+                  setCurrentPage(1);
+                }}
+                options={roleOptions}
+                width="w-full sm:w-64"
+              />
 
-              {/* Date picker */}
-              <div className="w-full sm:w-auto">
-                <input
-                  type="date"
-                  className="h-10 w-full sm:w-36 border border-gray-300 rounded-lg px-3 text-sm
-                             focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                />
-              </div>
+              <input
+                type="date"
+                className="h-10 w-full sm:w-36 border border-gray-300 rounded-lg px-3 text-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={selectedDate}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+              />
 
-              {/* Search (goes right on desktop, full width on mobile) */}
               <div className="w-full sm:flex-1 flex sm:justify-end">
                 <div className="w-full sm:w-64">
                   <SearchBar
@@ -176,7 +187,7 @@ export default function AdminLoginActivity() {
               </div>
             </div>
 
-            {/* Table / Loader */}
+            {/* Table */}
             {loading ? (
               <div className="min-h-[200px] flex items-center justify-center">
                 <Loader message="Fetching Activity Logs..." />
@@ -187,60 +198,33 @@ export default function AdminLoginActivity() {
                   <table className="w-full min-w-[600px]">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
-                        <th className="text-left px-4 sm:px-6 py-3 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-600">
-                          Email Address
-                        </th>
-                        <th className="text-left px-4 sm:px-6 py-3 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-600">
-                          Role
-                        </th>
-                        <th className="text-left px-4 sm:px-6 py-3 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-600">
-                          IP Address
-                        </th>
-                        <th className="text-left px-4 sm:px-6 py-3 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-600">
-                          Login Time
-                        </th>
-                        <th className="text-left px-4 sm:px-6 py-3 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-600">
-                          Logout Time
-                        </th>
+                        <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Email Address</th>
+                        <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Role</th>
+                        <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">IP Address</th>
+                        <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Login Time</th>
+                        <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Logout Time</th>
                       </tr>
                     </thead>
-
                     <tbody className="bg-white divide-y divide-gray-200">
                       {currentLogs.length > 0 ? (
                         currentLogs.map((log) => (
-                          <tr
-                            key={log.id}
-                            className="hover:bg-blue-50 transition-colors text-sm"
-                          >
-                            <td className="px-4 sm:px-6 py-4 text-gray-900 font-medium break-all">
-                              {log.email}
-                            </td>
-                            <td className="px-4 sm:px-6 py-4 text-gray-700 whitespace-nowrap">
-                              {log.role}
-                            </td>
-                            <td className="px-4 sm:px-6 py-4 text-gray-700 break-all">
-                              {log.ip}
-                            </td>
-                            <td className="px-4 sm:px-6 py-4 text-gray-700 whitespace-nowrap">
-                              {formatTimestamp(log.login_time) || '—'}
-                            </td>
+                          <tr key={log.id} className="hover:bg-blue-50 transition-colors text-sm">
+                            <td className="px-4 sm:px-6 py-4 text-gray-900 font-medium break-all">{log.email}</td>
+                            <td className="px-4 sm:px-6 py-4 text-gray-700 whitespace-nowrap">{log.role}</td>
+                            <td className="px-4 sm:px-6 py-4 text-gray-700 break-all">{log.ip}</td>
+                            <td className="px-4 sm:px-6 py-4 text-gray-700 whitespace-nowrap">{formatTimestamp(log.login_time) || '—'}</td>
                             <td className="px-4 sm:px-6 py-4 text-gray-700 whitespace-nowrap">
                               {log.logout_time ? (
                                 formatTimestamp(log.logout_time)
                               ) : (
-                                <span className="text-blue-700 font-medium">
-                                  Active
-                                </span>
+                                <span className="text-blue-700 font-medium">Active</span>
                               )}
                             </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td
-                            colSpan="5"
-                            className="text-center py-4 text-gray-500 text-sm"
-                          >
+                          <td colSpan="5" className="text-center py-4 text-gray-500 text-sm">
                             No results found
                           </td>
                         </tr>
@@ -249,7 +233,13 @@ export default function AdminLoginActivity() {
                   </table>
                 </div>
 
-                {/* Pagination */}
+                {/* ✅ Results Indicator */}
+                <div className="text-center text-gray-600 text-sm mt-4">
+                  Showing {(currentPage - 1) * itemsPerPage + 1}–
+                  {(currentPage - 1) * itemsPerPage + currentLogs.length} of {totalItems} logs
+                </div>
+
+                {/* ✅ Updated Pagination */}
                 <div className="flex flex-wrap justify-center items-center mt-6 gap-2 text-sm">
                   <button
                     onClick={handlePrev}
@@ -259,19 +249,23 @@ export default function AdminLoginActivity() {
                     Prev
                   </button>
 
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setCurrentPage(i + 1)}
-                      className={`px-3 py-1 rounded border ${
-                        currentPage === i + 1
-                          ? "bg-blue-600 text-white"
-                          : "bg-white text-gray-700 hover:bg-gray-100"
-                      }`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
+                  {getPageNumbers().map((num, idx) =>
+                    num === "..." ? (
+                      <span key={idx} className="px-2 text-gray-400">...</span>
+                    ) : (
+                      <button
+                        key={num}
+                        onClick={() => setCurrentPage(num)}
+                        className={`px-3 py-1 rounded border ${
+                          currentPage === num
+                            ? "bg-blue-600 text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-100"
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    )
+                  )}
 
                   <button
                     onClick={handleNext}
@@ -285,7 +279,6 @@ export default function AdminLoginActivity() {
             )}
           </div>
         </main>
-        {/* /MAIN CONTENT */}
       </div>
     </div>
   );
