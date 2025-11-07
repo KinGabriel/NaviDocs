@@ -58,46 +58,9 @@ export default function FacultySubmissionView() {
     return () => { mounted = false; };
   }, [id, user?._id, user?.id]);
 
-  // If submission not found
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-200 flex flex-col">
-        <Header user={user} />
-        <div className="flex flex-1">
-          <Sidebar user={user} />
-          <div className="flex-1 flex flex-col items-center justify-center p-8">
-            <FileText size={64} className="text-gray-300 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Loading…</h2>
-            <p className="text-gray-600">Please wait</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!bin || !assignedItem) {
-    return (
-      <div className="min-h-screen bg-gray-200 flex flex-col">
-        <Header user={user} />
-        <div className="flex flex-1">
-          <Sidebar user={user} />
-          <div className="flex-1 flex flex-col items-center justify-center p-8">
-            <FileText size={64} className="text-gray-300 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Submission Not Found</h2>
-            <p className="text-gray-600 mb-6">{error || "The submission you're looking for doesn't exist."}</p>
-            <button
-              onClick={() => navigate(-1)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Go Back
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const submission = useMemo(() => {
+    if (!bin || !assignedItem) return null;
+
     const assignedAt = bin?.createdAt || bin?.created_at;
     const deadline = bin?.deadline || null;
     const status = assignedItem?.status || 'assigned';
@@ -114,10 +77,6 @@ export default function FacultySubmissionView() {
       submittedFiles: [],
     };
   }, [assignedItem, bin]);
-
-  const daysUntilDue = Math.ceil(((submission.deadline ? new Date(submission.deadline) : new Date()) - new Date()) / (1000 * 60 * 60 * 24));
-  const isOverdue = !!submission.deadline && new Date(submission.deadline) < new Date() && submission.status !== 'submitted';
-  const isSubmitted = submission.status === "submitted";
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
@@ -169,6 +128,47 @@ export default function FacultySubmissionView() {
   navigate(`/submissions/${submissionId}`);
   };
 
+    if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
+          <div className="flex-1 flex flex-col items-center justify-center p-8">
+            <FileText size={64} className="text-gray-300 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Loading…</h2>
+            <p className="text-gray-600">Please wait</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!bin || !assignedItem || !submission) {
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
+          <div className="flex-1 flex flex-col items-center justify-center p-8">
+            <FileText size={64} className="text-gray-300 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Submission Not Found</h2>
+            <p className="text-gray-600 mb-6">{error || "The submission you're looking for doesn't exist."}</p>
+            <button
+              onClick={() => navigate(-1)}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const daysUntilDue = Math.ceil(((submission.deadline ? new Date(submission.deadline) : new Date()) - new Date()) / (1000 * 60 * 60 * 24));
+  const isOverdue = !!submission.deadline && new Date(submission.deadline) < new Date() && submission.status !== 'submitted';
+  const isSubmitted = submission.status === "submitted";
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
