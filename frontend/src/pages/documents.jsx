@@ -343,7 +343,7 @@ export default function GlobalTemplates() {
 
               {/* Filters / search / view toggle */}
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-end gap-3 w-full">
-                {/* row 1: trash + dropdowns + (desktop toggle) */}
+                {/* row 1: archive + dropdowns + (desktop toggle) */}
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Archived Documents */}
                   <button
@@ -384,6 +384,15 @@ export default function GlobalTemplates() {
                     </svg>
                   </button>
 
+                  {/* search full width on mobile, fixed on desktop */}
+                  <div className="w-full sm:w-64 lg:w-64">
+                    <SearchBar
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search documents..."
+                    />
+                  </div>
+
                   <Dropdown
                     options={["All", ...Object.keys(schoolIdentifiers)]}
                     value={selectedSchool}
@@ -412,15 +421,6 @@ export default function GlobalTemplates() {
 
                 {/* row 2: search + (mobile/tablet toggle) */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
-                  {/* search full width on mobile, fixed on desktop */}
-                  <div className="w-full sm:w-64 lg:w-64">
-                    <SearchBar
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search documents..."
-                    />
-                  </div>
-
                   {/* toggle <lg */}
                   <div className="flex sm:justify-start lg:hidden">
                     <ViewToggle mode={viewMode} onChange={setViewMode} />
