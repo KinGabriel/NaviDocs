@@ -15,7 +15,6 @@ export default function ArchivedDocuments() {
   const navigate = useNavigate();
 
   const PAGE_SIZE = 8;
-  const [viewMode, setViewMode] = useState("grid"); // "table" | "grid"
   const [search, setSearch] = useState("");
   const [archivedDocs, setArchivedDocs] = useState([]);
   const [archivedLoading, setArchivedLoading] = useState(false);
@@ -125,64 +124,26 @@ export default function ArchivedDocuments() {
             </h1>
             <div className="w-24 lg:w-30 h-1 bg-yellow-400 mb-4 lg:mb-6 rounded" />
 
-            {/* Controls: search + view toggle */}
-            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-              <div className="flex-1 hidden sm:block" />
-
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                <div className="w-full sm:w-64">
-                  <SearchBar
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search archived documents..."
-                  />
-                </div>
-
-                <div className="self-start sm:self-auto">
-                  <ViewToggle mode={viewMode} onChange={setViewMode} />
-                </div>
+            {/* Controls: search  */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 mb-4">
+              <div className="w-full sm:w-64">
+                <SearchBar
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search archived documents..."
+                />
               </div>
             </div>
 
-            {/* Content section */}
+            {/* Content: table only */}
             {archivedLoading ? (
               <div className="w-full flex justify-center py-10">
                 <Loader message="Loading archived documents..." />
               </div>
             ) : (
-              <>
-                {viewMode === "table" ? (
-                  <div className="w-full overflow-x-auto rounded-lg border border-gray-200 sm:border-0 sm:overflow-visible sm:rounded-none">
-                    <Table columns={archivedColumns} data={archivedDocs} />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                    {archivedDocs.length === 0 ? (
-                      <div className="col-span-full text-center py-8">
-                        <p className="text-gray-600">No archived documents</p>
-                      </div>
-                    ) : (
-                      archivedDocs.map((doc, i) => {
-                        const id = doc._id || i;
-                        return (
-                          <div key={id} className="relative">
-                            <span className="absolute top-2 right-2 z-10 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
-                              Archived
-                            </span>
-                            <DocumentCard
-                              document={doc}
-                              user={user}
-                              onSelect={() => {
-                                /* read-only in archive */
-                              }}
-                            />
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </>
+              <div className="w-full overflow-x-auto rounded-lg border border-gray-200 sm:border-0 sm:overflow-visible sm:rounded-none">
+                <Table columns={archivedColumns} data={archivedDocs} />
+              </div>
             )}
 
             {/* Pagination */}
