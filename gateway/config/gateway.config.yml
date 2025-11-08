@@ -9,6 +9,7 @@ apiEndpoints:
       - /api/auth/logout
       - /api/auth/logs
       - /api/auth/verify
+      - /api/auth/forgot-password/*
 
 
 
