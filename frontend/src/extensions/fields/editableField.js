@@ -5,7 +5,10 @@ export const EditableField = Node.create({
   name: "editableField",
   group: "inline",
   inline: true,
-  atom: true, // makes it behave as a single unit (not editable inside)
+  // Render from node content so textContent updates are visible
+  // (no longer an atom)
+  atom: false,
+  content: 'text*',
   selectable: true,
 
   addAttributes() {
@@ -34,12 +37,7 @@ export const EditableField = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const { key, type, placeholder, tags = [] } = HTMLAttributes;
-    const tagColors =
-      Array.isArray(tags) && tags.length > 0
-        ? `data-tags="${tags.join(",")}"`
-        : "";
-
+    const { key, type, placeholder } = HTMLAttributes;
     const baseAttrs = {
       "data-node": "editable-field",
       "data-field": key,
@@ -52,7 +50,6 @@ export const EditableField = Node.create({
       tabindex: "0",
       role: "textbox",
       "aria-label": `Editable Field: ${key}`,
-      ...tagColors,
     };
 
     if (type === "image") {
@@ -78,7 +75,7 @@ export const EditableField = Node.create({
           class: "nd-editable-field__text",
           "data-placeholder": placeholder,
         },
-        placeholder,
+        0,
       ],
     ];
   },

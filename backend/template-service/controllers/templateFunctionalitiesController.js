@@ -1,7 +1,7 @@
 
 import Template from "../models/templateModel.js";
 import { getSchoolCode, buildApprovalMeta, statusQuery } from "../utils/templateUtils.js";
-import { generateTemplateThumbnail } from "../utils/thumbnailUtils.js";
+import { generateTemplateThumbnail, generateTemplateThumbnailInternal } from "../utils/thumbnailUtils.js";
 import axios from "axios";
 import { createTemplateVersion } from './templateVersionController.js';
 import { fetchUserInfoById } from '../utils/userServiceUtils.js';
@@ -29,6 +29,21 @@ export const createTemplate = async (req, res) => {
       delete templateData.logoConfig;
     }
 
+    // simple document_size to structured pageSetup if needed
+    try {
+      const hasSetup = templateData.pageSetup && typeof templateData.pageSetup === 'object';
+      const sizeRaw = templateData.document_size || templateData.paper_size || templateData.page_size;
+      if (!hasSetup && sizeRaw) {
+        const s = String(sizeRaw).toLowerCase();
+        const paperSize = s === 'legal' ? 'Legal' : s === 'letter' ? 'Letter' : 'A4';
+        templateData.pageSetup = {
+          paperSize,
+          orientation: 'Portrait',
+          margins: { top: 1, bottom: 1, left: 1, right: 1 },
+        };
+      }
+    } catch {}
+
     // Accept only pages_json (array of page JSONs) and body (HTML)
     if (!Array.isArray(templateData.pages_json)) {
       templateData.pages_json = [
@@ -46,7 +61,8 @@ export const createTemplate = async (req, res) => {
 
   template.school = req.user?.school || req.user?.role?.school || '';
     // Remove transient / client-only fields
-    delete template.school_identifier; // not stored separately
+   // delete template.school_identifier; // not stored separately
+    //delete template.document_size; // normalized into pageSetup 
 
     await template.save();
 
@@ -55,6 +71,13 @@ export const createTemplate = async (req, res) => {
       await createTemplateVersion({ templateId: template._id, snapshot: template.toObject(), userId: req.user?.id, note: 'Initial version' });
     } catch (e) {
       console.error('Failed to create initial template version', e);
+    }
+
+    // Attempt thumbnail generation
+    try {
+      await generateTemplateThumbnailInternal(template);
+    } catch (e) {
+      console.error('[Thumbnail] createTemplate generation failed', e?.message || e);
     }
 
     res.status(201).json({
@@ -187,8 +210,12 @@ export const updateTemplate = async (req, res) => {
       });
     }
     */
-  // Trigger thumbnail generation after update using the updated document
-  await generateTemplateThumbnailInternal(updatedTemplate || template);
+  // Trigger thumbnail generation after update using the updated document (best-effort)
+  try {
+    await generateTemplateThumbnailInternal(updatedTemplate || template);
+  } catch (e) {
+    console.error('[Thumbnail] updateTemplate generation failed', e?.message || e);
+  }
     res.status(200).json({
       success: true,
       message: 'Template updated successfully',
@@ -267,17 +294,34 @@ export const deleteTemplate = async (req, res) => {
       });
     }
 
-    // Owner proceed to delete
+    // Capture thumbnail URL before deleting template doc
+    const originalThumbnailUrl = template.thumbnailUrl || null;
+
+    // Owner proceed to delete template document first (DB)
     await Template.findByIdAndDelete(req.params.id);
 
-    //  delete the thumbnail from the file-service if present
     try {
-      const fileServerUrl = process.env.FILE_SERVICE_URL || 'http://localhost:5005';
-      if (template.thumbnailUrl) {
-        // file-service expects DELETE /api/files/delete with JSON body { filePath }
-        const filePath = template.thumbnailUrl;
-        await axios.delete(fileServerUrl + '/api/files/delete', { data: { filePath } });
-        console.log(`Thumbnail deleted from file-service: ${filePath}`);
+      if (originalThumbnailUrl) {
+        const fileServerUrl = process.env.FILE_SERVICE_URL || 'http://localhost:5005';
+        let normalizedPath = null;
+        if (/^https?:\/\//i.test(originalThumbnailUrl)) {
+          // Extract the /uploads/... tail
+            const m = originalThumbnailUrl.match(/\/uploads[^?\s#]*/i);
+            if (m) normalizedPath = m[0];
+        } else if (originalThumbnailUrl.startsWith('/uploads/')) {
+          normalizedPath = originalThumbnailUrl;
+        }
+        // Fallback: attempt to trim leading domain-esque portion
+        if (!normalizedPath) {
+          const idx = originalThumbnailUrl.indexOf('/uploads/');
+          if (idx !== -1) normalizedPath = originalThumbnailUrl.slice(idx);
+        }
+        if (normalizedPath) {
+          await axios.delete(fileServerUrl + '/api/files/delete', { data: { filePath: normalizedPath } });
+          console.log(`Thumbnail deleted from file-service: ${normalizedPath}`);
+        } else {
+          console.warn('Thumbnail deletion skipped: could not normalize path from', originalThumbnailUrl);
+        }
       }
     } catch (err) {
       console.error('Error deleting thumbnail from file-service:', err?.message || err);
@@ -866,23 +910,12 @@ export const duplicateTemplate = async (req, res) => {
   }
 };
 
-// Helper to generate and save thumbnail URL to template
-export const generateTemplateThumbnailInternal = async (template) => {
-  try {
-    const url = await generateTemplateThumbnail(template);
-    if (url) {
-      template.thumbnailUrl = url;
-      await template.save();
-    }
-    return url;
-  } catch (error) {
-    console.error("Error generating thumbnail (internal):", error);
-    return null;
-  }
-};
+// NOTE: generateTemplateThumbnailInternal is now imported from utils/thumbnailUtils.
+// The previous local definition was removed to avoid duplicate identifier errors and to
+// ensure a single, consistent implementation is used across controllers.
 
 /**
- * @desc Archive template
+ * @desc Archive template (set isArchived=true). Use PATCH /api/templates/:id/unarchive to restore.
  * @route PATCH /api/templates/:id/archive
  * @access Private (Creator, Admin, or Assigned)
  */
@@ -937,6 +970,39 @@ export const archiveTemplate = async (req, res) => {
   } catch (error) {
     console.error('Error archiving template:', error);
     res.status(500).json({ success: false, message: 'Failed to archive template', error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
+  }
+};
+
+/**
+ * @desc Unarchive a previously archived template
+ * @route PATCH /api/templates/:id/unarchive
+ * @access Private (Creator or Admin only)
+ */
+export const unarchiveTemplate = async (req, res) => {
+  try {
+    const template = await Template.findById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ success: false, message: 'Template not found' });
+    }
+
+    if (!template.isArchived) {
+      return res.status(400).json({ success: false, message: 'Template is not archived' });
+    }
+
+    const requesterId = req.user && req.user.id ? String(req.user.id) : null;
+    const isOwner = template.created_by && String(template.created_by) === requesterId;
+    const isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'Admin' || req.user.isAdmin);
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Not authorized to unarchive this template' });
+    }
+
+    template.isArchived = false; // restore
+    await template.save();
+    return res.status(200).json({ success: true, message: 'Template unarchived successfully', template });
+  } catch (error) {
+    console.error('Error unarchiving template:', error);
+    res.status(500).json({ success: false, message: 'Failed to unarchive template', error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
   }
 };
 

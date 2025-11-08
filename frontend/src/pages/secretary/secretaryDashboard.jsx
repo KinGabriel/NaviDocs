@@ -1,13 +1,34 @@
-import React from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
+import { StatusBadge } from "../../utils/formatters";
 import Greeting from "../../components/greeting";
 import UpcomingDeadlines from "../../components/upcomingDeadlines";
 import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { StatusBadge } from "../../utils/formatters";
+import { Doughnut } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+} from "chart.js";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+);
 
 export default function SecretaryDashboard() {
   const user = useUser();
@@ -24,8 +45,8 @@ export default function SecretaryDashboard() {
     });
   }
 
-  // Example data
-  const requestedTemplates = [
+  // placeholder data
+  const templates = [
     {
       id: 1,
       title: "Research Proposal Template",
@@ -64,51 +85,15 @@ export default function SecretaryDashboard() {
     },
   ];
 
-
-  const recentlySubmittedTemplates = [
-    {
-      id: 1,
-      code: "DOC-001",
-      rev: "00",
-      date: "2025-01-21",
-      title: "BSCS Capstone Guidelines",
-      createdBy: "Daniel Cruz",
-    },
-    {
-      id: 2,
-      code: "DOC-002",
-      rev: "01",
-      date: "2025-02-14",
-      title: "Student Handbook 2025",
-      createdBy: "Sarah Dela Cruz",
-    },
-    {
-      id: 3,
-      code: "DOC-003",
-      rev: "00",
-      date: "2025-03-09",
-      title: "Faculty Manual",
-      createdBy: "Mae Santos",
-    },
-    {
-      id: 4,
-      code: "DOC-004",
-      rev: "00",
-      date: "2025-03-09",
-      title: "Faculty Manual (Updated)",
-      createdBy: "Mae Santos",
-    },
-    {
-      id: 5,
-      code: "DOC-005",
-      rev: "00",
-      date: "2025-03-09",
-      title: "Faculty Manual (Sec Dept)",
-      createdBy: "Mae Santos",
-    },
+  const publishedTemplates = [
+    { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
+    { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
+    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
   ];
 
-  const requestedTemplatesColumn = [
+  const templateColumns = [
     { key: "title", label: "Title" },
     { key: "createdBy", label: "Created By" },
     {
@@ -122,7 +107,7 @@ export default function SecretaryDashboard() {
       render: () => (
         <button
           onClick={() => navigate("")}
-          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200 whitespace-nowrap"
+          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
           Review
         </button>
@@ -130,29 +115,19 @@ export default function SecretaryDashboard() {
     },
   ];
 
-  const recentlySubmittedTemplatesColumn = [
+  const publishedTemplatesColumns = [
     { key: "code", label: "Document Code" },
     { key: "rev", label: "Revision No." },
-    {
-      key: "date",
-      label: "Effectivity",
-      render: (row) => formatDate(row.date),
-    },
-    {
-      key: "title",
-      label: "Title",
-      render: (row) => (
-        <span className="truncate block max-w-xs">{row.title}</span>
-      ),
-    },
+    { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
+    { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
     { key: "createdBy", label: "Created By" },
     {
       key: "action",
       label: "Action",
-      render: () => (
+      render: (row) => (
         <button
           onClick={() => navigate("")}
-          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200 whitespace-nowrap"
+          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
           Review
         </button>
@@ -163,115 +138,179 @@ export default function SecretaryDashboard() {
   const upcomingDeadlines = [
     {
       id: 1,
-      title: "Template Review",
-      date: "2025-08-01",
+      title: "Template Review for AY 2025",
+      date: "2025-08-15",
       priority: "Overdue",
-      department: "BS Computer Science",
+      department: "Quality Assurance",
     },
     {
       id: 2,
-      title: "Faculty Performance Reports",
-      date: "2025-08-21",
+      title: "Annual Document Audit",
+      date: "2025-08-28",
       priority: "Due Today",
-      department: "BS Information Technology",
-    },
-    {
-      id: 3,
-      title: "Budget Allocation Review",
-      date: "2025-08-31",
-      priority: "Due This Week",
       department: "Administration",
     },
     {
-      id: 4,
-      title: "Field Trip Agenda Review",
-      date: "2025-09-23",
+      id: 3,
+      title: "Syllabus Submission Check",
+      date: "2025-09-10",
       priority: "Upcoming",
-      department: "BS Information Technology",
+      department: "Academics",
     },
   ];
 
+  const submissionBin = [
+    {
+      id: 1,
+      name: "Syllabus AY 2025",
+      totalDocs: 50,
+      department: 35,
+      date: 10,
+    },
+    {
+      id: 2,
+      name: "Syllabus AY 2025",
+      totalDocs: 50,
+      department: 35,
+      date: 10,
+    },
+    {
+      id: 3,
+      name: "Syllabus AY 2025",
+      totalDocs: 50,
+      department: 35,
+      date: 10,
+    },
+    {
+      id: 4,
+      name: "Syllabus AY 2025",
+      totalDocs: 50,
+      department: 35,
+      date: 10,
+    },
+    {
+      id: 5,
+      name: "Syllabus AY 2025",
+      totalDocs: 50,
+      department: 35,
+      date: 10,
+    },
+  ];
+
+  const submissionBinColumns = [
+    { key: "name", label: "Submission Bin Name" },
+    { key: "totalDocs", label: "Total Docs" },
+    { key: "department", label: "Department" },
+    { key: "date", label: "Date" },
+  ];
+
+  const chartData = {
+    labels: [
+      "Computing and Information Studies",
+      "Management",
+      "Accountancy",
+    ],
+    datasets: [
+      {
+        data: [56, 36, 5],
+        backgroundColor: [
+          "#3B82F6",
+          "#10B981",
+          "#F59E0B",
+        ],
+        borderWidth: 0,
+        cutout: "60%",
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        titleColor: "white",
+        bodyColor: "white",
+        borderColor: "rgba(255, 255, 255, 0.1)",
+        borderWidth: 1,
+      },
+    },
+  };
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
-      {/* header full width */}
+      {/* Global header always on top */}
       <Header user={user} />
 
-      {/* body wrapper: column on mobile, row on desktop */}
-      <div className="flex flex-1 flex-col md:flex-row">
-        {/* leave sidebar behavior as-is (you said it's already responsive) */}
+      {/* Layout: stack on mobile, row on large screens */}
+      <div className="flex flex-col lg:flex-row flex-1">
         <Sidebar user={user} active="Dashboard" />
 
-        {/* main content card */}
-        <main className="flex-1 flex flex-col bg-white shadow rounded-xl mx-4 my-4 md:mx-6 md:mt-8 p-4 md:p-10">
-          <Greeting name={user?.firstname || "Secretary"} />
+        {/* Main content panel with responsive padding/card treatment */}
+        <main
+          className="
+          flex-1 flex flex-col bg-white
+          lg:shadow
+          pt-1 pb-4
+          px-4 sm:px-6 lg:px-8
+          mx-0 lg:mx-6
+          mt-4 lg:mt-8
+          rounded-none lg:rounded-xl
+          w-full max-w-full
+        "
+        >
+          <Greeting name={user?.firstname || "Department Head"} />
 
-          {/* STAT CARDS */}
-          {/* stack vertically on mobile, wrap nicely on tablet, row on desktop */}
-          <div className="w-full mb-8">
-            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:gap-4 gap-4">
-              {/* Upcoming Deadlines */}
-              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1">
-                <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center shrink-0">
-                  <CalendarClock className="h-6 w-6 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-gray-600 mb-1">
-                    Upcoming Deadlines
-                  </div>
-                  <div className="text-3xl font-bold text-gray-900 leading-tight">
-                    1
-                  </div>
-                </div>
+          {/* Stat cards */}
+          <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
+            {/* Upcoming Deadlines */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+                <CalendarClock className="h-6 w-6 text-white" />
               </div>
-
-              {/* Due Today */}
-              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1">
-                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center shrink-0">
-                  <CalendarCheck className="h-6 w-6 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-gray-600 mb-1">
-                    Due Today
-                  </div>
-                  <div className="text-3xl font-bold text-gray-900 leading-tight">
-                    1
-                  </div>
-                </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
               </div>
+            </div>
 
-              {/* Overdue Deadlines */}
-              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1">
-                <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center shrink-0">
-                  <CalendarX className="h-6 w-6 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-gray-600 mb-1">
-                    Overdue Deadlines
-                  </div>
-                  <div className="text-3xl font-bold text-gray-900 leading-tight">
-                    1
-                  </div>
-                </div>
+            {/* Due Today */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                <CalendarCheck className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
+              </div>
+            </div>
+
+            {/* Overdue Deadlines */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                <CalendarX className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
               </div>
             </div>
           </div>
 
-          {/* MAIN GRID SECTION */}
-          {/* mobile: stack vertically
-              md+: 3/1 split (requested templates + deadlines)
-              then recently submitted full width */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 flex-1 w-full">
-            {/* Requested Templates (left block) */}
-            <div className="md:col-span-3 space-y-6 w-full">
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
+            {/* Left side: tables */}
+            <div className="lg:col-span-3 space-y-6">
+              {/* Templates Table */}
               <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
-                {/* header + legend */}
-                <div className="px-3 py-1 bg-gray-50 flex flex-col gap-4 md:flex-row md:items-start md:justify-between rounded-lg">
-                  {/* left: title */}
+                <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
                   <div>
                     <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                      REQUESTED TEMPLATES
+                      RECENTLY SUBMITTED TEMPLATES
                     </h2>
-                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                    <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
                   </div>
 
                   <button
@@ -282,56 +321,112 @@ export default function SecretaryDashboard() {
                   </button>
                 </div>
 
-                {/* table with horizontal scroll support on mobile */}
                 <div className="overflow-x-auto">
-                  <div className="min-w-[600px]">
-                    <Table
-                      columns={requestedTemplatesColumn}
-                      data={requestedTemplates}
-                    />
+                  <Table columns={templateColumns} data={templates} />
+                </div>
+              </div>
+
+              <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
+                <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+                  <div>
+                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                      RECENTLY SUBMITTED BIN
+                    </h2>
+                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <Table
+                    columns={submissionBinColumns}
+                    data={submissionBin}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Right side: deadlines + chart */}
+            <div className="lg:col-span-1 space-y-6">
+              <UpcomingDeadlines
+                deadlines={upcomingDeadlines}
+                formatDate={formatDate}
+              />
+
+              {/* Deadlines Summary Doughnut Chart */}
+              <div className="bg-white shadow-sm rounded-lg border border-gray-100">
+                <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
+                  <h3 className="font-semibold text-sm text-gray-800">
+                    SUBMISSION OVERVIEW
+                  </h3>
+                </div>
+
+                <div className="p-6">
+                  {/* chart container gets fixed height for responsiveness */}
+                  <div className="relative h-40 mb-4">
+                    <Doughnut data={chartData} options={chartOptions} />
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <span className="text-gray-600">Department of Computing and Information Studies</span>
+                      </div>
+                      <span className="font-medium text-gray-800">56</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span className="text-gray-600">
+                          Department of Management
+                        </span>
+                      </div>
+                      <span className="font-medium text-gray-800">36</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <span className="text-gray-600">
+                          Department of Accountancy
+                        </span>
+                      </div>
+                      <span className="font-medium text-gray-800">7</span>
+                    </div>
+
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Upcoming Deadlines (right block) */}
-            <div className="md:col-span-1 space-y-6 w-full">
-              <UpcomingDeadlines
-                deadlines={upcomingDeadlines}
-                formatDate={formatDate}
-              />
+            {/* if you ever add more bottom-wide sections, use:
+              <div className="lg:col-span-4 ..."> ... </div>
+          */}
+          </div>
+
+          {/* Recently Published Table */}
+          <div className="bg-[#FBFBFB] shadow p-4 rounded w-full mt-6">
+            <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+              <div>
+                <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                  RECENTLY PUBLISHED TEMPLATES
+                </h2>
+                <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+              </div>
+
+              <button
+                onClick={() => navigate("")}
+                className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+              >
+                View All
+              </button>
             </div>
 
-            {/* Recently Submitted Templates (full width row) */}
-            <div className="md:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
-              <div className="px-3 py-1 bg-gray-50 flex flex-col gap-4 md:flex-row md:items-start md:justify-between rounded-lg">
-                <div>
-                  <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                    RECENTLY SUBMITTED TEMPLATES
-                  </h2>
-                  <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
-                </div>
-
-                <button
-                  onClick={() => navigate("")}
-                  className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
-                >
-                  View All
-                </button>
-              </div>
-
-              {/* scrollable on mobile */}
-              <div className="overflow-x-auto">
-                <div className="min-w-[600px]">
-                  <Table
-                    columns={recentlySubmittedTemplatesColumn}
-                    data={recentlySubmittedTemplates}
-                  />
-                </div>
-              </div>
+            <div className="overflow-x-auto">
+              <Table columns={publishedTemplatesColumns} data={publishedTemplates} />
             </div>
           </div>
-          {/* END MAIN GRID */}
         </main>
       </div>
     </div>

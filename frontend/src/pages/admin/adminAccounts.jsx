@@ -215,11 +215,11 @@ export default function AdminAccounts() {
   // loading view
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-200 flex flex-col">
+      <div className="min-h-screen bg-gray-200 flex flex-col overflow-x-hidden">
         <Header user={user} />
-        <div className="flex flex-1 flex-col md:flex-row">
+        <div className="flex flex-1 flex-col md:flex-row w-full px-3 sm:px-6 lg:px-8">
           <Sidebar user={user} />
-          <div className="flex-1 flex flex-col bg-white shadow pt-4 pb-6 px-4 md:pt-1 md:pb-4 md:px-8 md:mx-6 md:mt-8 rounded-xl mx-4 my-4">
+          <div className="flex-1 flex flex-col bg-white shadow pt-4 pb-6 px-4 md:pt-1 md:pb-4 md:px-8 md:mt-8 rounded-xl w-full max-w-[1400px] mx-auto">
             <div className="flex-1 flex items-center justify-center">
               <Loader message="Loading..." />
             </div>
@@ -232,11 +232,11 @@ export default function AdminAccounts() {
   // error-ish: if no users array at all
   if (!users) {
     return (
-      <div className="min-h-screen bg-gray-200 flex flex-col">
+      <div className="min-h-screen bg-gray-200 flex flex-col overflow-x-hidden">
         <Header user={user} />
-        <div className="flex flex-1 flex-col md:flex-row">
+        <div className="flex flex-1 flex-col md:flex-row w-full px-3 sm:px-6 lg:px-8">
           <Sidebar user={user} />
-          <div className="flex-1 flex flex-col bg-white shadow pt-4 pb-6 px-4 md:pt-1 md:pb-4 md:px-8 md:mx-6 md:mt-8 rounded-xl mx-4 my-4">
+          <div className="flex-1 flex flex-col bg-white shadow pt-4 pb-6 px-4 md:pt-1 md:pb-4 md:px-8 md:mt-8 rounded-xl w-full max-w-[1400px] mx-auto">
             <div className="flex-1 flex items-center justify-center text-center">
               <div>
                 <h2 className="text-lg md:text-xl font-semibold text-red-600 mb-2">
@@ -255,49 +255,49 @@ export default function AdminAccounts() {
 
   // main view
   return (
-    <div className="min-h-screen bg-gray-200 flex flex-col">
+    <div className="min-h-screen bg-gray-200 flex flex-col overflow-x-hidden">
       {/* HEADER */}
       <Header user={user} />
 
-      {/* BODY WRAPPER: column on mobile, row on desktop */}
-      <div className="flex flex-1 flex-col md:flex-row">
-        {/* SIDEBAR (leave as-is, you already made it responsive) */}
+      {/* BODY WRAPPER: add symmetric page padding for visible left/right endings */}
+      <div className="flex flex-1 flex-col md:flex-row w-full px-3 sm:px-6 lg:px-8">
+        {/* SIDEBAR */}
         <Sidebar user={user} active="User Accounts" />
 
-        {/* MAIN CARD AREA */}
-        <div className="flex-1 flex flex-col bg-white shadow rounded-xl mx-4 my-4 md:mx-6 md:mt-8">
-          <div className="flex-1 w-full p-4 md:p-10">
+        {/* MAIN CARD AREA (centered, capped width) */}
+        <div className="flex-1 flex flex-col bg-white shadow rounded-xl my-4 md:mt-8 w-full max-w-[1400px] mx-auto">
+          <div className="flex-1 w-full max-w-full p-4 md:p-10">
             {/* TITLE */}
             <h2 className="text-2xl md:text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">
               NAVIDOCS USERS
             </h2>
             <div className="w-24 h-1 bg-yellow-400 mb-6 rounded" />
 
-            {/* CONTROLS: stack on mobile, row on md+ */}
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-2 mb-4">
-              {/* Filter by Role */}
-              <div className="w-full md:w-auto">
+            {/* CONTROLS */}
+            <div className="flex items-center gap-3 flex-wrap mb-4">
+              {/* Filter by Role (fixed width) */}
+              <div className="shrink-0">
                 <Dropdown
                   value={roleFilter}
                   onChange={(value) => { setRoleFilter(value); setCurrentPage(1); }}
                   options={roles}
-                  width="w-full md:w-52"
+                  width="w-52"
                 />
               </div>
 
-              {/* Sort */}
-              <div className="w-full md:w-auto">
+              {/* Sort (fixed width) */}
+              <div className="shrink-0">
                 <Dropdown
                   value={sortBy}
                   onChange={setSortBy}
                   options={sortOptions}
-                  width="w-full md:w-36"
+                  width="w-36"
                 />
               </div>
 
-              {/* Search (push to right on desktop) */}
-              <div className="w-full md:flex-1 md:flex md:justify-end">
-                <div className="w-full md:w-64">
+              {/* Search: fixed width; on xl+ push right */}
+              <div className="basis-full xl:basis-auto xl:ml-auto">
+                <div className="w-64">
                   <SearchBar
                     value={search}
                     onChange={(e) => {
@@ -311,8 +311,7 @@ export default function AdminAccounts() {
 
             {/* TABLE WRAPPER */}
             <div className="bg-white rounded shadow p-0 border border-gray-200 overflow-x-auto">
-              {/* on really narrow screens, allow horizontal scroll */}
-              <div className="min-w-[700px]">
+              <div className="min-w-[640px] xl:min-w-[700px]">
                 <Table columns={columns} data={currentUsers} />
               </div>
             </div>
@@ -329,10 +328,7 @@ export default function AdminAccounts() {
 
               {getPageNumbers().map((num, idx) =>
                 num === "..." ? (
-                  <span
-                    key={idx}
-                    className="px-2 text-gray-400 text-sm"
-                  >
+                  <span key={idx} className="px-2 text-gray-400 text-sm">
                     ...
                   </span>
                 ) : (

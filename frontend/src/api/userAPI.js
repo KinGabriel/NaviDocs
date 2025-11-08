@@ -89,6 +89,23 @@ export const searchUsersByEmailAPI = async (query) => {
 };
 
 /**
+ * Get faculty members in the current user's department
+ * @returns {Promise<Array<{id:string,name:string,email:string}>>}
+ */
+export const getFacultyByDepartmentAPI = async () => {
+	try {
+		const res = await axios.get(`${API_URL}/api/user/getFacultyByDepartment`, { withCredentials: true });
+		// Backend returns { faculty: [{ id, name, email }] }
+		return res.data?.faculty || [];
+	} catch (err) {
+		const e = new Error(err.response?.data?.message || err.message || 'Failed to fetch faculty by department');
+		e.responseData = err.response?.data;
+		e.status = err.response?.status;
+		throw e;
+	}
+};
+
+/**
  * Fetch both document controllers and secretaries for the current user's school
  */
 export async function fetchSchoolStaffAPI() {

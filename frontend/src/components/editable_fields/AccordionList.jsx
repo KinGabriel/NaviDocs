@@ -15,8 +15,11 @@ export default function AccordionList({
   const [expanded, setExpanded] = useState({});
   const [editingAccordion, setEditingAccordion] = useState(null);
   const [newAccordionName, setNewAccordionName] = useState("");
+  const [renaming, setRenaming] = useState({});
+  const [renameDraft, setRenameDraft] = useState({});
   const [editingFieldId, setEditingFieldId] = useState(null);
-  const [newFieldData, setNewFieldData] = useState({ name: "", type: "text", placeholder: "" });
+  const [newFieldData, setNewFieldData] = useState({ name: "", type: "text", placeholder: "", instructions: "" });
+
 
   const toggleAccordion = (id) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -24,13 +27,17 @@ export default function AccordionList({
 
   const addAccordion = () => {
     if (!newAccordionName.trim()) return;
-    const newAcc = { id: makeId(), name: newAccordionName.trim(), fields: [] };
+    const newAcc = { id: makeId('grp'), name: newAccordionName.trim(), fields: [] };
     setAccordions((prev) => [...prev, newAcc]);
     setNewAccordionName("");
   };
 
   const removeAccordion = (id) => {
-    if (!window.confirm("Remove this accordion and all its fields?")) return;
+    if (accordions.length <= 1) {
+      alert('At least one group is required.');
+      return;
+    }
+    if (!window.confirm("Remove this group and all its fields?")) return;
     setAccordions((prev) => prev.filter((a) => a.id !== id));
   };
 
@@ -40,6 +47,7 @@ export default function AccordionList({
       name: newFieldData.name.trim() || "Untitled Field",
       type: newFieldData.type,
       placeholder: newFieldData.placeholder.trim() || "Enter value...",
+      instructions: newFieldData.instructions.trim() || "",
       tags: [],
     };
     setAccordions((prev) =>
@@ -47,7 +55,7 @@ export default function AccordionList({
         a.id === accordionId ? { ...a, fields: [...a.fields, field] } : a
       )
     );
-    setNewFieldData({ name: "", type: "text", placeholder: "" });
+  setNewFieldData({ name: "", type: "text", placeholder: "", instructions: "" });
   };
 
   const removeField = (accordionId, fieldId) => {
@@ -108,9 +116,50 @@ export default function AccordionList({
           >
             <div className="flex items-center gap-2">
               {expanded[acc.id] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              <span className="font-medium text-slate-800">{acc.name}</span>
+              {!renaming[acc.id] && (
+                <span className="font-medium text-slate-800">{acc.name}</span>
+              )}
+              {renaming[acc.id] && (
+                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="text"
+                    className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    value={renameDraft[acc.id] ?? acc.name}
+                    onChange={(e) => setRenameDraft((prev) => ({ ...prev, [acc.id]: e.target.value }))}
+                  />
+                  <button
+                    className="rounded-md bg-indigo-600 px-2 py-1 text-xs text-white"
+                    onClick={() => {
+                      const newName = (renameDraft[acc.id] ?? acc.name).trim();
+                      if (!newName) return;
+                      setAccordions((prev) => prev.map((a) => a.id === acc.id ? { ...a, name: newName } : a));
+                      setRenaming((prev) => ({ ...prev, [acc.id]: false }));
+                    }}
+                  >
+                    Save
+                  </button>
+                  <button
+                    className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+                    onClick={() => setRenaming((prev) => ({ ...prev, [acc.id]: false }))}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
+              {!renaming[acc.id] && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRenaming((prev) => ({ ...prev, [acc.id]: true }));
+                    setRenameDraft((prev) => ({ ...prev, [acc.id]: acc.name }));
+                  }}
+                  className="text-slate-600 hover:text-slate-800 text-xs underline"
+                >
+                  Rename
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -145,6 +194,11 @@ export default function AccordionList({
                       <div className="text-xs text-slate-500">
                         Placeholder: <em>{f.placeholder}</em>
                       </div>
+                      {f.instructions && (
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          Instructions: <em>{f.instructions}</em>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -171,10 +225,10 @@ export default function AccordionList({
               ))}
 
               <div className="mt-3 border-t border-slate-200 pt-3">
-                <div className="text-xs mb-1 text-slate-600 font-medium">
-                  Add New Field
-                </div>
-                <div className="grid grid-cols-3 gap-2 mb-2">
+                <div className="text-xs mb-1 text-slate-600 font-medium">Add New Field</div>
+                <div
+                  className="grid grid-cols-4 gap-2 mb-2"
+                >
                   <input
                     type="text"
                     placeholder="Field name"
@@ -202,6 +256,18 @@ export default function AccordionList({
                       setNewFieldData({
                         ...newFieldData,
                         placeholder: e.target.value,
+                      })
+                    }
+                    className="col-span-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Instructions (optional)"
+                    value={newFieldData.instructions}
+                    onChange={(e) =>
+                      setNewFieldData({
+                        ...newFieldData,
+                        instructions: e.target.value,
                       })
                     }
                     className="col-span-1 rounded-md border border-slate-300 px-2 py-1 text-sm"

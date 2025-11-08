@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {Users, CheckCircle, User, FileText, File, Clock, AlertCircle, X, Calendar, Search, FileCode, History, Eye, ChevronRight, ZoomIn, Download, Filter} from 'lucide-react';
 import { fetchPublishedTemplatesAPI } from '../../api/documentContollerAPI';
-import { fetchSchoolStaffAPI } from '../../api/userAPI';
+import { getFacultyByDepartmentAPI } from '../../api/userAPI';
+import { createSubmissionBinAPI } from '../../api/assignmentDocumentsAPI';
 import TextEditor from '../../layout/create_template/textEditor';
 import Loader from '../loader';
 
@@ -187,12 +188,11 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
   const [assignedUsers, setAssignedUsers] = useState([]);
   const [errors, setErrors] = useState({});
   
-  // state for user management - TODO: CHANGE THIS PART, SHOULD FETCH FACULTY MEMBERS
-  const [docControllers, setDocControllers] = useState([]);
-  const [secretaries, setSecretaries] = useState([]);
-  const [deans, setDeans] = useState([]);
+  // state for user management - fetch FACULTY MEMBERS via department API
+  const [faculty, setFaculty] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   
   // Template filtering state
   const [selectedDocCode, setSelectedDocCode] = useState('All');
@@ -208,7 +208,7 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
 
   // Fetch users from API 
   useEffect(() => {
-    if (isOpen && docControllers.length === 0) {
+    if (isOpen && faculty.length === 0) {
       fetchUsers();
     }
   }, [isOpen]);
@@ -246,28 +246,27 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      console.log('Starting to fetch users...'); 
-      const result = await fetchSchoolStaffAPI();
-      console.log('Fetched staff:', result); 
-      
-      // TODO: should be adjusted, must fetch faculty members 
-      setDocControllers(result?.docControllers || []);
-      setSecretaries(result?.secretaries || []);
-      setDeans(result?.deans || []);
+      const result = await getFacultyByDepartmentAPI();
+      // Normalize to objects with id/_id + name/email
+      const normalized = Array.isArray(result)
+        ? result.map(u => ({
+            _id: u._id || u.id,
+            id: u.id || u._id,
+            name: u.name || `${u.firstname || u.firstName || ''} ${u.lastname || u.lastName || ''}`.trim(),
+            email: u.email || '',
+          }))
+        : [];
+      setFaculty(normalized);
     } catch (error) {
       console.error('Error fetching users:', error);
-      setDocControllers([]);
-      setSecretaries([]);
-      setDeans([]);
+      setFaculty([]);
     } finally {
       setLoadingUsers(false);
     }
   };
 
   // Combine all users into a single array for the assignment step
-  const allUsers = useMemo(() => {
-    return [...docControllers, ...secretaries, ...deans];
-  }, [docControllers, secretaries, deans]);
+  const allUsers = useMemo(() => faculty, [faculty]);
 
   if (!isOpen) return null;
 
@@ -340,6 +339,7 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
 
   const handleAssign = async () => {
     if (validateStep(4)) {
+      setSubmitting(true);
       let deadlineISO = '';
       if (deadline && deadlineTime) {
         const localDate = new Date(`${deadline}T${deadlineTime}`);
@@ -350,28 +350,35 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
         const mm = String(localDate.getUTCMinutes()).padStart(2, '0');
         deadlineISO = `${y}-${m}-${d}T${hh}:${mm}:00.000+00:00`;
       }
-      
-      const result = {
-        title,
-        instructions,
-        deadline: deadlineISO,
-        template: selectedTemplate,
-        assignedUsers,
-      };
-      
-      onAssign?.(result);
-      
-      // Reset form
-      setTitle('');
-      setInstructions('');
-      setDeadline('');
-      setDeadlineTime('00:00');
-      setSelectedTemplate(null);
-      setTemplateSearch('');
-      setUserSearch('');
-      setAssignedUsers([]);
-      setCurrentStep(1);
-      onClose?.();
+      try {
+        const templateId = selectedTemplate?._id || selectedTemplate?.id;
+        const payload = {
+          title,
+          instructions,
+          deadline: deadlineISO || null,
+          template_ids: templateId ? [templateId] : [],
+          faculty_ids: assignedUsers,
+          target_scope: 'selected',
+          submissions: assignedUsers.map(uid => ({ template: templateId, faculty: uid, instructions: '' })),
+        };
+        const created = await createSubmissionBinAPI(payload);
+        onAssign?.(created);
+        // Reset form
+        setTitle('');
+        setInstructions('');
+        setDeadline('');
+        setDeadlineTime('00:00');
+        setSelectedTemplate(null);
+        setTemplateSearch('');
+        setUserSearch('');
+        setAssignedUsers([]);
+        setCurrentStep(1);
+        onClose?.();
+      } catch (e) {
+        alert(e?.responseData?.message || e?.message || 'Failed to create submission bin');
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
 
@@ -935,10 +942,11 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
               ) : (
                 <button
                   onClick={handleAssign}
-                  className="px-8 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors flex items-center gap-2"
+                  disabled={submitting}
+                  className={`px-8 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors flex items-center gap-2 ${submitting ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'}`}
                 >
                   <CheckCircle size={18} />
-                  Create Assignment
+                  {submitting ? 'Creating…' : 'Create Assignment'}
                 </button>
               )}
             </div>

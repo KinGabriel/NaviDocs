@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from 'react-router-dom';
+import defaultProfile from '../../assets/images/profile_picture.png';
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -105,34 +106,48 @@ export default function Sidebar({ user }) {
           />
         )}
         <div
-          className={`fixed z-50 top-0 left-0 h-full bg-white shadow-xl pt-8 pb-4 px-6 flex flex-col items-center rounded-r-xl transition-transform duration-200 ease-out ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          className={`fixed z-50 top-0 left-0 h-full bg-white shadow-xl pt-8 pb-4 px-6 flex flex-col items-center rounded-r-xl transition-transform duration-200 ease-out ${
+            mobileOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
           style={{ width: 320 }}
           role="dialog"
           aria-modal="true"
         >
-          <img
-            src={user?.profile_picture ? `${API_URL}${user.profile_picture}` : '/default-avatar.png'}
-            alt="Profile"
-            className={avatarClasses}
-            onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = '/default-avatar.jpg'; }}
-          />
-          <h2 className="text-xl font-bold text-center mb-0">
-            {(user?.firstname || '') + ' ' + (user?.lastname || '')}
+          <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-100 border flex items-center justify-center">
+            <img
+              src={user?.profile_picture ? `${API_URL}${user.profile_picture}`: defaultProfile }
+              alt="Profile"
+              className={`${
+                user?.profile_picture 
+                  ? "w-full h-full object-cover" 
+                  : "w-[80%] h-[80%] object-contain"
+              }`} 
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = defaultProfile;
+              }}
+            />
+          </div>
+
+          <h2 className="text-xl font-bold text-center mt-3 mb-0">
+            {(user?.firstname || "") + " " + (user?.lastname || "")}
           </h2>
           <div className="text-sm text-gray-500 text-center mb-6">{roleValue}</div>
 
           <nav className="w-full flex flex-col gap-1 mb-8">
-            {menu ? menu.map(item => (
-              <SidebarItem
-                key={item.label}
-                icon={item.icon}
-                label={item.label}
-                active={activeLabel === item.label}
-                onClick={() => { if (item.route) { navigate(item.route); setMobileOpen(false); } }}
-                collapsed={false}
-              />
-            )) : (
-              <div className="text-gray-400 text-center py-4">No menu available for this role.</div>
+            {menu ? (
+              menu.map((item) => (
+                <SidebarItem
+                  key={item.label}
+                  icon={item.icon}
+                  label={item.label}
+                  active={activeLabel === item.label}
+                  onClick={() => { if (item.route) { navigate(item.route); setMobileOpen(false); } }}
+                  collapsed={false}
+                />
+              ))
+            ) : (
+              <div className="text-gray-400 text-center py-4"> No menu available for this role. </div>
             )}
           </nav>
 
@@ -150,36 +165,54 @@ export default function Sidebar({ user }) {
       className="bg-white shadow pt-8 pb-4 px-8 flex flex-col items-center min-h-[70vh] relative mx-6 mt-8 rounded-xl"
       style={{ width: widthPx, transition: "width 180ms ease" }}
     >
-      <img
-        src={user?.profile_picture ? `${API_URL}${user.profile_picture}` : '/default-avatar.png'}
-        alt="Profile"
-        className={avatarClasses}
-        onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = '/default-avatar.jpg'; }}
-      />
+      <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-100 border flex items-center justify-center">
+        <img
+          src={
+            user?.profile_picture
+              ? `${API_URL}${user.profile_picture}`
+              : defaultProfile
+          }
+          alt="Profile"
+          className={`${
+            user?.profile_picture
+              ? "w-full h-full object-cover"
+              : "w-[80%] h-[80%] object-contain"
+          }`}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = defaultProfile;
+          }}
+        />
+      </div>
+
 
       {!collapsed && (
         <>
-          <h2 className="text-xl font-bold text-center mb-0">
-            {(user?.firstname || '') + ' ' + (user?.lastname || '')}
+          <h2 className="text-xl font-bold text-center mt-3 mb-0">
+            {(user?.firstname || "") + " " + (user?.lastname || "")}
           </h2>
-          <div className="text-sm text-gray-500 text-center mb-6">
-            {roleValue}
-          </div>
+          <div className="text-sm text-gray-500 text-center mb-6">{roleValue}</div>
         </>
       )}
 
       <nav className="w-full flex flex-col gap-1 mb-8">
-        {menu ? menu.map(item => (
-          <SidebarItem
-            key={item.label}
-            icon={item.icon}
-            label={item.label}
-            active={activeLabel === item.label}
-            onClick={() => { if (item.route) navigate(item.route); }}
-            collapsed={collapsed}
-          />
-        )) : (
-          <div className="text-gray-400 text-center py-4">No menu available for this role.</div>
+        {menu ? (
+          menu.map((item) => (
+            <SidebarItem
+              key={item.label}
+              icon={item.icon}
+              label={item.label}
+              active={activeLabel === item.label}
+              onClick={() => {
+                if (item.route) navigate(item.route);
+              }}
+              collapsed={collapsed}
+            />
+          ))
+        ) : (
+          <div className="text-gray-400 text-center py-4">
+            No menu available for this role.
+          </div>
         )}
       </nav>
 
@@ -266,13 +299,6 @@ const MENU_CONFIG = {
         <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 48 48"><path fill="none" stroke="#0035da" strokeLinecap="round" strokeLinejoin="round" d="M10.364 4.51a1.994 1.994 0 0 0-1.945 1.994v35.002a1.995 1.995 0 0 0 1.944 1.994h27.224a1.994 1.994 0 0 0 1.994-1.994V14.472h-7.977a1.995 1.995 0 0 1-1.945-1.995V4.5Zm19.205 0l9.962 9.962m-23.693 8.456h16.274M15.838 34.994h16.274m-16.274-6.033h16.274" strokeWidth="2"/></svg>
       ),
       route: "/documents"
-    },
-    { 
-      label: "Templates",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><path fill="#0035da" d="M2 2h20v20H2zm2 2v4h16V4zm16 6h-9v10h9zM9 20V10H4v10z"/></svg>
-      ),  
-      route: "/templates"
     },
     { 
       label: "Submissions",
@@ -367,13 +393,6 @@ const MENU_CONFIG = {
       route: "/templates"
     },
     { 
-      label: "Submissions",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M20 13V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H14"/><path d="M16 2v3.4a.6.6 0 0 0 .6.6H20m-4 13h6m0 0l-3-3m3 3l-3 3"/></g></svg>
-      ),  
-      route: "/document-controller/document-workflow"
-    },
-    { 
       label: "Storage",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="none" stroke="#003DA5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M3 6h5l2 2h11v10.4a.6.6 0 0 1-.6.6H3.6a.6.6 0 0 1-.6-.6V6.6a.6.6 0 0 1 .6-.6Z"/></svg>
@@ -411,13 +430,6 @@ const MENU_CONFIG = {
         <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><path fill="#0035da" d="M2 2h20v20H2zm2 2v4h16V4zm16 6h-9v10h9zM9 20V10H4v10z"/></svg>
       ),  
       route: "/templates"
-    },
-    { 
-      label: "Submissions",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M20 13V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H14"/><path d="M16 2v3.4a.6.6 0 0 0 .6.6H20m-4 13h6m0 0l-3-3m3 3l-3 3"/></g></svg>
-      ),  
-      route: "/document-controller/document-workflow"
     },
     { 
       label: "Storage",
@@ -459,13 +471,6 @@ const MENU_CONFIG = {
       route: "/templates"
     },
     { 
-      label: "Submissions",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M20 13V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H14"/><path d="M16 2v3.4a.6.6 0 0 0 .6.6H20m-4 13h6m0 0l-3-3m3 3l-3 3"/></g></svg>
-      ),  
-      route: "/document-controller/document-workflow"
-    },
-    { 
       label: "Storage",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="none" stroke="#003DA5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M3 6h5l2 2h11v10.4a.6.6 0 0 1-.6.6H3.6a.6.6 0 0 1-.6-.6V6.6a.6.6 0 0 1 .6-.6Z"/></svg>
@@ -505,18 +510,18 @@ const MENU_CONFIG = {
       route: "/templates"
     },
     { 
+      label: "Submissions",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M20 13V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H14"/><path d="M16 2v3.4a.6.6 0 0 0 .6.6H20m-4 13h6m0 0l-3-3m3 3l-3 3"/></g></svg>
+      ),  
+      route: "/document-workflow"
+    },
+    { 
       label: "Storage",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="1.9em" height="1.9em" viewBox="0 0 24 24"><path fill="none" stroke="#003DA5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M3 6h5l2 2h11v10.4a.6.6 0 0 1-.6.6H3.6a.6.6 0 0 1-.6-.6V6.6a.6.6 0 0 1 .6-.6Z"/></svg>
       ),  
       route: "/storage"
-    },
-     { 
-      label: "Submissions",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M20 13V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H14"/><path d="M16 2v3.4a.6.6 0 0 0 .6.6H20m-4 13h6m0 0l-3-3m3 3l-3 3"/></g></svg>
-      ),  
-      route: "/secretary/document-workflow"
     },
     {
       label: "Account Settings",
@@ -555,8 +560,9 @@ const MENU_CONFIG = {
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M20 13V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H14"/><path d="M16 2v3.4a.6.6 0 0 0 .6.6H20m-4 13h6m0 0l-3-3m3 3l-3 3"/></g></svg>
       ),  
-      route: "/dean/document-workflow"
+      route: "/document-workflow"
     },
+    /* 
     { 
       label: "Statistics",
       icon: (
@@ -564,6 +570,7 @@ const MENU_CONFIG = {
       ),  
       route: "/dean/statistics"
     },
+    */
     { 
       label: "Storage",
       icon: (
@@ -608,7 +615,7 @@ const MENU_CONFIG = {
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><g fill="none" stroke="#003DA5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M20 13V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H14"/><path d="M16 2v3.4a.6.6 0 0 0 .6.6H20m-4 13h6m0 0l-3-3m3 3l-3 3"/></g></svg>
       ),
-      route: "/dept-head/document-workflow"
+      route: "/document-workflow"
     },
     { 
       label: "Storage",

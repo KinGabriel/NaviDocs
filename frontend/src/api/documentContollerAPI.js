@@ -389,7 +389,6 @@ export const fetchApproversAPI = async (_schoolIgnored) => {
   }
 };
 
-// REPLACE WITH ACTUAL BACKEND ENDPOINTS IF DIFFERENT - I TRIED LANG HEHE -KOLS
 /**
  * Rename a template
  * @param {string} templateId - The ID of the template to rename
@@ -501,6 +500,25 @@ export const archiveTemplateAPI = async (templateId) => {
     throw new Error(error.response?.data?.message || 'Failed to archive template');
   }
 };
+
+
+/**
+ * Unarchive a template by ID (creator or admin).
+ * @param {string} templateId - Template MongoDB ObjectId
+ * @returns {Promise<{success:boolean,message:string,template?:Object}>}
+ */
+export const unarchiveTemplateAPI = async (templateId) => {
+  try {
+    const res = await axios.patch(`${API_URL}/api/templates/${templateId}/unarchive`, {}, {
+      withCredentials: true,
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to unarchive template');
+  }
+};
+
+
 
 /**
  * Fetch archived templates with optional school, status, and search filters.

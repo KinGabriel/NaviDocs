@@ -1,31 +1,20 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../../layout/headers/header";
-import Sidebar from "../../layout/sidebars/sidebar";
-import useUser from "../../hooks/useUser";
-import usePagination from "../../hooks/usePagination";
-import Dropdown from "../../components/dropdowns/dropdown";
-import SearchBar from "../../components/searchbar";
-import TaskAssignmentModal from "../../components/modals/taskAssignmentModal";
-import { StatusBadge, formatDate } from "../../utils/formatters";
-import { Plus, Calendar, Users, FileText, Clock, CheckCircle, AlertCircle, Eye, TrendingUp } from 'lucide-react';
-
-// Dummy data for submissions - FOR DEMO PURPOSES ONLY
-const MOCK_SUBMISSIONS = Array.from({ length: 15 }, (_, i) => ({
-  id: i + 1,
-  title: `Submission Bin Title ${i + 1}`,
-  instructions: "Please review and provide feedback on the attached documents.",
-  createdAt: new Date(Date.now() - Math.random() * 10000000000).toISOString(),
-  deadline: new Date(Date.now() + Math.random() * 10000000000).toISOString(),
-  assignedTo: Math.floor(Math.random() * 5) + 1,
-  submitted: Math.floor(Math.random() * 4),
-  status: i % 4 === 0 ? "overdue" : i % 4 === 1 ? "active" : i % 4 === 2 ? "completed" : "draft",
-}));
+import Header from "../layout/headers/header";
+import Sidebar from "../layout/sidebars/sidebar";
+import useUser from "../hooks/useUser";
+import usePagination from "../hooks/usePagination";
+import Dropdown from "../components/dropdowns/dropdown";
+import SearchBar from "../components/searchbar";
+import TaskAssignmentModal from "../components/modals/taskAssignmentModal";
+import { StatusBadge, formatDate } from "../utils/formatters";
+import { Plus, Calendar, Users, FileText, Clock, CheckCircle, AlertCircle, Eye, TrendingUp, Send } from 'lucide-react';
+import { listSubmissionBinsAPI, forwardSubmissionBinAPI } from "../api/assignmentDocumentsAPI";
 
 const STATUS_OPTIONS = ["All Status", "Active", "Completed", "Overdue", "Draft"];
 const SORT_OPTIONS = ["Recent", "Oldest", "Due Soon", "A–Z"];
 
-export default function DepartmentHeadSubmissions() {
+export default function SubmissionBins() {
   const user = useUser();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -33,47 +22,92 @@ export default function DepartmentHeadSubmissions() {
   const [sortBy, setSortBy] = useState("Recent");
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState(null);
+  const [bins, setBins] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [forwardingId, setForwardingId] = useState(null);
+
+  // Role helpers
+  const roleName = (user?.role?.name || user?.role || '').toString();
+  const userRole = roleName.toLowerCase();
+  const isDeptHead = ['department head','department_head','dept-head','dept head','department-head'].includes(userRole);
+
+  // Fetch bins from API
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const data = await listSubmissionBinsAPI();
+        if (!mounted) return;
+        setBins(Array.isArray(data) ? data : []);
+      } catch (e) {
+        if (!mounted) return;
+        setError(e?.message || "Failed to load submission bins");
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
+      }
+    };
+    run();
+    return () => { mounted = false; };
+  }, []);
 
   // Filter and sort submissions
   const filtered = useMemo(() => {
-    let rows = [...MOCK_SUBMISSIONS];
+    let rows = [...bins];
     
     // Status filter
     if (statusFilter !== "All Status") {
-      rows = rows.filter(r => r.status.toLowerCase() === statusFilter.toLowerCase());
+      const target = statusFilter.toLowerCase();
+      rows = rows.filter(r => {
+        const st = (r.status || '').toLowerCase();
+        const deadline = r.deadline ? new Date(r.deadline) : null;
+        const now = new Date();
+        const isOverdue = deadline && deadline < now && st !== 'completed';
+        if (target === 'overdue') return isOverdue;
+        if (target === 'draft') return st === 'archived'; // map Draft -> Archived
+        return st === target;
+      });
     }
     
     // Search filter
     if (query.trim()) {
       const q = query.toLowerCase();
       rows = rows.filter(r =>
-        r.title.toLowerCase().includes(q)
+        (r.title || '').toLowerCase().includes(q)
       );
     }
     
     // Sort
     if (sortBy === "Recent") {
-      rows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      rows.sort((a, b) => new Date(b.createdAt || b.created_at || 0) - new Date(a.createdAt || a.created_at || 0));
     } else if (sortBy === "Oldest") {
-      rows.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      rows.sort((a, b) => new Date(a.createdAt || a.created_at || 0) - new Date(b.createdAt || b.created_at || 0));
     } else if (sortBy === "Due Soon") {
-      rows.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+      rows.sort((a, b) => {
+        const ad = a.deadline ? new Date(a.deadline) : new Date(8640000000000000);
+        const bd = b.deadline ? new Date(b.deadline) : new Date(8640000000000000);
+        return ad - bd;
+      });
     } else if (sortBy === "A–Z") {
-      rows.sort((a, b) => a.title.localeCompare(b.title));
+      rows.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
     }
     
     return rows;
-  }, [query, statusFilter, sortBy]);
+  }, [query, statusFilter, sortBy, bins]);
 
   // Stats calculation
   const stats = useMemo(() => {
-    const active = MOCK_SUBMISSIONS.filter(s => s.status === "active").length;
-    const completed = MOCK_SUBMISSIONS.filter(s => s.status === "completed").length;
-    const overdue = MOCK_SUBMISSIONS.filter(s => s.status === "overdue").length;
-    const totalAssigned = MOCK_SUBMISSIONS.reduce((sum, s) => sum + s.assignedTo, 0);
+    const active = bins.filter(s => (s.status || '').toLowerCase() === "active").length;
+    const completed = bins.filter(s => (s.status || '').toLowerCase() === "completed").length;
+    const now = new Date();
+    const overdue = bins.filter(s => s.deadline && new Date(s.deadline) < now && (s.status || '').toLowerCase() !== 'completed').length;
+    const totalAssigned = bins.reduce((sum, s) => sum + (Array.isArray(s.submissions) ? s.submissions.length : 0), 0);
     
     return { active, completed, overdue, totalAssigned };
-  }, []);
+  }, [bins]);
 
   // Pagination
   const pageSize = 8;
@@ -89,8 +123,20 @@ export default function DepartmentHeadSubmissions() {
     [filtered, pagination.currentPage]
   );
 
-  const handleViewSubmission = (submissionId) => {
-    navigate(`/submission-details/${submissionId}`);
+  const handleViewSubmission = (binId) => {
+    navigate(`/submission-details/${binId}`);
+  };
+
+  const handleForward = async (binId) => {
+    try {
+      setForwardingId(binId);
+      const updated = await forwardSubmissionBinAPI(binId);
+      setBins(prev => prev.map(b => (String(b._id || b.id) === String(binId) ? updated : b)));
+    } catch (e) {
+      alert(e?.responseData?.message || e?.message || 'Failed to forward bin');
+    } finally {
+      setForwardingId(null);
+    }
   };
 
   const handleAssignComplete = (result) => {
@@ -98,15 +144,14 @@ export default function DepartmentHeadSubmissions() {
     setShowAssignModal(false);
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    return (
+    <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} />
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-3 mx-6 mt-8 rounded-xl">
-          <div className="w-full px-4 max-w-8xl">
-        <div className="flex-1 flex flex-col">
-          <main className="flex-1 p-4 md:p-6 lg:p-8">
+        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
+          <div className="flex-1 px-1 py-5">
+            
             {/* Header Section */}
             <div className="mb-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
@@ -186,7 +231,13 @@ export default function DepartmentHeadSubmissions() {
             </div>
 
             {/* Submissions Grid */}
-            {pageRows.length === 0 ? (
+            {loading ? (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                <FileText size={48} className="mx-auto text-gray-300 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading submissions…</h3>
+                <p className="text-gray-600">Please wait</p>
+              </div>
+            ) : pageRows.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
                 <FileText size={48} className="mx-auto text-gray-300 mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No submissions found</h3>
@@ -209,9 +260,12 @@ export default function DepartmentHeadSubmissions() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {pageRows.map((submission) => (
                   <SubmissionCard
-                    key={submission.id}
+                    key={submission._id || submission.id}
                     submission={submission}
-                    onView={() => handleViewSubmission(submission.id)}
+                    onView={() => handleViewSubmission(submission._id || submission.id)}
+                    canForward={isDeptHead && !submission.is_forwarded && (String(submission.status || '').toLowerCase() === 'completed')}
+                    onForward={() => handleForward(submission._id || submission.id)}
+                    forwarding={forwardingId === (submission._id || submission.id)}
                   />
                 ))}
               </div>
@@ -255,7 +309,7 @@ export default function DepartmentHeadSubmissions() {
               </button>
             </div>
             )}
-          </main>
+          </div>
         </div>
       </div>
 
@@ -273,8 +327,6 @@ export default function DepartmentHeadSubmissions() {
         </div>
       )}
     </div>
-    </div>
-  </div>
   );
 }
 
@@ -301,8 +353,11 @@ function StatCard({ icon: Icon, label, value, color }) {
   );
 }
 
-function SubmissionCard({ submission, onView }) {
+function SubmissionCard({ submission, onView, onForward, canForward, forwarding }) {
   const daysUntilDue = Math.ceil((new Date(submission.deadline) - new Date()) / (1000 * 60 * 60 * 24));
+  const items = Array.isArray(submission.submissions) ? submission.submissions : (submission.submission || []);
+  const submittedCount = items.filter(s => s.status === "submitted").length;
+  const totalAssigned = items.length;
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all hover:border-blue-300 overflow-hidden">
@@ -335,7 +390,7 @@ function SubmissionCard({ submission, onView }) {
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Clock size={16} className="text-gray-400" />
-            <span>Created {formatDate(submission.createdAt)}</span>
+            <span>Created {formatDate(submission.createdAt || submission.created_at)}</span>
           </div>
         </div>
 
@@ -344,13 +399,13 @@ function SubmissionCard({ submission, onView }) {
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-700">Submission Progress</span>
             <span className="text-sm font-semibold text-gray-900">
-              {submission.submitted}/{submission.assignedTo}
+              {submittedCount}/{totalAssigned}
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
             <div
               className="bg-blue-600 h-full rounded-full transition-all"
-              style={{ width: `${(submission.submitted / submission.assignedTo) * 100}%` }}
+              style={{ width: `${totalAssigned > 0 ? (submittedCount / totalAssigned) * 100 : 0}%` }}
             />
           </div>
         </div>
@@ -359,15 +414,31 @@ function SubmissionCard({ submission, onView }) {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Users size={16} className="text-gray-400" />
-            <span>{submission.assignedTo} assigned</span>
+            <span>{totalAssigned} assigned</span>
           </div>
-          <button
-            onClick={onView}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-          >
-            <Eye size={16} />
-            View Details
-          </button>
+          <div className="flex items-center gap-2">
+            {submission.is_forwarded && (
+              <span className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200">Forwarded</span>
+            )}
+            {canForward && (
+              <button
+                onClick={onForward}
+                disabled={forwarding}
+                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg transition-colors font-medium text-sm border ${forwarding ? 'bg-gray-100 text-gray-400' : 'bg-white hover:bg-gray-50 text-gray-700'}`}
+                title="Forward to Dean/Secretary"
+              >
+                <Send size={16} />
+                {forwarding ? 'Forwarding…' : 'Forward'}
+              </button>
+            )}
+            <button
+              onClick={onView}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+            >
+              <Eye size={16} />
+              View Details
+            </button>
+          </div>
         </div>
       </div>
     </div>

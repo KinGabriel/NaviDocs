@@ -8,6 +8,8 @@ apiEndpoints:
       - /api/auth/login
       - /api/auth/logout
       - /api/auth/logs
+      - /api/auth/verify
+      - /api/auth/forgot-password/*
 
 
 
@@ -21,6 +23,7 @@ apiEndpoints:
   documents:
     paths:
       - /api/documents/*
+
   
   files:
     paths:

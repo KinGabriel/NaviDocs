@@ -67,15 +67,14 @@ export default function SubmitApprovalModal({
   };
 
   const handleSubmit = async () => {
-    // Validate required field first
-    if (!instructions.trim()) {
+    // Validate only if status is "returned"
+    if (status === 'returned' && !instructions.trim()) {
       setError(true);
-      return; // Stop submission
+      return;
     }
-
     setIsSubmitting(true);
     setSubmitSuccess(false);
-    setError(false);
+    setError(false); // Instructions are optional
 
     try {
       if (!templateId) return;
@@ -397,7 +396,7 @@ export default function SubmitApprovalModal({
                   <div className="flex items-center gap-2">
                     <MessageCircle className="h-5 w-5 text-slate-500" />
                     <h3 className="text-base font-medium text-slate-900">
-                      Instructions for Approvers <span className="text-red-500">*</span>
+                      Instructions for Approvers {status === 'returned' && <span className="text-red-500">*</span>}
                     </h3>
                   </div>
                 </div>
@@ -426,18 +425,6 @@ export default function SubmitApprovalModal({
                     {instructions.length} / 300
                   </span>
                 </div>
-
-                {error && (
-                  <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">
-                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium">Instructions are required</p>
-                      <p className="text-red-500 mt-1">
-                        Please provide clear instructions to help approvers understand what needs to be reviewed.
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
             </>
           )}

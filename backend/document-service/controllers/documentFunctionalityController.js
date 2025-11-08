@@ -4,6 +4,7 @@ import axios from 'axios';
 import { createVersionData,deleteAllVersionPerDocument } from './documentVersionController.js';
 import VersionData from '../models/documentVersionModel.js';
 import { fetchUserInfoById } from '../utils/userServiceUtils.js';
+import { generateDocumentThumbnailInternal } from '../utils/thumbnailUtils.js';
 
 /**
  * @desc Create a new document based on a template's essential content.
@@ -101,6 +102,12 @@ export const createDocument = async (req, res) => {
   doc.department = req.user?.department || req.user?.role?.department || payload.department || null;
 
     await doc.save();
+    // Generate initial thumbnail
+    try {
+      await generateDocumentThumbnailInternal(doc);
+    } catch (e) {
+      console.error('[Doc Thumbnail] createDocument generation failed', e?.message || e);
+    }
     //  create initial version data if caller supplied version info
     try {
       // Normalize note: treat note as a simple string. The codebase does not use notes arrays here.
@@ -258,6 +265,11 @@ export const updateDocumentFieldValues = async (req, res) => {
 
     await doc.save();
 
+    // Regenerate thumbnail best-effort after field value updates
+    try {
+      generateDocumentThumbnailInternal(doc).catch(e => console.error('[Doc Thumbnail] update generation failed', e?.message || e));
+    } catch {}
+
     // Best-effort: update corresponding version data if caller provided version identifier or field values
     try {
       // Normalize note from request body: prefer `note` string, accept `notes` string for compatibility.
@@ -336,8 +348,38 @@ export const deleteDocumentById = async (req, res) => {
 
     // If user is owner, delete document and all versions
     if (String(doc.created_by) === String(userId)) {
+      // Preserve thumbnail url before deletion
+      const originalThumbnailUrl = doc.thumbnailUrl || null;
+
       await Document.deleteOne({ _id: id });
       await deleteAllVersionPerDocument(id);
+
+      // Best-effort: delete thumbnail from file-service
+      try {
+        if (originalThumbnailUrl) {
+          const fileServerUrl = process.env.FILE_SERVICE_URL || 'http://localhost:5005';
+          let normalizedPath = null;
+          if (/^https?:\/\//i.test(originalThumbnailUrl)) {
+            const m = originalThumbnailUrl.match(/\/uploads[^?\s#]*/i);
+            if (m) normalizedPath = m[0];
+          } else if (originalThumbnailUrl.startsWith('/uploads/')) {
+            normalizedPath = originalThumbnailUrl;
+          }
+          if (!normalizedPath) {
+            const idx = originalThumbnailUrl.indexOf('/uploads/');
+            if (idx !== -1) normalizedPath = originalThumbnailUrl.slice(idx);
+          }
+          if (normalizedPath) {
+            await axios.delete(fileServerUrl + '/api/files/delete', { data: { filePath: normalizedPath } });
+            console.log(`Document thumbnail deleted from file-service: ${normalizedPath}`);
+          } else {
+            console.warn('Document thumbnail deletion skipped: could not normalize path from', originalThumbnailUrl);
+          }
+        }
+      } catch (err) {
+        console.error('Error deleting document thumbnail from file-service:', err?.message || err);
+      }
+
       return res.json({ success: true, message: 'Document deleted successfully' });
     }
 
@@ -496,5 +538,32 @@ export const listArchivedDocuments = async (req, res) => {
   } catch (err) {
     console.error("listArchivedDocuments error:", err);
     res.status(500).json({ message: "Failed to list archived documents", error: err.message });
+  }
+};
+
+/**
+ * @desc Unarchive a document by its ID (owner only)
+ * @route PATCH /api/documents/:id/unarchive
+ */
+export const unarchiveDocumentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'id required' });
+    const doc = await Document.findById(id);
+    if (!doc) return res.status(404).json({ message: 'document not found' });
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    if (String(doc.created_by) !== String(userId)) {
+      return res.status(403).json({ message: 'Not authorized to unarchive this document' });
+    }
+    if (!doc.isArchived) {
+      return res.json({ success: true, message: 'Document already active', document: doc });
+    }
+    doc.isArchived = false;
+    await doc.save();
+    return res.json({ success: true, message: 'Document unarchived successfully', document: doc });
+  } catch (err) {
+    console.error('unarchiveDocumentById error', err);
+    return res.status(500).json({ message: 'Failed to unarchive document', error: err.message });
   }
 };

@@ -239,9 +239,12 @@ export default function FontPanel({ editor }) {
   if (!isReady) return null;
 
   const Pinned = ({ f }) => (
-    <button
+    <div
       key={`pin-${f}`}
+      role="button"
+      tabIndex={0}
       onClick={() => applyFamily(f)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') applyFamily(f); }}
       className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 ${activeFamily === f ? "bg-blue-50" : ""}`}
       style={{ fontFamily: f }}
       title={`Pinned: ${f}`}
@@ -252,8 +255,9 @@ export default function FontPanel({ editor }) {
         type="button"
         className="text-xs px-2 py-0.5 border rounded"
         onClick={(e) => { e.stopPropagation(); setPinnedFonts(pinnedFonts.filter(x => x !== f)); }}
+        title="Unpin font"
       >Unpin</button>
-    </button>
+    </div>
   );
 
   return (
@@ -454,9 +458,12 @@ export default function FontPanel({ editor }) {
         <div className="text-xs text-gray-500 mb-2">Recently used</div>
         <div className="border rounded-lg">
           {recentFonts.map((f) => (
-            <button
+            <div
               key={`r-${f}`}
+              role="button"
+              tabIndex={0}
               onClick={() => applyFamily(f)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') applyFamily(f); }}
               className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 ${activeFamily === f ? "bg-blue-50" : ""}`}
               style={{ fontFamily: f }}
               title={f}
@@ -469,7 +476,7 @@ export default function FontPanel({ editor }) {
                 onClick={(e) => { e.stopPropagation(); setPinnedFonts((p)=> p.includes(f)? p : [...p, f]); }}
                 title="Pin font"
               >Pin</button>
-            </button>
+            </div>
           ))}
         </div>
       </div>

@@ -1,10 +1,67 @@
 import Document from '../models/documentModel.js';
+import SubmissionBin from '../models/submissionBinModel.js';
 import axios from 'axios';
 import FormData from 'form-data';
 import path from 'path';
 import { createVersionData } from './documentVersionController.js';
 import { escapeHtml, buildDocumentHtml, pagesJsonToHtml, generatePdfBuffer, uploadPdfToStorage, uploadPdfBuffer } from '../utils/pdfExportUtil.js';
-import { buildUserServiceHeaders } from '../utils/userServiceUtils.js';
+import { buildUserServiceHeaders, fetchUserInfoById } from '../utils/userServiceUtils.js';
+import { hasRole } from '../utils/roleUtils.js';
+
+// Notification Helper
+const NOTIF_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8008';
+const INTERNAL_HEADERS = { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' };
+
+const safeNameFromUser = (u) => {
+  if (!u) return 'Someone';
+  return (
+    u.name ||
+    u.fullname ||
+    [u.firstName || u.firstname, u.lastName || u.lastname].filter(Boolean).join(' ').trim() ||
+    u.email ||
+    'Someone'
+  );
+};
+const safeRoleFromUser = (u) => {
+  if (!u) return 'User';
+  if (typeof u.role === 'string') return u.role;
+  if (u.role && u.role.name) return u.role.name;
+  return 'User';
+};
+
+const postNotification = async (payload) => {
+  try {
+    await axios.post(`${NOTIF_URL}/api/notifications/internal`, payload, {
+      headers: INTERNAL_HEADERS,
+      timeout: 5000,
+    });
+  } catch (e) {
+    console.error('Notification post failed', e?.response?.status || e?.message || e);
+  }
+};
+
+// New helper with callback pattern
+const postNotificationWithCallback = async (payload, cb) => {
+  let resp = null;
+  let err = null;
+  try {
+    resp = await axios.post(`${NOTIF_URL}/api/notifications/internal`, payload, {
+      headers: INTERNAL_HEADERS,
+      timeout: 5000,
+    });
+  } catch (e) {
+    err = e;
+    console.error('Notification post failed', e?.response?.status || e?.message || e);
+  }
+  if (typeof cb === 'function') {
+    try {
+      await cb(err, resp);
+    } catch (cbErr) {
+      console.error('Notification callback error', cbErr?.message || cbErr);
+    }
+  }
+  return { err, resp };
+};
 
 /**
  * @route POST /api/documents/:id/share
@@ -88,6 +145,30 @@ export const shareDocument = async (req, res) => {
 			}
 		}
 
+		// Notification with callback
+		try {
+		const actorName = safeNameFromUser(req.user);
+		const message = `${actorName} shared a document with you.`;
+		const targetedUserIds = deduped.map(a => a.userId).filter(Boolean);
+		if (targetedUserIds.length) {
+			await postNotificationWithCallback(
+			{
+				type: 'document_shared',
+				message,
+				link: `/documents/${doc._id}`,
+				targetedUserIds,
+			},
+			(err) => {
+				if (err) {
+				console.warn('shareDocument notification callback: failure recorded');
+				}
+			}
+			);
+		}
+		} catch (e) {
+		console.error('shareDocument notification error', e?.message || e);
+		}
+
 		return res.json({ success: true, message: 'Document shared successfully', document: doc, assignedIds: deduped.map(a => a.userId) });
 	} catch (err) {
 		console.error('shareDocument error', err);
@@ -95,206 +176,664 @@ export const shareDocument = async (req, res) => {
 	}
 };
 
-
 /**
- * @desc Department head assigns faculty to work on a document
- * @route POST /api/documents/:id/assign-by-dept-head
- * Body: { assignees: Array<string|object> }
+ * Create a new Submission Bin
+ *
+ * @route POST /api/submission-bins
+ * @desc Department Head creates a submission bin with allowed templates, assigned faculty, deadline, and bin-wide instructions.
+ * @param {import('express').Request} req Express request (expects authenticated req.user)
+ * @param {import('express').Response} res Express response
+ * @returns {Promise<void>} 201 with created bin, or error status
  */
-export const assignFacultyByDeptHead = async (req, res) => {
+export const createSubmissionBin = async (req, res) => {
 	try {
-		const { id } = req.params; 
-		if (!id) return res.status(400).json({ message: 'id required' });
-
-		const { assignees = [], title, school } = req.body;
-
-		if (!Array.isArray(assignees)) return res.status(400).json({ message: 'assignees array required' });
-
-		// normalize assignees -> { userId, access }
-		const normalize = (entry) => {
-			if (!entry) return null;
-			if (typeof entry === 'string' || typeof entry === 'number') return { userId: String(entry), access: 'editor' };
-			if (typeof entry === 'object') {
-				const userId = entry.userId || entry.id || entry._id || entry.user || null;
-				if (!userId) return null;
-				return { userId: String(userId), access: 'editor' };
-			}
-			return null;
-		};
-
-		const normalized = assignees.map(normalize).filter(Boolean);
-		const invalids = assignees.map(a => ({ raw: a, normalized: normalize(a) })).filter(x => !x.normalized);
-		if (invalids.length) return res.status(400).json({ message: 'Some assignees were invalid', invalids });
-
-		const seen = new Set();
-		const deduped = [];
-		for (const a of normalized) {
-			if (!a || !a.userId) continue;
-			if (seen.has(a.userId)) continue;
-			seen.add(a.userId);
-			deduped.push(a);
+		if (!hasRole(req, ['Department Head'])) {
+			return res.status(403).json({ message: 'Only Department Head can create bins' });
 		}
 
-		// treat id as template id and create document based on template
-		const payload = { ...(req.body || {}) };
-		payload.template_id = id;
-		if (!payload.title || String(payload.title).trim() === '') payload.title = title || 'Untitled Document';
-		if (!payload.created_by) payload.created_by = req.user?.id;
+		const {
+			title,
+			instructions = '',
+			department = null,
+			school = req.user?.school || '',
+			route_to = null,
+			deadline = null,
+			template_ids = [],
+			faculty_ids = [],
+			submissions = [],
+			target_scope: targetScopeRaw = undefined,
+		} = req.body || {};
 
-		// fetch template snapshot
+		const actorId = req.user?._id || req.user?.id || null;
+		const target_scope = (targetScopeRaw || req.body?.scope || 'department');
+		const bin = await SubmissionBin.create({
+			title,
+			instructions,
+			department,
+			school,
+			created_by: actorId,
+			route_to,
+			deadline,
+			template_ids,
+			faculty_ids,
+			target_scope,
+			submissions: (submissions || []).map(s => ({
+				documents: Array.isArray(s.documents) ? s.documents : [],
+				template: s.template,
+				faculty: s.faculty,
+				instructions: s.instructions || '',
+				status: s.status || 'assigned',
+			})),
+		});
+
+		// --- NEW: Notify faculty of assignments (per submission) ---
 		try {
+			const actorName = safeNameFromUser(req.user);
+			const deadlineTxt = bin.deadline ? new Date(bin.deadline).toLocaleString() : 'No deadline';
+			const items = Array.isArray(bin.submissions) ? bin.submissions : [];
+
+			// Fetch template titles in bulk (best-effort) to include human-friendly names in notifications
 			const templateServiceUrl = process.env.TEMPLATE_SERVICE_URL || 'http://localhost:8002';
-			const context = req.context || payload.context || {};
 			const headers = {};
-			if (context.token) headers['Cookie'] = `token=${context.token}`;
-			else if (req.cookies && req.cookies.token) headers['Cookie'] = `token=${req.cookies.token}`;
-			const resp = await axios.get(`${templateServiceUrl}/api/templates/${payload.template_id}`, { headers, withCredentials: true });
-			if (resp.data && resp.data.template) {
-				const template = resp.data.template;
-				payload.from_template = {
-					id: template._id,
-					title: template.title,
-					document_code: template.document_code || null,
-					revision_no: template.revision_no !== undefined && template.revision_no !== null ? String(template.revision_no) : null,
-					effectivity: template.effectivity || null,
-					fields: Array.isArray(template.fields) ? template.fields : [],
-					pages_json: Array.isArray(template.pages_json) ? template.pages_json : [],
-					pageSetup: template.pageSetup || {},
-					headerConfig: template.headerConfig || template.logoConfig || {},
-					status_meta: template.status_meta || {},
-					dateFormat: template.dateFormat || {},
-					assigned: Array.isArray(template.assigned) ? template.assigned : [],
-					snapshot_at: new Date()
-				};
+			const context = req.context || {};
+			if (context.token) {
+				headers['Cookie'] = `token=${context.token}`;
+			} else if (req.cookies && req.cookies.token) {
+				headers['Cookie'] = `token=${req.cookies.token}`;
+			}
 
-				payload.title = payload.title || template.title || payload.title;
-				payload.pages_json = Array.isArray(payload.pages_json) && payload.pages_json.length ? payload.pages_json : template.pages_json || payload.pages_json;
-				if (template.document_code) payload.document_code = payload.document_code || template.document_code;
-				if (template.revision_no !== undefined && template.revision_no !== null) payload.revision_no = payload.revision_no || String(template.revision_no);
-				if (template.effectivity) payload.effectivity = payload.effectivity || template.effectivity;
-				if (Array.isArray(template.fields) && template.fields.length) {
-					payload.metadata = payload.metadata || {};
-					payload.metadata.template_fields = payload.metadata.template_fields || template.fields;
+			const uniqueTemplateIds = Array.from(new Set(items.map(s => s && s.template ? String(s.template) : '').filter(Boolean)));
+			const templateTitleMap = {};
+			await Promise.all(uniqueTemplateIds.map(async (tid) => {
+				try {
+					const resp = await axios.get(`${templateServiceUrl}/api/templates/${tid}`, { headers, withCredentials: true });
+					const tpl = resp?.data?.template || resp?.data || null;
+					if (tpl) templateTitleMap[String(tid)] = tpl.title || tpl.name || String(tid);
+				} catch (_) {
+					// ignore per-template failures
+					templateTitleMap[String(tid)] = String(tid);
 				}
+			}));
+
+			for (const s of items) {
+				const facultyId = s.faculty ? String(s.faculty) : null;
+				if (!facultyId) continue;
+				const templateId = s.template ? String(s.template) : '';
+				const templateName = (templateId && templateTitleMap[templateId]) ? templateTitleMap[templateId] : templateId || 'a template';
+				const message = `You have been assigned to submit "${templateName}" in submission bin "${bin.title}". Deadline: ${deadlineTxt}. Assigned by ${actorName}.`;
+				await postNotificationWithCallback(
+					{
+						type: 'submission_bin_assignment',
+						message,
+						link: `/submission-bins/${bin._id}?template=${templateId}`,
+						targetedUserIds: [facultyId],
+						recipientUser: facultyId,
+					},
+					(err) => {
+						if (err) console.warn('createSubmissionBin notify (faculty) failed for', facultyId);
+					}
+				);
 			}
-		} catch (err) {
-			console.warn('Failed to fetch template for creation (continuing):', err?.message || err);
+		} catch (e) {
+			console.error('createSubmissionBin notification error', e?.message || e);
 		}
 
-		if (!Array.isArray(payload.pages_json)) {
-			payload.pages_json = [{ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '' }] }] }];
-		}
-
-		// ensure assigned is set to deduped (objects)
-		payload.assigned = deduped;
-
-		// accept optional deadline (ISO string or timestamp)
-		if (payload.deadline) {
-			const d = new Date(payload.deadline);
-			if (!isNaN(d.getTime())) payload.deadline = d;
-			else payload.deadline = null;
-		}
-
-		const docToCreate = new Document({ ...payload });
-		// set submission_link if provided
-		if (payload.submission_link) docToCreate.submission_link = payload.submission_link;
-		// set school and department from authenticated user when available
-		docToCreate.school = req.user?.school || req.user?.role?.school || payload.school || '';
-		docToCreate.department = req.user?.department || req.user?.role?.department || payload.department || null;
-
-
-		// mark document as assigned
-		docToCreate.status = 'assigned';
-
-		try {
-			await docToCreate.save();
-			// create initial version data fire-and-forget
-			try {
-				createVersionData(String(docToCreate._id), payload.field_values || {}, {
-					userId: req.user?.id || null,
-					note: 'initial version',
-					last_activity_at: payload.last_activity_at || new Date()
-				});
-			} catch (e) {
-				console.error('createVersionData failed', e);
-			}
-			return res.status(201).json({ success: true, message: 'Document created from template and faculty assigned', document: docToCreate, assigned: deduped.map(a => a.userId) });
-		} catch (saveErr) {
-			console.error('Failed to create document from template', saveErr);
-			return res.status(500).json({ message: 'Failed to create document from template', error: saveErr.message || String(saveErr) });
-		}
+		return res.status(201).json(bin);
 	} catch (err) {
-		console.error('assignFacultyByDeptHead error', err);
-		return res.status(500).json({ message: 'Failed to assign faculty', error: err.message });
+		console.error('createSubmissionBin error', err);
+		return res.status(500).json({ message: 'Failed to create submission bin', error: err.message });
 	}
 };
 
+/**
+ * List Submission Bins
+ *
+ * @route GET /api/submission-bins
+ * @desc List bins with optional filters: department, status, mine=true (created_by current user)
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const listBins = async (req, res) => {
+	try {
+		const { department, status, mine } = req.query;
+		const filter = {};
+		if (department) filter.department = department;
+		if (status) filter.status = status;
+		if (mine === 'true') filter.created_by = (req.user?._id || req.user?.id);
+
+		// Restrict dean/secretary views to forwarded bins in their school (role-agnostic)
+		if (hasRole(req, ['dean']) || hasRole(req, ['secretary'])) {
+			if (req.user?.school) filter.school = req.user.school;
+			filter.is_forwarded = true;
+		}
+
+		const bins = await SubmissionBin.find(filter).sort({ createdAt: -1 });
+		return res.json(bins);
+	} catch (err) {
+		console.error('listBins error', err);
+		return res.status(500).json({ message: 'Failed to list bins', error: err.message });
+	}
+};
 
 /**
- * @desc Submit a document (save submission_link). Faculty will call this to attach their PDF link.
- * @route PATCH /api/documents/:id/submission
- * Body: { submission_link: string }
- * TO BE COMPLETED
+ * List Submission Bins that reference a given document in any submission item
+ *
+ * @route GET /api/submission-bins/by-document/:documentId
+ * @desc Applies the same visibility rules: dean/secretary only see forwarded bins in their school
  */
-export const submitDocumentLink = async (req, res) => {
+export const listBinsByDocument = async (req, res) => {
+	try {
+		const { documentId } = req.params;
+		if (!documentId) return res.status(400).json({ message: 'documentId required' });
+
+		const filter = { 'submissions.documents': documentId };
+		if (hasRole(req, ['dean']) || hasRole(req, ['secretary'])) {
+			if (req.user?.school) filter.school = req.user.school;
+			filter.is_forwarded = true;
+		}
+
+		const bins = await SubmissionBin.find(filter).sort({ createdAt: -1 });
+		return res.json(bins);
+	} catch (err) {
+		console.error('listBinsByDocument error', err);
+		return res.status(500).json({ message: 'Failed to list bins by document', error: err.message });
+	}
+};
+
+/**
+ * Get Submission Bin by ID
+ *
+ * @route GET /api/submission-bins/:id
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const getBin = async (req, res) => {
 	try {
 		const { id } = req.params;
-		if (!id) return res.status(400).json({ message: 'id required' });
+		const bin = await SubmissionBin.findById(id);
+		if (!bin) return res.status(404).json({ message: 'Bin not found' });
 
-		// Accept either a file upload (req.file) or a direct submission_link in body.
-		// If a file is provided and body.store !== 'false' (default true), forward to File Service /api/files/upload/document
-		// If file is provided and body.store === 'false', create a default path string without storing the file.
-		const { submission_link, store } = req.body || {};
-
-
-
-		let finalLink = null;
-
-		// If a file was uploaded via multipart form (multer.memoryStorage), forward it to file-service unless store === 'false'
-		if (req.file) {
-			const keepInStorage = !(String(store).toLowerCase() === 'false');
-			const originalName = req.file.originalname || `upload_${Date.now()}`;
-			const ext = path.extname(originalName) || '';
-
-			// For now do not forward files to file-service. Store submission as inline data URL (base64).
-			const b64 = req.file.buffer.toString('base64');
-			finalLink = `data:${req.file.mimetype};base64,${b64}`;
-		} else if (submission_link && typeof submission_link === 'string') {
-			finalLink = submission_link;
-		} else {
-			return res.status(400).json({ message: 'Either a file upload or submission_link (string) is required' });
+		// Enforce access for dean/secretary: only forwarded bins in their school (role-agnostic)
+		if (hasRole(req, ['dean']) || hasRole(req, ['secretary'])) {
+			const sameSchool = !req.user?.school || String(bin.school || '') === String(req.user.school || '');
+			if (!sameSchool || !bin.is_forwarded) {
+				return res.status(403).json({ message: 'Not authorized to access this bin' });
+			}
 		}
-
-		// set submission link and mark status as submitted
-		// load document to update
-		const doc = await Document.findById(id);
-		if (!doc) return res.status(404).json({ message: 'document not found' });
-
-		doc.submission_link = finalLink;
-		doc.status = 'submitted';
-
-        // add audit note
-		try {
-			const actor = req.user?.id || null;
-			const note = { action: 'submit', by: actor, submission_link: finalLink, at: new Date() };
-			doc.notes = Array.isArray(doc.notes) ? [note, ...doc.notes] : [note];
-		} catch (e) {
-			console.warn('Failed to append submit note', e?.message || e);
-		}
-
-		try {
-			await doc.save();
-		} catch (saveErr) {
-			console.error('Failed to save submission link', saveErr);
-			return res.status(500).json({ message: 'Failed to save submission link', error: saveErr.message || String(saveErr) });
-		}
-
-		return res.json({ success: true, message: 'Submission link saved', document: doc });
+			// Enrich faculty names for submissions using user-service
+			try {
+				const obj = bin.toObject ? bin.toObject() : JSON.parse(JSON.stringify(bin));
+				const submissions = Array.isArray(obj.submissions) ? obj.submissions : [];
+				const uniqueIds = Array.from(new Set(submissions.map(s => String(s.faculty)).filter(Boolean)));
+				const map = {};
+				await Promise.all(uniqueIds.map(async (uid) => {
+					try {
+						const info = await fetchUserInfoById(uid, req, { basic: true });
+						const data = info?.data || info; // allow either shape
+						const name = data?.name || data?.fullname || [data?.firstname || data?.firstName, data?.lastname || data?.lastName].filter(Boolean).join(' ').trim();
+						map[uid] = {
+							id: uid,
+							name: name || data?.email || uid,
+							email: data?.email || undefined,
+						};
+					} catch (_) { map[uid] = { id: uid, name: uid }; }
+				}));
+				obj.submissions = submissions.map((s) => ({
+					...s,
+					faculty_user: map[String(s.faculty)] || { id: String(s.faculty), name: String(s.faculty) },
+					faculty_name: (map[String(s.faculty)] && map[String(s.faculty)].name) || String(s.faculty),
+				}));
+				return res.json(obj);
+			} catch (e) {
+				// Fallback to original bin if enrichment fails
+				return res.json(bin);
+			}
 	} catch (err) {
-		console.error('submitDocumentLink error', err);
+		console.error('getBin error', err);
+		return res.status(500).json({ message: 'Failed to fetch bin', error: err.message });
+	}
+};
+
+/**
+ * Forward a Submission Bin to Secretary or Dean
+ * @route POST /api/submission-bins/:id/forward
+ * @desc Department Head marks a bin as forwarded to a role ('secretary'|'dean'). Uses body.to or bin.route_to.
+ */
+export const forwardBin = async (req, res) => {
+	try {
+		if (!hasRole(req, ['Department Head'])) {
+			return res.status(403).json({ message: 'Only Department Head can forward bins' });
+		}
+		const { id } = req.params;
+		const bin = await SubmissionBin.findById(id);
+		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+
+		// Only allow forwarding when the bin has been marked completed
+		const isCompleted = String(bin.status || '').toLowerCase() === 'completed';
+		if (!isCompleted) {
+			return res.status(400).json({ message: 'Bin must be completed before it can be forwarded' });
+		}
+		bin.is_forwarded = true;
+		bin.forwarded_at = new Date();
+		bin.forwarded_by = req.user?._id || req.user?.id || null;
+		await bin.save();
+
+		// --- NEW: Notify Secretary & Dean roles that bin is ready to view ---
+        try {
+		const message = `Submission bin "${bin.title}" has been forwarded and can be reviewed.`;
+		await postNotificationWithCallback(
+			{
+			type: 'submission_bin_forwarded',
+			message,
+			link: `/submission-bins/${bin._id}`,
+			recipientRoles: ['Secretary', 'Dean'],
+			},
+			(err) => {
+			if (err) console.warn('forwardBin notification callback: failed');
+			}
+		);
+		} catch (e) {
+		console.error('forwardBin notification error', e?.message || e);
+		}
+
+		return res.json(bin);
+	} catch (err) {
+		console.error('forwardBin error', err);
+		return res.status(500).json({ message: 'Failed to forward bin', error: err.message });
+	}
+};
+
+/**
+ * Update Submission Bin top-level fields and assignments
+ *
+ * @route PATCH /api/submission-bins/:id
+ * @desc Dept Head can update title, instructions, department, route_to, deadline, template_ids, faculty_ids, status
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const updateBin = async (req, res) => {
+	try {
+		if (!hasRole(req, ['Department Head'])) {
+			return res.status(403).json({ message: 'Only Department Head can update bins' });
+		}
+		const { id } = req.params;
+		const update = {};
+		const { title, instructions, department, route_to, deadline, template_ids, faculty_ids, status, target_scope: targetScopeRaw } = req.body || {};
+
+		if (title !== undefined) update.title = title;
+		if (instructions !== undefined) update.instructions = instructions;
+		if (department !== undefined) update.department = department;
+		if (route_to !== undefined) update.route_to = route_to;
+		if (deadline !== undefined) update.deadline = deadline;
+		if (template_ids !== undefined) update.template_ids = template_ids;
+		if (faculty_ids !== undefined) update.faculty_ids = faculty_ids;
+		if (status !== undefined) update.status = status;
+		const scopeAlias = req.body && req.body.scope !== undefined ? req.body.scope : undefined;
+		const target_scope = targetScopeRaw !== undefined ? targetScopeRaw : scopeAlias;
+		if (target_scope !== undefined) update.target_scope = target_scope;
+
+		const bin = await SubmissionBin.findByIdAndUpdate(id, update, { new: true });
+		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+		return res.json(bin);
+	} catch (err) {
+		console.error('updateBin error', err);
+		return res.status(500).json({ message: 'Failed to update bin', error: err.message });
+	}
+};
+
+/**
+ * Upsert a Submission item (faculty + template) with optional per-submission instructions
+ *
+ * @route PUT /api/submission-bins/:id/submissions
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const upsertSubmission = async (req, res) => {
+	try {
+		const { id } = req.params; // bin id
+		const { template, faculty, instructions = '' } = req.body || {};
+		if (!template || !faculty) return res.status(400).json({ message: 'template and faculty are required' });
+
+		const bin = await SubmissionBin.findById(id);
+		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+
+		// Enforce allowed templates if bin.template_ids is configured
+		try {
+			const allowed = Array.isArray(bin.template_ids) ? bin.template_ids.map(t => String(t)) : [];
+			if (allowed.length && !allowed.includes(String(template))) {
+				return res.status(400).json({ message: 'Template not allowed for this bin' });
+			}
+		} catch (_) { /* ignore */ }
+
+		const existing = bin.submissions.find(s => String(s.template) === String(template) && String(s.faculty) === String(faculty));
+		if (existing) {
+			existing.instructions = instructions;
+		} else {
+			bin.submissions.push({ template, faculty, instructions, status: 'assigned' });
+		}
+
+		await bin.save();
+		return res.json(bin);
+	} catch (err) {
+		console.error('upsertSubmission error', err);
+		return res.status(500).json({ message: 'Failed to upsert submission', error: err.message });
+	}
+};
+
+/**
+ * Submit a Document for a specific Submission item
+ *
+ * @route POST /api/submission-bins/:id/submissions/:submissionId/submit
+ * @desc Faculty attaches a document to their assigned submission entry
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const submitDocument = async (req, res) => {
+	try {
+		const { id, submissionId } = req.params; // bin id + submission item id
+		const { documentId } = req.body || {};
+		if (!documentId) {
+			return res.status(400).json({ message: 'documentId is required to submit a document' });
+		}
+		const bin = await SubmissionBin.findById(id);
+		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+
+		// Prevent submitting into a completed bin
+		if (String(bin.status || '').toLowerCase() === 'completed') {
+			return res.status(400).json({ message: 'This bin is already completed; submissions are closed.' });
+		}
+
+		const item = bin.submissions.id(submissionId);
+		if (!item) return res.status(404).json({ message: 'Submission item not found' });
+
+		// Validate document exists and matches template constraints
+		const doc = await Document.findById(documentId);
+		if (!doc) return res.status(404).json({ message: 'Document not found' });
+		const itemTemplateId = String(item.template);
+		let docTemplateId = null;
+		try {
+			docTemplateId = doc.template_id ? String(doc.template_id) : (doc.from_template && doc.from_template.id ? String(doc.from_template.id) : null);
+		} catch (_) { docTemplateId = null; }
+		if (!docTemplateId) return res.status(400).json({ message: 'Document is not associated with a template' });
+		if (docTemplateId !== itemTemplateId) return res.status(400).json({ message: 'Document template does not match required template' });
+		try {
+			const allowed = Array.isArray(bin.template_ids) ? bin.template_ids.map(t => String(t)) : [];
+			if (allowed.length && !allowed.includes(itemTemplateId)) {
+				return res.status(400).json({ message: 'This template is not allowed for this bin' });
+			}
+		} catch (_) { /* ignore */ }
+
+		// Ensure documents array exists
+		if (!Array.isArray(item.documents)) item.documents = [];
+		// Add new document if not already present
+		if (!item.documents.find(d => String(d) === String(documentId))) {
+			item.documents.push(documentId);
+		}
+		// Mark submitted when at least one document present
+		if (item.documents.length > 0 && item.status !== 'submitted') {
+			item.status = 'submitted';
+			item.submitted_at = new Date();
+		}
+
+		await bin.save();
+
+		// --- NEW: Notify Department Head (bin creator) of submission ---
+        try {
+		const actorName = safeNameFromUser(req.user);
+		const deptHeadId = bin.created_by ? String(bin.created_by) : null;
+		if (deptHeadId && String(deptHeadId) !== String(req.user?.id || req.user?._id)) {
+			const templateId = item.template ? String(item.template) : '';
+			const message = `${actorName} submitted a document for template ${templateId} in submission bin "${bin.title}".`;
+			await postNotificationWithCallback(
+			{
+				type: 'submission_item_submitted',
+				message,
+				link: `/submission-bins/${bin._id}?submission=${item._id}`,
+				targetedUserIds: [deptHeadId],
+				recipientUser: deptHeadId,
+			},
+			(err) => {
+				if (err) console.warn('submitDocument notification callback: failed');
+			}
+			);
+		}
+		} catch (e) {
+		console.error('submitDocument notification error', e?.message || e);
+		}
+
+		return res.json(bin);
+	} catch (err) {
+		console.error('submitDocument error', err);
 		return res.status(500).json({ message: 'Failed to submit document', error: err.message });
 	}
 };
+
+/**
+ * Unsubmit a document from a specific Submission item
+ *
+ * @route POST /api/submission-bins/:id/submissions/:submissionId/unsubmit
+ * @desc Remove one document from the submission (by documentId) or all if none specified.
+ *       Only allowed while bin is not completed. If documents becomes empty, status reverts to 'assigned'.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const unsubmitDocument = async (req, res) => {
+	try {
+		const { id, submissionId } = req.params;
+		const { documentId } = req.body || {};
+
+		const bin = await SubmissionBin.findById(id);
+		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+
+		// Disallow unsubmit if bin is completed
+		if (String(bin.status || '').toLowerCase() === 'completed') {
+			return res.status(400).json({ message: 'Cannot unsubmit from a completed bin.' });
+		}
+
+		const item = bin.submissions.id(submissionId);
+		if (!item) return res.status(404).json({ message: 'Submission item not found' });
+
+		// Permission: owner or privileged roles
+		try {
+			const actorId = String(req.user?._id || req.user?.id || '');
+			const isOwner = actorId && String(item.faculty) === actorId;
+			const isPrivileged = hasRole(req, ['Department Head']) || hasRole(req, ['secretary']) || hasRole(req, ['dean']);
+			if (!isOwner && !isPrivileged) {
+				return res.status(403).json({ message: 'Not authorized to unsubmit this item.' });
+			}
+		} catch (_) { /* best effort */ }
+
+		if (!Array.isArray(item.documents)) item.documents = [];
+
+		if (documentId) {
+			item.documents = item.documents.filter(d => String(d) !== String(documentId));
+		} else {
+			// Clear all
+			item.documents = [];
+		}
+
+		if (item.documents.length === 0) {
+			item.status = 'assigned';
+			item.submitted_at = null;
+		}
+
+		await bin.save();
+
+		// --- NEW: Notify Department Head of unsubmit ---
+        try {
+		const actorName = safeNameFromUser(req.user);
+		const deptHeadId = bin.created_by ? String(bin.created_by) : null;
+		if (deptHeadId && String(deptHeadId) !== String(req.user?.id || req.user?._id)) {
+			const templateId = item.template ? String(item.template) : '';
+			const message = `${actorName} unsubmitted their document for template ${templateId} in submission bin "${bin.title}".`;
+			await postNotificationWithCallback(
+			{
+				type: 'submission_item_unsubmitted',
+				message,
+				link: `/submission-bins/${bin._id}?submission=${item._id}`,
+				targetedUserIds: [deptHeadId],
+				recipientUser: deptHeadId,
+			},
+			(err) => {
+				if (err) console.warn('unsubmitDocument notification callback: failed');
+			}
+			);
+		}
+		} catch (e) {
+		console.error('unsubmitDocument notification error', e?.message || e);
+		}
+
+		return res.json(bin);
+	} catch (err) {
+		console.error('unsubmitDocument error', err);
+		return res.status(500).json({ message: 'Failed to unsubmit document', error: err.message });
+	}
+};
+
+/**
+ * Return a Submission item
+ *
+ * @route POST /api/submission-bins/:id/submissions/:submissionId/return
+ * @desc Secretary/Dean returns an item with a reason; records returned_by and note
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const returnSubmission = async (req, res) => {
+	try {
+		if (!hasRole(req, ['secretary', 'dean', 'Department Head'])) {
+			return res.status(403).json({ message: 'Only Secretary/Dean/Department Head can return submissions' });
+		}
+
+		const { id, submissionId } = req.params;
+		const { reason = '' } = req.body || {};
+
+		const bin = await SubmissionBin.findById(id);
+		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+		const item = bin.submissions.id(submissionId);
+		if (!item) return res.status(404).json({ message: 'Submission item not found' });
+
+		item.status = 'returned';
+		item.returned_at = new Date();
+		item.returned_by = req.user?._id || req.user?.id || null;
+		item.returned_reason = reason;
+		item.notes.push({ type: 'returned', message: reason || 'Returned', by: (req.user?._id || req.user?.id || null) });
+
+		await bin.save();
+
+		// --- NEW: Notify faculty (owner) that submission was returned ---
+        try {
+		const facultyId = item.faculty ? String(item.faculty) : null;
+		if (facultyId) {
+			const roleName = safeRoleFromUser(req.user);
+			const message = `${roleName} has returned your submitted document. View for indicated reasons.`;
+			await postNotificationWithCallback(
+			{
+				type: 'submission_item_returned',
+				message,
+				link: `/submission-bins/${bin._id}?submission=${item._id}`,
+				targetedUserIds: [facultyId],
+				recipientUser: facultyId,
+			},
+			(err) => {
+				if (err) console.warn('returnSubmission notification callback: failed');
+			}
+			);
+		}
+		} catch (e) {
+		console.error('returnSubmission notification error', e?.message || e);
+		}
+
+		return res.json(bin);
+	} catch (err) {
+		console.error('returnSubmission error', err);
+		return res.status(500).json({ message: 'Failed to return submission', error: err.message });
+	}
+};
+
+/**
+ * Approve a Submission item
+ *
+ * @route POST /api/submission-bins/:id/submissions/:submissionId/approve
+ * @desc Secretary/Dean approves an item; records approved_by and note
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const approveSubmission = async (req, res) => {
+	try {
+		if (!hasRole(req, ['secretary', 'dean'])) {
+			return res.status(403).json({ message: 'Only Secretary/Dean can approve submissions' });
+		}
+
+		const { id, submissionId } = req.params;
+
+		const bin = await SubmissionBin.findById(id);
+		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+		const item = bin.submissions.id(submissionId);
+		if (!item) return res.status(404).json({ message: 'Submission item not found' });
+
+		item.status = 'approved';
+		item.approved_at = new Date();
+		item.approved_by = req.user?._id || req.user?.id || null;
+		item.notes.push({ type: 'general', message: 'Approved', by: (req.user?._id || req.user?.id || null) });
+
+		await bin.save();
+
+		// --- NEW: Notify faculty (owner) of approval ---
+        try {
+		const facultyId = item.faculty ? String(item.faculty) : null;
+		if (facultyId) {
+			const roleName = safeRoleFromUser(req.user);
+			const message = `Your submitted document has been approved by the ${roleName}.`;
+			await postNotificationWithCallback(
+			{
+				type: 'submission_item_approved',
+				message,
+				link: `/submission-bins/${bin._id}?submission=${item._id}`,
+				targetedUserIds: [facultyId],
+				recipientUser: facultyId,
+			},
+			(err) => {
+				if (err) console.warn('approveSubmission notification callback: failed');
+			}
+			);
+		}
+		} catch (e) {
+		console.error('approveSubmission notification error', e?.message || e);
+		}
+
+		return res.json(bin);
+	} catch (err) {
+		console.error('approveSubmission error', err);
+		return res.status(500).json({ message: 'Failed to approve submission', error: err.message });
+	}
+};
+
+/**
+ * Evaluate and mark bin completed if all submissions are terminal
+ *
+ * @route POST /api/submission-bins/:id/evaluate
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const evaluateBinCompletion = async (req, res) => {
+	try {
+		const { id } = req.params;
+		const bin = await SubmissionBin.findById(id);
+		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+
+		const allDone = (bin.submissions || []).every(s => ['approved','rejected'].includes(s.status));
+		if (allDone) {
+			bin.status = 'completed';
+			await bin.save();
+		}
+
+		return res.json(bin);
+	} catch (err) {
+		console.error('evaluateBinCompletion error', err);
+		return res.status(500).json({ message: 'Failed to evaluate bin', error: err.message });
+	}
+};
+
 
 
 /**

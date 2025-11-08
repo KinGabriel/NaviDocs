@@ -147,12 +147,19 @@ export const saveFieldSuggestionAPI = async (suggestion) => {
  * @param {string} key - field key
  * @param {string} [scope] - optional scope ('user'|'school')
  * @param {number} [limit] - optional limit
+ * @param {string} [label] - field label metadata for matching
+ * @param {string[]} [tags] - field tags metadata for matching
+ * @param {('label'|'label-tags'|'any')} [matchMode] - explicit match strategy
  */
-export const getFieldSuggestionsAPI = async (key, scope, limit = 10) => {
+
+export const getFieldSuggestionsAPI = async (key, scope, limit = 10, label, tags, matchMode) => {
 	try {
 		const params = { key };
 		if (scope) params.scope = scope;
 		if (limit) params.limit = limit;
+		if (label) params.label = label;
+		if (Array.isArray(tags) && tags.length) params.tags = tags.join(',');
+    if (matchMode) params.matchMode = matchMode;
 		const res = await axios.get(`${API_URL}/api/documents/field-suggestions`, {
 			params,
 			withCredentials: true,
@@ -347,6 +354,19 @@ export const archiveDocumentAPI = async (documentId) => {
 };
 
 /**
+ * Unarchive a document by id (owner only)
+ * @param {string} documentId
+ */
+export const unarchiveDocumentAPI = async (documentId) => {
+	try {
+		const res = await axios.patch(`${API_URL}/api/documents/${documentId}/unarchive`, {}, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to unarchive document');
+	}
+};
+
+/**
  * List archived documents for current user
  * @param {Object} params - Query params (page, limit)
  * @returns {Promise<Object>} - API response data (should include pagination)
@@ -362,4 +382,26 @@ export const listArchivedDocumentsAPI = async (params = {}) => {
     throw new Error(error.response?.data?.message || "Failed to list archived documents");
   }
 };
+
+// --- Unarchive / Restore a soft-deleted document
+export const restoreDocumentAPI = async (documentId) => {
+  try {
+    const res = await axios.patch(`${API_URL}/api/documents/${documentId}/restore`, {}, { withCredentials: true });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Failed to restore document");
+  }
+};
+
+// --- Permanently delete a document (irreversible)
+export const permanentlyDeleteDocumentAPI = async (documentId) => {
+  try {
+    // If your backend uses a different route, adjust here (e.g. /permanent or ?permanent=true)
+    const res = await axios.delete(`${API_URL}/api/documents/${documentId}?permanent=true`, { withCredentials: true });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Failed to permanently delete document");
+  }
+};
+
 

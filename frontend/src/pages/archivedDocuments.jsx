@@ -1,26 +1,73 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import Header from "../layout/headers/header";
 import Sidebar from "../layout/sidebars/sidebar";
 import useUser from "../hooks/useUser";
 import SearchBar from "../components/searchbar";
 import Table from "../components/table";
-import DocumentCard from "../components/cards/documentCard";
 import usePagination from "../hooks/usePagination";
 import Loader from "../components/loader";
-import { listDocumentsAPI } from "../api/documentsAPI";
+import { listDocumentsAPI, restoreDocumentAPI, permanentlyDeleteDocumentAPI } from "../api/documentsAPI";
+import UnarchiveDocumentModal from "../components/modals/unarchiveDocumentModal";
+import PermanentlyDeleteDocumentModal from "../components/modals/permanentlyDeleteDocumentModal";
 
 export default function ArchivedDocuments() {
   const user = useUser();
-  const navigate = useNavigate();
 
   const PAGE_SIZE = 8;
-  const [viewMode, setViewMode] = useState("grid"); // "table" | "grid"
   const [search, setSearch] = useState("");
   const [archivedDocs, setArchivedDocs] = useState([]);
   const [archivedLoading, setArchivedLoading] = useState(false);
   const [archivedTotalPages, setArchivedTotalPages] = useState(1);
+  const [rowBusy, setRowBusy] = useState(null);
   const pagination = usePagination(archivedTotalPages, 1);
+
+  const [selectedDoc, setSelectedDoc] = useState(null);
+  const [openUnarchive, setOpenUnarchive] = useState(false);
+  const [openPermanentDelete, setOpenPermanentDelete] = useState(false);
+  const [modalSubmitting, setModalSubmitting] = useState(false);
+  const [modalError, setModalError] = useState("");
+
+  // -- Actions (safe dynamic import so missing exports won't crash the app) --
+  const handleUnarchiveClick = (doc) => {
+    setSelectedDoc(doc);
+    setModalError("");
+    setOpenUnarchive(true);
+  };
+
+  const handlePermanentDeleteClick = (doc) => {
+    setSelectedDoc(doc);
+    setModalError("");
+    setOpenPermanentDelete(true);
+  };
+
+  const confirmUnarchive = async () => {
+    if (!selectedDoc) return;
+    setModalSubmitting(true);
+    try {
+      await restoreDocumentAPI(selectedDoc._id || selectedDoc.id);
+      setArchivedDocs((prev) => prev.filter((d) => (d._id || d.id) !== (selectedDoc._id || selectedDoc.id)));
+      setOpenUnarchive(false);
+    } catch (e) {
+      setModalError(e.message || "Failed to unarchive");
+    } finally {
+      setModalSubmitting(false);
+    }
+  };
+
+  const confirmPermanentDelete = async () => {
+    if (!selectedDoc) return;
+    setModalSubmitting(true);
+    try {
+      await permanentlyDeleteDocumentAPI(selectedDoc._id || selectedDoc.id);
+      setArchivedDocs((prev) => prev.filter((d) => (d._id || d.id) !== (selectedDoc._id || selectedDoc.id)));
+      setOpenPermanentDelete(false);
+    } catch (e) {
+      setModalError(e.message || "Failed to delete");
+    } finally {
+      setModalSubmitting(false);
+    }
+  };
+
 
   const archivedColumns = [
     {
@@ -33,9 +80,7 @@ export default function ArchivedDocuments() {
       label: "Assigned To",
       render: (row) => {
         const list = row.assignedNames || row.assigned || [];
-        if (Array.isArray(list) && list.length) {
-          return list.filter(Boolean).join(", ");
-        }
+        if (Array.isArray(list) && list.length) return list.filter(Boolean).join(", ");
         return row.createdByName || row.created_by_name || "-";
       },
     },
@@ -50,11 +95,41 @@ export default function ArchivedDocuments() {
           : "-",
     },
     {
-      key: "actions",
+      key: "action",
       label: "Actions",
-      render: () => (
-        <span className="text-gray-400 text-sm select-none">No actions</span>
-      ),
+      render: (row) => {
+        const busy = rowBusy === (row._id || row.id);
+        return (
+          <div className="inline-flex items-center gap-2 whitespace-nowrap pl-2">
+            <button 
+              type="button"
+              onClick={() => handleUnarchiveClick(row)}
+              disabled={busy}
+              className={`px-3 py-1 rounded text-xs font-semibold border ${
+                busy
+                  ? "bg-green-100 text-green-500 opacity-60 cursor-not-allowed"
+                  : "bg-green-100 text-green-700 hover:bg-green-200"
+              }`}
+              title="Unarchive"
+            >
+              Unarchive
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePermanentDeleteClick(row)}
+              disabled={busy}
+              className={`px-3 py-1 rounded text-xs font-semibold border ${
+                busy
+                  ? "bg-red-100 text-red-500 opacity-60 cursor-not-allowed"
+                  : "bg-red-100 text-red-700 hover:bg-red-200"
+              }`}
+              title="Permanently delete"
+            >
+              Delete
+            </button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -65,7 +140,7 @@ export default function ArchivedDocuments() {
       const params = {
         limit: PAGE_SIZE,
         page: pagination.currentPage,
-        deleted: true, // still using deleted=true to pull soft-deleted docs
+        deleted: true, // soft-deleted = archived
         search: search?.trim() || undefined,
       };
       const result = await listDocumentsAPI(params);
@@ -103,6 +178,9 @@ export default function ArchivedDocuments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, search, pagination.currentPage]);
 
+  // Map _id → id so your Table has a stable key
+  const rows = archivedDocs.map((d) => ({ id: d._id || d.id, ...d }));
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
@@ -119,70 +197,31 @@ export default function ArchivedDocuments() {
                       rounded-none lg:rounded-xl"
         >
           <div className="flex-1 px-0 lg:px-1 py-5">
-            {/* Page title */}
             <h1 className="text-2xl lg:text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">
               ARCHIVED DOCUMENTS
             </h1>
             <div className="w-24 lg:w-30 h-1 bg-yellow-400 mb-4 lg:mb-6 rounded" />
 
-            {/* Controls: search + view toggle */}
-            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-              <div className="flex-1 hidden sm:block" />
-
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                <div className="w-full sm:w-64">
-                  <SearchBar
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search archived documents..."
-                  />
-                </div>
-
-                <div className="self-start sm:self-auto">
-                  <ViewToggle mode={viewMode} onChange={setViewMode} />
-                </div>
+            {/* Controls: search */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 mb-4">
+              <div className="w-full sm:w-64">
+                <SearchBar
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search archived documents..."
+                />
               </div>
             </div>
 
-            {/* Content section */}
+            {/* Content: table */}
             {archivedLoading ? (
               <div className="w-full flex justify-center py-10">
                 <Loader message="Loading archived documents..." />
               </div>
             ) : (
-              <>
-                {viewMode === "table" ? (
-                  <div className="w-full overflow-x-auto rounded-lg border border-gray-200 sm:border-0 sm:overflow-visible sm:rounded-none">
-                    <Table columns={archivedColumns} data={archivedDocs} />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                    {archivedDocs.length === 0 ? (
-                      <div className="col-span-full text-center py-8">
-                        <p className="text-gray-600">No archived documents</p>
-                      </div>
-                    ) : (
-                      archivedDocs.map((doc, i) => {
-                        const id = doc._id || i;
-                        return (
-                          <div key={id} className="relative">
-                            <span className="absolute top-2 right-2 z-10 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
-                              Archived
-                            </span>
-                            <DocumentCard
-                              document={doc}
-                              user={user}
-                              onSelect={() => {
-                                /* read-only in archive */
-                              }}
-                            />
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </>
+              <div className="w-full overflow-x-auto rounded-lg border border-gray-200 sm:border-0 sm:overflow-visible sm:rounded-none">
+                <Table columns={archivedColumns} data={rows} />
+              </div>
             )}
 
             {/* Pagination */}
@@ -197,10 +236,7 @@ export default function ArchivedDocuments() {
 
               {pagination.getPageNumbers().map((num, idx) =>
                 num === "..." ? (
-                  <span
-                    key={idx}
-                    className="px-2 text-gray-400 select-none"
-                  >
+                  <span key={idx} className="px-2 text-gray-400 select-none">
                     ...
                   </span>
                 ) : (
@@ -229,50 +265,23 @@ export default function ArchivedDocuments() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
+      <UnarchiveDocumentModal
+        open={openUnarchive}
+        onClose={() => setOpenUnarchive(false)}
+        itemTitle={selectedDoc?.title}
+        submitting={modalSubmitting}
+        error={modalError}
+        onConfirm={confirmUnarchive}
+      />
 
-function ViewToggle({ mode = "grid", onChange }) {
-  const isTable = mode === "table";
-
-  return (
-    <div className="inline-flex items-stretch rounded-full border border-gray-300 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => onChange("table")}
-        className={`px-3 py-2 flex items-center ${
-          isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
-        }`}
-        aria-label="List view"
-        title="List view"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M4 7h16M4 12h16M4 17h16"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => onChange("grid")}
-        className={`px-3 py-2 flex items-center ${
-          !isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
-        }`}
-        aria-label="Grid view"
-        title="Grid view"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          <rect x="4" y="4" width="6" height="6" rx="1"></rect>
-          <rect x="14" y="4" width="6" height="6" rx="1"></rect>
-          <rect x="4" y="14" width="6" height="6" rx="1"></rect>
-          <rect x="14" y="14" width="6" height="6" rx="1"></rect>
-        </svg>
-      </button>
+      <PermanentlyDeleteDocumentModal
+        open={openPermanentDelete}
+        onClose={() => setOpenPermanentDelete(false)}
+        itemTitle={selectedDoc?.title}
+        submitting={modalSubmitting}
+        error={modalError}
+        onConfirm={confirmPermanentDelete}
+      />
     </div>
   );
 }

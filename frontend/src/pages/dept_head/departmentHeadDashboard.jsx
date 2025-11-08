@@ -1,50 +1,19 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
-import StatusBadge from "../../components/statusBadge";
 import Table from "../../components/table";
 import Greeting from "../../components/greeting";
 import UpcomingDeadlines from "../../components/upcomingDeadlines";
-import { Doughnut } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-} from "chart.js";
+import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { StatusBadge } from "../../utils/formatters";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-);
 
 export default function DepartmentHeadDashboard() {
   const user = useUser();
   const navigate = useNavigate();
 
-  // School identifiers
-  const schoolIdentifiers = {
-    "University Wide": "VAA",
-    SAMCIS: "SMI",
-    STELA: "STL",
-  };
-
-  // Filtering and sorting states
-  const [selectedSchool, setSelectedSchool] = useState("All");
-  const [selectedStatus, setSelectedStatus] = useState("All");
-  const [sortOrder, setSortOrder] = useState("Sort by");
-  const [search, setSearch] = useState("");
 
   function formatDate(dateValue) {
     if (!dateValue) return "-";
@@ -57,231 +26,190 @@ export default function DepartmentHeadDashboard() {
     });
   }
 
-  // still to be replaced with actual data fetching logic
-  const documents = [
+
+  // Sample data
+  const templates = [
     {
       id: 1,
-      code: "FM-SAA-002",
-      rev: "00",
-      date: "2026-03-16",
-      title: "Graphic Design Course Syllabi 26-27",
-      createdBy: "Daniela Torres",
+      title: "Research Proposal Template",
+      createdBy: "Admin User",
       status: "Approved",
     },
     {
       id: 2,
-      code: "FM-SAA-002",
-      rev: "00",
-      date: "2026-01-16",
-      title: "Web Technologies Course Syllabi 26-27",
-      createdBy: "Sarah Dela Cruz",
-      status: "Approved",
+      title: "Thesis Format Guide",
+      createdBy: "Admin User",
+      status: "Rejected",
     },
     {
       id: 3,
-      code: "FM-SAA-002",
-      rev: "00",
-      date: "2026-11-23",
-      title: "Special Topics 1 Course Syllabi 26-27",
-      createdBy: "Sarah Dela Cruz",
-      status: "Approved",
-    },
-    {
-      id: 4,
-      code: "FM-SAA-002",
-      rev: "00",
-      date: "2026-01-16",
-      title: "AI Course Syllabi 26-27",
-      createdBy: "Mark Gomez",
-      status: "Approved",
-    },
-    {
-      id: 5,
-      code: "FM-SAA-002",
-      rev: "00",
-      date: "2026-05-10",
-      title: "Hospitality Course Syllabi 26-27",
-      createdBy: "Jana Aquino",
+      title: "Internship Report Template",
+      createdBy: "Admin User",
       status: "Returned",
     },
-  ];
-
-  const pendingDocs = [
-    {
-      id: 1,
-      code: "FM-SAA-003",
-      rev: "00",
-      date: "2025-01-16",
-      title: "3D Modeling and Animation Course Syllabi 26-27",
-      createdBy: "Mae Santos",
-    },
-    {
-      id: 2,
-      code: "FM-SAA-001",
-      rev: "00",
-      date: "2025-12-17",
-      title: "Motion Graphics Design Course Syllabi 26-27",
-      createdBy: "Mae Santos",
-    },
-    {
-      id: 3,
-      code: "FM-SAA-006",
-      rev: "00",
-      date: "2025-01-26",
-      title: "Special Topics 2 Course Syllabi 26-27",
-      createdBy: "Jennie Zhang",
-    },
     {
       id: 4,
-      code: "FM-SAA-005",
-      rev: "00",
-      date: "2025-02-12",
-      title: "Current Trends 2 Course Syllabi 26-27",
-      createdBy: "Candice Gomez",
+      title: "Course Syllabus Template",
+      createdBy: "Admin User",
+      status: "Approved",
     },
     {
       id: 5,
-      code: "FM-SAA-008",
-      rev: "00",
-      date: "2025-04-06",
-      title: "Hospitality Course Syllabi 26-27",
-      createdBy: "Stacey Dixon",
+      title: "Capstone Project Template",
+      createdBy: "Admin User",
+      status: "Pending",
+    },
+    {
+      id: 6,
+      title: "Department Memo Format",
+      createdBy: "Admin User",
+      status: "Endorsed",
     },
   ];
 
-  const documentColumns = [
-    {
-      key: "code",
-      label: "Document Code",
-      render: (row) => (
-        <span className="text-xs text-gray-700">{row.code}</span>
-      ),
-    },
-    {
-      key: "rev",
-      label: "Revision No.",
-    },
-    {
-      key: "date",
-      label: "Effectivity",
-      render: (row) => formatDate(row.date),
-    },
-    {
-      key: "title",
-      label: "Title",
-      render: (row) => <span className="max-w-xs truncate block">{row.title}</span>,
-    },
-    {
-      key: "createdBy",
-      label: "Created By",
-    },
+
+
+
+  const publishedTemplates = [
+    { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
+    { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
+    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+    { id: 4, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+    { id: 5, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+  ];
+
+
+  const templateColumns = [
+    { key: "title", label: "Title" },
+    { key: "createdBy", label: "Created By" },
     {
       key: "status",
       label: "Status",
       render: (row) => <StatusBadge type={row.status} />,
     },
-  ];
-
-  const pendingDocColumns = [
-    {
-      key: "code",
-      label: "Document Code",
-      render: (row) => (
-        <span className="text-xs text-gray-700">{row.code}</span>
-      ),
-    },
-    {
-      key: "rev",
-      label: "Revision No.",
-    },
-    {
-      key: "date",
-      label: "Effectivity",
-      render: (row) => formatDate(row.date),
-    },
-    {
-      key: "title",
-      label: "Title",
-      render: (row) => <span className="max-w-xs truncate block">{row.title}</span>,
-    },
-    {
-      key: "createdBy",
-      label: "Created By",
-    },
     {
       key: "action",
       label: "Action",
       render: () => (
-        <button className="bg-blue-100 text-blue-700 px-4 py-1 rounded text-xs font-semibold hover:bg-blue-200">
+        <button
+          onClick={() => navigate("")}
+          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+        >
           Review
         </button>
       ),
     },
   ];
 
-  const upcomingDeadlines = [
+
+  const publishedTemplatesColumns = [
+    { key: "code", label: "Document Code" },
+    { key: "rev", label: "Revision No." },
+    { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
+    { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
+    { key: "createdBy", label: "Created By" },
     {
-      id: 1,
-      title: "Course Syllabi Review",
-      date: "2025-08-01",
-      priority: "Overdue",
-      department: "BS Computer Science",
-    },
-    {
-      id: 2,
-      title: "Faculty Performance Reports",
-      date: "2025-08-21",
-      priority: "Due Today",
-      department: "BS Information Technology",
-    },
-    {
-      id: 3,
-      title: "Budget Allocation Review",
-      date: "2025-08-31",
-      priority: "Due This Week",
-      department: "Administration",
-    },
-    {
-      id: 4,
-      title: "Field Trip Agenda Review",
-      date: "2025-09-23",
-      priority: "Upcoming",
-      department: "BS Information Technology",
+      key: "action",
+      label: "Action",
+      render: (row) => (
+        <button
+          onClick={() => navigate("")}
+          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+        >
+          Review
+        </button>
+      ),
     },
   ];
 
-  const chartData = {
-    labels: [
-      "Submission Rate",
-      "Approved Documents",
-      "Assigned Documents",
-      "Pending Documents",
-      "Returned Documents",
-    ],
-    datasets: [
-      {
-        data: [56, 36, 5, 7, 15, 5],
-        backgroundColor: ["#3B82F6", "#10B981", "#6B7280", "#F59E0B", "#F97316"],
-        borderWidth: 0,
-        cutout: "60%",
-      },
-    ],
-  };
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: "rgba(0, 0, 0, 0.8)",
-        titleColor: "white",
-        bodyColor: "white",
-        borderColor: "rgba(255, 255, 255, 0.1)",
-        borderWidth: 1,
-      },
+  const upcomingDeadlines = [
+    {
+      id: 1,
+      title: "Template Review for AY 2025",
+      date: "2025-08-15",
+      priority: "Overdue",
+      department: "Quality Assurance",
     },
-  };
+    {
+      id: 2,
+      title: "Annual Document Audit",
+      date: "2025-08-28",
+      priority: "Due Today",
+      department: "Administration",
+    },
+    {
+      id: 3,
+      title: "Syllabus Submission Check",
+      date: "2025-09-10",
+      priority: "Upcoming",
+      department: "Academics",
+    },
+  ];
+
+  const submissionOverviewData = [
+    {
+      id: 1,
+      name: "Syllabus AY 2025",
+      totalDocs: 50,
+      onTime: 35,
+      late: 10,
+      pendingPassed: 3,
+      pendingNotPassed: 2,
+      completion: "90%"
+    },
+    {
+      id: 2,
+      name: "Capstone 1 Documents",
+      totalDocs: 120,
+      onTime: 70,
+      late: 30,
+      pendingPassed: 10,
+      pendingNotPassed: 10,
+      completion: "83%"
+    },
+    {
+      id: 3,
+      name: "Internship Requirements",
+      totalDocs: 95,
+      onTime: 80,
+      late: 5,
+      pendingPassed: 5,
+      pendingNotPassed: 5,
+      completion: "89%"
+    },
+    {
+      id: 4,
+      name: "Internship Requirements",
+      totalDocs: 95,
+      onTime: 80,
+      late: 5,
+      pendingPassed: 5,
+      pendingNotPassed: 5,
+      completion: "89%"
+    },
+    {
+      id: 5,
+      name: "Internship Requirements",
+      totalDocs: 95,
+      onTime: 80,
+      late: 5,
+      pendingPassed: 5,
+      pendingNotPassed: 5,
+      completion: "89%"
+    },
+  ];
+
+  const submissionOverviewColumns = [
+    { key: "name", label: "Submission Name" },
+    { key: "totalDocs", label: "Total Docs" },
+    { key: "onTime", label: "Submitted (On-Time)" },
+    { key: "late", label: "Submitted (Late)" },
+    { key: "pendingPassed", label: "Pending (Deadline Passed)" },
+    { key: "pendingNotPassed", label: "Pending (Deadline Not Passed)" },
+    { key: "completion", label: "Completion %" },
+  ];
+
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -289,166 +217,137 @@ export default function DepartmentHeadDashboard() {
       <div className="flex flex-1">
         <Sidebar user={user} active="Dashboard" />
 
-        {/* Main Content */}
-        <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl ">
-          <Greeting name={user?.firstname || "Department Head"} />
+
+        <main className="flex-1 flex flex-col bg-white lg:shadow pt-1 pb-4 px-4 sm:px-6 lg:px-8 mx-0 lg:mx-6 mt-4 lg:mt-8 rounded-none lg:rounded-xl w-full max-w-full">
+          <Greeting name={user?.firstname || "Document Controller"} />
+
 
           {/* Stat cards */}
-          <div className="flex flex-wrap justify-between items-center mb-8">
-            <div className="flex gap-4 flex-wrap mt-4">
-              {/* Faculty */}
-              <div className="bg-[#FBFBFB]  p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
-                <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
-                  <svg
-                    className="w-6 h-6 text-white"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-black-600 text-base font-bold">
-                    Faculty
-                  </div>
-                  <div className="text-gray-500 text-xs">106 Members</div>
-                </div>
+          <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
+            {/* Upcoming Deadlines */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+                <CalendarClock className="h-6 w-6 text-white" />
               </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
+              </div>
+            </div>
 
-              {/* Documents */}
-              <div className="bg-[#FBFBFB]  p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48">
-                <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="1.8em"
-                    height="1.8em"
-                    viewBox="0 0 256 256"
-                  >
-                    <path
-                      fill="#fff"
-                      d="m213.66 66.34l-40-40A8 8 0 0 0 168 24H88a16 16 0 0 0-16 16v16H56a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h112a16 16 0 0 0 16-16v-16h16a16 16 0 0 0 16-16V72a8 8 0 0 0-2.34-5.66M136 192H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m0-32H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m64 24h-16v-80a8 8 0 0 0-2.34-5.66l-40-40A8 8 0 0 0 136 56H88V40h76.69L200 75.31Z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-black-600 text-base font-bold">
-                    Documents
-                  </div>
-                  <div className="text-gray-500 text-xs">3,564 Files</div>
-                </div>
+
+            {/* Due Today */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                <CalendarCheck className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
+              </div>
+            </div>
+
+
+            {/* Overdue Deadlines */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                <CalendarX className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
               </div>
             </div>
           </div>
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-4 gap-6 flex-1">
-            <div className="col-span-3 space-y-6">
-              {/* Documents Table */}
-              <div className="bg-[#FBFBFB] shadow p-4 rounded max-w-6xl w-full">
-                <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
-                  <div>
-                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                      DOCUMENTS
-                    </h2>
-                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
-                  </div>
-                  <button
-                    onClick={() => navigate("/documents")}
-                    className=" mr-4 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] "
-                  >
-                    View All
-                  </button>
-                </div>
-                <Table columns={documentColumns} data={documents} />
-              </div>
 
-              {/* Pending Documents Table */}
-              <div className="bg-[#FBFBFB] shadow p-4 rounded max-w-6xl w-full">
-                <div className="px-3 py-1 bg-gray-50 flex justify-between items-center rounded-lg">
+          {/* Tables and Upcoming Deadlines */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
+            <div className="lg:col-span-3 space-y-6">
+              <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
+                <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
                   <div>
                     <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                      PENDING DOCUMENTS
+                      RECENTLY SUBMITTED TEMPLATES
                     </h2>
-                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                    <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
                   </div>
+
                   <button
-                    onClick={() =>
-                      navigate("/documents", {
-                        state: { status: "Pending Approval" },
-                      })
-                    }
-                    className="mr-4 mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F]"
+                    onClick={() => navigate("")}
+                    className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
                   >
                     View All
                   </button>
                 </div>
-                <Table columns={pendingDocColumns} data={pendingDocs} />
+
+
+                {/* table wrapper for horizontal scroll on mobile */}
+                <div className="overflow-x-auto">
+                  <Table columns={templateColumns} data={templates} />
+                </div>
               </div>
             </div>
 
-            {/* Upcoming Deadlines */}
-            <div className="col-span-1 space-y-6">
+
+            <div className="lg:col-span-1 space-y-6">
               <UpcomingDeadlines
                 deadlines={upcomingDeadlines}
                 formatDate={formatDate}
               />
+            </div>
 
-              {/* Documents Summary Doughnut Chart - all placeholders */}
-              <div className="bg-white shadow-sm rounded-lg border border-gray-100">
-                <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
-                  <h3 className="font-semibold text-sm text-gray-800">
-                    DOCUMENTS SUMMARY
-                  </h3>
-                </div>
-                <div className="p-6 h-107">
-                  <div className="relative h-48 mb-4">
-                    <Doughnut data={chartData} options={chartOptions} />
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                        <span className="text-gray-600">Submission Rate</span>
-                      </div>
-                      <span className="font-medium text-gray-800">56</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                        <span className="text-gray-600">
-                          Approved Documents
-                        </span>
-                      </div>
-                      <span className="font-medium text-gray-800">36</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-gray-500"></div>
-                        <span className="text-gray-600">Assigned Documents</span>
-                      </div>
-                      <span className="font-medium text-gray-800">5</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                        <span className="text-gray-600">Pending Documents</span>
-                      </div>
-                      <span className="font-medium text-gray-800">7</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                        <span className="text-gray-600">Returned Documents</span>
-                      </div>
-                      <span className="font-medium text-gray-800">5</span>
-                    </div>
-                  </div>
+            <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
+              <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+                <div>
+                  <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                    SUBMISSION OVERVIEW
+                  </h2>
+                  <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                 </div>
               </div>
+
+
+              <div className="overflow-x-auto">
+                <Table
+                  columns={submissionOverviewColumns}
+                  data={submissionOverviewData}
+                />
+              </div>
             </div>
+
+            <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
+              <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+                <div>
+                  <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                    RECENTLY PUBLISHED TEMPLATES
+                  </h2>
+                  <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                </div>
+
+                <button
+                  onClick={() => navigate("")}
+                  className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+                >
+                  View All
+                </button>
+              </div>
+
+
+              <div className="overflow-x-auto">
+                <Table
+                  columns={publishedTemplatesColumns}
+                  data={publishedTemplates}
+                />
+              </div>
+            </div>
+
           </div>
         </main>
       </div>
     </div>
   );
 }
+
+
+

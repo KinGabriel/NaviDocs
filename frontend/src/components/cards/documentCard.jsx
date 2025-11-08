@@ -4,7 +4,6 @@ import ShareDocumentModal from '../modals/shareDocumentModal';
 import DuplicateModal from '../modals/duplicateModal';
 import DeleteModal from '../modals/deleteModal';
 import { toast } from 'react-hot-toast';
-
 import { assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
 import { renameDocumentAPI, deleteDocumentAPI,duplicateDocumentAPI, shareDocumentAPI } from "../../api/documentsAPI";
 
@@ -67,6 +66,8 @@ export default function DocumentCard({
       case 'published': return 'bg-blue-100 text-blue-800';
       case 'returned': return 'bg-orange-100 text-orange-800';
       case 'rejected': return 'bg-red-100 text-red-800';
+      case 'endorsed': return 'bg-purple-100 text-purple-800';
+      case 'disapproved': return 'bg-rose-100 text-rose-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -398,18 +399,6 @@ export default function DocumentCard({
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
                     Rename
-                  </button>
-
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    onClick={(e) => handleMenuAction('assign', e)}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 21a8 8 0 0 0-16 0"/>
-                      <circle cx="10" cy="8" r="5"/>
-                      <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/>
-                    </svg>
-                    Assign
                   </button>
 
                   <button

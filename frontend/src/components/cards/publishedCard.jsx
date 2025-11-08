@@ -13,19 +13,20 @@ export default function PublishedCard({
   onApprove, 
   onPublish, 
   onUnpublish,
+  onRenameRequest,        // (template) => void
+  onDuplicateRequest,     // (template) => void
+  onUnpublishRequest,     // (template) => void
 }) {
 
   const [showMenu, setShowMenu] = useState(false);
-  const [unpublishOpen, setUnpublishOpen] = useState(false);
-  const [unpublishing, setUnpublishing] = useState(false);
-  const [unpublishError, setUnpublishError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [modalCloseTs, setModalCloseTs] = useState(0);
 
   const justClosedModal = () => setModalCloseTs(Date.now());
   const ignoreClickNow = () => (Date.now() - modalCloseTs) < 300;
-  const isAnyModalOpen = unpublishOpen;
+  const isAnyModalOpen = false;
 
+  // --- FIX: the real permission check; removed the buggy top-level placeholders ---
   const canUnpublish = () => {
     if (!user || !template) return false;
 
@@ -69,7 +70,8 @@ export default function PublishedCard({
       case 'published': return 'bg-blue-100 text-blue-800';
       case 'returned': return 'bg-orange-100 text-orange-800';
       case 'rejected': return 'bg-red-100 text-red-800';
-      case 'assigned': return 'bg-purple-100 text-purple-800';
+      case 'endorsed': return 'bg-purple-100 text-purple-800';
+      case 'disapproved': return 'bg-rose-100 text-rose-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -106,10 +108,9 @@ export default function PublishedCard({
   const handleMenuAction = (action, e) => {
     e.stopPropagation(); 
     setShowMenu(false);
-    if (action === 'unpublish') {
-      setUnpublishError("");
-      setUnpublishOpen(true);
-    }
+    if (action === "rename") onRenameRequest?.(template);
+    if (action === "duplicate") onDuplicateRequest?.(template);
+    if (action === "unpublish") onUnpublishRequest?.(template);
   };
 
   const status = getTemplateStatus(template);
@@ -167,7 +168,10 @@ export default function PublishedCard({
       <div
         className={`relative w-[280px] bg-white rounded-lg shadow-md border border-gray-300 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer overflow-visible ${isAnyModalOpen ? 'pointer-events-none' : ''}`}
         onMouseDown={guardMouseDown}
-        onClick={guardClick}
+        onClick={(e) => {
+          if (showMenu) { e.stopPropagation(); return; }
+          guardClick(e);
+        }}
       >
         <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
           <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
@@ -197,7 +201,10 @@ export default function PublishedCard({
         <div 
           className="w-full h-[310px] bg-gray-50 flex items-center justify-center border-b border-gray-300 hover:bg-gray-100 transition-colors rounded-t-lg"
           onMouseDown={guardMouseDown}
-          onClick={guardClick}
+          onClick={(e) => {
+            if (showMenu) { e.stopPropagation(); return; }
+            guardClick(e);
+          }}
         >
           {template.thumbnailUrl ? (
             <img
@@ -229,11 +236,11 @@ export default function PublishedCard({
               {template.title || 'Untitled Template'}
             </p>
             
-          {/* Document Code */}
+            {/* Document Code */}
             <p className="text-xs text-blue-600 font-mono mt-1">
               {template.document_code || 'No Code'}
             </p>
-           {/*  School and Date Info */}
+            {/* School and Date Info */}
             <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4z"/>
@@ -250,30 +257,6 @@ export default function PublishedCard({
               </svg>
               <span>Created {formatDate(template.createdAt || template.created_at)}</span>
             </div>
-
-       {/* Approval role indicators */}
-          {approvalMeta && (
-            <div className="flex items-center gap-2 mt-2">
-              {['secretary','dean'].map(r => {
-                const approved = approvalMeta[`${r}Approved`];
-                return (
-                  <div
-                    key={r}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${
-                      approved ? 'bg-green-50 border-green-500 text-green-700' : 'bg-gray-50 border-gray-300 text-gray-500'
-                    }`}
-                    title={`${r.charAt(0).toUpperCase()+r.slice(1)} ${approved ? 'approved' : 'pending'}`}
-                  >
-                    <span className={`w-2 h-2 rounded-full ${approved ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                    {r === 'secretary' ? 'Sec' : 'Dean'}
-                  </div>
-                );
-              })}
-              {approvalMeta.isFullyApproved && !['published'].includes(status) && (
-                <div className="text-[10px] text-green-600 font-semibold" title="Fully approved awaiting publish">2/2</div>
-              )}
-            </div>
-          )}
           </div>
 
           {/* 3-dot button */}
@@ -285,6 +268,8 @@ export default function PublishedCard({
               }}
               className="p-1 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition"
               title="More options"
+              aria-haspopup="menu"
+              aria-expanded={showMenu ? "true" : "false"}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="5" r="1" />
@@ -295,33 +280,60 @@ export default function PublishedCard({
 
             {showMenu && (
               <>
-                <div className="fixed inset-0 z-[40]" onClick={() => setShowMenu(false)} />
-                <div className="absolute right-0 top-8 z-[9999] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                <div 
+                  className="fixed inset-0 z-[40]" 
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); setShowMenu(false); }}
+                />
+                <div 
+                  className="absolute right-0 top-8 z-[9999] w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Rename */}
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={(e) => { e.stopPropagation(); handleMenuAction("rename", e); }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                    Rename
+                  </button>
+                  {/* Duplicate */}
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={(e) => { e.stopPropagation(); handleMenuAction("duplicate", e); }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Make a Copy
+                  </button>
+                  {/* Unpublish (gated by permission) */}
                   {canUnpublish() && (
                     <button
                       className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      onClick={(e) => handleMenuAction('unpublish', e)}
+                      onClick={(e) => { e.stopPropagation(); handleMenuAction("unpublish", e); }}
                       disabled={isLoading}
                     >
-                      {isLoading ? (
-                        <>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                            <path fill="#fff" d="M12 2A10 10 0 1 0 22 12A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8A8 8 0 0 1 12 20Z" opacity="0.5"/>
-                            <path fill="#fff" d="M20 12h2A10 10 0 0 0 12 2V4A8 8 0 0 1 20 12Z"><animateTransform attributeName="transform" dur="1s" from="0 12 12" repeatCount="indefinite" to="360 12 12" type="rotate"/>
-                            </path>
-                            </svg>
-                          <span>Unpublishing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                            <path d="M16 16l-4 4-4-4" />
-                            <path d="M12 12v8" />
-                            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 0 0 4 14.9" />
-                          </svg>
-                          Unpublish
-                        </>
-                      )}
+                      <svg
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        {/* box */}
+                        <path d="M4 10v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7" />
+                        <path d="M7 10V7a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v3" />
+                        {/* arrow down to box (unpublish) */}
+                        <path d="M12 6v8" />
+                        <path d="M9.5 11.5 12 14l2.5-2.5" />
+                      </svg>
+                      
+                      Unpublish
                     </button>
                   )}
                 </div>
@@ -331,16 +343,6 @@ export default function PublishedCard({
         </div>
       </div>
 
-      {/* Unpublish Modal */}
-      <UnpublishModal
-        open={unpublishOpen}
-        onClose={() => { setUnpublishOpen(false); justClosedModal(); }}
-        itemType="template"
-        itemTitle={template.title}
-        onConfirm={confirmUnpublish}
-        submitting={unpublishing}
-        error={unpublishError}
-      />
     </>
   );
 }

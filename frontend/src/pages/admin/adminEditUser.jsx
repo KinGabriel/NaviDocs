@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from 'react-hot-toast';
 import { normalizeName, canSaveUser, validateUserRoleFields } from "../../utils/validations";
 import { useParams } from "react-router-dom";
-import { fetchUserAccountByIdAPI } from "../../api/adminAPI";
+import { fetchUserAccountByIdAPI, updateUserAccountAPI } from "../../api/adminAPI";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
@@ -128,7 +128,6 @@ export default function AdminEditUser() {
     }
 
     try {
-      const token = localStorage.getItem("token");
       const formData = new FormData();
       formData.append("firstname", form.firstname);
       formData.append("lastname", form.lastname);
@@ -138,13 +137,7 @@ export default function AdminEditUser() {
       formData.append("department", form.role.department || "");
       if (selectedFile) formData.append("profile_picture", selectedFile);
 
-      await axios.patch(`${API_URL}/api/admin/edit-user/${id}`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
-        withCredentials: true,
-      });
+      await updateUserAccountAPI(id, formData);
 
       toast.success("User updated successfully.");
       setTimeout(() => {

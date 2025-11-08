@@ -51,9 +51,18 @@ export default function DocumentControllerTemplates() {
   const handleModalSubmit = async (templateFormData) => {
     setLoading(true);
     try {
+      // document size selector into a proper pageSetup object
+      const sizeKey = String(templateFormData.document_size || 'A4').toLowerCase();
+      const paperSize = sizeKey === 'letter' ? 'Letter' : sizeKey === 'legal' ? 'Legal' : 'A4';
       const templateData = {
         title: templateFormData.title.trim(),
+        // Keep the original field for backward compatibility, but also provide structured pageSetup
         document_size: templateFormData.document_size,
+        pageSetup: {
+          paperSize,
+          orientation: 'Portrait',
+          margins: { top: 1, bottom: 1, left: 1, right: 1 },
+        },
         created_by: user._id || user.id,
       };
       const result = await createTemplateAPI(templateData);
@@ -201,21 +210,53 @@ export default function DocumentControllerTemplates() {
 
               {/* Filters + Search */}
               <div className="flex items-center gap-2">
-                {/* Recently Deleted */}
+              {/* Archived Documents */}
                 <button
                   type="button"
-                  onClick={() => navigate("/recently-deleted")}
+                  onClick={() => navigate("/archived-documents")}
                   className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
-                  aria-label="Recently deleted"
-                  title="Recently deleted"
+                  aria-label="Archived documents"
+                  title="Archived documents"
                 >
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#0035DA]" fill="none" aria-hidden="true">
+                  {/* archive icon */}
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="w-5 h-5 text-[#0035DA]"
+                    fill="none"
+                    aria-hidden="true"
+                  >
                     <path
-                      d="M3 6h18M9 6v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"
-                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                      d="M3.75 7.5h16.5M4.5 7.5l.62-2.32A2.25 2.25 0 0 1 7.25 3.75h9.5a2.25 2.25 0 0 1 2.13 1.43l.62 2.32"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M20.25 7.5l-.63 10.63a2.25 2.25 0 0 1-2.25 2.12H6.63a2.25 2.25 0 0 1-2.25-2.12L3.75 7.5"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M12 11.625v5.625m0 0l2.25-2.25M12 17.25l-2.25-2.25"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     />
                   </svg>
                 </button>
+
+                {/* Search Bar */}
+                <div className="w-64">
+                  <SearchBar
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search templates..."
+                  />
+                </div>
                 
                 {/* School Filter */}
                 <Dropdown
@@ -233,14 +274,7 @@ export default function DocumentControllerTemplates() {
                   width="w-36"
                 />
 
-                {/* Search Bar */}
-                <div className="w-64">
-                  <SearchBar
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search templates..."
-                  />
-                </div>
+                
               </div>
             </div>
 

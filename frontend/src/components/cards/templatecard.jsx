@@ -75,7 +75,8 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
       case 'published': return 'bg-blue-100 text-blue-800';
       case 'returned': return 'bg-orange-100 text-orange-800';
       case 'rejected': return 'bg-red-100 text-red-800';
-      case 'assigned': return 'bg-purple-100 text-purple-800';
+      case 'endorsed': return 'bg-purple-100 text-purple-800';
+      case 'disapproved': return 'bg-rose-100 text-rose-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -95,6 +96,17 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
     }
     return 'Unknown';
   };
+
+    {/* Get creator/Owner name */}
+    const getCreatorName = () => {
+      if (!user) return "Unknown";
+      if (user.firstname && user.lastname) {
+        return `${user.firstname} ${user.lastname}`;
+      }
+      // Try name or username as fallback
+      return user.name || user.username || "Unknown";
+    };
+
 
   //  Format date helper
   const formatDate = (dateString) => {
@@ -207,24 +219,6 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
           <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
             {status.charAt(0).toUpperCase() + status.slice(1)}
           </div>
-          {canPublish && (
-            <button
-              onClick={handlePublishClick}
-              className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow"
-              title="Publish template"
-            >
-              Publish
-            </button>
-          )}
-          {canApprove && !canPublish && (
-            <button
-              onClick={handleApproveClick}
-              className="px-2 py-0.5 rounded text-[10px] font-semibold bg-green-600 text-white hover:bg-green-700 shadow"
-              title="Approve as your role"
-            >
-              Approve
-            </button>
-          )}
         </div>
 
         {/*  Document Preview or Thumbnail */}
@@ -279,15 +273,24 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
               {template.document_code || 'No Code'}
             </p>
             
-            {/*  School and Date Info */}
+            {/* Creator/Owner */}
+            <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <span>By {getCreatorName()}</span>
+            </div>
+            
+             {/* School
             <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4z"/>
                 <circle cx="12" cy="7" r="4"/>
               </svg>
               <span>{extractSchoolFromCode(template.document_code)}</span>
-            </div>
+            </div> */}
             
+            {/*  Created Date Info */}
             <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -297,24 +300,6 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
               </svg>
               <span>Created {formatDate(template.createdAt || template.created_at)}</span>
             </div>
-
-            {/* Approval role indicators */}
-            {approvalMeta && (
-              <div className="flex items-center gap-2 mt-2">
-                {['secretary','dean'].map(r => {
-                  const approved = approvalMeta[`${r}Approved`];
-                  return (
-                    <div key={r} className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${approved ? 'bg-green-50 border-green-500 text-green-700' : 'bg-gray-50 border-gray-300 text-gray-500'}`} title={`${r.charAt(0).toUpperCase()+r.slice(1)} ${approved ? 'approved' : 'pending'}`}> 
-                      <span className={`w-2 h-2 rounded-full ${approved ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                      {r === 'secretary' ? 'Sec' : 'Dean'}
-                    </div>
-                  );
-                })}
-                {approvalMeta.isFullyApproved && !['published'].includes(status) && (
-                  <div className="text-[10px] text-green-600 font-semibold" title="Fully approved awaiting publish">2/2</div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* 3-dot menu with dropdown */}
@@ -352,18 +337,6 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
                   
                   <button
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    onClick={(e) => handleMenuAction('assign', e)}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 21a8 8 0 0 0-16 0"/>
-                      <circle cx="10" cy="8" r="5"/>
-                      <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/>
-                    </svg>
-                    Assign
-                  </button>
-                  
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                      onClick={(e) => handleMenuAction('duplicate', e)}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -371,63 +344,13 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
                     </svg>
                     Make a Copy
                   </button>
-                  
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                    onClick={(e) => handleMenuAction('delete', e)}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Archive
-                  </button>
+
                 </div>
               </>
             )}
           </div>
         </div>
       </div>
-
-      {/* Assign Modal */}
-      <AssignMembersModal
-        open={assignOpen}
-        onClose={() => { setAssignOpen(false); justClosedModal(); }}
-        template={template}
-        selectedIds={selectedIds}
-        setSelectedIds={setSelectedIds}
-        setTheDocController={(id) => console.log("Set controller:", id)}
-        onAssign={async (payload) => {
-          try {
-            // Normalize payload: modal sometimes returns { assignees: [...] },
-            // some callers may pass the array directly. Accept both.
-            const controllers = Array.isArray(payload)
-              ? payload
-              : (payload && (payload.assignees || payload.controllers)) || [];
-
-            const resp = await assignControllersToTemplateAPI(template._id, controllers);
-            if (resp && resp.success) {
-              // let parent handle UI update if provided
-              if (typeof onAssign === 'function') {
-                onAssign(resp.template || template);
-              } else if (typeof onDelete === 'function') {
-                // backward compatibility: call onDelete if present
-                onDelete(resp.template || template);
-              } else if (typeof window !== 'undefined') {
-                // fallback: reload to reflect changes
-                window.location.reload();
-              }
-            } else {
-              alert(resp?.message || 'Failed to assign controllers');
-            }
-          } catch (err) {
-            console.error('Assign controllers error', err);
-            alert(err.response?.data?.message || 'Error assigning controllers');
-          } finally {
-            setAssignOpen(false);
-            justClosedModal();
-          }
-        }}
-      />
       
       <DuplicateModal
         open={duplicateOpen}

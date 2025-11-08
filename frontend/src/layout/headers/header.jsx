@@ -6,6 +6,7 @@ import '../../assets/css/global.css'
 import naviLogo from '../../assets/images/navilogo.png';
 import notifIcon from '../../assets/images/notif_icon.svg';
 import { logoutAPI } from '../../api/authAPI.js';
+import defaultProfile from '../../assets/images/profile_picture.png';
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -218,15 +219,24 @@ export default function Header({ user }) {
               className="bg-gray-100 rounded-lg px-3 py-2 flex items-center gap-3"
               style={{ height: "48px" }}
             >
-              <img
-                src={
-                  user.profile_picture
-                    ? `${API_URL}${user.profile_picture}`
-                    : "/default-avatar.png"
-                }
-                alt="Profile"
-                className="h-10 w-10 rounded-full border border-gray-300"
-              />
+              <div className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center border border-gray-300 bg-white">
+                <img
+                  src={
+                    user.profile_picture
+                      ? `${API_URL}${user.profile_picture}`
+                      : defaultProfile
+                  }
+                  alt="Profile"
+                  className={`object-cover ${
+                    user.profile_picture ? "h-full w-full" : "h-8 w-8 object-contain opacity-90"
+                  }`}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = defaultProfile;
+                  }}
+                />
+              </div>
+
               <div>
                 <p className="text-sm font-semibold text-gray-700 leading-none">
                   {(user.firstname || "") + " " + (user.lastname || "")}

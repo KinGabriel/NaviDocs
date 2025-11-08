@@ -326,8 +326,16 @@ body { font-family: 'Poppins', sans-serif; }
 }
 
 .nd-editable-field--text { color: #334155; }
+/* Legacy placeholder when wrapper had no children 
 .nd-editable-field--text:is(:empty)::before {
   content: attr(data-ph);
+  color: #94a3b8;
+  font-style: italic;
+}
+  */
+/* New content-based node: show placeholder from the inner text span when empty */
+.nd-editable-field__text:empty::before {
+  content: attr(data-placeholder);
   color: #94a3b8;
   font-style: italic;
 }

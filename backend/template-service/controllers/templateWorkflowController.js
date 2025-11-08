@@ -609,6 +609,18 @@ export const rejectTemplate = async (req, res) => {
       message: reason || 'No Reason provided',
       created_at: new Date()
     });
+    // Persist the rejecting actor into the DCO approvals slot for attribution
+    try {
+      template.status_meta = template.status_meta || {};
+      template.status_meta.approvals = template.status_meta.approvals || { unit_document_controller: {}, lead_document_controller: {}, document_controller_officer: {} };
+      const actorId = String(req.user?.id || req.user?._id || '');
+      if (actorId) {
+        template.status_meta.approvals.document_controller_officer = template.status_meta.approvals.document_controller_officer || {};
+        template.status_meta.approvals.document_controller_officer.assigned_to = actorId;
+      }
+    } catch (_e) {
+      // best-effort attribution; do not fail rejection if this write fails
+    }
   // Preserve any previously approved slots (do not clear UDC/LDC/DCO approvals)
   template.status = 'rejected';
   template.status_meta.approvals = preservePriorApprovals(template.status_meta.approvals, template.status_meta.approvals);
@@ -698,7 +710,7 @@ export const submitTemplate = async (req, res) => {
       }
     }
 
-    // Decide next role and status
+  // Decide next role and status
     let nextRoleFriendly = null; // 'Unit Document Controller' | 'Lead Document Controller' | 'Document Control Officer'
     let nextAssignedUser = null;
   if (unitApproved) {
@@ -722,9 +734,10 @@ export const submitTemplate = async (req, res) => {
       }
     } else {
       // UDC not approved yet
-      const requiresUDC = (submitterRole === 'Faculty') || !!approvals?.unit_document_controller?.assigned_to;
+      // Replace 'Faculty' with 'Department Head' as the role requiring UDC endorsement
+      const requiresUDC = (submitterRole === 'Department Head') || !!approvals?.unit_document_controller?.assigned_to;
       if (wasReturned) {
-        // On resubmission, non-Faculty flows should not go to 'pending'; they stay endorsed and route to who returned.
+        // On resubmission, non-Department-Head flows should not go to 'pending'; they stay endorsed and route to who returned.
         if (requiresUDC) {
           template.status = 'pending';
           nextRoleFriendly = 'Unit Document Controller';
@@ -835,10 +848,10 @@ export const returnTemplate = async (req, res) => {
   try {
     const { reason } = req.body;
     console.log("Return reason:", reason);
-  // Only Unit Document Controller or Lead Document Controller can return (normalize then map)
+  // Only Unit Document Controller, Lead Document Controller, or Document Control Officer can return (normalize then map)
   const roleKey = toApprovalKey(req.user?.role?.name || req.user?.role || '') || null;
-    if (!['unit_document_controller','lead_document_controller'].includes(roleKey)) {
-      return res.status(403).json({ success:false, message:'Only Unit Document Controller or Lead Document Controller may return for changes.' });
+    if (!['unit_document_controller','lead_document_controller','document_controller_officer'].includes(roleKey)) {
+      return res.status(403).json({ success:false, message:'Only Unit/Lead Document Controller or Document Control Officer may return for changes.' });
     }
     const template = await Template.findById(req.params.id);
     if (!template) return res.status(404).json({ success:false, message:'Template not found' });
@@ -860,7 +873,7 @@ export const returnTemplate = async (req, res) => {
       added_by: req.user.id,
       role_snapshot: req.user?.role?.name || '',
       type: 'change',
-      message: reason || 'No Reason provided',
+      message: reason || 'No reason provided',
       created_at: new Date()
     });
     // Stamp who returned it so resubmission can route back to them
@@ -869,6 +882,19 @@ export const returnTemplate = async (req, res) => {
     template.status_meta.returned_role = roleKey;
     template.status_meta.returned_at = new Date();
     if (reason) template.status_meta.returned_reason = reason;
+    // Ensure approvals object exists and, if UDC is the actor, persist their id in the UDC slot
+    template.status_meta.approvals = template.status_meta.approvals || { unit_document_controller: {}, lead_document_controller: {}, document_controller_officer: {} };
+    const actorId = String(req.user?.id || req.user?._id || '');
+    if (roleKey === 'unit_document_controller') {
+      template.status_meta.approvals.unit_document_controller = template.status_meta.approvals.unit_document_controller || {};
+      template.status_meta.approvals.unit_document_controller.assigned_to = actorId;
+    } else if (roleKey === 'lead_document_controller') {
+      template.status_meta.approvals.lead_document_controller = template.status_meta.approvals.lead_document_controller || {};
+      template.status_meta.approvals.lead_document_controller.assigned_to = actorId;
+    } else if (roleKey === 'document_controller_officer') {
+      template.status_meta.approvals.document_controller_officer = template.status_meta.approvals.document_controller_officer || {};
+      template.status_meta.approvals.document_controller_officer.assigned_to = actorId;
+    }
   // Preserve any previously approved slots (do not clear UDC/LDC/DCO approvals)
   template.status = 'returned';
   template.status_meta.approvals = preservePriorApprovals(template.status_meta.approvals, template.status_meta.approvals);
@@ -975,66 +1001,25 @@ export const publishTemplate = async (req, res) => {
     await template.save();
     const approvalMeta = buildApprovalMeta(template, req.user?.id);
 
-  // Notify approvers of the new template
+  // Notify end users (Dean, Secretary, Department Head, Faculty) of the new template
     try {
-      const USER_BASE = process.env.USER_SERVICE_URL || '';
       const notificationServiceUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8008';
-      const headers = buildUserServiceHeaders(req);
-      let leadDocumentControllers = [];
-      let documentControllerOfficers = [];
-      try {
-        const staffResp = await axios.get(`${USER_BASE}/api/user/schoolStaff`, { headers, timeout: 8000 });
-        // New role arrays if provided by user-service
-        leadDocumentControllers = staffResp?.data?.leadDocumentControllers || [];
-        documentControllerOfficers = staffResp?.data?.documentControllerOfficers || [];
-      } catch (staffErr) {
-        console.warn('Failed to fetch school staff; falling back to local participants:', staffErr?.response?.status || staffErr?.message || staffErr);
-      }
-      const actorId = String(req.user?.id || req.user?._id || '');
-      let targets = Array.from(new Set([
-        ...leadDocumentControllers.map(u => String(u.id)),
-        ...documentControllerOfficers.map(u => String(u.id))
-      ])).filter(id => id && id !== actorId);
-      // Fallback: if staff list empty (e.g., auth issues), notify assigned users + approvers
-      if (targets.length === 0) {
-        const approvals = template?.status_meta?.approvals || {};
-        const ldcId = approvals?.lead_document_controller?.assigned_to ? String(approvals.lead_document_controller.assigned_to) : null;
-        const dcoId = approvals?.document_controller_officer?.assigned_to ? String(approvals.document_controller_officer.assigned_to) : null;
-        const assignedIds = Array.isArray(template.assigned) ? template.assigned.map(String) : [];
-        targets = Array.from(new Set([ ...assignedIds, ldcId, dcoId ].filter(Boolean))).filter(id => id !== actorId);
-      }
-      if (targets.length > 0) {
-        // If we have staff lists, use them to avoid an extra lookup
-        let byRole = {};
-        if ((leadDocumentControllers && leadDocumentControllers.length) || (documentControllerOfficers && documentControllerOfficers.length)) {
-          if (leadDocumentControllers?.length) byRole['Lead Document Controller'] = leadDocumentControllers.map(u => String(u.id));
-          if (documentControllerOfficers?.length) byRole['Document Control Officer'] = documentControllerOfficers.map(u => String(u.id));
-        } else {
-          byRole = await groupTargetsByRole(targets, req);
-        }
-        const message = `A new template "${template.title}" has been published and is now available.`;
-        const type = 'template_published';
-        for (const [roleName, ids] of Object.entries(byRole)) {
-          if (!ids || ids.length === 0) continue;
-          const link = linkFor(type, template._id, roleName);
-          const payload = {
-            recipientUser: ids.length === 1 ? ids[0] : undefined,
-            recipientRoles: [roleName],
-            message,
-            type,
-            link,
-            targetedUserIds: ids
-          };
-          try {
-            await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
-              headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
-              timeout: 5000
-            });
-          } catch (err) {
-            console.error('Notification service error (publish):', err?.response?.status || err?.message || err);
-          }
-        }
-      }
+      const type = 'template_published';
+      const message = `A new template "${template.title}" has been published and is now available.`;
+      const rolesToNotify = ['Dean', 'Secretary', 'Department Head', 'Faculty'];
+      const link = linkFor(type, template._id, 'Faculty');
+
+      const payload = {
+        recipientRoles: rolesToNotify,
+        message,
+        type,
+        link
+      };
+
+      await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
+        timeout: 5000
+      });
     } catch (notifyErr) {
       console.error('Failed to notify on publish:', notifyErr?.message || notifyErr);
     }
@@ -1064,63 +1049,25 @@ export const unpublishTemplate = async (req, res) => {
     template.status = 'approved';
     await template.save();
 
-  // Notify approvers that the template has been unpublished
+  // Notify end users (Dean, Secretary, Department Head, Faculty) that the template has been unpublished
     try {
-      const USER_BASE = process.env.USER_SERVICE_URL || '';
       const notificationServiceUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8008';
-      const headers = buildUserServiceHeaders(req);
-      let leadDocumentControllers = [];
-      let documentControllerOfficers = [];
-      try {
-        const staffResp = await axios.get(`${USER_BASE}/api/user/schoolStaff`, { headers, timeout: 8000 });
-        leadDocumentControllers = staffResp?.data?.leadDocumentControllers || [];
-        documentControllerOfficers = staffResp?.data?.documentControllerOfficers || [];
-      } catch (staffErr) {
-        console.warn('Failed to fetch school staff; falling back to local participants (unpublish):', staffErr?.response?.status || staffErr?.message || staffErr);
-      }
-      const actorId = String(req.user?.id || req.user?._id || '');
-      let targets = Array.from(new Set([
-        ...leadDocumentControllers.map(u => String(u.id)),
-        ...documentControllerOfficers.map(u => String(u.id))
-      ])).filter(id => id && id !== actorId);
-      if (targets.length === 0) {
-        const approvals = template?.status_meta?.approvals || {};
-        const ldcId = approvals?.lead_document_controller?.assigned_to ? String(approvals.lead_document_controller.assigned_to) : null;
-        const dcoId = approvals?.document_controller_officer?.assigned_to ? String(approvals.document_controller_officer.assigned_to) : null;
-        const assignedIds = Array.isArray(template.assigned) ? template.assigned.map(String) : [];
-        targets = Array.from(new Set([ ...assignedIds, ldcId, dcoId ].filter(Boolean))).filter(id => id !== actorId);
-      }
-      if (targets.length > 0) {
-        let byRole = {};
-        if ((leadDocumentControllers && leadDocumentControllers.length) || (documentControllerOfficers && documentControllerOfficers.length)) {
-          if (leadDocumentControllers?.length) byRole['Lead Document Controller'] = leadDocumentControllers.map(u => String(u.id));
-          if (documentControllerOfficers?.length) byRole['Document Control Officer'] = documentControllerOfficers.map(u => String(u.id));
-        } else {
-          byRole = await groupTargetsByRole(targets, req);
-        }
-        const message = `Template "${template.title}" has been unpublished.`;
-        const type = 'template_unpublished';
-        for (const [roleName, ids] of Object.entries(byRole)) {
-          if (!ids || ids.length === 0) continue;
-          const link = linkFor(type, template._id, roleName);
-          const payload = {
-            recipientUser: ids.length === 1 ? ids[0] : undefined,
-            recipientRoles: [roleName],
-            message,
-            type,
-            link,
-            targetedUserIds: ids
-          };
-          try {
-            await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
-              headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
-              timeout: 5000
-            });
-          } catch (err) {
-            console.error('Notification service error (unpublish):', err?.response?.status || err?.message || err);
-          }
-        }
-      }
+      const type = 'template_unpublished';
+      const message = `Template "${template.title}" has been unpublished.`;
+      const rolesToNotify = ['Dean', 'Secretary', 'Department Head', 'Faculty'];
+      const link = linkFor(type, template._id, 'Faculty');
+
+      const payload = {
+        recipientRoles: rolesToNotify,
+        message,
+        type,
+        link
+      };
+
+      await axios.post(`${notificationServiceUrl}/api/notifications/internal`, payload, {
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' },
+        timeout: 5000
+      });
     } catch (notifyErr) {
       console.error('Failed to notify on unpublish:', notifyErr?.message || notifyErr);
     }

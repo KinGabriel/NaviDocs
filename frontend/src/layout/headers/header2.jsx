@@ -6,6 +6,7 @@ import TemplateVersionHistory from '../../pages/version_history/templateVersionH
 import AssignMembersModal from '../../components/modals/assignMembersModal';
 import React, { useState, useEffect } from "react";
 import { assignControllersToTemplateAPI } from '../../api/documentContollerAPI';
+import defaultProfile from '../../assets/images/profile_picture.png';
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -238,6 +239,7 @@ export default function Header2({
                 if (role === "Secretary") navigate("/secretary/templates");
                 else if (role === "Dean") navigate("/dean/templates");
                 else if (role === "Department Head") navigate("/dept-head/templates");
+                else if (role === "Faculty") navigate("/faculty/templates");
               }}
             />
 
@@ -246,6 +248,8 @@ export default function Header2({
                 const role = user?.role?.name;
                 if (role === "Secretary") navigate("/secretary/templates");
                 else if (role === "Dean") navigate("/dean/templates");
+                else if (role === "Faculty") navigate("/faculty/templates");
+                else if (role === "Department Head") navigate("/dept-head/templates");
               }}
               className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
               aria-label="Back"
@@ -509,19 +513,30 @@ export default function Header2({
             </div>
 
             {/* share btn */} 
-            <div className="relative"> <button onClick={() => setAssignOpen(true)} 
-            className="bg-[#063c8d] text-white rounded px-4 py-2 text-sm font-semibold hover:bg-[#052c6d] flex items-center gap-2"> 
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-share2-icon lucide-share-2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
-              Share 
-             </button> 
-             </div>
+            <div className="relative">
+              <button onClick={() => setAssignOpen(true)}
+                className="bg-[#063c8d] text-white rounded px-4 py-2 text-sm font-semibold hover:bg-[#052c6d] flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-share2-icon lucide-share-2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
+                Share
+              </button>
+            </div>
 
-            {/* Avatar */}
-            <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center shadow overflow-hidden">
+           {/* Avatar */}
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shadow overflow-hidden bg-white border border-gray-200">
               <img
-                src={user && user.profile_picture ? `${API_URL}${user.profile_picture}` : '/default-avatar.png'}
+                src={
+                  user?.profile_picture
+                    ? `${API_URL}${user.profile_picture}`
+                    : defaultProfile
+                }
                 alt="Profile"
-                className="w-full h-full object-cover"
+                className={`object-cover ${
+                  user?.profile_picture ? "w-full h-full" : "w-8 h-8 object-contain opacity-90"
+                }`}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = defaultProfile;
+                }}
               />
             </div>
           </div>
