@@ -219,24 +219,6 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
           <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
             {status.charAt(0).toUpperCase() + status.slice(1)}
           </div>
-          {canPublish && (
-            <button
-              onClick={handlePublishClick}
-              className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow"
-              title="Publish template"
-            >
-              Publish
-            </button>
-          )}
-          {canApprove && !canPublish && (
-            <button
-              onClick={handleApproveClick}
-              className="px-2 py-0.5 rounded text-[10px] font-semibold bg-green-600 text-white hover:bg-green-700 shadow"
-              title="Approve as your role"
-            >
-              Approve
-            </button>
-          )}
         </div>
 
         {/*  Document Preview or Thumbnail */}
