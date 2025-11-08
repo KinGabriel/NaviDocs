@@ -13,19 +13,20 @@ export default function PublishedCard({
   onApprove, 
   onPublish, 
   onUnpublish,
+  onRenameRequest,        // (template) => void
+  onDuplicateRequest,     // (template) => void
+  onUnpublishRequest,     // (template) => void
 }) {
 
   const [showMenu, setShowMenu] = useState(false);
-  const [unpublishOpen, setUnpublishOpen] = useState(false);
-  const [unpublishing, setUnpublishing] = useState(false);
-  const [unpublishError, setUnpublishError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [modalCloseTs, setModalCloseTs] = useState(0);
 
   const justClosedModal = () => setModalCloseTs(Date.now());
   const ignoreClickNow = () => (Date.now() - modalCloseTs) < 300;
-  const isAnyModalOpen = unpublishOpen;
+  const isAnyModalOpen = false;
 
+  // --- FIX: the real permission check; removed the buggy top-level placeholders ---
   const canUnpublish = () => {
     if (!user || !template) return false;
 
@@ -107,10 +108,9 @@ export default function PublishedCard({
   const handleMenuAction = (action, e) => {
     e.stopPropagation(); 
     setShowMenu(false);
-    if (action === 'unpublish') {
-      setUnpublishError("");
-      setUnpublishOpen(true);
-    }
+    if (action === "rename") onRenameRequest?.(template);
+    if (action === "duplicate") onDuplicateRequest?.(template);
+    if (action === "unpublish") onUnpublishRequest?.(template);
   };
 
   const status = getTemplateStatus(template);
@@ -230,11 +230,11 @@ export default function PublishedCard({
               {template.title || 'Untitled Template'}
             </p>
             
-          {/* Document Code */}
+            {/* Document Code */}
             <p className="text-xs text-blue-600 font-mono mt-1">
               {template.document_code || 'No Code'}
             </p>
-           {/*  School and Date Info */}
+            {/* School and Date Info */}
             <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4z"/>
@@ -262,6 +262,8 @@ export default function PublishedCard({
               }}
               className="p-1 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition"
               title="More options"
+              aria-haspopup="menu"
+              aria-expanded={showMenu ? "true" : "false"}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="5" r="1" />
@@ -273,32 +275,33 @@ export default function PublishedCard({
             {showMenu && (
               <>
                 <div className="fixed inset-0 z-[40]" onClick={() => setShowMenu(false)} />
-                <div className="absolute right-0 top-8 z-[9999] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                <div className="absolute right-0 top-8 z-[9999] w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                  {/* Rename */}
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={(e) => handleMenuAction("rename", e)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                    Rename
+                  </button>
+                  {/* Duplicate */}
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    onClick={(e) => handleMenuAction("duplicate", e)}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Make a Copy
+                  </button>
+                  {/* Unpublish (gated by permission) */}
                   {canUnpublish() && (
                     <button
                       className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      onClick={(e) => handleMenuAction('unpublish', e)}
+                      onClick={(e) => handleMenuAction("unpublish", e)}
                       disabled={isLoading}
                     >
-                      {isLoading ? (
-                        <>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                            <path fill="#fff" d="M12 2A10 10 0 1 0 22 12A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8A8 8 0 0 1 12 20Z" opacity="0.5"/>
-                            <path fill="#fff" d="M20 12h2A10 10 0 0 0 12 2V4A8 8 0 0 1 20 12Z"><animateTransform attributeName="transform" dur="1s" from="0 12 12" repeatCount="indefinite" to="360 12 12" type="rotate"/>
-                            </path>
-                            </svg>
-                          <span>Unpublishing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                            <path d="M16 16l-4 4-4-4" />
-                            <path d="M12 12v8" />
-                            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 0 0 4 14.9" />
-                          </svg>
-                          Unpublish
-                        </>
-                      )}
+                      Unpublish
                     </button>
                   )}
                 </div>
@@ -308,16 +311,6 @@ export default function PublishedCard({
         </div>
       </div>
 
-      {/* Unpublish Modal */}
-      <UnpublishModal
-        open={unpublishOpen}
-        onClose={() => { setUnpublishOpen(false); justClosedModal(); }}
-        itemType="template"
-        itemTitle={template.title}
-        onConfirm={confirmUnpublish}
-        submitting={unpublishing}
-        error={unpublishError}
-      />
     </>
   );
 }
