@@ -8,6 +8,60 @@ import { escapeHtml, buildDocumentHtml, pagesJsonToHtml, generatePdfBuffer, uplo
 import { buildUserServiceHeaders, fetchUserInfoById } from '../utils/userServiceUtils.js';
 import { hasRole } from '../utils/roleUtils.js';
 
+// Notification Helper
+const NOTIF_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8008';
+const INTERNAL_HEADERS = { 'Content-Type': 'application/json', 'X-Internal-Token': process.env.INTERNAL_TOKEN || '' };
+
+const safeNameFromUser = (u) => {
+  if (!u) return 'Someone';
+  return (
+    u.name ||
+    u.fullname ||
+    [u.firstName || u.firstname, u.lastName || u.lastname].filter(Boolean).join(' ').trim() ||
+    u.email ||
+    'Someone'
+  );
+};
+const safeRoleFromUser = (u) => {
+  if (!u) return 'User';
+  if (typeof u.role === 'string') return u.role;
+  if (u.role && u.role.name) return u.role.name;
+  return 'User';
+};
+
+const postNotification = async (payload) => {
+  try {
+    await axios.post(`${NOTIF_URL}/api/notifications/internal`, payload, {
+      headers: INTERNAL_HEADERS,
+      timeout: 5000,
+    });
+  } catch (e) {
+    console.error('Notification post failed', e?.response?.status || e?.message || e);
+  }
+};
+
+// New helper with callback pattern
+const postNotificationWithCallback = async (payload, cb) => {
+  let resp = null;
+  let err = null;
+  try {
+    resp = await axios.post(`${NOTIF_URL}/api/notifications/internal`, payload, {
+      headers: INTERNAL_HEADERS,
+      timeout: 5000,
+    });
+  } catch (e) {
+    err = e;
+    console.error('Notification post failed', e?.response?.status || e?.message || e);
+  }
+  if (typeof cb === 'function') {
+    try {
+      await cb(err, resp);
+    } catch (cbErr) {
+      console.error('Notification callback error', cbErr?.message || cbErr);
+    }
+  }
+  return { err, resp };
+};
 
 /**
  * @route POST /api/documents/:id/share
@@ -91,6 +145,30 @@ export const shareDocument = async (req, res) => {
 			}
 		}
 
+		// Notification with callback
+		try {
+		const actorName = safeNameFromUser(req.user);
+		const message = `${actorName} shared a document with you.`;
+		const targetedUserIds = deduped.map(a => a.userId).filter(Boolean);
+		if (targetedUserIds.length) {
+			await postNotificationWithCallback(
+			{
+				type: 'document_shared',
+				message,
+				link: `/documents/${doc._id}`,
+				targetedUserIds,
+			},
+			(err) => {
+				if (err) {
+				console.warn('shareDocument notification callback: failure recorded');
+				}
+			}
+			);
+		}
+		} catch (e) {
+		console.error('shareDocument notification error', e?.message || e);
+		}
+
 		return res.json({ success: true, message: 'Document shared successfully', document: doc, assignedIds: deduped.map(a => a.userId) });
 	} catch (err) {
 		console.error('shareDocument error', err);
@@ -147,6 +225,58 @@ export const createSubmissionBin = async (req, res) => {
 				status: s.status || 'assigned',
 			})),
 		});
+
+		// --- NEW: Notify faculty of assignments (per submission) ---
+		try {
+			const actorName = safeNameFromUser(req.user);
+			const deadlineTxt = bin.deadline ? new Date(bin.deadline).toLocaleString() : 'No deadline';
+			const items = Array.isArray(bin.submissions) ? bin.submissions : [];
+
+			// Fetch template titles in bulk (best-effort) to include human-friendly names in notifications
+			const templateServiceUrl = process.env.TEMPLATE_SERVICE_URL || 'http://localhost:8002';
+			const headers = {};
+			const context = req.context || {};
+			if (context.token) {
+				headers['Cookie'] = `token=${context.token}`;
+			} else if (req.cookies && req.cookies.token) {
+				headers['Cookie'] = `token=${req.cookies.token}`;
+			}
+
+			const uniqueTemplateIds = Array.from(new Set(items.map(s => s && s.template ? String(s.template) : '').filter(Boolean)));
+			const templateTitleMap = {};
+			await Promise.all(uniqueTemplateIds.map(async (tid) => {
+				try {
+					const resp = await axios.get(`${templateServiceUrl}/api/templates/${tid}`, { headers, withCredentials: true });
+					const tpl = resp?.data?.template || resp?.data || null;
+					if (tpl) templateTitleMap[String(tid)] = tpl.title || tpl.name || String(tid);
+				} catch (_) {
+					// ignore per-template failures
+					templateTitleMap[String(tid)] = String(tid);
+				}
+			}));
+
+			for (const s of items) {
+				const facultyId = s.faculty ? String(s.faculty) : null;
+				if (!facultyId) continue;
+				const templateId = s.template ? String(s.template) : '';
+				const templateName = (templateId && templateTitleMap[templateId]) ? templateTitleMap[templateId] : templateId || 'a template';
+				const message = `You have been assigned to submit "${templateName}" in submission bin "${bin.title}". Deadline: ${deadlineTxt}. Assigned by ${actorName}.`;
+				await postNotificationWithCallback(
+					{
+						type: 'submission_bin_assignment',
+						message,
+						link: `/submission-bins/${bin._id}?template=${templateId}`,
+						targetedUserIds: [facultyId],
+						recipientUser: facultyId,
+					},
+					(err) => {
+						if (err) console.warn('createSubmissionBin notify (faculty) failed for', facultyId);
+					}
+				);
+			}
+		} catch (e) {
+			console.error('createSubmissionBin notification error', e?.message || e);
+		}
 
 		return res.status(201).json(bin);
 	} catch (err) {
@@ -287,6 +417,25 @@ export const forwardBin = async (req, res) => {
 		bin.forwarded_at = new Date();
 		bin.forwarded_by = req.user?._id || req.user?.id || null;
 		await bin.save();
+
+		// --- NEW: Notify Secretary & Dean roles that bin is ready to view ---
+        try {
+		const message = `Submission bin "${bin.title}" has been forwarded and can be reviewed.`;
+		await postNotificationWithCallback(
+			{
+			type: 'submission_bin_forwarded',
+			message,
+			link: `/submission-bins/${bin._id}`,
+			recipientRoles: ['Secretary', 'Dean'],
+			},
+			(err) => {
+			if (err) console.warn('forwardBin notification callback: failed');
+			}
+		);
+		} catch (e) {
+		console.error('forwardBin notification error', e?.message || e);
+		}
+
 		return res.json(bin);
 	} catch (err) {
 		console.error('forwardBin error', err);
@@ -427,6 +576,31 @@ export const submitDocument = async (req, res) => {
 		}
 
 		await bin.save();
+
+		// --- NEW: Notify Department Head (bin creator) of submission ---
+        try {
+		const actorName = safeNameFromUser(req.user);
+		const deptHeadId = bin.created_by ? String(bin.created_by) : null;
+		if (deptHeadId && String(deptHeadId) !== String(req.user?.id || req.user?._id)) {
+			const templateId = item.template ? String(item.template) : '';
+			const message = `${actorName} submitted a document for template ${templateId} in submission bin "${bin.title}".`;
+			await postNotificationWithCallback(
+			{
+				type: 'submission_item_submitted',
+				message,
+				link: `/submission-bins/${bin._id}?submission=${item._id}`,
+				targetedUserIds: [deptHeadId],
+				recipientUser: deptHeadId,
+			},
+			(err) => {
+				if (err) console.warn('submitDocument notification callback: failed');
+			}
+			);
+		}
+		} catch (e) {
+		console.error('submitDocument notification error', e?.message || e);
+		}
+
 		return res.json(bin);
 	} catch (err) {
 		console.error('submitDocument error', err);
@@ -484,6 +658,31 @@ export const unsubmitDocument = async (req, res) => {
 		}
 
 		await bin.save();
+
+		// --- NEW: Notify Department Head of unsubmit ---
+        try {
+		const actorName = safeNameFromUser(req.user);
+		const deptHeadId = bin.created_by ? String(bin.created_by) : null;
+		if (deptHeadId && String(deptHeadId) !== String(req.user?.id || req.user?._id)) {
+			const templateId = item.template ? String(item.template) : '';
+			const message = `${actorName} unsubmitted their document for template ${templateId} in submission bin "${bin.title}".`;
+			await postNotificationWithCallback(
+			{
+				type: 'submission_item_unsubmitted',
+				message,
+				link: `/submission-bins/${bin._id}?submission=${item._id}`,
+				targetedUserIds: [deptHeadId],
+				recipientUser: deptHeadId,
+			},
+			(err) => {
+				if (err) console.warn('unsubmitDocument notification callback: failed');
+			}
+			);
+		}
+		} catch (e) {
+		console.error('unsubmitDocument notification error', e?.message || e);
+		}
+
 		return res.json(bin);
 	} catch (err) {
 		console.error('unsubmitDocument error', err);
@@ -520,6 +719,30 @@ export const returnSubmission = async (req, res) => {
 		item.notes.push({ type: 'returned', message: reason || 'Returned', by: (req.user?._id || req.user?.id || null) });
 
 		await bin.save();
+
+		// --- NEW: Notify faculty (owner) that submission was returned ---
+        try {
+		const facultyId = item.faculty ? String(item.faculty) : null;
+		if (facultyId) {
+			const roleName = safeRoleFromUser(req.user);
+			const message = `${roleName} has returned your submitted document. View for indicated reasons.`;
+			await postNotificationWithCallback(
+			{
+				type: 'submission_item_returned',
+				message,
+				link: `/submission-bins/${bin._id}?submission=${item._id}`,
+				targetedUserIds: [facultyId],
+				recipientUser: facultyId,
+			},
+			(err) => {
+				if (err) console.warn('returnSubmission notification callback: failed');
+			}
+			);
+		}
+		} catch (e) {
+		console.error('returnSubmission notification error', e?.message || e);
+		}
+
 		return res.json(bin);
 	} catch (err) {
 		console.error('returnSubmission error', err);
@@ -554,6 +777,30 @@ export const approveSubmission = async (req, res) => {
 		item.notes.push({ type: 'general', message: 'Approved', by: (req.user?._id || req.user?.id || null) });
 
 		await bin.save();
+
+		// --- NEW: Notify faculty (owner) of approval ---
+        try {
+		const facultyId = item.faculty ? String(item.faculty) : null;
+		if (facultyId) {
+			const roleName = safeRoleFromUser(req.user);
+			const message = `Your submitted document has been approved by the ${roleName}.`;
+			await postNotificationWithCallback(
+			{
+				type: 'submission_item_approved',
+				message,
+				link: `/submission-bins/${bin._id}?submission=${item._id}`,
+				targetedUserIds: [facultyId],
+				recipientUser: facultyId,
+			},
+			(err) => {
+				if (err) console.warn('approveSubmission notification callback: failed');
+			}
+			);
+		}
+		} catch (e) {
+		console.error('approveSubmission notification error', e?.message || e);
+		}
+
 		return res.json(bin);
 	} catch (err) {
 		console.error('approveSubmission error', err);
