@@ -2,24 +2,17 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../layout/headers/header";
 import useUser from "../hooks/useUser";
-import PublishedCard from "../components/cards/publishedCard";
 import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
 import usePagination from "../hooks/usePagination";
-import {
-  fetchPublishedTemplatesAPI,
-  unpublishTemplateAPI,
-} from "../api/documentContollerAPI";
-import {
-  History,
-  FileText,
-  RotateCcw,
-  SlidersHorizontal,
-  FileDigit,
-  FileCode,
-  X,
-} from "lucide-react";
+import { fetchPublishedTemplatesAPI, unpublishTemplateAPI, renameTemplateAPI, duplicateTemplateAPI } from "../api/documentContollerAPI";
+import { History,FileText, RotateCcw, SlidersHorizontal, FileDigit, FileCode, X, } from "lucide-react";
 import Loader from "../components/loader";
+import PublishedCard from "../components/cards/publishedCard";
+import UnpublishModal from "../components/modals/unpublishModal";
+import RenameModal from "../components/modals/renameModal";
+import DuplicateModal from "../components/modals/duplicateModal";
+import { toast } from "react-hot-toast";
 
 export default function SelectTemplate() {
   const navigate = useNavigate();
@@ -47,6 +40,97 @@ export default function SelectTemplate() {
     SAMCIS: "SMI",
     STELA: "STL",
   };
+
+  // --- Rename modal state ---
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameError, setRenameError] = useState("");
+  const [renameTarget, setRenameTarget] = useState(null);
+
+  // --- Duplicate modal state ---
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+  const [duplicateTarget, setDuplicateTarget] = useState(null);
+
+  // --- Unpublish modal state (parent-driven) ---
+  const [unpublishOpen, setUnpublishOpen] = useState(false);
+  const [unpublishSubmitting, setUnpublishSubmitting] = useState(false);
+  const [unpublishError, setUnpublishError] = useState("");
+  const [targetTemplate, setTargetTemplate] = useState(null);
+
+  const openRenameFor = (tpl) => {
+    setRenameTarget(tpl);
+    setRenameError("");
+    setRenameOpen(true);
+  };
+
+  const openDuplicateFor = (tpl) => {
+    setDuplicateTarget(tpl);
+    setDuplicateOpen(true);
+  };
+
+  const openUnpublishFor = (tpl) => {
+    setTargetTemplate(tpl);
+    setUnpublishError("");
+    setUnpublishOpen(true);
+  };
+
+  const confirmRename = async (newTitle) => {
+    if (!renameTarget?._id && !renameTarget?.id) return;
+    try {
+      setRenaming(true);
+      setRenameError("");
+      await renameTemplateAPI(renameTarget._id || renameTarget.id, newTitle);
+      setRefreshTrigger((p) => p + 1);
+      toast.success("Template renamed");
+      setRenameOpen(false);
+      setRenameTarget(null);
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to rename";
+      setRenameError(msg);
+      toast.error(msg);
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const confirmDuplicate = async (newItem) => {
+    // newItem = { ...duplicateTarget, title: "New title" } from DuplicateModal
+    const base = duplicateTarget;
+    const id = base?._id || base?.id;
+    if (!id) return;
+    try {
+      setDuplicating(true);
+      await duplicateTemplateAPI(id, newItem.title?.trim() || base.title);
+      setRefreshTrigger((p) => p + 1);
+      toast.success("Template duplicated");
+      setDuplicateOpen(false);
+      setDuplicateTarget(null);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to duplicate");
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
+  const confirmUnpublish = async () => {
+  if (!targetTemplate?._id && !targetTemplate?.id) return;
+  try {
+    setUnpublishSubmitting(true);
+    setUnpublishError("");
+    await unpublishTemplateAPI(targetTemplate._id || targetTemplate.id);
+    setRefreshTrigger((prev) => prev + 1);       // refresh list
+    toast.success("Template unpublished");
+    setUnpublishOpen(false);
+    setTargetTemplate(null);
+  } catch (err) {
+    const msg = err?.response?.data?.message || err?.message || "Failed to unpublish";
+    setUnpublishError(msg);
+    toast.error(msg);
+  } finally {
+    setUnpublishSubmitting(false);
+  }
+};
 
   // Extract unique codes & revisions whenever templates change
   useEffect(() => {
@@ -165,9 +249,11 @@ export default function SelectTemplate() {
       await unpublishTemplateAPI(templateId);
       // trigger refresh
       setRefreshTrigger((prev) => prev + 1);
+      toast.success("Template unpublished");
       return { success: true };
     } catch (err) {
       console.error("Unpublish error:", err);
+      toast.error(err?.response?.data?.message || err.message || "Failed to unpublish");
       throw err;
     }
   };
@@ -498,7 +584,9 @@ export default function SelectTemplate() {
                         },
                       });
                     }}
-                    onUnpublish={handleUnpublish}
+                    onRenameRequest={openRenameFor}
+                    onDuplicateRequest={openDuplicateFor}
+                    onUnpublishRequest={openUnpublishFor}
                   />
                 );
               })}
@@ -545,6 +633,33 @@ export default function SelectTemplate() {
           </button>
         </div>
       </div>
+      <RenameModal
+        open={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        currentTitle={renameTarget?.title || ""}
+        submitting={renaming}
+        error={renameError}
+        onSubmit={confirmRename}
+      />
+
+      <DuplicateModal
+        open={duplicateOpen}
+        onClose={() => setDuplicateOpen(false)}
+        type="template"
+        item={duplicateTarget}
+        submitting={duplicating}
+        onDuplicate={confirmDuplicate}
+      />
+
+      <UnpublishModal
+        open={unpublishOpen}
+        onClose={() => setUnpublishOpen(false)}
+        itemType="template"
+        itemTitle={targetTemplate?.title || ""}
+        onConfirm={confirmUnpublish}
+        submitting={unpublishSubmitting}
+        error={unpublishError}
+      />
     </div>
   );
 }

@@ -301,6 +301,24 @@ export default function PublishedCard({
                       onClick={(e) => handleMenuAction("unpublish", e)}
                       disabled={isLoading}
                     >
+                      <svg
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        {/* box */}
+                        <path d="M4 10v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7" />
+                        <path d="M7 10V7a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v3" />
+                        {/* arrow down to box (unpublish) */}
+                        <path d="M12 6v8" />
+                        <path d="M9.5 11.5 12 14l2.5-2.5" />
+                      </svg>
+                      
                       Unpublish
                     </button>
                   )}
