@@ -355,18 +355,6 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
                   
                   <button
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    onClick={(e) => handleMenuAction('assign', e)}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 21a8 8 0 0 0-16 0"/>
-                      <circle cx="10" cy="8" r="5"/>
-                      <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/>
-                    </svg>
-                    Assign
-                  </button>
-                  
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                      onClick={(e) => handleMenuAction('duplicate', e)}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -374,63 +362,13 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
                     </svg>
                     Make a Copy
                   </button>
-                  
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                    onClick={(e) => handleMenuAction('delete', e)}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Archive
-                  </button>
+
                 </div>
               </>
             )}
           </div>
         </div>
       </div>
-
-      {/* Assign Modal */}
-      <AssignMembersModal
-        open={assignOpen}
-        onClose={() => { setAssignOpen(false); justClosedModal(); }}
-        template={template}
-        selectedIds={selectedIds}
-        setSelectedIds={setSelectedIds}
-        setTheDocController={(id) => console.log("Set controller:", id)}
-        onAssign={async (payload) => {
-          try {
-            // Normalize payload: modal sometimes returns { assignees: [...] },
-            // some callers may pass the array directly. Accept both.
-            const controllers = Array.isArray(payload)
-              ? payload
-              : (payload && (payload.assignees || payload.controllers)) || [];
-
-            const resp = await assignControllersToTemplateAPI(template._id, controllers);
-            if (resp && resp.success) {
-              // let parent handle UI update if provided
-              if (typeof onAssign === 'function') {
-                onAssign(resp.template || template);
-              } else if (typeof onDelete === 'function') {
-                // backward compatibility: call onDelete if present
-                onDelete(resp.template || template);
-              } else if (typeof window !== 'undefined') {
-                // fallback: reload to reflect changes
-                window.location.reload();
-              }
-            } else {
-              alert(resp?.message || 'Failed to assign controllers');
-            }
-          } catch (err) {
-            console.error('Assign controllers error', err);
-            alert(err.response?.data?.message || 'Error assigning controllers');
-          } finally {
-            setAssignOpen(false);
-            justClosedModal();
-          }
-        }}
-      />
       
       <DuplicateModal
         open={duplicateOpen}
