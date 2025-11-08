@@ -74,8 +74,8 @@ export default function DepartmentHeadDashboard() {
     { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
     { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
     { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+    { id: 4, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+    { id: 5, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
   ];
 
 
@@ -145,6 +145,69 @@ export default function DepartmentHeadDashboard() {
       priority: "Upcoming",
       department: "Academics",
     },
+  ];
+
+  const submissionOverviewData = [
+    {
+      id: 1,
+      name: "Syllabus AY 2025",
+      totalDocs: 50,
+      onTime: 35,
+      late: 10,
+      pendingPassed: 3,
+      pendingNotPassed: 2,
+      completion: "90%"
+    },
+    {
+      id: 2,
+      name: "Capstone 1 Documents",
+      totalDocs: 120,
+      onTime: 70,
+      late: 30,
+      pendingPassed: 10,
+      pendingNotPassed: 10,
+      completion: "83%"
+    },
+    {
+      id: 3,
+      name: "Internship Requirements",
+      totalDocs: 95,
+      onTime: 80,
+      late: 5,
+      pendingPassed: 5,
+      pendingNotPassed: 5,
+      completion: "89%"
+    },
+    {
+      id: 4,
+      name: "Internship Requirements",
+      totalDocs: 95,
+      onTime: 80,
+      late: 5,
+      pendingPassed: 5,
+      pendingNotPassed: 5,
+      completion: "89%"
+    },
+    {
+      id: 5,
+      name: "Internship Requirements",
+      totalDocs: 95,
+      onTime: 80,
+      late: 5,
+      pendingPassed: 5,
+      pendingNotPassed: 5,
+      completion: "89%"
+    },
+  ];
+
+  const submissionOverviewColumns = [
+    { key: "name", label: "Submission Name" },
+    { key: "totalDocs", label: "Total Docs" },
+    { key: "onTime", label: "Submitted (On-Time)" },
+    { key: "late", label: "Submitted (Late)" },
+    { key: "pendingPassed", label: "Pending (Deadline Passed)" },
+    { key: "pendingNotPassed", label: "Pending (Deadline Not Passed)" },
+    { key: "completion", label: "Completion %" },
   ];
 
 
@@ -234,6 +297,24 @@ export default function DepartmentHeadDashboard() {
               />
             </div>
 
+            <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
+              <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+                <div>
+                  <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                    SUBMISSION OVERVIEW
+                  </h2>
+                  <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                </div>
+              </div>
+
+
+              <div className="overflow-x-auto">
+                <Table
+                  columns={submissionOverviewColumns}
+                  data={submissionOverviewData}
+                />
+              </div>
+            </div>
 
             <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
               <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
@@ -260,6 +341,7 @@ export default function DepartmentHeadDashboard() {
                 />
               </div>
             </div>
+
           </div>
         </main>
       </div>
