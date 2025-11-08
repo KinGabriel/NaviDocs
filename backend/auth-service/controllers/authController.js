@@ -245,13 +245,13 @@ export const requestPasswordReset = async (req, res) => {
     const normalized = String(email || "").trim().toLowerCase();
     if (!normalized || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized)) {
       // Do not reveal enumeration details
-      return res.status(200).json({ success: true, message: "If the email exists, an OTP has been sent." });
+      return res.status(200).json({ success: true, message: "An OTP code has been sent to your email." });
     }
 
     const user = await User.findOne({ email: normalized });
     // Always respond with 200 to avoid user enumeration
     if (!user || user.is_deleted) {
-      return res.status(200).json({ success: true, message: "If the email exists, an OTP has been sent." });
+      return res.status(200).json({ success: true, message: "An OTP code has been sent to your email." });
     }
 
     // Rate limit: if a recent token exists within 45s, block
@@ -293,11 +293,11 @@ export const requestPasswordReset = async (req, res) => {
       otp,
     });
 
-    return res.status(200).json({ success: true, message: "If the email exists, an OTP has been sent." });
+    return res.status(200).json({ success: true, message: "An OTP code has been sent to your email." });
   } catch (err) {
     console.error("requestPasswordReset error:", err);
     // Still 200 to avoid enumeration
-    return res.status(200).json({ success: true, message: "If the email exists, an OTP has been sent." });
+    return res.status(200).json({ success: true, message: "An OTP code has been sent to your email." });
   }
 };
 

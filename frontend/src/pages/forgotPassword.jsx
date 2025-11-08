@@ -55,10 +55,10 @@ export default function ForgotPassword() {
       }
       setStep(2);
       setCooldown(RESEND_SECONDS);
-      toast.success("If the email exists, we've sent an OTP.");
+      toast.success("An OTP code has been sent to your email.");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to request OTP. Please try again.");
+      toast.error("Failed to request OTP code. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,7 @@ export default function ForgotPassword() {
         return;
       }
       setCooldown(RESEND_SECONDS);
-      toast.success("If the email exists, we've re-sent the OTP.");
+      toast.success("An OTP code has been re-sent to your email.");
     } catch (err) {
       console.error(err);
       toast.error("Failed to resend OTP. Please try again.");
