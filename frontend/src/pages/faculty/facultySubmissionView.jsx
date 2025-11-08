@@ -117,7 +117,7 @@ export default function FacultySubmissionView() {
     const rawMessage = assignedItem?.message || assignedItem?.comment || assignedItem?.notes || '';
     const submissionMessage = typeof rawMessage === 'string' ? rawMessage : String(rawMessage || '');
     
-    // Handle multiple documents
+    // Handle multiple documents 
     const submittedFiles = assignedItem?.documents || (assignedItem?.document ? [assignedItem.document] : []);
     
     return {

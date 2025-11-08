@@ -59,7 +59,7 @@ export default function FacultySubmissions() {
           });
           
           return userSubmissions.map(sub => {
-          // Determine status - validate that submission actually has documents
+          // Determine status - validate that submission actually has documents 
           let status = 'pending';
           
           // Check if there are actually submitted documents

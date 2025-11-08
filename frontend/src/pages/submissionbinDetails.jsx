@@ -64,7 +64,7 @@ export default function SubmissionDetails() {
   // Check if bin should be marked as completed
   const binShouldBeCompleted = useMemo(() => {
       if (!bin || !Array.isArray(bin.submissions)) return false;
-      
+       
       const items = bin.submissions;
       if (items.length === 0) return false;
       
