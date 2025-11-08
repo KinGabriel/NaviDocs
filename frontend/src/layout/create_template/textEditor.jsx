@@ -12,10 +12,13 @@ import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import { PaginationPlus } from "tiptap-pagination-plus";
 import { Extension } from "@tiptap/core";
-
+import { PaginationTable } from "tiptap-table-plus";
 import RichImage from "../../extensions/image/ImageNode";
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 import { formatDate } from "../../utils/formatters.jsx";
+
+/* ---------------------------- Tiptap Table & Pagination Plus ---------------------------- */
+const { TablePlus, TableRowPlus, TableCellPlus, TableHeaderPlus } = PaginationTable;
 
 /* ---------------------------- TextStyle extra attrs ---------------------------- */
 const TextStyleAttrs = Extension.create({
@@ -40,6 +43,22 @@ const TextStyleAttrs = Extension.create({
         },
       },
     ];
+  },
+});
+
+/* ----------------------------- TableCell extra attrs ----------------------------- */
+/* Optional: allow cell background via setCellAttribute('backgroundColor', value) */
+const TableCellBg = TableCellPlus.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      backgroundColor: {
+        default: null,
+        renderHTML: (attrs) =>
+          attrs.backgroundColor ? { style: `background-color: ${attrs.backgroundColor}` } : {},
+        parseHTML: (el) => ({ backgroundColor: el.style.backgroundColor || null }),
+      },
+    };
   },
 });
 
@@ -265,18 +284,21 @@ export default function TextEditor({
       Color,
       FontFamily,
       Highlight.configure({ multicolor: true }),
-      // alignment for paragraph/heading only
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      TextAlign.configure({ types: ["heading", "paragraph", "tableCell", "tableHeader"] }),
       Underline,
       Superscript,
       Subscript,
 
       RichImage.configure({ onOpenImageOptions: () => {} }),
-
-      // Editable field node (atom + caret placed after on insert)
       EditableField,
 
-      // Pagination after other nodes
+      // ---- Table Plus (pagination + resize aligned) ----
+      TablePlus.configure({
+        resizeHandleStyle: { width: "4px", opacity: 0.7 },
+      }),
+      TableRowPlus,
+      TableCellBg,    
+      TableHeaderPlus,
       PaginationPlus.configure({
         pageGap: 2,
         pageGapBorderSize: 1,
@@ -526,7 +548,6 @@ export default function TextEditor({
         r.style.display = "flex";
         r.style.alignItems = "stretch";
         r.style.borderTop = "1px solid #000";
-        // first row should include top border; fix later
         const l = document.createElement("div");
         l.textContent = label;
         l.style.padding = "2px 6px";
@@ -539,9 +560,7 @@ export default function TextEditor({
         return r;
       };
 
-      // ensure outer border
-      card.style.boxSizing = "border-box";
-      // first row manually without top border duplication
+      // first row manually without duplicate top border
       const first = document.createElement("div");
       first.style.display = "flex";
       const fl = document.createElement("div");
@@ -558,10 +577,6 @@ export default function TextEditor({
       card.appendChild(row("Revision No.", String(cfg.stamp.revisionNo)));
       card.appendChild(row("Effectivity", String(cfg.stamp.effectivity)));
       card.appendChild(row("Page", `${pageNo} of ${total}`));
-
-      // add inner separators (outer border already present)
-      card.style.outline = "none";
-      card.style.gap = "0";
 
       rightRow.appendChild(card);
     }

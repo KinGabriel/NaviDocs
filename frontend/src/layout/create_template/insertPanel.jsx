@@ -1,10 +1,41 @@
 // src/layout/create_template/insertPanel.jsx
-import { useState } from 'react';
+import { useEffect, useReducer, useState } from "react";
 
 export default function InsertPanel({ editor }) {
   const [rows, setRows] = useState(3);
   const [cols, setCols] = useState(3);
-  const [copyDupContent, setCopyDupContent] = useState(true); // for TablePlus duplicateRow/duplicateColumn
+  const [copyDupContent, setCopyDupContent] = useState(true);
+  const [cellBg, setCellBg] = useState("");
+  const [, force] = useReducer((x) => x + 1, 0);
+
+  // ---- subscribe to editor changes so buttons re-evaluate can() ----
+  useEffect(() => {
+    if (!editor) return;
+    const handler = () => force();
+    editor.on("transaction", handler);
+    editor.on("selectionUpdate", handler);
+    editor.on("update", handler);
+    return () => {
+      editor.off("transaction", handler);
+      editor.off("selectionUpdate", handler);
+      editor.off("update", handler);
+    };
+  }, [editor]);
+
+  // ---- can/exec helpers (correct usage of editor.can()) ----
+  const canExec = (fn) => {
+    if (!editor) return false;
+    try {
+      const dry = fn(editor.can().chain().focus());
+      return typeof dry?.run === "function" ? dry.run() : false;
+    } catch {
+      return false;
+    }
+  };
+  const exec = (fn) => {
+    if (!editor) return;
+    fn(editor.chain().focus()).run();
+  };
 
   const handleInsertTable = () => {
     if (!editor) return;
@@ -12,58 +43,45 @@ export default function InsertPanel({ editor }) {
       .chain()
       .focus()
       .insertTable({
-        rows: parseInt(rows),
-        cols: parseInt(cols),
+        rows: Math.max(1, parseInt(rows) || 1),
+        cols: Math.max(1, parseInt(cols) || 1),
         withHeaderRow: true,
       })
       .run();
   };
 
-  // Compute the inner content width of the current page (page width minus left/right padding)
+  // Compute page inner width (kept as you had it)
   const getUsablePageContentWidth = () => {
-    // Prefer the currently focused page; fallback to the first .nd-page
     const pageEl =
-      editor?.view?.dom?.closest?.('.nd-page') ||
-      document.querySelector('.nd-page');
-
+      editor?.view?.dom?.closest?.(".nd-page") || document.querySelector(".nd-page");
     if (!pageEl) {
-      // Fallback to CSS vars if no page element found
       const rs = getComputedStyle(document.documentElement);
-      const pageWidthPx = parseFloat(rs.getPropertyValue('--nd-page-width')) || 800;
-      const padL = parseFloat(rs.getPropertyValue('--nd-margin-left')) || 96;
-      const padR = parseFloat(rs.getPropertyValue('--nd-margin-right')) || 96;
+      const pageWidthPx = parseFloat(rs.getPropertyValue("--nd-page-width")) || 800;
+      const padL = parseFloat(rs.getPropertyValue("--nd-margin-left")) || 96;
+      const padR = parseFloat(rs.getPropertyValue("--nd-margin-right")) || 96;
       return Math.max(100, Math.round(pageWidthPx - padL - padR));
     }
-
     const cs = getComputedStyle(pageEl);
     const rectW = pageEl.getBoundingClientRect().width;
     const padL = parseFloat(cs.paddingLeft) || 0;
     const padR = parseFloat(cs.paddingRight) || 0;
-    // Inner content box (where paragraphs/images live)
-    const inner = Math.max(100, Math.round(rectW - padL - padR));
-    return inner;
+    return Math.max(100, Math.round(rectW - padL - padR));
   };
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file || !editor) return;
-
     const reader = new FileReader();
     reader.onload = () => {
       const src = reader.result;
-
-      // Load to get natural dimensions, then scale to fit the page’s inner width
       const img = new Image();
       img.onload = () => {
         const usableW = getUsablePageContentWidth();
         const natW = img.naturalWidth || 1;
         const natH = img.naturalHeight || 1;
-
         const scale = Math.min(1, usableW / natW);
         const width = Math.round(natW * scale);
         const height = Math.round(natH * scale);
-
-        // Insert via RichImage’s command 
         const ok = editor
           .chain()
           .focus()
@@ -73,25 +91,16 @@ export default function InsertPanel({ editor }) {
             width,
             height,
             keepAspect: true,
-            wrapMode: 'break', // show on its own line like Docs
+            wrapMode: "break",
           })
           .run();
-
         if (!ok) {
-          // Very rare fallback
           editor
             .chain()
             .focus()
             .insertContent({
-              type: 'richImage',
-              attrs: {
-                src,
-                srcOriginal: src,
-                width,
-                height,
-                keepAspect: true,
-                wrapMode: 'break',
-              },
+              type: "richImage",
+              attrs: { src, srcOriginal: src, width, height, keepAspect: true, wrapMode: "break" },
             })
             .run();
         }
@@ -99,12 +108,21 @@ export default function InsertPanel({ editor }) {
       img.src = src;
     };
     reader.readAsDataURL(file);
-
-    // Allow selecting the same file again
-    e.target.value = '';
+    e.target.value = "";
   };
 
-  const isInTable = editor?.isActive?.('table');
+  const isInTable = !!editor?.isActive?.("table");
+  const Btn = ({ onClick, label, disabled, className = "" }) => (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`text-sm px-3 py-1 rounded ${
+        disabled ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-gray-100 hover:bg-gray-200"
+      } ${className}`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="w-full p-4 space-y-6">
@@ -113,12 +131,7 @@ export default function InsertPanel({ editor }) {
         <h2 className="text-lg font-semibold mb-2">Insert Image</h2>
         <label className="w-full bg-gray-100 border-2 border-dashed rounded-lg flex flex-col items-center justify-center h-40 cursor-pointer hover:bg-gray-200">
           <span className="text-gray-600">Upload Image</span>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-            className="hidden"
-          />
+          <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
         </label>
       </div>
 
@@ -157,67 +170,146 @@ export default function InsertPanel({ editor }) {
           </button>
         </div>
 
-        {/* Table Tools (show when selection is inside a table) */}
+        {/* Table Tools */}
         {isInTable && (
-          <div className="space-y-3 mt-4">
-            {/* ——— Structure ——— */}
+          <div className="space-y-4 mt-4">
+            {/* Structure */}
             <div>
               <h3 className="text-sm font-semibold mb-1">Structure</h3>
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => editor.chain().focus().addColumnBefore().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Add Column Before
-                </button>
-                <button onClick={() => editor.chain().focus().addColumnAfter().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Add Column After
-                </button>
-                <button onClick={() => editor.chain().focus().addRowBefore().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Add Row Before
-                </button>
-                <button onClick={() => editor.chain().focus().addRowAfter().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Add Row After
-                </button>
-                <button onClick={() => editor.chain().focus().deleteColumn().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Delete Column
-                </button>
-                <button onClick={() => editor.chain().focus().deleteRow().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Delete Row
-                </button>
-                <button onClick={() => editor.chain().focus().deleteTable().run()} className="col-span-2 bg-red-200 text-black px-3 py-1 rounded hover:bg-red-400">
+                <Btn
+                  onClick={() => exec((ch) => ch.addColumnBefore())}
+                  label="Add Column Before"
+                  disabled={!canExec((ch) => ch.addColumnBefore())}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.addColumnAfter())}
+                  label="Add Column After"
+                  disabled={!canExec((ch) => ch.addColumnAfter())}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.addRowBefore())}
+                  label="Add Row Before"
+                  disabled={!canExec((ch) => ch.addRowBefore())}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.addRowAfter())}
+                  label="Add Row After"
+                  disabled={!canExec((ch) => ch.addRowAfter())}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.deleteColumn())}
+                  label="Delete Column"
+                  disabled={!canExec((ch) => ch.deleteColumn())}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.deleteRow())}
+                  label="Delete Row"
+                  disabled={!canExec((ch) => ch.deleteRow())}
+                />
+                <button
+                  onClick={() => exec((ch) => ch.deleteTable())}
+                  className="col-span-2 bg-red-200 text-black px-3 py-1 rounded hover:bg-red-300"
+                >
                   Delete Table
                 </button>
               </div>
             </div>
 
-            {/* ——— Selection Helpers ——— */}
+            {/* Headers & Merge */}
             <div>
-              <h3 className="text-sm font-semibold mb-1">Select</h3>
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => editor.chain().focus().selectRow().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Select Row
-                </button>
-                <button onClick={() => editor.chain().focus().selectColumn().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Select Column
-                </button>
+              <h3 className="text-sm font-semibold mb-1">Headers & Merge</h3>
+              <div className="grid grid-cols-3 gap-2">
+                <Btn
+                  onClick={() => exec((ch) => ch.toggleHeaderRow())}
+                  label="Toggle Header Row"
+                  disabled={!canExec((ch) => ch.toggleHeaderRow())}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.toggleHeaderColumn())}
+                  label="Toggle Header Column"
+                  disabled={!canExec((ch) => ch.toggleHeaderColumn())}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.toggleHeaderCell())}
+                  label="Toggle Header Cell"
+                  disabled={!canExec((ch) => ch.toggleHeaderCell())}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.mergeCells())}
+                  label="Merge Cells"
+                  disabled={!canExec((ch) => ch.mergeCells())}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.splitCell())}
+                  label="Split Cell"
+                  disabled={!canExec((ch) => ch.splitCell())}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.mergeOrSplit())}
+                  label="Merge or Split"
+                  disabled={!canExec((ch) => ch.mergeOrSplit())}
+                />
               </div>
             </div>
 
-            {/* ——— Alignment (via TextAlign extension) ——— */}
+            {/* Navigate */}
+            <div>
+              <h3 className="text-sm font-semibold mb-1">Navigate</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <Btn
+                  onClick={() => exec((ch) => ch.goToPreviousCell())}
+                  label="Previous Cell"
+                  disabled={!canExec((ch) => ch.goToPreviousCell())}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.goToNextCell())}
+                  label="Next Cell"
+                  disabled={!canExec((ch) => ch.goToNextCell())}
+                />
+              </div>
+            </div>
+
+            {/* Maintenance */}
+            <div>
+              <h3 className="text-sm font-semibold mb-1">Maintenance</h3>
+              <div className="grid grid-cols-1 gap-2">
+                <Btn
+                  onClick={() => exec((ch) => ch.fixTables())}
+                  label="Fix Tables"
+                  disabled={!canExec((ch) => ch.fixTables())}
+                />
+              </div>
+            </div>
+
+            {/* Text Align (TextAlign must include tableCell/tableHeader) */}
             <div>
               <h3 className="text-sm font-semibold mb-1">Text Align</h3>
-              <div className="grid grid-cols-3 gap-2">
-                <button onClick={() => editor.chain().focus().setTextAlign('left').run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Left
-                </button>
-                <button onClick={() => editor.chain().focus().setTextAlign('center').run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Center
-                </button>
-                <button onClick={() => editor.chain().focus().setTextAlign('right').run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Right
-                </button>
+              <div className="grid grid-cols-4 gap-2">
+                <Btn
+                  onClick={() => exec((ch) => ch.setTextAlign("left"))}
+                  label="Left"
+                  disabled={!canExec((ch) => ch.setTextAlign("left"))}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.setTextAlign("center"))}
+                  label="Center"
+                  disabled={!canExec((ch) => ch.setTextAlign("center"))}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.setTextAlign("right"))}
+                  label="Right"
+                  disabled={!canExec((ch) => ch.setTextAlign("right"))}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.unsetTextAlign())}
+                  label="Clear"
+                  disabled={!canExec((ch) => ch.unsetTextAlign())}
+                />
               </div>
             </div>
 
-            {/* ——— Table Plus: Duplicate ——— */}
+            {/* Table Plus Duplicate */}
             <div>
               <h3 className="text-sm font-semibold mb-1">Duplicate (Table Plus)</h3>
               <div className="flex items-center gap-3 mb-2">
@@ -227,47 +319,48 @@ export default function InsertPanel({ editor }) {
                   checked={copyDupContent}
                   onChange={(e) => setCopyDupContent(e.target.checked)}
                 />
-                <label htmlFor="dupContent" className="text-sm">Copy cell content when duplicating</label>
+                <label htmlFor="dupContent" className="text-sm">
+                  Copy cell content when duplicating
+                </label>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() =>
-                    editor.chain().focus().duplicateColumn({ withContent: !!copyDupContent }).run()
-                  }
-                  className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200"
-                >
-                  Duplicate Column
-                </button>
-                <button
-                  onClick={() =>
-                    editor.chain().focus().duplicateRow({ withContent: !!copyDupContent }).run()
-                  }
-                  className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200"
-                >
-                  Duplicate Row
-                </button>
+                <Btn
+                  onClick={() => exec((ch) => ch.duplicateColumn({ withContent: !!copyDupContent }))}
+                  label="Duplicate Column"
+                  disabled={!canExec((ch) =>
+                    ch.duplicateColumn({ withContent: !!copyDupContent })
+                  )}
+                />
+                <Btn
+                  onClick={() => exec((ch) => ch.duplicateRow({ withContent: !!copyDupContent }))}
+                  label="Duplicate Row"
+                  disabled={!canExec((ch) => ch.duplicateRow({ withContent: !!copyDupContent }))}
+                />
               </div>
             </div>
 
-            {/* ——— Headers & Merge ——— */}
+            {/* Cell Background via setCellAttribute */}
             <div>
-              <h3 className="text-sm font-semibold mb-1">Headers & Merge</h3>
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => editor.chain().focus().toggleHeaderRow().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Toggle Header Row
-                </button>
-                <button onClick={() => editor.chain().focus().toggleHeaderColumn().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Toggle Header Column
-                </button>
-                <button onClick={() => editor.chain().focus().toggleHeaderCell().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Toggle Header Cell
-                </button>
-                <button onClick={() => editor.chain().focus().mergeCells().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Merge Cells
-                </button>
-                <button onClick={() => editor.chain().focus().splitCell().run()} className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">
-                  Split Cell
-                </button>
+              <h3 className="text-sm font-semibold mb-1">Cell Background</h3>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="#fff3cd or empty"
+                  value={cellBg}
+                  onChange={(e) => setCellBg(e.target.value)}
+                  className="border px-2 py-1 rounded-md w-40"
+                />
+                <Btn
+                  onClick={() =>
+                    exec((ch) =>
+                      ch.setCellAttribute("backgroundColor", cellBg.trim() || null)
+                    )
+                  }
+                  label="Apply"
+                  disabled={!canExec((ch) =>
+                    ch.setCellAttribute("backgroundColor", cellBg.trim() || null)
+                  )}
+                />
               </div>
             </div>
           </div>
