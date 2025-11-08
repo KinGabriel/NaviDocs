@@ -15,8 +15,13 @@ import {
   X,
   Upload,
   CheckCircle,
+  AlertCircle,
+  Eye,
 } from "lucide-react";
 import { getSubmissionBinAPI, submitSubmissionDocumentAPI } from "../../api/assignmentDocumentsAPI";
+import { getTemplateByIdAPI } from "../../api/documentContollerAPI";
+import TextEditor from "../../layout/create_template/textEditor";
+import Loader from "../../components/loader";
 
 export default function FacultySubmissionView() {
   const user = useUser();
@@ -30,6 +35,11 @@ export default function FacultySubmissionView() {
   const [assignedItem, setAssignedItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [templatesInfo, setTemplatesInfo] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [showTplPreview, setShowTplPreview] = useState(false);
+  const [tplToPreview, setTplToPreview] = useState(null);
+  const [tplCurrentPage, setTplCurrentPage] = useState(0);
 
   // Load the bin by ID and find the student's/faculty's assigned submission item
   useEffect(() => {
@@ -58,6 +68,39 @@ export default function FacultySubmissionView() {
     return () => { mounted = false; };
   }, [id, user?._id, user?.id]);
 
+  // Load template details
+  useEffect(() => {
+    const ids = Array.isArray(bin?.template_ids) ? [...new Set(bin.template_ids.map(String))] : [];
+    if (!ids.length) { 
+      setTemplatesInfo([]); 
+      return; 
+    }
+    
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingTemplates(true);
+        const results = await Promise.allSettled(ids.map(async (id) => {
+          try {
+            const res = await getTemplateByIdAPI(id);
+            const tpl = res?.template || res?.data?.template || res?.data || res;
+            return { ...tpl, _id: tpl?._id || tpl?.id || id };
+          } catch (e) { 
+            return null; 
+          }
+        }));
+        
+        if (!cancelled) {
+          setTemplatesInfo(results.map(r => r.status === 'fulfilled' ? r.value : null).filter(Boolean));
+        }
+      } finally {
+        if (!cancelled) setLoadingTemplates(false);
+      }
+    })();
+    
+    return () => { cancelled = true; };
+  }, [bin?.template_ids]);
+
   const submission = useMemo(() => {
     if (!bin || !assignedItem) return null;
 
@@ -65,6 +108,14 @@ export default function FacultySubmissionView() {
     const deadline = bin?.deadline || null;
     const status = assignedItem?.status || 'assigned';
     const submittedAt = assignedItem?.submitted_at || null;
+    
+    // Ensure submissionMessage is always a string
+    const rawMessage = assignedItem?.message || assignedItem?.comment || assignedItem?.notes || '';
+    const submissionMessage = typeof rawMessage === 'string' ? rawMessage : String(rawMessage || '');
+    
+    // Handle multiple documents
+    const submittedFiles = assignedItem?.documents || (assignedItem?.document ? [assignedItem.document] : []);
+    
     return {
       id: assignedItem?._id,
       title: bin?.title || 'Submission',
@@ -74,7 +125,8 @@ export default function FacultySubmissionView() {
       deadline,
       status,
       submittedAt,
-      submittedFiles: [],
+      submittedFiles, 
+      submissionMessage, 
     };
   }, [assignedItem, bin]);
 
@@ -109,14 +161,33 @@ export default function FacultySubmissionView() {
     setIsSubmitting(true);
 
     try {
-      const first = selectedFiles[0];
-      const docId = first?._id || first?.id;
-      if (!docId) throw new Error('Selected document has no id');
-      await submitSubmissionDocumentAPI(bin?._id || id, assignedItem?._id, { documentId: docId });
-      alert('Submission successful!');
+      // Extract all document IDs from selected files
+      const documentIds = selectedFiles
+        .map(file => file._id || file.id)
+        .filter(Boolean);
+      
+      if (documentIds.length === 0) {
+        throw new Error('No valid document IDs found in selected files');
+      }
+      
+      // Payload with multiple document IDs
+      const payload = {
+        documentIds: documentIds // Array of document IDs
+      };
+      
+      // Add message if provided
+      if (message.trim()) {
+        payload.message = message.trim();
+      }
+      
+      await submitSubmissionDocumentAPI(bin?._id || id, assignedItem?._id, payload);
+      
+      // Show success message with count
+      alert(`Successfully submitted ${documentIds.length} document${documentIds.length !== 1 ? 's' : ''}!`);
       navigate(-1);
     } catch (e) {
-      alert(e?.responseData?.message || e?.message || 'Failed to submit');
+      console.error('Submission error:', e);
+      alert(e?.responseData?.message || e?.message || 'Failed to submit documents');
     } finally {
       setIsSubmitting(false);
     }
@@ -136,8 +207,7 @@ export default function FacultySubmissionView() {
           <Sidebar user={user} />
           <div className="flex-1 flex flex-col items-center justify-center p-8">
             <FileText size={64} className="text-gray-300 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Loading…</h2>
-            <p className="text-gray-600">Please wait</p>
+              <Loader message="Loading..." />
           </div>
         </div>
       </div>
@@ -278,11 +348,82 @@ export default function FacultySubmissionView() {
               </div>
             </div>
 
-            {/* Submission Content */}
-            {isSubmitted ? (
+          {/* Required Templates Section */}
+          {Array.isArray(bin?.template_ids) && bin.template_ids.length > 0 && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+              <div className="mb-4">
+                <div className="flex items-center gap-2">
+                  <FileText size={18} className="text-gray-700" />
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Required Templates for Submission
+                  </h3>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  You must submit documents using these templates
+                </p>
+              </div>
+
+              {loadingTemplates && (
+                <div className="flex justify-center py-4">
+                  <Loader />
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(templatesInfo.length ? templatesInfo : bin.template_ids).map((t) => {
+                  const id = typeof t === 'string' ? t : (t._id || t.id);
+                  const title = typeof t === 'string' ? String(t) : (t.title || String(id));
+                  const docCode = typeof t === 'string' ? '' : (t.document_code || t.docCode || '');
+                  const revision = typeof t === 'string' ? '' : (t.revision_no ?? t.revision_number);
+                  
+                  return (
+                    <div 
+                      key={String(id)} 
+                      className="border border-gray-200 rounded-lg bg-gradient-to-br from-blue-50 to-white p-4 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-gray-900 mb-2" title={title}>
+                          {title}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {docCode && (
+                            <span className="text-xs px-2.5 py-1 bg-purple-100 text-purple-700 rounded-md font-medium">
+                              {docCode}
+                            </span>
+                          )}
+                          {(revision !== undefined && revision !== null && revision !== '') && (
+                            <span className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-medium">
+                              Rev. {String(revision).padStart(2,'0')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <button
+                        className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => { 
+                          setTplToPreview(typeof t === 'string' ? null : t); 
+                          setTplCurrentPage(0); 
+                          setShowTplPreview(true); 
+                        }}
+                        disabled={typeof t === 'string'}
+                        title={typeof t === 'string' ? 'Loading template details...' : 'Preview template'}
+                      >
+                        <Eye size={16} />
+                        Preview Template
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+              {/* Submission Content */}
+              {isSubmitted ? (
               /* Already Submitted View */
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-green-50 rounded-lg">
                     <CheckCircle size={24} className="text-green-600" />
                   </div>
@@ -292,36 +433,107 @@ export default function FacultySubmissionView() {
                   </div>
                 </div>
 
-                {submission.submissionMessage && (
-                  <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-sm font-medium text-gray-700 mb-1">Your Comment:</p>
-                    <p className="text-sm text-gray-600">{submission.submissionMessage}</p>
+               {/* Display Faculty's Comment */}
+                {submission.submissionMessage.trim() && (
+                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-start gap-2 mb-2">
+                      <FileText size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm font-semibold text-gray-900">Your Comment:</p>
+                    </div>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap pl-6">
+                      {submission.submissionMessage}
+                    </p>
                   </div>
                 )}
 
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-700">Submitted Files:</h4>
-                  {submission.submittedFiles.map((file, idx) => (
-                    <div key={idx} className="p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <FileText size={20} className="text-blue-600 flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-gray-900 truncate">
-                            {file.name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {formatFileSize(file.size)} • Uploaded {formatDateTime(file.uploadedAt)}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                            className="inline-flex items-center justify-center px-4 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
-                            onClick={() => handleViewSubmission(submission.id)}
-                        >
-                      View
-                      </button>
+                {/* Display Return Reason (if returned) */}
+                {assignedItem?.return_reason && String(assignedItem.return_reason).trim() && (
+                  <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="flex items-start gap-2 mb-2">
+                      <AlertCircle size={18} className="text-orange-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm font-semibold text-gray-900">Return Reason:</p>
                     </div>
-                  ))}
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap pl-6">
+                      {String(assignedItem.return_reason)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Submitted Documents */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-gray-700">
+                      Submitted Document{submission.submittedFiles.length !== 1 ? 's' : ''} 
+                      <span className="ml-2 text-blue-600">({submission.submittedFiles.length})</span>
+                    </h4>
+                  </div>
+
+                  {submission.submittedFiles.length > 0 ? (
+                    <div className="space-y-2">
+                      {submission.submittedFiles.map((doc, idx) => {
+                        const docId = doc._id || doc.id || doc;
+                        const docTitle = doc.title || doc.name || `Document ${idx + 1}`;
+                        const docCode = doc.document_code || doc.docCode || '';
+                        const school = doc.school || doc.school_identifier || '';
+                        const revision = doc.revision_no ?? doc.revision_number;
+                        
+                        return (
+                          <div 
+                            key={docId || idx} 
+                            className="p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                                <FileText size={20} className="text-blue-600" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium text-gray-900 mb-1">
+                                  {docTitle}
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {docCode && (
+                                    <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded font-medium">
+                                      {docCode}
+                                    </span>
+                                  )}
+                                  {(revision !== undefined && revision !== null && revision !== '') && (
+                                    <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded font-medium">
+                                      Rev. {String(revision).padStart(2,'0')}
+                                    </span>
+                                  )}
+                                  {school && (
+                                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">
+                                      {school}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors ml-3 flex-shrink-0"
+                              onClick={() => {
+                                if (typeof docId === "string" || typeof docId === "number") {
+                                  handleViewSubmission(docId);
+                                } else {
+                                  alert("Cannot view this document - invalid ID");
+                                }
+                              }}
+                            >
+                              <Eye size={16} className="mr-1" />
+                              View
+                            </button>
+
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-8 bg-gray-50 rounded-lg border border-gray-200 text-center">
+                      <FileText size={48} className="mx-auto text-gray-300 mb-3" />
+                      <p className="text-gray-600 font-medium">No documents attached</p>
+                      <p className="text-sm text-gray-500 mt-1">This submission has no documents</p>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -425,12 +637,12 @@ export default function FacultySubmissionView() {
                     {isSubmitting ? (
                       <>
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        Submitting...
+                        Submitting {selectedFiles.length} document{selectedFiles.length !== 1 ? 's' : ''}...
                       </>
                     ) : (
                       <>
                         <Upload size={20} />
-                        Submit Work
+                        Submit {selectedFiles.length > 0 ? `(${selectedFiles.length}) ` : ''}Document{selectedFiles.length !== 1 ? 's' : ''}
                       </>
                     )}
                   </button>
@@ -439,6 +651,131 @@ export default function FacultySubmissionView() {
             )}
           </div>
         </div>
+
+        {/* Template Preview Modal */}
+        {showTplPreview && tplToPreview && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+            <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-purple-100">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-bold text-gray-900">Template Preview</h3>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-700 mb-2">{tplToPreview.title}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {tplToPreview.document_code && (
+                        <span className="text-xs px-2.5 py-1 bg-purple-100 text-purple-700 rounded-md font-medium">
+                          {tplToPreview.document_code}
+                        </span>
+                      )}
+                      {(tplToPreview.revision_number !== undefined || tplToPreview.revision_no !== undefined) && (
+                        <span className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-medium">
+                          Rev. {String(tplToPreview.revision_number ?? tplToPreview.revision_no).padStart(2,'0')}
+                        </span>
+                      )}
+                      {(tplToPreview.effectivity || tplToPreview.effectivity_date) && (
+                        <span className="text-xs px-2.5 py-1 bg-blue-100 text-blue-700 rounded-md font-medium">
+                          Eff. {formatDate(tplToPreview.effectivity || tplToPreview.effectivity_date)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowTplPreview(false)} 
+                    className="text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg p-1 transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 bg-gray-100">
+                {(() => {
+                  const baseDoc = tplToPreview?.pages_json?.[0] || { type: 'doc', content: [] };
+                  const pageNodes = (baseDoc.content || []).filter((n) => n.type === 'page');
+                  const totalPages = pageNodes.length || 0;
+                  const pageNode = pageNodes[tplCurrentPage] || pageNodes[0];
+                  const contentForEditor = pageNode ? { ...baseDoc, content: [pageNode] } : baseDoc;
+                  const src = tplToPreview?.headerConfig || tplToPreview?.logoConfig || tplToPreview?.headerFooter || {};
+                  const docCode = tplToPreview?.document_code || tplToPreview?.docCode || src?.documentStamp?.docCode || '';
+                  const revisionNo = (tplToPreview?.revision_no ?? tplToPreview?.revision_number ?? src?.documentStamp?.revisionNo ?? 0);
+                  const effectivity = tplToPreview?.effectivity || tplToPreview?.effectivity_date || src?.documentStamp?.effectivity || '';
+                  
+                  const normalizedHeaderConfig = {
+                    ...src,
+                    showSLULogo: src.showSLULogo ?? src.showSLU ?? !!src.assets?.slu,
+                    showCICMLogo: src.showCICMLogo ?? src.showCICM ?? !!src.assets?.cicm,
+                    assets: {
+                      slu: src?.assets?.slu || src?.slu || "/assets/images/slu-logo.png",
+                      cicm: src?.assets?.cicm || src?.cicm || "/assets/images/cicm-logo.png",
+                    },
+                    center: src.center || {},
+                    documentStamp: { docCode, revisionNo, effectivity },
+                    document_code: docCode,
+                    revision_no: revisionNo,
+                    effectivity,
+                  };
+                  
+                  return tplToPreview?.pages_json?.length ? (
+                    <div className="bg-white rounded-xl p-5 shadow-lg">
+                      <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-200">
+                        <span className="text-sm font-medium text-gray-600">
+                          Page {Math.min(tplCurrentPage+1, totalPages || 1)} of {totalPages || 1}
+                        </span>
+                        {totalPages > 1 && (
+                          <div className="flex gap-2">
+                            <button 
+                              className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
+                              disabled={tplCurrentPage<=0} 
+                              onClick={() => setTplCurrentPage(p=>Math.max(0,p-1))}
+                            >
+                              Prev
+                            </button>
+                            <button 
+                              className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
+                              disabled={tplCurrentPage>=totalPages-1} 
+                              onClick={() => setTplCurrentPage(p=>Math.min(totalPages-1,p+1))}
+                            >
+                              Next
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <TextEditor
+                        content={contentForEditor}
+                        pageSetup={tplToPreview?.pageSetup}
+                        className="pointer-events-none opacity-100 w-full"
+                        onEditorReady={(editor) => editor && editor.setEditable(false)}
+                        mode="template"
+                        headerConfig={normalizedHeaderConfig}
+                        templateStatus={tplToPreview?.status || 'published'}
+                        documentCode={docCode}
+                        revisionNo={revisionNo}
+                        effectivity={effectivity}
+                      />
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center bg-white">
+                      <FileText size={56} className="mx-auto text-gray-300 mb-4" />
+                      <p className="text-gray-600 font-semibold mb-1">No preview available</p>
+                      <p className="text-sm text-gray-500">This template has no stored page content.</p>
+                    </div>
+                  );
+                })()}
+              </div>
+              
+              <div className="px-6 py-4 border-t bg-gray-50 flex justify-end">
+                <button 
+                  onClick={() => setShowTplPreview(false)} 
+                  className="px-5 py-2.5 rounded-lg bg-gray-600 text-white hover:bg-gray-700 font-medium transition-all shadow-sm hover:shadow-md"
+                >
+                  Close Preview
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Select Documents Modal */ }
