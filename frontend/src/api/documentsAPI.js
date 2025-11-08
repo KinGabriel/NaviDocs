@@ -383,3 +383,25 @@ export const listArchivedDocumentsAPI = async (params = {}) => {
   }
 };
 
+// --- Unarchive / Restore a soft-deleted document
+export const restoreDocumentAPI = async (documentId) => {
+  try {
+    const res = await axios.patch(`${API_URL}/api/documents/${documentId}/restore`, {}, { withCredentials: true });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Failed to restore document");
+  }
+};
+
+// --- Permanently delete a document (irreversible)
+export const permanentlyDeleteDocumentAPI = async (documentId) => {
+  try {
+    // If your backend uses a different route, adjust here (e.g. /permanent or ?permanent=true)
+    const res = await axios.delete(`${API_URL}/api/documents/${documentId}?permanent=true`, { withCredentials: true });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Failed to permanently delete document");
+  }
+};
+
+

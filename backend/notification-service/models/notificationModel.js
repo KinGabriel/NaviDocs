@@ -43,7 +43,15 @@ const notificationSchema = new mongoose.Schema({
       'template_rejected',
       'template_returned',
       'template_published',
-      'template_unpublished'
+      'template_unpublished',
+      // Document workflow events
+      'document_shared',
+      'submission_bin_assignment',
+      'submission_bin_forwarded',
+      'submission_item_submitted',
+      'submission_item_unsubmitted',
+      'submission_item_returned',
+      'submission_item_approved'
     ],
     required: true,
   },

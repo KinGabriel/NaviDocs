@@ -6,7 +6,9 @@ import SearchBar from "../components/searchbar";
 import Table from "../components/table";
 import usePagination from "../hooks/usePagination";
 import Loader from "../components/loader";
-import { listDocumentsAPI } from "../api/documentsAPI";
+import { listDocumentsAPI, restoreDocumentAPI, permanentlyDeleteDocumentAPI } from "../api/documentsAPI";
+import UnarchiveDocumentModal from "../components/modals/unarchiveDocumentModal";
+import PermanentlyDeleteDocumentModal from "../components/modals/permanentlyDeleteDocumentModal";
 
 export default function ArchivedDocuments() {
   const user = useUser();
@@ -19,46 +21,53 @@ export default function ArchivedDocuments() {
   const [rowBusy, setRowBusy] = useState(null);
   const pagination = usePagination(archivedTotalPages, 1);
 
+  const [selectedDoc, setSelectedDoc] = useState(null);
+  const [openUnarchive, setOpenUnarchive] = useState(false);
+  const [openPermanentDelete, setOpenPermanentDelete] = useState(false);
+  const [modalSubmitting, setModalSubmitting] = useState(false);
+  const [modalError, setModalError] = useState("");
+
   // -- Actions (safe dynamic import so missing exports won't crash the app) --
-  const handleUnarchive = async (doc) => {
-    const id = doc?._id || doc?.id;
-    if (!id) return;
-    setRowBusy(id);
+  const handleUnarchiveClick = (doc) => {
+    setSelectedDoc(doc);
+    setModalError("");
+    setOpenUnarchive(true);
+  };
+
+  const handlePermanentDeleteClick = (doc) => {
+    setSelectedDoc(doc);
+    setModalError("");
+    setOpenPermanentDelete(true);
+  };
+
+  const confirmUnarchive = async () => {
+    if (!selectedDoc) return;
+    setModalSubmitting(true);
     try {
-      const mod = await import("../api/documentsAPI").catch(() => ({}));
-      const fn = mod.restoreDocumentAPI;
-      if (typeof fn === "function") {
-        await fn(id);
-      }
-      // Optimistic UI: remove from list either way
-      setArchivedDocs((prev) => prev.filter((d) => (d._id || d.id) !== id));
+      await restoreDocumentAPI(selectedDoc._id || selectedDoc.id);
+      setArchivedDocs((prev) => prev.filter((d) => (d._id || d.id) !== (selectedDoc._id || selectedDoc.id)));
+      setOpenUnarchive(false);
     } catch (e) {
-      console.error("Failed to unarchive:", e);
+      setModalError(e.message || "Failed to unarchive");
     } finally {
-      setRowBusy(null);
+      setModalSubmitting(false);
     }
   };
 
-  const handlePermanentDelete = async (doc) => {
-    const id = doc?._id || doc?.id;
-    if (!id) return;
-    if (!window.confirm("Permanently delete this document? This cannot be undone.")) return;
-
-    setRowBusy(id);
+  const confirmPermanentDelete = async () => {
+    if (!selectedDoc) return;
+    setModalSubmitting(true);
     try {
-      const mod = await import("../api/documentsAPI").catch(() => ({}));
-      const fn = mod.permanentlyDeleteDocumentAPI;
-      if (typeof fn === "function") {
-        await fn(id);
-      }
-      // Optimistic UI: remove from list either way
-      setArchivedDocs((prev) => prev.filter((d) => (d._id || d.id) !== id));
+      await permanentlyDeleteDocumentAPI(selectedDoc._id || selectedDoc.id);
+      setArchivedDocs((prev) => prev.filter((d) => (d._id || d.id) !== (selectedDoc._id || selectedDoc.id)));
+      setOpenPermanentDelete(false);
     } catch (e) {
-      console.error("Failed to permanently delete:", e);
+      setModalError(e.message || "Failed to delete");
     } finally {
-      setRowBusy(null);
+      setModalSubmitting(false);
     }
   };
+
 
   const archivedColumns = [
     {
@@ -94,7 +103,7 @@ export default function ArchivedDocuments() {
           <div className="inline-flex items-center gap-2 whitespace-nowrap pl-2">
             <button 
               type="button"
-              onClick={() => handleUnarchive(row)}
+              onClick={() => handleUnarchiveClick(row)}
               disabled={busy}
               className={`px-3 py-1 rounded text-xs font-semibold border ${
                 busy
@@ -107,7 +116,7 @@ export default function ArchivedDocuments() {
             </button>
             <button
               type="button"
-              onClick={() => handlePermanentDelete(row)}
+              onClick={() => handlePermanentDeleteClick(row)}
               disabled={busy}
               className={`px-3 py-1 rounded text-xs font-semibold border ${
                 busy
@@ -256,50 +265,23 @@ export default function ArchivedDocuments() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
+      <UnarchiveDocumentModal
+        open={openUnarchive}
+        onClose={() => setOpenUnarchive(false)}
+        itemTitle={selectedDoc?.title}
+        submitting={modalSubmitting}
+        error={modalError}
+        onConfirm={confirmUnarchive}
+      />
 
-function ViewToggle({ mode = "grid", onChange }) {
-  const isTable = mode === "table";
-
-  return (
-    <div className="inline-flex items-stretch rounded-full border border-gray-300 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => onChange("table")}
-        className={`px-3 py-2 flex items-center ${
-          isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
-        }`}
-        aria-label="List view"
-        title="List view"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M4 7h16M4 12h16M4 17h16"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => onChange("grid")}
-        className={`px-3 py-2 flex items-center ${
-          !isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
-        }`}
-        aria-label="Grid view"
-        title="Grid view"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          <rect x="4" y="4" width="6" height="6" rx="1"></rect>
-          <rect x="14" y="4" width="6" height="6" rx="1"></rect>
-          <rect x="4" y="14" width="6" height="6" rx="1"></rect>
-          <rect x="14" y="14" width="6" height="6" rx="1"></rect>
-        </svg>
-      </button>
+      <PermanentlyDeleteDocumentModal
+        open={openPermanentDelete}
+        onClose={() => setOpenPermanentDelete(false)}
+        itemTitle={selectedDoc?.title}
+        submitting={modalSubmitting}
+        error={modalError}
+        onConfirm={confirmPermanentDelete}
+      />
     </div>
   );
 }

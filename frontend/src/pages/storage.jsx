@@ -20,7 +20,7 @@ import RenameModal from "../components/modals/renameModal";
 import RemoveModal from "../components/modals/removeModal";
 import Loader from "../components/loader";
 import toast, { Toaster } from "react-hot-toast";
-import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ChevronRight, Folder, File, MoreVertical, Download, Pencil, FolderCog, Move, Share2, Copy, Trash2, } from "lucide-react";
+import { Plus, ArrowLeft, FolderPlus, Upload, FolderUp, X, ChevronRight, Folder, File, MoreVertical, Download, Pencil, FolderCog, Move, Share2, Copy, Trash2, Minimize2, Maximize2 } from "lucide-react";
 import { formatDate } from "../utils/formatters";
 
 /* ----------------------------- View Toggle ----------------------------- */
@@ -181,6 +181,60 @@ export default function Storage() {
   /* pagination */
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+
+  // === List View Preview State ===
+  const [lvPreviewOpen, setLvPreviewOpen] = useState(false);
+  const [lvPreviewExpanded, setLvPreviewExpanded] = useState(false);
+  const [lvPreviewFile, setLvPreviewFile] = useState(null);
+
+  const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
+  const API_URLS = rawUrls.split(",");
+  const API_URL = API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
+
+  // --- MATCH grid view URL construction (same behavior as file.jsx) ---
+  const getFileUrl = (file) => {
+    if (!file || typeof file === "string") return null;
+
+    // 1) Explicit filePath (already relative like "uploads/...") -> join to API origin
+    if (file.filePath) {
+      return `${API_URL.replace(/\/$/, "")}/${String(file.filePath).replace(/^\//, "")}`;
+    }
+
+    // 2) Raw absolute/relative path possibly from backend (may be windows path)
+    if (file.path) {
+      let relPath = String(file.path).replace(/\\/g, "/");
+      const idx = relPath.indexOf("/uploads/");
+      if (idx !== -1) relPath = relPath.slice(idx + 1); // drop leading slash before uploads
+      return `${API_URL.replace(/\/$/, "")}/${relPath}`;
+    }
+
+    // 3) Direct URL already prepared
+    if (file.url) return file.url;
+
+    // 4) Fallback to uploads/{storageName|_id}
+    return `${API_URL.replace(/\/$/, "")}/uploads/${file.storageName || file._id}`;
+  };
+
+  const isPdf = (f) =>
+    (f?.mimetype || "").toLowerCase().includes("pdf") ||
+    (f?.name || f?.fileName || f?.originalName || "").toLowerCase().endsWith(".pdf");
+
+  const isDocx = (f) =>
+    (f?.mimetype || "").toLowerCase().includes("word") ||
+    (f?.name || f?.fileName || f?.originalName || "").toLowerCase().endsWith(".docx");
+
+  const openListPreview = (file) => {
+    const url = getFileUrl(file);
+    setLvPreviewFile({
+      ...file,
+      fileUrl: url,
+      fileName: file?.name || file?.originalName || file?.fileName || "Untitled",
+    });
+    setLvPreviewExpanded(false);
+    setLvPreviewOpen(true);
+  };
+
 
   /* ---------- SHARE (table view) — folders & files, same as grid ---------- */
   // common helpers
@@ -651,11 +705,10 @@ export default function Storage() {
                         {index > 0 && <ChevronRight className="mx-1 text-gray-400 flex-shrink-0" size={16} />}
                         <button
                           onClick={() => navigateToFolder(folder.id)}
-                          className={`truncate max-w-[120px] text-ellipsis overflow-hidden transition-colors ${
-                            index === 1
+                          className={`truncate max-w-[120px] text-ellipsis overflow-hidden transition-colors ${index === 1
                               ? "text-[#0035DA] font-semibold cursor-default"
                               : "text-gray-600 hover:text-[#0035DA] hover:underline"
-                          }`}
+                            }`}
                           disabled={index === 1}
                           title={folder.name}
                         >
@@ -670,11 +723,10 @@ export default function Storage() {
                       <ChevronRight className="mx-1 text-gray-400 flex-shrink-0" size={16} />
                       <button
                         onClick={() => navigateToFolder(folder.id)}
-                        className={`truncate max-w-[120px] text-ellipsis overflow-hidden transition-colors ${
-                          index === folderPath.length - 1
+                        className={`truncate max-w-[120px] text-ellipsis overflow-hidden transition-colors ${index === folderPath.length - 1
                             ? "text-[#0035DA] font-semibold cursor-default"
                             : "text-gray-600 hover:text-[#0035DA] hover:underline"
-                        }`}
+                          }`}
                         disabled={index === folderPath.length - 1}
                         title={folder.name}
                       >
@@ -737,11 +789,10 @@ export default function Storage() {
                     <button
                       key={status}
                       onClick={() => setSelectedStatus(status)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 border ${
-                        isSelected
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 border ${isSelected
                           ? "bg-blue-600 text-white border-blue-600 shadow-sm"
                           : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700"
-                      }`}
+                        }`}
                     >
                       {status}
                     </button>
@@ -816,11 +867,11 @@ export default function Storage() {
                             </td>
                             <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
                               {folder.data?.owner?.name
-                              || (folder.data?.ownerEmail
-                                    ? folder.data.ownerEmail.split("@")[0]
-                                    : (typeof folder.data?.owner === "string"
-                                       ? folder.data.owner.split("@")[0]
-                                       : "Unknown"))}
+                                || (folder.data?.ownerEmail
+                                  ? folder.data.ownerEmail.split("@")[0]
+                                  : (typeof folder.data?.owner === "string"
+                                    ? folder.data.owner.split("@")[0]
+                                    : "Unknown"))}
                             </td>
                             <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
                               {formatDate(folder.date)}
@@ -828,7 +879,7 @@ export default function Storage() {
                             <td className="px-4 md:px-6 py-4">
                               <div className="relative">
                                 <button
-                                  ref={(el)=>{ if(el) anchorEls.current[`folder-${folder._id}`]=el; else delete anchorEls.current[`folder-${folder._id}`]; }} onClick={(e)=>{ e.stopPropagation(); openMenu("folder", folder._id); }}
+                                  ref={(el) => { if (el) anchorEls.current[`folder-${folder._id}`] = el; else delete anchorEls.current[`folder-${folder._id}`]; }} onClick={(e) => { e.stopPropagation(); openMenu("folder", folder._id); }}
                                   className="p-1 rounded-full hover:bg-gray-300"
                                 >
                                   <MoreVertical className="w-5 h-5 text-gray-600" />
@@ -1110,31 +1161,39 @@ export default function Storage() {
                           const fileKey = file._id || idx;
 
                           return (
-                            <tr key={fileKey} className="hover:bg-blue-50 transition-colors">
+                            <tr key={fileKey} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={(e) => {
+                              if (e.target.closest(".file-menu-area") || e.target.closest(".file-menu-action")) return;
+                              openListPreview(file);
+                            }}
+                            >
                               <td className="px-4 md:px-6 py-4">
                                 <div className="flex items-center gap-3">
                                   <File className="w-5 h-5 text-gray-500 flex-shrink-0" />
                                   <span className="font-medium text-gray-900">{fileName}</span>
                                 </div>
                               </td>
+
                               <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
                                 {file.owner?.name
-                                || (file.ownerEmail
+                                  || (file.ownerEmail
                                     ? file.ownerEmail.split("@")[0]
-                                    : (typeof file.owner === "string"
-                                       ? file.owner.split("@")[0]
-                                       : "Unknown"))}
+                                    : (typeof file.owner === "string" ? file.owner.split("@")[0] : "Unknown"))}
                               </td>
+
                               <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
                                 {formatDate(file.uploadedAt || file.createdAt)}
                               </td>
+
                               <td className="px-4 md:px-6 py-4 text-sm text-gray-600">{fileSize}</td>
+
                               <td className="px-4 md:px-6 py-4">
-                                <div className="relative">
+                                <div className="relative file-menu-area">
                                   <button
-                                    ref={(el)=>{ if(el) anchorEls.current[`file-${fileKey}`]=el; else delete anchorEls.current[`file-${fileKey}`]; }} onClick={(e)=>{ e.stopPropagation(); openMenu("file", fileKey); }}
+                                    ref={(el) => { if (el) anchorEls.current[`file-${fileKey}`] = el; else delete anchorEls.current[`file-${fileKey}`]; }}
+                                    onClick={(e) => { e.stopPropagation(); openMenu("file", fileKey); }}
                                     className="p-1 rounded-full hover:bg-gray-300"
                                   >
+
                                     <MoreVertical className="w-5 h-5 text-gray-600" />
                                   </button>
 
@@ -1142,7 +1201,7 @@ export default function Storage() {
                                     <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50">
                                       <ul className="text-sm text-gray-700">
                                         <li
-                                          className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                          className="file-menu-action flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             toast("Download clicked");
@@ -1153,7 +1212,7 @@ export default function Storage() {
                                         </li>
 
                                         <li
-                                          className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                          className="file-menu-action flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             setItemToRename(file);
@@ -1182,7 +1241,6 @@ export default function Storage() {
                                             <FolderCog size={16} className="text-gray-600" /> Organize
                                           </div>
                                           <span className="text-gray-500 text-xs">▶</span>
-
                                           {openOrganizeSubmenu === `file-${fileKey}` && (
                                             <ul className="absolute top-0 right-full mr-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50">
                                               <li
@@ -1215,7 +1273,6 @@ export default function Storage() {
                                             <Share2 size={16} className="text-gray-600" /> Share
                                           </div>
                                           <span className="text-gray-500 text-xs">▶</span>
-
                                           {openShareSubmenu === `file-${fileKey}` && (
                                             <ul className="absolute top-0 right-full mr-1 w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50">
                                               <li
@@ -1247,7 +1304,7 @@ export default function Storage() {
                                         <hr className="my-1" />
 
                                         <li
-                                          className="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 cursor-pointer"
+                                          className="file-menu-action flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 cursor-pointer"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             setItemToRemove(file);
@@ -1264,6 +1321,7 @@ export default function Storage() {
                                 </div>
                               </td>
                             </tr>
+
                           );
                         })}
                       </tbody>
@@ -1314,11 +1372,10 @@ export default function Storage() {
                       <button
                         key={num}
                         onClick={() => pagination.handlePage(num)}
-                        className={`px-3 py-1 rounded border ${
-                          pagination.currentPage === num
+                        className={`px-3 py-1 rounded border ${pagination.currentPage === num
                             ? "bg-blue-600 text-white"
                             : "bg-white text-gray-700 hover:bg-gray-100"
-                        }`}
+                          }`}
                       >
                         {num}
                       </button>
@@ -1715,54 +1772,126 @@ export default function Storage() {
           </div>
         </div>
       )}
+
+      {/* ======================= LIST VIEW PREVIEW MODAL ======================= */}
+      {lvPreviewOpen && lvPreviewFile && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div
+            className={`bg-white rounded-lg shadow-lg relative flex flex-col ${lvPreviewExpanded ? "w-[95vw] h-[95vh]" : "w-[800px] max-w-[95vw] h-[90vh]"
+              }`}
+          >
+            {/* Close */}
+            <button
+              className="absolute top-3 right-3 text-gray-600 hover:text-black"
+              onClick={() => setLvPreviewOpen(false)}
+            >
+              <X size={22} />
+            </button>
+
+            {/* Expand/Restore */}
+            <button
+              className="absolute top-3 right-12 text-gray-600 hover:text-black"
+              onClick={() => setLvPreviewExpanded((p) => !p)}
+              title={lvPreviewExpanded ? "Restore" : "Expand"}
+            >
+              {lvPreviewExpanded ? <Minimize2 size={22} /> : <Maximize2 size={22} />}
+            </button>
+
+            {/* Title */}
+            <h2 className="text-lg font-bold mb-4 px-6 pt-6">
+              {lvPreviewFile.fileName}
+            </h2>
+
+            {/* Content */}
+            <div className="flex-1 border rounded-md bg-gray-50 mx-6 overflow-hidden">
+              {lvPreviewFile?.fileUrl && (
+                isPdf(lvPreviewFile) ? (
+                  <iframe title="PDF preview" src={lvPreviewFile.fileUrl} className="w-full h-full border-0" />
+                ) : isDocx(lvPreviewFile) ? (
+                  <iframe
+                    title="DOCX preview"
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(lvPreviewFile.fileUrl)}&embedded=true`}
+                    className="w-full h-full border-0"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-500">
+                    Preview not available
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="p-4 flex justify-end gap-3 border-t bg-white">
+              <button
+                onClick={() => toast("Download clicked")}
+                className="flex items-center gap-2 bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300"
+              >
+                <Download size={18} /> Download
+              </button>
+              <button
+                onClick={() => {
+                  setItemToRemove(lvPreviewFile);
+                  setRemoveType("file");
+                  setShowRemoveModal(true);
+                }}
+                className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+              >
+                <Trash2 size={18} /> Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <KebabMenuPortal anchorEl={currentAnchor} open={menuOpen} onClose={closeMenu} width={256}>
         {menuKind === "folder" && (
           <div className="py-1 text-sm text-gray-700 overflow-visible">
             {/* 1) Download */}
             <button
               className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
-              onClick={(e)=>{ e.stopPropagation(); toast("Download clicked"); closeMenu(); }}
+              onClick={(e) => { e.stopPropagation(); toast("Download clicked"); closeMenu(); }}
             ><Download size={16} className="text-gray-600" /> Download</button>
 
-           {/* 2) Rename */}
-           <button
-             className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
-             onClick={(e)=>{ e.stopPropagation(); setItemToRename(displayedFolders.find(f=>f._id===menuId)); setRenameType("folder"); setShowRenameModal(true); closeMenu(); }}
-           ><Pencil size={16} className="text-gray-600" /> Rename</button>
+            {/* 2) Rename */}
+            <button
+              className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+              onClick={(e) => { e.stopPropagation(); setItemToRename(displayedFolders.find(f => f._id === menuId)); setRenameType("folder"); setShowRenameModal(true); closeMenu(); }}
+            ><Pencil size={16} className="text-gray-600" /> Rename</button>
 
-           {/* ---- line after Rename ---- */}
-           <div className="my-1 border-t border-gray-200" />
+            {/* ---- line after Rename ---- */}
+            <div className="my-1 border-t border-gray-200" />
 
-           {/* 3) Organize (submenu) */}
-           <div className="relative group">
-             <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer">
-               <div className="flex items-center gap-2"><FolderCog size={16} className="text-gray-600" /> Organize</div>
-               <span className="text-gray-500 text-xs">›</span>
-           </div>
-           <div className="absolute left-[-196px] top-0 w-48 rounded-lg border border-gray-200 bg-white shadow-xl hidden group-hover:block z-50">
-             <button
-               className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
-               onClick={(e)=>{ e.stopPropagation(); const folder = displayedFolders.find(f=>f._id===menuId); handleMoveFolder(folder); closeMenu(); }}
-             ><Move size={16} className="text-gray-600" /> Move</button>
-           </div>
-         </div>
+            {/* 3) Organize (submenu) */}
+            <div className="relative group">
+              <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer">
+                <div className="flex items-center gap-2"><FolderCog size={16} className="text-gray-600" /> Organize</div>
+                <span className="text-gray-500 text-xs">›</span>
+              </div>
+              <div className="absolute left-[-196px] top-0 w-48 rounded-lg border border-gray-200 bg-white shadow-xl hidden group-hover:block z-50">
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
+                  onClick={(e) => { e.stopPropagation(); const folder = displayedFolders.find(f => f._id === menuId); handleMoveFolder(folder); closeMenu(); }}
+                ><Move size={16} className="text-gray-600" /> Move</button>
+              </div>
+            </div>
 
             {/* 4) Share (submenu) */}
             <div className="relative group">
               <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer">
-               <div className="flex items-center gap-2"><Share2 size={16} className="text-gray-600" /> Share</div>
-               <span className="text-gray-500 text-xs">›</span>
-            </div>
-            <div className="absolute left-[-196px] top-0 w-48 rounded-lg border border-gray-200 bg-white shadow-xl hidden group-hover:block z-50">
-              <button
-                className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
-                onClick={(e)=>{ e.stopPropagation(); const folder = displayedFolders.find(f=>f._id===menuId); handleFolderShareOpen(folder); closeMenu(); }}
+                <div className="flex items-center gap-2"><Share2 size={16} className="text-gray-600" /> Share</div>
+                <span className="text-gray-500 text-xs">›</span>
+              </div>
+              <div className="absolute left-[-196px] top-0 w-48 rounded-lg border border-gray-200 bg-white shadow-xl hidden group-hover:block z-50">
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
+                  onClick={(e) => { e.stopPropagation(); const folder = displayedFolders.find(f => f._id === menuId); handleFolderShareOpen(folder); closeMenu(); }}
                 ><Share2 size={16} className="text-gray-600" /> Share</button>
-              <button
-                className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
-                onClick={(e)=>{ e.stopPropagation(); const folder = displayedFolders.find(f=>f._id===menuId); copyFolderLink(folder); closeMenu(); }}
-              ><Copy size={16} className="text-gray-600" /> Get Link</button>
-             </div>
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
+                  onClick={(e) => { e.stopPropagation(); const folder = displayedFolders.find(f => f._id === menuId); copyFolderLink(folder); closeMenu(); }}
+                ><Copy size={16} className="text-gray-600" /> Get Link</button>
+              </div>
             </div>
 
             {/* ---- line before Archive ---- */}
@@ -1771,115 +1900,115 @@ export default function Storage() {
             {/* 5) Archive */}
             <button
               className="flex w-full items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600"
-              onClick={(e)=>{ e.stopPropagation(); const folder = displayedFolders.find(f=>f._id===menuId); setItemToRemove(folder); setRemoveType("folder"); setShowRemoveModal(true); closeMenu(); }}
+              onClick={(e) => { e.stopPropagation(); const folder = displayedFolders.find(f => f._id === menuId); setItemToRemove(folder); setRemoveType("folder"); setShowRemoveModal(true); closeMenu(); }}
             ><Trash2 size={16} className="text-red-600" /> Archive</button>
+          </div>
+        )}
+
+        {menuKind === "file" && (
+          <div className="py-1 text-sm text-gray-700 overflow-visible">
+            {/* 1) Download */}
+            <button
+              className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+              onClick={(e) => { e.stopPropagation(); toast("Download clicked"); closeMenu(); }}
+            ><Download size={16} className="text-gray-600" /> Download</button>
+
+            {/* 2) Rename */}
+            <button
+              className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                const targetFile =
+                  displayedFiles.find(f => String(f._id) === String(menuId)) ??
+                  paginatedFiles.find((_, i) => String(i) === String(menuId));
+                if (!targetFile) return;
+                setItemToRename(targetFile);
+                setRenameType("file");
+                setShowRenameModal(true);
+                closeMenu();
+              }}
+            ><Pencil size={16} className="text-gray-600" /> Rename</button>
+
+            {/* ---- line after Rename ---- */}
+            <div className="my-1 border-t border-gray-200" />
+
+            {/* 3) Organize (submenu) */}
+            <div className="relative group">
+              <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer">
+                <div className="flex items-center gap-2"><FolderCog size={16} className="text-gray-600" /> Organize</div>
+                <span className="text-gray-500 text-xs">›</span>
+              </div>
+              <div className="absolute left-[-196px] top-0 w-48 rounded-lg border border-gray-200 bg-white shadow-xl hidden group-hover:block z-50">
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const targetFile =
+                      displayedFiles.find(f => String(f._id) === String(menuId)) ??
+                      paginatedFiles.find((_, i) => String(i) === String(menuId));
+                    if (!targetFile) return;
+                    handleMoveFile(targetFile);
+                    closeMenu();
+                  }}
+                ><Move size={16} className="text-gray-600" /> Move</button>
+              </div>
             </div>
-          )}
 
-  {menuKind === "file" && (
-  <div className="py-1 text-sm text-gray-700 overflow-visible">
-    {/* 1) Download */}
-    <button
-      className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
-      onClick={(e)=>{ e.stopPropagation(); toast("Download clicked"); closeMenu(); }}
-    ><Download size={16} className="text-gray-600" /> Download</button>
+            {/* 4) Share (submenu) */}
+            <div className="relative group">
+              <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer">
+                <div className="flex items-center gap-2"><Share2 size={16} className="text-gray-600" /> Share</div>
+                <span className="text-gray-500 text-xs">›</span>
+              </div>
+              <div className="absolute left-[-196px] top-0 w-48 rounded-lg border border-gray-200 bg-white shadow-xl hidden group-hover:block z-50">
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const targetFile =
+                      displayedFiles.find(f => String(f._id) === String(menuId)) ??
+                      paginatedFiles.find((_, i) => String(i) === String(menuId));
+                    if (!targetFile) return;
+                    handleFileShareOpen(targetFile);
+                    closeMenu();
+                  }}
+                ><Share2 size={16} className="text-gray-600" /> Share</button>
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const targetFile =
+                      displayedFiles.find(f => String(f._id) === String(menuId)) ??
+                      paginatedFiles.find((_, i) => String(i) === String(menuId));
+                    if (!targetFile) return;
+                    copyFileLink(targetFile);
+                    closeMenu();
+                  }}
+                ><Copy size={16} className="text-gray-600" /> Get Link</button>
+              </div>
+            </div>
 
-    {/* 2) Rename */}
-    <button
-      className="flex w-full items-center gap-2 px-4 py-2 hover:bg-gray-100"
-      onClick={(e)=>{ 
-        e.stopPropagation(); 
-        const targetFile =
-          displayedFiles.find(f => String(f._id) === String(menuId)) ??
-          paginatedFiles.find((_, i) => String(i) === String(menuId));
-        if (!targetFile) return;
-        setItemToRename(targetFile);
-        setRenameType("file");
-        setShowRenameModal(true);
-        closeMenu();
-      }}
-    ><Pencil size={16} className="text-gray-600" /> Rename</button>
+            {/* ---- line before Archive ---- */}
+            <div className="my-1 border-t border-gray-200" />
 
-    {/* ---- line after Rename ---- */}
-    <div className="my-1 border-t border-gray-200" />
-
-    {/* 3) Organize (submenu) */}
-    <div className="relative group">
-      <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer">
-        <div className="flex items-center gap-2"><FolderCog size={16} className="text-gray-600" /> Organize</div>
-        <span className="text-gray-500 text-xs">›</span>
-      </div>
-      <div className="absolute left-[-196px] top-0 w-48 rounded-lg border border-gray-200 bg-white shadow-xl hidden group-hover:block z-50">
-        <button
-          className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
-          onClick={(e)=>{ 
-            e.stopPropagation(); 
-            const targetFile =
-              displayedFiles.find(f => String(f._id) === String(menuId)) ??
-              paginatedFiles.find((_, i) => String(i) === String(menuId));
-            if (!targetFile) return;
-            handleMoveFile(targetFile); 
-            closeMenu(); 
-          }}
-        ><Move size={16} className="text-gray-600" /> Move</button>
-      </div>
-    </div>
-
-    {/* 4) Share (submenu) */}
-    <div className="relative group">
-      <div className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer">
-        <div className="flex items-center gap-2"><Share2 size={16} className="text-gray-600" /> Share</div>
-        <span className="text-gray-500 text-xs">›</span>
-      </div>
-      <div className="absolute left-[-196px] top-0 w-48 rounded-lg border border-gray-200 bg-white shadow-xl hidden group-hover:block z-50">
-        <button
-          className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
-          onClick={(e)=>{ 
-            e.stopPropagation(); 
-            const targetFile =
-              displayedFiles.find(f => String(f._id) === String(menuId)) ??
-              paginatedFiles.find((_, i) => String(i) === String(menuId));
-            if (!targetFile) return;
-            handleFileShareOpen(targetFile); 
-            closeMenu(); 
-          }}
-        ><Share2 size={16} className="text-gray-600" /> Share</button>
-        <button
-          className="flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-100"
-          onClick={(e)=>{ 
-            e.stopPropagation(); 
-            const targetFile =
-              displayedFiles.find(f => String(f._id) === String(menuId)) ??
-              paginatedFiles.find((_, i) => String(i) === String(menuId));
-            if (!targetFile) return;
-            copyFileLink(targetFile); 
-            closeMenu(); 
-          }}
-        ><Copy size={16} className="text-gray-600" /> Get Link</button>
-      </div>
-    </div>
-
-    {/* ---- line before Archive ---- */}
-    <div className="my-1 border-t border-gray-200" />
-
-    {/* 5) Archive */}
-    <button
-      className="flex w-full items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600"
-      onClick={(e)=>{ 
-        e.stopPropagation(); 
-        const targetFile =
-          displayedFiles.find(f => String(f._id) === String(menuId)) ??
-          paginatedFiles.find((_, i) => String(i) === String(menuId));
-        if (!targetFile) return;
-        setItemToRemove(targetFile); 
-        setRemoveType("file"); 
-        setShowRemoveModal(true); 
-        closeMenu(); 
-      }}
-    ><Trash2 size={16} className="text-red-600" /> Archive</button>
-  </div>
-)}
-</KebabMenuPortal>
+            {/* 5) Archive */}
+            <button
+              className="flex w-full items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                const targetFile =
+                  displayedFiles.find(f => String(f._id) === String(menuId)) ??
+                  paginatedFiles.find((_, i) => String(i) === String(menuId));
+                if (!targetFile) return;
+                setItemToRemove(targetFile);
+                setRemoveType("file");
+                setShowRemoveModal(true);
+                closeMenu();
+              }}
+            ><Trash2 size={16} className="text-red-600" /> Archive</button>
+          </div>
+        )}
+      </KebabMenuPortal>
     </div>
   );
 }
