@@ -13,13 +13,21 @@ body { font-family: 'Poppins', sans-serif; }
 /*  PAGINATION-FRIENDLY EDITOR DEFAULTS                                       */
 /* -------------------------------------------------------------------------- */
 
-/* Ensure the pagination flow container itself doesn't make content atomic */
 .rm-with-pagination,
 .ProseMirror {
+  /* allow content to fragment naturally */
   break-inside: auto !important;
   page-break-inside: auto !important;
   overflow: visible !important;
-  contain: layout style size paint; /* avoid accidental clipping/atomic behavior */
+  contain: none !important; /* never make the editor atomic */
+}
+
+/* Some paginators put pages in wrapping boxes: make sure they fragment */
+.rm-page, .rm-page-content, .rm-page-body {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+  overflow: visible !important;
+  contain: none !important;
 }
 
 /* Generic content hygiene */
@@ -27,25 +35,36 @@ body { font-family: 'Poppins', sans-serif; }
 
 /* -------------------------------------------------------------------------- */
 /*  TABLES (tiptap-table-plus + tiptap-pagination-plus)                       */
-/*  - Split BETWEEN rows (no mid-row split)                                   */
+/*  Goal: split BETWEEN rows, never inside a row                              */
 /* -------------------------------------------------------------------------- */
 
-/* Table base */
+/* Normalize any accidental non-table display from extensions */
+.ProseMirror table        { display: table !important; }
+.ProseMirror thead        { display: table-header-group !important; }
+.ProseMirror tbody        { display: table-row-group !important; }
+.ProseMirror tfoot        { display: table-footer-group !important; }
+.ProseMirror tr           { display: table-row !important; }
+.ProseMirror th, .ProseMirror td { display: table-cell !important; }
+
 .ProseMirror table {
   border-collapse: collapse;
   table-layout: fixed;
   width: 100%;
   margin: 0;
   overflow: visible !important;
-  /* Crucial: allow table to be broken between rows */
-  break-inside: auto !important;
+  break-inside: auto !important;      /* table can fragment */
   page-break-inside: auto !important;
+  page-break-before: auto !important;
+  page-break-after: auto !important;
 }
 
-/* Rows should be breakable so the NEXT row can flow to the next page */
-.ProseMirror tr {
-  break-inside: auto !important;
-  page-break-inside: auto !important;
+/* Rows must NOT split mid-row; allow breaks BETWEEN rows */
+.ProseMirror tr,
+.ProseMirror .table-plus tbody tr {
+  break-inside: avoid-page !important;
+  page-break-inside: avoid !important;
+  /* no positioning that could create a containing block */
+  position: static !important;
 }
 
 /* Cells */
@@ -56,8 +75,6 @@ body { font-family: 'Poppins', sans-serif; }
   padding: 3px 5px;
   vertical-align: top;
   box-sizing: border-box;
-  position: relative;
-  /* Allow splitting between rows (not inside a single row) */
   break-inside: auto !important;
   page-break-inside: auto !important;
   white-space: normal;
@@ -73,8 +90,8 @@ body { font-family: 'Poppins', sans-serif; }
 }
 
 /* Repeat table header/footer for print/PDF */
-.ProseMirror table thead { display: table-header-group; }
-.ProseMirror table tfoot { display: table-footer-group; }
+.ProseMirror table thead { display: table-header-group !important; }
+.ProseMirror table tfoot { display: table-footer-group !important; }
 
 /* Selected cell visual */
 .ProseMirror .selectedCell:after {
@@ -87,37 +104,48 @@ body { font-family: 'Poppins', sans-serif; }
 }
 
 /* -------------------------------------------------------------------------- */
-/*  TABLE PLUS NODE-VIEW WRAPPER PATCH                                        */
-/*  Your DOM often renders:                                                   */
-/*    <div contenteditable="false"> [resize handles] <table class="table-plus"> */
-/*  Make sure wrapper & table are NOT atomic, rows remain intact.             */
+/*  TABLE-PLUS NODE VIEW WRAPPER PATCH                                        */
+/*  Many node-views wrap the real <table> in a non-editable <div>.            */
+/*  Flatten that wrapper so pagination can see the real table structure.      */
 /* -------------------------------------------------------------------------- */
 
-/* The outer node-view wrapper (contenteditable=false) should not be atomic */
-.ProseMirror [contenteditable="false"] {
+/* Flatten the non-editable wrapper that directly contains a table */
+.ProseMirror [contenteditable="false"]:has(> table),
+.ProseMirror .nd-nodeview-wrap:has(> table) {
+  display: contents !important;       /* FLATTEN the wrapper */
   break-inside: auto !important;
   page-break-inside: auto !important;
   overflow: visible !important;
+  contain: none !important;
 }
 
-/* The actual Table Plus element */
+/* If :has() isn’t supported, fall back: make *all* non-editable wrappers non-atomic */
+@supports not (selector(:has(*))) {
+  .ProseMirror [contenteditable="false"] {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    overflow: visible !important;
+    contain: none !important;
+  }
+}
+
+/* Actual table element from Table-Plus */
 .ProseMirror .table-plus {
   width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  display: table !important;
   break-inside: auto !important;
   page-break-inside: auto !important;
   overflow: visible !important;
-  border-collapse: collapse;
-  table-layout: fixed;
 }
 
-/* Table Plus renders rows as grid; keep each row intact (splits happen BETWEEN rows) */
-.ProseMirror .table-plus > tr {
+.ProseMirror .table-plus tbody tr {
   break-inside: avoid-page !important;
   page-break-inside: avoid !important;
-  position: relative; /* matches the inline style in your DOM */
+  position: static !important;
 }
 
-/* Cells inside .table-plus (use your 1px black borders in that mode) */
 .ProseMirror .table-plus th,
 .ProseMirror .table-plus td {
   border: 1px solid #000;
@@ -142,16 +170,15 @@ body { font-family: 'Poppins', sans-serif; }
 
 /* -------------------------------------------------------------------------- */
 /*  PAGE BANDS (headers/footers rendered by PaginationPlus)                   */
-/*  Keep band boxes intact, but do not trap content flow.                     */
 /* -------------------------------------------------------------------------- */
-
 .rm-first-page-header,
 .rm-page-header,
 .rm-first-page-footer,
 .rm-page-footer {
-  break-inside: avoid !important;     /* keep band itself intact */
+  break-inside: avoid !important;
   page-break-inside: avoid !important;
   overflow: visible !important;
+  contain: none !important;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -289,8 +316,6 @@ body { font-family: 'Poppins', sans-serif; }
   user-select: none;
   cursor: default;
 }
-
-/* Hover / focus */
 .nd-editable-field:hover {
   outline-color: rgba(79, 70, 229, 0.7);
   background: rgba(99, 102, 241, 0.12);
@@ -300,7 +325,6 @@ body { font-family: 'Poppins', sans-serif; }
   box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
 }
 
-/* Type-specific */
 .nd-editable-field--text { color: #334155; }
 .nd-editable-field--text:is(:empty)::before {
   content: attr(data-ph);
@@ -352,7 +376,7 @@ body { font-family: 'Poppins', sans-serif; }
   font-size: 10px; color: #818cf8; opacity: 0.7; white-space: nowrap;
 }
 
-/* Editor canvas container (don’t hide overflow to avoid atomic blocks) */
+/* Editor canvas container */
 .nd-editor-canvas {
   overflow-y: auto;
   height: 100%;
@@ -364,15 +388,21 @@ body { font-family: 'Poppins', sans-serif; }
 /*  PRINT                                                                     */
 /* -------------------------------------------------------------------------- */
 @media print {
+  /* allow natural fragmentation and header/footer repetition */
   .ProseMirror table { page-break-inside: auto !important; }
-  .ProseMirror tr { page-break-inside: auto !important; }
+  .ProseMirror tr    { page-break-inside: avoid !important; }
   .ProseMirror td, .ProseMirror th { page-break-inside: auto !important; }
+
+  /* critical: no scroll containers during print */
+  .nd-editor-canvas { overflow: visible !important; }
+
   .rm-first-page-header,
   .rm-page-header,
   .rm-first-page-footer,
   .rm-page-footer {
     page-break-inside: avoid !important;
   }
+
   /* Hide UI handles on print */
   .ProseMirror .handle { display: none !important; }
 }
