@@ -105,10 +105,15 @@ export default function Login() {
           </div>
           
           <div className="text-right mb-4">
-            <a href="#" className="text-base text-gray-400 hover:underline">
-              Forgot Password?
-            </a>
+           <button
+            type="button"
+            onClick={() => navigate("/forgot-password")}
+            className="text-base text-gray-400 hover:underline"
+           >
+           Forgot Password?
+           </button>
           </div>
+          
           <button
             type="submit"
             className="w-full py-3 sm:py-3 md:py-4 mt-8 md:mt-10 rounded-lg bg-gradient-to-r from-blue-700 to-blue-400 text-white font-bold text-base md:text-lg lg:text-xl mb-3 shadow-lg transition-all duration-200 ease-in-out active:scale-95 active:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
