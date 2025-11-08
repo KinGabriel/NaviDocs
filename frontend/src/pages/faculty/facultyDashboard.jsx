@@ -96,10 +96,10 @@ export default function FacultyDashboard() {
       label: "Created By",
     },
     {
-          key: "status",
-          label: "Status",
-          render: (row) => <StatusBadge type={row.status} />,
-        },
+      key: "status",
+      label: "Status",
+      render: (row) => <StatusBadge type={row.status} />,
+    },
     {
       key: "action",
       label: "Action",
@@ -242,53 +242,40 @@ export default function FacultyDashboard() {
           {/* greeting */}
           <Greeting name={user?.firstname || "Department Head"} />
 
-          {/* STAT CARDS */}
-          {/* stack vertically on mobile, row wrap on larger */}
-          <div className="w-full mb-8">
-            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:gap-4 gap-4">
-              {/* Upcoming Deadlines */}
-              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1">
-                <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center shrink-0">
-                  <CalendarClock className="h-6 w-6 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-gray-600 mb-1">
-                    Upcoming Deadlines
-                  </div>
-                  <div className="text-3xl font-bold text-gray-900 leading-tight">
-                    1
-                  </div>
-                </div>
+          {/* Stat cards */}
+          <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
+            {/* Upcoming Deadlines */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+                <CalendarClock className="h-6 w-6 text-white" />
               </div>
-
-              {/* Due Today */}
-              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1">
-                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center shrink-0">
-                  <CalendarCheck className="h-6 w-6 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-gray-600 mb-1">
-                    Due Today
-                  </div>
-                  <div className="text-3xl font-bold text-gray-900 leading-tight">
-                    1
-                  </div>
-                </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
               </div>
+            </div>
 
-              {/* Overdue Deadlines */}
-              <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1">
-                <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center shrink-0">
-                  <CalendarX className="h-6 w-6 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-gray-600 mb-1">
-                    Overdue Deadlines
-                  </div>
-                  <div className="text-3xl font-bold text-gray-900 leading-tight">
-                    1
-                  </div>
-                </div>
+
+            {/* Due Today */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                <CalendarCheck className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
+              </div>
+            </div>
+
+
+            {/* Overdue Deadlines */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                <CalendarX className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
               </div>
             </div>
           </div>
@@ -349,11 +336,11 @@ export default function FacultyDashboard() {
                 </div>
 
                 <button
-                    onClick={() => navigate("")}
-                    className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
-                  >
-                    View All
-                  </button>
+                  onClick={() => navigate("")}
+                  className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+                >
+                  View All
+                </button>
               </div>
 
               {/* table wrapper with scroll on small screens */}
