@@ -3,7 +3,7 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import HeaderSubmittedFilesView from "../layout/headers/headerSubmittedFilesView";
 import useUser from "../hooks/useUser";
 import { getTemplateByIdAPI } from "../api/documentContollerAPI";
-import { createDocumentAPI, deleteDocumentAPI } from "../api/documentsAPI";
+import { createDocumentAPI, deleteDocumentAPI, getDocumentByIdAPI } from "../api/documentsAPI";
 import { exportDocumentPdfAPI } from "../api/assignmentDocumentsAPI";
 import TextEditor from "../layout/create_template/textEditor";
 import DownloadingModal from "../components/modals/downloadingModal";
@@ -139,8 +139,8 @@ export default function SubmittedFilesView() {
       const fetchSubmissionData = async () => {
         try {
           // Fetch the actual submitted document by ID
-          const documentRes = await getTemplateByIdAPI(id);
-          const actualDocument = documentRes?.template || documentRes?.data?.template || documentRes?.data || documentRes;
+          const documentRes = await getDocumentByIdAPI(id);
+          const actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
           
           // Set the actual document for preview
           setFetchedDoc(actualDocument);
@@ -174,8 +174,8 @@ export default function SubmittedFilesView() {
             for (const doc of submissionItem.documents) {
               const docId = doc._id || doc.id || doc;
               try {
-                const docRes = await getTemplateByIdAPI(docId);
-                const docData = docRes?.template || docRes?.data?.template || docRes?.data || docRes;
+                const docRes = await getDocumentByIdAPI(docId);
+                const docData = docRes?.document || docRes?.data?.document || docRes?.data || docRes;
                 submittedDocs.push({
                   id: docId,
                   name: docData.title || "Untitled Document",
@@ -232,9 +232,9 @@ export default function SubmittedFilesView() {
         setPreviewDocument(selectedFile._fullData);
       } else if (selectedFile?.id) {
         // Fetch the document if not already loaded
-        getTemplateByIdAPI(selectedFile.id)
+        getDocumentByIdAPI(selectedFile.id)
           .then(res => {
-            const docData = res?.template || res?.data?.template || res?.data || res;
+            const docData = res?.document || res?.data?.document || res?.data || res;
             setPreviewDocument(docData);
           })
           .catch(err => console.error("Failed to fetch preview:", err));
@@ -266,16 +266,16 @@ export default function SubmittedFilesView() {
     const canSubmitOrReturn = isDeptHead; // Can submit or return with comment
     const canViewStatus = isFaculty; // Can view status and comments
 
-  const handleActionClick = (action) => {
-    setSelectedAction(action);
-    setShowActionModal(true);
-  };
+    const handleActionClick = (action) => {
+      setSelectedAction(action);
+      setShowActionModal(true);
+    };
 
   const handleSubmitAction = async () => {
     if (!selectedAction) return;
-    
+      
     setIsSubmittingAction(true);
-    
+      
     try {
       // Fetch bins for this document
       const bins = await listSubmissionBinsByDocumentAPI(id);
@@ -451,11 +451,40 @@ export default function SubmittedFilesView() {
     }
   };
 
-  const normalizedHeaderConfig = (() => {
-    const src = d?.headerConfig || d?.logoConfig || d?.headerFooter || {};
-    const docCode = d?.document_code || d?.docCode || d?.documentCode || src?.documentStamp?.docCode || src?.document_code || src?.docCode || "";
-    const revisionNo = (d?.revision_no ?? d?.revisionNo ?? src?.documentStamp?.revisionNo ?? src?.revision_no ?? src?.revisionNo ?? 0);
-    const effectivity = d?.effectivity || d?.effectivity_date || d?.effectivity_date_iso || src?.documentStamp?.effectivity || src?.effectivity || "";
+    const normalizedHeaderConfig = (() => {
+      const activeDoc = previewDocument || d;
+      
+      // For documents, get template metadata from template_id reference
+      const templateMeta = activeDoc?.template_id || activeDoc?.template || {};
+      
+      const src = activeDoc?.headerConfig || 
+                  templateMeta?.headerConfig || 
+                  activeDoc?.logoConfig || 
+                  templateMeta?.logoConfig || 
+                  activeDoc?.headerFooter || 
+                  templateMeta?.headerFooter || 
+                  {};
+                  
+      const docCode = activeDoc?.document_code || 
+                      templateMeta?.document_code || 
+                      activeDoc?.docCode || 
+                      templateMeta?.docCode || 
+                      src?.documentStamp?.docCode || 
+                      "";
+                      
+      const revisionNo = activeDoc?.revision_no ?? 
+                        templateMeta?.revision_no ?? 
+                        activeDoc?.revisionNo ?? 
+                        templateMeta?.revisionNo ?? 
+                        src?.documentStamp?.revisionNo ?? 
+                        0;
+                        
+      const effectivity = activeDoc?.effectivity || 
+                          templateMeta?.effectivity || 
+                          activeDoc?.effectivity_date || 
+                          templateMeta?.effectivity_date || 
+                          src?.documentStamp?.effectivity || 
+                          "";
     return {
       ...src,
       showSLULogo: src.showSLULogo ?? src.showSLU ?? !!src.assets?.slu,
@@ -520,27 +549,19 @@ export default function SubmittedFilesView() {
               {(previewDocument || d) && (
                 <div className="w-full">
                   <div ref={previewRef} id="template-preview-capture">
-                    <TextEditor
+                   <TextEditor
                       content={contentForEditor}
                       pageSetup={(previewDocument || d)?.pageSetup}
                       className="pointer-events-none opacity-100 w-full"
                       onEditorReady={(editor) =>
                         editor && editor.setEditable(false)
                       }
-                      mode="template"
+                      mode="document" 
                       headerConfig={normalizedHeaderConfig}
                       templateStatus={(previewDocument || d)?.status || "published"}
-                      documentCode={
-                        (previewDocument || d)?.document_code || 
-                        (previewDocument || d)?.docCode || 
-                        (previewDocument || d)?.documentCode
-                      }
-                      revisionNo={(previewDocument || d)?.revision_no ?? (previewDocument || d)?.revisionNo}
-                      effectivity={
-                        (previewDocument || d)?.effectivity ||
-                        (previewDocument || d)?.effectivity_date ||
-                        (previewDocument || d)?.effectivity_date_iso
-                      }
+                      documentCode={normalizedHeaderConfig.document_code}
+                      revisionNo={normalizedHeaderConfig.revision_no}
+                      effectivity={normalizedHeaderConfig.effectivity}
                     />
                   </div>
                 </div>
