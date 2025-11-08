@@ -101,19 +101,23 @@ export default function FacultySubmissionView() {
     return () => { cancelled = true; };
   }, [bin?.template_ids]);
 
-  const submission = useMemo(() => {
-    if (!bin || !assignedItem) return null;
+    const submission = useMemo(() => {
+        if (!bin || !assignedItem) return null;
 
-    const assignedAt = bin?.createdAt || bin?.created_at;
-    const deadline = bin?.deadline || null;
-    const status = assignedItem?.status || 'assigned';
-    const submittedAt = assignedItem?.submitted_at || null;
+        const assignedAt = bin?.createdAt || bin?.created_at;
+        const deadline = bin?.deadline || null;
+        
+        // Determine actual status based on documents
+        const hasDocuments = (Array.isArray(assignedItem?.documents) && assignedItem.documents.length > 0) || 
+                            (assignedItem?.document && assignedItem.document !== null);
+        const status = hasDocuments && assignedItem?.submitted_at ? 'submitted' : 'pending';
+        const submittedAt = assignedItem?.submitted_at || null;
     
     // Ensure submissionMessage is always a string
     const rawMessage = assignedItem?.message || assignedItem?.comment || assignedItem?.notes || '';
     const submissionMessage = typeof rawMessage === 'string' ? rawMessage : String(rawMessage || '');
     
-    // Handle multiple documents
+    // Handle multiple documents 
     const submittedFiles = assignedItem?.documents || (assignedItem?.document ? [assignedItem.document] : []);
     
     return {
@@ -170,17 +174,22 @@ export default function FacultySubmissionView() {
         throw new Error('No valid document IDs found in selected files');
       }
       
-      // Payload with multiple document IDs
-      const payload = {
-        documentIds: documentIds // Array of document IDs
-      };
-      
-      // Add message if provided
-      if (message.trim()) {
-        payload.message = message.trim();
+      // Submit each document individually
+      // Backend expects { documentId: string, message?: string }
+      for (let i = 0; i < documentIds.length; i++) {
+        const documentId = documentIds[i];
+        
+        const payload = {
+          documentId: documentId
+        };
+        
+        // Add message to all submissions
+        if (message.trim()) {
+          payload.message = message.trim();
+        }
+        
+        await submitSubmissionDocumentAPI(bin?._id || id, assignedItem?._id, payload);
       }
-      
-      await submitSubmissionDocumentAPI(bin?._id || id, assignedItem?._id, payload);
       
       // Show success message with count
       alert(`Successfully submitted ${documentIds.length} document${documentIds.length !== 1 ? 's' : ''}!`);
