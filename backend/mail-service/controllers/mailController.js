@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import { welcomeEmailTemplate } from '../templates/welcomeTemplate.js';
 import { folderAccessTemplate } from '../templates/folderAccessTemplate.js';
 import { buildAssignmentEmail } from '../templates/buildAssignmentTemplate.js';
+import { buildPasswordResetEmail } from '../templates/passwordResetTemplate.js';
 
 
 // Create transporter
@@ -191,3 +192,49 @@ export async function sendAssignmentEmails(req, res) {
     return res.status(500).json({ message: 'Failed to send assignment emails', error: error.message });
   }
 }
+
+/**
+ * @desc Send password reset OTP email
+ * @route POST /api/email/password-reset
+ * @access Internal (from other services)
+ */
+export const sendPasswordResetEmail = async (req, res) => {
+  try {
+    const { to, firstname = "", lastname = "", otp } = req.body || {};
+    
+    if (!to || !otp) {
+      return res.status(400).json({ message: 'Missing required fields: to, otp' });
+    }
+
+    const transporter = createTransporter();
+    
+    // Use the dedicated password reset template
+    const { subject, html, text } = buildPasswordResetEmail({ 
+      firstname, 
+      lastname, 
+      otp 
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to,
+      subject: "NaviDocs Password Reset Code",
+      html,
+      text,
+    };
+
+    await transporter.sendMail(mailOptions);
+    
+    console.log(`Password reset email sent successfully to ${to}`);
+    return res.status(200).json({ 
+      message: 'Password reset email sent successfully', 
+      recipient: to 
+    });
+  } catch (error) {
+    console.error('sendPasswordResetEmail error:', error);
+    return res.status(500).json({ 
+      message: 'Failed to send password reset email', 
+      error: error.message 
+    });
+  }
+};
