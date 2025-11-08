@@ -7,4 +7,8 @@ const router = express.Router();
 router.post("/login", loginUser);
 router.post("/logout", authenticateJWT, logoutUser);
 router.get("/logs", authenticateJWT, getLoginLogs);
+router.get("/verify", authenticateJWT, (req, res) => {
+  res.json({ message: "Token is valid", user: req.user });
+});
+
 export default router;

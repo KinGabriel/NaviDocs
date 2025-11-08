@@ -128,7 +128,6 @@ export default function AdminEditUser() {
     }
 
     try {
-      const token = localStorage.getItem("token");
       const formData = new FormData();
       formData.append("firstname", form.firstname);
       formData.append("lastname", form.lastname);
@@ -139,11 +138,8 @@ export default function AdminEditUser() {
       if (selectedFile) formData.append("profile_picture", selectedFile);
 
       await axios.patch(`${API_URL}/api/admin/edit-user/${id}`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
-        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
+        withCredentials: true, // rely on secure HttpOnly cookie
       });
 
       toast.success("User updated successfully.");

@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import './assets/css/global.css'
 import Login from './pages/login';
 import AdminDashboard from './pages/admin/adminDashboard';
@@ -39,6 +39,9 @@ import SubmissionBin from './pages/submissionbinDetails';
 import SubmittedFilesView from './pages/submittedFilesView';
 import SubmissionBins from './pages/submissionBins';
 import ForgotPassword from './pages/forgotPassword';
+import Loader from './components/loader';
+import { useEffect, useState } from 'react';
+import { verifySession } from "./api/authAPI";
 
 /** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {
@@ -83,17 +86,54 @@ function RoleTemplatesRouter() {
 }
 
 function App() {
+  const [checkingSession, setCheckingSession] = useState(true);
+  const publicRoutes = ["/", "/login", "/forgot-password"];
+  const navigate = useNavigate();
+
+ useEffect(() => {
+  const currentPath = window.location.pathname;
+  if (publicRoutes.includes(currentPath)) {
+    setCheckingSession(false); 
+    return;
+  }
+  let cancelled = false;
+  (async () => {
+    try {
+      const valid = await verifySession();
+      if (!valid) {
+        navigate('/login', { replace: true });
+        return;
+      }
+    } catch (e) {
+      navigate('/login', { replace: true });
+      return;
+    } finally {
+      if (!cancelled) setCheckingSession(false);
+    }
+  })();
+  return () => { cancelled = true; };
+}, []);
+
+  // While verifying the session for protected routes, show a loader
+  if (checkingSession) {
+    return (
+      <>
+        <Toaster />
+        <Loader />
+      </>
+    );
+  }
+
  return(
   <>
   <Toaster />
-   <Router>
-     <Routes>
+       <Routes>
        <Route path="/" element={<LoginRoute />} />
        <Route path="/login" element={<LoginRoute />} />
        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
        <Route path="/document-controller" element={<Navigate to="/document-controller/dashboard" replace />} />
-       {/* Public: forgot password */}
-       <Route path="/forgot-Password" element={<ForgotPassword/>} />
+  {/* Public: forgot password */}
+  <Route path="/forgot-password" element={<ForgotPassword/>} />
 
        {/* Admin Module */}
        <Route
@@ -398,7 +438,6 @@ function App() {
        <Route path="/server-error" element={<ServerErrorPage />} />
        <Route path="/unauthorized" element={<UnauthorizedPage />} />
      </Routes>
-   </Router>
  </>
 
 )
