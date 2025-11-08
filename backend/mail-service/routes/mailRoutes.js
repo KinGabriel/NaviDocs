@@ -1,5 +1,5 @@
 import express from 'express';
-import { sendWelcomeEmail,sendNotificationEmail, sendAssignmentEmails } from '../controllers/mailController.js';
+import { sendWelcomeEmail,sendNotificationEmail, sendAssignmentEmails, sendPasswordResetEmail } from '../controllers/mailController.js';
 
 
 const router = express.Router();
@@ -11,7 +11,9 @@ router.get('/health', (req, res) => {
 });
 
 router.post('/assignments', sendAssignmentEmails);
-//router.post('/send-password-reset', sendPasswordResetEmail);
+router.post('/password-reset', sendPasswordResetEmail);
+// Alias path to mirror existing convention and gateway allowances
+router.post('/send-password-reset', sendPasswordResetEmail);
 
 
 export default router;
