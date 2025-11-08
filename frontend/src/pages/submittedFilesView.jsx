@@ -20,6 +20,7 @@ import {
   AlertCircle,
   FileText
 } from "lucide-react";
+import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI } from "../api/assignmentDocumentsAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -112,7 +113,6 @@ export default function SubmittedFilesView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { state } = useLocation();
-
   const [fetchedDoc, setFetchedDoc] = useState(null);
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -122,131 +122,125 @@ export default function SubmittedFilesView() {
   const [showActionModal, setShowActionModal] = useState(false);
   const [selectedAction, setSelectedAction] = useState(null); // 'submit', 'return'
   const [selectedFileIndex, setSelectedFileIndex] = useState(0); // For multi-file navigation
-  
-  // Provide fallback user data for testing
-  const userWithDefaults = user || {
-    name: "Test User",
-    role: { name: "Department Head" }, 
-    email: "test@university.edu"
-  };
-  
+  const [previewDocument, setPreviewDocument] = useState(null);
   const tpl = state?.doc || {};
   const [template, setTemplate] = useState(tpl);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
   const [showStoragePicker, setShowStoragePicker] = useState(false);
   const previewRef = useRef(null);
+  const [error, setError] = useState("");
 
   // Fetch submission data
   useEffect(() => {
     if (id) {
       setLoading(true);
       
-      // dummy submission data 
-      const dummySubmission = {
-        id: id,
-        title: "Document Title",
-        submittedBy: {
-          name: "Kai Sotto",
-          role: "Faculty",
-          email: "kai@slu.edu.ph"
-        },
-        submittedAt: "2025-11-01T14:30:00Z",
-        status: "pending",
-        files: [
-          {
-            id: 1,
-            name: "Document 1.pdf",
-            url: "/dummy/file1.pdf",
-            size: 2456789,
-            uploadedAt: "2025-11-01T14:30:00Z"
-          },
-          {
-            id: 2,
-            name: "Document 2.pdf",
-            url: "/dummy/file2.pdf",
-            size: 1856234,
-            uploadedAt: "2025-11-01T14:32:00Z"
+      const fetchSubmissionData = async () => {
+        try {
+          // Fetch the actual submitted document by ID
+          const documentRes = await getTemplateByIdAPI(id);
+          const actualDocument = documentRes?.template || documentRes?.data?.template || documentRes?.data || documentRes;
+          
+          // Set the actual document for preview
+          setFetchedDoc(actualDocument);
+          
+          // Fetch the submission bin data to get submission metadata
+          const bins = await listSubmissionBinsByDocumentAPI(id);
+          
+          if (!bins || bins.length === 0) {
+            setLoading(false);
+            return;
           }
-        ],
-        viewedBy: [
-          {
-            name: "Janvin Malaluan",
-            role: "Department Head",
-            viewedAt: "2025-11-01T15:45:00Z"
+          
+          const binData = await getSubmissionBinAPI(bins[0]._id || bins[0].id);
+          
+          // Find the submission item that contains this document
+          const submissionItem = binData.submissions?.find(sub => 
+            (Array.isArray(sub.documents) && sub.documents.some(doc => 
+              String(doc._id || doc.id || doc) === String(id)
+            )) ||
+            String(sub.document?._id || sub.document?.id || sub.document) === String(id)
+          );
+          
+          if (!submissionItem) {
+            setLoading(false);
+            return;
           }
-        ],
-        comments: [
-          {
-            id: 1,
-            author: "Janvin Malaluan",
-            role: "Department Head",
-            message: "Please revise.",
-            createdAt: "2025-11-01T16:00:00Z"
+          
+          // Get all submitted documents with full details
+          const submittedDocs = [];
+          if (Array.isArray(submissionItem.documents)) {
+            for (const doc of submissionItem.documents) {
+              const docId = doc._id || doc.id || doc;
+              try {
+                const docRes = await getTemplateByIdAPI(docId);
+                const docData = docRes?.template || docRes?.data?.template || docRes?.data || docRes;
+                submittedDocs.push({
+                  id: docId,
+                  name: docData.title || "Untitled Document",
+                  url: docData.filePath || "",
+                  size: docData.size || 0,
+                  uploadedAt: doc.createdAt || doc.created_at || submissionItem.submitted_at,
+                  _fullData: docData
+                });
+              } catch (err) {
+                console.error(`Failed to fetch document ${docId}:`, err);
+              }
+            }
           }
-        ],
-        deadline: "2025-11-15T23:59:59Z"
+          
+          // Map the real submission data
+          const mappedSubmission = {
+            id: submissionItem._id || submissionItem.id,
+            title: binData.title,
+            submittedBy: {
+              name: submissionItem.faculty_name || 
+                    submissionItem.faculty_user?.name || 
+                    submissionItem.faculty_user?.fullname ||
+                    `${submissionItem.faculty_user?.firstname || ''} ${submissionItem.faculty_user?.lastname || ''}`.trim(),
+              role: submissionItem.faculty_user?.role?.name || "Faculty",
+              email: submissionItem.faculty_user?.email || ""
+            },
+            submittedAt: submissionItem.submitted_at,
+            status: submissionItem.status || (submissionItem.submitted_at ? "submitted" : "pending"),
+            files: submittedDocs,
+            viewedBy: submissionItem.viewed_by || [],
+            comments: submissionItem.comments || [],
+            deadline: binData.deadline
+          };
+          
+          setSubmission(mappedSubmission);
+          
+        } catch (err) {
+          console.error("Error fetching submission:", err);
+          setError(err.message || "Failed to load submission");
+        } finally {
+          setLoading(false);
+        }
       };
       
-    
-      setSubmission(dummySubmission);
-
-      // Use dummy template data if not provided via state
-      if (!state?.doc) {
-        const dummyTemplate = {
-          _id: id,
-          title: "Document Title",
-          document_code: "FM-DEPT-001",
-          revision_no: 1,
-          effectivity: "2025-01-01",
-          pages_json: [{
-            type: "doc",
-            content: [
-              {
-                type: "heading",
-                attrs: { level: 1 },
-                content: [
-                  {
-                    type: "text",
-                    text: "Document Title"
-                  }
-                ]
-              },
-              {
-                type: "paragraph",
-                content: [
-                  {
-                    type: "text",
-                    text: "This is a preview of the submitted document. "
-                  }
-                ]
-              },
-              {
-                type: "paragraph",
-                content: [
-                  {
-                    type: "text",
-                    text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-                  }
-                ]
-              }
-            ]
-          }],
-          pageSetup: {
-            width: 8.5,
-            height: 13,
-            marginTop: 1,
-            marginBottom: 1,
-            marginLeft: 1,
-            marginRight: 1
-          }
-        };
-        setFetchedDoc(dummyTemplate);
-      }
-      
-      setLoading(false);
+      fetchSubmissionData();
     }
   }, [id, state]);
+
+  // To update the preview when file selection changes
+  useEffect(() => {
+    if (submission?.files && submission.files.length > 0) {
+      const selectedFile = submission.files[selectedFileIndex];
+      if (selectedFile?._fullData) {
+        setPreviewDocument(selectedFile._fullData);
+      } else if (selectedFile?.id) {
+        // Fetch the document if not already loaded
+        getTemplateByIdAPI(selectedFile.id)
+          .then(res => {
+            const docData = res?.template || res?.data?.template || res?.data || res;
+            setPreviewDocument(docData);
+          })
+          .catch(err => console.error("Failed to fetch preview:", err));
+      }
+    }
+  }, [selectedFileIndex, submission?.files]);
 
   const d = state?.doc || fetchedDoc || {};
   const doc = {
@@ -260,17 +254,17 @@ export default function SubmittedFilesView() {
   };
 
   // Check user role permissions
-  const roleName = userWithDefaults?.role?.name || userWithDefaults?.role || '';
-  const userRole = typeof roleName === 'string' ? roleName.toLowerCase() : '';
-  const isDean = userRole === 'dean';
-  const isSecretary = userRole === 'secretary';
-  const isDeptHead = userRole === 'department head' || userRole === 'department_head' || userRole === 'dept-head' || userRole === 'Department Head';
-  const isFaculty = userRole === 'faculty';
+    const roleName = user?.role?.name || user?.role || '';
+    const userRole = typeof roleName === 'string' ? roleName.toLowerCase() : '';
+    const isDean = userRole === 'dean';
+    const isSecretary = userRole === 'secretary';
+    const isDeptHead = userRole === 'department head' || userRole === 'department_head' || userRole === 'dept-head' || userRole === 'Department Head';
+    const isFaculty = userRole === 'faculty';
 
-  // Role-based action permissions
-  const canReturnOnly = (isDean || isSecretary) && !isDeptHead; // Can only return with comment
-  const canSubmitOrReturn = isDeptHead; // Can submit or return with comment
-  const canViewStatus = isFaculty; // Can view status and comments
+    // Role-based action permissions
+    const canReturnOnly = (isDean || isSecretary) && !isDeptHead; // Can only return with comment
+    const canSubmitOrReturn = isDeptHead; // Can submit or return with comment
+    const canViewStatus = isFaculty; // Can view status and comments
 
   const handleActionClick = (action) => {
     setSelectedAction(action);
@@ -278,36 +272,55 @@ export default function SubmittedFilesView() {
   };
 
   const handleSubmitAction = async () => {
-  if (!selectedAction) return;
-  
-  setIsSubmittingAction(true);
-  
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // Update submission status locally for now
-  setSubmission(prev => ({
-    ...prev,
-    status: selectedAction === 'submit' ? 'submitted' : 'returned',
-    comments: [
-      ...prev.comments,
-      {
-        id: prev.comments.length + 1,
-        author: user?.name || "Current User",
-        role: user?.role || "Reviewer",
-        message: actionNote || `Document ${selectedAction}ted`,
-        createdAt: new Date().toISOString()
+    if (!selectedAction) return;
+    
+    setIsSubmittingAction(true);
+    
+    try {
+      // Fetch bins for this document
+      const bins = await listSubmissionBinsByDocumentAPI(id);
+      if (!bins || bins.length === 0) throw new Error("Bin not found");
+      
+      const binId = bins[0]._id || bins[0].id;
+      const submissionId = submission.id;
+      
+      if (selectedAction === 'return') {
+        // Return the submission with reason
+        await returnSubmissionAPI(binId, submissionId, { 
+          reason: actionNote || 'Document returned for revision' 
+        });
+      } else if (selectedAction === 'submit') {
+        // Update submission status or forward bin
+        await updateSubmissionBinAPI(binId, { 
+          status: 'completed'
+        });
       }
-    ]
-  }));
-  
-  setShowActionModal(false);
-  setActionNote("");
-  setSelectedAction(null);
-  setIsSubmittingAction(false);
-  
-  alert(`Successfully ${selectedAction === 'submit' ? 'submitted' : 'returned'} the submission!`);
-};
+      
+      // Refresh the data
+      const updatedBin = await getSubmissionBinAPI(binId);
+      const updatedItem = updatedBin.submissions?.find(s => String(s._id || s.id) === String(submissionId));
+      
+      if (updatedItem) {
+        setSubmission(prev => ({
+          ...prev,
+          status: updatedItem.status,
+          comments: updatedItem.comments || prev.comments
+        }));
+      }
+      
+      setShowActionModal(false);
+      setActionNote("");
+      setSelectedAction(null);
+      
+      alert(`Successfully ${selectedAction === 'submit' ? 'submitted' : 'returned'} the document!`);
+      
+    } catch (err) {
+      console.error("Action error:", err);
+      alert(err?.responseData?.message || err?.message || `Failed to ${selectedAction} document`);
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
@@ -352,28 +365,22 @@ export default function SubmittedFilesView() {
 
   const [currentPage, setCurrentPage] = useState(0);
 
-const pageNodes = useMemo(() => {
-  const baseDoc = d?.pages_json?.[0] || { type: "doc", content: [] };
-  const pages = (baseDoc.content || []).filter((n) => n.type === "page");
-  // If no page nodes exist, treat the entire content as one page
-  return pages.length > 0 ? pages : [];
-}, [d]);
-
-  const totalPages = pageNodes.length || 0;
-
-  useEffect(() => {
-    setCurrentPage(0);
-  }, [d?._id || d?.id]);
+  const pageNodes = useMemo(() => {
+    const activeDoc = previewDocument || d;
+    const baseDoc = activeDoc?.pages_json?.[0] || { type: "doc", content: [] };
+    const pages = (baseDoc.content || []).filter((n) => n.type === "page");
+    return pages.length > 0 ? pages : [];
+  }, [previewDocument, d]);
 
   const contentForEditor = useMemo(() => {
-  const baseDoc = d?.pages_json?.[0] || { type: "doc", content: [] };
-  // If there are page nodes, use them; otherwise use the base doc as-is
-  if (pageNodes.length > 0) {
-    const pageNode = pageNodes[currentPage];
-    if (pageNode) return { ...baseDoc, content: [pageNode] };
-  }
-  return baseDoc;
-}, [d, pageNodes, currentPage]);
+    const activeDoc = previewDocument || d;
+    const baseDoc = activeDoc?.pages_json?.[0] || { type: "doc", content: [] };
+    if (pageNodes.length > 0) {
+      const pageNode = pageNodes[currentPage];
+      if (pageNode) return { ...baseDoc, content: [pageNode] };
+    }
+    return baseDoc;
+  }, [previewDocument, d, pageNodes, currentPage]);
 
   const buildExportHtmlFromPreview = () => {
     try {
@@ -509,48 +516,44 @@ const pageNodes = useMemo(() => {
         <main className="p-8 flex-1 overflow-y-auto">
           <div className="grid grid-cols-12 gap-6">
             {/* Document Preview Section */}
-            <section className="col-span-12 lg:col-span-8">
-              {d && (
+           <section className="col-span-12 lg:col-span-8">
+              {(previewDocument || d) && (
                 <div className="w-full">
                   <div ref={previewRef} id="template-preview-capture">
                     <TextEditor
                       content={contentForEditor}
-                      pageSetup={d?.pageSetup}
+                      pageSetup={(previewDocument || d)?.pageSetup}
                       className="pointer-events-none opacity-100 w-full"
                       onEditorReady={(editor) =>
                         editor && editor.setEditable(false)
                       }
                       mode="template"
                       headerConfig={normalizedHeaderConfig}
-                      templateStatus={d?.status || "published"}
+                      templateStatus={(previewDocument || d)?.status || "published"}
                       documentCode={
-                        d?.document_code || d?.docCode || d?.documentCode
+                        (previewDocument || d)?.document_code || 
+                        (previewDocument || d)?.docCode || 
+                        (previewDocument || d)?.documentCode
                       }
-                      revisionNo={d?.revision_no ?? d?.revisionNo}
+                      revisionNo={(previewDocument || d)?.revision_no ?? (previewDocument || d)?.revisionNo}
                       effectivity={
-                        d?.effectivity ||
-                        d?.effectivity_date ||
-                        d?.effectivity_date_iso
+                        (previewDocument || d)?.effectivity ||
+                        (previewDocument || d)?.effectivity_date ||
+                        (previewDocument || d)?.effectivity_date_iso
                       }
                     />
                   </div>
                 </div>
               )}
-              {!d && (
-                <div
-                  className="h-full w-full flex items-center justify-center text-gray-400"
-                  style={{ minHeight: 400 }}
-                >
+              {!(previewDocument || d) && (
+                <div className="h-full w-full flex items-center justify-center text-gray-400" style={{ minHeight: 400 }}>
                   <div className="text-center">
-                    <div className="text-lg font-medium mb-1">
-                      Document Preview
-                    </div>
+                    <div className="text-lg font-medium mb-1">Document Preview</div>
                     <Loader message="Loading preview..." />
                   </div>
                 </div>
               )}
             </section>
-
             {/* Actions/Details Sidebar */}
             <aside className="col-span-12 lg:col-span-4">
               <div className="bg-white border rounded-lg shadow-sm">
@@ -570,7 +573,7 @@ const pageNodes = useMemo(() => {
                           <div className="flex-1">
                             <p className="text-xs text-gray-500 mb-0.5">Submitted by</p>
                             <p className="text-sm font-medium text-gray-900">
-                              {submission?.submittedBy?.name || <Loader message="Loading..." /> }
+                                {submission?.submittedBy?.name || "Loading..." }
                             </p>
                             <p className="text-xs text-gray-500">
                               {submission?.submittedBy?.role}
@@ -583,48 +586,48 @@ const pageNodes = useMemo(() => {
                           <div className="flex-1">
                             <p className="text-xs text-gray-500 mb-0.5">Submitted on</p>
                             <p className="text-sm font-medium text-gray-900">
-                              {submission?.submittedAt ? formatDateTime(submission.submittedAt) : <Loader message="Loading..." /> }
+                              {submission?.submittedAt ? formatDateTime(submission.submittedAt) : "Loading..." }
                             </p>
                           </div>
                         </div>
                       </div>
 
-                      {/* Submitted Files */}
-                        {submission?.files && submission.files.length > 0 && (
-                          <div className="mb-4 pb-4 border-b">
-                            <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                              <FileText size={16} />
-                              Submitted Files ({submission.files.length})
-                            </h4>
-                            
-                            {/* Files List */}
-                            <div className="space-y-2">
-                              {submission.files.map((file, index) => (
-                                <button
-                                  key={file.id}
-                                  onClick={() => setSelectedFileIndex(index)}
-                                  className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
-                                    index === selectedFileIndex
-                                      ? 'bg-blue-50 border-blue-400 shadow-sm'
-                                      : 'bg-gray-50 border-gray-200 hover:border-gray-300 hover:bg-gray-100'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <FileText size={16} className={index === selectedFileIndex ? 'text-blue-600' : 'text-gray-600'} />
-                                    <span className={`text-sm font-medium truncate ${
-                                      index === selectedFileIndex ? 'text-blue-900' : 'text-gray-900'
-                                    }`}>
-                                      {file.name}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-gray-500 ml-5">
-                                    {formatFileSize(file.size)} • {formatDateTime(file.uploadedAt)}
-                                  </p>
-                                </button>
-                              ))}
+                  {/* Submitted Files */}
+                  {submission?.files && submission.files.length > 0 && (
+                    <div className="mb-4 pb-4 border-b">
+                      <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                        <FileText size={16} />
+                        Submitted Files ({submission.files.length})
+                      </h4>
+                      
+                      {/* Files List - clickable to switch preview */}
+                      <div className="space-y-2">
+                        {submission.files.map((file, index) => (
+                          <button
+                            key={file.id}
+                            onClick={() => setSelectedFileIndex(index)}
+                            className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
+                              index === selectedFileIndex
+                                ? 'bg-blue-50 border-blue-400 shadow-sm'
+                                : 'bg-gray-50 border-gray-200 hover:border-gray-300 hover:bg-gray-100'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <FileText size={16} className={index === selectedFileIndex ? 'text-blue-600' : 'text-gray-600'} />
+                              <span className={`text-sm font-medium truncate ${
+                                index === selectedFileIndex ? 'text-blue-900' : 'text-gray-900'
+                              }`}>
+                                {file.name}
+                              </span>
                             </div>
-                          </div>
-                        )}
+                            <p className="text-xs text-gray-500 ml-5">
+                              {formatFileSize(file.size)} • {formatDateTime(file.uploadedAt)}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                       {/* Comments/Notes */}
                       {submission?.comments && submission.comments.length > 0 && (
@@ -722,7 +725,7 @@ const pageNodes = useMemo(() => {
                             <StatusBadge type={submission?.status || 'submitted'} />
                           </div>
                           <p className="text-xs text-gray-600">
-                            Submitted on {submission?.submittedAt ? formatDateTime(submission.submittedAt) : <Loader message="Loading..." /> }
+                            Submitted on {submission?.submittedAt ? formatDateTime(submission.submittedAt) : "Loading..." }
                           </p>
                         </div>
 

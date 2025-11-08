@@ -204,8 +204,12 @@ export default function FacultySubmissionView() {
 
   const handleBack = () => navigate(-1);
 
-  const handleViewSubmission = (submissionId) => {
-  navigate(`/submissions/${submissionId}`);
+  const handleViewSubmission = (documentId) => {
+    if (!documentId) {
+      alert("Invalid document ID");
+      return;
+    }
+    navigate(`/submissions/${documentId}`);
   };
 
     if (loading) {
