@@ -562,6 +562,7 @@ const MENU_CONFIG = {
       ),  
       route: "/document-workflow"
     },
+    /* 
     { 
       label: "Statistics",
       icon: (
@@ -569,6 +570,7 @@ const MENU_CONFIG = {
       ),  
       route: "/dean/statistics"
     },
+    */
     { 
       label: "Storage",
       icon: (
