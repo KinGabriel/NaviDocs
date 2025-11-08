@@ -411,11 +411,35 @@ export default function GlobalTemplates() {
                 </button>
               </div>
 
-              {/* Filters / search / view toggle */}
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-end gap-3 w-full">
-                {/* row 1: archive + dropdowns + (desktop toggle) */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Archived Documents */}
+              {/* ===== MOBILE/TABLET LAYOUT (< lg) ===== */}
+              <div className="lg:hidden w-full">
+                {/* Row: All + Recent + Archived (beside Recent) */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="shrink-0">
+                    <Dropdown
+                      options={["All", ...Object.keys(schoolIdentifiers)]}
+                      value={selectedSchool}
+                      onChange={(v) => {
+                        setSelectedSchool(v);
+                        pagination.handlePage(1);
+                      }}
+                      width="w-50"
+                    />
+                  </div>
+
+                  <div className="shrink-0">
+                    <Dropdown
+                      options={["Recent", "A-Z", "Z-A"]}
+                      value={sortOrder}
+                      onChange={(v) => {
+                        setSortOrder(v);
+                        pagination.handlePage(1);
+                      }}
+                      width="w-36"
+                    />
+                  </div>
+
+                  {/* Archived icon beside Recent */}
                   <button
                     type="button"
                     onClick={() => navigate("/archived-documents")}
@@ -423,7 +447,6 @@ export default function GlobalTemplates() {
                     aria-label="Archived documents"
                     title="Archived documents"
                   >
-                    {/* archive icon */}
                     <svg
                       viewBox="0 0 24 24"
                       className="w-5 h-5 text-[#0035DA]"
@@ -453,49 +476,91 @@ export default function GlobalTemplates() {
                       />
                     </svg>
                   </button>
+                </div>
 
-                  {/* search full width on mobile, fixed on desktop */}
-                  <div className="w-full sm:w-64 lg:w-64">
+                {/* Search below the dropdowns + toggle on its right (same widths) */}
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="w-64">
                     <SearchBar
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       placeholder="Search documents..."
                     />
                   </div>
+                  <ViewToggle mode={viewMode} onChange={setViewMode} />
+                </div>
+              </div>
 
-                  <Dropdown
-                    options={["All", ...Object.keys(schoolIdentifiers)]}
-                    value={selectedSchool}
-                    onChange={(v) => {
-                      setSelectedSchool(v);
-                      pagination.handlePage(1);
-                    }}
-                    width="w-50"
-                  />
+              {/* ===== DESKTOP LAYOUT (≥ lg) — positions/sizes unchanged except toggle beside search ===== */}
+              <div className="hidden lg:flex lg:items-center lg:justify-end gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => navigate("/archived-documents")}
+                  className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
+                  aria-label="Archived documents"
+                  title="Archived documents"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="w-5 h-5 text-[#0035DA]"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M3.75 7.5h16.5M4.5 7.5l.62-2.32A2.25 2.25 0 0 1 7.25 3.75h9.5a2.25 2.25 0 0 1 2.13 1.43l.62 2.32"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M20.25 7.5l-.63 10.63a2.25 2.25 0 0 1-2.25 2.12H6.63a2.25 2.25 0 0 1-2.25-2.12L3.75 7.5"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M12 11.625v5.625m0 0l2.25-2.25M12 17.25l-2.25-2.25"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
 
-                  <Dropdown
-                    options={["Recent", "A-Z", "Z-A"]}
-                    value={sortOrder}
-                    onChange={(v) => {
-                      setSortOrder(v);
-                      pagination.handlePage(1);
-                    }}
-                    width="w-36"
-                  />
-
-                  {/* desktop view toggle (>=lg) */}
-                  <div className="hidden lg:block">
-                    <ViewToggle mode={viewMode} onChange={setViewMode} />
+                {/* Search + Toggle together */}
+                <div className="flex items-center gap-2">
+                  <div className="w-64">
+                    <SearchBar
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search documents..."
+                    />
                   </div>
+                  <ViewToggle mode={viewMode} onChange={setViewMode} />
                 </div>
 
-                {/* row 2: search + (mobile/tablet toggle) */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
-                  {/* toggle <lg */}
-                  <div className="flex sm:justify-start lg:hidden">
-                    <ViewToggle mode={viewMode} onChange={setViewMode} />
-                  </div>
-                </div>
+                <Dropdown
+                  options={["All", ...Object.keys(schoolIdentifiers)]}
+                  value={selectedSchool}
+                  onChange={(v) => {
+                    setSelectedSchool(v);
+                    pagination.handlePage(1);
+                  }}
+                  width="w-50"
+                />
+
+                <Dropdown
+                  options={["Recent", "A-Z", "Z-A"]}
+                  value={sortOrder}
+                  onChange={(v) => {
+                    setSortOrder(v);
+                    pagination.handlePage(1);
+                  }}
+                  width="w-36"
+                />
               </div>
             </div>
 
