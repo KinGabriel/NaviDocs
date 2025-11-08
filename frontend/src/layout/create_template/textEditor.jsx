@@ -13,6 +13,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import { PaginationPlus } from "tiptap-pagination-plus";
 import { Extension } from "@tiptap/core";
 import { PaginationTable } from "tiptap-table-plus";
+
 import RichImage from "../../extensions/image/ImageNode";
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 import { formatDate } from "../../utils/formatters.jsx";
@@ -47,11 +48,12 @@ const TextStyleAttrs = Extension.create({
 });
 
 /* ----------------------------- TableCell extra attrs ----------------------------- */
-/* Optional: allow cell background via setCellAttribute('backgroundColor', value) */
+// Optional: allow cell background via setCellAttribute('backgroundColor', value)
 const TableCellBg = TableCellPlus.extend({
   addAttributes() {
+    const parent = this.parent?.() || {};
     return {
-      ...this.parent?.(),
+      ...parent,
       backgroundColor: {
         default: null,
         renderHTML: (attrs) =>
@@ -69,7 +71,14 @@ const px = (n) => `${Math.max(0, Number(n) || 0)}px`;
 // Env-aware API base
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
-const API_URL = API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
+const API_URL =
+  API_URLS.find((url) => {
+    try {
+      return url.includes(window.location.hostname);
+    } catch {
+      return false;
+    }
+  }) || API_URLS[0];
 
 const resolveAssetUrl = (val) => {
   const v = String(val ?? "").trim();
@@ -297,8 +306,10 @@ export default function TextEditor({
         resizeHandleStyle: { width: "4px", opacity: 0.7 },
       }),
       TableRowPlus,
-      TableCellBg,    
+      TableCellBg,
       TableHeaderPlus,
+
+      // ---- Pagination must come after the table nodes ----
       PaginationPlus.configure({
         pageGap: 2,
         pageGapBorderSize: 1,
@@ -314,7 +325,6 @@ export default function TextEditor({
       },
     },
     onCreate: ({ editor }) => {
-      // Install lock policy plugin once; keep a setter to flip at runtime
       const { plugin, setPolicy } = createLockOutsideFieldsPlugin({
         initialPolicy: mode === "document" ? "document" : "template",
         nodeTypeName: "editableField",
@@ -323,7 +333,6 @@ export default function TextEditor({
       setPolicyRef.current = setPolicy;
       editor.registerPlugin(plugin);
 
-      // Respect readOnly flag
       editor.setEditable(!readOnly);
 
       onEditorReady?.(editor);
@@ -343,13 +352,11 @@ export default function TextEditor({
     } catch {}
   }, [editor, readOnly]);
 
-  // Flip edit policy depending on mode
   useEffect(() => {
     if (!setPolicyRef.current) return;
     setPolicyRef.current(mode === "document" ? "document" : "template");
   }, [mode]);
 
-  // Apply page size/margins
   useEffect(() => {
     if (!editor) return;
     const d = computeDims(pageSetup);
@@ -368,7 +375,6 @@ export default function TextEditor({
     queueMicrotask(() => requestAnimationFrame(applyHeaderFooterBands));
   }, [editor, pageSetup]);
 
-  // Safe external content set (avoid matchesNode null by briefly disabling policy)
   useEffect(() => {
     if (!editor) return;
     const setWithPolicy = (val) => {
@@ -421,8 +427,12 @@ export default function TextEditor({
     bandEl.style.background = "white";
 
     let left =
-      bandEl.querySelector(isFooter ? ":scope > .rm-page-footer-left" : ":scope > .rm-page-header-left") ||
-      bandEl.querySelector(isFooter ? ":scope > .rm-first-page-footer-left" : ":scope > .rm-first-page-header-left") ||
+      bandEl.querySelector(
+        isFooter ? ":scope > .rm-page-footer-left" : ":scope > .rm-page-header-left"
+      ) ||
+      bandEl.querySelector(
+        isFooter ? ":scope > .rm-first-page-footer-left" : ":scope > .rm-first-page-header-left"
+      ) ||
       bandEl.querySelector(":scope > .nv-band-left");
 
     if (!left) {
@@ -432,8 +442,12 @@ export default function TextEditor({
     }
 
     let right =
-      bandEl.querySelector(isFooter ? ":scope > .rm-page-footer-right" : ":scope > .rm-page-header-right") ||
-      bandEl.querySelector(isFooter ? ":scope > .rm-first-page-footer-right" : ":scope > .rm-first-page-header-right") ||
+      bandEl.querySelector(
+        isFooter ? ":scope > .rm-page-footer-right" : ":scope > .rm-page-header-right"
+      ) ||
+      bandEl.querySelector(
+        isFooter ? ":scope > .rm-first-page-footer-right" : ":scope > .rm-first-page-header-right"
+      ) ||
       bandEl.querySelector(":scope > .nv-band-right");
 
     if (!right) {
@@ -534,7 +548,6 @@ export default function TextEditor({
 
     const hasDocCode = String(cfg.stamp.docCode || "").trim().length > 0;
     if (hasDocCode) {
-      // bordered card
       const card = document.createElement("div");
       card.style.border = "1px solid #000";
       card.style.fontSize = "11px";
@@ -560,7 +573,6 @@ export default function TextEditor({
         return r;
       };
 
-      // first row manually without duplicate top border
       const first = document.createElement("div");
       first.style.display = "flex";
       const fl = document.createElement("div");
@@ -670,8 +682,7 @@ export default function TextEditor({
     if (
       cfg.footer.body.enabled &&
       cfg.footer.body.text &&
-      (!cfg.footer.pageNumber.enabled ||
-        cfg.footer.body.align !== cfg.footer.pageNumber.align)
+      (!cfg.footer.pageNumber.enabled || cfg.footer.body.align !== cfg.footer.pageNumber.align)
     ) {
       const b = cfg.footer.body;
       const host = blockFor(b.align);
