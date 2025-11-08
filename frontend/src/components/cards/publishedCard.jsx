@@ -168,7 +168,10 @@ export default function PublishedCard({
       <div
         className={`relative w-[280px] bg-white rounded-lg shadow-md border border-gray-300 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer overflow-visible ${isAnyModalOpen ? 'pointer-events-none' : ''}`}
         onMouseDown={guardMouseDown}
-        onClick={guardClick}
+        onClick={(e) => {
+          if (showMenu) { e.stopPropagation(); return; }
+          guardClick(e);
+        }}
       >
         <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
           <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(status)}`}>
@@ -198,7 +201,10 @@ export default function PublishedCard({
         <div 
           className="w-full h-[310px] bg-gray-50 flex items-center justify-center border-b border-gray-300 hover:bg-gray-100 transition-colors rounded-t-lg"
           onMouseDown={guardMouseDown}
-          onClick={guardClick}
+          onClick={(e) => {
+            if (showMenu) { e.stopPropagation(); return; }
+            guardClick(e);
+          }}
         >
           {template.thumbnailUrl ? (
             <img
@@ -274,12 +280,20 @@ export default function PublishedCard({
 
             {showMenu && (
               <>
-                <div className="fixed inset-0 z-[40]" onClick={() => setShowMenu(false)} />
-                <div className="absolute right-0 top-8 z-[9999] w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                <div 
+                  className="fixed inset-0 z-[40]" 
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); setShowMenu(false); }}
+                />
+                <div 
+                  className="absolute right-0 top-8 z-[9999] w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {/* Rename */}
                   <button
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    onClick={(e) => handleMenuAction("rename", e)}
+                    onClick={(e) => { e.stopPropagation(); handleMenuAction("rename", e); }}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
                     Rename
@@ -287,7 +301,7 @@ export default function PublishedCard({
                   {/* Duplicate */}
                   <button
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    onClick={(e) => handleMenuAction("duplicate", e)}
+                    onClick={(e) => { e.stopPropagation(); handleMenuAction("duplicate", e); }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -298,7 +312,7 @@ export default function PublishedCard({
                   {canUnpublish() && (
                     <button
                       className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      onClick={(e) => handleMenuAction("unpublish", e)}
+                      onClick={(e) => { e.stopPropagation(); handleMenuAction("unpublish", e); }}
                       disabled={isLoading}
                     >
                       <svg
