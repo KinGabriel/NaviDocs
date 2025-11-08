@@ -40,3 +40,29 @@ export const logoutAPI = async () => {
         throw new Error(error.response?.data?.message || "Logout failed");
     }
 }
+
+/**
+ * Verifies if the current session is still valid.
+ * If valid, updates user info in localStorage.
+ * If not valid, clears session and redirects to /login.
+ */
+export const verifySession = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/api/auth/verify`, {
+      withCredentials: true,
+    });
+
+    // Refresh user info in localStorage
+    const data = response.data;
+    if (data?.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+      return true;
+    }
+    localStorage.removeItem("user");
+    return false;
+  } catch (err) {
+    console.warn("Session expired or invalid", err.response?.status);
+    localStorage.removeItem("user");
+    return false;
+  }
+};

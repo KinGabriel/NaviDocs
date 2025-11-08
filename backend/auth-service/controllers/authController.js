@@ -29,27 +29,6 @@ export const loginUser = async (req, res) => {
       return res.status(400).json({ message: "Incorrect password!" });
     }
 
-    // Generate JWT
-    const token = jwt.sign(
-      {
-        id: user._id,
-        email: user.email,
-        role: user.role,
-        school: user.role.school,
-        department: user.role.department,
-        firstname: user.firstname || user.firstName || user.first_name || '',
-        lastname: user.lastname || user.lastName || user.last_name || ''
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production", 
-      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-      path: "/",
-    });
     // Capture IP (consider reverse proxy)
     const ip =
       req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
@@ -57,6 +36,7 @@ export const loginUser = async (req, res) => {
       req.socket?.remoteAddress ||
       req.ip ||
       "";
+
     // Create login activity log (logout_time left null until logout)
     try {
       await Log.create({
@@ -68,21 +48,46 @@ export const loginUser = async (req, res) => {
         logout_time: null,
       });
     } catch (logErr) {
-      // Do not block login if logging fails
       console.error("Login activity log error:", logErr?.message || logErr);
     }
+
+    // Generate JWT 
+    const token = jwt.sign(
+      {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        school: user.school || user.role?.school || "",
+        department: user.department || user.role?.department || "",
+        firstname: user.firstname || user.firstName || user.first_name || "",
+        lastname: user.lastname || user.lastName || user.last_name || "",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }  /// 30-days JWT
+    );
+
+    // Set cookie 
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      path: "/",
+    });
+
     res.json({
-      message: "Succesful login!",
+      message: "Successful login!",
       user: {
         _id: user._id,
         email: user.email,
         firstname: user.firstname,
         lastname: user.lastname,
         profile_picture: user.profile_picture,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (error) {
+    console.error("Login error:", error);
     res.status(500).json({ message: error.message });
   }
 };

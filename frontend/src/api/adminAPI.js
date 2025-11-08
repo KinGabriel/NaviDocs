@@ -152,3 +152,21 @@ export const fetchLoginActivityAPI = async (params = {}) => {
     throw new Error(error.response?.data?.message || 'Failed to fetch login activity.');
   }
 };
+
+/**
+ * Update an existing user (admin only)
+ * @param {string} userId
+ * @param {FormData} formData - multipart/form-data including optional profile_picture
+ * @returns {Promise<Object>} - Resolves to the updated user payload
+ */
+export const updateUserAccountAPI = async (userId, formData) => {
+  try {
+    const res = await axios.patch(`${API_URL}/api/admin/edit-user/${userId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      withCredentials: true,
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to update user.');
+  }
+};
