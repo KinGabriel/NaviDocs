@@ -1,17 +1,18 @@
 import express from "express";
 import { authenticateJWT } from "../middleware/authenticationMiddleware.js";
 import {
-        createTemplate,
-        updateTemplate,
-        deleteTemplate,
-        getTemplateById,
-        getTemplates,
-        getTemplatesByUser,
-        getPublishedTemplates,
-        duplicateTemplate,
-        renameTemplate,
-        archiveTemplate,
-        getArchivedTemplates
+                createTemplate,
+                updateTemplate,
+                deleteTemplate,
+                getTemplateById,
+                getTemplates,
+                getTemplatesByUser,
+                getPublishedTemplates,
+                duplicateTemplate,
+                renameTemplate,
+                archiveTemplate,
+                unarchiveTemplate,
+                getArchivedTemplates
 } from "../controllers/templateFunctionalitiesController.js";
 
 
@@ -73,6 +74,7 @@ router.patch("/:id/reject", authenticateJWT, rejectTemplate);
 router.patch("/:id/add-note", authenticateJWT, addTemplateNote);
 router.patch("/:id/adjust-deadline", authenticateJWT, adjustTemplateDeadline);
 router.patch('/:id/archive', authenticateJWT, archiveTemplate);
+router.patch('/:id/unarchive', authenticateJWT, unarchiveTemplate);
 router.delete("/:id", authenticateJWT, deleteTemplate);
 router.patch("/:id/insert-document-code", authenticateJWT, insertDocumentCode);
 router.patch("/:id/rename", authenticateJWT, renameTemplate);

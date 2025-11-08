@@ -501,6 +501,25 @@ export const archiveTemplateAPI = async (templateId) => {
   }
 };
 
+
+/**
+ * Unarchive a template by ID (creator or admin).
+ * @param {string} templateId - Template MongoDB ObjectId
+ * @returns {Promise<{success:boolean,message:string,template?:Object}>}
+ */
+export const unarchiveTemplateAPI = async (templateId) => {
+  try {
+    const res = await axios.patch(`${API_URL}/api/templates/${templateId}/unarchive`, {}, {
+      withCredentials: true,
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to unarchive template');
+  }
+};
+
+
+
 /**
  * Fetch archived templates with optional school, status, and search filters.
  * Calls backend: GET /api/templates/archived

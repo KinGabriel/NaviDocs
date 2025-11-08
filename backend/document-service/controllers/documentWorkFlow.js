@@ -140,7 +140,7 @@ export const createSubmissionBin = async (req, res) => {
 			faculty_ids,
 			target_scope,
 			submissions: (submissions || []).map(s => ({
-				document: s.document || null,
+				documents: Array.isArray(s.documents) ? s.documents : [],
 				template: s.template,
 				faculty: s.faculty,
 				instructions: s.instructions || '',
@@ -196,7 +196,7 @@ export const listBinsByDocument = async (req, res) => {
 		const { documentId } = req.params;
 		if (!documentId) return res.status(400).json({ message: 'documentId required' });
 
-		const filter = { 'submissions.document': documentId };
+		const filter = { 'submissions.documents': documentId };
 		if (hasRole(req, ['dean']) || hasRole(req, ['secretary'])) {
 			if (req.user?.school) filter.school = req.user.school;
 			filter.is_forwarded = true;
@@ -383,39 +383,48 @@ export const submitDocument = async (req, res) => {
 	try {
 		const { id, submissionId } = req.params; // bin id + submission item id
 		const { documentId } = req.body || {};
+		if (!documentId) {
+			return res.status(400).json({ message: 'documentId is required to submit a document' });
+		}
 		const bin = await SubmissionBin.findById(id);
 		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+
+		// Prevent submitting into a completed bin
+		if (String(bin.status || '').toLowerCase() === 'completed') {
+			return res.status(400).json({ message: 'This bin is already completed; submissions are closed.' });
+		}
 
 		const item = bin.submissions.id(submissionId);
 		if (!item) return res.status(404).json({ message: 'Submission item not found' });
 
-		if (documentId) {
-			const doc = await Document.findById(documentId);
-			if (!doc) return res.status(404).json({ message: 'Document not found' });
-			// Ensure the document was created from the same template as required by this submission
-			const itemTemplateId = String(item.template);
-			let docTemplateId = null;
-			try {
-				docTemplateId = doc.template_id ? String(doc.template_id) : (doc.from_template && doc.from_template.id ? String(doc.from_template.id) : null);
-			} catch (_) { docTemplateId = null; }
-			if (!docTemplateId) {
-				return res.status(400).json({ message: 'Document is not associated with a template' });
+		// Validate document exists and matches template constraints
+		const doc = await Document.findById(documentId);
+		if (!doc) return res.status(404).json({ message: 'Document not found' });
+		const itemTemplateId = String(item.template);
+		let docTemplateId = null;
+		try {
+			docTemplateId = doc.template_id ? String(doc.template_id) : (doc.from_template && doc.from_template.id ? String(doc.from_template.id) : null);
+		} catch (_) { docTemplateId = null; }
+		if (!docTemplateId) return res.status(400).json({ message: 'Document is not associated with a template' });
+		if (docTemplateId !== itemTemplateId) return res.status(400).json({ message: 'Document template does not match required template' });
+		try {
+			const allowed = Array.isArray(bin.template_ids) ? bin.template_ids.map(t => String(t)) : [];
+			if (allowed.length && !allowed.includes(itemTemplateId)) {
+				return res.status(400).json({ message: 'This template is not allowed for this bin' });
 			}
-			if (docTemplateId !== itemTemplateId) {
-				return res.status(400).json({ message: 'Document template does not match the required template for this submission' });
-			}
-			//  also enforce bin allows this template if configured
-			try {
-				const allowed = Array.isArray(bin.template_ids) ? bin.template_ids.map(t => String(t)) : [];
-				if (allowed.length && !allowed.includes(itemTemplateId)) {
-					return res.status(400).json({ message: 'This template is not allowed for this bin' });
-				}
-			} catch (_) { /* ignore */ }
-		}
+		} catch (_) { /* ignore */ }
 
-		item.document = documentId || item.document;
-		item.status = 'submitted';
-		item.submitted_at = new Date();
+		// Ensure documents array exists
+		if (!Array.isArray(item.documents)) item.documents = [];
+		// Add new document if not already present
+		if (!item.documents.find(d => String(d) === String(documentId))) {
+			item.documents.push(documentId);
+		}
+		// Mark submitted when at least one document present
+		if (item.documents.length > 0 && item.status !== 'submitted') {
+			item.status = 'submitted';
+			item.submitted_at = new Date();
+		}
 
 		await bin.save();
 		return res.json(bin);

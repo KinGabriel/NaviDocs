@@ -63,7 +63,6 @@ export default function useUser() {
     return () => {
       window.removeEventListener('storage', handleStorage);
     };
-    // Only re-run when the raw user reference changes
   }, [user]);
 
   return user;

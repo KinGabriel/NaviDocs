@@ -145,7 +145,7 @@ export const upsertSubmissionAPI = async (binId, data) => {
 };
 
 /**
- * Submit a document for a specific submission item
+ * Submit a document for a specific submission item (supports multiple documents per item)
  * @param {string} binId
  * @param {string} submissionId
  * @param {{ documentId: string }} data
@@ -156,6 +156,27 @@ export const submitSubmissionDocumentAPI = async (binId, submissionId, data) => 
 		return res.data;
 	} catch (error) {
 		const message = error.response?.data?.message || error.message || 'Failed to submit document';
+		const err = new Error(message);
+		err.responseData = error.response?.data;
+		err.status = error.response?.status;
+		throw err;
+	}
+};
+
+/**
+ * Unsubmit a document from a specific submission item
+ * - If documentId is provided, removes only that document.
+ * - If omitted, clears all documents for that item.
+ * @param {string} binId
+ * @param {string} submissionId
+ * @param {{ documentId?: string }} [data]
+ */
+export const unsubmitSubmissionDocumentAPI = async (binId, submissionId, data = {}) => {
+	try {
+		const res = await axios.post(`${API_URL}/api/documents/submission-bins/${binId}/submissions/${submissionId}/unsubmit`, data, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		const message = error.response?.data?.message || error.message || 'Failed to unsubmit document';
 		const err = new Error(message);
 		err.responseData = error.response?.data;
 		err.status = error.response?.status;

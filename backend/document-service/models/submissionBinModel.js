@@ -10,7 +10,7 @@ const SubmissionNoteSchema = new Schema({
 }, { _id: false });
 
 const SubmissionItemSchema = new Schema({
-  document: { type: Schema.Types.ObjectId, ref: 'Document', default: null },
+  documents: { type: [Schema.Types.ObjectId], ref: 'Document', default: [] },
   template: { type: Schema.Types.ObjectId, ref: 'Template', required: true },
   faculty: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   instructions: { type: String, default: '' },
@@ -45,6 +45,6 @@ const SubmissionBinSchema = new Schema({
 SubmissionBinSchema.index({ department: 1, status: 1 });
 SubmissionBinSchema.index({ created_by: 1 });
 SubmissionBinSchema.index({ school: 1, is_forwarded: 1 });
-SubmissionBinSchema.index({ 'submissions.document': 1 });
+SubmissionBinSchema.index({ 'submissions.documents': 1 });
 
 export default mongoose.models.SubmissionBin || mongoose.model('SubmissionBin', SubmissionBinSchema);

@@ -915,7 +915,7 @@ export const duplicateTemplate = async (req, res) => {
 // ensure a single, consistent implementation is used across controllers.
 
 /**
- * @desc Archive template
+ * @desc Archive template (set isArchived=true). Use PATCH /api/templates/:id/unarchive to restore.
  * @route PATCH /api/templates/:id/archive
  * @access Private (Creator, Admin, or Assigned)
  */
@@ -970,6 +970,39 @@ export const archiveTemplate = async (req, res) => {
   } catch (error) {
     console.error('Error archiving template:', error);
     res.status(500).json({ success: false, message: 'Failed to archive template', error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
+  }
+};
+
+/**
+ * @desc Unarchive a previously archived template
+ * @route PATCH /api/templates/:id/unarchive
+ * @access Private (Creator or Admin only)
+ */
+export const unarchiveTemplate = async (req, res) => {
+  try {
+    const template = await Template.findById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ success: false, message: 'Template not found' });
+    }
+
+    if (!template.isArchived) {
+      return res.status(400).json({ success: false, message: 'Template is not archived' });
+    }
+
+    const requesterId = req.user && req.user.id ? String(req.user.id) : null;
+    const isOwner = template.created_by && String(template.created_by) === requesterId;
+    const isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'Admin' || req.user.isAdmin);
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Not authorized to unarchive this template' });
+    }
+
+    template.isArchived = false; // restore
+    await template.save();
+    return res.status(200).json({ success: true, message: 'Template unarchived successfully', template });
+  } catch (error) {
+    console.error('Error unarchiving template:', error);
+    res.status(500).json({ success: false, message: 'Failed to unarchive template', error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
   }
 };
 

@@ -8,6 +8,7 @@ import {
   updateBin,
   upsertSubmission,
   submitDocument,
+  unsubmitDocument,
   returnSubmission,
   // approveSubmission, // disabled for now
   forwardBin,
@@ -29,6 +30,7 @@ router.patch('/:id', updateBin);
 router.put('/:id/submissions', upsertSubmission);
 router.patch('/:id/submissions', upsertSubmission);
 router.post('/:id/submissions/:submissionId/submit', submitDocument);
+router.post('/:id/submissions/:submissionId/unsubmit', unsubmitDocument);
 router.post('/:id/submissions/:submissionId/return', returnSubmission);
 // router.post('/:id/submissions/:submissionId/approve', approveSubmission); // disabled for now
 router.post('/:id/forward', forwardBin);
