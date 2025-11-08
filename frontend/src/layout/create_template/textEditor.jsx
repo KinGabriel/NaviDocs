@@ -29,13 +29,13 @@ const TextStyleAttrs = Extension.create({
           fontSize: {
             default: null,
             renderHTML: (attrs) =>
-              attrs.fontSize ? { style: font-size: ${attrs.fontSize} } : {},
+              attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
             parseHTML: (el) => ({ fontSize: el.style.fontSize || null }),
           },
           lineHeight: {
             default: null,
             renderHTML: (attrs) =>
-              attrs.lineHeight ? { style: line-height: ${attrs.lineHeight} } : {},
+              attrs.lineHeight ? { style: `line-height: ${attrs.lineHeight}` } : {},
             parseHTML: (el) => ({ lineHeight: el.style.lineHeight || null }),
           },
         },
@@ -46,7 +46,7 @@ const TextStyleAttrs = Extension.create({
 
 /* ----------------------------------- utils ----------------------------------- */
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
-const px = (n) => ${Math.max(0, Number(n) || 0)}px;
+const px = (n) => `${Math.max(0, Number(n) || 0)}px`;
 
 // Env-aware API base
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -59,8 +59,8 @@ const resolveAssetUrl = (val) => {
   if (/^https?:\/\//i.test(v) || v.startsWith("data:")) return v;
   const base = String(API_URL || "").replace(/\/+$/, "");
   let path = v.replace(/^\/+/, "");
-  if (!path.startsWith("uploads/")) path = uploads/${path};
-  return ${base}/${path};
+  if (!path.startsWith("uploads/")) path = `uploads/${path}`;
+  return `${base}/${path}`;
 };
 
 const DEFAULT_SETUP = {
@@ -299,11 +299,10 @@ export default function TextEditor({
     content: normalizeInitialContent(content),
     editorProps: {
       attributes: {
-        // Critical styles to prevent the entire content (or table wrappers) from being treated as atomic
-        // This helps ensure tables can split BETWEEN ROWS during pagination.
+        // CRITICAL: no containment; allow fragmentation for page breaks
         class: "tiptap ProseMirror nd-editor-canvas rm-with-pagination",
         style:
-          "break-inside:auto; page-break-inside:auto; overflow:visible; contain:layout style size paint;",
+          "break-inside:auto; page-break-inside:auto; overflow:visible; contain:none;",
       },
     },
     onCreate: ({ editor }) => {
@@ -492,21 +491,21 @@ export default function TextEditor({
 
     // CENTER: header text block
     const weight = cfg.center.bold ? 700 : 400;
-    const styleStr = 
+    const styleStr = `
       display:flex;flex-direction:column;align-items:center;line-height:1.15;
       font-family:${cfg.center.fontFamily};color:${cfg.center.color};
       font-size:${px(cfg.center.fontSize)};font-style:${cfg.center.italic ? "italic" : "normal"};
       font-weight:${weight};text-align:center;
-    ;
-    const line = (txt, extra = "") => (txt ? <div style="${extra}">${escapeHtml(txt)}</div> : "");
-    trip.center.innerHTML = 
+    `;
+    const line = (txt, extra = "") => (txt ? `<div style="${extra}">${escapeHtml(txt)}</div>` : "");
+    trip.center.innerHTML = `
       <div class="nv-center-text" style="${styleStr}">
         ${line(cfg.center.line1)}
         ${line(cfg.center.line2)}
         ${line(cfg.center.line3, "font-size:12px;")}
         ${cfg.center.showLine4 ? line(cfg.center.line4) : ""}
       </div>
-    ;
+    `;
 
     // RIGHT: CICM + stamp table
     const rightRow = document.createElement("div");
@@ -533,13 +532,13 @@ export default function TextEditor({
       stamp.style.fontSize = "11px";
       stamp.style.fontFamily = "Arial,sans-serif";
       stamp.style.background = "#fff";
-      stamp.innerHTML = 
+      stamp.innerHTML = `
         <tbody>
           <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(cfg.stamp.docCode)}</td></tr>
           <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.revisionNo))}</td></tr>
           <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.effectivity))}</td></tr>
           <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${pageNo} of ${total}</td></tr>
-        </tbody>;
+        </tbody>`;
       rightRow.appendChild(stamp);
     }
 
@@ -699,7 +698,7 @@ export default function TextEditor({
 
   /* ----------------------------------- ui ------------------------------------ */
   return (
-    <div className={flex justify-center my-6 ${className}}>
+    <div className={`flex justify-center my-6 ${className}`}>
       <div style={{ width: "816px" }}>
         {editor ? (
           <EditorContent editor={editor} className="prose max-w-none" />
