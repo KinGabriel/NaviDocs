@@ -30,44 +30,90 @@ export default function ForgotPassword() {
 
   // validations
   const isValidEmail = (val) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val);
-  const isStrongPw = (val) => val.length >= 8;
+  const isStrongPw = (val) => {
+    // At least 8 characters, one uppercase letter, one number
+    return val.length >= 8 && /[A-Z]/.test(val) && /[0-9]/.test(val);
+  };
 
   const requestOTP = async (e) => {
-  e.preventDefault();
-  if (!isValidEmail(email)) return toast.error("Enter a valid email.");
-  setLoading(true);
-
-  // TODO: integrate with API (send OTP to email)
-  setTimeout(() => {
-    setLoading(false);
-    setStep(2);
-    setCooldown(RESEND_SECONDS);
-    toast.success("OTP sent to your email.");
-  }, 700);
-};
+    e.preventDefault();
+    if (!isValidEmail(email)) return toast.error("Enter a valid email.");
+    setLoading(true);
+    try {
+      const resp = await fetch(`/api/auth/forgot-password/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      // 200 even for unknown emails (no enumeration)
+      if (resp.status === 429) {
+        const data = await resp.json().catch(() => ({}));
+        const retry = data?.retryAfter ?? RESEND_SECONDS;
+        setCooldown(retry);
+        toast.error(data?.message || `Please wait ${retry}s before requesting again.`);
+        return;
+      }
+      setStep(2);
+      setCooldown(RESEND_SECONDS);
+      toast.success("An OTP code has been sent to your email.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to request OTP code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resendOTP = async () => {
     if (cooldown > 0) return;
     if (!isValidEmail(email)) return toast.error("Enter a valid email first.");
-    setCooldown(RESEND_SECONDS);
-
-    // TODO: call resend OTP API
-    toast.success("New OTP sent.");
+    try {
+      const resp = await fetch(`/api/auth/forgot-password/resend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (resp.status === 429) {
+        const data = await resp.json().catch(() => ({}));
+        const retry = data?.retryAfter ?? RESEND_SECONDS;
+        setCooldown(retry);
+        toast.error(data?.message || `Please wait ${retry}s before resending.`);
+        return;
+      }
+      setCooldown(RESEND_SECONDS);
+      toast.success("An OTP code has been re-sent to your email.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to resend OTP. Please try again.");
+    }
   };
 
   const submitNewPassword = async (e) => {
     e.preventDefault();
     if (!otp || otp.trim().length < 6) return toast.error("Enter the 6-digit OTP.");
-    if (!isStrongPw(newPw)) return toast.error("Password must be at least 8 characters.");
+    if (!isStrongPw(newPw)) return toast.error("Password must be at least 8 characters with one uppercase letter and one number.");
     if (newPw !== confirmPw) return toast.error("Passwords do not match.");
 
     setLoading(true);
-    // TODO: call reset password API with { email, otp, newPw }
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const resp = await fetch(`/api/auth/forgot-password/reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp, newPassword: newPw }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        toast.error(data?.message || "Failed to update password.");
+        return;
+      }
       toast.success("Password updated. You can now log in.");
       navigate("/login");
-    }, 900);
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -172,7 +218,7 @@ export default function ForgotPassword() {
               <div className="relative">
                 <input
                   type={showNewPw ? "text" : "password"}
-                  placeholder="At least 8 characters"
+                  placeholder="At least 8 characters, 1 uppercase, 1 number"
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 pr-11 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   value={newPw}
                   onChange={(e) => setNewPw(e.target.value)}
@@ -188,7 +234,7 @@ export default function ForgotPassword() {
                 </button>
               </div>
               <p className={`mt-1 text-xs ${isStrongPw(newPw) ? "text-green-600" : "text-gray-500"}`}>
-                {isStrongPw(newPw) ? "Looks good." : "Use at least 8 characters."}
+                {isStrongPw(newPw) ? "Looks good." : "Must have 8+ chars, 1 uppercase, 1 number."}
               </p>
             </div>
 

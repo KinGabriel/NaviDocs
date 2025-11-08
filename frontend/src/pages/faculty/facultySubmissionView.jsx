@@ -112,13 +112,63 @@ export default function FacultySubmissionView() {
                             (assignedItem?.document && assignedItem.document !== null);
         const status = hasDocuments && assignedItem?.submitted_at ? 'submitted' : 'pending';
         const submittedAt = assignedItem?.submitted_at || null;
-    
+
     // Ensure submissionMessage is always a string
     const rawMessage = assignedItem?.message || assignedItem?.comment || assignedItem?.notes || '';
     const submissionMessage = typeof rawMessage === 'string' ? rawMessage : String(rawMessage || '');
     
     // Handle multiple documents 
-    const submittedFiles = assignedItem?.documents || (assignedItem?.document ? [assignedItem.document] : []);
+    let submittedFiles = [];
+    
+    if (Array.isArray(assignedItem?.documents) && assignedItem.documents.length > 0) {
+      // Map documents array with proper fallback handling
+      submittedFiles = assignedItem.documents.map((doc, idx) => {
+        if (typeof doc === 'string') {
+          // Document is just an ID (not populated yet)
+          return {
+            _id: doc,
+            id: doc,
+            title: `Loading document ${idx + 1}...`,
+            isJustId: true
+          };
+        } else if (doc && typeof doc === 'object') {
+          // Document is populated
+          return {
+            _id: doc._id || doc.id,
+            id: doc._id || doc.id,
+            title: doc.title || doc.name || `Document ${idx + 1}`,
+            document_code: doc.document_code || doc.docCode,
+            revision_no: doc.revision_no ?? doc.revision_number,
+            school: doc.school || doc.school_identifier,
+            status: doc.status,
+            isJustId: false
+          };
+        }
+        return null;
+      }).filter(Boolean);
+    } else if (assignedItem?.document) {
+      // Single document 
+      const doc = assignedItem.document;
+      if (typeof doc === 'string') {
+        submittedFiles = [{
+          _id: doc,
+          id: doc,
+          title: 'Loading document...',
+          isJustId: true
+        }];
+      } else if (doc && typeof doc === 'object') {
+        submittedFiles = [{
+          _id: doc._id || doc.id,
+          id: doc._id || doc.id,
+          title: doc.title || doc.name || 'Document 1',
+          document_code: doc.document_code || doc.docCode,
+          revision_no: doc.revision_no ?? doc.revision_number,
+          school: doc.school || doc.school_identifier,
+          status: doc.status,
+          isJustId: false
+        }];
+      }
+    }
     
     return {
       id: assignedItem?._id,
@@ -133,6 +183,46 @@ export default function FacultySubmissionView() {
       submissionMessage, 
     };
   }, [assignedItem, bin]);
+
+  useEffect(() => {
+    if (!submission?.submittedFiles) return;
+    
+    // Find documents that are just IDs (not populated)
+    const unpopulatedDocs = submission.submittedFiles.filter(doc => doc.isJustId);
+    
+    if (unpopulatedDocs.length === 0) return;
+    
+    // Fetch the actual document data
+    const fetchDocuments = async () => {
+      const { getDocumentByIdAPI } = await import('../../api/documentsAPI');
+      
+      for (const doc of unpopulatedDocs) {
+        try {
+          const res = await getDocumentByIdAPI(doc.id);
+          const docData = res?.document || res?.data?.document || res?.data || res;
+          
+          // Update the submission state with fetched data
+          setAssignedItem(prev => {
+            if (!prev) return prev;
+            
+            const updatedDocs = (prev.documents || []).map(d => {
+              const dId = typeof d === 'string' ? d : (d._id || d.id);
+              if (String(dId) === String(doc.id)) {
+                return docData;
+              }
+              return d;
+            });
+            
+            return { ...prev, documents: updatedDocs };
+          });
+        } catch (err) {
+          console.error(`Failed to fetch document ${doc.id}:`, err);
+        }
+      }
+    };
+    
+    fetchDocuments();
+  }, [submission?.submittedFiles]);
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
@@ -204,8 +294,12 @@ export default function FacultySubmissionView() {
 
   const handleBack = () => navigate(-1);
 
-  const handleViewSubmission = (submissionId) => {
-  navigate(`/submissions/${submissionId}`);
+  const handleViewSubmission = (documentId) => {
+    if (!documentId) {
+      alert("Invalid document ID");
+      return;
+    }
+    navigate(`/submissions/${documentId}`);
   };
 
     if (loading) {
@@ -477,49 +571,58 @@ export default function FacultySubmissionView() {
                     </h4>
                   </div>
 
-                  {submission.submittedFiles.length > 0 ? (
+                 {submission.submittedFiles.length > 0 ? (
                     <div className="space-y-2">
                       {submission.submittedFiles.map((doc, idx) => {
-                        const docId = doc._id || doc.id || doc;
-                        const docTitle = doc.title || doc.name || `Document ${idx + 1}`;
-                        const docCode = doc.document_code || doc.docCode || '';
-                        const school = doc.school || doc.school_identifier || '';
-                        const revision = doc.revision_no ?? doc.revision_number;
+                        const docId = doc._id || doc.id;
+                        const docTitle = doc.title || `Document ${idx + 1}`;
+                        const docCode = doc.document_code || '';
+                        const school = doc.school || '';
+                        const revision = doc.revision_no;
+                        const isLoading = doc.isJustId;
                         
                         return (
                           <div 
                             key={docId || idx} 
-                            className="p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors"
+                            className={`p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors ${
+                              isLoading ? 'opacity-50' : ''
+                            }`}
                           >
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
-                                <FileText size={20} className="text-blue-600" />
+                                {isLoading ? (
+                                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                                ) : (
+                                  <FileText size={20} className="text-blue-600" />
+                                )}
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="text-sm font-medium text-gray-900 mb-1">
                                   {docTitle}
                                 </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {docCode && (
-                                    <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded font-medium">
-                                      {docCode}
-                                    </span>
-                                  )}
-                                  {(revision !== undefined && revision !== null && revision !== '') && (
-                                    <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded font-medium">
-                                      Rev. {String(revision).padStart(2,'0')}
-                                    </span>
-                                  )}
-                                  {school && (
-                                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">
-                                      {school}
-                                    </span>
-                                  )}
-                                </div>
+                                {!isLoading && (
+                                  <div className="flex flex-wrap gap-2">
+                                    {docCode && (
+                                      <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded font-medium">
+                                        {docCode}
+                                      </span>
+                                    )}
+                                    {(revision !== undefined && revision !== null && revision !== '') && (
+                                      <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded font-medium">
+                                        Rev. {String(revision).padStart(2,'0')}
+                                      </span>
+                                    )}
+                                    {school && (
+                                      <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">
+                                        {school}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <button
-                              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors ml-3 flex-shrink-0"
+                              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors ml-3 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                               onClick={() => {
                                 if (typeof docId === "string" || typeof docId === "number") {
                                   handleViewSubmission(docId);
@@ -527,11 +630,11 @@ export default function FacultySubmissionView() {
                                   alert("Cannot view this document - invalid ID");
                                 }
                               }}
+                              disabled={isLoading}
                             >
                               <Eye size={16} className="mr-1" />
                               View
                             </button>
-
                           </div>
                         );
                       })}

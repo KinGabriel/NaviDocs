@@ -104,7 +104,6 @@ export default function AdminLoginActivity() {
   const handlePrev = () => currentPage > 1 && setCurrentPage(currentPage - 1);
   const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
 
-  /** Pagination with Ellipsis */
   const getPageNumbers = () => {
     const total = totalPages;
     const current = currentPage;
@@ -129,53 +128,74 @@ export default function AdminLoginActivity() {
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
-
         <Sidebar user={user} active="Login Activity" />
 
-        <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 lg:p-10">
+        <main className="flex-1 w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 lg:p-8">
 
-            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black tracking-widest uppercase mb-2">
+            <h2 className="text-lg sm:text-2xl lg:text-3xl font-bold text-black tracking-widest uppercase mb-2">
               Login Activity
             </h2>
-            <div className="h-1 bg-yellow-500 mb-6 rounded w-20 sm:w-24"></div>
+            <div className="h-1 bg-yellow-500 mb-5 sm:mb-6 rounded w-20 sm:w-24"></div>
 
             {/* Filter Row */}
-            <div className="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap sm:items-center gap-3 mb-4">
+            <div className="flex flex-col md:flex-row md:flex-wrap lg:flex-nowrap md:items-center gap-3 mb-4">
+              {/* 1) Status */}
+              <div className="order-1 w-full md:w-auto">
+                <Dropdown
+                  value={statusFilter}
+                  onChange={(value) => {
+                    setStatusFilter(value);
+                    setCurrentPage(1);
+                  }}
+                  options={statusOptions}
+                  width="w-full md:w-52"
+                />
+              </div>
 
-              <Dropdown
-                value={statusFilter}
-                onChange={(value) => {
-                  setStatusFilter(value);
-                  setCurrentPage(1);
-                }}
-                options={statusOptions}
-                width="w-full sm:w-52"
-              />
+              {/* 2) Role */}
+              <div className="order-2 w-full md:w-auto">
+                <Dropdown
+                  value={roleFilter}
+                  onChange={(value) => {
+                    setRoleFilter(value);
+                    setCurrentPage(1);
+                  }}
+                  options={roleOptions}
+                  width="w-full md:w-64"
+                />
+              </div>
 
-              <Dropdown
-                value={roleFilter}
-                onChange={(value) => {
-                  setRoleFilter(value);
-                  setCurrentPage(1);
-                }}
-                options={roleOptions}
-                width="w-full sm:w-64"
-              />
+              {/* 3) Date */}
+              <div className="order-3 w-full md:w-auto">
+                <input
+                  type="date"
+                  className="h-10 w-full md:w-40 border border-gray-300 rounded-lg px-3 text-sm
+                             focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={selectedDate}
+                  onChange={(e) => {
+                    setSelectedDate(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
 
-              <input
-                type="date"
-                className="h-10 w-full sm:w-36 border border-gray-300 rounded-lg px-3 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={selectedDate}
-                onChange={(e) => {
-                  setSelectedDate(e.target.value);
-                  setCurrentPage(1);
-                }}
-              />
+              {/* 4) Search BELOW all dropdowns on < lg, same width as desktop */}
+              <div className="order-4 lg:hidden">
+                <div className="w-64">
+                  <SearchBar
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+              </div>
 
-              <div className="w-full sm:flex-1 flex sm:justify-end">
-                <div className="w-full sm:w-64">
+              {/* 5) Desktop/Large: Search on the right (>= lg) */}
+              <div className="order-5 hidden lg:flex lg:flex-1 lg:justify-end">
+                <div className="w-64">
                   <SearchBar
                     value={search}
                     onChange={(e) => {
@@ -187,33 +207,115 @@ export default function AdminLoginActivity() {
               </div>
             </div>
 
-            {/* Table */}
             {loading ? (
               <div className="min-h-[200px] flex items-center justify-center">
                 <Loader message="Fetching Activity Logs..." />
               </div>
+            ) : error ? (
+              <div className="text-sm text-red-600">{error}</div>
             ) : (
               <>
-                <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                  <table className="w-full min-w-[600px]">
+                {/* Mobile: Card list (shows on < md) */}
+                <div className="grid grid-cols-1 gap-3 md:hidden">
+                  {currentLogs.length > 0 ? (
+                    currentLogs.map((log) => {
+                      const isActive = !log.logout_time;
+                      return (
+                        <div
+                          key={log.id}
+                          className="rounded-lg border border-gray-200 p-4 bg-white"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 break-all">
+                                {log.email}
+                              </p>
+                              <p className="text-xs text-gray-600 mt-0.5">
+                                {log.role || "—"}
+                              </p>
+                            </div>
+                            <span
+                              className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${
+                                !log.logout_time
+                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                  : "bg-gray-50 text-gray-700 border border-gray-200"
+                              }`}
+                            >
+                              {!log.logout_time ? "Active" : "Logged Out"}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 space-y-1.5 text-xs">
+                            <div className="flex justify-between gap-3">
+                              <span className="text-gray-500">Login</span>
+                              <span className="text-gray-900">
+                                {formatTimestamp(log.login_time) || "—"}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                              <span className="text-gray-500">Logout</span>
+                              <span className="text-gray-900">
+                                {log.logout_time
+                                  ? formatTimestamp(log.logout_time)
+                                  : "—"}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                              <span className="text-gray-500">IP</span>
+                              <span className="text-gray-900 break-all text-right">
+                                {log.ip || "—"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-6 text-gray-500 text-sm">
+                      No results found
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop: Table (md+) */}
+                <div className="hidden md:block overflow-x-auto border border-gray-200 rounded-lg">
+                  <table className="w-full min-w-[760px]">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
-                        <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Email Address</th>
-                        <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Role</th>
-                        <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">IP Address</th>
-                        <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Login Time</th>
-                        <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Logout Time</th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Email Address
+                        </th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Role
+                        </th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          IP Address
+                        </th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Login Time
+                        </th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Logout Time
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {currentLogs.length > 0 ? (
                         currentLogs.map((log) => (
                           <tr key={log.id} className="hover:bg-blue-50 transition-colors text-sm">
-                            <td className="px-4 sm:px-6 py-4 text-gray-900 font-medium break-all">{log.email}</td>
-                            <td className="px-4 sm:px-6 py-4 text-gray-700 whitespace-nowrap">{log.role}</td>
-                            <td className="px-4 sm:px-6 py-4 text-gray-700 break-all">{log.ip}</td>
-                            <td className="px-4 sm:px-6 py-4 text-gray-700 whitespace-nowrap">{formatTimestamp(log.login_time) || '—'}</td>
-                            <td className="px-4 sm:px-6 py-4 text-gray-700 whitespace-nowrap">
+                            <td className="px-5 py-4 text-gray-900 font-medium break-all">
+                              {log.email}
+                            </td>
+                            <td className="px-5 py-4 text-gray-700 whitespace-nowrap">
+                              {log.role}
+                            </td>
+                            <td className="px-5 py-4 text-gray-700 break-all">
+                              {log.ip}
+                            </td>
+                            <td className="px-5 py-4 text-gray-700 whitespace-nowrap">
+                              {formatTimestamp(log.login_time) || "—"}
+                            </td>
+                            <td className="px-5 py-4 text-gray-700 whitespace-nowrap">
                               {log.logout_time ? (
                                 formatTimestamp(log.logout_time)
                               ) : (
@@ -224,7 +326,7 @@ export default function AdminLoginActivity() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="5" className="text-center py-4 text-gray-500 text-sm">
+                          <td colSpan="5" className="text-center py-6 text-gray-500 text-sm">
                             No results found
                           </td>
                         </tr>
@@ -234,32 +336,33 @@ export default function AdminLoginActivity() {
                 </div>
 
                 {/* Results Indicator */}
-                <div className="text-center text-gray-600 text-sm mt-4">
+                <div className="text-center text-gray-600 text-xs sm:text-sm mt-4">
                   Showing {(currentPage - 1) * itemsPerPage + 1}–
                   {(currentPage - 1) * itemsPerPage + currentLogs.length} of {totalItems} logs
                 </div>
 
-                {/* Updated Pagination */}
-                <div className="flex flex-wrap justify-center items-center mt-6 gap-2 text-sm">
+                {/* Pagination */}
+                <div className="flex flex-wrap justify-center items-center mt-5 gap-2 text-xs sm:text-sm">
                   <button
                     onClick={handlePrev}
                     disabled={currentPage === 1}
-                    className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                    className="px-3 py-1.5 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                   >
                     Prev
                   </button>
 
                   {getPageNumbers().map((num, idx) =>
                     num === "..." ? (
-                      <span key={idx} className="px-2 text-gray-400">...</span>
+                      <span key={idx} className="px-2 text-gray-400 select-none">…</span>
                     ) : (
                       <button
                         key={num}
                         onClick={() => setCurrentPage(num)}
-                        className={`px-3 py-1 rounded border ${currentPage === num
+                        className={`px-3 py-1.5 rounded border ${
+                          currentPage === num
                             ? "bg-blue-600 text-white"
                             : "bg-white text-gray-700 hover:bg-gray-100"
-                          }`}
+                        }`}
                       >
                         {num}
                       </button>
@@ -269,7 +372,7 @@ export default function AdminLoginActivity() {
                   <button
                     onClick={handleNext}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                    className="px-3 py-1.5 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                   >
                     Next
                   </button>

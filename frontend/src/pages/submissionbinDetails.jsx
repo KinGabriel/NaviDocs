@@ -57,9 +57,19 @@ export default function SubmissionDetails() {
     try { return new Date(d).toISOString().slice(0,16); } catch { return ''; }
   };
 
-  const handleViewSubmission = (submissionId) => {
-    navigate(`/submissions/${submissionId}`);
-  };
+ const handleViewSubmission = (submissionItem) => {
+  // Get the first document ID from the submission
+  const documentId = Array.isArray(submissionItem.documents) && submissionItem.documents.length > 0
+    ? (submissionItem.documents[0]._id || submissionItem.documents[0].id || submissionItem.documents[0])
+    : (submissionItem.document?._id || submissionItem.document?.id || submissionItem.document);
+  
+  if (!documentId) {
+    alert("No document found in this submission");
+    return;
+  }
+  
+  navigate(`/submissions/${documentId}`);
+};
 
   // Check if bin should be marked as completed
   const binShouldBeCompleted = useMemo(() => {
@@ -78,6 +88,7 @@ export default function SubmissionDetails() {
       
       return allSubmitted;
     }, [bin?.submissions]);
+    
 
   // Auto-update bin status to completed
   useEffect(() => {
@@ -363,7 +374,7 @@ export default function SubmissionDetails() {
                 </div>
               </div>
 
-              {/* Instructions and Deadline - Same Width */}
+              {/* Instructions and Deadline*/}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Instructions */}
                 {bin.instructions && (
@@ -539,6 +550,15 @@ export default function SubmissionDetails() {
                         const hasDocuments = (Array.isArray(item.documents) && item.documents.length > 0) || 
                                               (item.document && item.document !== null);
                         const actualStatus = hasDocuments && item.submitted_at ? 'submitted' : 'pending';
+
+                          // ADD THIS LOGGING
+                          console.log('Submission item:', {
+                            faculty: item.faculty_name || item.faculty_user?.name,
+                            hasDocuments,
+                            documents: item.documents,
+                            document: item.document,
+                            submitted_at: item.submitted_at
+                          });
                         
                         return (
                           <tr key={item._id} className="hover:bg-gray-50">
@@ -551,7 +571,7 @@ export default function SubmissionDetails() {
                               {actualStatus === 'submitted' && hasDocuments ? (
                                 <button
                                   className="inline-flex items-center justify-center px-4 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
-                                  onClick={() => handleViewSubmission(item._id)}
+                                  onClick={() => handleViewSubmission(item)}
                                 >
                                   View
                                 </button>

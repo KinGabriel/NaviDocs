@@ -356,7 +356,7 @@ export default function DeanDashboard() {
               <div className="bg-white shadow-sm rounded-lg border border-gray-100">
                 <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
                   <h3 className="font-semibold text-sm text-gray-800">
-                    SUBMISSION OVERVIEW
+                    SUBMISSION BINS OVERVIEW
                   </h3>
                 </div>
 
