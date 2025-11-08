@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
-import Table from "../../components/table";
+import Table2 from "../../components/table2";
 import { StatusBadge } from "../../utils/formatters";
 import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
 import Greeting from "../../components/greeting";
@@ -76,6 +76,18 @@ export default function FacultyDashboard() {
     },
     {
       id: 6,
+      title: "Department Memo Format",
+      viewedBy: "Admin User",
+      status: "Endorsed",
+    },
+    {
+      id: 7,
+      title: "Department Memo Format",
+      viewedBy: "Admin User",
+      status: "Endorsed",
+    },
+    {
+      id: 8,
       title: "Department Memo Format",
       viewedBy: "Admin User",
       status: "Endorsed",
@@ -308,7 +320,7 @@ export default function FacultyDashboard() {
                 {/* table wrapper with horizontal scroll on mobile */}
                 <div className="overflow-x-auto">
                   <div className="min-w-[600px]">
-                    <Table
+                    <Table2
                       columns={submittedTemplatesColumns}
                       data={submittedTemplates}
                     />
@@ -318,7 +330,8 @@ export default function FacultyDashboard() {
             </div>
 
             {/* RIGHT SIDE: Deadlines */}
-            <div className="md:col-span-2 space-y-6 w-full">
+            <div className="md:col-span-2 w-full flex flex-col">
+
               <UpcomingDeadlines
                 deadlines={upcomingDeadlines}
                 formatDate={formatDate}
