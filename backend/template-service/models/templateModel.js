@@ -49,25 +49,34 @@ const templateSchema = new mongoose.Schema({
   // footer: { type: mongoose.Schema.Types.Mixed, default: [] },
   status: { type: String, enum: ['assigned','draft','pending','endorsed','approved','published','returned','rejected'], default: 'draft' },
   status_meta: {
-    approved_at: { type: Date, default: null },
+  // Top-level lifecycle timestamps and actor references
     published_at: { type: Date, default: null },
+    published_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    unpublished_at: { type: Date, default: null },
+    unpublished_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    submitted_at: { type: Date, default: null },
+    unsubmitted_at: { type: Date, default: null },
+
     approvals: {
       // Optional first stage approver (only required when submitted by Faculty)
       unit_document_controller: {
         assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
         isApproved: { type: Boolean, default: false },
-        approved_at: { type: Date, default: null }
+        approved_at: { type: Date, default: null },
+        returned_at: { type: Date, default: null },
       },
       // Approver roles
       lead_document_controller: {
         assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
         isApproved: { type: Boolean, default: false },
-        approved_at: { type: Date, default: null }
+        approved_at: { type: Date, default: null },
+        returned_at: { type: Date, default: null },
       },
       document_controller_officer: {
         assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
         isApproved: { type: Boolean, default: false },
-        approved_at: { type: Date, default: null }
+        approved_at: { type: Date, default: null },
+        rejected_at: { type: Date, default: null },
       }
     }
   },
