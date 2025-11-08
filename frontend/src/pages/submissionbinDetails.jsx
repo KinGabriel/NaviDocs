@@ -61,6 +61,35 @@ export default function SubmissionDetails() {
     navigate(`/submissions/${submissionId}`);
   };
 
+  // Check if bin should be marked as completed
+  const binShouldBeCompleted = useMemo(() => {
+      if (!bin || !Array.isArray(bin.submissions)) return false;
+      
+      const items = bin.submissions;
+      if (items.length === 0) return false;
+      
+      // Check if all submissions have documents AND are submitted
+      const allSubmitted = items.every(sub => {
+        const hasDocuments = (Array.isArray(sub.documents) && sub.documents.length > 0) || 
+                              (sub.document && sub.document !== null);
+        const isSubmitted = sub.submitted_at && hasDocuments;
+        return isSubmitted;
+      });
+      
+      return allSubmitted;
+    }, [bin?.submissions]);
+
+  // Auto-update bin status to completed
+  useEffect(() => {
+    if (!bin || !isDeptHead) return;
+    if (binShouldBeCompleted && bin.status !== 'completed') {
+      // Silently update the bin status
+      updateSubmissionBinAPI(bin._id || bin.id, { status: 'completed' })
+        .then(updated => setBin(updated))
+        .catch(err => console.error('Failed to auto-complete bin:', err));
+    }
+  }, [binShouldBeCompleted, bin?.status, bin?._id, bin?.id, isDeptHead]);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -505,27 +534,34 @@ export default function SubmissionDetails() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {bin.submissions.map((item) => (
-                        <tr key={item._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 text-sm text-gray-700">
-                            {item.faculty_name || item.faculty_user?.name || item.faculty_user?.fullname || `${item.faculty_user?.firstname || ''} ${item.faculty_user?.lastname || ''}`.trim() || String(item.faculty)}
-                          </td>
-                          <td className="px-6 py-4"><StatusBadge type={item.status} /></td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{item.submitted_at ? formatDateTime(item.submitted_at) : '-'}</td>
-                          <td className="px-6 py-4">
-                            {item.status === 'submitted' && item.document ? (
-                              <button
-                                className="inline-flex items-center justify-center px-4 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
-                                onClick={() => handleViewSubmission(item._id)}
-                              >
-                                View
-                              </button>
-                            ) : (
-                              <span className="text-sm text-gray-400">Not yet submitted</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                     {bin.submissions.map((item) => {
+                        // Check if actually has documents
+                        const hasDocuments = (Array.isArray(item.documents) && item.documents.length > 0) || 
+                                              (item.document && item.document !== null);
+                        const actualStatus = hasDocuments && item.submitted_at ? 'submitted' : 'pending';
+                        
+                        return (
+                          <tr key={item._id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 text-sm text-gray-700">
+                              {item.faculty_name || item.faculty_user?.name || item.faculty_user?.fullname || `${item.faculty_user?.firstname || ''} ${item.faculty_user?.lastname || ''}`.trim() || String(item.faculty)}
+                            </td>
+                            <td className="px-6 py-4"><StatusBadge type={actualStatus} /></td>
+                            <td className="px-6 py-4 text-sm text-gray-600">{item.submitted_at && hasDocuments ? formatDateTime(item.submitted_at) : '-'}</td>
+                            <td className="px-6 py-4">
+                              {actualStatus === 'submitted' && hasDocuments ? (
+                                <button
+                                  className="inline-flex items-center justify-center px-4 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+                                  onClick={() => handleViewSubmission(item._id)}
+                                >
+                                  View
+                                </button>
+                              ) : (
+                                <span className="text-sm text-gray-400">Not yet submitted</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

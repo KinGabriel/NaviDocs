@@ -59,14 +59,38 @@ export default function FacultySubmissions() {
           });
           
           return userSubmissions.map(sub => {
-            // Determine status
-            let status = 'pending';
-            if (sub.document && sub.submitted_at) {
-              status = 'submitted';
-            } else if (new Date(bin.deadline) < new Date()) {
-              status = 'overdue';
-            }
-            
+          // Determine status - validate that submission actually has documents
+          let status = 'pending';
+          
+          // Check if there are actually submitted documents
+          const hasDocuments = (Array.isArray(sub.documents) && sub.documents.length > 0) || 
+                                (sub.document && sub.document !== null);
+          
+          // Only mark as submitted if has documents AND submitted_at timestamp
+          if (hasDocuments && sub.submitted_at) {
+            status = 'submitted';
+          } else if (!hasDocuments && new Date(bin.deadline) < new Date()) {
+            status = 'overdue';
+          } else {
+            status = 'pending';
+          }
+
+          // Handle submittedFiles - supports both documents array and single document
+          let submittedFiles = [];
+          if (Array.isArray(sub.documents) && sub.documents.length > 0) {
+            submittedFiles = sub.documents.map(doc => ({
+              id: doc._id || doc.id || doc,
+              name: doc.title || doc.name || 'Document',
+              uploadedAt: sub.submitted_at
+            }));
+          } else if (sub.document && sub.document !== null) {
+            submittedFiles = [{ 
+              id: sub.document,
+              name: 'Document.pdf', 
+              uploadedAt: sub.submitted_at 
+            }];
+          }
+          
             return {
               id: sub._id || sub.id,
               binId: bin._id || bin.id,
@@ -77,11 +101,7 @@ export default function FacultySubmissions() {
               deadline: bin.deadline || new Date().toISOString(),
               status: status,
               submittedAt: sub.submitted_at || null,
-              submittedFiles: sub.document ? [{ 
-                id: sub.document,
-                name: 'Document.pdf', 
-                uploadedAt: sub.submitted_at 
-              }] : [],
+              submittedFiles: submittedFiles,
               templateId: sub.template,
               documentId: sub.document
             };
@@ -174,29 +194,104 @@ export default function FacultySubmissions() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-200 flex flex-col">
-        <Header user={user} />
-        <div className="flex flex-1">
-          <Sidebar user={user} />
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load</h3>
-              <p className="text-gray-600 mb-4">{error}</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Retry
-              </button>
+    if (error) {
+
+      const getErrorDetails = (errorMsg) => {
+        const msg = String(errorMsg || '').toLowerCase();
+        
+        // Network/connection issues
+        if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch')) {
+          return {
+            title: 'Connection Problem',
+            message: 'Unable to load your submission bins. Please check your internet connection and try again.',
+            suggestion: 'Make sure you\'re connected to the internet'
+          };
+        }
+        
+        // Permission/access issues
+        if (msg.includes('unauthorized') || msg.includes('403') || msg.includes('permission')) {
+          return {
+            title: 'Access Denied',
+            message: 'You don\'t have permission to view these submissions.',
+            suggestion: 'Contact your department head if you believe this is an error'
+          };
+        }
+        
+        // Server issues
+        if (msg.includes('500') || msg.includes('server')) {
+          return {
+            title: 'Server Error',
+            message: 'Our servers are having trouble right now. Please try again in a few moments.',
+            suggestion: ''
+          };
+        }
+        
+        // Default message
+        return {
+          title: 'Unable to Load Submissions',
+          message: 'We couldn\'t load your submission bins at this time.',
+          suggestion: 'Try refreshing the page or check back later'
+        };
+      };
+      
+      const errorDetails = getErrorDetails(error);
+      
+      return (
+       <div className="min-h-screen bg-gray-200 flex flex-col">
+          <Header user={user} />
+          <div className="flex flex-1">
+            <Sidebar user={user} />
+            <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
+              <div className="flex-1 flex items-center justify-center px-1 py-5">
+                <div className="max-w-lg w-full">
+                {/* Icon */}
+                <div className="flex justify-center mb-4">
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                    <AlertCircle size={32} className="text-red-600" />
+                  </div>
+                </div>
+                
+                {/* Title */}
+                <h3 className="text-xl font-bold text-gray-900 text-center mb-3">
+                  {errorDetails.title}
+                </h3>
+                
+                {/* Main Message */}
+                <p className="text-gray-700 text-center mb-2">
+                  {errorDetails.message}
+                </p>
+                
+                {/* Suggestion */}
+                <p className="text-sm text-gray-600 text-center mb-6">
+                  {errorDetails.suggestion}
+                </p>
+                
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Try Again
+                  </button>
+                  
+                  <button
+                    onClick={() => navigate('/')}
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                  >
+                    Go to Dashboard
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    );
-  }
+      );
+    }
 
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
