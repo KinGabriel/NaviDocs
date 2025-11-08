@@ -38,6 +38,7 @@ import ArchivedDocuments from "./pages/archivedDocuments";
 import SubmissionBin from './pages/submissionbinDetails';
 import SubmittedFilesView from './pages/submittedFilesView';
 import SubmissionBins from './pages/submissionBins';
+import ForgotPassword from './pages/forgotPassword';
 
 /** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {
@@ -88,8 +89,11 @@ function App() {
    <Router>
      <Routes>
        <Route path="/" element={<LoginRoute />} />
+       <Route path="/login" element={<LoginRoute />} />
        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
        <Route path="/document-controller" element={<Navigate to="/document-controller/dashboard" replace />} />
+       {/* Public: forgot password */}
+       <Route path="/forgot-Password" element={<ForgotPassword/>} />
 
        {/* Admin Module */}
        <Route
