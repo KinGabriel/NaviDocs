@@ -61,6 +61,7 @@ export const loginUser = async (req, res) => {
         department: user.department || user.role?.department || "",
         firstname: user.firstname || user.firstName || user.first_name || "",
         lastname: user.lastname || user.lastName || user.last_name || "",
+        profile_picture: user.profile_picture || user.profilePicture || user.profile_picture || "",
       },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }  /// 30-days JWT

@@ -10,6 +10,7 @@ import {
   renameDocument,
   duplicateDocumentById,
   archiveDocumentById,
+  unarchiveDocumentById,
   listArchivedDocuments,
 } from '../controllers/documentFunctionalityController.js';
 import { shareDocument,   exportDocumentPdf } from '../controllers/documentWorkFlow.js';
@@ -55,6 +56,7 @@ router.post('/:id/export-pdf', authenticateJWT, requireDocumentAccess('view'), e
 router.delete('/:id', authenticateJWT, requireDocumentAccess('edit'), deleteDocumentById);
 router.patch('/:id/rename', authenticateJWT, requireDocumentAccess('edit'), renameDocument);
 router.patch('/:id/archive', authenticateJWT, requireDocumentAccess('edit'), archiveDocumentById);
+router.patch('/:id/unarchive', authenticateJWT, requireDocumentAccess('edit'), unarchiveDocumentById);
 
 router.get('/version-data/:versionId', authenticateJWT, getVersionData);
 router.patch('/version-data/:versionId/bookmark', authenticateJWT, patchVersionBookmark);

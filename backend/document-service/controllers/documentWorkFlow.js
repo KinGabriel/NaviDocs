@@ -435,6 +435,63 @@ export const submitDocument = async (req, res) => {
 };
 
 /**
+ * Unsubmit a document from a specific Submission item
+ *
+ * @route POST /api/submission-bins/:id/submissions/:submissionId/unsubmit
+ * @desc Remove one document from the submission (by documentId) or all if none specified.
+ *       Only allowed while bin is not completed. If documents becomes empty, status reverts to 'assigned'.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+export const unsubmitDocument = async (req, res) => {
+	try {
+		const { id, submissionId } = req.params;
+		const { documentId } = req.body || {};
+
+		const bin = await SubmissionBin.findById(id);
+		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+
+		// Disallow unsubmit if bin is completed
+		if (String(bin.status || '').toLowerCase() === 'completed') {
+			return res.status(400).json({ message: 'Cannot unsubmit from a completed bin.' });
+		}
+
+		const item = bin.submissions.id(submissionId);
+		if (!item) return res.status(404).json({ message: 'Submission item not found' });
+
+		// Permission: owner or privileged roles
+		try {
+			const actorId = String(req.user?._id || req.user?.id || '');
+			const isOwner = actorId && String(item.faculty) === actorId;
+			const isPrivileged = hasRole(req, ['Department Head']) || hasRole(req, ['secretary']) || hasRole(req, ['dean']);
+			if (!isOwner && !isPrivileged) {
+				return res.status(403).json({ message: 'Not authorized to unsubmit this item.' });
+			}
+		} catch (_) { /* best effort */ }
+
+		if (!Array.isArray(item.documents)) item.documents = [];
+
+		if (documentId) {
+			item.documents = item.documents.filter(d => String(d) !== String(documentId));
+		} else {
+			// Clear all
+			item.documents = [];
+		}
+
+		if (item.documents.length === 0) {
+			item.status = 'assigned';
+			item.submitted_at = null;
+		}
+
+		await bin.save();
+		return res.json(bin);
+	} catch (err) {
+		console.error('unsubmitDocument error', err);
+		return res.status(500).json({ message: 'Failed to unsubmit document', error: err.message });
+	}
+};
+
+/**
  * Return a Submission item
  *
  * @route POST /api/submission-bins/:id/submissions/:submissionId/return

@@ -354,6 +354,19 @@ export const archiveDocumentAPI = async (documentId) => {
 };
 
 /**
+ * Unarchive a document by id (owner only)
+ * @param {string} documentId
+ */
+export const unarchiveDocumentAPI = async (documentId) => {
+	try {
+		const res = await axios.patch(`${API_URL}/api/documents/${documentId}/unarchive`, {}, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to unarchive document');
+	}
+};
+
+/**
  * List archived documents for current user
  * @param {Object} params - Query params (page, limit)
  * @returns {Promise<Object>} - API response data (should include pagination)

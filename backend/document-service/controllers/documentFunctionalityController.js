@@ -540,3 +540,30 @@ export const listArchivedDocuments = async (req, res) => {
     res.status(500).json({ message: "Failed to list archived documents", error: err.message });
   }
 };
+
+/**
+ * @desc Unarchive a document by its ID (owner only)
+ * @route PATCH /api/documents/:id/unarchive
+ */
+export const unarchiveDocumentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'id required' });
+    const doc = await Document.findById(id);
+    if (!doc) return res.status(404).json({ message: 'document not found' });
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    if (String(doc.created_by) !== String(userId)) {
+      return res.status(403).json({ message: 'Not authorized to unarchive this document' });
+    }
+    if (!doc.isArchived) {
+      return res.json({ success: true, message: 'Document already active', document: doc });
+    }
+    doc.isArchived = false;
+    await doc.save();
+    return res.json({ success: true, message: 'Document unarchived successfully', document: doc });
+  } catch (err) {
+    console.error('unarchiveDocumentById error', err);
+    return res.status(500).json({ message: 'Failed to unarchive document', error: err.message });
+  }
+};
