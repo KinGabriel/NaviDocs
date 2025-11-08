@@ -630,34 +630,59 @@ export default function Storage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6 pb-3 md:pb-4 border-b border-gray-100 gap-3">
               <button
                 onClick={goBack}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-[#0035DA] hover:bg-blue-50 transition-all duration-200 font-medium"
+                className="flex items-center gap-2 px-4 py-2 mt-4 rounded-lg text-[#0035DA] hover:bg-blue-50 transition-all duration-200 font-medium"
               >
                 <ArrowLeft size={18} /> Back
               </button>
-              <div className="flex items-center text-sm font-medium overflow-x-auto whitespace-nowrap scrollbar-hide">
+              <div className="flex items-center text-sm font-medium overflow-hidden">
                 <button
                   onClick={() => navigateToFolder(null)}
                   className="text-gray-600 hover:text-[#0035DA] hover:underline transition-colors flex-shrink-0"
                 >
                   Storage
                 </button>
-                {folderPath.map((folder, index) => (
-                  <React.Fragment key={folder.id}>
+                {folderPath.length > 3 ? (
+                  <>
                     <ChevronRight className="mx-1 text-gray-400 flex-shrink-0" size={16} />
-                    <button
-                      onClick={() => navigateToFolder(folder.id)}
-                      className={`truncate max-w-[120px] text-ellipsis overflow-hidden transition-colors ${
-                        index === folderPath.length - 1
-                          ? "text-[#0035DA] font-semibold cursor-default"
-                          : "text-gray-600 hover:text-[#0035DA] hover:underline"
-                      }`}
-                      disabled={index === folderPath.length - 1}
-                      title={folder.name}
-                    >
-                      {folder.name}
-                    </button>
-                  </React.Fragment>
-                ))}
+                    <span className="text-gray-400 flex-shrink-0">...</span>
+                    <ChevronRight className="mx-1 text-gray-400 flex-shrink-0" size={16} />
+                    {folderPath.slice(-2).map((folder, index) => (
+                      <React.Fragment key={folder.id}>
+                        {index > 0 && <ChevronRight className="mx-1 text-gray-400 flex-shrink-0" size={16} />}
+                        <button
+                          onClick={() => navigateToFolder(folder.id)}
+                          className={`truncate max-w-[120px] text-ellipsis overflow-hidden transition-colors ${
+                            index === 1
+                              ? "text-[#0035DA] font-semibold cursor-default"
+                              : "text-gray-600 hover:text-[#0035DA] hover:underline"
+                          }`}
+                          disabled={index === 1}
+                          title={folder.name}
+                        >
+                          {folder.name}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                  </>
+                ) : (
+                  folderPath.map((folder, index) => (
+                    <React.Fragment key={folder.id}>
+                      <ChevronRight className="mx-1 text-gray-400 flex-shrink-0" size={16} />
+                      <button
+                        onClick={() => navigateToFolder(folder.id)}
+                        className={`truncate max-w-[120px] text-ellipsis overflow-hidden transition-colors ${
+                          index === folderPath.length - 1
+                            ? "text-[#0035DA] font-semibold cursor-default"
+                            : "text-gray-600 hover:text-[#0035DA] hover:underline"
+                        }`}
+                        disabled={index === folderPath.length - 1}
+                        title={folder.name}
+                      >
+                        {folder.name}
+                      </button>
+                    </React.Fragment>
+                  ))
+                )}
               </div>
             </div>
           )}
