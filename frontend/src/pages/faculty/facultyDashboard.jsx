@@ -42,48 +42,48 @@ export default function FacultyDashboard() {
     });
   }
 
-  // Sample Requested Templates
-  const requestedTemplates = [
+  // Recently Submitted Templates
+  const submittedTemplates = [
     {
       id: 1,
       title: "Research Proposal Template",
-      createdBy: "Admin User",
+      viewedBy: "Admin User",
       status: "Approved",
     },
     {
       id: 2,
       title: "Thesis Format Guide",
-      createdBy: "Admin User",
+      viewedBy: "Admin User",
       status: "Rejected",
     },
     {
       id: 3,
       title: "Internship Report Template",
-      createdBy: "Admin User",
+      viewedBy: "Admin User",
       status: "Returned",
     },
     {
       id: 4,
       title: "Course Syllabus Template",
-      createdBy: "Admin User",
+      viewedBy: "Admin User",
       status: "Approved",
     },
     {
       id: 5,
       title: "Capstone Project Template",
-      createdBy: "Admin User",
+      viewedBy: "Admin User",
       status: "Pending",
     },
     {
       id: 6,
       title: "Department Memo Format",
-      createdBy: "Admin User",
+      viewedBy: "Admin User",
       status: "Endorsed",
     },
   ];
 
-  // Requested Templates Table Columns
-  const requestedTemplatesColumn = [
+  // Recently Submitted Templates Columns
+  const submittedTemplatesColumns = [
     {
       key: "title",
       label: "Title",
@@ -92,8 +92,8 @@ export default function FacultyDashboard() {
       ),
     },
     {
-      key: "createdBy",
-      label: "Created By",
+      key: "viewedBy",
+      label: "Viewed By",
     },
     {
       key: "status",
@@ -283,7 +283,7 @@ export default function FacultyDashboard() {
           {/* MAIN GRID SECTION */}
           {/* mobile: stack vertically
               md+: 3/1 split (tables left, deadlines right) */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 flex-1 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 flex-1 w-full">
             {/* LEFT SIDE: Requested Templates */}
             <div className="md:col-span-3 space-y-6 w-full">
               {/* Requested Templates card */}
@@ -293,7 +293,7 @@ export default function FacultyDashboard() {
                   {/* Title + underline */}
                   <div>
                     <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                      REQUESTED TEMPLATES
+                      RECENTLY SUBMITTED TEMPLATES
                     </h2>
                     <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                   </div>
@@ -309,8 +309,8 @@ export default function FacultyDashboard() {
                 <div className="overflow-x-auto">
                   <div className="min-w-[600px]">
                     <Table
-                      columns={requestedTemplatesColumn}
-                      data={requestedTemplates}
+                      columns={submittedTemplatesColumns}
+                      data={submittedTemplates}
                     />
                   </div>
                 </div>
@@ -318,40 +318,11 @@ export default function FacultyDashboard() {
             </div>
 
             {/* RIGHT SIDE: Deadlines */}
-            <div className="md:col-span-1 space-y-6 w-full">
+            <div className="md:col-span-2 space-y-6 w-full">
               <UpcomingDeadlines
                 deadlines={upcomingDeadlines}
                 formatDate={formatDate}
               />
-            </div>
-
-            {/* FULL-WIDTH RECENTLY SUBMITTED (always full row below both in desktop) */}
-            <div className="md:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
-              <div className="px-3 py-1 bg-gray-50 flex flex-col gap-4 md:flex-row md:items-start md:justify-between rounded-lg">
-                <div>
-                  <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                    RECENTLY SUBMITTED TEMPLATES
-                  </h2>
-                  <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
-                </div>
-
-                <button
-                  onClick={() => navigate("")}
-                  className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
-                >
-                  View All
-                </button>
-              </div>
-
-              {/* table wrapper with scroll on small screens */}
-              <div className="overflow-x-auto">
-                <div className="min-w-[600px]">
-                  <Table
-                    columns={recentlySubmittedTemplatesColumns}
-                    data={recentlySubmittedTemplates}
-                  />
-                </div>
-              </div>
             </div>
           </div>
           {/* END GRID */}
