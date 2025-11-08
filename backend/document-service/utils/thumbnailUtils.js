@@ -113,6 +113,7 @@ function buildDocumentThumbnailHtml(doc = {}) {
     });
     return out;
   })();
+
   const fieldValues = doc.field_values || {};
 
   const firstDoc = (Array.isArray(doc.pages_json) && doc.pages_json.length)
@@ -120,6 +121,52 @@ function buildDocumentThumbnailHtml(doc = {}) {
     : (Array.isArray(doc.from_template?.pages_json) && doc.from_template.pages_json.length ? doc.from_template.pages_json[0] : null);
   let bodyHtml = '';
   if (firstDoc && Array.isArray(firstDoc.content)) {
+
+    const buildRichImage = (node) => {
+      if (!node || !node.attrs) return '';
+      const srcVal = node.attrs.srcOriginal || node.attrs.src;
+      if (!srcVal) return '';
+      // Compute available content width (account for page left/right margins)
+      const pageInnerWidth = Math.max(0, width - ml - mr);
+
+      // Parse requested sizes (numbers in px expected)
+      const rawW = Number(node.attrs.width) || 0;
+      const rawH = Number(node.attrs.height) || 0;
+      const keepAspect = (node.attrs.keepAspect === undefined) ? true : !!node.attrs.keepAspect;
+
+      // Decide final width/height (clamp width to page inner width)
+      let finalW = rawW || pageInnerWidth;
+      if (finalW > pageInnerWidth) finalW = pageInnerWidth;
+      let styleParts = [`max-width:${pageInnerWidth}px`, 'display:block'];
+
+      // If keepAspect and we have original width/height, set width and let height auto to preserve aspect
+      if (keepAspect && rawW && rawH) {
+        styleParts.push(`width:${finalW}px`);
+        styleParts.push('height:auto');
+      } else {
+        // Non-aspect-preserving: apply provided width/height (clamped width)
+        if (rawW) styleParts.push(`width:${finalW}px`);
+        if (rawH) styleParts.push(`height:${rawH}px`);
+      }
+
+      if (node.attrs.objectFit) styleParts.push(`object-fit:${escapeHtml(node.attrs.objectFit)}`);
+
+      // Opacity in editor may be 0-100 or 0-1; normalize to 0-1
+      if (node.attrs.opacity !== undefined && node.attrs.opacity !== null) {
+        const op = Number(node.attrs.opacity) || 0;
+        const norm = op > 1 ? Math.min(1, op / 100) : op;
+        styleParts.push(`opacity:${norm}`);
+      }
+
+      // Alignment: center -> auto margins; right -> margin-left:auto; left -> no extra margins
+      const align = String(node.attrs.align || '').toLowerCase();
+      if (align === 'center') styleParts.push('margin-left:auto', 'margin-right:auto');
+      else if (align === 'right') styleParts.push('margin-left:auto');
+
+      const style = styleParts.filter(Boolean).map(s => s.endsWith(';') ? s : `${s};`).join('');
+      const src = resolveAssetUrl(srcVal);
+      return `<img src="${escapeHtml(src)}" style="${style}" alt="image" />`;
+    };
     const buildParagraph = (para) => {
       let p = '<p>';
       let hasRenderable = false;
@@ -142,11 +189,14 @@ function buildDocumentThumbnailHtml(doc = {}) {
           const def = fid ? fieldDefMap.get(fid) : null;
           // Attempt resolution by field name first; falling back to ID
           const resolvedVal = def && fieldValues ? (fieldValues[def.name] ?? fieldValues[fid]) : (fieldValues ? fieldValues[fid] : null);
-              const valStr = (resolvedVal !== undefined && resolvedVal !== null) ? String(resolvedVal).trim() : '';
-              const display = valStr !== ''
-                ? `<span style="color:#111;">${escapeHtml(valStr)}</span>`
-                : `<span style="color:#999;font-style:italic;">${escapeHtml(def?.placeholder || ch?.attrs?.placeholder || '')}</span>`;
-              p += display;
+          const valStr = (resolvedVal !== undefined && resolvedVal !== null) ? String(resolvedVal).trim() : '';
+          const display = valStr !== ''
+            ? `<span style="color:#111;">${escapeHtml(valStr)}</span>`
+            : `<span style="color:#999;font-style:italic;">${escapeHtml(def?.placeholder || ch?.attrs?.placeholder || '')}</span>`;
+          p += display;
+          hasRenderable = true;
+        } else if (ch.type === 'richImage' || ch.type === 'image') {
+          p += buildRichImage(ch);
           hasRenderable = true;
         }
       });
@@ -154,7 +204,10 @@ function buildDocumentThumbnailHtml(doc = {}) {
       p += '</p>';
       return p;
     };
-    firstDoc.content.forEach(n => { if (n.type === 'paragraph') bodyHtml += buildParagraph(n); });
+    firstDoc.content.forEach(n => {
+      if (n.type === 'paragraph') bodyHtml += buildParagraph(n);
+      else if (n.type === 'richImage' || n.type === 'image') bodyHtml += buildRichImage(n);
+    });
   }
 
   const assetSlu = resolveAssetUrl(headerCfg.assets?.slu || '/assets/images/slu-logo.png');

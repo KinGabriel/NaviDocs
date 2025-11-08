@@ -150,6 +150,38 @@ function buildTemplateThumbnailHtml(template = {}) {
           // Render a light underline box to indicate a field
           p += `<span class="nd-editable-field" style="display:inline-block;min-width:120px;border-bottom:1px dotted #999;color:#999;">${escapeHtml(placeholder)}</span>`;
           hasRenderable = true;
+        } else if (ch.type === 'image' || ch.type === 'richImage') {
+          // Inline image inside paragraph
+          const a = ch?.attrs || {};
+          const src = resolveAssetUrl(a.src || a.srcOriginal || '');
+          if (src) {
+            let style = 'max-width:100%;height:auto;display:inline-block;vertical-align:middle;';
+            let w = Number.isFinite(Number(a.width)) ? Number(a.width) : null;
+            let h = Number.isFinite(Number(a.height)) ? Number(a.height) : null;
+            const keepAspect = a.keepAspect !== false; // default true
+            // Clamp to inner content width
+            const pageInnerWidth = Math.max(0, width - ml - mr);
+            if (w && pageInnerWidth && w > pageInnerWidth) {
+              if (keepAspect && w && h) {
+                const ratio = h / w;
+                w = pageInnerWidth;
+                h = Math.round(w * ratio);
+              } else {
+                w = pageInnerWidth;
+              }
+            }
+            if (w && !h) style += `width:${w}px;`;
+            if (h && !w && !keepAspect) style += `height:${h}px;`;
+            if (w && h) style += `width:${w}px;height:${h}px;object-fit:contain;`;
+            const opacity = a.opacity !== undefined ? Math.max(0, Math.min(1, Number(a.opacity) / 100)) : 1;
+            style += `opacity:${opacity};`;
+            const align = (a.align || '').toLowerCase();
+            if (align === 'right') style += 'float:right;margin-left:8px;';
+            else if (align === 'left') style += 'float:left;margin-right:8px;';
+            else style += 'margin:0 4px;';
+            p += `<img src="${escapeHtml(src)}" alt="" style="${style}"/>`;
+            hasRenderable = true;
+          }
         }
       });
       if (!hasRenderable) {
@@ -202,6 +234,39 @@ function buildTemplateThumbnailHtml(template = {}) {
       if (!src) return '';
       return `<div style="margin:8px 0;text-align:center;"><img src="${escapeHtml(src)}" alt="" style="max-width:100%;height:auto;"/></div>`;
     };
+    const buildRichImage = (node) => {
+      const a = node?.attrs || {};
+      // Prefer src; fall back to srcOriginal if provided
+      const src = resolveAssetUrl(a.src || a.srcOriginal || '');
+      if (!src) return '';
+      // Dimensions and aspect handling
+      let imgW = Number.isFinite(Number(a.width)) ? Number(a.width) : null;
+      let imgH = Number.isFinite(Number(a.height)) ? Number(a.height) : null;
+      const keepAspect = a.keepAspect !== false; // default true
+      // Opacity comes as 0-100 from editor
+      const opacity = a.opacity !== undefined ? Math.max(0, Math.min(1, Number(a.opacity) / 100)) : 1;
+      // Alignment: left | center | right
+      const align = (a.align || 'center');
+      const wrapperAlign = align === 'left' || align === 'right' ? align : 'center';
+      // Clamp to available inner width (page width minus margins)
+      const pageInnerWidth = Math.max(0, width - ml - mr);
+      if (imgW && pageInnerWidth && imgW > pageInnerWidth) {
+        if (keepAspect && imgW && imgH) {
+          const ratio = imgH / imgW;
+          imgW = pageInnerWidth;
+          imgH = Math.round(imgW * ratio);
+        } else {
+          imgW = pageInnerWidth;
+        }
+      }
+      // Compose style
+      let style = 'max-width:100%;height:auto;';
+      if (imgW && !imgH) style += `width:${imgW}px;`;
+      if (imgH && !imgW && !keepAspect) style += `height:${imgH}px;`;
+      if (imgW && imgH) style += `width:${imgW}px;height:${imgH}px;object-fit:contain;`;
+      style += `opacity:${opacity};`;
+      return `<div style="margin:8px 0;text-align:${wrapperAlign};"><img src="${escapeHtml(src)}" alt="" style="${style}"/></div>`;
+    };
     firstDoc.content.forEach(n => {
       if (n.type === 'paragraph') bodyHtml += buildParagraph(n);
       else if (n.type === 'table') bodyHtml += buildTable(n);
@@ -209,6 +274,7 @@ function buildTemplateThumbnailHtml(template = {}) {
       else if (n.type === 'heading') bodyHtml += buildHeading(n);
       else if (n.type === 'horizontalRule') bodyHtml += '<hr style="border:0;border-top:1px solid #000;margin:10px 0;" />';
       else if (n.type === 'image') bodyHtml += buildImage(n);
+      else if (n.type === 'richImage') bodyHtml += buildRichImage(n);
     });
   }
 
