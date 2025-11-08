@@ -11,7 +11,6 @@ import Subscript from "@tiptap/extension-subscript";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import { PaginationPlus } from "tiptap-pagination-plus";
-import { PaginationTable } from "tiptap-table-plus";
 import { Extension } from "@tiptap/core";
 
 import RichImage from "../../extensions/image/ImageNode";
@@ -94,7 +93,6 @@ function computeDims(pageSetup) {
 
 const DEFAULT_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 const normalizeInitialContent = (content) => (content ? content : DEFAULT_DOC);
-const { TablePlus, TableRowPlus, TableCellPlus, TableHeaderPlus } = PaginationTable;
 
 /* ----------------------- normalize header/footer config ----------------------- */
 const normDate = (val) => {
@@ -267,27 +265,18 @@ export default function TextEditor({
       Color,
       FontFamily,
       Highlight.configure({ multicolor: true }),
-      // include table cell & header so alignment menus can target table nodes
-      TextAlign.configure({ types: ["heading", "paragraph", "tableCell", "tableHeader"] }),
+      // alignment for paragraph/heading only
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
       Underline,
       Superscript,
       Subscript,
-
-      // IMPORTANT: TablePlus suite must be registered (and not mixed with vanilla tiptap table)
-      TablePlus.configure({
-        // minor quality of life: slimmer resize handles
-        resizeHandleStyle: { width: "3px" },
-      }),
-      TableRowPlus,
-      TableCellPlus,
-      TableHeaderPlus,
 
       RichImage.configure({ onOpenImageOptions: () => {} }),
 
       // Editable field node (atom + caret placed after on insert)
       EditableField,
 
-      // Pagination last, after table nodes, per Tiptap Plus docs
+      // Pagination after other nodes
       PaginationPlus.configure({
         pageGap: 2,
         pageGapBorderSize: 1,
@@ -299,10 +288,7 @@ export default function TextEditor({
     content: normalizeInitialContent(content),
     editorProps: {
       attributes: {
-        // CRITICAL: no containment; allow fragmentation for page breaks
         class: "tiptap ProseMirror nd-editor-canvas rm-with-pagination",
-        style:
-          "break-inside:auto; page-break-inside:auto; overflow:visible; contain:none;",
       },
     },
     onCreate: ({ editor }) => {
@@ -507,7 +493,7 @@ export default function TextEditor({
       </div>
     `;
 
-    // RIGHT: CICM + stamp table
+    // RIGHT: CICM + stamp (DIV-ONLY, no tables)
     const rightRow = document.createElement("div");
     rightRow.style.display = "flex";
     rightRow.style.alignItems = "center";
@@ -526,20 +512,58 @@ export default function TextEditor({
 
     const hasDocCode = String(cfg.stamp.docCode || "").trim().length > 0;
     if (hasDocCode) {
-      const stamp = document.createElement("table");
-      stamp.style.border = "1px solid #000";
-      stamp.style.borderCollapse = "collapse";
-      stamp.style.fontSize = "11px";
-      stamp.style.fontFamily = "Arial,sans-serif";
-      stamp.style.background = "#fff";
-      stamp.innerHTML = `
-        <tbody>
-          <tr><td style="border:1px solid #000;padding:2px 6px;">Document Code</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(cfg.stamp.docCode)}</td></tr>
-          <tr><td style="border:1px solid #000;padding:2px 6px;">Revision No.</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.revisionNo))}</td></tr>
-          <tr><td style="border:1px solid #000;padding:2px 6px;">Effectivity</td><td style="border:1px solid #000;padding:2px 6px;">${escapeHtml(String(cfg.stamp.effectivity))}</td></tr>
-          <tr><td style="border:1px solid #000;padding:2px 6px;">Page</td><td style="border:1px solid #000;padding:2px 6px;">${pageNo} of ${total}</td></tr>
-        </tbody>`;
-      rightRow.appendChild(stamp);
+      // bordered card
+      const card = document.createElement("div");
+      card.style.border = "1px solid #000";
+      card.style.fontSize = "11px";
+      card.style.fontFamily = "Arial,sans-serif";
+      card.style.background = "#fff";
+      card.style.display = "flex";
+      card.style.flexDirection = "column";
+
+      const row = (label, value) => {
+        const r = document.createElement("div");
+        r.style.display = "flex";
+        r.style.alignItems = "stretch";
+        r.style.borderTop = "1px solid #000";
+        // first row should include top border; fix later
+        const l = document.createElement("div");
+        l.textContent = label;
+        l.style.padding = "2px 6px";
+        l.style.borderRight = "1px solid #000";
+        const v = document.createElement("div");
+        v.textContent = value;
+        v.style.padding = "2px 6px";
+        r.appendChild(l);
+        r.appendChild(v);
+        return r;
+      };
+
+      // ensure outer border
+      card.style.boxSizing = "border-box";
+      // first row manually without top border duplication
+      const first = document.createElement("div");
+      first.style.display = "flex";
+      const fl = document.createElement("div");
+      fl.textContent = "Document Code";
+      fl.style.padding = "2px 6px";
+      fl.style.borderRight = "1px solid #000";
+      const fv = document.createElement("div");
+      fv.textContent = String(cfg.stamp.docCode);
+      fv.style.padding = "2px 6px";
+      first.appendChild(fl);
+      first.appendChild(fv);
+      card.appendChild(first);
+
+      card.appendChild(row("Revision No.", String(cfg.stamp.revisionNo)));
+      card.appendChild(row("Effectivity", String(cfg.stamp.effectivity)));
+      card.appendChild(row("Page", `${pageNo} of ${total}`));
+
+      // add inner separators (outer border already present)
+      card.style.outline = "none";
+      card.style.gap = "0";
+
+      rightRow.appendChild(card);
     }
 
     trip.right.appendChild(rightRow);

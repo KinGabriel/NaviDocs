@@ -15,14 +15,12 @@ body { font-family: 'Poppins', sans-serif; }
 
 .rm-with-pagination,
 .ProseMirror {
-  /* allow content to fragment naturally */
   break-inside: auto !important;
   page-break-inside: auto !important;
   overflow: visible !important;
-  contain: none !important; /* never make the editor atomic */
+  contain: none !important; 
 }
 
-/* Some paginators put pages in wrapping boxes: make sure they fragment */
 .rm-page, .rm-page-content, .rm-page-body {
   break-inside: auto !important;
   page-break-inside: auto !important;
@@ -32,40 +30,6 @@ body { font-family: 'Poppins', sans-serif; }
 
 /* Generic content hygiene */
 .ProseMirror img { max-width: 100%; height: auto; }
-
-/* -------------------------------------------------------------------------- */
-/*  TABLES (tiptap-table-plus + tiptap-pagination-plus)                       */
-/*  Goal: split BETWEEN rows, never inside a row                              */
-/* -------------------------------------------------------------------------- */
-
-/* Normalize any accidental non-table display from extensions */
-.ProseMirror table        { display: table !important; }
-.ProseMirror thead        { display: table-header-group !important; }
-.ProseMirror tbody        { display: table-row-group !important; }
-.ProseMirror tfoot        { display: table-footer-group !important; }
-.ProseMirror tr           { display: table-row !important; }
-.ProseMirror th, .ProseMirror td { display: table-cell !important; }
-
-.ProseMirror table {
-  border-collapse: collapse;
-  table-layout: fixed;
-  width: 100%;
-  margin: 0;
-  overflow: visible !important;
-  break-inside: auto !important;      /* table can fragment */
-  page-break-inside: auto !important;
-  page-break-before: auto !important;
-  page-break-after: auto !important;
-}
-
-/* Rows must NOT split mid-row; allow breaks BETWEEN rows */
-.ProseMirror tr,
-.ProseMirror .table-plus tbody tr {
-  break-inside: avoid-page !important;
-  page-break-inside: avoid !important;
-  /* no positioning that could create a containing block */
-  position: static !important;
-}
 
 /* Cells */
 .ProseMirror td,
@@ -101,57 +65,6 @@ body { font-family: 'Poppins', sans-serif; }
   left: 0; right: 0; top: 0; bottom: 0;
   background: rgba(200, 200, 255, 0.4);
   pointer-events: none;
-}
-
-/* -------------------------------------------------------------------------- */
-/*  TABLE-PLUS NODE VIEW WRAPPER PATCH                                        */
-/*  Many node-views wrap the real <table> in a non-editable <div>.            */
-/*  Flatten that wrapper so pagination can see the real table structure.      */
-/* -------------------------------------------------------------------------- */
-
-/* Flatten the non-editable wrapper that directly contains a table */
-.ProseMirror [contenteditable="false"]:has(> table),
-.ProseMirror .nd-nodeview-wrap:has(> table) {
-  display: contents !important;       /* FLATTEN the wrapper */
-  break-inside: auto !important;
-  page-break-inside: auto !important;
-  overflow: visible !important;
-  contain: none !important;
-}
-
-/* If :has() isn’t supported, fall back: make *all* non-editable wrappers non-atomic */
-@supports not (selector(:has(*))) {
-  .ProseMirror [contenteditable="false"] {
-    break-inside: auto !important;
-    page-break-inside: auto !important;
-    overflow: visible !important;
-    contain: none !important;
-  }
-}
-
-/* Actual table element from Table-Plus */
-.ProseMirror .table-plus {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  display: table !important;
-  break-inside: auto !important;
-  page-break-inside: auto !important;
-  overflow: visible !important;
-}
-
-.ProseMirror .table-plus tbody tr {
-  break-inside: avoid-page !important;
-  page-break-inside: avoid !important;
-  position: static !important;
-}
-
-.ProseMirror .table-plus th,
-.ProseMirror .table-plus td {
-  border: 1px solid #000;
-  white-space: normal;
-  word-break: break-word;
-  overflow: visible !important;
 }
 
 /* Column resize handles (keep visible on screen, hide for print) */
@@ -326,16 +239,8 @@ body { font-family: 'Poppins', sans-serif; }
 }
 
 .nd-editable-field--text { color: #334155; }
-/* Legacy placeholder when wrapper had no children 
 .nd-editable-field--text:is(:empty)::before {
   content: attr(data-ph);
-  color: #94a3b8;
-  font-style: italic;
-}
-  */
-/* New content-based node: show placeholder from the inner text span when empty */
-.nd-editable-field__text:empty::before {
-  content: attr(data-placeholder);
   color: #94a3b8;
   font-style: italic;
 }
