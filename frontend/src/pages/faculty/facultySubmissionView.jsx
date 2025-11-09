@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
@@ -248,7 +249,7 @@ export default function FacultySubmissionView() {
 
   const handleSubmit = async () => {
     if (selectedFiles.length === 0) {
-      alert("Please select at least one document to submit");
+      toast.error("Please select at least one document to submit");
       return;
     }
 
@@ -282,11 +283,11 @@ export default function FacultySubmissionView() {
       }
       
       // Show success message with count
-      alert(`Successfully submitted ${documentIds.length} document${documentIds.length !== 1 ? 's' : ''}!`);
+      toast.success(`Successfully submitted ${documentIds.length} document${documentIds.length !== 1 ? 's' : ''}!`);
       navigate(-1);
     } catch (e) {
       console.error('Submission error:', e);
-      alert(e?.responseData?.message || e?.message || 'Failed to submit documents');
+      toast.error(e?.responseData?.message || e?.message || 'Failed to submit documents');
     } finally {
       setIsSubmitting(false);
     }
@@ -296,7 +297,7 @@ export default function FacultySubmissionView() {
 
   const handleViewSubmission = (documentId) => {
     if (!documentId) {
-      alert("Invalid document ID");
+      toast.error("Invalid document ID");
       return;
     }
     navigate(`/submissions/${documentId}`);
@@ -627,7 +628,7 @@ export default function FacultySubmissionView() {
                                 if (typeof docId === "string" || typeof docId === "number") {
                                   handleViewSubmission(docId);
                                 } else {
-                                  alert("Cannot view this document - invalid ID");
+                                  toast.error("Cannot view this document - invalid ID");
                                 }
                               }}
                               disabled={isLoading}
