@@ -1038,27 +1038,30 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                       Notes
                     </h3>
                     <div className="w-16 h-0.5 bg-yellow-400 mb-3 rounded" />
-                    <ul>
-                      {notes.length > 0 ? (
-                        notes.map((note, idx) => (
-                          <li key={idx} className="mb-3">
-                            {/* Note metadata */}
-                            <div className="text-xs text-gray-500 mb-1 font-sans">
-                              {note.added_by_name || note.added_by || ''} &middot; {formatDateTime(note.created_at)}
-                            </div>
-                            {/* Note type */}
-                            <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-3">
-                              {note.type || 'Note'}
-                            </div>
-                            {/* Note message */}
-                            <div className="text-base text-gray-800 font-sans">{note.message}</div>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-base text-gray-400 font-sans">No notes available.</li>
-                      )}
-                    </ul>
-                  </div>
+
+                    <div className="max-h-60 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <ul>
+                        {notes.length > 0 ? (
+                          notes.map((note, idx) => (
+                            <li key={idx} className="mb-3 border-b border-gray-100 pb-2">
+                              {/* Note metadata */}
+                              <div className="text-xs text-gray-500 mb-1 font-sans">
+                                {note.added_by_name || note.added_by || ''} &middot; {formatDateTime(note.created_at)}
+                              </div>
+                              {/* Note type */}
+                              <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                {note.type || 'Note'}
+                              </div>
+                              {/* Note message */}
+                              <div className="text-sm text-gray-800 font-sans break-words">{note.message}</div>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-base text-gray-400 font-sans">No notes available.</li>
+                        )}
+                      </ul>
+                    </div>  
+                  </div>  
                 </div>
               </div>
             </aside>
