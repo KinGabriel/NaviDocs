@@ -19,7 +19,6 @@ import FontPanel from "../../layout/create_template/fontPanel";
 import PageSetupPanel from "../../layout/create_template/pageSetupPanel";
 import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
-import DateFormatPanel from "../../layout/create_template/dateformatPanel";
 import FieldsPanel from "../../layout/create_template/fieldsPanel";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
 
@@ -159,7 +158,6 @@ export default function DocumentControllerCreateTemplate() {
   // Layout/config
   const [pageSetup, setPageSetup] = useState(DEFAULT_PAGE_SETUP);
   const [fontSettings, setFontSettings] = useState({});
-  const [dateFormat, setDateFormat] = useState({ style: "numeric" });
   const [editableFields, setEditableFields] = useState([]);
 
   // HeaderFooter config
@@ -176,7 +174,6 @@ export default function DocumentControllerCreateTemplate() {
   const [lastSavedId, setLastSavedId] = useState(null);
   const [lastSavedHeaderConfig, setLastSavedHeaderConfig] = useState(DEFAULT_HEADER_CONFIG);
   const [lastSavedPageSetup, setLastSavedPageSetup] = useState(DEFAULT_PAGE_SETUP);
-  const [lastSavedDateFormat, setLastSavedDateFormat] = useState({ style: "numeric" });
   const [lastSavedDocumentCode, setLastSavedDocumentCode] = useState("");
   const [lastSavedRevisionNo, setLastSavedRevisionNo] = useState(0);
   const [lastSavedEffectivity, setLastSavedEffectivity] = useState(null);
@@ -222,7 +219,6 @@ export default function DocumentControllerCreateTemplate() {
       }
 
       if (normalized.fontSettings) setFontSettings(normalized.fontSettings);
-      if (normalized.dateFormat) setDateFormat(normalized.dateFormat);
       if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
 
       const loadedHeader = normalized.headerConfig && Object.keys(normalized.headerConfig).length
@@ -236,7 +232,6 @@ export default function DocumentControllerCreateTemplate() {
 
       setLastSavedTitle(normalized.templateTitle || "");
       setLastSavedPageSetup(normalized.pageSetup || DEFAULT_PAGE_SETUP);
-      setLastSavedDateFormat(normalized.dateFormat || { style: "numeric" });
       setLastSavedHeaderConfig(loadedHeader);
       setLastSavedDocumentCode((normalized.document_code ?? "").toString());
       setLastSavedRevisionNo(Number(normalized.revision_no ?? 0));
@@ -301,7 +296,6 @@ export default function DocumentControllerCreateTemplate() {
         pages_json,
         body: editor ? editor.getHTML() : (typeof templateContent === "string" ? templateContent : ""),
         pageSetup,
-        dateFormat,
         fields: editableFields,
         headerConfig,
         document_code: normDocumentCode,
@@ -325,7 +319,6 @@ export default function DocumentControllerCreateTemplate() {
       setLastSavedId(res?.template?._id || templateId);
       setLastSavedHeaderConfig(headerConfig);
       setLastSavedPageSetup(pageSetup);
-      setLastSavedDateFormat(dateFormat);
       setLastSavedDocumentCode(normDocumentCode.toString());
       setLastSavedRevisionNo(Number(normRevisionNo));
       setLastSavedEffectivity(normEffectivity ?? null);
@@ -347,7 +340,6 @@ export default function DocumentControllerCreateTemplate() {
       templateContent !== lastSavedContent ||
       templateTitle !== lastSavedTitle ||
       JSON.stringify(pageSetup) !== JSON.stringify(lastSavedPageSetup) ||
-      JSON.stringify(dateFormat) !== JSON.stringify(lastSavedDateFormat) ||
       JSON.stringify(headerConfig) !== JSON.stringify(lastSavedHeaderConfig) ||
       String(documentCode ?? "") !== String(lastSavedDocumentCode ?? "") ||
       Number(revisionNo ?? 0) !== Number(lastSavedRevisionNo ?? 0) ||
@@ -364,13 +356,11 @@ export default function DocumentControllerCreateTemplate() {
     templateContent,
     templateTitle,
     pageSetup,
-    dateFormat,
     headerConfig,
     documentCode,
     revisionNo,
     effectivity,
     lastSavedPageSetup,
-    lastSavedDateFormat,
     lastSavedHeaderConfig,
     lastSavedDocumentCode,
     lastSavedRevisionNo,
@@ -488,8 +478,6 @@ export default function DocumentControllerCreateTemplate() {
             }
           />
         );
-      case "dateformat":
-        return <DateFormatPanel value={dateFormat} onChange={setDateFormat} />;
       case "headerfooter": {
         const headerValue = {
           ...(headerConfig || {}),
