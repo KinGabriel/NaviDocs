@@ -132,23 +132,47 @@ export default function SubmittedFilesView() {
   const [error, setError] = useState("");
 
   // Fetch submission data
-  useEffect(() => {
-    if (id) {
-      setLoading(true);
-      
-      const fetchSubmissionData = async () => {
+useEffect(() => {
+  if (id) {
+    setLoading(true);
+    
+    const fetchSubmissionData = async () => {
+      try {
+        // Try to fetch the document directly
+        let actualDocument = null;
         try {
-          // Fetch the actual submitted document by ID
           const documentRes = await getDocumentByIdAPI(id);
-          const actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
-          
-          // Set the actual document for preview
+          actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
           setFetchedDoc(actualDocument);
-          
+        } catch (docErr) {
+          console.warn('Could not fetch document directly:', docErr.message);
+        }
+        
           // Fetch the submission bin data to get submission metadata
           const bins = await listSubmissionBinsByDocumentAPI(id);
           
           if (!bins || bins.length === 0) {
+          console.warn('No bins found for document', id);
+          if (actualDocument) {
+            setSubmission({
+              id: 'unknown',
+              title: actualDocument.title || 'Document',
+              submittedBy: { name: 'Unknown', role: 'Faculty', email: '' },
+              submittedAt: actualDocument.createdAt || actualDocument.created_at,
+              status: 'submitted',
+              files: [{
+                id: id,
+                name: actualDocument.title || "Document",
+                url: actualDocument.filePath || "",
+                size: actualDocument.size || 0,
+                uploadedAt: actualDocument.createdAt || actualDocument.created_at,
+                _fullData: actualDocument
+              }],
+              viewedBy: [],
+              comments: [],
+              deadline: null
+            });
+          }
             setLoading(false);
             return;
           }
@@ -156,21 +180,35 @@ export default function SubmittedFilesView() {
           const binData = await getSubmissionBinAPI(bins[0]._id || bins[0].id);
           
           // Find the submission item that contains this document
-          const submissionItem = binData.submissions?.find(sub => 
-            (Array.isArray(sub.documents) && sub.documents.some(doc => 
-              String(doc._id || doc.id || doc) === String(id)
-            )) ||
-            String(sub.document?._id || sub.document?.id || sub.document) === String(id)
-          );
-          
-          if (!submissionItem) {
-            setLoading(false);
-            return;
+          const submissionItem = binData.submissions?.find(sub => {
+          // Check if document is in the documents array
+          if (Array.isArray(sub.documents) && sub.documents.length > 0) {
+            return sub.documents.some(doc => {
+              const docId = doc._id || doc.id || doc;
+              return String(docId) === String(id);
+            });
           }
+          // Check if document is the single document field
+          if (sub.document) {
+            const docId = sub.document._id || sub.document.id || sub.document;
+            return String(docId) === String(id);
+          }
+          return false;
+        });
+        
+        if (!submissionItem) {
+          console.warn('Submission item not found for document', id);
+          setLoading(false);
+          return;
+        }
+        
+        console.log('Found submission item:', submissionItem);
           
           // Get all submitted documents with full details
           const submittedDocs = [];
-          if (Array.isArray(submissionItem.documents)) {
+
+          // Handle documents array (multiple documents)
+          if (Array.isArray(submissionItem.documents) && submissionItem.documents.length > 0) {
             for (const doc of submissionItem.documents) {
               const docId = doc._id || doc.id || doc;
               try {
@@ -186,9 +224,50 @@ export default function SubmittedFilesView() {
                 });
               } catch (err) {
                 console.error(`Failed to fetch document ${docId}:`, err);
-              }
+              // Use placeholder if can't fetch the document
+              submittedDocs.push({
+                id: docId,
+                name: `Document ${docId}`,
+                url: "",
+                size: 0,
+                uploadedAt: submissionItem.submitted_at,
+                _fullData: null
+              });
             }
           }
+        } 
+        // Handle single document field (fallback)
+        else if (submissionItem.document) {
+          const docId = submissionItem.document._id || submissionItem.document.id || submissionItem.document;
+          try {
+            const docRes = await getDocumentByIdAPI(docId);
+            const docData = docRes?.document || docRes?.data?.document || docRes?.data || docRes;
+            submittedDocs.push({
+              id: docId,
+              name: docData.title || "Untitled Document",
+              url: docData.filePath || "",
+              size: docData.size || 0,
+              uploadedAt: submissionItem.submitted_at,
+              _fullData: docData
+            });
+          } catch (err) {
+            console.error(`Failed to fetch document ${docId}:`, err);
+          }
+        }
+        
+        console.log('Submitted docs:', submittedDocs);
+        
+        // Ensure we have at least the current document in the list
+        if (submittedDocs.length === 0 && actualDocument) {
+          submittedDocs.push({
+            id: id,
+            name: actualDocument.title || "Untitled Document",
+            url: actualDocument.filePath || "",
+            size: actualDocument.size || 0,
+            uploadedAt: submissionItem.submitted_at,
+            _fullData: actualDocument
+          });
+        }
           
           // Map the real submission data
           const mappedSubmission = {
@@ -198,7 +277,8 @@ export default function SubmittedFilesView() {
               name: submissionItem.faculty_name || 
                     submissionItem.faculty_user?.name || 
                     submissionItem.faculty_user?.fullname ||
-                    `${submissionItem.faculty_user?.firstname || ''} ${submissionItem.faculty_user?.lastname || ''}`.trim(),
+                    `${submissionItem.faculty_user?.firstname || ''} ${submissionItem.faculty_user?.lastname || ''}`.trim() ||
+                    "Unknown User",
               role: submissionItem.faculty_user?.role?.name || "Faculty",
               email: submissionItem.faculty_user?.email || ""
             },
@@ -209,6 +289,8 @@ export default function SubmittedFilesView() {
             comments: submissionItem.comments || [],
             deadline: binData.deadline
           };
+
+        console.log('Mapped submission:', mappedSubmission);
           
           setSubmission(mappedSubmission);
           
@@ -588,13 +670,14 @@ export default function SubmittedFilesView() {
                       <div className="w-24 h-0.5 bg-yellow-400 mt-2 mb-4 rounded" />
 
                       {/* Submission Info */}
+                      {submission ? (
                       <div className="mb-4 pb-4 border-b">
                         <div className="flex items-start gap-3 mb-3">
                           <User size={18} className="text-gray-500 mt-0.5" />
                           <div className="flex-1">
                             <p className="text-xs text-gray-500 mb-0.5">Submitted by</p>
                             <p className="text-sm font-medium text-gray-900">
-                                {submission?.submittedBy?.name || "Loading..." }
+                                {submission?.submittedBy?.name || "Unknown" }
                             </p>
                             <p className="text-xs text-gray-500">
                               {submission?.submittedBy?.role}
@@ -607,11 +690,16 @@ export default function SubmittedFilesView() {
                           <div className="flex-1">
                             <p className="text-xs text-gray-500 mb-0.5">Submitted on</p>
                             <p className="text-sm font-medium text-gray-900">
-                              {submission?.submittedAt ? formatDateTime(submission.submittedAt) : "Loading..." }
-                            </p>
+                            {submission?.submittedAt ? formatDateTime(submission.submittedAt) : "N/A" }
+                           </p>
                           </div>
                         </div>
-                      </div>
+                     </div>
+                      ) : (
+                        <div className="mb-4 pb-4 border-b">
+                          <Loader message="Loading submission info..." />
+                        </div>
+                      )}
 
                   {/* Submitted Files */}
                   {submission?.files && submission.files.length > 0 && (
@@ -716,8 +804,7 @@ export default function SubmittedFilesView() {
                         
                       )}
 
-
-                     {(submission?.status === 'pending' || submission?.status === 'returned') && (
+                    {(submission?.status === 'pending' || submission?.status === 'returned') && (
                       <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
                         <div className="flex justify-center mb-3">
                           <StatusBadge type={submission?.status} />
@@ -728,6 +815,13 @@ export default function SubmittedFilesView() {
                         {submission?.status === 'returned' && (
                           <p className="text-xs text-gray-600">Returned for revision</p>
                         )}
+                      </div>
+                    )}
+
+                      {/* Show loading state if no submission data yet */}
+                      {!submission && loading && (
+                        <div className="py-8">
+                          <Loader message="Loading submission details..." />
                       </div>
                     )}
                     </>
