@@ -25,9 +25,14 @@ export default function AdminLoginActivity() {
 
   const roleOptions = [
     "All Roles",
+    "Admin",
+    "Dean",
+    "Department Head",
+    "Document Controller Officer",
+    "Faculty",
     "Lead Document Controller",
+    "Secretary",
     "Unit Document Controller",
-    "Document Controller Officer"
   ];
   const [roleFilter, setRoleFilter] = useState("All Roles");
 
@@ -131,7 +136,7 @@ export default function AdminLoginActivity() {
         <Sidebar user={user} active="Login Activity" />
 
         <main className="flex-1 w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 lg:p-8">
+          <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 md:p-10 min-h-[900px]">
 
             <h2 className="text-lg sm:text-2xl lg:text-3xl font-bold text-black tracking-widest uppercase mb-2">
               Login Activity
