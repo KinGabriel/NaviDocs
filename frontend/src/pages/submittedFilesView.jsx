@@ -21,13 +21,14 @@ import {
   FileText
 } from "lucide-react";
 import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI } from "../api/assignmentDocumentsAPI";
+import fetchAndNormalizeDocument from "../utils/documentLoader";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
 const API_URL =
   API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
-
+  
 // Helper: create a temporary document from the template, export via the document exporter, then cleanup
 async function exportTemplateViaDocument({ templateDoc, store = false, folderId, filename, html }) {
   const payload = {
@@ -133,27 +134,38 @@ export default function SubmittedFilesView() {
 
   // Fetch submission data
 useEffect(() => {
-  if (id) {
-    setLoading(true);
-    
-    const fetchSubmissionData = async () => {
+  if (!id) {
+    setError("No document ID provided");
+    setLoading(false);
+    return;
+  }
+  
+  let mounted = true;
+  
+  const fetchSubmissionData = async () => {
+    try {
+      setLoading(true);
+      console.log('Fetching document with ID:', id);
+      
+      // Try to fetch the document directly
+      let actualDocument = null;
       try {
-        // Try to fetch the document directly
-        let actualDocument = null;
-        try {
-          const documentRes = await getDocumentByIdAPI(id);
-          actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
+        const documentRes = await getDocumentByIdAPI(id);
+        actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
+        if (mounted) {
           setFetchedDoc(actualDocument);
-        } catch (docErr) {
-          console.warn('Could not fetch document directly:', docErr.message);
         }
-        
-          // Fetch the submission bin data to get submission metadata
-          const bins = await listSubmissionBinsByDocumentAPI(id);
-          
-          if (!bins || bins.length === 0) {
-          console.warn('No bins found for document', id);
-          if (actualDocument) {
+      } catch (docErr) {
+        console.warn('Could not fetch document directly:', docErr.message);
+      }
+      // Fetch the submission bin data to get submission metadata
+      const bins = await listSubmissionBinsByDocumentAPI(id);
+      console.log('Bins response:', bins);
+      
+      if (!bins || bins.length === 0) {
+        console.warn('No bins found for document', id);
+        // If we have the actual document but no bins, create a fallback submission
+        if (actualDocument && mounted) {
             setSubmission({
               id: 'unknown',
               title: actualDocument.title || 'Document',
@@ -172,90 +184,99 @@ useEffect(() => {
               comments: [],
               deadline: null
             });
-          }
-            setLoading(false);
-            return;
-          }
-          
-          const binData = await getSubmissionBinAPI(bins[0]._id || bins[0].id);
-          
-          // Find the submission item that contains this document
-          const submissionItem = binData.submissions?.find(sub => {
-          // Check if document is in the documents array
-          if (Array.isArray(sub.documents) && sub.documents.length > 0) {
-            return sub.documents.some(doc => {
-              const docId = doc._id || doc.id || doc;
-              return String(docId) === String(id);
-            });
-          }
-          // Check if document is the single document field
-          if (sub.document) {
-            const docId = sub.document._id || sub.document.id || sub.document;
-            return String(docId) === String(id);
-          }
-          return false;
-        });
-        
-        if (!submissionItem) {
-          console.warn('Submission item not found for document', id);
-          setLoading(false);
-          return;
+          setError("");
+        } else {
+          throw new Error('No submission bin found for this document');
         }
-        
-        console.log('Found submission item:', submissionItem);
+        if (mounted) {
+          setLoading(false);
+        }
+        return;
+      }
+      
+      const binId = bins[0]._id || bins[0].id;
+      const binData = await getSubmissionBinAPI(binId);
+      console.log('Bin data:', binData);
+      
+      // Find the submission item that contains this document
+      const submissionItem = binData.submissions?.find(sub => {
+        const hasInDocuments = Array.isArray(sub.documents) && sub.documents.some(doc => 
+          String(doc._id || doc.id || doc) === String(id)
+        );
+        const hasInDocument = String(sub.document?._id || sub.document?.id || sub.document) === String(id);
+        return hasInDocuments || hasInDocument;
+      });
+      
+      if (!submissionItem) {
+        console.warn('Submission item not found for document', id);
+        throw new Error('Submission item not found for this document');
+      }
+      
+      console.log('Submission item:', submissionItem);
+      
+      // Get all submitted documents with full details
+      const submittedDocs = [];
+      
+      // Handle single document
+      if (submissionItem.document) { 
+        const docId = submissionItem.document._id || submissionItem.document.id || submissionItem.document;
+        try {
+          const normalizedDoc = await fetchAndNormalizeDocument(docId);
           
-          // Get all submitted documents with full details
-          const submittedDocs = [];
+          submittedDocs.push({
+            id: docId,
+            name: normalizedDoc.title,
+            url: normalizedDoc.document.filePath || "",
+            size: normalizedDoc.document.size || 0,
+            uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
+            _fullData: normalizedDoc
+          });
+          
+          console.log('🔍 Normalized document:', normalizedDoc);
+          console.log('🔍 Field values:', normalizedDoc.field_values);
+        } catch (err) {
+          console.error(`Failed to fetch document ${docId}:`, err);
+          // Use placeholder if can't fetch the document
+          submittedDocs.push({
+            id: docId,
+            name: `Document ${docId}`,
+            url: "",
+            size: 0,
+            uploadedAt: submissionItem.submitted_at,
+            _fullData: null
+          });
+        }
+      } 
 
-          // Handle documents array (multiple documents)
-          if (Array.isArray(submissionItem.documents) && submissionItem.documents.length > 0) {
-            for (const doc of submissionItem.documents) {
-              const docId = doc._id || doc.id || doc;
-              try {
-                const docRes = await getDocumentByIdAPI(docId);
-                const docData = docRes?.document || docRes?.data?.document || docRes?.data || docRes;
-                submittedDocs.push({
-                  id: docId,
-                  name: docData.title || "Untitled Document",
-                  url: docData.filePath || "",
-                  size: docData.size || 0,
-                  uploadedAt: doc.createdAt || doc.created_at || submissionItem.submitted_at,
-                  _fullData: docData
-                });
-              } catch (err) {
-                console.error(`Failed to fetch document ${docId}:`, err);
-              // Use placeholder if can't fetch the document
-              submittedDocs.push({
-                id: docId,
-                name: `Document ${docId}`,
-                url: "",
-                size: 0,
-                uploadedAt: submissionItem.submitted_at,
-                _fullData: null
-              });
-            }
-          }
-        } 
-        // Handle single document field (fallback)
-        else if (submissionItem.document) {
-          const docId = submissionItem.document._id || submissionItem.document.id || submissionItem.document;
+      // Handle multiple documents
+      if (Array.isArray(submissionItem.documents) && submissionItem.documents.length > 0) {  
+        for (const doc of submissionItem.documents) {
+          const docId = doc._id || doc.id || doc;
           try {
-            const docRes = await getDocumentByIdAPI(docId);
-            const docData = docRes?.document || docRes?.data?.document || docRes?.data || docRes;
+            const normalizedDoc = await fetchAndNormalizeDocument(docId);
+            
             submittedDocs.push({
               id: docId,
-              name: docData.title || "Untitled Document",
-              url: docData.filePath || "",
-              size: docData.size || 0,
-              uploadedAt: submissionItem.submitted_at,
-              _fullData: docData
+              name: normalizedDoc.title,
+              url: normalizedDoc.document.filePath || "",
+              size: normalizedDoc.document.size || 0,
+              uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
+              _fullData: normalizedDoc
             });
           } catch (err) {
             console.error(`Failed to fetch document ${docId}:`, err);
+            // Use placeholder if can't fetch the document
+            submittedDocs.push({
+              id: docId,
+              name: `Document ${docId}`,
+              url: "",
+              size: 0,
+              uploadedAt: submissionItem.submitted_at,
+              _fullData: null
+            });
           }
         }
-        
-        console.log('Submitted docs:', submittedDocs);
+      }
         
         // Ensure we have at least the current document in the list
         if (submittedDocs.length === 0 && actualDocument) {
@@ -268,6 +289,21 @@ useEffect(() => {
             _fullData: actualDocument
           });
         }
+
+      console.log('Submitted docs:', submittedDocs);
+      console.log('First submitted doc _fullData:', submittedDocs[0]?._fullData);
+      console.log('First doc pages_json exists:', !!submittedDocs[0]?._fullData?.pages_json);
+      console.log('🔍 First doc field_values:', submittedDocs[0]?._fullData?.field_values);
+      
+      // Set the first document for preview
+      if (submittedDocs.length > 0) {
+        const firstDoc = submittedDocs[0]._fullData;
+        if (mounted) {
+          setFetchedDoc(firstDoc);
+          setPreviewDocument(firstDoc);
+          setSelectedFileIndex(0);
+        }
+      }
           
           // Map the real submission data
           const mappedSubmission = {
@@ -284,45 +320,71 @@ useEffect(() => {
             },
             submittedAt: submissionItem.submitted_at,
             status: submissionItem.status || (submissionItem.submitted_at ? "submitted" : "pending"),
-            files: submittedDocs,
+            files: submittedDocs && submittedDocs.length > 0 ? submittedDocs : [],
             viewedBy: submissionItem.viewed_by || [],
             comments: submissionItem.comments || [],
             deadline: binData.deadline
           };
-
-        console.log('Mapped submission:', mappedSubmission);
-          
-          setSubmission(mappedSubmission);
-          
-        } catch (err) {
-          console.error("Error fetching submission:", err);
-          setError(err.message || "Failed to load submission");
-        } finally {
-          setLoading(false);
-        }
-      };
       
-      fetchSubmissionData();
-    }
-  }, [id, state]);
-
-  // To update the preview when file selection changes
-  useEffect(() => {
-    if (submission?.files && submission.files.length > 0) {
-      const selectedFile = submission.files[selectedFileIndex];
-      if (selectedFile?._fullData) {
-        setPreviewDocument(selectedFile._fullData);
-      } else if (selectedFile?.id) {
-        // Fetch the document if not already loaded
-        getDocumentByIdAPI(selectedFile.id)
-          .then(res => {
-            const docData = res?.document || res?.data?.document || res?.data || res;
-            setPreviewDocument(docData);
-          })
-          .catch(err => console.error("Failed to fetch preview:", err));
+      console.log('Mapped submission:', mappedSubmission);
+      if (mounted) {
+        setSubmission(mappedSubmission);
+        setError("");
+      }
+      
+    } catch (err) {
+      console.error("Error fetching submission:", err);
+      if (mounted) {
+        setError(err.message || "Failed to load submission");
+      }
+    } finally {
+      if (mounted) {
+        setLoading(false);
       }
     }
-  }, [selectedFileIndex, submission?.files]);
+  };
+  
+  fetchSubmissionData();
+  
+  return () => { mounted = false; };
+}, [id, state]);
+
+  // To update the preview when file selection changes
+    useEffect(() => {
+      if (submission?.files && submission.files.length > 0) {
+        const selectedFile = submission.files[selectedFileIndex];
+        if (selectedFile?._fullData) {
+          console.log('Setting preview document:', selectedFile._fullData);
+          console.log('Has pages_json:', !!selectedFile._fullData.pages_json);
+          setPreviewDocument(selectedFile._fullData);
+        } else if (selectedFile?.id) {
+          // Fetch the document if not already loaded
+          console.log('Fetching preview for document:', selectedFile.id);
+          getDocumentByIdAPI(selectedFile.id)
+            .then(res => {
+              const docData = res?.document || res?.data?.document || res?.data || res;
+              
+              let pagesJson = docData.pages_json;
+              if (!pagesJson && docData.from_template?.pages_json) {
+                pagesJson = docData.from_template.pages_json;
+              }
+              
+              const normalizedData = {
+                ...docData,
+                pages_json: pagesJson || docData.pages_json,
+                pageSetup: docData.pageSetup || docData.from_template?.pageSetup,
+                headerConfig: docData.headerConfig || docData.from_template?.headerConfig,
+                logoConfig: docData.logoConfig || docData.from_template?.logoConfig,
+              };
+              
+              console.log('Fetched document:', normalizedData);
+              console.log('Has pages_json:', !!normalizedData.pages_json);
+              setPreviewDocument(normalizedData);
+            })
+            .catch(err => console.error("Failed to fetch preview:", err));
+        }
+      }
+    }, [selectedFileIndex, submission?.files]);
 
   const d = state?.doc || fetchedDoc || {};
   const doc = {
@@ -445,24 +507,31 @@ useEffect(() => {
     }
   };
 
-  const [currentPage, setCurrentPage] = useState(0);
+    const [currentPage, setCurrentPage] = useState(0);
+    const pageNodes = useMemo(() => {
+      const activeDoc = previewDocument || fetchedDoc || d;
+      if (!activeDoc || !activeDoc.pages_json) return [];
+      
+      const baseDoc = activeDoc.pages_json[0] || { type: "doc", content: [] };
+      const pages = (baseDoc.content || []).filter((n) => n.type === "page");
+      return pages.length > 0 ? pages : [];
+    }, [previewDocument, fetchedDoc, d]);
 
-  const pageNodes = useMemo(() => {
-    const activeDoc = previewDocument || d;
-    const baseDoc = activeDoc?.pages_json?.[0] || { type: "doc", content: [] };
-    const pages = (baseDoc.content || []).filter((n) => n.type === "page");
-    return pages.length > 0 ? pages : [];
-  }, [previewDocument, d]);
-
-  const contentForEditor = useMemo(() => {
-    const activeDoc = previewDocument || d;
-    const baseDoc = activeDoc?.pages_json?.[0] || { type: "doc", content: [] };
-    if (pageNodes.length > 0) {
-      const pageNode = pageNodes[currentPage];
-      if (pageNode) return { ...baseDoc, content: [pageNode] };
-    }
-    return baseDoc;
-  }, [previewDocument, d, pageNodes, currentPage]);
+const contentForEditor = useMemo(() => {
+  const activeDoc = previewDocument || fetchedDoc || d;
+  if (!activeDoc || !activeDoc.pages_json) return { type: "doc", content: [] };
+  
+  const baseDoc = activeDoc.pages_json[0] || { type: "doc", content: [] };
+  
+  // Log the entire template structure
+  console.log('Full Template Structure:', JSON.stringify(baseDoc, null, 2));
+  
+  if (pageNodes.length > 0) {
+    const pageNode = pageNodes[currentPage];
+    if (pageNode) return { ...baseDoc, content: [pageNode] };
+  }
+  return baseDoc;
+}, [previewDocument, fetchedDoc, d, pageNodes, currentPage]);
 
   const buildExportHtmlFromPreview = () => {
     try {
@@ -533,8 +602,9 @@ useEffect(() => {
     }
   };
 
-    const normalizedHeaderConfig = (() => {
-      const activeDoc = previewDocument || d;
+    const normalizedHeaderConfig = useMemo(() => {
+      const activeDoc = previewDocument || fetchedDoc || d;
+      if (!activeDoc) return {};
       
       // For documents, get template metadata from template_id reference
       const templateMeta = activeDoc?.template_id || activeDoc?.template || {};
@@ -567,6 +637,7 @@ useEffect(() => {
                           templateMeta?.effectivity_date || 
                           src?.documentStamp?.effectivity || 
                           "";
+                          
     return {
       ...src,
       showSLULogo: src.showSLULogo ?? src.showSLU ?? !!src.assets?.slu,
@@ -585,7 +656,7 @@ useEffect(() => {
       revision_no: revisionNo,
       effectivity,
     };
-  })();
+  }, [previewDocument, fetchedDoc, d]);
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -626,10 +697,36 @@ useEffect(() => {
       <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
         <main className="p-8 flex-1 overflow-y-auto">
           <div className="grid grid-cols-12 gap-6">
-            {/* Document Preview Section */}
-           <section className="col-span-12 lg:col-span-8">
-              {(previewDocument || d) && (
-                <div className="w-full">
+          {/* Document Preview Section */}
+          <section className="col-span-12 lg:col-span-8">
+            {loading ? (
+              <div className="h-full w-full flex items-center justify-center bg-white rounded-lg border border-gray-200 shadow-sm" style={{ minHeight: 600 }}>
+                <div className="text-center">
+                  <Loader message="Loading document preview..." />
+                </div>
+              </div>
+            ) : error ? (
+              <div className="h-full w-full flex items-center justify-center bg-white rounded-lg border border-red-200 shadow-sm" style={{ minHeight: 600 }}>
+                <div className="text-center p-8">
+                  <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Document</h3>
+                  <p className="text-gray-600 mb-4">{error}</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Retry
+                  </button>
+                </div>
+              </div>
+            ) : (previewDocument || fetchedDoc || d)?.pages_json ? (
+              <div className="w-full">
+               
+                  {console.log('📝 Passing to TextEditor:', {
+                    fieldValues: (previewDocument || d)?.field_values,
+                    hasFieldValues: !!(previewDocument || d)?.field_values,
+                    fieldValuesKeys: Object.keys((previewDocument || d)?.field_values || {})
+                      })}
                   <div ref={previewRef} id="template-preview-capture">
                    <TextEditor
                       content={contentForEditor}
@@ -644,15 +741,50 @@ useEffect(() => {
                       documentCode={normalizedHeaderConfig.document_code}
                       revisionNo={normalizedHeaderConfig.revision_no}
                       effectivity={normalizedHeaderConfig.effectivity}
+                      fieldValues={(() => {
+                      const activeDoc = previewDocument || d;
+                      
+                      // Get fields 
+                      let fieldsList = activeDoc?.fields || activeDoc?.from_template?.fields || [];
+                      
+                      // Flatten nested fields from accordions
+                      const flatFields = [];
+                      fieldsList.forEach(group => {
+                        if (group.fields && Array.isArray(group.fields)) {
+                          flatFields.push(...group.fields);
+                        }
+                      });
+                      
+                      const rawValues = activeDoc?.field_values || {};
+                      
+                      console.log('Field Groups:', fieldsList);
+                      console.log('Flattened Fields:', flatFields);
+                      console.log('Raw field values:', rawValues);
+                      
+                      // Map field values by label instead of key
+                      const mappedByLabel = {};
+                      flatFields.forEach(field => {
+                        const key = field.key || field._id || field.id;
+                        const label = field.label || field.name || '';
+                        if (key && rawValues[key] !== undefined) {
+                          mappedByLabel[label] = rawValues[key];
+                          console.log(`Mapped: ${label} = ${rawValues[key]}`);
+                        }
+                      });
+                      
+                      console.log('Mapped by label:', mappedByLabel);
+                      
+                      return mappedByLabel;
+                    })()}
                     />
                   </div>
                 </div>
-              )}
-              {!(previewDocument || d) && (
-                <div className="h-full w-full flex items-center justify-center text-gray-400" style={{ minHeight: 400 }}>
-                  <div className="text-center">
-                    <div className="text-lg font-medium mb-1">Document Preview</div>
-                    <Loader message="Loading preview..." />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center bg-white rounded-lg border border-gray-200 shadow-sm" style={{ minHeight: 600 }}>
+                <div className="text-center p-8">
+                  <FileText size={48} className="mx-auto text-gray-300 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Document Content</h3>
+                  <p className="text-gray-600">The document doesn't have any content to display.</p>
                   </div>
                 </div>
               )}
@@ -700,7 +832,6 @@ useEffect(() => {
                           <Loader message="Loading submission info..." />
                         </div>
                       )}
-
                   {/* Submitted Files */}
                   {submission?.files && submission.files.length > 0 && (
                     <div className="mb-4 pb-4 border-b">
@@ -815,13 +946,6 @@ useEffect(() => {
                         {submission?.status === 'returned' && (
                           <p className="text-xs text-gray-600">Returned for revision</p>
                         )}
-                      </div>
-                    )}
-
-                      {/* Show loading state if no submission data yet */}
-                      {!submission && loading && (
-                        <div className="py-8">
-                          <Loader message="Loading submission details..." />
                       </div>
                     )}
                     </>
