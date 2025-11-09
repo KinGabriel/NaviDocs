@@ -245,31 +245,12 @@ export default function DeanTemplates() {
                 onChange={setSortOrder}
                 width="w-36"
               />
-            
-
-            
-              {/* Small-screen Assign button beside dropdowns */}
-              <button
-                onClick={() => setIsAssignmentModalOpen(true)}
-                className="bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm 
-                 flex items-center gap-2 hover:bg-blue-800 focus:outline-none focus:ring-0 lg:hidden"
-              >
-                <FileText className="h-5 w-5" />
-                <span>Assign Templates</span>
-              </button>
             </div>
           </div>
 
           {/* Tabs + original desktop Assign button */}
           <div className="mb-6 border-b border-gray-200">
-            <button
-              onClick={() => setIsAssignmentModalOpen(true)}
-              className="hidden lg:inline-flex bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm 
-               items-center gap-2 hover:bg-blue-800 focus:outline-none focus:ring-0 mb-5"
-            >
-              <FileText className="h-5 w-5" />
-              <span>Assign Templates</span>
-            </button>
+            
 
             <div className="flex space-x-8">
               {tabs.map((tab) => (
