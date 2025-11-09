@@ -10,53 +10,70 @@ const ptToPx = (pt) => Math.round(Number(pt) * PT_TO_PX);
 export default function FontPanel({ editor }) {
   const isReady = !!editor;
 
-  // size control (points only)
-  const [fontSizePt, setFontSizePt] = useState(12);     
+  // Size control
+  const [fontSizePt, setFontSizePt] = useState(12);
   const [sizeInput, setSizeInput] = useState("12");
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
 
-  // other UI state
-  const [blockStyle, setBlockStyle] = useState("Body");
+  // Style dropdown
+  const [styleMenuOpen, setStyleMenuOpen] = useState(false);
+  const [activeStyle, setActiveStyle] = useState("Body");
+
+  // UI states
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("Serif");
   const [recentFonts, setRecentFonts] = useState(["Adamina", "Gotu", "Castoro"]);
   const [pinnedFonts, setPinnedFonts] = useState([]);
   const [activeFamily, setActiveFamily] = useState("Adamina");
-  const [recentColors, setRecentColors] = useState(["#000000", "#333333", "#ff0000", "#00ccff", "#ffff00", "#00cc00"]);
-  const [toggles, setToggles] = useState({ bold:false, italic:false, underline:false, strike:false });
+  const [recentColors, setRecentColors] = useState([
+    "#000000", "#333333", "#ff0000", "#00ccff", "#ffff00", "#00cc00",
+  ]);
+  const [toggles, setToggles] = useState({
+    bold: false, italic: false, underline: false, strike: false,
+  });
   const [align, setAlign] = useState("left");
-  const [lineHeight, setLineHeight] = useState(1); // 1, 1.15, 1.5, 2
+  const [lineHeight, setLineHeight] = useState(1);
 
   const inputRef = useRef(null);
   const menuRef = useRef(null);
+  const styleBtnRef = useRef(null);
+  const styleMenuRef = useRef(null);
 
   const supportsHighlight = !!editor?.commands?.toggleHighlight;
 
-  const COLORS = useMemo(() => [
-    "#000000","#333333","#666666","#808080","#999999",
-    "#b3b3b3","#cccccc","#e6e6e6","#f2f2f2","#ffffff",
-    "#990000","#ff0000","#ff9900","#ffff00","#00cc00",
-    "#00ccff","#0000ff","#3333ff","#6600cc","#ff00ff",
-  ], []);
+  const COLORS = useMemo(
+    () => [
+      "#000000","#333333","#666666","#808080","#999999","#b3b3b3",
+      "#cccccc","#e6e6e6","#f2f2f2","#ffffff","#990000","#ff0000",
+      "#ff9900","#ffff00","#00cc00","#00ccff","#0000ff","#3333ff",
+      "#6600cc","#ff00ff"
+    ],
+    []
+  );
 
-  const FONT_CATEGORIES = useMemo(() => ({
-    Serif: ["Adamina","Gotu","Castoro","Georgia","Times New Roman","Merriweather"],
-    Sans:  ["Arial","Inter","Roboto","Helvetica","Verdana","Open Sans"],
-    Mono:  ["Courier New","Consolas","Fira Code","Source Code Pro","Monaco"],
-  }), []);
+  const FONT_CATEGORIES = useMemo(
+    () => ({
+      Serif: ["Adamina", "Gotu", "Castoro", "Georgia", "Times New Roman", "Merriweather"],
+      Sans: ["Arial", "Inter", "Roboto", "Helvetica", "Verdana", "Open Sans"],
+      Mono: ["Courier New", "Consolas", "Fira Code", "Source Code Pro", "Monaco"],
+    }),
+    []
+  );
 
   const categoryFonts = FONT_CATEGORIES[activeCategory] || [];
   const filteredFonts = search
     ? categoryFonts.filter(f => f.toLowerCase().includes(search.toLowerCase()))
     : categoryFonts;
 
-  // --- read active size from editor (returns px string or "__MIXED__")
   const pxStringToInt = (v) => {
     if (!v) return null;
-    const n = parseInt(String(v).replace("px","").trim(), 10);
+    const n = parseInt(String(v).replace("px", "").trim(), 10);
     return Number.isFinite(n) ? n : null;
   };
-  const readFSFromMarks = (marks) => (marks || []).find(m => m.type?.name === "textStyle")?.attrs?.fontSize || null;
+
+  const readFSFromMarks = (marks) => (
+    (marks || []).find(m => m.type?.name === "textStyle")?.attrs?.fontSize || null
+  );
 
   const getActiveFontSizePx = () => {
     if (!editor) return null;
@@ -75,18 +92,24 @@ export default function FontPanel({ editor }) {
       const size = readFSFromMarks(node.marks) || null;
       if (first === undefined) first = size;
       else if (first !== size) mixed = true;
-      return undefined;
     });
-    return mixed ? "__MIXED__" : (first ?? null);
+    return mixed ? "__MIXED__" : first ?? null;
   };
+
+  const [stylePresets, setStylePresets] = useState({
+    Body: { type: "paragraph", sizePt: 12, bold: false, italic: false },
+    Title: { type: "paragraph", sizePt: 32, bold: true, italic: false },
+    Subtitle: { type: "paragraph", sizePt: 20, bold: false, italic: true },
+    H1: { type: "heading", level: 1 },
+    H2: { type: "heading", level: 2 },
+    H3: { type: "heading", level: 3 },
+  });
 
   const detectBlockStyle = () => {
     if (!editor) return "Body";
     if (editor.isActive("heading", { level: 1 })) return "H1";
     if (editor.isActive("heading", { level: 2 })) return "H2";
     if (editor.isActive("heading", { level: 3 })) return "H3";
-    if (editor.isActive("blockquote")) return "Quote";
-    if (editor.isActive("codeBlock")) return "Code";
     const px = pxStringToInt(getActiveFontSizePx());
     const pt = typeof px === "number" ? pxToPt(px) : null;
     if (pt && editor.isActive("bold") && pt >= 28) return "Title";
@@ -106,7 +129,6 @@ export default function FontPanel({ editor }) {
       setFontSizePt(pt);
       setSizeInput(String(pt));
     }
-    // toggles & paragraph
     setToggles({
       bold: editor.isActive("bold"),
       italic: editor.isActive("italic"),
@@ -114,10 +136,15 @@ export default function FontPanel({ editor }) {
       strike: editor.isActive("strike"),
     });
     setAlign(
-      editor.isActive({ textAlign: "center" }) ? "center" :
-      editor.isActive({ textAlign: "right" })  ? "right"  :
-      editor.isActive({ textAlign: "justify"}) ? "justify": "left"
+      editor.isActive({ textAlign: "center" })
+        ? "center"
+        : editor.isActive({ textAlign: "right" })
+        ? "right"
+        : editor.isActive({ textAlign: "justify" })
+        ? "justify"
+        : "left"
     );
+    setActiveStyle(detectBlockStyle());
   };
 
   useEffect(() => {
@@ -133,14 +160,12 @@ export default function FontPanel({ editor }) {
     };
   }, [editor]);
 
-  // close size menu on outside click
   useEffect(() => {
     const onDocClick = (e) => {
-      if (
-        menuRef.current?.contains(e.target) ||
-        inputRef.current?.contains(e.target)
-      ) return;
+      if (menuRef.current?.contains(e.target) || inputRef.current?.contains(e.target)) return;
       setSizeMenuOpen(false);
+      if (styleMenuRef.current?.contains(e.target) || styleBtnRef.current?.contains(e.target)) return;
+      setStyleMenuOpen(false);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -149,7 +174,6 @@ export default function FontPanel({ editor }) {
   const focus = () => editor?.chain().focus();
   const safeRun = (fn) => { try { if (isReady) fn(); } catch {} };
 
-  // --- size commands (pt UI → px engine)
   const applySizePt = (pt) => {
     if (!Number.isFinite(pt)) return;
     const clamped = clamp(pt | 0, 6, 96);
@@ -159,34 +183,23 @@ export default function FontPanel({ editor }) {
     setSizeInput(String(clamped));
     setSizeMenuOpen(false);
   };
+
   const step = (delta) => {
     const base = typeof fontSizePt === "number" ? fontSizePt : 12;
     applySizePt(base + delta);
-  };
-
-  const onSizeInputChange = (e) => {
-    const v = e.target.value.replace(/[^\d]/g, "");
-    setSizeInput(v);
-    const n = parseInt(v, 10);
-    if (Number.isFinite(n)) applySizePt(n);
   };
 
   const applyColor = (hex) => {
     safeRun(() => focus().setColor(hex).run());
     setRecentColors((p) => [hex, ...p.filter(c => c !== hex)].slice(0, 6));
   };
-  const applyHighlight = (hex) => {
-    if (!supportsHighlight) return;
-    const ch = focus();
-    if (editor.commands.setHighlight) ch.setHighlight({ color: hex }).run();
-    else ch.toggleHighlight().run();
-    setRecentColors((p) => [hex, ...p.filter(c => c !== hex)].slice(0, 6));
-  };
+
   const applyFamily = (family) => {
     setActiveFamily(family);
     safeRun(() => focus().setFontFamily(family).run());
     setRecentFonts((p) => [family, ...p.filter(f => f !== family)].slice(0, 8));
   };
+
   const toggleMark = (mark) => {
     safeRun(() => {
       const ch = focus();
@@ -197,11 +210,12 @@ export default function FontPanel({ editor }) {
       setToggles((prev) => ({ ...prev, [mark]: editor.isActive(mark) }));
     });
   };
+
   const clearCharacterFormatting = () => {
     safeRun(() =>
       focus()
         .unsetColor()
-        .setMark("textStyle", { fontSize: null })
+        .setMark("textStyle", { fontSize: null, lineHeight: null })
         .setFontFamily(null)
         .unsetUnderline()
         .unsetStrike()
@@ -210,96 +224,90 @@ export default function FontPanel({ editor }) {
     updateUIFromSelection();
   };
 
-  const applyBlockStyle = (style) => {
-    setBlockStyle(style);
+  const applyStyleFromPreset = (name) => {
+    const preset = stylePresets[name];
+    if (!preset) return;
     const ch = focus();
-    const setBody = () => ch.setParagraph();
-    switch (style) {
-      case "Body": setBody().setMark("textStyle", { fontSize: null }).run(); break;
-      case "H1": ch.setHeading({ level: 1 }).run(); break;
-      case "H2": ch.setHeading({ level: 2 }).run(); break;
-      case "H3": ch.setHeading({ level: 3 }).run(); break;
-      case "Title": setBody().setMark("textStyle", { fontSize: `${ptToPx(32)}px` }).setBold().run(); break;
-      case "Subtitle": setBody().setMark("textStyle", { fontSize: `${ptToPx(20)}px` }).setItalic().run(); break;
-      case "Quote": ch.setBlockquote().run(); break;
-      case "Code": ch.setCodeBlock().run(); break;
-      default: setBody().run();
+    if (preset.type === "heading") ch.setHeading({ level: preset.level || 1 }).run();
+    else {
+      ch.setParagraph().run();
+      if (preset.sizePt) ch.setMark("textStyle", { fontSize: `${ptToPx(preset.sizePt)}px` });
+      if (preset.bold) ch.setBold();
+      if (!preset.bold) ch.unsetBold?.();
+      if (preset.italic) ch.setItalic();
+      if (!preset.italic) ch.unsetItalic?.();
+      ch.run();
     }
-    updateUIFromSelection();
+    setActiveStyle(name);
+    setStyleMenuOpen(false);
   };
 
-  const applyAlign = (dir) => { setAlign(dir); focus().setTextAlign?.(dir).run?.(); };
+  const stylePreviewMap = useMemo(
+    () => ({
+      Body: { sample: "AaBbCc", style: { fontSize: `${ptToPx(stylePresets.Body.sizePt)}px`, fontWeight: stylePresets.Body.bold ? 700 : 400, fontStyle: stylePresets.Body.italic ? "italic" : "normal" } },
+      Title: { sample: "Title preview", style: { fontSize: `${ptToPx(stylePresets.Title.sizePt)}px`, fontWeight: stylePresets.Title.bold ? 700 : 400 } },
+      Subtitle: { sample: "Subtitle preview", style: { fontSize: `${ptToPx(stylePresets.Subtitle.sizePt)}px`, fontStyle: "italic" } },
+      H1: { sample: "Heading 1", style: { fontSize: `${ptToPx(24)}px`, fontWeight: 700 } },
+      H2: { sample: "Heading 2", style: { fontSize: `${ptToPx(18)}px`, fontWeight: 700 } },
+      H3: { sample: "Heading 3", style: { fontSize: `${ptToPx(14)}px`, fontWeight: 700 } },
+    }),
+    [stylePresets]
+  );
+
+  const applyAlign = (dir) => {
+    setAlign(dir);
+    focus().setTextAlign?.(dir).run?.();
+  };
+
   const applyLineHeight = (lh) => {
     setLineHeight(lh);
     safeRun(() => focus().setMark("textStyle", { lineHeight: String(lh) }).run());
   };
-  const undo = () => safeRun(() => editor.commands.undo());
-  const redo = () => safeRun(() => editor.commands.redo());
 
   if (!isReady) return null;
 
-  const Pinned = ({ f }) => (
-    <div
-      key={`pin-${f}`}
-      role="button"
-      tabIndex={0}
-      onClick={() => applyFamily(f)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') applyFamily(f); }}
-      className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 ${activeFamily === f ? "bg-blue-50" : ""}`}
-      style={{ fontFamily: f }}
-      title={`Pinned: ${f}`}
-    >
-      <span className="inline-block w-3 h-3 rounded-full border bg-blue-600 border-blue-600" />
-      <span className="flex-1">{f}</span>
-      <button
-        type="button"
-        className="text-xs px-2 py-0.5 border rounded"
-        onClick={(e) => { e.stopPropagation(); setPinnedFonts(pinnedFonts.filter(x => x !== f)); }}
-        title="Unpin font"
-      >Unpin</button>
-    </div>
-  );
-
   return (
     <div className="w-80 bg-white border rounded-lg p-3 text-sm">
-      {/* Row: Undo/Redo, Clear, Lock */}
+      {/* Undo / Redo / Clear */}
       <div className="flex items-center gap-2 mb-3">
-        <button className="border rounded px-2 py-1" onClick={undo} title="Undo (Ctrl+Z)">Undo</button>
-        <button className="border rounded px-2 py-1" onClick={redo} title="Redo (Ctrl+Y)">Redo</button>
+        <button className="border rounded px-2 py-1" onClick={() => editor.commands.undo()}>Undo</button>
+        <button className="border rounded px-2 py-1" onClick={() => editor.commands.redo()}>Redo</button>
         <div className="flex-1" />
-        <button className="border rounded px-2 py-1" onClick={clearCharacterFormatting} title="Clear character formatting">Clear</button>
-        {!editor.isEditable && <span className="ml-2 text-xs text-gray-500" title="Template fields locked">🔒</span>}
+        <button className="border rounded px-2 py-1" onClick={clearCharacterFormatting}>Clear</button>
       </div>
 
-      {/* Style selector */}
-      <div className="mb-3">
+      {/* Style */}
+      <div className="mb-3 relative">
         <label className="block text-xs text-gray-600 mb-1">Style</label>
-        <select
-          className="border rounded px-2 py-1 w-full"
-          value={blockStyle}
-          onChange={(e) => applyBlockStyle(e.target.value)}
-          title="Paragraph style"
+        <button
+          ref={styleBtnRef}
+          type="button"
+          onClick={() => setStyleMenuOpen(v => !v)}
+          className="w-full border rounded px-3 py-2 text-left"
         >
-          <option>Body</option><option>H1</option><option>H2</option><option>H3</option>
-          <option>Title</option><option>Subtitle</option><option>Quote</option><option>Code</option>
-        </select>
+          {activeStyle === "Body" ? "Normal text" : activeStyle}
+        </button>
+
+        {styleMenuOpen && (
+          <div ref={styleMenuRef} className="absolute z-20 mt-1 w-72 bg-white border rounded-lg shadow-lg overflow-hidden">
+            <div className="py-1">
+              <div className="px-3 py-2 text-gray-700 font-medium">Normal text</div>
+              {Object.entries(stylePreviewMap).map(([name, preview]) => (
+                <div key={name} onClick={() => applyStyleFromPreset(name)} className="px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                  <div className="text-gray-900">{name}</div>
+                  <div className="text-xs text-gray-500" style={preview.style}>{preview.sample}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* SIZE CONTROL */}
+      {/* Size */}
       <div className="mb-3">
         <label className="block text-xs text-gray-600 mb-1">Size</label>
         <div className="flex items-stretch border rounded">
-          {/* − button */}
-          <button
-            className="px-3 select-none"
-            onClick={() => step(-1)}
-            title="Decrease size"
-            type="button"
-          >
-            −
-          </button>
-
-          {/* number field + compact dropdown (no extra caret button) */}
+          <button className="px-3" onClick={() => step(-1)}>−</button>
           <div className="relative border-l border-r">
             <input
               ref={inputRef}
@@ -311,105 +319,59 @@ export default function FontPanel({ editor }) {
                 const n = parseInt(v, 10);
                 if (Number.isFinite(n)) applySizePt(n);
               }}
-              inputMode="numeric"
-              aria-haspopup="listbox"
-              aria-expanded={sizeMenuOpen}
               onFocus={() => setSizeMenuOpen(true)}
               onClick={() => setSizeMenuOpen(true)}
             />
-
             {sizeMenuOpen && (
-              <div
-                ref={menuRef}
-                role="listbox"
-                className="absolute left-1/2 -translate-x-1/2 top-full mt-1 w-[70px] max-h-72 overflow-auto border bg-white rounded shadow z-10"
-              >
-                {PRESET_SIZES_PT.map((pt) => (
-                  <button
-                    key={pt}
-                    role="option"
-                    type="button"
-                    onClick={() => applySizePt(pt)}
-                    className={`w-full text-left px-2 py-1 hover:bg-gray-50 ${
-                      fontSizePt === pt ? "bg-gray-100" : ""
-                    }`}
-                  >
-                    {pt}
-                  </button>
+              <div ref={menuRef} className="absolute left-1/2 -translate-x-1/2 top-full mt-1 w-[70px] max-h-72 overflow-auto border bg-white rounded shadow z-10">
+                {PRESET_SIZES_PT.map(pt => (
+                  <button key={pt} onClick={() => applySizePt(pt)} className="w-full text-left px-2 py-1 hover:bg-gray-50">{pt}</button>
                 ))}
               </div>
             )}
           </div>
-
-          {/* + button */}
-          <button
-            className="px-3 select-none"
-            onClick={() => step(+1)}
-            title="Increase size"
-            type="button"
-          >
-            +
-          </button>
+          <button className="px-3" onClick={() => step(+1)}>+</button>
         </div>
       </div>
 
-      {/* Character toggles */}
+      {/* Text Style Buttons */}
       <div className="flex items-center gap-2 mb-3">
-        <button className={`h-9 w-9 border rounded font-bold ${toggles.bold ? "bg-gray-200" : ""}`} aria-pressed={toggles.bold} onClick={() => toggleMark("bold")} title="Bold (Ctrl+B)">B</button>
-        <button className={`h-9 w-9 border rounded italic ${toggles.italic ? "bg-gray-200" : ""}`} aria-pressed={toggles.italic} onClick={() => toggleMark("italic")} title="Italic (Ctrl+I)">I</button>
-        <button className={`h-9 w-9 border rounded underline ${toggles.underline ? "bg-gray-200" : ""}`} aria-pressed={toggles.underline} onClick={() => toggleMark("underline")} title="Underline (Ctrl+U)">U</button>
-        <button className={`h-9 w-9 border rounded line-through ${toggles.strike ? "bg-gray-200" : ""}`} aria-pressed={toggles.strike} onClick={() => toggleMark("strike")} title="Strikethrough">S</button>
+        {["bold", "italic", "underline", "strike"].map(mark => (
+          <button
+            key={mark}
+            className={`h-9 w-9 border rounded ${toggles[mark] ? "bg-gray-200" : ""}`}
+            onClick={() => toggleMark(mark)}
+          >
+            {mark === "bold" ? "B" : mark === "italic" ? "I" : mark === "underline" ? "U" : "S"}
+          </button>
+        ))}
       </div>
 
       {/* Colors */}
       <div className="mb-4">
         <div className="font-semibold text-gray-800">Text color</div>
         <div className="flex flex-wrap mt-2">
-          {COLORS.map((c) => (
-            <button key={c} onClick={() => applyColor(c)} className="h-6 w-6 rounded-full border mr-2 mt-2" style={{ background: c }} title={c} />
-          ))}
-        </div>
-        {supportsHighlight && (
-          <>
-            <div className="font-semibold text-gray-800 mt-3">Highlight</div>
-            <div className="flex flex-wrap mt-2">
-              {COLORS.map((c) => (
-                <button key={`h-${c}`} onClick={() => applyHighlight(c)} className="h-6 w-6 rounded border mr-2 mt-2" style={{ background: c }} title={`HL ${c}`} />
-              ))}
-            </div>
-          </>
-        )}
-        <div className="text-xs text-gray-500 mt-2">Recent</div>
-        <div className="flex flex-wrap mt-1">
-          {recentColors.map((c) => (
-            <button key={`r-${c}`} onClick={() => applyColor(c)} className="h-5 w-5 rounded border mr-2 mt-2" style={{ background: c }} title={`Recent ${c}`} />
+          {COLORS.map(c => (
+            <button key={c} onClick={() => applyColor(c)} className="h-6 w-6 rounded-full border mr-2 mt-2" style={{ background: c }} />
           ))}
         </div>
       </div>
 
-      {/* Paragraph (Align + Line height select) */}
+      {/* Paragraph */}
       <details className="mb-4">
         <summary className="cursor-pointer font-semibold">Paragraph</summary>
         <div className="mt-2">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs text-gray-600 w-16">Align</span>
-            {["left","center","right","justify"].map(dir => (
-              <button
-                key={dir}
-                className={`px-2 py-1 border rounded ${align === dir ? "bg-gray-200" : ""}`}
-                onClick={() => applyAlign(dir)}
-                title={`Align ${dir}`}
-              >{dir[0].toUpperCase()+dir.slice(1)}</button>
+            {["left", "center", "right", "justify"].map(dir => (
+              <button key={dir} onClick={() => applyAlign(dir)} className={`px-2 py-1 border rounded ${align === dir ? "bg-gray-200" : ""}`}>
+                {dir[0].toUpperCase() + dir.slice(1)}
+              </button>
             ))}
           </div>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs text-gray-600 w-16">Line height</span>
-            <select
-              className="border rounded px-2 py-1"
-              value={String(lineHeight)}
-              onChange={(e) => applyLineHeight(parseFloat(e.target.value))}
-              title="Line height"
-            >
+            <select className="border rounded px-2 py-1" value={lineHeight} onChange={e => applyLineHeight(parseFloat(e.target.value))}>
               <option value="1">Single</option>
               <option value="1.15">1.15</option>
               <option value="1.5">1.5</option>
@@ -421,64 +383,28 @@ export default function FontPanel({ editor }) {
 
       {/* Fonts */}
       <div className="font-semibold text-gray-800">Fonts</div>
-      {pinnedFonts.length > 0 && (
-        <>
-          <div className="mt-2 text-xs text-gray-500">Pinned</div>
-          <div className="border rounded-lg">
-            {pinnedFonts.map((f) => (
-              <Pinned key={`p-${f}`} f={f} />
-            ))}
-          </div>
-        </>
-      )}
       <div className="flex gap-3 mt-3">
-        {["Serif","Sans","Mono"].map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={`w-20 h-20 border rounded-lg flex flex-col items-center justify-center ${activeCategory === cat ? "ring-2 ring-blue-500" : ""}`}
-          >
+        {["Serif", "Sans", "Mono"].map(cat => (
+          <button key={cat} onClick={() => setActiveCategory(cat)} className={`w-20 h-20 border rounded-lg flex flex-col items-center justify-center ${activeCategory === cat ? "ring-2 ring-blue-500" : ""}`}>
             <div className="text-2xl">Aa</div>
             <div className="text-xs">{cat}</div>
           </button>
         ))}
       </div>
       <div className="mt-3 relative">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder='Try "Times New Roman"'
-          className="w-full border rounded-lg pl-8 pr-3 py-1.5"
-        />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder='Try "Times New Roman"' className="w-full border rounded-lg pl-8 pr-3 py-1.5" />
         <svg className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
       </div>
-      <div className="mt-3">
-        <div className="text-xs text-gray-500 mb-2">Recently used</div>
-        <div className="border rounded-lg">
-          {recentFonts.map((f) => (
-            <div
-              key={`r-${f}`}
-              role="button"
-              tabIndex={0}
-              onClick={() => applyFamily(f)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') applyFamily(f); }}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 ${activeFamily === f ? "bg-blue-50" : ""}`}
-              style={{ fontFamily: f }}
-              title={f}
-            >
-              <span className={`inline-block w-3 h-3 rounded-full border ${activeFamily === f ? "bg-blue-600 border-blue-600" : "border-gray-400"}`} />
-              <span className="flex-1">{f}</span>
-              <button
-                type="button"
-                className="text-xs px-2 py-0.5 border rounded"
-                onClick={(e) => { e.stopPropagation(); setPinnedFonts((p)=> p.includes(f)? p : [...p, f]); }}
-                title="Pin font"
-              >Pin</button>
-            </div>
-          ))}
-        </div>
+      <div className="mt-3 border rounded-lg">
+        {recentFonts.map(f => (
+          <div key={f} onClick={() => applyFamily(f)} className={`flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 ${activeFamily === f ? "bg-blue-50" : ""}`} style={{ fontFamily: f }}>
+            <span className={`inline-block w-3 h-3 rounded-full border ${activeFamily === f ? "bg-blue-600 border-blue-600" : "border-gray-400"}`} />
+            <span className="flex-1">{f}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
