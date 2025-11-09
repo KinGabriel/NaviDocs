@@ -55,8 +55,10 @@ export default function AdminAccounts() {
     fetchUsers();
   }, []);
 
-  // roles for filter dropdown
-  const roles = ["All Roles", ...Array.from(new Set(users.map(u => u.role?.name).filter(Boolean)))];
+  // roles for filter dropdown 
+  const uniqueRoles = [...new Set(users.map(u => u.role?.name).filter(Boolean))];
+  uniqueRoles.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  const roles = ["All Roles", ...uniqueRoles];
 
   // filter by role
   const filteredUsers = roleFilter === "All Roles"
