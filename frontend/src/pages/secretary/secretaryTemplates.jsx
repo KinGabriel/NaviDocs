@@ -240,27 +240,12 @@ export default function SecretaryTemplates() {
                 onChange={setSortOrder}
                 width="w-36"
               />
-              {/* This button only appears beside dropdowns on small screens */}
-              <button
-                onClick={() => setIsAssignmentModalOpen(true)}
-                className="bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm flex items-center gap-2 hover:bg-blue-800 lg:hidden"
-              >
-                <FileText className="h-5 w-5" />
-                <span>Assign Templates</span>
-              </button>
+              
             </div>
           </div>
 
           {/* Tabs + original button (desktop) */}
           <div className="mb-6 border-b border-gray-200">
-            <button
-              onClick={() => setIsAssignmentModalOpen(true)}
-              className="hidden lg:flex bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm items-center gap-2 hover:bg-blue-800"
-            >
-              <FileText className="h-5 w-5" />
-              <span>Assign Templates</span>
-            </button>
-
             <div className="flex space-x-8">
               {tabs.map((tab) => (
                 <button
