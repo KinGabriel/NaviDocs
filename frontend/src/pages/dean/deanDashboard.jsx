@@ -20,6 +20,9 @@ import {
   ArcElement,
 } from "chart.js";
 
+// Add the page import as requested (file path route)
+import SubmissionBins from "../../pages/submissionBins.jsx";
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -34,6 +37,9 @@ export default function DeanDashboard() {
   const user = useUser();
   const navigate = useNavigate();
 
+  // URL route used by react-router for navigation (keep this pointing to your route path)
+  const SUBMISSION_BINS_ROUTE = "/submission-bins";
+
   function formatDate(dateValue) {
     if (!dateValue) return "-";
     const date = new Date(dateValue);
@@ -47,42 +53,12 @@ export default function DeanDashboard() {
 
   // placeholder data
   const templates = [
-    {
-      id: 1,
-      title: "Research Proposal Template",
-      createdBy: "Admin User",
-      status: "Approved",
-    },
-    {
-      id: 2,
-      title: "Thesis Format Guide",
-      createdBy: "Admin User",
-      status: "Rejected",
-    },
-    {
-      id: 3,
-      title: "Internship Report Template",
-      createdBy: "Admin User",
-      status: "Returned",
-    },
-    {
-      id: 4,
-      title: "Course Syllabus Template",
-      createdBy: "Admin User",
-      status: "Approved",
-    },
-    {
-      id: 5,
-      title: "Capstone Project Template",
-      createdBy: "Admin User",
-      status: "Pending",
-    },
-    {
-      id: 6,
-      title: "Department Memo Format",
-      createdBy: "Admin User",
-      status: "Endorsed",
-    },
+    { id: 1, title: "Research Proposal Template", createdBy: "Admin User", status: "Approved" },
+    { id: 2, title: "Thesis Format Guide", createdBy: "Admin User", status: "Rejected" },
+    { id: 3, title: "Internship Report Template", createdBy: "Admin User", status: "Returned" },
+    { id: 4, title: "Course Syllabus Template", createdBy: "Admin User", status: "Approved" },
+    { id: 5, title: "Capstone Project Template", createdBy: "Admin User", status: "Pending" },
+    { id: 6, title: "Department Memo Format", createdBy: "Admin User", status: "Endorsed" },
   ];
 
   const publishedTemplates = [
@@ -136,65 +112,17 @@ export default function DeanDashboard() {
   ];
 
   const upcomingDeadlines = [
-    {
-      id: 1,
-      title: "Template Review for AY 2025",
-      date: "2025-08-15",
-      priority: "Overdue",
-      department: "Quality Assurance",
-    },
-    {
-      id: 2,
-      title: "Annual Document Audit",
-      date: "2025-08-28",
-      priority: "Due Today",
-      department: "Administration",
-    },
-    {
-      id: 3,
-      title: "Syllabus Submission Check",
-      date: "2025-09-10",
-      priority: "Upcoming",
-      department: "Academics",
-    },
+    { id: 1, title: "Template Review for AY 2025", date: "2025-08-15", priority: "Overdue", department: "Quality Assurance" },
+    { id: 2, title: "Annual Document Audit", date: "2025-08-28", priority: "Due Today", department: "Administration" },
+    { id: 3, title: "Syllabus Submission Check", date: "2025-09-10", priority: "Upcoming", department: "Academics" },
   ];
 
   const submissionBin = [
-    {
-      id: 1,
-      name: "Syllabus AY 2025",
-      totalDocs: 50,
-      department: 35,
-      date: 10,
-    },
-    {
-      id: 2,
-      name: "Syllabus AY 2025",
-      totalDocs: 50,
-      department: 35,
-      date: 10,
-    },
-    {
-      id: 3,
-      name: "Syllabus AY 2025",
-      totalDocs: 50,
-      department: 35,
-      date: 10,
-    },
-    {
-      id: 4,
-      name: "Syllabus AY 2025",
-      totalDocs: 50,
-      department: 35,
-      date: 10,
-    },
-    {
-      id: 5,
-      name: "Syllabus AY 2025",
-      totalDocs: 50,
-      department: 35,
-      date: 10,
-    },
+    { id: 1, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: 10 },
+    { id: 2, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: 10 },
+    { id: 3, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: 10 },
+    { id: 4, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: 10 },
+    { id: 5, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: 10 },
   ];
 
   const submissionBinColumns = [
@@ -205,19 +133,11 @@ export default function DeanDashboard() {
   ];
 
   const chartData = {
-    labels: [
-      "Computing and Information Studies",
-      "Management",
-      "Accountancy",
-    ],
+    labels: ["Computing and Information Studies", "Management", "Accountancy"],
     datasets: [
       {
         data: [56, 36, 5],
-        backgroundColor: [
-          "#3B82F6",
-          "#10B981",
-          "#F59E0B",
-        ],
+        backgroundColor: ["#3B82F6", "#10B981", "#F59E0B"],
         borderWidth: 0,
         cutout: "60%",
       },
@@ -314,7 +234,7 @@ export default function DeanDashboard() {
                   </div>
 
                   <button
-                    onClick={() => navigate("")}
+                    onClick={() => navigate(SUBMISSION_BINS_ROUTE)}
                     className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
                   >
                     View All
@@ -337,26 +257,20 @@ export default function DeanDashboard() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <Table
-                    columns={submissionBinColumns}
-                    data={submissionBin}
-                  />
+                  <Table columns={submissionBinColumns} data={submissionBin} />
                 </div>
               </div>
             </div>
 
             {/* Right side: deadlines + chart */}
             <div className="lg:col-span-1 space-y-6">
-              <UpcomingDeadlines
-                deadlines={upcomingDeadlines}
-                formatDate={formatDate}
-              />
+              <UpcomingDeadlines deadlines={upcomingDeadlines} formatDate={formatDate} />
 
               {/* Deadlines Summary Doughnut Chart */}
               <div className="bg-white shadow-sm rounded-lg border border-gray-100">
                 <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
                   <h3 className="font-semibold text-sm text-gray-800">
-                    SUBMISSION BINS OVERVIEW
+                    SUBMISSION OVERVIEW
                   </h3>
                 </div>
 
@@ -378,9 +292,7 @@ export default function DeanDashboard() {
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                        <span className="text-gray-600">
-                          Department of Management
-                        </span>
+                        <span className="text-gray-600">Department of Management</span>
                       </div>
                       <span className="font-medium text-gray-800">36</span>
                     </div>
@@ -388,9 +300,7 @@ export default function DeanDashboard() {
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                        <span className="text-gray-600">
-                          Department of Accountancy
-                        </span>
+                        <span className="text-gray-600">Department of Accountancy</span>
                       </div>
                       <span className="font-medium text-gray-800">7</span>
                     </div>

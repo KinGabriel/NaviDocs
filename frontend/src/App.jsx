@@ -21,7 +21,6 @@ import useUser from './hooks/useUser';
 import SecretaryDashboard from './pages/secretary/secretaryDashboard';
 import TemplatesView from './pages/templatesView';
 import DeanDashboard from './pages/dean/deanDashboard';
-import DeanStatistics from './pages/dean/deanStatistics';
 import DeanDocumentWorkflowView from './pages/dean/deanDocumentWorkflowView';
 import DocControllerTemplates from "./pages/document_controller/documentControllerHandleTemplates.jsx";
 import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
@@ -240,16 +239,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {/* 
-       <Route
-         path="/dean/statistics"
-         element={
-           <ProtectedRoute allowedRoles={["Dean"]}>
-             <DeanStatistics />
-           </ProtectedRoute>
-         }
-       />
-        */}
 
         {/* Legacy dean templates route redirect to unified */}
         <Route path="/dean/templates" element={<Navigate to="/templates" replace />} />
@@ -260,6 +249,16 @@ function App() {
         <Route
           path="/dean/documents/:id"
           element={<DeanDocumentWorkflowView />}
+        />
+
+        <Route 
+          path="/" 
+          element={<DeanDashboard />} 
+        />
+
+        <Route 
+          path="/submission-bins" 
+          element={<SubmissionBins />} 
         />
 
         {/* Department Head Module */}
