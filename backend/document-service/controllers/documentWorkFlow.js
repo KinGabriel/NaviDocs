@@ -155,7 +155,7 @@ export const shareDocument = async (req, res) => {
 			{
 				type: 'document_shared',
 				message,
-				link: `/documents/${doc._id}`,
+				link: `/documents/editable-fields/${doc._id}`,
 				targetedUserIds,
 			},
 			(err) => {
@@ -265,7 +265,7 @@ export const createSubmissionBin = async (req, res) => {
 					{
 						type: 'submission_bin_assignment',
 						message,
-						link: `/submission-bins/${bin._id}?template=${templateId}`,
+						link: `/faculty/document-workflow/${bin._id}`,
 						targetedUserIds: [facultyId],
 						recipientUser: facultyId,
 					},
@@ -396,7 +396,7 @@ export const getBin = async (req, res) => {
 
 /**
  * Forward a Submission Bin to Secretary or Dean
- * @route POST /api/submission-bins/:id/forward
+ * @route POST /api/submission-details/:id/forward
  * @desc Department Head marks a bin as forwarded to a role ('secretary'|'dean'). Uses body.to or bin.route_to.
  */
 export const forwardBin = async (req, res) => {
@@ -425,7 +425,7 @@ export const forwardBin = async (req, res) => {
 			{
 			type: 'submission_bin_forwarded',
 			message,
-			link: `/submission-bins/${bin._id}`,
+			link: `/submission-details/${bin._id}`,
 			recipientRoles: ['Secretary', 'Dean'],
 			},
 			(err) => {
@@ -446,7 +446,7 @@ export const forwardBin = async (req, res) => {
 /**
  * Update Submission Bin top-level fields and assignments
  *
- * @route PATCH /api/submission-bins/:id
+ * @route PATCH /api/submission-details/:id
  * @desc Dept Head can update title, instructions, department, route_to, deadline, template_ids, faculty_ids, status
  * @param {import('express').Request} req
  * @param {import('express').Response} res
@@ -484,7 +484,7 @@ export const updateBin = async (req, res) => {
 /**
  * Upsert a Submission item (faculty + template) with optional per-submission instructions
  *
- * @route PUT /api/submission-bins/:id/submissions
+ * @route PUT /api/submission-details/:id/submissions
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  */
@@ -523,7 +523,7 @@ export const upsertSubmission = async (req, res) => {
 /**
  * Submit a Document for a specific Submission item
  *
- * @route POST /api/submission-bins/:id/submissions/:submissionId/submit
+ * @route POST /api/submission-details/:id/submissions/:submissionId/submit
  * @desc Faculty attaches a document to their assigned submission entry
  * @param {import('express').Request} req
  * @param {import('express').Response} res
@@ -583,12 +583,29 @@ export const submitDocument = async (req, res) => {
 		const deptHeadId = bin.created_by ? String(bin.created_by) : null;
 		if (deptHeadId && String(deptHeadId) !== String(req.user?.id || req.user?._id)) {
 			const templateId = item.template ? String(item.template) : '';
-			const message = `${actorName} submitted a document for template ${templateId} in submission bin "${bin.title}".`;
+			// Best-effort fetch of template title for human-friendly notification
+			let templateName = templateId;
+			try {
+				if (templateId) {
+					const templateServiceUrl = process.env.TEMPLATE_SERVICE_URL || 'http://localhost:8002';
+					const headers = {};
+					const context = req.context || {};
+					if (context.token) {
+						headers['Cookie'] = `token=${context.token}`;
+					} else if (req.cookies && req.cookies.token) {
+						headers['Cookie'] = `token=${req.cookies.token}`;
+					}
+					const resp = await axios.get(`${templateServiceUrl}/api/templates/${templateId}`, { headers, withCredentials: true });
+					const tpl = resp?.data?.template || resp?.data || null;
+					if (tpl && (tpl.title || tpl.name)) templateName = tpl.title || tpl.name;
+				}
+			} catch (_) { /* ignore lookup failures */ }
+			const message = `${actorName} submitted a document for template "${templateName}" in submission bin "${bin.title}".`;
 			await postNotificationWithCallback(
 			{
 				type: 'submission_item_submitted',
 				message,
-				link: `/submission-bins/${bin._id}?submission=${item._id}`,
+				link: `/submission-details/${bin._id}?submission=${item._id}`,
 				targetedUserIds: [deptHeadId],
 				recipientUser: deptHeadId,
 			},
@@ -611,7 +628,7 @@ export const submitDocument = async (req, res) => {
 /**
  * Unsubmit a document from a specific Submission item
  *
- * @route POST /api/submission-bins/:id/submissions/:submissionId/unsubmit
+ * @route POST /api/submission-details/:id/submissions/:submissionId/unsubmit
  * @desc Remove one document from the submission (by documentId) or all if none specified.
  *       Only allowed while bin is not completed. If documents becomes empty, status reverts to 'assigned'.
  * @param {import('express').Request} req
@@ -670,7 +687,7 @@ export const unsubmitDocument = async (req, res) => {
 			{
 				type: 'submission_item_unsubmitted',
 				message,
-				link: `/submission-bins/${bin._id}?submission=${item._id}`,
+				link: `/submission-details/${bin._id}?submission=${item._id}`,
 				targetedUserIds: [deptHeadId],
 				recipientUser: deptHeadId,
 			},
@@ -693,7 +710,7 @@ export const unsubmitDocument = async (req, res) => {
 /**
  * Return a Submission item
  *
- * @route POST /api/submission-bins/:id/submissions/:submissionId/return
+ * @route POST /api/faculty/document-workflow/:id/submissions/:submissionId/return
  * @desc Secretary/Dean returns an item with a reason; records returned_by and note
  * @param {import('express').Request} req
  * @param {import('express').Response} res
@@ -730,7 +747,7 @@ export const returnSubmission = async (req, res) => {
 			{
 				type: 'submission_item_returned',
 				message,
-				link: `/submission-bins/${bin._id}?submission=${item._id}`,
+				link: `/faculty/document-workflow/${bin._id}?submission=${item._id}`,
 				targetedUserIds: [facultyId],
 				recipientUser: facultyId,
 			},
@@ -753,7 +770,7 @@ export const returnSubmission = async (req, res) => {
 /**
  * Approve a Submission item
  *
- * @route POST /api/submission-bins/:id/submissions/:submissionId/approve
+ * @route POST /api/submission-details/:id/submissions/:submissionId/approve
  * @desc Secretary/Dean approves an item; records approved_by and note
  * @param {import('express').Request} req
  * @param {import('express').Response} res
@@ -788,7 +805,7 @@ export const approveSubmission = async (req, res) => {
 			{
 				type: 'submission_item_approved',
 				message,
-				link: `/submission-bins/${bin._id}?submission=${item._id}`,
+				link: `/submission-details/${bin._id}?submission=${item._id}`,
 				targetedUserIds: [facultyId],
 				recipientUser: facultyId,
 			},
