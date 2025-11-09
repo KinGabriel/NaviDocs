@@ -303,36 +303,62 @@ export default function FontPanel({ editor }) {
         )}
       </div>
 
-      {/* Size */}
-      <div className="mb-3">
-        <label className="block text-xs text-gray-600 mb-1">Size</label>
-        <div className="flex items-stretch border rounded">
-          <button className="px-3" onClick={() => step(-1)}>−</button>
-          <div className="relative border-l border-r">
-            <input
-              ref={inputRef}
-              className="px-2 py-1.5 w-[56px] text-center outline-none"
-              value={sizeInput}
-              onChange={(e) => {
-                const v = e.target.value.replace(/[^\d]/g, "");
-                setSizeInput(v);
-                const n = parseInt(v, 10);
-                if (Number.isFinite(n)) applySizePt(n);
-              }}
-              onFocus={() => setSizeMenuOpen(true)}
-              onClick={() => setSizeMenuOpen(true)}
-            />
-            {sizeMenuOpen && (
-              <div ref={menuRef} className="absolute left-1/2 -translate-x-1/2 top-full mt-1 w-[70px] max-h-72 overflow-auto border bg-white rounded shadow z-10">
-                {PRESET_SIZES_PT.map(pt => (
-                  <button key={pt} onClick={() => applySizePt(pt)} className="w-full text-left px-2 py-1 hover:bg-gray-50">{pt}</button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button className="px-3" onClick={() => step(+1)}>+</button>
+{/* Size */}
+<div className="mb-3">
+  <label className="block text-xs text-gray-600 mb-1">Size</label>
+
+  {/* fixed tracks via grid */}
+  <div className="relative grid grid-cols-[36px_76px_36px] h-9 border rounded items-center min-h-0">
+    {/* − */}
+    <button
+      className="h-9 w-9 flex items-center justify-center leading-none select-none"
+      style={{ flex: "0 0 36px" }}
+      onClick={() => step(-1)}
+    >−</button>
+
+    {/* input + menu (fixed 76px track) */}
+    <div className="relative h-full border-l border-r flex items-center overflow-visible min-h-0">
+      <input
+        ref={inputRef}
+        className="w-full h-full px-2 text-center outline-none leading-none [appearance:textfield]"
+        value={sizeInput}
+        onChange={(e) => {
+          const v = e.target.value.replace(/[^\d]/g, "");
+          setSizeInput(v);
+          const n = parseInt(v, 10);
+          if (Number.isFinite(n)) applySizePt(n);
+        }}
+        onFocus={() => setSizeMenuOpen(true)}
+        onClick={() => setSizeMenuOpen(true)}
+      />
+      {sizeMenuOpen && (
+        <div
+          ref={menuRef}
+          className="absolute left-1/2 -translate-x-1/2 top-full mt-1 w-[70px] max-h-72 overflow-auto border bg-white rounded shadow z-30"
+        >
+          {PRESET_SIZES_PT.map((pt) => (
+            <button
+              key={pt}
+              onClick={() => applySizePt(pt)}
+              className="w-full text-left px-2 py-1 hover:bg-gray-50"
+            >
+              {pt}
+            </button>
+          ))}
         </div>
-      </div>
+      )}
+    </div>
+
+    {/* + */}
+    <button
+      className="h-9 w-9 flex items-center justify-center leading-none select-none"
+      style={{ flex: "0 0 36px" }}
+      onClick={() => step(+1)}
+    >+</button>
+  </div>
+</div>
+
+
 
       {/* Text Style Buttons */}
       <div className="flex items-center gap-2 mb-3">
