@@ -5,7 +5,7 @@ import SubmitApprovalModal from '../../components/modals/submitForApprovalModal'
 import TemplateVersionHistory from '../../pages/version_history/templateVersionHistory';
 import AssignMembersModal from '../../components/modals/assignMembersModal';
 import React, { useState, useEffect } from "react";
-import { assignControllersToTemplateAPI } from '../../api/documentContollerAPI';
+import { assignControllersToTemplateAPI, fetchApproversAPI } from '../../api/documentContollerAPI';
 import defaultProfile from '../../assets/images/profile_picture.png';
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -111,7 +111,7 @@ export default function Header2({
         }
 
         const roleName = user?.role?.name || '';
-  const approvalsKey = roleName === 'Lead Document Controller' ? 'lead_document_controller' : ((roleName === 'Document Control Officer') ? 'document_controller_officer' : null);
+        const approvalsKey = roleName === 'Lead Document Controller' ? 'lead_document_controller' : ((roleName === 'Document Control Officer') ? 'document_controller_officer' : null);
         const slotApproved = approvalsKey && approvals && approvals[approvalsKey]?.approved_at;
         const metaCanApprove = approvalMeta
           ? !approvalMeta.hasApprovedCurrentUser && (roleName === 'Lead Document Controller')
@@ -168,6 +168,28 @@ export default function Header2({
           ),
         };
       }
+
+    case 'endorsed':
+      return {
+        label: 'Endorsed',
+        disabled: true,
+        onClick: undefined,
+        className: 'bg-purple-600 text-white cursor-default',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+        ),
+      };
+
+      case 'disapproved':
+      return {
+        label: 'Disapproved',
+        disabled: true,
+        onClick: undefined,
+         className: 'bg-red-600 text-white cursor-default',
+        icon: (
+           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        ),
+      };
 
       case 'published':
         return {
@@ -323,6 +345,9 @@ export default function Header2({
                   {templateStatus==='returned' && <p className="text-[11px]">This template was <strong>returned</strong> for revisions. Please review feedback and resubmit.</p>}
                   {templateStatus==='rejected' && <p className="text-[11px]">This template was <strong>rejected</strong> during the approval process.</p>}
                   {templateStatus==='assigned' && <p className="text-[11px]">Template assigned. Ready for drafting.</p>}
+                  {templateStatus==='assigned' && <p className="text-[11px]">Template assigned. Ready for drafting.</p>}
+                  {templateStatus==='endorsed' && <p className="text-[11px]">This template has been endorsed and is awaiting further approval.</p>}
+                  {templateStatus==='disapproved' && <p className="text-[11px]">This template was <strong>disapproved</strong> during the approval process.</p>}
 
                   {/* APPROVERS */}
                   <div>
@@ -447,7 +472,7 @@ export default function Header2({
                               .map(a => toKey(a?.role?.name || ''))
                               .filter(Boolean);
                             const uniqueKeys = Array.from(new Set(expectedKeys));
-                            const total = uniqueKeys.length || 2;
+                            const total = uniqueKeys.length || 3;
                             const ap = approvals || template?.status_meta?.approvals || {};
                             let count = 0;
                             for (const k of uniqueKeys) {
