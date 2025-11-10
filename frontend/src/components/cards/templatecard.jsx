@@ -49,17 +49,23 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
     setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
   }, [template?.assigned, template?.assignees]);
 
-  // Helper function to get template status
+ // Helper function to get template status
   const getTemplateStatus = (template) => {
     if (typeof template.status === 'string') {
+      // Treat fully approved "pending" as approved for clearer UX in grid
+      if (template.status === 'pending' && template.approvalMeta?.isFullyApproved) return 'approved';
       return template.status;
     }
     if (template.computed_status) return template.computed_status;
     if (template.status?.published) return 'published';
-    if (template.status?.pending_approval) return 'pending';
+    if (template.status?.pending_approval) {
+      if (template.approvalMeta?.isFullyApproved) return 'approved';
+      return 'pending';
+    }
     if (template.status?.approved) return 'approved';
     return 'draft';
   };
+
 
   // Helper function to get status badge color
   const getStatusBadgeColor = (status) => {
@@ -146,7 +152,12 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
   };
 
   const status = getTemplateStatus(template);
+  const approvalMeta = template.approvalMeta || {};
+  const rawRole = (typeof user?.role === 'string') ? user.role : user?.role?.name;
+  const userRole = (rawRole || '').toString().toLowerCase();
+  const roleKey = userRole === 'secretary' ? 'secretary' : userRole === 'dean' ? 'dean' : null;
   const canPublish = !!(approvalMeta && (approvalMeta.canPublish || (approvalMeta.isFullyApproved && status !== 'published')));
+
   const handlePublishClick = (e) => {
     e.stopPropagation();
     if (onPublish) onPublish(template);

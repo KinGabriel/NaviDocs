@@ -456,14 +456,6 @@ useEffect(() => {
     }
   };
 
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-  };
-
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString('en-US', {
@@ -877,9 +869,6 @@ useEffect(() => {
                                 {file.name}
                               </span>
                             </div>
-                            <p className="text-xs text-gray-500 ml-5">
-                              {formatFileSize(file.size)} • {formatDateTime(file.uploadedAt)}
-                            </p>
                           </button>
                         ))}
                       </div>
@@ -1014,7 +1003,7 @@ useEffect(() => {
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-500 ml-5">
-                                  {formatFileSize(file.size)} • Uploaded {formatDateTime(file.uploadedAt)}
+                                  Uploaded {formatDateTime(file.uploadedAt)}
                                 </p>
                               </button>
                             ))}
