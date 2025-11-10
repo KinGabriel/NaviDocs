@@ -11,7 +11,7 @@ const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
-export default function TemplateCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete, onAssign }) {
+export default function TemplateCard({ template, onSelect, user, onPublish, onRename, onDelete, onAssign }) {
 
   const [showMenu, setShowMenu] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -52,16 +52,11 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
   // Helper function to get template status
   const getTemplateStatus = (template) => {
     if (typeof template.status === 'string') {
-      // Treat fully approved "pending" as approved for clearer UX in grid
-      if (template.status === 'pending' && template.approvalMeta?.isFullyApproved) return 'approved';
       return template.status;
     }
     if (template.computed_status) return template.computed_status;
     if (template.status?.published) return 'published';
-    if (template.status?.pending_approval) {
-      if (template.approvalMeta?.isFullyApproved) return 'approved';
-      return 'pending';
-    }
+    if (template.status?.pending_approval) return 'pending';
     if (template.status?.approved) return 'approved';
     return 'draft';
   };
@@ -151,17 +146,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
   };
 
   const status = getTemplateStatus(template);
-  const approvalMeta = template.approvalMeta || {};
-  const rawRole = (typeof user?.role === 'string') ? user.role : user?.role?.name;
-  const userRole = (rawRole || '').toString().toLowerCase();
-  const roleKey = userRole === 'secretary' ? 'secretary' : userRole === 'dean' ? 'dean' : null;
-  const canApprove = !!(roleKey && approvalMeta && !approvalMeta[`${roleKey}Approved`] && ['pending','draft','approved'].includes(status) && template.status !== 'published');
   const canPublish = !!(approvalMeta && (approvalMeta.canPublish || (approvalMeta.isFullyApproved && status !== 'published')));
-
-  const handleApproveClick = (e) => {
-    e.stopPropagation();
-    if (onApprove) onApprove(template);
-  };
   const handlePublishClick = (e) => {
     e.stopPropagation();
     if (onPublish) onPublish(template);
