@@ -5,9 +5,10 @@ import defaultProfile from '../../assets/images/profile_picture.png';
 import DownloadingModal from "../../components/modals/downloadingModal";
 import DocumentVersionHistory from '../../pages/version_history/documentVersionHistory';
 import ShareDocumentModal from "../../components/modals/shareDocumentModal";
-import { shareDocumentAPI } from "../../api/documentsAPI";
+import { shareDocumentAPI, duplicateDocumentAPI } from "../../api/documentsAPI";
 import { ChevronDown, Copy, Send, FileDown, MoreHorizontal, Share2, FolderPlus, Menu } from "lucide-react";
 import StoragePickerModal from "../../components/modals/storagePickerModal";
+import DuplicateModal from "../../components/modals/duplicateModal";
 import toast from "react-hot-toast";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -49,6 +50,8 @@ export default function EditableFieldsHeader({
   const quickMenuRef = useRef(null);
 
   const [showStoragePicker, setShowStoragePicker] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
 
   const roleName = user?.role?.name || "";
   const canSeeSubmit = !["Dean", "Secretary", "Department Head"].includes(roleName);
@@ -99,6 +102,25 @@ export default function EditableFieldsHeader({
       );
     }
   }
+
+  const handleDuplicate = async ({ title: newTitle }) => {
+    if (!documentId) {
+      toast.error("Cannot duplicate a document without an ID.");
+      return;
+    }
+    setDuplicating(true);
+    try {
+      const { document: newDoc } = await duplicateDocumentAPI(documentId, newTitle);
+      toast.success("Document duplicated successfully!");
+      setShowDuplicateModal(false);
+      navigate(`/documents/editable-fields/${newDoc._id}`);
+    } catch (error) {
+      console.error("Failed to duplicate document", error);
+      toast.error(error.message || "Failed to duplicate document.");
+    } finally {
+      setDuplicating(false);
+    }
+  };
 
   return (
     <div className="sticky top-0 z-50 bg-[#f3f3f3] shadow-sm">
@@ -276,7 +298,13 @@ export default function EditableFieldsHeader({
             {isQuickOpen && (
               <div className="absolute right-0 mt-2 w-64 z-50">
                 <div className="bg-white rounded-lg shadow-xl border border-gray-200 py-2">
-                  <button className="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-3" onClick={() => setIsQuickOpen(false)}>
+                  <button 
+                    className="w-full text-left px-4 py-3 hover:bg-blue-50 flex items-center gap-3" 
+                    onClick={() => {
+                      setIsQuickOpen(false);
+                      setShowDuplicateModal(true);
+                    }}
+                  >
                     <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                       <Copy className="w-4 h-4 text-blue-600" />
                     </div>
@@ -400,6 +428,16 @@ export default function EditableFieldsHeader({
           }
         }}
         submitting={shareSubmitting}
+      />
+
+      {/* Duplicate Modal */}
+      <DuplicateModal
+        open={showDuplicateModal}
+        onClose={() => setShowDuplicateModal(false)}
+        type="document"
+        item={documentData}
+        onDuplicate={handleDuplicate}
+        submitting={duplicating}
       />
 
       {/* Storage Picker Modal */}
