@@ -50,7 +50,7 @@ export default function EditableFieldsHeader({
   const [showStoragePicker, setShowStoragePicker] = useState(false);
 
   const roleName = user?.role?.name || "";
-  const canSeeSubmit = !["Dean", "Secretary"].includes(roleName);
+  const canSeeSubmit = !["Dean", "Secretary", "Department Head"].includes(roleName);
 
   useEffect(() => {
     setLocalTitle(title || '');
@@ -285,7 +285,7 @@ export default function EditableFieldsHeader({
                     </div>
                   </button>
 
-                  {/* SHOW "Submit" ONLY IF not Dean/Secretary */}
+                  {/* SHOW "Submit" ONLY IF not Dean/Secretary/Dept Head */}
                   {canSeeSubmit && (
                     <button className="w-full text-left px-4 py-3 hover:bg-green-50 flex items-center gap-3" onClick={() => setIsQuickOpen(false)}>
                       <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
