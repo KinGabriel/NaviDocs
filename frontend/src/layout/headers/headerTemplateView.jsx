@@ -213,12 +213,9 @@ export default function HeaderTemplateView({
                 mySlot?.isReturned || mySlot?.returned_at
               );
 
-              const showManage =
-                String(t?.status || '').toLowerCase() !== 'returned' &&
-                ((roleValue === "Unit Document Controller" && canUDCAct) ||
-                (roleValue === "Lead Document Controller" && canLDCAct) ||
-                (roleValue === "Document Control Officer" && canDCOAct)) &&
-                !alreadyActed;
+              //  always show the Manage button when template is in 'pending' or 'endorsed' state regardless of role/slot decisions.
+              const statusKey = String(t?.status || '').toLowerCase();
+              const showManage = statusKey === 'pending' || statusKey === 'endorsed';
 
               return showManage ? (
                 <button

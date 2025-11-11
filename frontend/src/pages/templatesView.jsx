@@ -215,8 +215,12 @@ export default function TemplatesView() {
     return Boolean(
       entry?.isApproved || entry?.approved_at ||
       entry?.isRejected || entry?.rejected_at ||
-      entry?.isReturned || entry?.returned_at ||
-      st === 'approved' || st === 'rejected' || st === 'returned' || st === 'endorsed'
+      // Consider 'returned' as an acted state only when the overall
+      // template status is actually 'returned'. This allows returns to be
+      // used as a feedback loop without permanently blocking actions when
+      // the template is in other states like 'pending' or 'endorsed'.
+      (String(template?.status || '').toLowerCase() === 'returned' && (entry?.isReturned || entry?.returned_at || st === 'returned')) ||
+      st === 'approved' || st === 'rejected' || st === 'endorsed'
     );
   };
 
@@ -232,7 +236,7 @@ export default function TemplatesView() {
     if (!templateData || !user) return;
     // Disallow overriding past actions (approve/endorse once only)
     const myEntry = getApprovalEntryForUser(templateData, user);
-    if (alreadyActed(myEntry)) {
+    if (alreadyActed(myEntry, templateData?.status)) {
       setError("You've already taken an action on this template and cannot change it.");
       return;
     }
@@ -311,7 +315,7 @@ export default function TemplatesView() {
     if (!templateData || !user) return;
     // Disallow overriding past actions
     const myEntry = getApprovalEntryForUser(templateData, user);
-    if (alreadyActed(myEntry)) {
+    if (alreadyActed(myEntry, templateData?.status)) {
       setError("You've already taken an action on this template and cannot change it.");
       return;
     }
@@ -392,7 +396,7 @@ export default function TemplatesView() {
     if (!templateData || !user) return;
     // Disallow overriding past actions
     const myEntry = getApprovalEntryForUser(templateData, user);
-    if (alreadyActed(myEntry)) {
+    if (alreadyActed(myEntry, templateData?.status)) {
       setError("You've already taken an action on this template and cannot change it.");
       return;
     }
@@ -625,21 +629,24 @@ const handleUpdateISOCode = async ({ iso_code }) => {
   };
   
   if (t.approvals && typeof t.approvals === 'object' && !Array.isArray(t.approvals)) {
+    const tplStatus = String(t.status || '').toLowerCase();
     approvalsArr = Object.entries(t.approvals).map(([role, appr]) => ({
       role,
       name: appr.assigned_to_name || appr.assigned_to || '',
       isApproved: appr.isApproved || Boolean(appr.approved_at) || appr.status === 'approved',
       isRejected: appr.isRejected || Boolean(appr.rejected_at) || appr.status === 'rejected',
-      isReturned: appr.isReturned || Boolean(appr.returned_at) || appr.status === 'returned',
+      // Only treat slot as returned when the overall template status is 'returned'
+      isReturned: tplStatus === 'returned' ? (appr.isReturned || Boolean(appr.returned_at) || appr.status === 'returned') : false,
     }));
   } else if (Array.isArray(t.approvals)) {
+    const tplStatus = String(t.status || '').toLowerCase();
     approvalsArr = t.approvals.map(appr => ({
       ...appr,
       role: appr.role || "Approver",
       name: appr.assigned_to_name || appr.assigned_to || "Unknown",
       isApproved: appr.isApproved || Boolean(appr.approved_at) || appr.status === 'approved',
       isRejected: appr.isRejected || Boolean(appr.rejected_at) || appr.status === 'rejected',
-      isReturned: appr.isReturned || Boolean(appr.returned_at) || appr.status === 'returned',
+      isReturned: tplStatus === 'returned' ? (appr.isReturned || Boolean(appr.returned_at) || appr.status === 'returned') : false,
     }));
   }
 
