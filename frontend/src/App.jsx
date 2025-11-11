@@ -117,7 +117,6 @@ function App() {
   if (checkingSession) {
     return (
       <>
-        <Toaster />
         <Loader />
       </>
     );
