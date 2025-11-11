@@ -1,10 +1,10 @@
 // src/layout/create_template/fontPanel.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import TextColors from "../../components/font_layout/textColors";
+import TextColors from "../../utils/textColors";
 import {
   DEFAULT_FONT_CATEGORIES as FONT_CATEGORIES,
   SYSTEM_FALLBACKS,
-} from "../../components/font_layout/textFonts";
+} from "../../utils/textFonts";
 
 /* ------------------------------- Utilities -------------------------------- */
 const PRESET_SIZES_PT = [8, 9, 10, 11, 12, 14, 18, 24, 30, 36, 48, 60, 72, 96];
