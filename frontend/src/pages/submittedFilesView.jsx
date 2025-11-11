@@ -18,7 +18,10 @@ import {
   Clock,
   User,
   AlertCircle,
-  FileText
+  FileText,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw
 } from "lucide-react";
 import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI } from "../api/assignmentDocumentsAPI";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
@@ -131,6 +134,8 @@ export default function SubmittedFilesView() {
   const [showStoragePicker, setShowStoragePicker] = useState(false);
   const previewRef = useRef(null);
   const [error, setError] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const previewContainerRef = useRef(null);
 
   // Fetch submission data
 useEffect(() => {
@@ -341,6 +346,18 @@ useEffect(() => {
   return () => { mounted = false; };
 }, [id, state]);
 
+const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
+const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
+const handleZoomFit = () => {
+  if (previewContainerRef.current) {
+    const containerWidth = previewContainerRef.current.offsetWidth - 64;
+    const estimatedPageWidth = isLandscape ? 1400 : 900;
+    const autoZoom = Math.min((containerWidth / estimatedPageWidth), 1);
+    setZoom(autoZoom);
+  }
+};
+const handleZoomReset = () => setZoom(1);
+
   // To update the preview when file selection changes
     useEffect(() => {
       if (submission?.files && submission.files.length > 0) {
@@ -386,6 +403,22 @@ useEffect(() => {
     pages: d.pages ?? FALLBACK_DOC.pages,
     document_size: d.document_size || FALLBACK_DOC.document_size,
   };
+
+  const isLandscape = useMemo(() => {
+  const activeDoc = previewDocument || fetchedDoc || d;
+  if (!activeDoc?.pageSetup) return false;
+  
+  const pageSetup = activeDoc.pageSetup;
+  
+  if (pageSetup.orientation) {
+    return pageSetup.orientation.toLowerCase() === 'landscape';
+  }
+  
+  const width = parseFloat(pageSetup.width) || 0;
+  const height = parseFloat(pageSetup.height) || 0;
+  
+  return width > height;
+}, [previewDocument, fetchedDoc, d]);
 
   // Check user role permissions
     const roleName = user?.role?.name || user?.role || '';
@@ -738,6 +771,48 @@ useEffect(() => {
           <div className="grid grid-cols-12 gap-6">
           {/* Document Preview Section */}
           <section className="col-span-12 lg:col-span-8">
+              {/* Zoom Controls */}
+              <div className="sticky top-0 z-10 mb-3 px-4 py-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleZoomOut}
+                      className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors border border-gray-300"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut size={16} />
+                    </button>
+                    <button
+                      onClick={handleZoomIn}
+                      className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors border border-gray-300"
+                      title="Zoom In"
+                    >
+                      <ZoomIn size={16} />
+                    </button>
+                    <span className="text-sm font-medium text-gray-700 min-w-[60px] text-center bg-gray-50 px-3 py-2 rounded-lg border border-gray-300">
+                      {Math.round(zoom * 100)}%
+                    </span>
+                    <button
+                      onClick={handleZoomFit}
+                      className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors border border-gray-300"
+                    >
+                      Fit
+                    </button>
+                    <button
+                      onClick={handleZoomReset}
+                      className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-300 transition-colors"
+                      title="Reset"
+                    >
+                      <RotateCcw size={16} className="text-gray-600" />
+                      Reset
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Scroll to navigate • Use zoom controls
+                  </div>
+                </div>
+              </div>
+
             {loading ? (
               <div className="h-full w-full flex items-center justify-center bg-white rounded-lg border border-gray-200 shadow-sm" style={{ minHeight: 600 }}>
                 <div className="text-center">
@@ -759,7 +834,35 @@ useEffect(() => {
                 </div>
               </div>
             ) : (previewDocument || fetchedDoc || d)?.pages_json ? (
-                  <div className="w-full">
+              <div 
+                  ref={previewContainerRef}
+                  className="w-full bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg shadow-sm overflow-auto"
+                  style={{ 
+                    padding: '2rem',
+                    minHeight: '600px'
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      paddingBottom: '2rem',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: isLandscape ? '1200px' : '900px',
+                        maxWidth: 'none',
+                      }}
+                    >
+                      <div
+                        style={{
+                          transform: `scale(${zoom})`,
+                          transformOrigin: 'top center',
+                        }}
+                        className="transition-transform duration-200"
+                      >
                   <div ref={previewRef} id="template-preview-capture">
                    <TextEditor
                       content={contentForEditor}
@@ -776,16 +879,13 @@ useEffect(() => {
                       effectivity={normalizedHeaderConfig.effectivity}
                       fieldValues={(() => {
                       const activeDoc = previewDocument || d;
-                      
-                      // Get fields 
-                      let fieldsList = activeDoc?.fields || activeDoc?.from_template?.fields || [];
-                      
                       const rawValues = activeDoc?.field_values || {};
-                      
-                      
                       return rawValues;
                     })()}
                     />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
             ) : (
