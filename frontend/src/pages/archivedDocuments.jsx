@@ -239,7 +239,7 @@ export default function ArchivedDocuments() {
 
 
             <h1 className="text-2xl lg:text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">
-              ARCHIVED DOCUMENTS
+              ARCHIVES
             </h1>
           </div>
 
