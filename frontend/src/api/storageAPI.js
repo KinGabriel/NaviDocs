@@ -41,15 +41,31 @@ export const createFolderAPI = async ({ folderName, user, parentFolder }) => {
  */
 export const getFoldersAPI = async ({ user, status }) => {
 	try {
-		const params = { userId: user._id, school: user?.role?.school || null, department: user?.role?.department || null };
-		if (status) params.status = status;
+		// Extract userId 
+		const userId = user?._id || user?.userId || user?.id;
+		
+		if (!userId) {
+		throw new Error('User ID is required to fetch folders');
+		}
+
+		const params = { 
+		userId,
+		school: user?.role?.school || user?.school || null, 
+		department: user?.role?.department || user?.department || null 
+		};
+		
+		if (status) {
+		params.status = status;
+		}
+
 		const res = await axios.get(`${API_URL}/api/storage/folders`, {
 			params,
 			withCredentials: true
 		});
+		
 		return res.data;
 	} catch (err) {
-		throw err.response?.data || { message: err.message };
+        throw err.response?.data || { message: err.message };
 	}
 };
 /**
