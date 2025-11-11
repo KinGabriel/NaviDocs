@@ -1,6 +1,10 @@
 // src/layout/create_template/fontPanel.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import TextColors from "../../components/font_layout/textColors";
+import {
+  DEFAULT_FONT_CATEGORIES as FONT_CATEGORIES,
+  SYSTEM_FALLBACKS,
+} from "../../components/font_layout/textFonts";
 
 /* ------------------------------- Utilities -------------------------------- */
 const PRESET_SIZES_PT = [8, 9, 10, 11, 12, 14, 18, 24, 30, 36, 48, 60, 72, 96];
@@ -18,6 +22,15 @@ const Icon = {
   Minus: () => <span>−</span>,
   Plus: () => <span>+</span>,
   High: () => <span>Hi</span>,
+  Chevron: ({ open }) => (
+    <svg
+      className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
+      viewBox="0 0 20 20"
+      fill="currentColor"
+    >
+      <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.133l3.71-3.9a.75.75 0 111.08 1.04l-4.24 4.46a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
+    </svg>
+  ),
 };
 
 /* --------------------------------- Panel --------------------------------- */
@@ -34,14 +47,29 @@ export default function FontPanel({ editor }) {
   const [activeStyle, setActiveStyle] = useState("Body");
 
   /* --------------------------------- Fonts --------------------------------- */
+  const CATEGORY_NAMES = useMemo(() => Object.keys(FONT_CATEGORIES), []);
+  const FIRST_FONT_OF = useMemo(() => {
+    const map = {};
+    for (const k of CATEGORY_NAMES) map[k] = FONT_CATEGORIES[k]?.[0] || "Arial";
+    return map;
+  }, [CATEGORY_NAMES]);
+
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("Serif");
-  const [recentFonts, setRecentFonts] = useState(["Adamina", "Gotu", "Castoro"]);
+  const [activeCategory, setActiveCategory] = useState(
+    CATEGORY_NAMES[0] || "Serif"
+  );
+  const [recentFonts, setRecentFonts] = useState([
+    "Adamina",
+    "Gotu",
+    "Castoro",
+  ]);
   const [activeFamily, setActiveFamily] = useState("Adamina");
+  const [typeOpen, setTypeOpen] = useState(false);
 
   /* --------------------------------- Colors -------------------------------- */
   const [currentTextColor, setCurrentTextColor] = useState("#000000");
-  const [currentHighlightColor, setCurrentHighlightColor] = useState("#fff59d");
+  const [currentHighlightColor, setCurrentHighlightColor] =
+    useState("#fff59d");
 
   /* -------------------------------- Toggles -------------------------------- */
   const [toggles, setToggles] = useState({
@@ -55,77 +83,22 @@ export default function FontPanel({ editor }) {
 
   /* --------------------------- Highlight constants -------------------------- */
   const supportsHighlight = !!editor?.commands?.toggleHighlight;
-  const HIGHLIGHT_COLORS = useMemo(
-    () => [
-      // Yellows / Ambers
-      "#fff59d",
-      "#ffff00",
-      "#fde68a",
-      "#fef08a",
-      "#ffe082",
-      "#ffd27f",
-      "#ffb74d",
-      // Blues / Cyans
-      "#bbdefb",
-      "#90caf9",
-      "#80deea",
-      "#b3e5fc",
-      "#a5f3fc",
-      // Greens
-      "#c8e6c9",
-      "#a5d6a7",
-      "#86efac",
-      "#b9fbc0",
-      // Pinks / Reds
-      "#ffcdd2",
-      "#ffd1dc",
-      "#fda4af",
-      // Neutrals
-      "#e5e7eb",
-      "#f3f4f6",
-      // Extras
-      "#e9d5ff",
-      "#fde2e4",
-      "#fff1c1",
-      "#d1fae5",
-      "#cffafe",
-    ],
-    []
-  );
 
   /* ------------------------------ Refs & menus ------------------------------ */
   const inputRef = useRef(null);
   const sizeMenuRef = useRef(null);
   const styleBtnRef = useRef(null);
   const styleMenuRef = useRef(null);
+  const typeBtnRef = useRef(null);
+  const typeMenuRef = useRef(null);
 
-  /* ------------------------------ Static lists ------------------------------ */
-  const FONT_CATEGORIES = useMemo(
-    () => ({
-      Serif: [
-        "Adamina",
-        "Gotu",
-        "Castoro",
-        "Georgia",
-        "Times New Roman",
-        "Merriweather",
-      ],
-      Sans: ["Arial", "Inter", "Roboto", "Helvetica", "Verdana", "Open Sans"],
-      Mono: ["Courier New", "Consolas", "Fira Code", "Source Code Pro", "Monaco"],
-    }),
-    []
-  );
-
+  /* ------------------------------ Derived lists ----------------------------- */
   const categoryFonts = FONT_CATEGORIES[activeCategory] || [];
-  const filteredFonts = useMemo(
-    () =>
-      search
-        ? categoryFonts.filter((f) =>
-            f.toLowerCase().includes(search.toLowerCase())
-          )
-        : categoryFonts,
-    [categoryFonts, search]
-  );
+  const filteredFonts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return categoryFonts;
+    return categoryFonts.filter((f) => f.toLowerCase().includes(q));
+  }, [categoryFonts, search]);
 
   /* -------------------------- Selection-based readers ----------------------- */
   const pxStringToInt = useCallback((v) => {
@@ -164,7 +137,7 @@ export default function FontPanel({ editor }) {
   }, [editor, readFSFromMarks]);
 
   /* ---------------------------- Preset definitions ------------------------- */
-  const [stylePresets, setStylePresets] = useState({
+  const [stylePresets] = useState({
     Body: { type: "paragraph", sizePt: 12, bold: false, italic: false },
     Title: { type: "paragraph", sizePt: 32, bold: true, italic: false },
     Subtitle: { type: "paragraph", sizePt: 20, bold: false, italic: true },
@@ -181,7 +154,8 @@ export default function FontPanel({ editor }) {
     const px = pxStringToInt(getActiveFontSizePx());
     const pt = typeof px === "number" ? pxToPt(px) : null;
     if (pt && editor.isActive("bold") && pt >= 28) return "Title";
-    if (pt && editor.isActive("italic") && pt >= 18 && pt <= 24) return "Subtitle";
+    if (pt && editor.isActive("italic") && pt >= 18 && pt <= 24)
+      return "Subtitle";
     return "Body";
   }, [editor, getActiveFontSizePx, pxStringToInt]);
 
@@ -214,16 +188,24 @@ export default function FontPanel({ editor }) {
     );
     setActiveStyle(detectBlockStyle());
 
-    // read text/highlight color (best-effort)
     try {
       const color = editor.getAttributes("textStyle")?.color || "#000000";
-      if (typeof color === "string") setCurrentTextColor(color.toLowerCase());
+      if (typeof color === "string")
+        setCurrentTextColor(color.toLowerCase());
     } catch {}
     try {
-      const hl = editor.getAttributes("highlight")?.color || currentHighlightColor;
-      if (typeof hl === "string") setCurrentHighlightColor(hl.toLowerCase());
+      const hl =
+        editor.getAttributes("highlight")?.color || currentHighlightColor;
+      if (typeof hl === "string")
+        setCurrentHighlightColor(hl.toLowerCase());
     } catch {}
-  }, [editor, detectBlockStyle, getActiveFontSizePx, pxStringToInt, currentHighlightColor]);
+  }, [
+    editor,
+    detectBlockStyle,
+    getActiveFontSizePx,
+    pxStringToInt,
+    currentHighlightColor,
+  ]);
 
   useEffect(() => {
     if (!editor) return;
@@ -254,6 +236,13 @@ export default function FontPanel({ editor }) {
       )
         return;
       setStyleMenuOpen(false);
+
+      if (
+        typeMenuRef.current?.contains(e.target) ||
+        typeBtnRef.current?.contains(e.target)
+      )
+        return;
+      setTypeOpen(false);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -296,7 +285,8 @@ export default function FontPanel({ editor }) {
     (family) => {
       setActiveFamily(family);
       safeRun(() => focus().setFontFamily(family).run());
-      setRecentFonts((p) => [family, ...p.filter((f) => f !== family)].slice(0, 8));
+      // limit recents to 4
+      setRecentFonts((p) => [family, ...p.filter((f) => f !== family)].slice(0, 4));
     },
     [focus, safeRun]
   );
@@ -315,11 +305,10 @@ export default function FontPanel({ editor }) {
     [editor, focus, safeRun]
   );
 
-  // ONE CLEAR BUTTON (top) — now also clears highlights
   const clearCharacterFormatting = useCallback(() => {
     safeRun(() =>
       focus()
-        .unsetHighlight() // ← added so top "Clear" also removes highlight
+        .unsetHighlight()
         .unsetColor()
         .setMark("textStyle", { fontSize: null, lineHeight: null })
         .setFontFamily(null)
@@ -354,33 +343,20 @@ export default function FontPanel({ editor }) {
 
   const stylePreviewMap = useMemo(
     () => ({
-      Body: {
-        sample: "AaBbCc",
-        style: {
-          fontSize: `${ptToPx(stylePresets.Body.sizePt)}px`,
-          fontWeight: stylePresets.Body.bold ? 700 : 400,
-          fontStyle: stylePresets.Body.italic ? "italic" : "normal",
-        },
-      },
+      Body: { sample: "AaBbCc", style: { fontSize: `${ptToPx(12)}px` } },
       Title: {
         sample: "Title preview",
-        style: {
-          fontSize: `${ptToPx(stylePresets.Title.sizePt)}px`,
-          fontWeight: stylePresets.Title.bold ? 700 : 400,
-        },
+        style: { fontSize: `${ptToPx(32)}px`, fontWeight: 700 },
       },
       Subtitle: {
-        sample: "Subtitle preview",
-        style: {
-          fontSize: `${ptToPx(stylePresets.Subtitle.sizePt)}px`,
-          fontStyle: "italic",
-        },
+        sample: "Subtitle",
+        style: { fontSize: `${ptToPx(20)}px`, fontStyle: "italic" },
       },
       H1: { sample: "Heading 1", style: { fontSize: `${ptToPx(24)}px`, fontWeight: 700 } },
       H2: { sample: "Heading 2", style: { fontSize: `${ptToPx(18)}px`, fontWeight: 700 } },
       H3: { sample: "Heading 3", style: { fontSize: `${ptToPx(14)}px`, fontWeight: 700 } },
     }),
-    [stylePresets]
+    []
   );
 
   const applyAlign = useCallback(
@@ -394,7 +370,9 @@ export default function FontPanel({ editor }) {
   const applyLineHeight = useCallback(
     (lh) => {
       setLineHeight(lh);
-      safeRun(() => focus().setMark("textStyle", { lineHeight: String(lh) }).run());
+      safeRun(() =>
+        focus().setMark("textStyle", { lineHeight: String(lh) }).run()
+      );
     },
     [focus, safeRun]
   );
@@ -416,21 +394,17 @@ export default function FontPanel({ editor }) {
 
   return (
     <div className="w-80 bg-white border rounded-lg p-3 text-sm">
-      {/* Undo / Redo / Clear (character) */}
+      {/* Undo / Redo / Clear */}
       <div className="flex items-center gap-2 mb-3">
         <button
           className="border rounded px-2 py-1"
           onClick={() => editor.commands.undo()}
-          title="Undo"
-          aria-label="Undo"
         >
           Undo
         </button>
         <button
           className="border rounded px-2 py-1"
           onClick={() => editor.commands.redo()}
-          title="Redo"
-          aria-label="Redo"
         >
           Redo
         </button>
@@ -438,8 +412,7 @@ export default function FontPanel({ editor }) {
         <button
           className="border rounded px-2 py-1"
           onClick={clearCharacterFormatting}
-          title="Clear all formatting (font, color, highlight, underline, strike)"
-          aria-label="Clear all formatting"
+          title="Clear font, color, highlight, underline, strike"
         >
           Clear
         </button>
@@ -453,28 +426,20 @@ export default function FontPanel({ editor }) {
           type="button"
           onClick={() => setStyleMenuOpen((v) => !v)}
           className="w-full border rounded px-3 py-2 text-left"
-          title="Choose a paragraph style"
-          aria-label="Choose a paragraph style"
         >
           {activeStyle === "Body" ? "Normal text" : activeStyle}
         </button>
-
         {styleMenuOpen && (
           <div
             ref={styleMenuRef}
             className="absolute z-20 mt-1 w-72 bg-white border rounded-lg shadow-lg overflow-hidden"
           >
             <div className="py-1">
-              <div className="px-3 py-2 text-gray-700 font-medium">
-                Normal text
-              </div>
               {Object.entries(stylePreviewMap).map(([name, preview]) => (
                 <div
                   key={name}
                   onClick={() => applyStyleFromPreset(name)}
                   className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                  title={`Apply ${name}`}
-                  aria-label={`Apply ${name}`}
                 >
                   <div className="text-gray-900">{name}</div>
                   <div className="text-xs text-gray-500" style={preview.style}>
@@ -491,12 +456,7 @@ export default function FontPanel({ editor }) {
       <div className="mb-3">
         <label className="block text-xs text-gray-600 mb-1">Size</label>
         <div className="flex items-stretch border rounded">
-          <button
-            className="px-3"
-            onClick={() => step(-1)}
-            title="Decrease font size"
-            aria-label="Decrease font size"
-          >
+          <button className="px-3" onClick={() => step(-1)}>
             <Icon.Minus />
           </button>
           <div className="relative border-l border-r">
@@ -513,7 +473,6 @@ export default function FontPanel({ editor }) {
               onFocus={() => setSizeMenuOpen(true)}
               onClick={() => setSizeMenuOpen(true)}
               title="Type or pick a size (pt)"
-              aria-label="Font size input"
             />
             {sizeMenuOpen && (
               <div
@@ -525,8 +484,6 @@ export default function FontPanel({ editor }) {
                     key={pt}
                     onClick={() => applySizePt(pt)}
                     className="w-full text-left px-2 py-1 hover:bg-gray-50"
-                    title={`${pt} pt`}
-                    aria-label={`Set font size to ${pt} pt`}
                   >
                     {pt}
                   </button>
@@ -534,52 +491,46 @@ export default function FontPanel({ editor }) {
               </div>
             )}
           </div>
-          <button
-            className="px-3"
-            onClick={() => step(+1)}
-            title="Increase font size"
-            aria-label="Increase font size"
-          >
+          <button className="px-3" onClick={() => step(+1)}>
             <Icon.Plus />
           </button>
         </div>
       </div>
 
-      {/* Text style marks + highlight toggle */}
+      {/* Marks + highlight toggle */}
       <div className="flex items-center gap-2 mb-3">
         <button
-          className={`h-9 w-9 border rounded ${toggles.bold ? "bg-gray-200" : ""}`}
+          className={`h-9 w-9 border rounded ${
+            toggles.bold ? "bg-gray-200" : ""
+          }`}
           onClick={() => toggleMark("bold")}
-          title="Bold"
-          aria-label="Bold"
         >
           <Icon.Bold />
         </button>
         <button
-          className={`h-9 w-9 border rounded ${toggles.italic ? "bg-gray-200" : ""}`}
+          className={`h-9 w-9 border rounded ${
+            toggles.italic ? "bg-gray-200" : ""
+          }`}
           onClick={() => toggleMark("italic")}
-          title="Italic"
-          aria-label="Italic"
         >
           <Icon.Italic />
         </button>
         <button
-          className={`h-9 w-9 border rounded ${toggles.underline ? "bg-gray-200" : ""}`}
+          className={`h-9 w-9 border rounded ${
+            toggles.underline ? "bg-gray-200" : ""
+          }`}
           onClick={() => toggleMark("underline")}
-          title="Underline"
-          aria-label="Underline"
         >
           <Icon.Underline />
         </button>
         <button
-          className={`h-9 w-9 border rounded ${toggles.strike ? "bg-gray-200" : ""}`}
+          className={`h-9 w-9 border rounded ${
+            toggles.strike ? "bg-gray-200" : ""
+          }`}
           onClick={() => toggleMark("strike")}
-          title="Strikethrough"
-          aria-label="Strikethrough"
         >
           <Icon.Strike />
         </button>
-
         {supportsHighlight && (
           <button
             className={`h-9 px-2 border rounded ${
@@ -587,59 +538,21 @@ export default function FontPanel({ editor }) {
             }`}
             onClick={() => focus().toggleHighlight().run()}
             title="Toggle highlight"
-            aria-label="Toggle highlight"
           >
             <Icon.High />
           </button>
         )}
       </div>
 
-      {/* Text color (reusable component) — recents disabled */}
+      {/* Text + Highlight color (single source of truth) */}
       <TextColors
         editor={editor}
         defaultColor={currentTextColor}
-        maxRecents={0}              // ← disables "Recent" section
-        onChange={(hex) => setCurrentTextColor(String(hex || "").toLowerCase())}
+        maxRecents={0}
+        onChange={(hex) =>
+          setCurrentTextColor(String(hex || "").toLowerCase())
+        }
       />
-
-      {/* Highlight with color picker + NO local Clear + NO Recent */}
-      {supportsHighlight && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between">
-            <div className="font-semibold text-gray-800">Highlight</div>
-            <label
-              className="inline-flex items-center gap-2 text-xs text-gray-600 cursor-pointer"
-              title="Pick custom highlight color"
-              aria-label="Pick custom highlight color"
-            >
-              <span>Picker</span>
-              <input
-                type="color"
-                value={currentHighlightColor}
-                onChange={(e) => commitHighlight(e.target.value)}
-                className="h-5 w-7 p-0 border-0 bg-transparent cursor-pointer"
-              />
-            </label>
-          </div>
-
-          {/* Palette only (no Recent, no Clear here) */}
-          <div className="mt-3">
-            <div className="text-xs text-gray-500 mb-1">Palette</div>
-            <div className="flex flex-wrap">
-              {HIGHLIGHT_COLORS.map((c) => (
-                <button
-                  key={`hl-${c}`}
-                  onClick={() => commitHighlight(c)}
-                  className="h-6 w-6 rounded border mr-2 mt-2"
-                  style={{ background: c }}
-                  title={c}
-                  aria-label={`Highlight ${c}`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Paragraph */}
       <details className="mb-4">
@@ -651,9 +564,10 @@ export default function FontPanel({ editor }) {
               <button
                 key={dir}
                 onClick={() => applyAlign(dir)}
-                className={`px-2 py-1 border rounded ${align === dir ? "bg-gray-200" : ""}`}
+                className={`px-2 py-1 border rounded ${
+                  align === dir ? "bg-gray-200" : ""
+                }`}
                 title={`Align ${dir}`}
-                aria-label={`Align ${dir}`}
               >
                 {dir[0].toUpperCase() + dir.slice(1)}
               </button>
@@ -666,7 +580,6 @@ export default function FontPanel({ editor }) {
               value={lineHeight}
               onChange={(e) => applyLineHeight(parseFloat(e.target.value))}
               title="Line height"
-              aria-label="Line height"
             >
               <option value="1">Single</option>
               <option value="1.15">1.15</option>
@@ -679,22 +592,67 @@ export default function FontPanel({ editor }) {
 
       {/* Fonts */}
       <div className="font-semibold text-gray-800">Fonts</div>
-      <div className="flex gap-3 mt-3">
-        {["Serif", "Sans", "Mono"].map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={`w-20 h-20 border rounded-lg flex flex-col items-center justify-center ${
-              activeCategory === cat ? "ring-2 ring-blue-500" : ""
-            }`}
-            title={`Category: ${cat}`}
-            aria-label={`Font category ${cat}`}
+
+      {/* Type dropdown with visual preview */}
+      <div className="mt-3 relative">
+        <button
+          ref={typeBtnRef}
+          type="button"
+          onClick={() => setTypeOpen((v) => !v)}
+          className="w-full border rounded-lg px-3 py-2 flex items-center justify-between"
+          title="Choose font type"
+        >
+          <span className="flex items-center gap-3">
+            <span
+              className="text-xl leading-none"
+              style={{
+                fontFamily:
+                  SYSTEM_FALLBACKS[FIRST_FONT_OF[activeCategory]] ||
+                  FIRST_FONT_OF[activeCategory],
+              }}
+            >
+              Aa
+            </span>
+            <span className="text-sm">{activeCategory}</span>
+          </span>
+          <Icon.Chevron open={typeOpen} />
+        </button>
+
+        {typeOpen && (
+          <div
+            ref={typeMenuRef}
+            className="absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg"
           >
-            <div className="text-2xl">Aa</div>
-            <div className="text-xs">{cat}</div>
-          </button>
-        ))}
+            {CATEGORY_NAMES.map((cat) => (
+              <div
+                key={cat}
+                onClick={() => {
+                  setActiveCategory(cat);
+                  setTypeOpen(false);
+                }}
+                className={`px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-3 ${
+                  activeCategory === cat ? "bg-blue-50" : ""
+                }`}
+                title={`Category: ${cat}`}
+              >
+                <span
+                  className="text-xl leading-none"
+                  style={{
+                    fontFamily:
+                      SYSTEM_FALLBACKS[FIRST_FONT_OF[cat]] ||
+                      FIRST_FONT_OF[cat],
+                  }}
+                >
+                  Aa
+                </span>
+                <span className="text-sm">{cat}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Search */}
       <div className="mt-3 relative">
         <input
           value={search}
@@ -702,7 +660,6 @@ export default function FontPanel({ editor }) {
           placeholder='Try "Times New Roman"'
           className="w-full border rounded-lg pl-8 pr-3 py-1.5"
           title="Search fonts"
-          aria-label="Search fonts"
         />
         <svg
           className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
@@ -710,43 +667,49 @@ export default function FontPanel({ editor }) {
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
-          aria-hidden="true"
         >
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
       </div>
-      <div className="mt-3 border rounded-lg">
-        {recentFonts.map((f) => (
-          <div
-            key={f}
-            onClick={() => applyFamily(f)}
-            className={`flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 cursor-pointer ${
-              activeFamily === f ? "bg-blue-50" : ""
-            }`}
-            style={{ fontFamily: f }}
-            title={`Use ${f}`}
-            aria-label={`Use font ${f}`}
-          >
-            <span
-              className={`inline-block w-3 h-3 rounded-full border ${
-                activeFamily === f ? "bg-blue-600 border-blue-600" : "border-gray-400"
-              }`}
-            />
-            <span className="flex-1">{f}</span>
-          </div>
-        ))}
 
+      {/* Recent (limited to 4) */}
+      {recentFonts.slice(0, 4).length > 0 && (
+        <div className="mt-3 border rounded-lg">
+          {recentFonts.slice(0, 4).map((f) => (
+            <div
+              key={f}
+              onClick={() => applyFamily(f)}
+              className={`flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 cursor-pointer ${
+                activeFamily === f ? "bg-blue-50" : ""
+              }`}
+              style={{ fontFamily: SYSTEM_FALLBACKS[f] || f }}
+              title={`Use ${f}`}
+            >
+              <span
+                className={`inline-block w-3 h-3 rounded-full border ${
+                  activeFamily === f
+                    ? "bg-blue-600 border-blue-600"
+                    : "border-gray-400"
+                }`}
+              />
+              <span className="flex-1">{f}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* List */}
+      <div className="mt-3 border rounded-lg">
         {filteredFonts
-          .filter((f) => !recentFonts.includes(f))
+          .filter((f) => !recentFonts.slice(0, 4).includes(f))
           .map((f) => (
             <div
               key={`list-${f}`}
               onClick={() => applyFamily(f)}
               className="flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 cursor-pointer"
-              style={{ fontFamily: f }}
+              style={{ fontFamily: SYSTEM_FALLBACKS[f] || f }}
               title={`Use ${f}`}
-              aria-label={`Use font ${f}`}
             >
               <span className="inline-block w-3 h-3 rounded-full border border-gray-400" />
               <span className="flex-1">{f}</span>
