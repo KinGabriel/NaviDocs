@@ -416,7 +416,7 @@ export default function SecretaryDashboard() {
               </div>
 
               <button
-                onClick={() => navigate("")}
+                onClick={() => navigate("/templates", { state: { status: "Published" } })}
                 className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
               >
                 View All

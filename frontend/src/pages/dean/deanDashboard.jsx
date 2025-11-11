@@ -39,6 +39,7 @@ export default function DeanDashboard() {
 
   // URL route used by react-router for navigation (keep this pointing to your route path)
   const SUBMISSION_BINS_ROUTE = "/submission-bins";
+  const DOC_CONTROLLER_TEMPLATES_ROUTE = "/templates?status=Published";
 
   function formatDate(dateValue) {
     if (!dateValue) return "-";
@@ -326,7 +327,7 @@ export default function DeanDashboard() {
               </div>
 
               <button
-                onClick={() => navigate("")}
+                onClick={() => navigate(DOC_CONTROLLER_TEMPLATES_ROUTE)}
                 className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
               >
                 View All

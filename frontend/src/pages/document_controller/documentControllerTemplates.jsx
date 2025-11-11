@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; 
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'; 
 import Header from '../../layout/headers/header'; 
 import Sidebar from '../../layout/sidebars/sidebar';
 import useUser from '../../hooks/useUser'; 
@@ -14,6 +14,10 @@ import Loader from '../../components/loader';
 
 export default function DocumentControllerTemplates() {
   const user = useUser();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
   const [search, setSearch] = useState('');
   const [templates, setTemplates] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -21,20 +25,6 @@ export default function DocumentControllerTemplates() {
   const [totalPages, setTotalPages] = useState(1);
   const pagination = usePagination(totalPages, 1);
   
-  //  status filtering state
-  const [selectedSchool, setSelectedSchool] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
-  const [sortOrder, setSortOrder] = useState('Recent');
-  
-  const navigate = useNavigate(); 
-
-  // School identifiers for filtering, sorting, and modal
-  const schoolIdentifiers = {
-    'University Wide': 'VAA',
-    'SAMCIS': 'SMI', 
-    'STELA': 'STL',
-  };
-
   // Status options for filtering
   const statusOptions = [
     'All',
@@ -43,6 +33,34 @@ export default function DocumentControllerTemplates() {
     'Approved',
     'Published'
   ];
+
+  // ⬇ derive initial selectedStatus from navigation state or ?status=
+  const initialStatus =
+    (statusOptions.includes(location.state?.status) && location.state.status) ||
+    (statusOptions.includes(searchParams.get('status')) && searchParams.get('status')) || 'All';
+
+  //  status filtering state
+  const [selectedSchool, setSelectedSchool] = useState('All');
+  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [sortOrder, setSortOrder] = useState('Recent');
+
+  useEffect(() => {
+    const fromState = location.state?.status;
+    const fromQuery = searchParams.get('status');
+    if (statusOptions.includes(fromState) && fromState !== selectedStatus) {
+      setSelectedStatus(fromState);
+    } else if (statusOptions.includes(fromQuery) && fromQuery !== selectedStatus) {
+      setSelectedStatus(fromQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, searchParams]);
+
+  // School identifiers for filtering, sorting, and modal
+  const schoolIdentifiers = {
+    'University Wide': 'VAA',
+    'SAMCIS': 'SMI', 
+    'STELA': 'STL',
+  };
 
   const handleCreateTemplate = () => {
     setShowCreateModal(true);
