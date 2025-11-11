@@ -1,5 +1,12 @@
 // src/layout/create_template/fontPanel.jsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useId,
+} from "react";
 import TextColors from "../../utils/textColors";
 import {
   DEFAULT_FONT_CATEGORIES as FONT_CATEGORIES,
@@ -19,8 +26,6 @@ const Icon = {
   Italic: () => <span className="italic">I</span>,
   Underline: () => <span style={{ textDecoration: "underline" }}>U</span>,
   Strike: () => <span style={{ textDecoration: "line-through" }}>S</span>,
-  Minus: () => <span>−</span>,
-  Plus: () => <span>+</span>,
   High: () => <span>Hi</span>,
   Chevron: ({ open }) => (
     <svg
@@ -33,20 +38,172 @@ const Icon = {
   ),
 };
 
+/* ------------------------- Font Size Combobox UI -------------------------- */
+function FontSizePicker({
+  value,
+  onChange,
+  min = 8,
+  max = 96,
+  step = 1,
+  presets = PRESET_SIZES_PT,
+  className = "",
+  snapToPresetOnBlur = false,
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(String(value ?? 12));
+  const rootRef = useRef(null);
+  const listRef = useRef(null);
+  const inputRef = useRef(null);
+  const uid = useId();
+
+  useEffect(() => setDraft(String(value ?? "")), [value]);
+
+  const commit = useCallback(
+    (v) => {
+      if (v === "" || Number.isNaN(Number(v))) return;
+      const num = clamp(Number(v), min, max);
+      onChange?.(num);
+      setDraft(String(num));
+    },
+    [min, max, onChange]
+  );
+
+  const stepBy = useCallback(
+    (delta) => {
+      const num = clamp((Number(draft) || 0) + delta, min, max);
+      setDraft(String(num));
+      onChange?.(num);
+    },
+    [draft, min, max, onChange]
+  );
+
+  const onBlur = useCallback(() => {
+    if (snapToPresetOnBlur && draft !== "") {
+      const num = clamp(Number(draft), min, max);
+      const nearest = presets.reduce((a, b) =>
+        Math.abs(b - num) < Math.abs(a - num) ? b : a
+      , presets[0]);
+      onChange?.(nearest);
+      setDraft(String(nearest));
+    } else {
+      commit(draft);
+    }
+    setTimeout(() => setOpen(false), 80);
+  }, [commit, draft, min, max, presets, onChange, snapToPresetOnBlur]);
+
+  useEffect(() => {
+    function handleDoc(e) {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handleDoc);
+    return () => document.removeEventListener("mousedown", handleDoc);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const idx = presets.findIndex((p) => p === Number(draft));
+    const el = listRef.current.querySelector(`[data-idx="${idx}"]`);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [open, presets, draft]);
+
+  return (
+    <div ref={rootRef} className={`relative inline-flex items-center gap-1 ${className}`}>
+      <button
+        type="button"
+        aria-label="Decrease font size"
+        onClick={() => stepBy(-step)}
+        className="h-9 w-8 rounded-md border border-gray-300 text-sm hover:bg-gray-50 active:scale-[.98]"
+      >
+        –
+      </button>
+
+      <div className="relative">
+        <input
+          ref={inputRef}
+          id={`fs-${uid}`}
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={`fs-list-${uid}`}
+          aria-autocomplete="list"
+          inputMode="numeric"
+          value={draft}
+          onChange={(e) => {
+            const raw = e.target.value;
+            const next = raw === "" ? "" : raw.replace(/[^\d]/g, "");
+            setDraft(next);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowUp") { e.preventDefault(); stepBy(step); }
+            if (e.key === "ArrowDown") { e.preventDefault(); stepBy(-step); }
+            if (e.key === "Enter") { commit(draft); setOpen(false); inputRef.current?.blur(); }
+            if (e.key === "Escape") { setOpen(false); inputRef.current?.blur(); }
+            if ([" ", "Spacebar"].includes(e.key)) setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={onBlur}
+          className="h-9 w-16 select-none rounded-md border border-gray-300 text-center text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+          title="Type or pick a size (pt)"
+        />
+        {open && (
+          <div
+            id={`fs-list-${uid}`}
+            role="listbox"
+            ref={listRef}
+            className="absolute left-0 top-10 z-50 max-h-64 w-24 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg"
+          >
+            {presets.map((p, i) => {
+              const active = Number(draft) === p;
+              return (
+                <div
+                  key={p}
+                  data-idx={i}
+                  role="option"
+                  aria-selected={active}
+                  tabIndex={-1}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onChange?.(p);
+                    setDraft(String(p));
+                    setOpen(false);
+                    inputRef.current?.focus();
+                  }}
+                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 ${
+                    active ? "bg-gray-50 font-medium" : ""
+                  }`}
+                >
+                  {p}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <button
+        type="button"
+        aria-label="Increase font size"
+        onClick={() => stepBy(step)}
+        className="h-9 w-8 rounded-md border border-gray-300 text-sm hover:bg-gray-50 active:scale-[.98]"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
 /* --------------------------------- Panel --------------------------------- */
 export default function FontPanel({ editor }) {
   const isReady = !!editor;
 
-  /* ------------------------------ Size control ------------------------------ */
+  /* ------------------------------ Size state ------------------------------- */
   const [fontSizePt, setFontSizePt] = useState(12);
-  const [sizeInput, setSizeInput] = useState("12");
-  const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
 
-  /* ------------------------------ Style preset ------------------------------ */
+  /* ------------------------------ Style preset ----------------------------- */
   const [styleMenuOpen, setStyleMenuOpen] = useState(false);
   const [activeStyle, setActiveStyle] = useState("Body");
 
-  /* --------------------------------- Fonts --------------------------------- */
+  /* --------------------------------- Fonts -------------------------------- */
   const CATEGORY_NAMES = useMemo(() => Object.keys(FONT_CATEGORIES), []);
   const FIRST_FONT_OF = useMemo(() => {
     const map = {};
@@ -58,20 +215,15 @@ export default function FontPanel({ editor }) {
   const [activeCategory, setActiveCategory] = useState(
     CATEGORY_NAMES[0] || "Serif"
   );
-  const [recentFonts, setRecentFonts] = useState([
-    "Adamina",
-    "Gotu",
-    "Castoro",
-  ]);
+  const [recentFonts, setRecentFonts] = useState(["Adamina", "Gotu", "Castoro"]);
   const [activeFamily, setActiveFamily] = useState("Adamina");
   const [typeOpen, setTypeOpen] = useState(false);
 
-  /* --------------------------------- Colors -------------------------------- */
+  /* --------------------------------- Colors ------------------------------- */
   const [currentTextColor, setCurrentTextColor] = useState("#000000");
-  const [currentHighlightColor, setCurrentHighlightColor] =
-    useState("#fff59d");
+  const [currentHighlightColor, setCurrentHighlightColor] = useState("#fff59d");
 
-  /* -------------------------------- Toggles -------------------------------- */
+  /* -------------------------------- Toggles ------------------------------- */
   const [toggles, setToggles] = useState({
     bold: false,
     italic: false,
@@ -81,18 +233,16 @@ export default function FontPanel({ editor }) {
   const [align, setAlign] = useState("left");
   const [lineHeight, setLineHeight] = useState(1);
 
-  /* --------------------------- Highlight constants -------------------------- */
+  /* --------------------------- Highlight constants ------------------------- */
   const supportsHighlight = !!editor?.commands?.toggleHighlight;
 
-  /* ------------------------------ Refs & menus ------------------------------ */
-  const inputRef = useRef(null);
-  const sizeMenuRef = useRef(null);
+  /* ------------------------------ Refs & menus ----------------------------- */
   const styleBtnRef = useRef(null);
   const styleMenuRef = useRef(null);
   const typeBtnRef = useRef(null);
   const typeMenuRef = useRef(null);
 
-  /* ------------------------------ Derived lists ----------------------------- */
+  /* ------------------------------ Derived lists ---------------------------- */
   const categoryFonts = FONT_CATEGORIES[activeCategory] || [];
   const filteredFonts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -100,7 +250,7 @@ export default function FontPanel({ editor }) {
     return categoryFonts.filter((f) => f.toLowerCase().includes(q));
   }, [categoryFonts, search]);
 
-  /* -------------------------- Selection-based readers ----------------------- */
+  /* -------------------------- Selection-based readers ---------------------- */
   const pxStringToInt = useCallback((v) => {
     if (!v) return null;
     const n = parseInt(String(v).replace("px", "").trim(), 10);
@@ -136,7 +286,7 @@ export default function FontPanel({ editor }) {
     return mixed ? "__MIXED__" : first ?? null;
   }, [editor, readFSFromMarks]);
 
-  /* ---------------------------- Preset definitions ------------------------- */
+  /* ---------------------------- Preset definitions ------------------------ */
   const [stylePresets] = useState({
     Body: { type: "paragraph", sizePt: 12, bold: false, italic: false },
     Title: { type: "paragraph", sizePt: 32, bold: true, italic: false },
@@ -154,8 +304,7 @@ export default function FontPanel({ editor }) {
     const px = pxStringToInt(getActiveFontSizePx());
     const pt = typeof px === "number" ? pxToPt(px) : null;
     if (pt && editor.isActive("bold") && pt >= 28) return "Title";
-    if (pt && editor.isActive("italic") && pt >= 18 && pt <= 24)
-      return "Subtitle";
+    if (pt && editor.isActive("italic") && pt >= 18 && pt <= 24) return "Subtitle";
     return "Body";
   }, [editor, getActiveFontSizePx, pxStringToInt]);
 
@@ -163,13 +312,11 @@ export default function FontPanel({ editor }) {
     if (!editor) return;
     const raw = getActiveFontSizePx();
     if (raw === "__MIXED__") {
-      setFontSizePt("Mixed");
-      setSizeInput("");
+      setFontSizePt(12);
     } else {
       const px = pxStringToInt(raw);
       const pt = typeof px === "number" ? pxToPt(px) : 12;
       setFontSizePt(pt);
-      setSizeInput(String(pt));
     }
     setToggles({
       bold: editor.isActive("bold"),
@@ -190,22 +337,13 @@ export default function FontPanel({ editor }) {
 
     try {
       const color = editor.getAttributes("textStyle")?.color || "#000000";
-      if (typeof color === "string")
-        setCurrentTextColor(color.toLowerCase());
+      if (typeof color === "string") setCurrentTextColor(color.toLowerCase());
     } catch {}
     try {
-      const hl =
-        editor.getAttributes("highlight")?.color || currentHighlightColor;
-      if (typeof hl === "string")
-        setCurrentHighlightColor(hl.toLowerCase());
+      const hl = editor.getAttributes("highlight")?.color || currentHighlightColor;
+      if (typeof hl === "string") setCurrentHighlightColor(hl.toLowerCase());
     } catch {}
-  }, [
-    editor,
-    detectBlockStyle,
-    getActiveFontSizePx,
-    pxStringToInt,
-    currentHighlightColor,
-  ]);
+  }, [editor, detectBlockStyle, getActiveFontSizePx, pxStringToInt, currentHighlightColor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -220,16 +358,9 @@ export default function FontPanel({ editor }) {
     };
   }, [editor, updateUIFromSelection]);
 
-  /* ---------------------------- Outside click hide -------------------------- */
+  /* ---------------------------- Outside click hide ------------------------- */
   useEffect(() => {
     const onDocClick = (e) => {
-      if (
-        sizeMenuRef.current?.contains(e.target) ||
-        inputRef.current?.contains(e.target)
-      )
-        return;
-      setSizeMenuOpen(false);
-
       if (
         styleMenuRef.current?.contains(e.target) ||
         styleBtnRef.current?.contains(e.target)
@@ -248,7 +379,7 @@ export default function FontPanel({ editor }) {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  /* ------------------------------- Command safes ---------------------------- */
+  /* ------------------------------- Command safes --------------------------- */
   const focus = useCallback(() => editor?.chain().focus(), [editor]);
   const safeRun = useCallback(
     (fn) => {
@@ -259,7 +390,7 @@ export default function FontPanel({ editor }) {
     [isReady]
   );
 
-  /* --------------------------------- Actions -------------------------------- */
+  /* --------------------------------- Actions ------------------------------- */
   const applySizePt = useCallback(
     (pt) => {
       if (!Number.isFinite(pt)) return;
@@ -267,25 +398,14 @@ export default function FontPanel({ editor }) {
       const px = ptToPx(clamped);
       safeRun(() => focus().setMark("textStyle", { fontSize: `${px}px` }).run());
       setFontSizePt(clamped);
-      setSizeInput(String(clamped));
-      setSizeMenuOpen(false);
     },
     [focus, safeRun]
-  );
-
-  const step = useCallback(
-    (delta) => {
-      const base = typeof fontSizePt === "number" ? fontSizePt : 12;
-      applySizePt(base + delta);
-    },
-    [fontSizePt, applySizePt]
   );
 
   const applyFamily = useCallback(
     (family) => {
       setActiveFamily(family);
       safeRun(() => focus().setFontFamily(family).run());
-      // limit recents to 4
       setRecentFonts((p) => [family, ...p.filter((f) => f !== family)].slice(0, 4));
     },
     [focus, safeRun]
@@ -370,14 +490,12 @@ export default function FontPanel({ editor }) {
   const applyLineHeight = useCallback(
     (lh) => {
       setLineHeight(lh);
-      safeRun(() =>
-        focus().setMark("textStyle", { lineHeight: String(lh) }).run()
-      );
+      safeRun(() => focus().setMark("textStyle", { lineHeight: String(lh) }).run());
     },
     [focus, safeRun]
   );
 
-  /* ----------------------------- Highlight actions -------------------------- */
+  /* ----------------------------- Highlight actions ------------------------- */
   const commitHighlight = useCallback(
     (hex) => {
       const c = String(hex || "").toLowerCase();
@@ -389,23 +507,17 @@ export default function FontPanel({ editor }) {
     [editor, focus]
   );
 
-  /* --------------------------------- Render --------------------------------- */
+  /* --------------------------------- Render -------------------------------- */
   if (!isReady) return null;
 
   return (
     <div className="w-80 bg-white border rounded-lg p-3 text-sm">
       {/* Undo / Redo / Clear */}
       <div className="flex items-center gap-2 mb-3">
-        <button
-          className="border rounded px-2 py-1"
-          onClick={() => editor.commands.undo()}
-        >
+        <button className="border rounded px-2 py-1" onClick={() => editor.commands.undo()}>
           Undo
         </button>
-        <button
-          className="border rounded px-2 py-1"
-          onClick={() => editor.commands.redo()}
-        >
+        <button className="border rounded px-2 py-1" onClick={() => editor.commands.redo()}>
           Redo
         </button>
         <div className="flex-1" />
@@ -452,81 +564,39 @@ export default function FontPanel({ editor }) {
         )}
       </div>
 
-      {/* Size */}
+      {/* Size (combobox with steppers and dropdown) */}
       <div className="mb-3">
         <label className="block text-xs text-gray-600 mb-1">Size</label>
-        <div className="flex items-stretch border rounded">
-          <button className="px-3" onClick={() => step(-1)}>
-            <Icon.Minus />
-          </button>
-          <div className="relative border-l border-r">
-            <input
-              ref={inputRef}
-              className="px-2 py-1.5 w-[56px] text-center outline-none"
-              value={sizeInput}
-              onChange={(e) => {
-                const v = e.target.value.replace(/[^\d]/g, "");
-                setSizeInput(v);
-                const n = parseInt(v, 10);
-                if (Number.isFinite(n)) applySizePt(n);
-              }}
-              onFocus={() => setSizeMenuOpen(true)}
-              onClick={() => setSizeMenuOpen(true)}
-              title="Type or pick a size (pt)"
-            />
-            {sizeMenuOpen && (
-              <div
-                ref={sizeMenuRef}
-                className="absolute left-1/2 -translate-x-1/2 top-full mt-1 w-[70px] max-h-72 overflow-auto border bg-white rounded shadow z-10"
-              >
-                {PRESET_SIZES_PT.map((pt) => (
-                  <button
-                    key={pt}
-                    onClick={() => applySizePt(pt)}
-                    className="w-full text-left px-2 py-1 hover:bg-gray-50"
-                  >
-                    {pt}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button className="px-3" onClick={() => step(+1)}>
-            <Icon.Plus />
-          </button>
-        </div>
+        <FontSizePicker
+          value={typeof fontSizePt === "number" ? fontSizePt : 12}
+          onChange={applySizePt}
+          presets={PRESET_SIZES_PT}
+          className=""
+        />
       </div>
 
       {/* Marks + highlight toggle */}
       <div className="flex items-center gap-2 mb-3">
         <button
-          className={`h-9 w-9 border rounded ${
-            toggles.bold ? "bg-gray-200" : ""
-          }`}
+          className={`h-9 w-9 border rounded ${toggles.bold ? "bg-gray-200" : ""}`}
           onClick={() => toggleMark("bold")}
         >
           <Icon.Bold />
         </button>
         <button
-          className={`h-9 w-9 border rounded ${
-            toggles.italic ? "bg-gray-200" : ""
-          }`}
+          className={`h-9 w-9 border rounded ${toggles.italic ? "bg-gray-200" : ""}`}
           onClick={() => toggleMark("italic")}
         >
           <Icon.Italic />
         </button>
         <button
-          className={`h-9 w-9 border rounded ${
-            toggles.underline ? "bg-gray-200" : ""
-          }`}
+          className={`h-9 w-9 border rounded ${toggles.underline ? "bg-gray-200" : ""}`}
           onClick={() => toggleMark("underline")}
         >
           <Icon.Underline />
         </button>
         <button
-          className={`h-9 w-9 border rounded ${
-            toggles.strike ? "bg-gray-200" : ""
-          }`}
+          className={`h-9 w-9 border rounded ${toggles.strike ? "bg-gray-200" : ""}`}
           onClick={() => toggleMark("strike")}
         >
           <Icon.Strike />
@@ -544,14 +614,14 @@ export default function FontPanel({ editor }) {
         )}
       </div>
 
-      {/* Text + Highlight color (single source of truth) */}
+      {/* Text + Highlight color */}
       <TextColors
         editor={editor}
         defaultColor={currentTextColor}
         maxRecents={0}
-        onChange={(hex) =>
-          setCurrentTextColor(String(hex || "").toLowerCase())
-        }
+        onChange={(hex) => setCurrentTextColor(String(hex || "").toLowerCase())}
+        onHighlightChange={commitHighlight}
+        defaultHighlight={currentHighlightColor}
       />
 
       {/* Paragraph */}
@@ -639,8 +709,7 @@ export default function FontPanel({ editor }) {
                   className="text-xl leading-none"
                   style={{
                     fontFamily:
-                      SYSTEM_FALLBACKS[FIRST_FONT_OF[cat]] ||
-                      FIRST_FONT_OF[cat],
+                      SYSTEM_FALLBACKS[FIRST_FONT_OF[cat]] || FIRST_FONT_OF[cat],
                   }}
                 >
                   Aa
@@ -688,9 +757,7 @@ export default function FontPanel({ editor }) {
             >
               <span
                 className={`inline-block w-3 h-3 rounded-full border ${
-                  activeFamily === f
-                    ? "bg-blue-600 border-blue-600"
-                    : "border-gray-400"
+                  activeFamily === f ? "bg-blue-600 border-blue-600" : "border-gray-400"
                 }`}
               />
               <span className="flex-1">{f}</span>
