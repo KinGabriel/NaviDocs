@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import Header from '../../layout/headers/header';
 import Sidebar from '../../layout/sidebars/sidebar';
 import useUser from '../../hooks/useUser';
@@ -11,17 +11,19 @@ import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
 import AssignTemplateModal from '../../components/modals/assignTemplateModal';
 import Loader from '../../components/loader';
 
+import { fetchFacultyAPI, assignTemplateAPI } from '../../api/departmentHeadAPI';
+
 export default function DepartmentHeadTemplates() {
   const user = useUser();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
   const [search, setSearch] = useState('');
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const pagination = usePagination(totalPages, 1);
-  const [selectedSchool, setSelectedSchool] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
-  const [sortOrder, setSortOrder] = useState('Recent');
-  const navigate = useNavigate();
 
   // Assign modal state
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -40,6 +42,19 @@ export default function DepartmentHeadTemplates() {
 
   const PAGE_SIZE = 8;
 
+  // Include Published in status options
+  const statusOptions = ['All', 'Draft', 'Pending Approval', 'Approved', 'Published'];
+
+  // Derive initial status from navigation state or query (?status=)
+  const initialStatus =
+    (statusOptions.includes(location.state?.status) && location.state.status) ||
+    (statusOptions.includes(searchParams.get('status')) && searchParams.get('status')) ||
+    'All';
+
+  const [selectedSchool, setSelectedSchool] = useState('All');
+  const [selectedStatus, setSelectedStatus] = useState(initialStatus); // ⬅ use derived default
+  const [sortOrder, setSortOrder] = useState('Recent');
+
   // Fetch templates
   const fetchTemplates = async () => {
     if (!user) return;
@@ -52,14 +67,14 @@ export default function DepartmentHeadTemplates() {
         selectedStatus,
         search,
         PAGE_SIZE,
-        currentPage: pagination.currentPage
+        currentPage: pagination.currentPage,
       });
 
       let templatesArray = [];
-      if (result.success && result.data?.templates) {
+      if (result?.success && result.data?.templates) {
         templatesArray = result.data.templates;
-        setTotalPages(result.data.pagination.total_pages || 1);
-      } else if (result.templates) {
+        setTotalPages(result.data.pagination?.total_pages || 1);
+      } else if (result?.templates) {
         templatesArray = result.templates;
         setTotalPages(1);
       } else if (Array.isArray(result)) {
@@ -73,7 +88,10 @@ export default function DepartmentHeadTemplates() {
       } else if (sortOrder === 'Z-A') {
         templatesArray.sort((a, b) => b.title.localeCompare(a.title));
       } else if (sortOrder === 'Recent') {
-        templatesArray.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
+        templatesArray.sort(
+          (a, b) =>
+            new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at)
+        );
       }
 
       setTemplates(templatesArray);
@@ -85,17 +103,31 @@ export default function DepartmentHeadTemplates() {
     }
   };
 
+  // Load data on filters / pagination change
   useEffect(() => {
     fetchTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
+
+  // Keep selectedStatus in sync with navigation state or query string
+  useEffect(() => {
+    const fromState = location.state?.status;
+    const fromQuery = searchParams.get('status');
+    if (statusOptions.includes(fromState) && fromState !== selectedStatus) {
+      setSelectedStatus(fromState);
+    } else if (statusOptions.includes(fromQuery) && fromQuery !== selectedStatus) {
+      setSelectedStatus(fromQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, searchParams]);
 
   const openPreview = (template, i) => {
     navigate(`/dept-head/templates/${template._id || i}`, {
-        state: {
+      state: {
         doc: template,
-        sidebarActive: "Templates", 
-        backTo: "/dept-head/templates", 
-        },
+        sidebarActive: 'Templates',
+        backTo: '/dept-head/templates',
+      },
     });
   };
 
@@ -143,8 +175,6 @@ export default function DepartmentHeadTemplates() {
         setShowAssignModal(false);
         setSelectedTemplate(null);
         setSelectedFacultyIds([]);
-        // Optional: refresh list or show toast
-        // fetchTemplates();
         alert('Template assigned successfully.');
       } else {
         throw new Error(res?.message || 'Assignment failed');
@@ -172,67 +202,77 @@ export default function DepartmentHeadTemplates() {
         {/* prevent horizontal overflow + responsive margins/padding */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
           <div className="flex-1 px-1 py-5">
-            <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">TEMPLATES</h1>
+            <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">
+              TEMPLATES
+            </h1>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
             {/* Filters */}
-            <div className="flex items-center gap-2 mb-4 justify-start lg:justify-end">
+            <div className="flex flex-wrap items-center gap-2 mb-4 justify-start lg:justify-end">
               {/* Archived Documents */}
-                  <button
-                    type="button"
-                    onClick={() => navigate("/archived-documents")}
-                    className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
-                    aria-label="Archived documents"
-                    title="Archived documents"
-                  >
-                    {/* archive icon */}
-                    <svg
-                      viewBox="0 0 24 24"
-                      className="w-5 h-5 text-[#0035DA]"
-                      fill="none"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M3.75 7.5h16.5M4.5 7.5l.62-2.32A2.25 2.25 0 0 1 7.25 3.75h9.5a2.25 2.25 0 0 1 2.13 1.43l.62 2.32"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M20.25 7.5l-.63 10.63a2.25 2.25 0 0 1-2.25 2.12H6.63a2.25 2.25 0 0 1-2.25-2.12L3.75 7.5"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M12 11.625v5.625m0 0l2.25-2.25M12 17.25l-2.25-2.25"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
+              <button
+                type="button"
+                onClick={() => navigate('/archived-documents')}
+                className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
+                aria-label="Archived documents"
+                title="Archived documents"
+              >
+                {/* archive icon */}
+                <svg
+                  viewBox="0 0 24 24"
+                  className="w-5 h-5 text-[#0035DA]"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M3.75 7.5h16.5M4.5 7.5l.62-2.32A2.25 2.25 0 0 1 7.25 3.75h9.5a2.25 2.25 0 0 1 2.13 1.43l.62 2.32"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M20.25 7.5l-.63 10.63a2.25 2.25 0 0 1-2.25 2.12H6.63a2.25 2.25 0 0 1-2.25-2.12L3.75 7.5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M12 11.625v5.625m0 0l2.25-2.25M12 17.25l-2.25-2.25"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
 
               <div className="w-64">
                 <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
-                
+
               <Dropdown
-                options={["All", ...Object.keys(schoolIdentifiers)]}
+                options={['All', ...Object.keys(schoolIdentifiers)]}
                 value={selectedSchool}
                 onChange={setSelectedSchool}
                 width="w-50"
               />
-                <Dropdown
-                options={["Recent", "A-Z", "Z-A"]}
+
+              {/* NEW: Status filter (shows current tab/status) */}
+              <Dropdown
+                options={statusOptions}
+                value={selectedStatus}
+                onChange={setSelectedStatus}
+                width="w-48"
+              />
+
+              <Dropdown
+                options={['Recent', 'A-Z', 'Z-A']}
                 value={sortOrder}
                 onChange={setSortOrder}
                 width="w-36"
               />
-              
             </div>
 
             {/* Templates Grid */}
@@ -257,30 +297,36 @@ export default function DepartmentHeadTemplates() {
                       onClick={() => openPreview(template, i)}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openPreview(template, i)}
+                      onKeyDown={(e) =>
+                        (e.key === 'Enter' || e.key === ' ') && openPreview(template, i)
+                      }
                     >
-                    <TemplateCard
+                      <TemplateCard
                         template={template}
                         user={user}
-                        onSelect={() => {() => {}}}
+                        onSelect={() => {}}
                         onAssign={(updatedTemplate) => {
-                          setTemplates(prev => prev.map(t => (t._id === updatedTemplate._id ? { ...t, ...updatedTemplate } : t)));
+                          setTemplates((prev) =>
+                            prev.map((t) =>
+                              t._id === updatedTemplate._id ? { ...t, ...updatedTemplate } : t
+                            )
+                          );
                         }}
-                    />
+                      />
                     </div>
 
-                    {/* Assign button*/}
+                    {/* Assign button */}
                     <div className="flex justify-start px-3 pb-3">
-                        <button
-                            onClick={() => handleOpenAssign(template)}
-                            className="inline-flex items-center justify-center 
-                                        bg-blue-600 hover:bg-blue-700 text-white 
-                                        text-xs font-medium px-4 py-1 rounded shadow w-20"
-                        >
-                            Assign
-                        </button>
+                      <button
+                        onClick={() => handleOpenAssign(template)}
+                        className="inline-flex items-center justify-center 
+                          bg-blue-600 hover:bg-blue-700 text-white 
+                          text-xs font-medium px-4 py-1 rounded shadow w-20"
+                      >
+                        Assign
+                      </button>
                     </div>
-                </div>
+                  </div>
                 ))
               )}
             </div>
@@ -288,7 +334,8 @@ export default function DepartmentHeadTemplates() {
             {/* Pagination */}
             {templates.length > 0 && (
               <div className="mt-4 text-sm text-gray-600 text-center">
-                Showing {templates.length} of {totalPages * PAGE_SIZE} template{templates.length !== 1 ? 's' : ''}
+                Showing {templates.length} of {totalPages * PAGE_SIZE} template
+                {templates.length !== 1 ? 's' : ''}
                 {selectedSchool !== 'All' && ` for ${selectedSchool}`}
                 {selectedStatus !== 'All' && ` with status: ${selectedStatus}`}
                 {search && ` matching "${search}"`}
@@ -303,13 +350,19 @@ export default function DepartmentHeadTemplates() {
                 Prev
               </button>
               {pagination.getPageNumbers().map((num, idx) =>
-                num === "..." ? (
-                  <span key={idx} className="px-2 text-gray-400">...</span>
+                num === '...' ? (
+                  <span key={idx} className="px-2 text-gray-400">
+                    ...
+                  </span>
                 ) : (
                   <button
                     key={num}
                     onClick={() => pagination.handlePage(num)}
-                    className={`px-3 py-1 rounded border ${pagination.currentPage === num ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+                    className={`px-3 py-1 rounded border ${
+                      pagination.currentPage === num
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-100'
+                    }`}
                   >
                     {num}
                   </button>
@@ -330,7 +383,10 @@ export default function DepartmentHeadTemplates() {
       {showAssignModal && (
         <AssignTemplateModal
           open={showAssignModal}
-          onClose={() => { setShowAssignModal(false); setSelectedTemplate(null); }}
+          onClose={() => {
+            setShowAssignModal(false);
+            setSelectedTemplate(null);
+          }}
           template={selectedTemplate}
           faculty={faculty}
           facultyLoading={facultyLoading}
