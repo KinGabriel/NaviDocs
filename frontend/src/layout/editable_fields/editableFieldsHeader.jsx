@@ -1,4 +1,3 @@
-// header for editable fields
 import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import naviLogo from '../../assets/images/navilogo.png';
@@ -49,6 +48,9 @@ export default function EditableFieldsHeader({
   const quickMenuRef = useRef(null);
 
   const [showStoragePicker, setShowStoragePicker] = useState(false);
+
+  const roleName = user?.role?.name || "";
+  const canSeeSubmit = !["Dean", "Secretary"].includes(roleName);
 
   useEffect(() => {
     setLocalTitle(title || '');
@@ -283,15 +285,18 @@ export default function EditableFieldsHeader({
                     </div>
                   </button>
 
-                  <button className="w-full text-left px-4 py-3 hover:bg-green-50 flex items-center gap-3" onClick={() => setIsQuickOpen(false)}>
-                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                      <Send className="w-4 h-4 text-green-600" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 text-sm">Submit</div>
-                      <div className="text-xs text-gray-500">Send to department head</div>
-                    </div>
-                  </button>
+                  {/* SHOW "Submit" ONLY IF not Dean/Secretary */}
+                  {canSeeSubmit && (
+                    <button className="w-full text-left px-4 py-3 hover:bg-green-50 flex items-center gap-3" onClick={() => setIsQuickOpen(false)}>
+                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <Send className="w-4 h-4 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 text-sm">Submit</div>
+                        <div className="text-xs text-gray-500">Send to department head</div>
+                      </div>
+                    </button>
+                  )}
 
                   <div className="px-2 py-2">
                     <button
