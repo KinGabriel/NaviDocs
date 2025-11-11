@@ -100,21 +100,49 @@ export const getUserProfile = async (req, res) => {
  */
 export const searchUsersByEmail = async (req, res) => {
   try {
-    const query = req.query.query;
+    const { query } = req.query;
+    
     if (!query || query.length < 2) {
-      return res.status(400).json({ message: "Query too short" });
+      return res.status(400).json({ message: 'Query must be at least 2 characters', users: [] });
     }
+
     // Find users whose email contains the query (case-insensitive)
     // Include firstname and lastname so the client can display a friendly name
-    const users = await User.find({ email: { $regex: query, $options: "i" } })
-      .select("_id email firstname lastname")
-      .limit(10);
-    res.json({ users: users.map(u => ({ userId: u._id, email: u.email, firstname: u.firstname || '', lastname: u.lastname || '', name: `${(u.firstname || '').trim()} ${(u.lastname || '').trim()}`.trim() })) });
+    const users = await User.find({
+      email: { $regex: query, $options: 'i' }
+    })
+    .select('_id email firstname lastname name role')
+    .limit(20); // Limit results to prevent overwhelming the UI
+
+    const usersData = users.map(user => {
+      // Extract role name from role object or use string directly
+      let roleName = 'User';
+      if (user.role) {
+        if (typeof user.role === 'string') {
+          roleName = user.role;
+        } else if (typeof user.role === 'object' && user.role.name) {
+          roleName = user.role.name;
+        }
+      }
+      
+      return {
+        userId: user._id,
+        id: user._id,
+        email: user.email || '',
+        firstname: user.firstname || '',
+        lastname: user.lastname || '',
+        name: user.name || `${user.firstname || ''} ${user.lastname || ''}`.trim(),
+        role: roleName // This is now always a string
+      };
+    });
+
+    return res.status(200).json({ users: usersData });
   } catch (error) {
-    console.error("Error searching users by email:", error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error('Error searching users:', error);
+    return res.status(500).json({ message: 'Failed to search users' });
   }
 };
+
 /**
  * Update a user's password by user ID.
  * @route PATCH /api/user/updatePassword/:id
@@ -282,14 +310,40 @@ export const getSchoolStaff = async (req, res) => {
  */
 export const getUsersInfoByBatch = async (req, res) => {
   try {
-    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
-    if (!ids.length) return res.json({ users: [] });
-    const users = await User.find({ _id: { $in: ids } }).select('_id email firstname lastname');
-    const mapped = users.map(u => ({ userId: u._id, email: u.email, firstname: u.firstname || '', lastname: u.lastname || '', name: `${(u.firstname || '').trim()} ${(u.lastname || '').trim()}`.trim() }));
-    return res.json({ users: mapped });
+    const { ids } = req.body;
+    
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: 'Invalid ids array' });
+    }
+
+    // Fetch users by IDs
+    const users = await User.find({ _id: { $in: ids } }).select('_id email firstname lastname name role');
+    
+    const usersData = users.map(user => {
+      // Extract role name from role object or use string directly
+      let roleName = 'User';
+      if (user.role) {
+        if (typeof user.role === 'string') {
+          roleName = user.role;
+        } else if (typeof user.role === 'object' && user.role.name) {
+          roleName = user.role.name;
+        }
+      }
+      
+      return {
+        userId: user._id,
+        email: user.email || '',
+        firstname: user.firstname || '',
+        lastname: user.lastname || '',
+        name: user.name || `${user.firstname || ''} ${user.lastname || ''}`.trim(),
+        role: roleName 
+      };
+    });
+
+    return res.status(200).json({ users: usersData });
   } catch (error) {
-    console.error('Error in getUsersInfo', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error('Error fetching users info:', error);
+    return res.status(500).json({ message: 'Failed to fetch users info' });
   }
 };
 

@@ -7,7 +7,7 @@
  * 
  * @component
  */
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import HeaderTemplateView from "../layout/headers/headerTemplateView";
 import useUser from "../hooks/useUser";
@@ -25,6 +25,7 @@ import DocumentDetailsCard from "../components/cards/documentDetailsCard";
 import Loader from "../components/loader";  
 import fetchAndNormalizeTemplate from "../utils/templateLoader";
 import { publishTemplateAPI, unpublishTemplateAPI } from "../api/documentContollerAPI";
+import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
 export default function TemplatesView() {
   // Hooks
@@ -36,6 +37,11 @@ export default function TemplatesView() {
   const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Zoom controls state
+  const [zoom, setZoom] = useState(1);
+  const [showZoomControls, setShowZoomControls] = useState(false);
+  const previewContainerRef = useRef(null);
 
   // Page control state
   // Find all page nodes in pages_json[0].content
@@ -165,6 +171,19 @@ export default function TemplatesView() {
     setSelectedIds(assigned);
     setAssignOpen(true);
   };
+
+  // Zoom control handlers
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
+  const handleZoomFit = () => {
+  if (previewContainerRef.current) {
+    const containerWidth = previewContainerRef.current.offsetWidth - 64;
+    const estimatedPageWidth = isLandscape ? 1400 : 900;
+    const autoZoom = Math.min((containerWidth / estimatedPageWidth), 1);
+    setZoom(autoZoom);
+  }
+};
+  const handleZoomReset = () => setZoom(1);
 
   // Helpers to prevent overriding actions once taken
   const normalizeRoleKeys = (roleName) => {
@@ -820,39 +839,112 @@ const handleUpdateISOCode = async ({ iso_code }) => {
           
           {/* preview and details - Dynamic layout based on orientation */}
           <div className={`flex ${isLandscape ? 'flex-row gap-6' : 'flex-col lg:flex-row'} gap-6 items-start`}>
-            {/* Template preview */}
-            <section className={`${
-              isLandscape 
-                ? 'flex-1 min-w-0' 
-                : 'w-full lg:w-8/12'
-            }`}>
-              {/* Page content */}
-              <div className={`w-full ${isLandscape ? 'overflow-x-auto' : ''}`}>
-                {contentForEditor && (
-                  <TextEditor
-                    key={`${template?._id || template?.id || 'tpl'}-${currentPage}`}
-                    content={contentForEditor}
-                    pageSetup={template?.pageSetup}
-                    headerConfig={{
-                      ...(template?.headerConfig || template?.logoConfig || {}),
-                      documentStamp: {
-                        docCode: template?.document_code || template?.documentCode || "",
-                          revisionNo: template?.revision_number || template?.revision_no || template?.revisionNo || "",
-                          effectivity: template?.effectivity || template?.effectivity_date || "",
-                      },
-                    }}
-                    templateStatus={template?.status}
-                    documentCode={template?.document_code || template?.documentCode}
-                      revisionNo={template?.revision_number || template?.revision_no || template?.revisionNo}
-                      effectivity={template?.effectivity || template?.effectivity_date}
-                    className="pointer-events-none opacity-100 w-full"
-                    onEditorReady={editor => {
-                      try { editor.setEditable(false); } catch {}
-                    }}
-                  />
-                )}
+           {/* Template preview */}
+              <section className={`${
+                  isLandscape 
+                    ? 'flex-1 min-w-0' 
+                    : 'w-full lg:w-8/12'
+                }`}>
+                {/* Zoom Controls */}
+               <div className="sticky top-20 z-20 mb-3 px-4 py-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleZoomOut}
+                      className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors border border-gray-300"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut size={16} />
+                    </button>
+                    <button
+                      onClick={handleZoomIn}
+                      className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors border border-gray-300"
+                      title="Zoom In"
+                    >
+                      <ZoomIn size={16} />
+                    </button>
+                    <span className="text-sm font-medium text-gray-700 min-w-[60px] text-center bg-gray-50 px-3 py-2 rounded-lg border border-gray-300">
+                      {Math.round(zoom * 100)}%
+                    </span>
+                    <button
+                      onClick={handleZoomFit}
+                      className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors border border-gray-300"
+                    >
+                      Fit
+                    </button>
+                    <button
+                      onClick={handleZoomReset}
+                      className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-300 transition-colors"
+                      title="Reset"
+                    >
+                      <RotateCcw size={16} className="text-gray-600" />
+                      Reset
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Scroll to navigate • Use zoom controls
+                  </div>
+                </div>
               </div>
-            </section>
+
+                {/* Page content with zoom */}
+                <div 
+                  ref={previewContainerRef}
+                  className={`w-full bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg shadow-sm overflow-auto ${isLandscape ? '' : ''}`}
+                  style={{ 
+                    padding: '2rem',
+                    minHeight: '600px'
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      paddingBottom: '2rem',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: isLandscape ? '1200px' : '900px',
+                        maxWidth: 'none',
+                      }}
+                    >
+                      <div
+                        style={{
+                          transform: `scale(${zoom})`,
+                          transformOrigin: 'top center',
+                        }}
+                        className="transition-transform duration-200"
+                      >
+                        {contentForEditor && (
+                          <TextEditor
+                            key={`${template?._id || template?.id || 'tpl'}-${currentPage}`}
+                            content={contentForEditor}
+                            pageSetup={template?.pageSetup}
+                            headerConfig={{
+                              ...(template?.headerConfig || template?.logoConfig || {}),
+                              documentStamp: {
+                                docCode: template?.document_code || template?.documentCode || "",
+                                revisionNo: template?.revision_number || template?.revision_no || template?.revisionNo || "",
+                                effectivity: template?.effectivity || template?.effectivity_date || "",
+                              },
+                            }}
+                            templateStatus={template?.status}
+                            documentCode={template?.document_code || template?.documentCode}
+                            revisionNo={template?.revision_number || template?.revision_no || template?.revisionNo}
+                            effectivity={template?.effectivity || template?.effectivity_date}
+                            className="pointer-events-none opacity-100 w-full"
+                            onEditorReady={editor => {
+                              try { editor.setEditable(false); } catch {}
+                            }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
 
             {/* Template details and metadata */}
             <aside className={`${
@@ -1045,27 +1137,30 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                       Notes
                     </h3>
                     <div className="w-16 h-0.5 bg-yellow-400 mb-3 rounded" />
-                    <ul>
-                      {notes.length > 0 ? (
-                        notes.map((note, idx) => (
-                          <li key={idx} className="mb-3">
-                            {/* Note metadata */}
-                            <div className="text-xs text-gray-500 mb-1 font-sans">
-                              {note.added_by_name || note.added_by || ''} &middot; {formatDateTime(note.created_at)}
-                            </div>
-                            {/* Note type */}
-                            <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-3">
-                              {note.type || 'Note'}
-                            </div>
-                            {/* Note message */}
-                            <div className="text-base text-gray-800 font-sans">{note.message}</div>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-base text-gray-400 font-sans">No notes available.</li>
-                      )}
-                    </ul>
-                  </div>
+
+                    <div className="max-h-60 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <ul>
+                        {notes.length > 0 ? (
+                          notes.map((note, idx) => (
+                            <li key={idx} className="mb-3 border-b border-gray-100 pb-2">
+                              {/* Note metadata */}
+                              <div className="text-xs text-gray-500 mb-1 font-sans">
+                                {note.added_by_name || note.added_by || ''} &middot; {formatDateTime(note.created_at)}
+                              </div>
+                              {/* Note type */}
+                              <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                {note.type || 'Note'}
+                              </div>
+                              {/* Note message */}
+                              <div className="text-sm text-gray-800 font-sans break-words">{note.message}</div>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-base text-gray-400 font-sans">No notes available.</li>
+                        )}
+                      </ul>
+                    </div>  
+                  </div>  
                 </div>
               </div>
             </aside>

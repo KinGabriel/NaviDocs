@@ -1,5 +1,5 @@
 // src/layout/create_template/textEditor.jsx
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
@@ -31,14 +31,12 @@ const TextStyleAttrs = Extension.create({
         attributes: {
           fontSize: {
             default: null,
-            renderHTML: (attrs) =>
-              attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
+            renderHTML: (attrs) => (attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {}),
             parseHTML: (el) => ({ fontSize: el.style.fontSize || null }),
           },
           lineHeight: {
             default: null,
-            renderHTML: (attrs) =>
-              attrs.lineHeight ? { style: `line-height: ${attrs.lineHeight}` } : {},
+            renderHTML: (attrs) => (attrs.lineHeight ? { style: `line-height: ${attrs.lineHeight}` } : {}),
             parseHTML: (el) => ({ lineHeight: el.style.lineHeight || null }),
           },
         },
@@ -56,8 +54,7 @@ const TableCellBg = TableCellPlus.extend({
       ...parent,
       backgroundColor: {
         default: null,
-        renderHTML: (attrs) =>
-          attrs.backgroundColor ? { style: `background-color: ${attrs.backgroundColor}` } : {},
+        renderHTML: (attrs) => (attrs.backgroundColor ? { style: `background-color: ${attrs.backgroundColor}` } : {}),
         parseHTML: (el) => ({ backgroundColor: el.style.backgroundColor || null }),
       },
     };
@@ -68,7 +65,7 @@ const TableCellBg = TableCellPlus.extend({
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
 const px = (n) => `${Math.max(0, Number(n) || 0)}px`;
 
-// Env-aware API base
+/* ------------------------ Env-aware API base & assets ------------------------ */
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 const API_URL =
@@ -174,6 +171,7 @@ const getCfg = (cfg) => {
       showHeaderLine: !!(center.showHeaderLine ?? cfg?.showHeaderLine),
     },
     logos: {
+      // DO NOT hardcode. Use cfg.assets.slu / cfg.assets.cicm like the original.
       slu: {
         enabled: !!(logos.slu?.enabled ?? cfg?.showSLULogo),
         sizePx: Number(logos.slu?.sizePx ?? 56),
@@ -253,17 +251,16 @@ const getHeaderBasePx = (cfg) =>
 const getFooterBasePx = (cfg) =>
   cfg.footerEnabled ? Math.max(MIN_HEADER_FOOTER_PX, inchToPx(cfg.footerMarginIn ?? 0)) : 0;
 
-const autoFitBand = (editor, bandEl, kind, basePx) => {
-  if (!editor || !bandEl) return;
-  const needed = Math.ceil(bandEl.scrollHeight);
-  const next = Math.max(basePx, needed);
-  const ext = editor.extensionManager.extensions.find((e) => e.name === "paginationPlus");
-  if (!ext || !ext.options) return;
-  const key = kind === "footer" ? "pageFooterHeight" : "pageHeaderHeight";
-  if (ext.options[key] !== next) {
-    ext.options[key] = next;
-    requestAnimationFrame(() => {});
-  }
+/* ------------------------------ perf helpers -------------------------------- */
+const makeRafBatcher = (fn) => {
+  let id = 0;
+  return (...args) => {
+    if (id) cancelAnimationFrame(id);
+    id = requestAnimationFrame(() => {
+      id = 0;
+      fn(...args);
+    });
+  };
 };
 
 /* --------------------------------- component --------------------------------- */
@@ -281,9 +278,8 @@ export default function TextEditor({
   const setPolicyRef = useRef(null);
   const observerRef = useRef(null);
 
-  const _initCfg = getCfg(headerConfig);
-  const initialHeaderH = getHeaderBasePx(_initCfg);
-  const initialFooterH = getFooterBasePx(_initCfg);
+  const initialHeaderH = getHeaderBasePx(getCfg(headerConfig));
+  const initialFooterH = getFooterBasePx(getCfg(headerConfig));
 
   const editor = useEditor({
     extensions: [
@@ -302,9 +298,7 @@ export default function TextEditor({
       EditableField,
 
       // ---- Table Plus (pagination + resize aligned) ----
-      TablePlus.configure({
-        resizeHandleStyle: { width: "4px", opacity: 0.7 },
-      }),
+      TablePlus.configure({ resizeHandleStyle: { width: "4px", opacity: 0.7 } }),
       TableRowPlus,
       TableCellBg,
       TableHeaderPlus,
@@ -320,9 +314,7 @@ export default function TextEditor({
     ],
     content: normalizeInitialContent(content),
     editorProps: {
-      attributes: {
-        class: "tiptap ProseMirror nd-editor-canvas rm-with-pagination",
-      },
+      attributes: { class: "tiptap ProseMirror nd-editor-canvas rm-with-pagination" },
     },
     onCreate: ({ editor }) => {
       const { plugin, setPolicy } = createLockOutsideFieldsPlugin({
@@ -336,11 +328,11 @@ export default function TextEditor({
       editor.setEditable(!readOnly);
 
       onEditorReady?.(editor);
-      requestAnimationFrame(applyHeaderFooterBands);
+      requestAnimationFrame(() => applyHeaderFooterBands());
     },
     onUpdate: ({ editor }) => {
       onContentChange?.(editor.getHTML());
-      queueMicrotask(() => requestAnimationFrame(applyHeaderFooterBands));
+      requestAnimationFrame(() => applyHeaderFooterBands());
     },
   });
 
@@ -372,7 +364,7 @@ export default function TextEditor({
         left: d.marginLeftPx,
       })
       .run();
-    queueMicrotask(() => requestAnimationFrame(applyHeaderFooterBands));
+    requestAnimationFrame(() => applyHeaderFooterBands());
   }, [editor, pageSetup]);
 
   useEffect(() => {
@@ -407,12 +399,11 @@ export default function TextEditor({
       ext.options.pageHeaderHeight = headerH;
       ext.options.pageFooterHeight = footerH;
     }
-
-    queueMicrotask(() => requestAnimationFrame(applyHeaderFooterBands));
+    requestAnimationFrame(() => applyHeaderFooterBands());
   }, [editor, headerConfig]);
 
   /* --------------------------- header/footer renderer ------------------------- */
-  const ensureFlexBand = (bandEl, kind /* 'header' | 'footer' */) => {
+  const ensureFlexBand = useCallback((bandEl, kind /* 'header' | 'footer' */) => {
     if (!bandEl) return null;
     const isFooter = kind === "footer" || bandEl.classList.contains("rm-page-footer");
 
@@ -427,12 +418,8 @@ export default function TextEditor({
     bandEl.style.background = "white";
 
     let left =
-      bandEl.querySelector(
-        isFooter ? ":scope > .rm-page-footer-left" : ":scope > .rm-page-header-left"
-      ) ||
-      bandEl.querySelector(
-        isFooter ? ":scope > .rm-first-page-footer-left" : ":scope > .rm-first-page-header-left"
-      ) ||
+      bandEl.querySelector(isFooter ? ":scope > .rm-page-footer-left" : ":scope > .rm-page-header-left") ||
+      bandEl.querySelector(isFooter ? ":scope > .rm-first-page-footer-left" : ":scope > .rm-first-page-header-left") ||
       bandEl.querySelector(":scope > .nv-band-left");
 
     if (!left) {
@@ -442,12 +429,8 @@ export default function TextEditor({
     }
 
     let right =
-      bandEl.querySelector(
-        isFooter ? ":scope > .rm-page-footer-right" : ":scope > .rm-page-header-right"
-      ) ||
-      bandEl.querySelector(
-        isFooter ? ":scope > .rm-first-page-footer-right" : ":scope > .rm-first-page-header-right"
-      ) ||
+      bandEl.querySelector(isFooter ? ":scope > .rm-page-footer-right" : ":scope > .rm-page-header-right") ||
+      bandEl.querySelector(isFooter ? ":scope > .rm-first-page-footer-right" : ":scope > .rm-first-page-header-right") ||
       bandEl.querySelector(":scope > .nv-band-right");
 
     if (!right) {
@@ -480,11 +463,9 @@ export default function TextEditor({
     });
 
     return { left, center, right, bandEl };
-  };
+  }, []);
 
-  const renderHeaderContent = (trip, rawCfg, pageNo, total) => {
-    const cfg = getCfg(rawCfg);
-
+  const renderHeaderContent = useCallback((trip, cfg, pageNo, total) => {
     trip.bandEl.style.visibility = cfg.headerEnabled ? "visible" : "hidden";
     if (!cfg.headerEnabled) {
       trip.left.innerHTML = "";
@@ -497,7 +478,7 @@ export default function TextEditor({
     trip.center.innerHTML = "";
     trip.right.innerHTML = "";
 
-    // LEFT: SLU logo
+    // LEFT: SLU logo (retrieved EXACTLY from cfg.assets.slu)
     if (cfg.logos.slu?.enabled && cfg.assets?.slu) {
       const sluImg = document.createElement("img");
       sluImg.src = resolveAssetUrl(cfg.assets.slu);
@@ -513,12 +494,11 @@ export default function TextEditor({
 
     // CENTER: header text block
     const weight = cfg.center.bold ? 700 : 400;
-    const styleStr = `
-      display:flex;flex-direction:column;align-items:center;line-height:1.15;
-      font-family:${cfg.center.fontFamily};color:${cfg.center.color};
-      font-size:${px(cfg.center.fontSize)};font-style:${cfg.center.italic ? "italic" : "normal"};
-      font-weight:${weight};text-align:center;
-    `;
+    const styleStr =
+      `display:flex;flex-direction:column;align-items:center;line-height:1.15;` +
+      `font-family:${cfg.center.fontFamily};color:${cfg.center.color};` +
+      `font-size:${px(cfg.center.fontSize)};font-style:${cfg.center.italic ? "italic" : "normal"};` +
+      `font-weight:${weight};text-align:center;`;
     const line = (txt, extra = "") => (txt ? `<div style="${extra}">${escapeHtml(txt)}</div>` : "");
     trip.center.innerHTML = `
       <div class="nv-center-text" style="${styleStr}">
@@ -529,7 +509,7 @@ export default function TextEditor({
       </div>
     `;
 
-    // RIGHT: CICM + stamp (DIV-ONLY, no tables)
+    // RIGHT: CICM logo + stamp card (CICM retrieved EXACTLY from cfg.assets.cicm)
     const rightRow = document.createElement("div");
     rightRow.style.display = "flex";
     rightRow.style.alignItems = "center";
@@ -611,8 +591,8 @@ export default function TextEditor({
       lineEl.remove();
     }
 
-    autoFitBand(editor, trip.bandEl, "header", getHeaderBasePx(getCfg(headerConfig)));
-  };
+    autoFitBand(editor, trip.bandEl, "header", getHeaderBasePx(cfg));
+  }, [editor]);
 
   const pickSlot = (trip, align) => {
     if (align === "left") return trip.left;
@@ -620,8 +600,7 @@ export default function TextEditor({
     return trip.center;
   };
 
-  const renderFooterContent = (trip, rawCfg, pageNo, total) => {
-    const cfg = getCfg(rawCfg);
+  const renderFooterContent = useCallback((trip, cfg, pageNo, total) => {
     trip.bandEl.style.visibility = cfg.footerEnabled ? "visible" : "hidden";
     if (!cfg.footerEnabled) {
       trip.left.innerHTML = "";
@@ -640,8 +619,7 @@ export default function TextEditor({
       const host = pickSlot(trip, align);
       host.style.display = "flex";
       host.style.flexDirection = "column";
-      host.style.alignItems =
-        align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
+      host.style.alignItems = align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
       host.style.justifyContent = "center";
       host.style.gap = "2px";
       return host;
@@ -699,52 +677,73 @@ export default function TextEditor({
       host.appendChild(el);
     }
 
-    autoFitBand(editor, trip.bandEl, "footer", getFooterBasePx(getCfg(headerConfig)));
-  };
+    autoFitBand(editor, trip.bandEl, "footer", getFooterBasePx(cfg));
+  }, [editor]);
 
-  const applyHeaderFooterBands = () => {
-    const root = document.querySelector(".rm-with-pagination");
-    if (!root) return;
-    const breakers = root.querySelectorAll(".rm-page-break");
-    const total = breakers.length;
+  /* ----------------------------- main apply pass ------------------------------ */
+  const applyHeaderFooterBands = useMemo(
+    () =>
+      makeRafBatcher(() => {
+        const root = document.querySelector(".rm-with-pagination");
+        if (!root) return;
 
-    const firstHeader = root.querySelector(".rm-first-page-header");
-    if (firstHeader) {
-      const trip = ensureFlexBand(firstHeader, "header");
-      renderHeaderContent(trip, headerConfig, 1, total);
-    }
+        // Compute cfg ONCE per pass and reuse, exactly like original behavior.
+        const cfg = getCfg(headerConfig);
 
-    breakers.forEach((brk, i) => {
-      const pageNo = i + 1;
+        const breakers = root.querySelectorAll(".rm-page-break");
+        const total = breakers.length;
 
-      const footer = brk.querySelector(".rm-page-footer");
-      if (footer) {
-        stripDefaultPageNumber(footer);
-        const tripF = ensureFlexBand(footer, "footer");
-        renderFooterContent(tripF, headerConfig, pageNo, total);
-      }
+        // First page header
+        const firstHeader = root.querySelector(".rm-first-page-header");
+        if (firstHeader) {
+          const trip = ensureFlexBand(firstHeader, "header");
+          renderHeaderContent(trip, cfg, 1, total);
+        }
 
-      const header = brk.querySelector(".rm-page-header");
-      if (header && pageNo < total) {
-        const trip = ensureFlexBand(header, "header");
-        renderHeaderContent(trip, headerConfig, pageNo + 1, total);
-      }
-    });
-  };
+        // Iterate pages
+        breakers.forEach((brk, i) => {
+          const pageNo = i + 1;
+
+          const footer = brk.querySelector(".rm-page-footer");
+          if (footer) {
+            stripDefaultPageNumber(footer);
+            const tripF = ensureFlexBand(footer, "footer");
+            renderFooterContent(tripF, cfg, pageNo, total);
+          }
+
+          const header = brk.querySelector(".rm-page-header");
+          if (header && pageNo < total) {
+            const trip = ensureFlexBand(header, "header");
+            renderHeaderContent(trip, cfg, pageNo + 1, total);
+          }
+        });
+      }),
+    [headerConfig, ensureFlexBand, renderHeaderContent, renderFooterContent]
+  );
 
   /* ---------------------------- observe pagination ---------------------------- */
   useEffect(() => {
-    requestAnimationFrame(applyHeaderFooterBands);
+    // Initial paint
+    applyHeaderFooterBands();
+
     const root = document.querySelector(".rm-with-pagination");
     observerRef.current?.disconnect();
     if (root) {
-      observerRef.current = new MutationObserver(() =>
-        requestAnimationFrame(applyHeaderFooterBands)
-      );
-      observerRef.current.observe(root, { subtree: true, childList: true });
+      // Observe only childList changes at the page container level; batch via rAF
+      observerRef.current = new MutationObserver((muts) => {
+        let needs = false;
+        for (const m of muts) {
+          if (m.type === "childList") {
+            needs = true;
+            break;
+          }
+        }
+        if (needs) applyHeaderFooterBands();
+      });
+      observerRef.current.observe(root, { childList: true });
     }
     return () => observerRef.current?.disconnect();
-  }, [editor, headerConfig]);
+  }, [editor, headerConfig, applyHeaderFooterBands]);
 
   /* ----------------------------------- ui ------------------------------------ */
   return (
@@ -758,4 +757,18 @@ export default function TextEditor({
       </div>
     </div>
   );
+}
+
+/* ------------------------- helpers that need editor ref ------------------------ */
+function autoFitBand(editor, bandEl, kind, basePx) {
+  if (!editor || !bandEl) return;
+  const needed = Math.ceil(bandEl.scrollHeight);
+  const next = Math.max(basePx, needed);
+  const ext = editor.extensionManager.extensions.find((e) => e.name === "paginationPlus");
+  if (!ext || !ext.options) return;
+  const key = kind === "footer" ? "pageFooterHeight" : "pageHeaderHeight";
+  if (ext.options[key] !== next) {
+    ext.options[key] = next;
+    // PaginationPlus will repaint on its own tick
+  }
 }

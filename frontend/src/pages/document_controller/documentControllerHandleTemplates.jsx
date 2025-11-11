@@ -116,37 +116,17 @@ export default function DeanTemplates() {
       Array.isArray(row.assignedNames) && row.assignedNames.length > 0
         ? row.assignedNames.filter(Boolean).join(", ")
         : row.createdByName || row.created_by_name || "-" },
-    { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDateTime(row.deadline) : "No Deadline set" },
     {
       key: "status",
       label: "Status",
       render: row => {
         let type = "-";
-        if (row.status === "approved") {
-          type = "Approved";
-        } else if (row.status === "pending") {
-          type = "Pending";
-        } else if (row.status === "assigned") {
-          if (row.deadline) {
-            const now = new Date();
-            const deadlineDate = new Date(row.deadline);
-            if (!isNaN(deadlineDate.getTime()) && deadlineDate < now) {
-              type = "Late";
-            } else {
-              type = "Draft";
-            }
-          } else {
-            type = "Draft";
-          }
-        } else if (row.status === "published") {
-          type = "Published";
-         } 
-        else if (row.status === "rejected") {
-          type = "Rejected";
-        } 
-        else if (row.status === "returned") {
-          type = "Returned";
-        }
+        if (row.status === "approved") type = "Approved";
+        else if (row.status === "pending") type = "Pending";
+        else if (row.status === "assigned") type = "Draft";
+        else if (row.status === "published") type = "Published";
+        else if (row.status === "rejected") type = "Rejected";
+        else if (row.status === "returned") type = "Returned";
         return <StatusBadge type={type} />;
       }
     },
@@ -167,6 +147,18 @@ export default function DeanTemplates() {
       )
     }
   ];
+
+  function getEllipsedPages(current, total, siblings = 1) {
+    const pages = [];
+    const start = Math.max(2, current - siblings);
+    const end = Math.min(total - 1, current + siblings);
+    pages.push(1);
+    if (start > 2) pages.push("…");
+    for (let p = start; p <= end; p++) pages.push(p);
+    if (end < total - 1) pages.push("…");
+    if (total > 1) pages.push(total);
+    return Array.from(new Set(pages)).filter(p => p >= 1 && p <= total || p === "…");
+  }
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -245,31 +237,12 @@ export default function DeanTemplates() {
                 onChange={setSortOrder}
                 width="w-36"
               />
-            
-
-            
-              {/* Small-screen Assign button beside dropdowns */}
-              <button
-                onClick={() => setIsAssignmentModalOpen(true)}
-                className="bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm 
-                 flex items-center gap-2 hover:bg-blue-800 focus:outline-none focus:ring-0 lg:hidden"
-              >
-                <FileText className="h-5 w-5" />
-                <span>Assign Templates</span>
-              </button>
             </div>
           </div>
 
           {/* Tabs + original desktop Assign button */}
           <div className="mb-6 border-b border-gray-200">
-            <button
-              onClick={() => setIsAssignmentModalOpen(true)}
-              className="hidden lg:inline-flex bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm 
-               items-center gap-2 hover:bg-blue-800 focus:outline-none focus:ring-0 mb-5"
-            >
-              <FileText className="h-5 w-5" />
-              <span>Assign Templates</span>
-            </button>
+            
 
             <div className="flex space-x-8">
               {tabs.map((tab) => (
@@ -310,9 +283,9 @@ export default function DeanTemplates() {
             >
               Prev
             </button>
-            {pagination.getPageNumbers().map((num, idx) =>
-              num === "..." ? (
-                <span key={idx} className="px-2 text-gray-400">...</span>
+            {getEllipsedPages(pagination.currentPage, totalPages, 1).map((num, idx) =>
+              num === "…" ? (
+                <span key={`e-${idx}`} className="px-2 text-gray-400 select-none">…</span>
               ) : (
                 <button
                   key={num}
@@ -322,11 +295,13 @@ export default function DeanTemplates() {
                       ? "bg-blue-600 text-white"
                       : "bg-white text-gray-700 hover:bg-gray-100"
                   }`}
+                  aria-current={pagination.currentPage === num ? "page" : undefined}
                 >
                   {num}
                 </button>
               )
             )}
+
             <button
               onClick={pagination.handleNext}
               disabled={pagination.currentPage === totalPages}

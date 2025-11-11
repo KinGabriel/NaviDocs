@@ -690,6 +690,7 @@ export const submitTemplate = async (req, res) => {
   try {
     const template = await Template.findById(req.params.id);
     if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+    
     // Check if template is already submitted
     if (template.status === 'pending') {
       return res.status(400).json({ success:false, message:'Template already submitted for approval' });
@@ -715,21 +716,20 @@ export const submitTemplate = async (req, res) => {
     if (!wasReturned) {
       for (const key of ['unit_document_controller','lead_document_controller','document_controller_officer']) {
         approvals[key] = approvals[key] || {};
-
-      }
-    } else {
-      // On resubmission, preserve assigned_to to keep previous routing.
-      for (const key of ['unit_document_controller','lead_document_controller','document_controller_officer']) {
-        approvals[key] = approvals[key] || {};
       }
     }
 
   // Decide next role and status
     let nextRoleFriendly = null; // 'Unit Document Controller' | 'Lead Document Controller' | 'Document Control Officer'
     let nextAssignedUser = null;
+    
+    // Determine if UDC endorsement is required for this submission
+    const requiresUDC = (submitterRole === 'Department Head') || !!approvals?.unit_document_controller?.assigned_to;
+
   if (unitApproved) {
-      // UDC already endorsed → status endorsed, go to LDC or DCO depending on LDC state
+      // UDC already endorsed → status stays 'endorsed', go to LDC or DCO depending on LDC state
       template.status = 'endorsed';
+      
       if (!leadApproved) {
         nextRoleFriendly = 'Lead Document Controller';
         if (wasReturned && template.status_meta?.returned_role === 'lead_document_controller' && template.status_meta?.returned_by) {
@@ -743,13 +743,11 @@ export const submitTemplate = async (req, res) => {
           approvals.document_controller_officer.assigned_to = nextAssignedUser;
         }
       } else {
-        // Edge: all already approved
+        // all already approved
         template.status = 'approved';
       }
     } else {
       // UDC not approved yet
-      // Replace 'Faculty' with 'Department Head' as the role requiring UDC endorsement
-      const requiresUDC = (submitterRole === 'Department Head') || !!approvals?.unit_document_controller?.assigned_to;
       if (wasReturned) {
         // On resubmission, non-Department-Head flows should not go to 'pending'; they stay endorsed and route to who returned.
         if (requiresUDC) {
@@ -760,8 +758,8 @@ export const submitTemplate = async (req, res) => {
             approvals.unit_document_controller.assigned_to = nextAssignedUser;
           }
         } else {
-          // No UDC required -> keep endorsed and target the returning approver (LDC or DCO)
-          template.status = 'endorsed';
+          // No UDC required -> route to the returning approver (LDC or DCO)
+          template.status = 'pending';
           if (template.status_meta?.returned_role === 'lead_document_controller') {
             nextRoleFriendly = 'Lead Document Controller';
             if (template.status_meta?.returned_by) {
@@ -778,13 +776,21 @@ export const submitTemplate = async (req, res) => {
         }
       } else {
         // Fresh submission
-        template.status = requiresUDC ? 'pending' : 'endorsed';
-        nextRoleFriendly = requiresUDC ? 'Unit Document Controller' : 'Lead Document Controller';
+        template.status = 'pending';
+        
+        if (requiresUDC) {
+          nextRoleFriendly = 'Unit Document Controller';
+        } else {
+          // Dean/Secretary → goes directly to LDC (but still 'pending' status)
+          nextRoleFriendly = 'Lead Document Controller';
+        }
       }
     }
+
   // Stamp submission time (always overwrite to reflect this submission)
   template.status_meta = template.status_meta || {};
   template.status_meta.submitted_at = new Date();
+
   // Preserve any prior approvals (especially UDC endorsement) from being lost
   template.status_meta.approvals = preservePriorApprovals(approvals, priorApprovals);
   await template.save();
@@ -792,8 +798,8 @@ export const submitTemplate = async (req, res) => {
   // Notify initial approver (based on approvals state and resubmission context)
     try {
       const notificationServiceUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8008';
-      const actorId = String(req.user?.id || req.user?._id || '');
       const type = 'template_review_requested';
+      
       if (!nextRoleFriendly) {
         // Nothing to notify (already fully approved)
       } else if (nextAssignedUser) {
@@ -809,7 +815,7 @@ export const submitTemplate = async (req, res) => {
           console.error('Notification service error (submit/targeted):', err?.response?.status || err?.message || err);
         }
       } else {
-        const message = (nextRoleFriendly === 'Unit Document Controller' && submitterRole === 'Faculty')
+        const message = (nextRoleFriendly === 'Unit Document Controller')
           ? `"${template.title}" has been submitted for your endorsement.`
           : `"${template.title}" has been submitted for your approval.`;
         const link = linkFor(type, template._id, nextRoleFriendly);

@@ -11,7 +11,7 @@ const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
-export default function TemplateCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete, onAssign }) {
+export default function TemplateCard({ template, onSelect, user, onPublish, onRename, onDelete, onAssign }) {
 
   const [showMenu, setShowMenu] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -42,14 +42,13 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
       return [];
     }
   });
-
   
   // Keep selectedIds in sync if template prop updates (e.g., parent updated assigned list)
   useEffect(() => {
     setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
   }, [template?.assigned, template?.assignees]);
 
-  // Helper function to get template status
+ // Helper function to get template status
   const getTemplateStatus = (template) => {
     if (typeof template.status === 'string') {
       // Treat fully approved "pending" as approved for clearer UX in grid
@@ -65,6 +64,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
     if (template.status?.approved) return 'approved';
     return 'draft';
   };
+
 
   // Helper function to get status badge color
   const getStatusBadgeColor = (status) => {
@@ -141,27 +141,21 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
         setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
         setAssignOpen(true);
         break;
-  case 'delete':
+      case 'delete':
         setDeleteError("");
         setDeleteOpen(true);
         break;
-      default:
-        break;
-    }
-  };
+      default: break;
+      }
+    };
 
   const status = getTemplateStatus(template);
   const approvalMeta = template.approvalMeta || {};
   const rawRole = (typeof user?.role === 'string') ? user.role : user?.role?.name;
   const userRole = (rawRole || '').toString().toLowerCase();
   const roleKey = userRole === 'secretary' ? 'secretary' : userRole === 'dean' ? 'dean' : null;
-  const canApprove = !!(roleKey && approvalMeta && !approvalMeta[`${roleKey}Approved`] && ['pending','draft','approved'].includes(status) && template.status !== 'published');
   const canPublish = !!(approvalMeta && (approvalMeta.canPublish || (approvalMeta.isFullyApproved && status !== 'published')));
 
-  const handleApproveClick = (e) => {
-    e.stopPropagation();
-    if (onApprove) onApprove(template);
-  };
   const handlePublishClick = (e) => {
     e.stopPropagation();
     if (onPublish) onPublish(template);
@@ -194,13 +188,13 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
 
   // Reusable guards for the preview click area
   const guardMouseDown = (e) => {
-    if (isAnyModalOpen || ignoreClickNow()) {
+    if (showMenu || isAnyModalOpen || ignoreClickNow()) {
       e.preventDefault();
       e.stopPropagation();
     }
   };
   const guardClick = (e) => {
-    if (isAnyModalOpen || ignoreClickNow()) {
+    if (showMenu || isAnyModalOpen || ignoreClickNow()) {
       e.preventDefault();
       e.stopPropagation();
       return;
@@ -343,6 +337,16 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     Make a Copy
+                  </button>
+
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    onClick={(e) => handleMenuAction('delete', e)}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Archive  
                   </button>
 
                 </div>

@@ -5,7 +5,6 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
  * Header & Footer Panel (Tabbed)
  * - Two tabs: Header / Footer
  * - Enable toggles for each band
- * - Margin controls (inches)
  * - Header: Logos + center text + document stamp
  * - Footer: Page number + freeform text, both with alignment & font styling
  *
@@ -164,7 +163,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
   // Assets
   const [assets, setAssets] = useState(initial.assets);
 
-  // Toggles & margins
+  // Toggles & margins (margins kept in state but NOT rendered in UI)
   const [headerEnabled, setHeaderEnabled] = useState(initial.headerEnabled);
   const [footerEnabled, setFooterEnabled] = useState(initial.footerEnabled);
   const [headerMarginIn, setHeaderMarginIn] = useState(initial.headerMarginIn);
@@ -423,7 +422,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
     <div className="p-5 bg-white rounded-2xl shadow-md w-full overflow-auto rm-panel">
       <h2 className="text-lg font-semibold text-gray-800 mb-1">Header &amp; Footer</h2>
       <p className="text-sm text-gray-500 mb-4">
-        Configure header/footer visibility, margins, logos, and text styling.
+        Configure header/footer visibility, logos, and text styling.
       </p>
 
       {/* Tabs */}
@@ -452,25 +451,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
         <Toggle label="Enable Footer" checked={!!footerEnabled} onChange={setFooterEnabled} />
       </div>
 
-      {/* Margins */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mb-6">
-        <NumberField
-          label="Header margin (inches from top)"
-          value={headerMarginIn}
-          min={0}
-          step={0.1}
-          disabled={!headerEnabled}
-          onChange={setHeaderMarginIn}
-        />
-        <NumberField
-          label="Footer margin (inches from bottom)"
-          value={footerMarginIn}
-          min={0}
-          step={0.1}
-          disabled={!footerEnabled}
-          onChange={setFooterMarginIn}
-        />
-      </div>
+      {/* Margins UI removed intentionally */}
 
       {tab === "header" ? (
         <HeaderTab

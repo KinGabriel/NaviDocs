@@ -117,7 +117,6 @@ function App() {
   if (checkingSession) {
     return (
       <>
-        <Toaster />
         <Loader />
       </>
     );
@@ -195,11 +194,26 @@ function App() {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/document-controller/create-template"
           element={
-            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head", "Faculty"]}>
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head"]}>
               <DocumentControllerCreateTemplate />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/document-controller/handle-templates"
+          element={
+            <ProtectedRoute allowedRoles={[
+              "Dean",
+              "Lead Document Controller",
+              "Document Control Officer",
+              "Unit Document Controller"
+            ]}>
+              <DocControllerTemplates />
             </ProtectedRoute>
           }
         />

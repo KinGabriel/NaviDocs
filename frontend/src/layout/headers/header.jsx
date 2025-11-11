@@ -1,63 +1,53 @@
 // This is the header component for the application, which includes a logo, title, notifications, and user profile information.
 import { useNavigate, useLocation } from 'react-router-dom';
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import NotificationDropdown from "../../components/dropdowns/notificationDropdown";
 import '../../assets/css/global.css'
 import naviLogo from '../../assets/images/navilogo.png';
 import notifIcon from '../../assets/images/notif_icon.svg';
 import { logoutAPI } from '../../api/authAPI.js';
 import defaultProfile from '../../assets/images/profile_picture.png';
+import { useDataPolling } from '../../hooks/useDataPolling.jsx';
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
+const fetchNotificationsAPI = async () => {
+  try {
+    const res = await fetch('/api/notifications', { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      return data.map(n => ({
+        id: n._id,
+        message: n.message,
+        link: n.link,
+        isRead: !!n.isRead,
+        createdAt: n.createdAt,
+      }));
+    }
+    return [];
+  } catch (err) {
+    console.error('Failed to fetch notifications:', err);
+    return [];
+  }
+};
+
 export default function Header({ user }) {
   const navigate = useNavigate();
   const location = useLocation(); // <-- get current route
 
   const [showDropdown, setShowDropdown] = useState(false);
-  const [notifications, setNotifications] = useState([]);
   const bellRef = useRef();
 
-  // Unified fetcher so we can call it on interval, open, focus, or custom events
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const res = await fetch('/api/notifications', { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(
-          data.map(n => ({
-            id: n._id,
-            message: n.message,
-            link: n.link,
-            isRead: !!n.isRead,
-            createdAt: n.createdAt,
-          }))
-        );
-      }
-    } catch (err) {
-      console.error('Failed to fetch notifications:', err);
-    }
-  }, []);
-
-  // Initial load + periodic refresh
-  useEffect(() => {
-    let alive = true;
-    fetchNotifications();
-    const id = setInterval(() => {
-      if (alive) fetchNotifications();
-    }, 15000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, [fetchNotifications]);
+  const { data: notifications, setData: setNotifications, refetch: fetchNotifications } = useDataPolling(fetchNotificationsAPI, 15000, []);
 
   // Refetch when dropdown opens so users see the latest instantly
   useEffect(() => {
-    if (showDropdown) fetchNotifications();
+    if (showDropdown) {
+      fetchNotifications();
+    }
   }, [showDropdown, fetchNotifications]);
 
   // Refetch when tab regains focus / visibility / custom event

@@ -9,6 +9,7 @@ import {
   Plus,
   Trash2,
   Menu,
+  FileText
 } from "lucide-react";
 
 import EditableFieldsHeader from "../layout/editable_fields/editableFieldsHeader";
@@ -1361,6 +1362,29 @@ export default function EditableFields() {
       (currentPage + 1) * sectionsPerPage
     );
 
+  // Check if there are any editable fields in the document
+  const hasEditableFields = editableCount > 0;
+
+  if (!hasEditableFields) {
+    return (
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b border-blue-100">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+             <FileText className="text-blue-600 w-5 h-5" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-700">
+              Document Preview Mode
+            </p>
+            <p className="text-xs text-gray-500">
+              This document contains no editable fields
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
     return (
       <div className="bg-white p-4 border-gray-200 border-b">
         <div className="flex items-center space-x-3">
@@ -1740,9 +1764,7 @@ export default function EditableFields() {
             <div className="flex-1 min-h-0 flex flex-col">
               {/* sticky "Current" nav */}
               <div className="sticky top-0 z-10 bg-gray-50">
-                <ProgressNavigation
-                  panelsConfig={panelsToUse}
-                />
+                <ProgressNavigation panelsConfig={panelsToUse} />
               </div>
 
               {/* scrollable panel content */}
@@ -1750,12 +1772,8 @@ export default function EditableFields() {
                 {/* top action row */}
                 <div className="flex justify-end mb-4">
                   <button
-                    onClick={() =>
-                      setShowClearModal(true)
-                    }
-                    disabled={
-                      Object.keys(formData).length === 0
-                    }
+                    onClick={() => setShowClearModal(true)}
+                    disabled={Object.keys(formData).length === 0}
                     className={`inline-flex items-center px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 shadow-sm active:scale-95 ${
                       Object.keys(formData).length > 0
                         ? "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:border-red-300"
@@ -1763,9 +1781,7 @@ export default function EditableFields() {
                     }`}
                   >
                     <RotateCcw className="w-4 h-4 mr-2" />
-                    <span className="whitespace-nowrap">
-                      Clear All
-                    </span>
+                    <span className="whitespace-nowrap">Clear All</span>
                   </button>
 
                   <button
@@ -1779,8 +1795,7 @@ export default function EditableFields() {
                 {/* either panels, or "no editable fields" message */}
                 {docData &&
                 docData.pages_json &&
-                typeof docData.pages_json[0] !==
-                  "string" &&
+                typeof docData.pages_json[0] !== "string" &&
                 editableCount === 0 ? (
                   <div className="bg-white p-6 rounded-lg shadow-sm">
                     <div className="space-y-2">
@@ -1788,9 +1803,7 @@ export default function EditableFields() {
                         No editable fields for this page
                       </div>
                       <div className="text-sm text-gray-500">
-                        This page doesn't contain any
-                        editable placeholders. Please go
-                        to another page to edit fields
+                        This page doesn't contain any editable placeholders. Please go to another page to edit fields.
                       </div>
                     </div>
                   </div>
@@ -1808,93 +1821,45 @@ export default function EditableFields() {
                       onFocusField={(fieldName) => {
                         setCurrentField(fieldName);
                         try {
-                          const positions =
-                            duplicatePositionsRef
-                              .current[fieldName] || [];
-                          if (
-                            positions.length > 0 &&
-                            editorRef.current
-                          ) {
-                            setDuplicateIndices(
-                              (prev) => ({
-                                ...(prev || {}),
-                                [fieldName]: 0,
-                              })
-                            );
-                            scrollToEditorPos(
-                              editorRef.current,
-                              positions[0]
-                            );
-                          } else if (
-                            editorRef.current
-                          ) {
-                            scrollToAndHighlightField(
-                              editorRef.current,
-                              fieldName
-                            );
+                          const positions = duplicatePositionsRef.current[fieldName] || [];
+                          if (positions.length > 0 && editorRef.current) {
+                            setDuplicateIndices((prev) => ({ ...(prev || {}), [fieldName]: 0 }));
+                            scrollToEditorPos(editorRef.current, positions[0]);
+                          } else if (editorRef.current) {
+                            scrollToAndHighlightField(editorRef.current, fieldName);
                           }
                         } catch (err) {
-                          console.debug(
-                            "focus jump error",
-                            err
-                          );
+                          console.debug("focus jump error", err);
                         }
                       }}
                       user={user}
-                      duplicateCounts={
-                        duplicateCounts
-                      }
-                      duplicateIndices={
-                        duplicateIndices
-                      }
-                      onCycleDuplicate={(
-                        fieldName,
-                        dir
-                      ) =>
-                        cycleDuplicate(
-                          fieldName,
-                          dir
-                        )
-                      }
+                      duplicateCounts={duplicateCounts}
+                      duplicateIndices={duplicateIndices}
+                      onCycleDuplicate={(fieldName, dir) => cycleDuplicate(fieldName, dir)}
                     />
                   ))
                 )}
 
                 {/* Table tools */}
-                {editorRef.current && (
-                  <TableManager
-                    editor={editorRef.current}
-                  />
-                )}
+                {editorRef.current && <TableManager editor={editorRef.current} />}
 
                 {/* Pagination buttons */}
+                {editableCount > 0 && (
                 <div className="flex justify-end items-center pt-6">
                   <div className="flex items-center space-x-3">
                     {currentPage > 0 && (
                       <button
-                        onClick={() =>
-                          setCurrentPage((p) =>
-                            Math.max(p - 1, 0)
-                          )
-                        }
-                        className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 border-2 border-gray-300 rounded-lg font-medium text-sm hover:border-[#003DA5] hover:text-[#003DA5] hover:shadow-md transition-all duration-200"
-                      >
-                        <ChevronLeft className="w-4 h-4 mr-2" />
-                        Previous
-                      </button>
-                    )}
+                        onClick={() => setCurrentPage((p) => Math.max(p - 1, 0))}
+                          className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 border-2 border-gray-300 rounded-lg font-medium text-sm hover:border-[#003DA5] hover:text-[#003DA5] hover:shadow-md transition-all duration-200"
+                        >
+                          <ChevronLeft className="w-4 h-4 mr-2" />
+                          Previous
+                        </button>
+                      )}
 
-                    {currentPage <
-                      totalPages - 1 && (
-                      <button
-                        onClick={() =>
-                          setCurrentPage((p) =>
-                            Math.min(
-                              p + 1,
-                              totalPages - 1
-                            )
-                          )
-                        }
+                      {currentPage < totalPages - 1 && (
+                        <button
+                          onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages - 1))}
                         className="inline-flex items-center px-6 py-2.5 bg-[#003DA5] text-white rounded-lg font-medium text-sm hover:bg-[#052c6d] transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
                       >
                         Next
@@ -1903,9 +1868,11 @@ export default function EditableFields() {
                     )}
                   </div>
                 </div>
+              )}
               </div>
             </div>
           </div>
+
 
           {/* MOBILE DRAWER SIDEBAR */}
           <div
@@ -2013,7 +1980,8 @@ export default function EditableFields() {
                 <TableManager editor={editorRef.current} />
               )}
 
-              {/* mobile pagination */}
+            {/* mobile pagination */}
+            {editableCount > 0 && (
               <div className="flex justify-end items-center pt-4">
                 <div className="flex flex-wrap gap-3">
                   {currentPage > 0 && (
@@ -2048,7 +2016,8 @@ export default function EditableFields() {
                   )}
                 </div>
               </div>
-            </div>
+            )}
+            </div>  
           </div>
 
           {/* MOBILE BACKDROP */}

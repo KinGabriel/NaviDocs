@@ -5,7 +5,7 @@ import Dropdown from "../../components/dropdowns/dropdown2";
 /**
  * PageSetupPanel (Pure config, inches only)
  * - NO editor calls here. Emits a normalized `pageSetup` object upward via onApply.
- * - Adds header/footer band heights (inches) so TextEditor can apply them.
+ * - Header/footer band heights are kept internally (for compatibility) but UI is hidden.
  * - All numeric inputs snap to 0.25in and are clamped to sensible ranges.
  */
 
@@ -46,6 +46,7 @@ function normalize(setup) {
       bottom: toInches(m.bottom ?? DEFAULTS.margins.bottom),
       left: toInches(m.left ?? DEFAULTS.margins.left),
     },
+    // kept for compatibility (no UI)
     headerHeight: toInches(s.headerHeight ?? DEFAULTS.headerHeight),
     footerHeight: toInches(s.footerHeight ?? DEFAULTS.footerHeight),
   };
@@ -174,35 +175,7 @@ export default function PageSetupPanel({
         <div className="text-[11px] text-gray-500 mt-1">Values snap to 0.25″ and clamp between 0–3″.</div>
       </div>
 
-      {/* Header / Footer band heights */}
-      <div className="mt-6">
-        <label className="font-semibold text-sm mb-1 block">Header / Footer Band Heights (inches)</label>
-        <div className="flex gap-2 mb-1">
-          <span className="w-1/2 text-xs text-gray-700 text-left">Header Height</span>
-          <span className="w-1/2 text-xs text-gray-700 text-left">Footer Height</span>
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="number"
-            className="w-1/2 border rounded px-2 py-1 text-center"
-            value={draft.headerHeight}
-            onChange={(e) => setDraftField("headerHeight", toInches(e.target.value, draft.headerHeight))}
-            min="0"
-            step="0.25"
-            placeholder="1.0"
-          />
-          <input
-            type="number"
-            className="w-1/2 border rounded px-2 py-1 text-center"
-            value={draft.footerHeight}
-            onChange={(e) => setDraftField("footerHeight", toInches(e.target.value, draft.footerHeight))}
-            min="0"
-            step="0.25"
-            placeholder="0.6"
-          />
-        </div>
-        <div className="text-[11px] text-gray-500 mt-1">These control the visible header/footer bands in the editor.</div>
-      </div>
+      {/* Header/Footer band heights UI intentionally removed (compatibility values still emitted) */}
 
       {/* Actions */}
       <div className="flex justify-end items-center gap-6 mt-20">

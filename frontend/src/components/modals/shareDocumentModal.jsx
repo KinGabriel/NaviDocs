@@ -57,15 +57,16 @@ export default function ShareDocumentModal({
             const id = String(u.userId || u.id || u._id);
             const email = u.email || key;
             const name = u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || email;
-            userInfo = { id, email, name };
-            
-            // Update knownUsers
+            const role = u.role || u.user_role || u.position || "User"; 
+
+            userInfo = { id, email, name, role };
             setKnownUsers((prev) => ({
               ...prev,
               [id]: userInfo,
               [email]: userInfo,
             }));
           }
+
         } catch (infoErr) {
           console.error('Error fetching user info:', infoErr);
         }
@@ -91,20 +92,27 @@ const fetchEmailSuggestions = async (query) => {
   setLoadingSuggestions(true);
   try {
     const users = await searchUsersByEmailAPI(query);
-    const list = Array.isArray(users) ? users.map(u => {
+    const list = Array.isArray(users)
+    ? users.map(u => {
       const id = u.userId || u.id || u._id || u.email;
       const email = u.email || '';
-      const name = u.name || u.fullname || u.fullName || (`${u.firstname || ''} ${u.lastname || ''}`).trim() || email;
-      return { id, email, name };
+      const name = u.name || u.fullname || (`${u.firstname || ''} ${u.lastname || ''}`).trim() || email;
+      const role = u.role || u.user_role || u.position || "User";
+      return { id, email, name, role };
     }) : [];
     
     // Update knownUsers map
     setKnownUsers((prev) => {
       const copy = { ...prev };
-      list.forEach((u) => {
-        if (u.id) copy[String(u.id)] = u;
-        if (u.email) copy[String(u.email)] = u;
-        if (u.name) copy[String((u.name || '').toLowerCase())] = u;
+      users.forEach((u) => {
+        const id = String(u.userId || u.id || u._id);
+        const email = u.email || '';
+        const name = u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || email || id;
+        const role = u.role || 'User'; 
+        const obj = { id, email, name, role }; 
+        copy[id] = obj;
+        if (email) copy[String(email)] = obj;
+        if (name) copy[String(name).toLowerCase()] = obj;
       });
       return copy;
     });
@@ -136,21 +144,27 @@ const fetchEmailSuggestions = async (query) => {
     try {
       const res = await searchUsersByEmailAPI("");
       const list = Array.isArray(res) ? res.map(u => {
-        const id = u.userId || u.id || u._id || u.email;
-        const email = u.email || '';
-        const name = u.name || u.fullname || u.fullName || (`${u.firstname || ''} ${u.lastname || ''}`).trim() || email;
-        return { id, email, name };
-      }) : [];
+      const id = u.userId || u.id || u._id || u.email;
+      const email = u.email || '';
+      const name = u.name || u.fullname || u.fullName || (`${u.firstname || ''} ${u.lastname || ''}`).trim() || email;
+      const role = u.role || 'User'; 
+      return { id, email, name, role }; 
+    }) : [];
       
       setKnownUsers((prev) => {
-        const copy = { ...prev };
-        list.forEach((u) => {
-          if (u.id) copy[String(u.id)] = u;
-          if (u.email) copy[String(u.email)] = u;
-          if (u.name) copy[String((u.name || '').toLowerCase())] = u;
-        });
-        return copy;
+      const copy = { ...prev };
+      users.forEach((u) => {
+        const id = String(u.userId || u.id || u._id);
+        const email = u.email || '';
+        const name = u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || email || id;
+        const role = u.role || 'User'; 
+        const obj = { id, email, name, role }; 
+        copy[id] = obj;
+        if (email) copy[String(email)] = obj;
+        if (name) copy[String(name).toLowerCase()] = obj;
       });
+      return copy;
+    });
       setSuggestions(list);
     } catch (err) {
       toast.error('Failed to load users');
@@ -161,22 +175,29 @@ const fetchEmailSuggestions = async (query) => {
   };
 
   // Build list of selected members by matching id to name from members (API)
-  const selectedMembers = useMemo(() => {
-    return selectedIds.map((sid) => {
-      const sidStr = String(sid);
-      // prefer knownUsers map
-      if (knownUsers[sidStr]) return { id: sidStr, name: knownUsers[sidStr].name, email: knownUsers[sidStr].email };
-      // try to find in members fetched earlier
-      const found = members.find((c) => String(c.id) === sidStr);
-      if (found) return { id: sidStr, name: found.name || found.fullName || found.displayName || sidStr, email: found.email || '' };
-      if (Array.isArray(template?.assigned) && Array.isArray(template?.assignedNames)) {
-        const idx = template.assigned.indexOf(sid);
-        if (idx !== -1) return { id: sidStr, name: template.assignedNames[idx] || sidStr, email: '' };
-      }
-      // fallback to raw id/email
-      return { id: sidStr, name: sidStr, email: '' };
-    });
-  }, [selectedIds, members, knownUsers, template]);
+ const selectedMembers = useMemo(() => {
+  return selectedIds.map((sid) => {
+    const sidStr = String(sid);
+    // prefer knownUsers map
+    if (knownUsers[sidStr]) { return { id: sidStr, name: knownUsers[sidStr].name, email: knownUsers[sidStr].email, role: knownUsers[sidStr].role };}
+    // try to find in members fetched earlier
+    const found = members.find((c) => String(c.id) === sidStr);
+    if (found) {
+      return { 
+        id: sidStr, 
+        name: found.name || found.fullName || found.displayName || sidStr, 
+        email: found.email || '',
+        role: found.role || ''
+      };
+    }
+    if (Array.isArray(template?.assigned) && Array.isArray(template?.assignedNames)) {
+      const idx = template.assigned.indexOf(sid);
+      if (idx !== -1) return { id: sidStr, name: template.assignedNames[idx] || sidStr, email: '', role: '' }; 
+    }
+    // fallback to raw id/email
+    return { id: sidStr, name: sidStr, email: '', role: '' }; 
+  });
+}, [selectedIds, members, knownUsers, template]);
 
   // Resolve names and emails for all selectedIds in one batch request (fetch on modal open / when selectedIds change)
   useEffect(() => {
@@ -204,7 +225,8 @@ const fetchEmailSuggestions = async (query) => {
             const id = String(u.userId || u.id || u._id);
             const email = u.email || '';
             const name = u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || email || id;
-            const obj = { id, email, name };
+            const role = u.role || 'User'; 
+            const obj = { id, email, name, role }; 
             copy[id] = obj;
             if (email) copy[String(email)] = obj;
             if (name) copy[String(name).toLowerCase()] = obj;
@@ -243,19 +265,20 @@ const fetchEmailSuggestions = async (query) => {
   const owner = useMemo(() => {
     if (!template?.created_by) return null;
     const id = String(template.created_by);
-    // prefer explicit createdByName
     let name = template.createdByName || "";
     let email = '';
-    // next, try to find the user in the fetched members list or knownUsers
+    let role = ''; 
     if (!name && knownUsers[id]) {
       name = knownUsers[id].name || '';
       email = knownUsers[id].email || '';
+      role = knownUsers[id].role || ''; 
     }
     if (!name && Array.isArray(members) && members.length) {
       const found = members.find((m) => String(m.id) === String(id));
       if (found) {
         name = found.name || found.fullName || found.displayName || '';
         email = found.email || '';
+        role = found.role || ''; 
       }
     }
     if (!name && Array.isArray(template.assigned) && Array.isArray(template.assignedNames)) {
@@ -263,7 +286,7 @@ const fetchEmailSuggestions = async (query) => {
       if (idx !== -1) name = template.assignedNames[idx];
     }
     if (!name) name = id;
-    return { id, name, email };
+    return { id, name, email, role }; 
   }, [template, members, knownUsers]);
 
   // Submit
@@ -373,11 +396,16 @@ const fetchEmailSuggestions = async (query) => {
                 <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
                   {owner.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-gray-900 truncate">{owner.name}</div>
-                  {owner.email && <div className="text-xs text-gray-600 truncate mt-1">{owner.email}</div>}
-                  <div className="text-xs text-blue-700 mt-0.5">Full access • Owner</div>
-                </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-gray-900 truncate">{owner.name}</div>
+                {owner.email && <div className="text-xs text-gray-600 truncate mt-1">{owner.email}</div>}
+                {owner.role && (
+                  <div className="text-xs text-blue-700">
+                    {owner.role}
+                  </div>
+                )}
+                <div className="inline-block px-2 py-0.5 text-xs text-blue-700 bg-blue-100 rounded-md mt-0.5">Full access</div>
+              </div>
                 <div className="flex-shrink-0">
                   <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -454,6 +482,11 @@ const fetchEmailSuggestions = async (query) => {
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-gray-900 truncate">{s.name || s.email}</div>
                             <div className="text-sm text-gray-500 truncate">{s.email}</div>
+                            {s.role && (
+                              <div className="text-xs text-blue-600 mt-0.5 font-medium">
+                                {s.role}
+                              </div>
+                            )}
                           </div>
                         </button>
                       ))}
@@ -505,13 +538,18 @@ const fetchEmailSuggestions = async (query) => {
                           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold shadow-md">
                             {c.name.charAt(0).toUpperCase()}
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium text-gray-900 truncate">{c.name}</div>
-                            {c.email && <div className="text-xs text-gray-500 truncate mt-0.5">{c.email}</div>}
-                            <div className="text-xs text-gray-500 mt-0.5">
-                              {selectedAccess[c.id] === 'viewer' ? 'Can view only' : 'Can view and edit'}
+                       <div className="min-w-0 flex-1">
+                          <div className="font-medium text-gray-900 truncate">{c.name}</div>
+                          {c.email && <div className="text-xs text-gray-500 truncate mt-0.5">{c.email}</div>}
+                          {(c.role || knownUsers[c.id]?.role) && (
+                            <div className="text-xs text-blue-700 ">
+                              {c.role || knownUsers[c.id]?.role}
                             </div>
+                          )}
+                          <div className="text-xs text-gray-500 mt-1">
+                            {selectedAccess[c.id] === 'viewer' ? 'Can view only' : 'Can view and edit'}
                           </div>
+                        </div>
                         </div>
                         
                         <div className="flex items-center gap-2">

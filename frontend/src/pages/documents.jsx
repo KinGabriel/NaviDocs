@@ -12,6 +12,11 @@ import { listDocumentsAPI, getDocumentByIdAPI } from "../api/documentsAPI";
 import Loader from "../components/loader";
 import ManageSuggestionsModal from "../components/modals/manageSuggestionsModal";
 import Table from "../components/table";
+import { toast } from "react-hot-toast";
+import RenameModal from "../components/modals/renameModal";
+import DuplicateModal from "../components/modals/duplicateModal";
+import DeleteModal from "../components/modals/deleteModal";
+import { renameDocumentAPI, duplicateDocumentAPI, deleteDocumentAPI } from "../api/documentsAPI";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -85,6 +90,116 @@ function ViewToggle({ mode = "grid", onChange }) {
   );
 }
 
+// Lightweight portal-free popover for row actions
+function useOutsideClose(ref, onClose) {
+  React.useEffect(() => {
+    function onDocClick(e) {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target)) onClose?.();
+    }
+    function onKey(e) {
+      if (e.key === "Escape") onClose?.();
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [ref, onClose]);
+}
+
+function RowKebabMenu({ row, onView, onRename, onMakeCopy, onDelete }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  useOutsideClose(ref, () => setOpen(false));
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="inline-flex items-center justify-center w-9 h-9 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        title="More actions"
+      >
+        {/* 3-dot icon */}
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" className="text-gray-700">
+          <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 5.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 16.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 mt-2 w-44 rounded-lg border border-gray-200 bg-white shadow-lg z-20 py-1"
+        >
+          {/* RENAME */}
+          <button
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700"
+            onClick={() => { setOpen(false); onRename?.(row); }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>
+            </svg>
+            Rename
+          </button>
+
+          {/* MAKE A COPY */}
+          <button
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700"
+            onClick={() => { setOpen(false); onMakeCopy?.(row); }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Make a Copy
+          </button>
+
+          <div className="my-1 h-px bg-gray-100" />
+
+          {/* ARCHIVE */}
+          <button
+            role="menuitem"
+            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+            onClick={() => { setOpen(false); onArchive?.(row); }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Archive
+          </button>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+function getEllipsedPages(current, total, siblings = 1) {
+  const pages = [];
+  const start = Math.max(2, current - siblings);
+  const end = Math.min(total - 1, current + siblings);
+
+  pages.push(1);
+
+  if (start > 2) pages.push("…");
+
+  for (let p = start; p <= end; p++) {
+    pages.push(p);
+  }
+
+  if (end < total - 1) pages.push("…");
+
+  if (total > 1) pages.push(total);
+
+  // de-dup when total is small
+  return Array.from(new Set(pages)).filter(p => p >= 1 && p <= total || p === "…");
+}
+
 export default function GlobalTemplates() {
   const user = useUser();
   const navigate = useNavigate();
@@ -124,6 +239,20 @@ export default function GlobalTemplates() {
   const [manageOpen, setManageOpen] = useState(false);
   const [documentsCache, setDocumentsCache] = useState([]);
   const [documentsCacheLoading, setDocumentsCacheLoading] = useState(false);
+
+  /* === Kebab + modals state for TABLE view === */
+  const [activeRow, setActiveRow] = useState(null);
+
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameError, setRenameError] = useState("");
+
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const schoolIdentifiers = {
     "University Wide": "VAA",
@@ -203,6 +332,100 @@ export default function GlobalTemplates() {
     const id = deleted?._id || deleted?.id;
     if (!id) return;
     setTemplates((prev) => prev.filter((t) => (t._id || t.id) !== id));
+  };
+
+  /* === ROW action handlers (table view) === */
+  const openRowRename = (row) => {
+    setActiveRow(row);
+    setRenameError("");
+    setRenameOpen(true);
+  };
+
+  const submitRowRename = async (newTitle) => {
+    if (!activeRow?._id && !activeRow?.id) return;
+    try {
+      setRenaming(true);
+      const id = activeRow._id || activeRow.id;
+      const resp = await renameDocumentAPI(id, newTitle);
+      if (resp && (resp.success || resp.document)) {
+        toast.success("Document renamed");
+        const updated = resp.document || { ...activeRow, title: newTitle };
+        setTemplates((prev) =>
+          prev.map((t) => ((t._id || t.id) === (id) ? { ...t, ...updated } : t))
+        );
+        setRenameOpen(false);
+      } else {
+        const msg = resp?.message || "Failed to rename document";
+        setRenameError(msg);
+        toast.error(msg);
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Error renaming";
+      setRenameError(msg);
+      toast.error(msg);
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const openRowDuplicate = (row) => {
+    setActiveRow(row);
+    setDuplicateOpen(true);
+  };
+
+  const submitRowDuplicate = async (newDoc) => {
+    if (!activeRow?._id && !activeRow?.id) return;
+    try {
+      setDuplicating(true);
+      const id = activeRow._id || activeRow.id;
+      const title = newDoc?.title || `${activeRow.title || "Untitled"} (Copy)`;
+      const resp = await duplicateDocumentAPI(id, title);
+      if (resp && resp.success) {
+        toast.success("Document duplicated");
+        // If API returns the new document, you can optionally prepend it
+        const newItem = resp.document || resp.data;
+        if (newItem) {
+          setTemplates((prev) => [newItem, ...prev]);
+        }
+        setDuplicateOpen(false);
+      } else {
+        toast.error(resp?.message || "Failed to duplicate document");
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Error duplicating");
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
+  const openRowDelete = (row) => {
+    setActiveRow(row);
+    setDeleteError("");
+    setDeleteOpen(true);
+  };
+
+  const confirmRowDelete = async () => {
+    if (!activeRow?._id && !activeRow?.id) return;
+    try {
+      setDeleting(true);
+      const id = activeRow._id || activeRow.id;
+      const resp = await deleteDocumentAPI(id);
+      if (resp && resp.success) {
+        toast.success("Document archived");
+        setTemplates((prev) => prev.filter((t) => (t._id || t.id) !== id));
+        setDeleteOpen(false);
+      } else {
+        const msg = resp?.message || "Failed to archive";
+        setDeleteError(msg);
+        toast.error(msg);
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Error archiving";
+      setDeleteError(msg);
+      toast.error(msg);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const extractFieldsFromDoc = (doc) => {
@@ -314,19 +537,32 @@ export default function GlobalTemplates() {
         row.deadline ? new Date(row.deadline).toLocaleString() : "No Deadline set",
     },
     { key: "status", label: "Status", render: (row) => <StatusPill value={row.status} /> },
+
+    /* === REPLACED actions column (View + 3-dot menu) === */
     {
       key: "actions",
       label: "Actions",
       render: (row) => (
-        <button
-          onClick={() => handleView(row)}
-          className="inline-flex items-center justify-center px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
-        >
-          View
-        </button>
+        <div className="inline-flex items-center gap-2">
+          <button
+            onClick={() => handleView(row)}
+            className="inline-flex items-center justify-center px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
+          >
+            View
+          </button>
+
+          <RowKebabMenu
+            row={row}
+            onView={() => handleView(row)}
+            onRename={() => openRowRename(row)}
+            onMakeCopy={() => openRowDuplicate(row)}
+            onDelete={() => openRowDelete(row)}
+          />
+        </div>
       ),
     },
   ];
+
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -647,11 +883,10 @@ export default function GlobalTemplates() {
               >
                 Prev
               </button>
-              {pagination.getPageNumbers().map((num, idx) =>
-                num === "..." ? (
-                  <span key={idx} className="px-2 text-gray-400">
-                    ...
-                  </span>
+
+              {getEllipsedPages(pagination.currentPage, totalPages, 1).map((num, idx) =>
+                num === "…" ? (
+                  <span key={`e-${idx}`} className="px-2 text-gray-400 select-none">…</span>
                 ) : (
                   <button
                     key={num}
@@ -661,11 +896,13 @@ export default function GlobalTemplates() {
                         ? "bg-blue-600 text-white"
                         : "bg-white text-gray-700 hover:bg-gray-100"
                     }`}
+                    aria-current={pagination.currentPage === num ? "page" : undefined}
                   >
                     {num}
                   </button>
                 )
               )}
+
               <button
                 onClick={pagination.handleNext}
                 disabled={pagination.currentPage === totalPages}
@@ -684,6 +921,36 @@ export default function GlobalTemplates() {
         fields={fields}
         user={user}
       />
+
+      {/* === Row modals (table view) === */}
+      <RenameModal
+        open={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        currentTitle={activeRow?.title || "Untitled"}
+        submitting={renaming}
+        error={renameError}
+        onSubmit={submitRowRename}
+      />
+
+      <DuplicateModal
+        open={duplicateOpen}
+        onClose={() => setDuplicateOpen(false)}
+        type="document"
+        item={activeRow}
+        submitting={duplicating}
+        onDuplicate={submitRowDuplicate}
+      />
+
+      <DeleteModal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        itemType="document"
+        itemTitle={activeRow?.title || "Untitled"}
+        onConfirm={confirmRowDelete}
+        submitting={deleting}
+        error={deleteError}
+      />
+
     </div>
   );
 }

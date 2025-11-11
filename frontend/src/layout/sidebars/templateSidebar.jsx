@@ -7,7 +7,6 @@ export default function TemplateSidebar({
   panels = [
     { id: "font",         label: "Text",               glyph: "T"  },
     { id: "layout",       label: "Layout",             glyph: "≡"  },
-    { id: "dateformat",   label: "Date Format",        glyph: "📅" },
     { id: "headerfooter", label: "Header & Footers",   glyph: "▭"  },
     { id: "insert",       label: "Insert",             glyph: "+"  },
     { id: "pagesetup",    label: "Page setup",         glyph: "▦"  },

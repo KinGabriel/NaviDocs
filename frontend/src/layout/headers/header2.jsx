@@ -5,7 +5,7 @@ import SubmitApprovalModal from '../../components/modals/submitForApprovalModal'
 import TemplateVersionHistory from '../../pages/version_history/templateVersionHistory';
 import AssignMembersModal from '../../components/modals/assignMembersModal';
 import React, { useState, useEffect } from "react";
-import { assignControllersToTemplateAPI } from '../../api/documentContollerAPI';
+import { assignControllersToTemplateAPI, fetchApproversAPI } from '../../api/documentContollerAPI';
 import defaultProfile from '../../assets/images/profile_picture.png';
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -44,6 +44,47 @@ export default function Header2({
   const [assignSubmitting, setAssignSubmitting] = useState(false);
   const [selectedAssignIds, setSelectedAssignIds] = useState(() => Array.isArray(assignedIds) ? [...assignedIds] : []);
   const navigate = useNavigate();
+  const [draftApprovers, setDraftApprovers] = useState([]);
+  const [loadingDraftApprovers, setLoadingDraftApprovers] = useState(false);
+
+  useEffect(() => {
+    const fetchDraftApprovers = async () => {
+      // Fetch if status is draft/assigned and approvers list is empty
+      if ((templateStatus === 'draft' || templateStatus === 'assigned') && approvers.length === 0 && user) {
+        setLoadingDraftApprovers(true);
+        try {
+          const userRole = user?.role?.name;
+          let rolesToFetch = [];
+          
+          // Determine which approvers to show based on creator's role
+          if (userRole === 'Dean' || userRole === 'Secretary') {
+            // Dean/Secretary to LDC to DCO
+            rolesToFetch = ['Lead Document Controller', 'Document Controller Officer'];
+          } else if (userRole === 'Department Head' || userRole === 'Faculty') {
+            // Dept Head to UDC to LDC to DCO
+            rolesToFetch = ['Unit Document Controller', 'Lead Document Controller', 'Document Controller Officer'];
+          }
+          
+          if (rolesToFetch.length > 0) {
+            const response = await fetchApproversAPI();
+            if (response && response.approvers) {
+              // Filter to only show relevant approvers based on user's role
+              const filteredApprovers = response.approvers.filter(approver => 
+                rolesToFetch.includes(approver?.role?.name)
+              );
+              setDraftApprovers(filteredApprovers);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching draft approvers:', error);
+        } finally {
+          setLoadingDraftApprovers(false);
+        }
+      }
+    };
+    
+    fetchDraftApprovers();
+  }, [templateStatus, approvers.length, user]);
 
   useEffect(() => {
     setSelectedAssignIds(Array.isArray(assignedIds) ? [...assignedIds] : []);
@@ -111,7 +152,7 @@ export default function Header2({
         }
 
         const roleName = user?.role?.name || '';
-  const approvalsKey = roleName === 'Lead Document Controller' ? 'lead_document_controller' : ((roleName === 'Document Control Officer') ? 'document_controller_officer' : null);
+        const approvalsKey = roleName === 'Lead Document Controller' ? 'lead_document_controller' : ((roleName === 'Document Control Officer') ? 'document_controller_officer' : null);
         const slotApproved = approvalsKey && approvals && approvals[approvalsKey]?.approved_at;
         const metaCanApprove = approvalMeta
           ? !approvalMeta.hasApprovedCurrentUser && (roleName === 'Lead Document Controller')
@@ -168,6 +209,28 @@ export default function Header2({
           ),
         };
       }
+
+    case 'endorsed':
+      return {
+        label: 'Endorsed',
+        disabled: true,
+        onClick: undefined,
+        className: 'bg-purple-600 text-white cursor-default',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+        ),
+      };
+
+      case 'disapproved':
+      return {
+        label: 'Disapproved',
+        disabled: true,
+        onClick: undefined,
+         className: 'bg-red-600 text-white cursor-default',
+        icon: (
+           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        ),
+      };
 
       case 'published':
         return {
@@ -323,6 +386,8 @@ export default function Header2({
                   {templateStatus==='returned' && <p className="text-[11px]">This template was <strong>returned</strong> for revisions. Please review feedback and resubmit.</p>}
                   {templateStatus==='rejected' && <p className="text-[11px]">This template was <strong>rejected</strong> during the approval process.</p>}
                   {templateStatus==='assigned' && <p className="text-[11px]">Template assigned. Ready for drafting.</p>}
+                  {templateStatus==='endorsed' && <p className="text-[11px]">This template has been endorsed and is awaiting further approval.</p>}
+                  {templateStatus==='disapproved' && <p className="text-[11px]">This template was <strong>disapproved</strong> during the approval process.</p>}
 
                   {/* APPROVERS */}
                   <div>
@@ -333,12 +398,12 @@ export default function Header2({
                       Approvers
                     </div>
 
-                    {loadingApprovers && <div className="text-[11px] italic text-gray-500">Loading approvers...</div>}
-                    {!loadingApprovers && approvers.length===0 && <div className="text-[11px] italic text-gray-400">No approvers assigned</div>}
+                    {(loadingApprovers || loadingDraftApprovers) && <div className="text-[11px] italic text-gray-500">Loading approvers...</div>}
+                    {!loadingApprovers && !loadingDraftApprovers && approvers.length===0 && draftApprovers.length===0 && <div className="text-[11px] italic text-gray-400">No approvers assigned</div>}
 
 
                     <div className="flex flex-col gap-1">
-                   {approvers.map(a => {
+                   {(approvers.length > 0 ? approvers : draftApprovers).map(a => {
                     const roleName = a?.role?.name || '';
                     const raw = (roleName || '').toLowerCase();
                     const toKey = (r) => {
@@ -447,7 +512,7 @@ export default function Header2({
                               .map(a => toKey(a?.role?.name || ''))
                               .filter(Boolean);
                             const uniqueKeys = Array.from(new Set(expectedKeys));
-                            const total = uniqueKeys.length || 2;
+                            const total = uniqueKeys.length || 3;
                             const ap = approvals || template?.status_meta?.approvals || {};
                             let count = 0;
                             for (const k of uniqueKeys) {
@@ -470,20 +535,43 @@ export default function Header2({
                   </div>
 
                   {/* Review Notes */}
-                  {reviewNotes && reviewNotes.length>0 && (
+                  {reviewNotes && reviewNotes.length > 0 && (
                     <div>
-                      <div className="font-medium mb-1 flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16h6m2 5l-5-5H9a5 5 0 01-5-5V7a5 5 0 015-5h6a5 5 0 015 5v4a5 5 0 01-5 5h-2z"/></svg>
-                        Review Notes
+                      <div className="font-medium mb-1 flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16h6m2 5l-5-5H9a5 5 0 01-5-5V7a5 5 0 015-5h6a5 5 0 015 5v4a5 5 0 01-5 5h-2z"/>
+                          </svg>
+                          Review Notes
+                        </div>
+                        <span className="text-[10px] text-gray-500 font-normal">
+                          {reviewNotes.length} {reviewNotes.length === 1 ? 'note' : 'notes'}
+                        </span>
                       </div>
-                      <ul className="space-y-1 max-h-32 overflow-auto pr-1">
-                        {reviewNotes.map((n,i)=> (
-                          <li key={i} className="bg-amber-50 border border-amber-200 rounded px-2 py-1 text-[11px] leading-snug">
-                            {n.note || n.message || (typeof n === 'string' ? n : 'Note')}
-                            {n.author && <span className="ml-1 text-[10px] text-amber-700 italic">- {n.author}</span>}
-                          </li>
+                      <div className="max-h-40 overflow-y-auto overflow-x-hidden pr-1 space-y-1.5 custom-scrollbar">
+                        {reviewNotes.map((n, i) => (
+                          <div 
+                            key={i} 
+                            className="bg-amber-50 border border-amber-200 rounded px-2 py-1.5 text-[11px] leading-snug break-words"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="flex-1 text-gray-700">
+                                {n.note || n.message || (typeof n === 'string' ? n : 'Note')}
+                              </p>
+                              {n.author && (
+                                <span className="text-[10px] text-amber-700 italic whitespace-nowrap flex-shrink-0">
+                                  - {n.author}
+                                </span>
+                              )}
+                            </div>
+                            {n.timestamp && (
+                              <span className="text-[9px] text-amber-600 mt-0.5 block">
+                                {new Date(n.timestamp).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </div>
                   )}
 
@@ -512,14 +600,14 @@ export default function Header2({
               </div>
             </div>
 
-            {/* share btn */} 
+            {/* share btn - disable for now
             <div className="relative">
               <button onClick={() => setAssignOpen(true)}
                 className="bg-[#063c8d] text-white rounded px-4 py-2 text-sm font-semibold hover:bg-[#052c6d] flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-share2-icon lucide-share-2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
                 Share
               </button>
-            </div>
+            </div> */}
 
            {/* Avatar */}
             <div className="w-10 h-10 rounded-full flex items-center justify-center shadow overflow-hidden bg-white border border-gray-200">

@@ -18,7 +18,10 @@ import {
   Clock,
   User,
   AlertCircle,
-  FileText
+  FileText,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw
 } from "lucide-react";
 import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI } from "../api/assignmentDocumentsAPI";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
@@ -131,6 +134,8 @@ export default function SubmittedFilesView() {
   const [showStoragePicker, setShowStoragePicker] = useState(false);
   const previewRef = useRef(null);
   const [error, setError] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const previewContainerRef = useRef(null);
 
   // Fetch submission data
 useEffect(() => {
@@ -232,8 +237,6 @@ useEffect(() => {
             _fullData: normalizedDoc
           });
           
-          console.log('🔍 Normalized document:', normalizedDoc);
-          console.log('🔍 Field values:', normalizedDoc.field_values);
         } catch (err) {
           console.error(`Failed to fetch document ${docId}:`, err);
           // Use placeholder if can't fetch the document
@@ -289,11 +292,6 @@ useEffect(() => {
             _fullData: actualDocument
           });
         }
-
-      console.log('Submitted docs:', submittedDocs);
-      console.log('First submitted doc _fullData:', submittedDocs[0]?._fullData);
-      console.log('First doc pages_json exists:', !!submittedDocs[0]?._fullData?.pages_json);
-      console.log('🔍 First doc field_values:', submittedDocs[0]?._fullData?.field_values);
       
       // Set the first document for preview
       if (submittedDocs.length > 0) {
@@ -326,7 +324,6 @@ useEffect(() => {
             deadline: binData.deadline
           };
       
-      console.log('Mapped submission:', mappedSubmission);
       if (mounted) {
         setSubmission(mappedSubmission);
         setError("");
@@ -349,13 +346,23 @@ useEffect(() => {
   return () => { mounted = false; };
 }, [id, state]);
 
+const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
+const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
+const handleZoomFit = () => {
+  if (previewContainerRef.current) {
+    const containerWidth = previewContainerRef.current.offsetWidth - 64;
+    const estimatedPageWidth = isLandscape ? 1400 : 900;
+    const autoZoom = Math.min((containerWidth / estimatedPageWidth), 1);
+    setZoom(autoZoom);
+  }
+};
+const handleZoomReset = () => setZoom(1);
+
   // To update the preview when file selection changes
     useEffect(() => {
       if (submission?.files && submission.files.length > 0) {
         const selectedFile = submission.files[selectedFileIndex];
         if (selectedFile?._fullData) {
-          console.log('Setting preview document:', selectedFile._fullData);
-          console.log('Has pages_json:', !!selectedFile._fullData.pages_json);
           setPreviewDocument(selectedFile._fullData);
         } else if (selectedFile?.id) {
           // Fetch the document if not already loaded
@@ -396,6 +403,22 @@ useEffect(() => {
     pages: d.pages ?? FALLBACK_DOC.pages,
     document_size: d.document_size || FALLBACK_DOC.document_size,
   };
+
+  const isLandscape = useMemo(() => {
+  const activeDoc = previewDocument || fetchedDoc || d;
+  if (!activeDoc?.pageSetup) return false;
+  
+  const pageSetup = activeDoc.pageSetup;
+  
+  if (pageSetup.orientation) {
+    return pageSetup.orientation.toLowerCase() === 'landscape';
+  }
+  
+  const width = parseFloat(pageSetup.width) || 0;
+  const height = parseFloat(pageSetup.height) || 0;
+  
+  return width > height;
+}, [previewDocument, fetchedDoc, d]);
 
   // Check user role permissions
     const roleName = user?.role?.name || user?.role || '';
@@ -466,14 +489,6 @@ useEffect(() => {
     }
   };
 
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-  };
-
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString('en-US', {
@@ -517,21 +532,78 @@ useEffect(() => {
       return pages.length > 0 ? pages : [];
     }, [previewDocument, fetchedDoc, d]);
 
-const contentForEditor = useMemo(() => {
-  const activeDoc = previewDocument || fetchedDoc || d;
-  if (!activeDoc || !activeDoc.pages_json) return { type: "doc", content: [] };
-  
-  const baseDoc = activeDoc.pages_json[0] || { type: "doc", content: [] };
-  
-  // Log the entire template structure
-  console.log('Full Template Structure:', JSON.stringify(baseDoc, null, 2));
-  
-  if (pageNodes.length > 0) {
-    const pageNode = pageNodes[currentPage];
-    if (pageNode) return { ...baseDoc, content: [pageNode] };
-  }
-  return baseDoc;
-}, [previewDocument, fetchedDoc, d, pageNodes, currentPage]);
+    const contentForEditor = useMemo(() => {
+      const activeDoc = previewDocument || fetchedDoc || d;
+      if (!activeDoc || !activeDoc.pages_json) return { type: "doc", content: [] };
+      
+      const baseDoc = activeDoc.pages_json[0] || { type: "doc", content: [] };
+      const fieldValues = activeDoc?.field_values || {};
+      
+      // Build ID-to-Label mapping from template fields
+      const idToLabel = {};
+      const fieldsList = activeDoc?.fields || activeDoc?.from_template?.fields || [];
+      
+      fieldsList.forEach(group => {
+        if (group.fields && Array.isArray(group.fields)) {
+          group.fields.forEach(field => {
+            const fieldId = field.key || field.id || field._id;
+            const fieldLabel = field.name || field.label;
+            if (fieldId && fieldLabel) {
+              idToLabel[fieldId] = fieldLabel; // maps field_values key to label ("fld-hvruhlnj0q" to "Civil status")
+            }
+          });
+        } else if (group.key || group.id || group._id) {
+          const fieldId = group.key || group.id || group._id;
+          const fieldLabel = group.name || group.label;
+          if (fieldId && fieldLabel) {
+            idToLabel[fieldId] = fieldLabel;
+          }
+        }
+      });
+      
+      const cloned = JSON.parse(JSON.stringify(baseDoc));
+      
+      // Apply field values to editableField nodes
+      const walk = (node) => {
+        if (!node) return;
+        if (node.type === 'editableField') {
+          // Get the field ID from the node
+          const fieldId = node.attrs?.key || node.attrs?.name;
+          
+          // Map ID to label
+          const fieldLabel = idToLabel[fieldId] || fieldId;
+          
+          // Get value using the label
+          const value = fieldValues[fieldLabel];
+          
+          if (value !== undefined && value !== null && String(value) !== '') {
+            // Inject the value into the node's content
+            node.content = [{ type: 'text', text: String(value) }];
+          } else {
+            // Keep existing content or empty
+            node.content = node.content || [];
+          }
+        }
+        if (Array.isArray(node.content)) node.content.forEach(walk);
+      };
+      
+      if (Array.isArray(cloned.content)) {
+        cloned.content.forEach(walk);
+      }
+      
+      if (pageNodes.length > 0) {
+        const pageNode = pageNodes[currentPage];
+        if (pageNode) {
+          const withPage = JSON.parse(JSON.stringify({ ...cloned, content: [pageNode] }));
+          if (Array.isArray(withPage.content)) {
+            withPage.content.forEach(walk);
+          }
+          return withPage;
+        }
+      }
+      
+      return cloned;
+    }, [previewDocument, fetchedDoc, d, pageNodes, currentPage]);
 
   const buildExportHtmlFromPreview = () => {
     try {
@@ -699,6 +771,48 @@ const contentForEditor = useMemo(() => {
           <div className="grid grid-cols-12 gap-6">
           {/* Document Preview Section */}
           <section className="col-span-12 lg:col-span-8">
+              {/* Zoom Controls */}
+              <div className="sticky top-0 z-10 mb-3 px-4 py-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleZoomOut}
+                      className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors border border-gray-300"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut size={16} />
+                    </button>
+                    <button
+                      onClick={handleZoomIn}
+                      className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors border border-gray-300"
+                      title="Zoom In"
+                    >
+                      <ZoomIn size={16} />
+                    </button>
+                    <span className="text-sm font-medium text-gray-700 min-w-[60px] text-center bg-gray-50 px-3 py-2 rounded-lg border border-gray-300">
+                      {Math.round(zoom * 100)}%
+                    </span>
+                    <button
+                      onClick={handleZoomFit}
+                      className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors border border-gray-300"
+                    >
+                      Fit
+                    </button>
+                    <button
+                      onClick={handleZoomReset}
+                      className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-300 transition-colors"
+                      title="Reset"
+                    >
+                      <RotateCcw size={16} className="text-gray-600" />
+                      Reset
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Scroll to navigate • Use zoom controls
+                  </div>
+                </div>
+              </div>
+
             {loading ? (
               <div className="h-full w-full flex items-center justify-center bg-white rounded-lg border border-gray-200 shadow-sm" style={{ minHeight: 600 }}>
                 <div className="text-center">
@@ -720,13 +834,35 @@ const contentForEditor = useMemo(() => {
                 </div>
               </div>
             ) : (previewDocument || fetchedDoc || d)?.pages_json ? (
-              <div className="w-full">
-               
-                  {console.log('📝 Passing to TextEditor:', {
-                    fieldValues: (previewDocument || d)?.field_values,
-                    hasFieldValues: !!(previewDocument || d)?.field_values,
-                    fieldValuesKeys: Object.keys((previewDocument || d)?.field_values || {})
-                      })}
+              <div 
+                  ref={previewContainerRef}
+                  className="w-full bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg shadow-sm overflow-auto"
+                  style={{ 
+                    padding: '2rem',
+                    minHeight: '600px'
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      paddingBottom: '2rem',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: isLandscape ? '1200px' : '900px',
+                        maxWidth: 'none',
+                      }}
+                    >
+                      <div
+                        style={{
+                          transform: `scale(${zoom})`,
+                          transformOrigin: 'top center',
+                        }}
+                        className="transition-transform duration-200"
+                      >
                   <div ref={previewRef} id="template-preview-capture">
                    <TextEditor
                       content={contentForEditor}
@@ -743,40 +879,13 @@ const contentForEditor = useMemo(() => {
                       effectivity={normalizedHeaderConfig.effectivity}
                       fieldValues={(() => {
                       const activeDoc = previewDocument || d;
-                      
-                      // Get fields 
-                      let fieldsList = activeDoc?.fields || activeDoc?.from_template?.fields || [];
-                      
-                      // Flatten nested fields from accordions
-                      const flatFields = [];
-                      fieldsList.forEach(group => {
-                        if (group.fields && Array.isArray(group.fields)) {
-                          flatFields.push(...group.fields);
-                        }
-                      });
-                      
                       const rawValues = activeDoc?.field_values || {};
-                      
-                      console.log('Field Groups:', fieldsList);
-                      console.log('Flattened Fields:', flatFields);
-                      console.log('Raw field values:', rawValues);
-                      
-                      // Map field values by label instead of key
-                      const mappedByLabel = {};
-                      flatFields.forEach(field => {
-                        const key = field.key || field._id || field.id;
-                        const label = field.label || field.name || '';
-                        if (key && rawValues[key] !== undefined) {
-                          mappedByLabel[label] = rawValues[key];
-                          console.log(`Mapped: ${label} = ${rawValues[key]}`);
-                        }
-                      });
-                      
-                      console.log('Mapped by label:', mappedByLabel);
-                      
-                      return mappedByLabel;
+                      return rawValues;
                     })()}
                     />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
             ) : (
@@ -860,9 +969,6 @@ const contentForEditor = useMemo(() => {
                                 {file.name}
                               </span>
                             </div>
-                            <p className="text-xs text-gray-500 ml-5">
-                              {formatFileSize(file.size)} • {formatDateTime(file.uploadedAt)}
-                            </p>
                           </button>
                         ))}
                       </div>
@@ -997,7 +1103,7 @@ const contentForEditor = useMemo(() => {
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-500 ml-5">
-                                  {formatFileSize(file.size)} • Uploaded {formatDateTime(file.uploadedAt)}
+                                  Uploaded {formatDateTime(file.uploadedAt)}
                                 </p>
                               </button>
                             ))}
