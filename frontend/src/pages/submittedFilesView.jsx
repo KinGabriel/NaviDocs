@@ -232,8 +232,6 @@ useEffect(() => {
             _fullData: normalizedDoc
           });
           
-          console.log('🔍 Normalized document:', normalizedDoc);
-          console.log('🔍 Field values:', normalizedDoc.field_values);
         } catch (err) {
           console.error(`Failed to fetch document ${docId}:`, err);
           // Use placeholder if can't fetch the document
@@ -289,11 +287,6 @@ useEffect(() => {
             _fullData: actualDocument
           });
         }
-
-      console.log('Submitted docs:', submittedDocs);
-      console.log('First submitted doc _fullData:', submittedDocs[0]?._fullData);
-      console.log('First doc pages_json exists:', !!submittedDocs[0]?._fullData?.pages_json);
-      console.log('🔍 First doc field_values:', submittedDocs[0]?._fullData?.field_values);
       
       // Set the first document for preview
       if (submittedDocs.length > 0) {
@@ -326,7 +319,6 @@ useEffect(() => {
             deadline: binData.deadline
           };
       
-      console.log('Mapped submission:', mappedSubmission);
       if (mounted) {
         setSubmission(mappedSubmission);
         setError("");
@@ -354,8 +346,6 @@ useEffect(() => {
       if (submission?.files && submission.files.length > 0) {
         const selectedFile = submission.files[selectedFileIndex];
         if (selectedFile?._fullData) {
-          console.log('Setting preview document:', selectedFile._fullData);
-          console.log('Has pages_json:', !!selectedFile._fullData.pages_json);
           setPreviewDocument(selectedFile._fullData);
         } else if (selectedFile?.id) {
           // Fetch the document if not already loaded
@@ -466,14 +456,6 @@ useEffect(() => {
     }
   };
 
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-  };
-
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString('en-US', {
@@ -517,21 +499,78 @@ useEffect(() => {
       return pages.length > 0 ? pages : [];
     }, [previewDocument, fetchedDoc, d]);
 
-const contentForEditor = useMemo(() => {
-  const activeDoc = previewDocument || fetchedDoc || d;
-  if (!activeDoc || !activeDoc.pages_json) return { type: "doc", content: [] };
-  
-  const baseDoc = activeDoc.pages_json[0] || { type: "doc", content: [] };
-  
-  // Log the entire template structure
-  console.log('Full Template Structure:', JSON.stringify(baseDoc, null, 2));
-  
-  if (pageNodes.length > 0) {
-    const pageNode = pageNodes[currentPage];
-    if (pageNode) return { ...baseDoc, content: [pageNode] };
-  }
-  return baseDoc;
-}, [previewDocument, fetchedDoc, d, pageNodes, currentPage]);
+    const contentForEditor = useMemo(() => {
+      const activeDoc = previewDocument || fetchedDoc || d;
+      if (!activeDoc || !activeDoc.pages_json) return { type: "doc", content: [] };
+      
+      const baseDoc = activeDoc.pages_json[0] || { type: "doc", content: [] };
+      const fieldValues = activeDoc?.field_values || {};
+      
+      // Build ID-to-Label mapping from template fields
+      const idToLabel = {};
+      const fieldsList = activeDoc?.fields || activeDoc?.from_template?.fields || [];
+      
+      fieldsList.forEach(group => {
+        if (group.fields && Array.isArray(group.fields)) {
+          group.fields.forEach(field => {
+            const fieldId = field.key || field.id || field._id;
+            const fieldLabel = field.name || field.label;
+            if (fieldId && fieldLabel) {
+              idToLabel[fieldId] = fieldLabel; // maps field_values key to label ("fld-hvruhlnj0q" to "Civil status")
+            }
+          });
+        } else if (group.key || group.id || group._id) {
+          const fieldId = group.key || group.id || group._id;
+          const fieldLabel = group.name || group.label;
+          if (fieldId && fieldLabel) {
+            idToLabel[fieldId] = fieldLabel;
+          }
+        }
+      });
+      
+      const cloned = JSON.parse(JSON.stringify(baseDoc));
+      
+      // Apply field values to editableField nodes
+      const walk = (node) => {
+        if (!node) return;
+        if (node.type === 'editableField') {
+          // Get the field ID from the node
+          const fieldId = node.attrs?.key || node.attrs?.name;
+          
+          // Map ID to label
+          const fieldLabel = idToLabel[fieldId] || fieldId;
+          
+          // Get value using the label
+          const value = fieldValues[fieldLabel];
+          
+          if (value !== undefined && value !== null && String(value) !== '') {
+            // Inject the value into the node's content
+            node.content = [{ type: 'text', text: String(value) }];
+          } else {
+            // Keep existing content or empty
+            node.content = node.content || [];
+          }
+        }
+        if (Array.isArray(node.content)) node.content.forEach(walk);
+      };
+      
+      if (Array.isArray(cloned.content)) {
+        cloned.content.forEach(walk);
+      }
+      
+      if (pageNodes.length > 0) {
+        const pageNode = pageNodes[currentPage];
+        if (pageNode) {
+          const withPage = JSON.parse(JSON.stringify({ ...cloned, content: [pageNode] }));
+          if (Array.isArray(withPage.content)) {
+            withPage.content.forEach(walk);
+          }
+          return withPage;
+        }
+      }
+      
+      return cloned;
+    }, [previewDocument, fetchedDoc, d, pageNodes, currentPage]);
 
   const buildExportHtmlFromPreview = () => {
     try {
@@ -720,13 +759,7 @@ const contentForEditor = useMemo(() => {
                 </div>
               </div>
             ) : (previewDocument || fetchedDoc || d)?.pages_json ? (
-              <div className="w-full">
-               
-                  {console.log('📝 Passing to TextEditor:', {
-                    fieldValues: (previewDocument || d)?.field_values,
-                    hasFieldValues: !!(previewDocument || d)?.field_values,
-                    fieldValuesKeys: Object.keys((previewDocument || d)?.field_values || {})
-                      })}
+                  <div className="w-full">
                   <div ref={previewRef} id="template-preview-capture">
                    <TextEditor
                       content={contentForEditor}
@@ -747,34 +780,10 @@ const contentForEditor = useMemo(() => {
                       // Get fields 
                       let fieldsList = activeDoc?.fields || activeDoc?.from_template?.fields || [];
                       
-                      // Flatten nested fields from accordions
-                      const flatFields = [];
-                      fieldsList.forEach(group => {
-                        if (group.fields && Array.isArray(group.fields)) {
-                          flatFields.push(...group.fields);
-                        }
-                      });
-                      
                       const rawValues = activeDoc?.field_values || {};
                       
-                      console.log('Field Groups:', fieldsList);
-                      console.log('Flattened Fields:', flatFields);
-                      console.log('Raw field values:', rawValues);
                       
-                      // Map field values by label instead of key
-                      const mappedByLabel = {};
-                      flatFields.forEach(field => {
-                        const key = field.key || field._id || field.id;
-                        const label = field.label || field.name || '';
-                        if (key && rawValues[key] !== undefined) {
-                          mappedByLabel[label] = rawValues[key];
-                          console.log(`Mapped: ${label} = ${rawValues[key]}`);
-                        }
-                      });
-                      
-                      console.log('Mapped by label:', mappedByLabel);
-                      
-                      return mappedByLabel;
+                      return rawValues;
                     })()}
                     />
                   </div>
@@ -860,9 +869,6 @@ const contentForEditor = useMemo(() => {
                                 {file.name}
                               </span>
                             </div>
-                            <p className="text-xs text-gray-500 ml-5">
-                              {formatFileSize(file.size)} • {formatDateTime(file.uploadedAt)}
-                            </p>
                           </button>
                         ))}
                       </div>
@@ -997,7 +1003,7 @@ const contentForEditor = useMemo(() => {
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-500 ml-5">
-                                  {formatFileSize(file.size)} • Uploaded {formatDateTime(file.uploadedAt)}
+                                  Uploaded {formatDateTime(file.uploadedAt)}
                                 </p>
                               </button>
                             ))}

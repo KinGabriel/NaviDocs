@@ -11,7 +11,7 @@ const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
-export default function TemplateCard({ template, onSelect, user, onApprove, onPublish, onRename, onDelete, onAssign }) {
+export default function TemplateCard({ template, onSelect, user, onPublish, onRename, onDelete, onAssign }) {
 
   const [showMenu, setShowMenu] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -49,7 +49,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
     setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
   }, [template?.assigned, template?.assignees]);
 
-  // Helper function to get template status
+ // Helper function to get template status
   const getTemplateStatus = (template) => {
     if (typeof template.status === 'string') {
       // Treat fully approved "pending" as approved for clearer UX in grid
@@ -65,6 +65,7 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
     if (template.status?.approved) return 'approved';
     return 'draft';
   };
+
 
   // Helper function to get status badge color
   const getStatusBadgeColor = (status) => {
@@ -155,13 +156,8 @@ export default function TemplateCard({ template, onSelect, user, onApprove, onPu
   const rawRole = (typeof user?.role === 'string') ? user.role : user?.role?.name;
   const userRole = (rawRole || '').toString().toLowerCase();
   const roleKey = userRole === 'secretary' ? 'secretary' : userRole === 'dean' ? 'dean' : null;
-  const canApprove = !!(roleKey && approvalMeta && !approvalMeta[`${roleKey}Approved`] && ['pending','draft','approved'].includes(status) && template.status !== 'published');
   const canPublish = !!(approvalMeta && (approvalMeta.canPublish || (approvalMeta.isFullyApproved && status !== 'published')));
 
-  const handleApproveClick = (e) => {
-    e.stopPropagation();
-    if (onApprove) onApprove(template);
-  };
   const handlePublishClick = (e) => {
     e.stopPropagation();
     if (onPublish) onPublish(template);
