@@ -179,6 +179,26 @@ function RowKebabMenu({ row, onView, onRename, onMakeCopy, onDelete }) {
   );
 }
 
+function getEllipsedPages(current, total, siblings = 1) {
+  const pages = [];
+  const start = Math.max(2, current - siblings);
+  const end = Math.min(total - 1, current + siblings);
+
+  pages.push(1);
+
+  if (start > 2) pages.push("…");
+
+  for (let p = start; p <= end; p++) {
+    pages.push(p);
+  }
+
+  if (end < total - 1) pages.push("…");
+
+  if (total > 1) pages.push(total);
+
+  // de-dup when total is small
+  return Array.from(new Set(pages)).filter(p => p >= 1 && p <= total || p === "…");
+}
 
 export default function GlobalTemplates() {
   const user = useUser();
@@ -863,11 +883,10 @@ export default function GlobalTemplates() {
               >
                 Prev
               </button>
-              {pagination.getPageNumbers().map((num, idx) =>
-                num === "..." ? (
-                  <span key={idx} className="px-2 text-gray-400">
-                    ...
-                  </span>
+
+              {getEllipsedPages(pagination.currentPage, totalPages, 1).map((num, idx) =>
+                num === "…" ? (
+                  <span key={`e-${idx}`} className="px-2 text-gray-400 select-none">…</span>
                 ) : (
                   <button
                     key={num}
@@ -877,11 +896,13 @@ export default function GlobalTemplates() {
                         ? "bg-blue-600 text-white"
                         : "bg-white text-gray-700 hover:bg-gray-100"
                     }`}
+                    aria-current={pagination.currentPage === num ? "page" : undefined}
                   >
                     {num}
                   </button>
                 )
               )}
+
               <button
                 onClick={pagination.handleNext}
                 disabled={pagination.currentPage === totalPages}
