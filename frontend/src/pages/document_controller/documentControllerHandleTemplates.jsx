@@ -116,37 +116,17 @@ export default function DeanTemplates() {
       Array.isArray(row.assignedNames) && row.assignedNames.length > 0
         ? row.assignedNames.filter(Boolean).join(", ")
         : row.createdByName || row.created_by_name || "-" },
-    { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDateTime(row.deadline) : "No Deadline set" },
     {
       key: "status",
       label: "Status",
       render: row => {
         let type = "-";
-        if (row.status === "approved") {
-          type = "Approved";
-        } else if (row.status === "pending") {
-          type = "Pending";
-        } else if (row.status === "assigned") {
-          if (row.deadline) {
-            const now = new Date();
-            const deadlineDate = new Date(row.deadline);
-            if (!isNaN(deadlineDate.getTime()) && deadlineDate < now) {
-              type = "Late";
-            } else {
-              type = "Draft";
-            }
-          } else {
-            type = "Draft";
-          }
-        } else if (row.status === "published") {
-          type = "Published";
-         } 
-        else if (row.status === "rejected") {
-          type = "Rejected";
-        } 
-        else if (row.status === "returned") {
-          type = "Returned";
-        }
+        if (row.status === "approved") type = "Approved";
+        else if (row.status === "pending") type = "Pending";
+        else if (row.status === "assigned") type = "Draft";
+        else if (row.status === "published") type = "Published";
+        else if (row.status === "rejected") type = "Rejected";
+        else if (row.status === "returned") type = "Returned";
         return <StatusBadge type={type} />;
       }
     },
