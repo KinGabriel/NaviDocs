@@ -8,6 +8,7 @@ import ShareDocumentModal from "../../components/modals/shareDocumentModal";
 import { shareDocumentAPI } from "../../api/documentsAPI";
 import { ChevronDown, Copy, Send, FileDown, MoreHorizontal, Share2, FolderPlus, Menu } from "lucide-react";
 import StoragePickerModal from "../../components/modals/storagePickerModal";
+import toast from "react-hot-toast";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -388,6 +389,7 @@ export default function EditableFieldsHeader({
             if (onDocumentUpdate) {
               onDocumentUpdate({ assigned: Array.isArray(assignees) ? assignees : [] });
             }
+            toast.success('Document shared successfully');
             setShareOpen(false);
           } catch (err) {
             console.error('Failed to share document', err);
