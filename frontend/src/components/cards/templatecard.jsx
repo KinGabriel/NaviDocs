@@ -42,7 +42,6 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
       return [];
     }
   });
-
   
   // Keep selectedIds in sync if template prop updates (e.g., parent updated assigned list)
   useEffect(() => {
@@ -142,14 +141,13 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
         setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
         setAssignOpen(true);
         break;
-  case 'delete':
+      case 'delete':
         setDeleteError("");
         setDeleteOpen(true);
         break;
-      default:
-        break;
-    }
-  };
+      default: break;
+      }
+    };
 
   const status = getTemplateStatus(template);
   const approvalMeta = template.approvalMeta || {};
@@ -190,13 +188,13 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
 
   // Reusable guards for the preview click area
   const guardMouseDown = (e) => {
-    if (isAnyModalOpen || ignoreClickNow()) {
+    if (showMenu || isAnyModalOpen || ignoreClickNow()) {
       e.preventDefault();
       e.stopPropagation();
     }
   };
   const guardClick = (e) => {
-    if (isAnyModalOpen || ignoreClickNow()) {
+    if (showMenu || isAnyModalOpen || ignoreClickNow()) {
       e.preventDefault();
       e.stopPropagation();
       return;
