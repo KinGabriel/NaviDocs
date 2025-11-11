@@ -77,15 +77,21 @@ export default function SubmitApprovalModal({
     setError(false); // Instructions are optional
 
     try {
-      if (!templateId) return;
+      if (!templateId) {
+        console.error('No template ID provided');
+        return;
+      }
 
       if (status === "draft") {
         const submitRes = await submitTemplateAPI(templateId);
-        // Persist submit instructions as a note so approvers can see context
+        
+        // add note if instructions are provided
+        if (instructions.trim()) {
         try {
           await addTemplateNoteAPI(templateId, instructions.trim());
         } catch (noteErr) {
           console.error("Add note (instructions) failed:", noteErr);
+        }
         }
 
         if (typeof onSubmit === "function") {
@@ -105,13 +111,15 @@ export default function SubmitApprovalModal({
       }
 
       if (status === "assigned" || status === "returned") {
-        // Submit without selecting approvers; backend determines recipients by role chain
         const submitRes = await submitTemplateAPI(templateId);
-        // Persist resubmission instructions as a note
+        
+        // add note if instructions are provided
+        if (instructions.trim()) {
         try {
           await addTemplateNoteAPI(templateId, instructions.trim());
         } catch (noteErr) {
           console.error("Add note (instructions) failed:", noteErr);
+          }
         }
 
         if (typeof onSubmit === "function") {
@@ -131,6 +139,11 @@ export default function SubmitApprovalModal({
       }
     } catch (error) {
       console.error("Submit error:", error);
+      alert(
+        error?.response?.data?.message || 
+        error?.message || 
+        'Failed to submit template. Please try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }
