@@ -22,8 +22,8 @@ export const getApprovers = async (req, res) => {
       'Document Control Officer',
     ];
 
-    // Unit Document Controller endorses first only when submission is initiated by Faculty
-    if (requesterRole === 'Faculty') {
+    // Unit Document Controller endorses first for both Faculty and Department Head
+    if (requesterRole === 'Faculty' || requesterRole === 'Department Head') {
       approverRoles.push('Unit Document Controller');
     }
 
