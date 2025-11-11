@@ -150,7 +150,7 @@ const DocumentPreview = ({ template, onClose, onSelect }) => {
         </div>
 
         {/* Zoom Controls */}
-        <div className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-200 bg-gray-50">
+        <div className="sticky top-0 z-10 px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-1 sm:gap-2">
               <button
