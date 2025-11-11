@@ -22,6 +22,7 @@ export default function AdminEditUser() {
   const { id } = useParams();
   const user = useUser();
   const navigate = useNavigate();
+  const [errors, setErrors] = useState({ firstname: '', lastname: '', email: '' });
 
   // --- form state ---
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -73,16 +74,41 @@ export default function AdminEditUser() {
 
   // extra validation depending on role
   const { valid: extraValid, error: extraError } = validateUserRoleFields(form);
-  const canSave = useMemo(() => canSaveUser(form) && extraValid, [form, extraValid]);
+  const canSave = useMemo(() => canSaveUser(form) && extraValid && !errors.firstname && !errors.lastname && !errors.email, [form, extraValid, errors.firstname, errors.lastname, errors.email]);
 
   const handleInput = (e) => {
     const { name, value } = e.target;
+    let newValue = value;
+
     if (name === "firstname" || name === "lastname") {
-      // allow only letters/spaces while typing (matches create user behavior)
-      const filtered = value.replace(/[^a-zA-Z\s']/g, "");
-      setForm((p) => ({ ...p, [name]: filtered }));
+      // allow only letters/spaces while typing
+      newValue = value.replace(/[^a-zA-Z\s']/g, "");
+      
+      // Add validation
+      if (!newValue.trim()) {
+        setErrors(prev => ({ 
+          ...prev, 
+          [name]: `${name === 'firstname' ? 'First' : 'Last'} name is required.` 
+        }));
+      } else {
+        setErrors(prev => ({ ...prev, [name]: '' }));
+      }
+      
+      setForm((p) => ({ ...p, [name]: newValue }));
     } else if (name === "email") {
-      setForm((p) => ({ ...p, email: value.replace(/\s+/g, "") }));
+      newValue = value.replace(/\s+/g, "");
+      
+      // Add email validation
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|mil|biz|info|io|co|ph)$/i;
+      if (!newValue) {
+        setErrors(prev => ({ ...prev, email: 'Email is required.' }));
+      } else if (!emailRegex.test(newValue)) {
+        setErrors(prev => ({ ...prev, email: 'Please enter a valid email (e.g. name@example.com).' }));
+      } else {
+        setErrors(prev => ({ ...prev, email: '' }));
+      }
+      
+      setForm((p) => ({ ...p, email: newValue }));
     }
   };
 
@@ -116,6 +142,7 @@ export default function AdminEditUser() {
     setPhotoPreview(null);
     setSelectedFile(null);
     setAlertMessage("");
+    setErrors({ firstname: '', lastname: '', email: '' });
   };
 
   // Save handler wired to PUT /api/admin/edit-user/:id
@@ -192,14 +219,16 @@ export default function AdminEditUser() {
       <div className="flex-1 p-10">
         <div className="bg-white rounded-xl shadow-lg p-10">
           {/* Title row (same style as Create User) */}
-          <div className="mb-8 flex items-center gap-3">
+          <div className="mb-8 flex items-center gap-4">
             <button
               type="button"
               onClick={() => navigate(-1)}
               aria-label="Go back"
-              className="p-2 rounded-lg hover:bg-gray-100 -ml-2 shrink-0"
+              className="group p-2.5 rounded-xl hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 -ml-2 shrink-0 border border-transparent hover:border-blue-200 hover:shadow-sm"
+              title="Back"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 group-hover:text-blue-700 transition-colors duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+            >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
@@ -270,6 +299,7 @@ export default function AdminEditUser() {
                       required
                       className="w-full p-2 border border-gray-300 rounded"
                     />
+                    {errors.firstname && <p className="text-red-500 text-sm mt-1">{errors.firstname}</p>}
                   </div>
                   <div>
                     <label className="block font-medium text-sm">Last Name</label>
@@ -282,6 +312,7 @@ export default function AdminEditUser() {
                       required
                       className="w-full p-2 border border-gray-300 rounded"
                     />
+                    {errors.lastname && <p className="text-red-500 text-sm mt-1">{errors.lastname}</p>}
                   </div>
                   <div>
                     <label className="block font-medium text-sm">Email</label>
@@ -298,6 +329,7 @@ export default function AdminEditUser() {
                       required
                       className="w-full p-2 border border-gray-300 rounded"
                     />
+                    {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
                   </div>
 
                   {showSchool && (
@@ -350,7 +382,7 @@ export default function AdminEditUser() {
                 <button
                   type="button"
                   onClick={handleClear}
-                  className="px-6 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
+                  className="px-6 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800"
                 >
                   Clear
                 </button>
@@ -358,7 +390,7 @@ export default function AdminEditUser() {
                   type="button"
                   onClick={handleSave}
                   disabled={!canSave}
-                  className="px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 disabled:opacity-50"
+                  className="px-6 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800 disabled:opacity-50"
                 >
                   Save
                 </button>
