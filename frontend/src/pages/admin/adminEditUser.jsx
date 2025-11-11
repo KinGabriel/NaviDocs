@@ -243,43 +243,43 @@ export default function AdminEditUser() {
 
           <div className="flex flex-col lg:flex-row items-start gap-10">
             {/* Avatar picker — identical UX to Create User */}
-            <div className="flex justify-center w-full lg:w-1/3">
-              <div className="w-48 h-48 bg-gray-200 rounded-full flex items-center justify-center relative">
-                <label
-                  htmlFor="profile_picture"
-                  className="w-full h-full flex items-center justify-center cursor-pointer"
-                  title="Upload profile photo"
-                >
-                  {selectedFile ? (
-                    <img
-                      src={URL.createObjectURL(selectedFile)}
-                      alt="Preview"
-                      className="w-48 h-48 object-cover rounded-full"
-                    />
-                  ) : photoPreview ? (
-                    <img
-                      src={`${API_URL}${photoPreview}`}
-                      alt="Profile"
-                      className="w-48 h-48 object-cover rounded-full"
-                      onError={(e) => (e.currentTarget.src = defaultProfile)}
-                    />
-                  ) : (
-                    <img
-                      src={defaultProfile}
-                      alt="Default Profile"
-                      className="h-30 w-30 object-cover"
-                    />
-                  )}
-                  <input
-                    id="profile_picture"
-                    name="profile_picture"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                    className="hidden"
+            <div className="flex flex-col items-center w-full lg:w-1/3">
+              <div className="w-48 h-48 bg-gray-200 rounded-full flex items-center justify-center relative overflow-hidden">
+                {selectedFile ? (
+                  <img
+                    src={URL.createObjectURL(selectedFile)}
+                    alt="Preview"
+                    className="w-48 h-48 object-cover"
                   />
-                </label>
+                ) : photoPreview ? (
+                  <img
+                    src={`${API_URL}${photoPreview}`}
+                    alt="Profile"
+                    className="w-48 h-48 object-cover"
+                    onError={(e) => (e.currentTarget.src = defaultProfile)}
+                  />
+                ) : (
+                  <img
+                    src={defaultProfile}
+                    alt="Default Profile"
+                    className="h-30 w-30 object-cover"
+                  />
+                )}
               </div>
+              <label
+                htmlFor="profile_picture"
+                className="mt-3 text-sm text-blue-700 hover:underline cursor-pointer"
+              >
+                <input
+                  id="profile_picture"
+                  name="profile_picture"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+                Upload Photo
+              </label>
             </div>
 
             {/* Form fields */}
