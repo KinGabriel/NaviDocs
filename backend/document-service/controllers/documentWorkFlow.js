@@ -341,6 +341,101 @@ export const listBinsByDocument = async (req, res) => {
 };
 
 /**
+ * Get a specific Submission item by a contained document id
+ *
+ * @route GET /api/documents/submission-bins/document/:documentId
+ * @desc Finds the submission bin that contains the provided document id 
+ */
+export const getSubmissionByDocument = async (req, res) => {
+	try {
+		const { documentId } = req.params;
+		if (!documentId) return res.status(400).json({ message: 'documentId required' });
+
+		// Find the bin that contains this document in any submission.documents
+		const bin = await SubmissionBin.findOne({ 'submissions.documents': documentId });
+		if (!bin) return res.status(404).json({ message: 'Submission not found in any bin' });
+
+		// Enforce role-based view restrictions (same as getBin)
+		if (hasRole(req, ['dean']) || hasRole(req, ['secretary'])) {
+			const sameSchool = !req.user?.school || String(bin.school || '') === String(req.user.school || '');
+			if (!sameSchool || !bin.is_forwarded) {
+				return res.status(403).json({ message: 'Not authorized to access this submission' });
+			}
+		}
+
+		// Find the specific submission item that contains the document
+		const obj = bin.toObject ? bin.toObject() : JSON.parse(JSON.stringify(bin));
+		const submissions = Array.isArray(obj.submissions) ? obj.submissions : [];
+		let matched = null;
+		for (const s of submissions) {
+			if (Array.isArray(s.documents) && s.documents.map(String).includes(String(documentId))) {
+				matched = s;
+				break;
+			}
+		}
+		if (!matched) return res.status(404).json({ message: 'Submission item for document not found' });
+
+		// Enrich faculty info
+		let faculty_user = null;
+		try {
+			const info = await fetchUserInfoById(String(matched.faculty), req, { basic: true });
+			const data = info?.data || info || {};
+			faculty_user = { id: String(matched.faculty), name: data?.name || data?.fullname || `${data?.firstname || ''} ${data?.lastname || ''}`.trim() || String(matched.faculty), email: data?.email };
+		} catch (e) {
+			faculty_user = { id: String(matched.faculty), name: String(matched.faculty) };
+		}
+
+		// Fetch document metadata if available
+		let documentObj = null;
+		try {
+			const doc = await Document.findById(documentId).lean();
+			documentObj = doc || null;
+		} catch (e) {
+			documentObj = null;
+		}
+
+			// Fetch template title (best-effort) for UI using shared header util
+			let templateMeta = null;
+			try {
+				const templateId = matched.template ? String(matched.template) : null;
+				if (templateId) {
+					const templateServiceUrl = process.env.TEMPLATE_SERVICE_URL || 'http://localhost:8002';
+					const headers = buildUserServiceHeaders(req) || {};
+					const resp = await axios.get(`${templateServiceUrl}/api/templates/${templateId}`, { headers, withCredentials: true });
+					const tpl = resp?.data?.template || resp?.data || null;
+					if (tpl) templateMeta = { id: templateId, title: tpl.title || tpl.name || null };
+				}
+			} catch (e) {
+				templateMeta = null;
+			}
+
+		// Build response shape similar to getBin enrichment but scoped to matched submission
+		const result = {
+			bin: {
+				id: String(bin._id),
+				title: bin.title,
+				instructions: bin.instructions,
+				school: bin.school,
+				deadline: bin.deadline,
+				status: bin.status,
+				is_forwarded: bin.is_forwarded,
+			},
+			submission: {
+				...matched,
+				faculty_user,
+			},
+			document: documentObj,
+			template: templateMeta,
+		};
+
+		return res.json(result);
+	} catch (err) {
+		console.error('getSubmissionByDocument error', err);
+		return res.status(500).json({ message: 'Failed to fetch submission by document', error: err.message });
+	}
+};
+
+/**
  * Get Submission Bin by ID
  *
  * @route GET /api/submission-bins/:id

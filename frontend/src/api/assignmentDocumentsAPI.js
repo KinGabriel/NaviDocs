@@ -220,3 +220,21 @@ export const listSubmissionBinsByDocumentAPI = async (documentId) => {
 	}
 };
 
+/**
+ * Get a submission item by contained document id (enriched)
+ * @param {string} documentId
+ */
+export const getSubmissionByDocumentAPI = async (documentId) => {
+	try {
+		if (!documentId) throw new Error('documentId is required');
+		const res = await axios.get(`${API_URL}/api/documents/submission-bins/document/${documentId}`, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		const message = error.response?.data?.message || error.message || 'Failed to fetch submission by document';
+		const err = new Error(message);
+		err.responseData = error.response?.data;
+		err.status = error.response?.status;
+		throw err;
+	}
+};
+

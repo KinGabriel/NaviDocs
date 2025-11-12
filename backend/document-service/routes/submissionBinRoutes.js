@@ -4,6 +4,7 @@ import {
   createSubmissionBin,
   listBins,
   listBinsByDocument,
+  getSubmissionByDocument,
   getBin,
   updateBin,
   upsertSubmission,
@@ -23,6 +24,7 @@ router.use(authenticateJWT);
 router.post('/', createSubmissionBin);
 router.get('/', listBins);
 router.get('/by-document/:documentId', listBinsByDocument);
+router.get('/document/:documentId', getSubmissionByDocument);
 router.get('/:id', getBin);
 router.patch('/:id', updateBin);
 
