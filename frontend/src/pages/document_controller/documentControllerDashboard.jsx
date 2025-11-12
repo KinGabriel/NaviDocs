@@ -90,9 +90,13 @@ export default function DocumentControllerDashboard() {
     {
       key: "action",
       label: "Action",
-      render: () => (
+      render: (row) => (
         <button
-          onClick={() => navigate("")}
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id;
+            navigate(`/document-controller/document-workflow/${id}`, { state: { doc: row, origin: "dashboard:recently-submitted" } });
+          }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
           Review
@@ -113,7 +117,11 @@ export default function DocumentControllerDashboard() {
       label: "Action",
       render: (row) => (
         <button
-          onClick={() => navigate("")}
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id;
+            navigate(`/templates/published/${id}`, { state: { doc: row, origin: "dashboard:recently-published" } });
+          }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
           Review
@@ -211,7 +219,7 @@ export default function DocumentControllerDashboard() {
                   </div>
 
                   <button
-                    onClick={() => navigate("")}
+                    onClick={() => navigate("/templates", { state: { status: "Published" } })}
                     className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
                   >
                     View All
