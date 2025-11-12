@@ -33,6 +33,7 @@ ChartJS.register(
 export default function SecretaryDashboard() {
   const user = useUser();
   const navigate = useNavigate();
+  const SUBMISSION_BINS_ROUTE = "/submission-bins";
 
   function formatDate(dateValue) {
     if (!dateValue) return "-";
@@ -104,9 +105,15 @@ export default function SecretaryDashboard() {
     {
       key: "action",
       label: "Action",
-      render: () => (
+      render: (row) => (
         <button
-          onClick={() => navigate("")}
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id ?? row.templateId;
+            navigate(`/document-controller/document-workflow/${id}`, {
+              state: { doc: row, origin: "secretary:recently-submitted" },
+            });
+          }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
           Review
@@ -126,7 +133,13 @@ export default function SecretaryDashboard() {
       label: "Action",
       render: (row) => (
         <button
-          onClick={() => navigate("")}
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id ?? row.templateId;
+            navigate(`/templates/published/${id}`, {
+              state: { doc: row, origin: "secretary:recently-published" },
+            });
+          }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
           Review
@@ -314,7 +327,7 @@ export default function SecretaryDashboard() {
                   </div>
 
                   <button
-                    onClick={() => navigate("")}
+                    onClick={() => navigate(SUBMISSION_BINS_ROUTE)}
                     className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
                   >
                     View All
