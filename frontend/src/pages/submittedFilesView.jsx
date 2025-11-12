@@ -242,6 +242,22 @@ useEffect(() => {
       const binId = bins[0]._id || bins[0].id;
       const binData = await getSubmissionBinAPI(binId);
       console.log('Bin data:', binData);
+
+      // Enforce frontend restriction: if current user is Dean/Secretary and bin not forwarded, show friendly error
+      try {
+        const roleNameLocal = (user?.role?.name || user?.role || '').toString().toLowerCase();
+        const isDeanLocal = roleNameLocal === 'dean';
+        const isSecretaryLocal = roleNameLocal === 'secretary';
+        if ((isDeanLocal || isSecretaryLocal) && !binData.is_forwarded) {
+          if (mounted) {
+            setError('This submission has not been forwarded to your office.');
+            setLoading(false);
+          }
+          return;
+        }
+      } catch (e) {
+        // ignore role parse errors and proceed
+      }
       
       // Find the submission item that contains this document
       const submissionItem = binData.submissions?.find(sub => {

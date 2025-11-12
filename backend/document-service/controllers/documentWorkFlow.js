@@ -302,12 +302,13 @@ export const listBins = async (req, res) => {
 		if (mine === 'true') filter.created_by = (req.user?._id || req.user?.id);
 
 		// Restrict dean/secretary views to forwarded bins in their school (role-agnostic)
-		if (hasRole(req, ['dean']) || hasRole(req, ['secretary'])) {
+		if (hasRole(req, ['Dean']) || hasRole(req, ['Secretary'])) {
 			if (req.user?.school) filter.school = req.user.school;
 			filter.is_forwarded = true;
 		}
 
 		const bins = await SubmissionBin.find(filter).sort({ createdAt: -1 });
+		console.log('listBins', { filter, count: bins.length });
 		return res.json(bins);
 	} catch (err) {
 		console.error('listBins error', err);

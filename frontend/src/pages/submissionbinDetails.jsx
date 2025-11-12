@@ -40,6 +40,9 @@ export default function SubmissionDetails() {
   const [showAssign, setShowAssign] = useState(false);
   const roleName = (user?.role?.name || user?.role || '').toString();
   const isDeptHead = roleName.toLowerCase() === 'department head' || roleName.toLowerCase() === 'department_head' || roleName.toLowerCase() === 'dept-head' || roleName.toLowerCase() === 'dept head' || roleName.toLowerCase() === 'department-head';
+  const isDean = roleName.toLowerCase() === 'dean';
+  const isSecretary = roleName.toLowerCase() === 'secretary';
+  const isDeanOrSecretary = isDean || isSecretary;
   const userId = user?._id || user?.id;
 
   // edit form state
@@ -282,6 +285,25 @@ export default function SubmissionDetails() {
             >
               Go Back
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If user is Dean/Secretary and bin hasn't been forwarded, show restricted message
+  if (isDeanOrSecretary && !bin.is_forwarded) {
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Restricted</h2>
+              <p className="text-gray-600 mb-4">This submission bin has not been forwarded to your office. You can view it once the Department Head forwards it.</p>
+              <button onClick={() => navigate(-1)} className="px-4 py-2 rounded bg-blue-600 text-white">Go back</button>
+            </div>
           </div>
         </div>
       </div>

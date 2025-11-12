@@ -31,6 +31,9 @@ export default function SubmissionBins() {
   const roleName = (user?.role?.name || user?.role || '').toString();
   const userRole = roleName.toLowerCase();
   const isDeptHead = ['department head','department_head','dept-head','dept head','department-head'].includes(userRole);
+  const isDean = userRole === 'dean';
+  const isSecretary = userRole === 'secretary';
+  const isDeanOrSecretary = isDean || isSecretary;
 
   // Fetch bins from API
   useEffect(() => {
@@ -173,6 +176,7 @@ export default function SubmissionBins() {
                   </h1>
                   <p className="text-gray-600 mt-1">Manage and track all document submissions</p>
                 </div>
+                {!isDeanOrSecretary && (
                 <button
                   onClick={() => setShowAssignModal(true)}
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
@@ -180,6 +184,7 @@ export default function SubmissionBins() {
                   <Plus size={20} />
                   Assign a Submission
                 </button>
+                )}
               </div>
 
               {/* Stats Cards */}
@@ -252,20 +257,29 @@ export default function SubmissionBins() {
             ) : pageRows.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
                 <FileText size={48} className="mx-auto text-gray-300 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No submissions found</h3>
-                <p className="text-gray-600 mb-6">
-                  {query || statusFilter !== "All Status"
-                    ? "Try adjusting your filters"
-                    : "Create your first submission to get started"}
-                </p>
-                {!query && statusFilter === "All Status" && (
-                  <button
-                    onClick={() => setShowAssignModal(true)}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Plus size={20} />
-                    Create New Submission
-                  </button>
+                {isDeanOrSecretary ? (
+                  <>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No forwarded submissions</h3>
+                    <p className="text-gray-600 mb-6">There are currently no submission bins forwarded to your office.</p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No submissions found</h3>
+                    <p className="text-gray-600 mb-6">
+                      {query || statusFilter !== "All Status"
+                        ? "Try adjusting your filters"
+                        : "Create your first submission to get started"}
+                    </p>
+                    {!query && statusFilter === "All Status" && (
+                      <button
+                        onClick={() => setShowAssignModal(true)}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <Plus size={20} />
+                        Create New Submission
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             ) : (
@@ -278,6 +292,7 @@ export default function SubmissionBins() {
                     canForward={isDeptHead && !submission.is_forwarded && (String(submission.status || '').toLowerCase() === 'completed')}
                     onForward={() => handleForward(submission._id || submission.id)}
                     forwarding={forwardingId === (submission._id || submission.id)}
+                    canView={(!isDeanOrSecretary) || Boolean(submission.is_forwarded)}
                   />
                 ))}
               </div>
@@ -366,7 +381,7 @@ function StatCard({ icon: Icon, label, value, color }) {
   );
 }
 
-function SubmissionCard({ submission, onView, onForward, canForward, forwarding }) {
+function SubmissionCard({ submission, onView, onForward, canForward, forwarding, canView = true }) {
   const daysUntilDue = Math.ceil((new Date(submission.deadline) - new Date()) / (1000 * 60 * 60 * 24));
   const items = Array.isArray(submission.submissions) ? submission.submissions : (submission.submission || []);
   const submittedCount = items.filter(s => s.status === "submitted").length;
@@ -429,7 +444,7 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding 
             <Users size={16} className="text-gray-400" />
             <span>{totalAssigned} assigned</span>
           </div>
-          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
             {submission.is_forwarded && (
               <span className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200">Forwarded</span>
             )}
@@ -446,10 +461,11 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding 
             )}
             <button
               onClick={onView}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+              disabled={!canView}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm ${canView ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
             >
               <Eye size={16} />
-              View Details
+              {canView ? 'View Details' : 'Restricted'}
             </button>
           </div>
         </div>
