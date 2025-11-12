@@ -1093,21 +1093,53 @@ const handleZoomReset = () => setZoom(1);
                             Comments & Notes ({submission.notes.length})
                           </h4>
                           <div className="space-y-3">
-                            {submission.notes.map((note) => (
-                              <div key={note.id || note.at} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            {submission.notes.map((note) => {
+                        
+                              let userName = 'Unknown User';
+                              let userRole = 'User';
+                              
+                              // Check if 'by' is populated as an object
+                              if (note.by && typeof note.by === 'object') {
+                                userName = note.by.name || 
+                                          note.by.fullname || 
+                                          (note.by.firstname && note.by.lastname 
+                                            ? `${note.by.firstname} ${note.by.lastname}`.trim() 
+                                            : null) ||
+                                          note.by.email || 
+                                          'Unknown User';
+                                
+                                userRole = note.by.role?.name || note.by.role || 'User';
+                              } 
+                              // If 'by' is just an ID string, show a placeholder
+                              else if (note.by && typeof note.by === 'string') {
+                                userName = 'User'; // Don't show the ID
+                                userRole = 'Reviewer';
+                              }
+                              // If there's a created_by field (alternative field name)
+                              else if (note.created_by && typeof note.created_by === 'object') {
+                                userName = note.created_by.name || 
+                                          note.created_by.fullname || 
+                                          note.created_by.email || 
+                                          'Unknown User';
+                                userRole = note.created_by.role?.name || note.created_by.role || 'User';
+                              }
+                              
+                              return (
+                              <div key={note.id || note._id || note.at} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                                 <div className="flex items-start gap-2 mb-2">
                                   <div className="flex-1">
                                     <p className="text-xs font-medium text-gray-900">
-                                      {note.by && (note.by.name || note.by.fullname) ? (note.by.name || note.by.fullname) : String(note.by || 'Someone')}
+                                        {userName}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                      {String(note.by?.role?.name || '')} • {note.at ? formatDateTime(note.at) : ''}
+                                      {userRole} • {note.at ? formatDateTime(note.at) : 'Recently'}
                                     </p>
                                   </div>
                                 </div>
                                 <p className="text-sm text-gray-700">{note.message}</p>
                               </div>
-                            ))}
+                            );
+                          })}
                           </div>
                         </div>
                       )}
@@ -1255,26 +1287,47 @@ const handleZoomReset = () => setZoom(1);
                             Feedback & Comments ({submission.notes.length})
                           </h4>
                           <div className="space-y-3">
-                            {submission.notes.map((note) => (
+                            {submission.notes.map((note) => {
+                              let userName = 'Unknown User';
+                              let userRole = 'User';
+                              
+                              if (note.by && typeof note.by === 'object') {
+                                userName = note.by.name || 
+                                          note.by.fullname || 
+                                          (note.by.firstname && note.by.lastname 
+                                            ? `${note.by.firstname} ${note.by.lastname}`.trim() 
+                                            : null) ||
+                                          note.by.email || 
+                                          'Unknown User';
+                                userRole = note.by.role?.name || note.by.role || 'User';
+                              } else if (note.by && typeof note.by === 'string') {
+                                userName = 'Reviewer';
+                                userRole = 'Staff';
+                              } else if (note.created_by && typeof note.created_by === 'object') {
+                                userName = note.created_by.name || note.created_by.fullname || note.created_by.email || 'Unknown User';
+                                userRole = note.created_by.role?.name || note.created_by.role || 'User';
+                              }
+                              
+                              return (
                               <div key={note.id || note.at} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
                                 <div className="flex items-start gap-2 mb-2">
                                   <MessageSquare size={16} className="text-amber-600 mt-0.5" />
                                   <div className="flex-1">
                                     <p className="text-xs font-medium text-gray-900">
-                                      {note.by && (note.by.name || note.by.fullname) ? (note.by.name || note.by.fullname) : String(note.by || 'Someone')}
+                                        {userName}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                      {String(note.by?.role?.name || '')} • {note.at ? formatDateTime(note.at) : ''}
+                                      {userRole} • {note.at ? formatDateTime(note.at) : ''}
                                     </p>
                                   </div>
                                 </div>
                                 <p className="text-sm text-gray-700 ml-6">{note.message}</p>
                               </div>
-                            ))}
+                            );
+                          })}
                           </div>
                         </div>
                       )}
-
                       {/* Deadline Info */}
                       {submission?.deadline && (
                         <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">

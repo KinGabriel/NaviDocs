@@ -81,6 +81,15 @@ export default function SubmissionDetails() {
       const items = bin.submissions;
       if (items.length === 0) return false;
       
+    // Check if ANY submission is returned - if so, bin should NOT be completed
+    const hasReturnedSubmissions = items.some(sub => 
+      sub.status === 'returned' || 
+      (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+    );
+    
+    // If any submission is returned, bin should not be completed
+    if (hasReturnedSubmissions) return false;
+    
       // Check if all submissions have documents AND are submitted
       const allSubmitted = items.every(sub => {
         const hasDocuments = (Array.isArray(sub.documents) && sub.documents.length > 0) || 
@@ -91,6 +100,35 @@ export default function SubmissionDetails() {
       
       return allSubmitted;
     }, [bin?.submissions]);
+
+  // Determine the actual display status for the bin
+  const binDisplayStatus = useMemo(() => {
+    if (!bin || !Array.isArray(bin.submissions)) return bin?.status || 'active';
+    
+    const items = bin.submissions;
+    if (items.length === 0) return bin.status;
+    
+    // Check if ANY submission is returned
+    const hasReturnedSubmissions = items.some(sub => 
+      sub.status === 'returned' || 
+      (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+    );
+    
+    // Check if ALL submissions are returned
+    const allReturned = items.every(sub => 
+      sub.status === 'returned' || 
+      (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+    );
+    
+    // If ALL are returned, show "returned"
+    if (allReturned) return 'returned';
+    
+    // If SOME are returned, show as "pending" (awaiting resubmission)
+    if (hasReturnedSubmissions) return 'pending';
+    
+    // Otherwise use the bin's actual status
+    return bin.status;
+  }, [bin?.submissions, bin?.status]);
     
 
   // Auto-update bin status to completed
@@ -138,11 +176,40 @@ export default function SubmissionDetails() {
   const stats = useMemo(() => {
     const items = Array.isArray(bin?.submissions) ? bin.submissions : [];
     const total = items.length;
-    const submitted = items.filter((u) => String(u.status) === "submitted").length;
-    const pending = items.filter((u) => String(u.status) === "assigned").length;
-    const late = 0; // not tracked explicitly yet
+  
+    // Count returned submissions 
+    const returned = items.filter(u =>
+      u.status === 'returned' ||
+      (Array.isArray(u.notes) &&
+        u.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+    ).length;
+    
+    // Count submitted (has documents, submitted_at, and NOT returned)
+    const submitted = items.filter((u) => {
+      const isReturned = u.status === 'returned' || 
+        (Array.isArray(u.notes) && u.notes.some(n => String(n.type).toLowerCase() === 'returned'));
+      
+      const hasDocuments = (Array.isArray(u.documents) && u.documents.length > 0) || 
+                            (u.document && u.document !== null);
+      
+      return hasDocuments && u.submitted_at && !isReturned;
+    }).length;
+    
+    // Pending (no documents OR no submitted_at, BUT NOT returned)
+    const pending = items.filter((u) => {
+      const isReturned = u.status === 'returned' || 
+        (Array.isArray(u.notes) && u.notes.some(n => String(n.type).toLowerCase() === 'returned'));
+      
+      const hasDocuments = (Array.isArray(u.documents) && u.documents.length > 0) || 
+                            (u.document && u.document !== null);
+      
+      // Pending (hasn't submitted yet (no documents or no timestamp) AND not returned)
+      return (!hasDocuments || !u.submitted_at) && !isReturned;
+    }).length;
+    
+    const late = 0;
     const percentage = total > 0 ? Math.round((submitted / total) * 100) : 0;
-    return { total, submitted, pending, late, percentage };
+    return { total, submitted, pending, returned, late, percentage };
   }, [bin]);
 
   const daysUntilDue = useMemo(() => {
@@ -351,13 +418,19 @@ export default function SubmissionDetails() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <StatusBadge type={bin.status} />
+                  <StatusBadge type={binDisplayStatus} />
                   {(isDeptHead || String(bin.created_by||'')===String(userId||'')) && (
                     <>
                       {!bin.is_forwarded && (
                         <button
                           onClick={async () => {
-                            if (String(bin.status).toLowerCase() !== 'completed') return; // guard when disabled
+                            // Check both bin status AND that no submissions are returned
+                            const hasReturned = bin.submissions?.some(sub => 
+                              sub.status === 'returned' || 
+                              (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+                            );
+                            
+                            if (String(bin.status).toLowerCase() !== 'completed' || hasReturned) return;
                             try {
                               setForwarding(true);
                               const updated = await forwardSubmissionBinAPI(bin._id || bin.id);
@@ -368,13 +441,33 @@ export default function SubmissionDetails() {
                               setForwarding(false);
                             }
                           }}
-                          disabled={forwarding || String(bin.status).toLowerCase() !== 'completed'}
+                          disabled={forwarding || String(bin.status).toLowerCase() !== 'completed' || (() => {
+                            const hasReturned = bin.submissions?.some(sub => 
+                              sub.status === 'returned' || 
+                              (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+                            );
+                            return hasReturned;
+                          })()}
                           className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                            forwarding || String(bin.status).toLowerCase() !== 'completed' 
+                            forwarding || String(bin.status).toLowerCase() !== 'completed' || (() => {
+                              const hasReturned = bin.submissions?.some(sub => 
+                                sub.status === 'returned' || 
+                                (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+                              );
+                              return hasReturned;
+                            })()
                               ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200' 
                               : 'bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow-md'
                           }`}
-                          title={String(bin.status).toLowerCase() === 'completed' ? 'Forward to Secretary/Dean' : 'Set status to Completed to enable forwarding'}
+                          title={(() => {
+                            const hasReturned = bin.submissions?.some(sub => 
+                              sub.status === 'returned' || 
+                              (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+                            );
+                            if (hasReturned) return 'Cannot forward: Some submissions have been returned';
+                            if (String(bin.status).toLowerCase() !== 'completed') return 'Set status to Completed to enable forwarding';
+                            return 'Forward to Secretary/Dean';
+                          })()}
                         >
                           <Send size={16} /> {forwarding ? 'Forwarding…' : 'Forward'}
                         </button>
@@ -545,7 +638,8 @@ export default function SubmissionDetails() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <StatsCard label="Total Assigned" value={stats.total} icon={Users} color="blue" />
               <StatsCard label="Submitted" value={stats.submitted} icon={CheckCircle} color="green" />
-              <StatsCard label="Pending" value={stats.pending} icon={Clock} color="orange" />
+              <StatsCard label="Pending" value={stats.pending} icon={Clock} color="yellow" />
+              <StatsCard label="Returned" value={stats.returned} icon={Clock} color="orange" />
               <StatsCard label="Late/Missing" value={stats.late} icon={AlertCircle} color="red" />
             </div>
 
@@ -571,9 +665,14 @@ export default function SubmissionDetails() {
                         // Check if actually has documents
                         const hasDocuments = (Array.isArray(item.documents) && item.documents.length > 0) || 
                                               (item.document && item.document !== null);
-                        const actualStatus = hasDocuments && item.submitted_at ? 'submitted' : 'pending';
+                        const isReturned = item.status === 'returned' || 
+                        (Array.isArray(item.notes) && item.notes.some(n => String(n.type).toLowerCase() === 'returned'));
 
-                          // ADD THIS LOGGING
+                          const actualStatus = isReturned 
+                            ? 'returned' 
+                            : (hasDocuments && item.submitted_at ? 'submitted' : 'pending');
+
+                    
                           console.log('Submission item:', {
                             faculty: item.faculty_name || item.faculty_user?.name,
                             hasDocuments,
@@ -731,7 +830,7 @@ export default function SubmissionDetails() {
           </button>
           <button 
             type="submit" 
-            disabled={saving} 
+            disabled={assigning || assignForm.facultyIds.length === 0}
             className={`px-6 py-2.5 rounded-lg font-medium text-white transition-all ${
               saving 
                 ? 'bg-gray-400 cursor-not-allowed' 
@@ -880,8 +979,20 @@ export default function SubmissionDetails() {
               onClick={async () => {
                 try {
                   setAddingTpl(true);
-                  const next = Array.from(new Set([...(bin.template_ids||[]).map(String), ...selectedTemplateIds]));
-                  const updated = await updateSubmissionBinAPI(bin._id || bin.id, { template_ids: next });
+                
+                  // Get current template_ids or empty array if null/undefined
+                  const currentTemplateIds = Array.isArray(bin.template_ids) ? bin.template_ids : [];
+                  
+                  // Merge with selected templates
+                  const next = Array.from(new Set([
+                    ...currentTemplateIds.map(String), 
+                    ...selectedTemplateIds
+                  ]));
+                  
+                  const updated = await updateSubmissionBinAPI(bin._id || bin.id, { 
+                    template_ids: next.length > 0 ? next : [] 
+                  });
+                  
                   setBin(updated);
                   // Merge selected template objects into templatesInfo
                   setTemplatesInfo(prev => {
@@ -892,6 +1003,7 @@ export default function SubmissionDetails() {
                     });
                     return Array.from(byId.values());
                   });
+                  
                   setShowAddTemplate(false);
                   setSelectedTemplateIds([]);
                 } catch (e) {
@@ -1191,6 +1303,7 @@ function StatsCard({ label, value, icon: Icon, color }) {
     green: "bg-green-50 text-green-600 border-green-100",
     orange: "bg-orange-50 text-orange-600 border-orange-100",
     red: "bg-red-50 text-red-600 border-red-100",
+    yellow: "bg-yellow-50 text-yellow-600 border-yellow-100",
   };
 
   return (

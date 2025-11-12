@@ -111,7 +111,16 @@ export default function FacultySubmissionView() {
         // Determine actual status based on documents
         const hasDocuments = (Array.isArray(assignedItem?.documents) && assignedItem.documents.length > 0) || 
                             (assignedItem?.document && assignedItem.document !== null);
-        const status = hasDocuments && assignedItem?.submitted_at ? 'submitted' : 'pending';
+        
+        // Check if submission was returned
+        const isReturned = assignedItem?.status === 'returned' || 
+                          (Array.isArray(assignedItem?.notes) && 
+                            assignedItem.notes.some(n => String(n.type).toLowerCase() === 'returned'));
+        
+        const status = isReturned 
+          ? 'returned' 
+          : (hasDocuments && assignedItem?.submitted_at ? 'submitted' : 'pending');
+        
         const submittedAt = assignedItem?.submitted_at || null;
 
   // Ensure submissionMessage is always a string
@@ -654,12 +663,29 @@ export default function FacultySubmissionView() {
                   )}
                 </div>
               </div>
-            ) : (
+            ) : (submission?.status?.toLowerCase() === 'pending' || submission?.status?.toLowerCase() === 'returned') ? (
               /* Upload Form */
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  {/* Add a notice when resubmitting */}
+                  {submission?.status?.toLowerCase() === 'returned' && (
+                    <div className="mb-6 p-4 bg-orange-50 border-l-4 border-orange-400 rounded">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle size={20} className="text-orange-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-bold text-orange-900 mb-1">
+                            Resubmission Required
+                          </h4>
+                          <p className="text-sm text-orange-800">
+                            Your previous submission was returned for revision. Please review the feedback <span className="text-orange font-xs italic">(if provided)</span> and submit again.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <Plus size={20} className="text-blue-600" />
-                  Submit Your Work
+                  {submission?.status?.toLowerCase() === 'returned' ? 'Resubmit Your Work' : 'Submit Your Work'}
                 </h3>
 
                 {/* File Upload Section */}
@@ -755,16 +781,22 @@ export default function FacultySubmissionView() {
                     {isSubmitting ? (
                       <>
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        Submitting {selectedFiles.length} document{selectedFiles.length !== 1 ? 's' : ''}...
+                        {submission?.status?.toLowerCase() === 'returned' ? 'Resubmitting' : 'Submitting'} {selectedFiles.length} document{selectedFiles.length !== 1 ? 's' : ''}...
                       </>
                     ) : (
                       <>
                         <Upload size={20} />
-                        Submit {selectedFiles.length > 0 ? `(${selectedFiles.length}) ` : ''}Document{selectedFiles.length !== 1 ? 's' : ''}
+                        {submission?.status?.toLowerCase() === 'returned' ? 'Resubmit' : 'Submit'} {selectedFiles.length > 0 ? `(${selectedFiles.length}) ` : ''}Document{selectedFiles.length !== 1 ? 's' : ''}
                       </>
                     )}
                   </button>
                 </div>
+              </div>
+            ): (
+               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
+                <AlertCircle size={48} className="mx-auto text-gray-400 mb-3" />
+                <p className="text-gray-600">Unable to load submission form</p>
+                <p className="text-sm text-gray-500 mt-1">Status: {submission?.status}</p>
               </div>
             )}
           </div>
