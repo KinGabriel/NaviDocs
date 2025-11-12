@@ -386,7 +386,7 @@ export const getDocumentContent = async (req, res) => {
 			if (!isBinOwner && !isSubmissionFaculty && !isDeptHead && !isDeanOrSecretary) {
 				return res.status(403).json({ message: 'Not authorized to access this document' });
 			}
-
+console.log('getDocumentContent: authorization check passed', { actorId, isBinOwner, isSubmissionFaculty, isDeptHead, is_forwarded: bin.is_forwarded });
 			if (isDeanOrSecretary) {
 				// main basis: only require the bin to be forwarded
 				if (!bin.is_forwarded) {
