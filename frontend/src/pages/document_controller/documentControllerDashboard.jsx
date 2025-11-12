@@ -131,12 +131,44 @@ export default function DocumentControllerDashboard() {
       try {
         const data = await fetchDashboardInfoAPI(user);
         if (!mounted) return;
-        // data shape (new): { udcPending, ldcEndorsed, dcoReady, udcApprovals, ldcApprovals, dcoApprovals, approved, published, total, publishedTemplates }
+        // Normalize various possible server shapes and pick counts based on current user's role
+        // Server may return snake_case or camelCase and either per-role scoped counts or an analytics.global block.
+        const server = (data && data.data) ? data.data : data || {};
+        const counts = server.counts || server.analytics?.global || server;
+
+        const getVal = (...keys) => {
+          for (const k of keys) {
+            if (counts == null) continue;
+            if (typeof counts[k] === 'number') return counts[k];
+            if (counts[k] != null) return counts[k];
+          }
+          return 0;
+        };
+
+        const roleStr = (user?.role?.name || user?.role || '').toString().toLowerCase();
+        let pending = 0;
+        let responded = 0;
+
+        if (roleStr.includes('unit')) {
+          pending = getVal('udc_pending', 'udcPending', 'udcCount', 'udc_pending');
+          responded = getVal('udc_responded', 'udcResponded', 'udc_approvals', 'udcApprovals', 'approved');
+        } else if (roleStr.includes('lead')) {
+          pending = getVal('ldc_pending', 'ldcPending', 'ldc_endorsed', 'ldcEndorsed', 'ldcCount');
+          responded = getVal('ldc_responded', 'ldcResponded', 'ldc_approvals', 'ldcApprovals', 'approved');
+        } else if (roleStr.includes('document') || roleStr.includes('officer') || roleStr.includes('dco')) {
+          pending = getVal('dco_ready', 'dcoReady', 'dcoCount');
+          responded = getVal('dco_responded', 'dcoResponded', 'dco_approvals', 'dcoApprovals', 'approved');
+        } else {
+          // default to global totals if role not recognized
+          pending = getVal('udc_pending', 'udcPending', 'udcCount') || getVal('ldc_pending', 'ldcPending') || getVal('dco_ready', 'dcoReady');
+          responded = getVal('approved', 'responded', 'total');
+        }
+
         setDashboard({
-          udcPending: data.udcPending || 0,
-          approved: data.approved || 0,
-          published: data.published || 0,
-          total: data.total || 0,
+          udcPending: pending || 0,
+          approved: responded || 0,
+          published: getVal('published', 'publishedCount', 'published_at') || 0,
+          total: getVal('total', 'totalCount') || 0,
         });
 
         // map server-published items into table rows

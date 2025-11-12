@@ -42,6 +42,7 @@ export const dashboardInfoDocConroller = async (req, res) => {
       ...baseFilter,
       $or: [
         { status: 'pending' },
+        { status: 'rejected' },
         { [`${udcRolePath}.approved_at`]: { $exists: true, $ne: null } },
         { [`${udcRolePath}.returned_at`]: { $exists: true, $ne: null } }
       ]
@@ -51,6 +52,7 @@ export const dashboardInfoDocConroller = async (req, res) => {
       ...baseFilter,
       $or: [
         { status: 'endorsed' },
+        { status: 'rejected' },
         { [`${ldcRolePath}.approved_at`]: { $exists: true, $ne: null } },
         { [`${ldcRolePath}.returned_at`]: { $exists: true, $ne: null } }
       ]
@@ -61,17 +63,12 @@ export const dashboardInfoDocConroller = async (req, res) => {
       ...baseFilter,
       $or: [
         { $and: [ { status: 'endorsed' }, { [`${ldcRolePath}.approved_at`]: { $exists: true, $ne: null } } ] },
+        { status: 'rejected' },
         { [`${dcoRolePath}.approved_at`]: { $exists: true, $ne: null } },
         { [`${dcoRolePath}.returned_at`]: { $exists: true, $ne: null } }
       ]
     };
 
-    // If the templates are scoped by school in your app, filter by school when available
-    if (school) {
-      udcQuery.school = school;
-      ldcQuery.school = school;
-      dcoQuery.school = school;
-    }
 
   // Also fetch the 5 most recently published templates for the dashboard.
   const publishedQuery = { status: 'published' };
@@ -139,11 +136,7 @@ export const dashboardInfoDocConroller = async (req, res) => {
 
     const visibilityFilter = { ...baseFilter, $or: visibilityOr };
 
-    if (school) {
-      visibilityFilter.school = school;
-    }
-
-    // Fetch recent items for each role (limited projection) and published list in parallel
+    // Fetch recent items for each role (limited projection) and published list in parallel (global across schools)
     const [udcRecent, ldcRecent, dcoRecent, publishedRecent] = await Promise.all([
       Template.find(udcQuery, projection).sort({ 'status_meta.submitted_at': -1, updatedAt: -1 }).limit(limit).lean(),
       Template.find(ldcQuery, projection).sort({ 'status_meta.submitted_at': -1, updatedAt: -1 }).limit(limit).lean(),
@@ -151,26 +144,53 @@ export const dashboardInfoDocConroller = async (req, res) => {
       getRecentPublished(limit)
     ]);
 
-    // Compute counts scoped to user's visibility for each role
-    // Ensure DCO pending count excludes already-approved templates
-    const dcoCountFilter = { ...baseFilter, ...(school ? { school } : {}), $and: [ dcoMyTurn || {}, { $or: visibilityOr }, { status: { $ne: 'approved' } } ] };
+    // Compute counts scoped to user's visibility for each role (global across schools)
+  // Exclude 'approved' and 'rejected' from pending counts so rejected items are considered responded
+  const dcoCountFilter = { ...baseFilter, $and: [ dcoMyTurn || {}, { $or: visibilityOr }, { status: { $nin: ['approved', 'rejected'] } } ] };
 
     const [udcCount, ldcCount, dcoCount, approvedCount, publishedCount, totalCount] = await Promise.all([
-      Template.countDocuments({ ...baseFilter, $and: [ udcMyTurn || {}, { $or: visibilityOr } ] , ...(school ? { school } : {}) }),
-      Template.countDocuments({ ...baseFilter, $and: [ ldcMyTurn || {}, { $or: visibilityOr } ] , ...(school ? { school } : {}) }),
+      Template.countDocuments({ ...baseFilter, $and: [ udcMyTurn || {}, { $or: visibilityOr } ] }),
+      Template.countDocuments({ ...baseFilter, $and: [ ldcMyTurn || {}, { $or: visibilityOr } ] }),
       Template.countDocuments(dcoCountFilter),
-      Template.countDocuments({ ...baseFilter, status: 'approved', ...(school ? { school } : {}) }),
-      Template.countDocuments({ ...baseFilter, status: 'published', ...(school ? { school } : {}) }),
-      Template.countDocuments({ ...baseFilter, ...(school ? { school } : {}) })
+  // Count responded items (both approved and rejected)
+  Template.countDocuments({ ...baseFilter, status: { $in: ['approved', 'rejected'] } }),
+      Template.countDocuments({ ...baseFilter, status: 'published' }),
+      Template.countDocuments({ ...baseFilter })
     ]);
 
-    // approval-by-role counts (global within school scope)
+    // approval-by-role counts
+    // Count approvals either by timestamp (approved_at) or boolean flag (is_approved / isApproved)
     const [udcApprovalsCount, ldcApprovalsCount, dcoApprovalsCount] = await Promise.all([
-      Template.countDocuments({ ...baseFilter, 'status_meta.approvals.unit_document_controller.approved_at': { $exists: true, $ne: null }, ...(school ? { school } : {}) }),
-      Template.countDocuments({ ...baseFilter, 'status_meta.approvals.lead_document_controller.approved_at': { $exists: true, $ne: null }, ...(school ? { school } : {}) }),
-      Template.countDocuments({ ...baseFilter, 'status_meta.approvals.document_controller_officer.approved_at': { $exists: true, $ne: null }, ...(school ? { school } : {}) })
+      Template.countDocuments({
+        ...baseFilter,
+        $or: [
+          { 'status_meta.approvals.unit_document_controller.approved_at': { $exists: true, $ne: null } },
+          { 'status_meta.approvals.unit_document_controller.is_approved': true },
+          { 'status_meta.approvals.unit_document_controller.isApproved': true }
+        ]
+      }),
+      Template.countDocuments({
+        ...baseFilter,
+        $or: [
+          { 'status_meta.approvals.lead_document_controller.approved_at': { $exists: true, $ne: null } },
+          { 'status_meta.approvals.lead_document_controller.is_approved': true },
+          { 'status_meta.approvals.lead_document_controller.isApproved': true }
+        ]
+      }),
+      Template.countDocuments({
+        ...baseFilter,
+        $or: [
+          { 'status_meta.approvals.document_controller_officer.approved_at': { $exists: true, $ne: null } },
+          { 'status_meta.approvals.document_controller_officer.is_approved': true },
+          { 'status_meta.approvals.document_controller_officer.isApproved': true },
+          // Consider DCO 'responded' when they returned/rejected as well
+          { 'status_meta.approvals.document_controller_officer.returned_at': { $exists: true, $ne: null } },
+          { 'status_meta.approvals.document_controller_officer.rejected_at': { $exists: true, $ne: null } },
+          { 'status_meta.approvals.document_controller_officer.is_rejected': true },
+          { 'status_meta.approvals.document_controller_officer.isRejected': true }
+        ]
+      })
     ]);
-
     // Enrich created_by -> createdByName using user service (best-effort)
     const allUserIds = new Set();
     [udcRecent, ldcRecent, dcoRecent, publishedRecent].forEach(list => {
@@ -230,10 +250,14 @@ export const dashboardInfoDocConroller = async (req, res) => {
       if (lc.includes('unit')) return enrich(udcRecent);
       if (lc.includes('lead')) return enrich(ldcRecent);
       if (lc.includes('document')) return enrich(dcoRecent);
-      // combine all recent lists ordered by createdAt
+      // combine all recent lists ordered by submission time (status_meta.submitted_at) primary
       const combined = (enrich(udcRecent) || []).concat(enrich(ldcRecent) || []).concat(enrich(dcoRecent) || []);
-      // sort by createdAt desc and take up to limit
-      combined.sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0));
+      // sort by submitted_at desc (fallback to createdAt/updatedAt)
+      combined.sort((a, b) => {
+        const aSubmitted = (a && a.status_meta && a.status_meta.submitted_at) || a?.createdAt || a?.updatedAt || 0;
+        const bSubmitted = (b && b.status_meta && b.status_meta.submitted_at) || b?.createdAt || b?.updatedAt || 0;
+        return new Date(bSubmitted) - new Date(aSubmitted);
+      });
       return combined.slice(0, limit);
     };
 
@@ -242,7 +266,8 @@ export const dashboardInfoDocConroller = async (req, res) => {
       title: item.title || '',
       createdBy: item.createdByName || item.created_by_user?.displayName || item.created_by || '',
       status: item.status || '',
-      createdAt: item.createdAt || null
+      // Prefer the submission timestamp for recently-submitted items
+      createdAt: (item && item.status_meta && item.status_meta.submitted_at) ? item.status_meta.submitted_at : (item.createdAt || null)
     }));
 
     result.recentlySubmitted = recentlyForUI;
