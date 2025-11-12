@@ -882,7 +882,7 @@ const handleZoomReset = () => setZoom(1);
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <HeaderSubmittedFilesView
-        title={doc.title}
+        title={previewDocument?.title || fetchedDoc?.title || d?.title || "Submitted Document"}
         onExportDownload={handleExportDownload}
         onExportToStorage={() => setShowStoragePicker(true)}
         user={user}
