@@ -71,8 +71,7 @@ export default function SubmissionDetails() {
     alert("No document found in this submission");
     return;
   }
-  
-  navigate(`/submissions/${documentId}`);
+  navigate(`/submissions/${id}/${documentId}`);
 };
 
   // Check if bin should be marked as completed

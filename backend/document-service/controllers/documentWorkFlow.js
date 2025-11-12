@@ -352,6 +352,7 @@ export const getDocumentContent = async (req, res) => {
 		const { documentId, binId } = req.params;
 		if (!documentId) return res.status(400).json({ message: 'documentId required' });
 		if (!binId) return res.status(400).json({ message: 'binId required' });
+		console.log('getDocumentContent called', { documentId, binId });
 
 		// Load the bin by id (caller-supplied context). Use this bin as source of truth for forwarding state.
 		const bin = await SubmissionBin.findById(binId);

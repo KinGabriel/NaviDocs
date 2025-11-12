@@ -147,9 +147,13 @@ function normalizeRawDocument(doc) {
 
 export default function SubmittedFilesView() {
   const user = useUser();
-  const { id } = useParams();
+  const params = useParams();
+  // Params may be registered as /submissions/:id or /submission/:binId/:docId
+  const id = params.docId || params.id || params.documentId || null;
+  const routeBinId = params.binId || params.submissionBinId || params.bid || null;
   const navigate = useNavigate();
   const { state } = useLocation();
+  const navBinId = state?.binId || state?.bin?._id || state?.submissionBinId || null;
   const [fetchedDoc, setFetchedDoc] = useState(null);
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -186,53 +190,92 @@ useEffect(() => {
       setLoading(true);
       console.log('Fetching document with ID:', id);
 
-      // First: fetch submission bins for this document so we have the bin context
-      const bins = await listSubmissionBinsByDocumentAPI(id);
-      console.log('Bins response:', bins);
+      // If a bin id was supplied via the route or navigation state (preferred), use it directly and skip listing bins
+      let bins = null;
+      const preferredBinId = routeBinId || navBinId || null;
+      if (preferredBinId) {
+        console.debug && console.debug('Using binId from route params or navigation state:', preferredBinId);
+      } else {
+        // First: fetch submission bins for this document so we have the bin context
+        bins = await listSubmissionBinsByDocumentAPI(id);
+        console.log('Bins response:', bins);
+      }
+
+      // If we didn't fetch bins and a preferredBinId exists, try to load that bin; otherwise handle no-bins case
+      if ((!bins || bins.length === 0) && preferredBinId) {
+        // Load the specific bin provided via route/state
+        try {
+          const binData = await getSubmissionBinAPI(preferredBinId);
+          if (!binData) throw new Error('Bin not found');
+          setCurrentBinId(preferredBinId);
+          // proceed using binData below by assigning bins to [binData]
+          bins = [binData];
+        } catch (e) {
+          console.warn('Preferred binId provided but failed to load bin', preferredBinId, e?.message || e);
+          // fall through to existing no-bins behavior
+        }
+      }
 
       if (!bins || bins.length === 0) {
         console.warn('No bins found for document', id);
-        // Try a best-effort direct document fetch and create a fallback submission
-        let actualDocument = null;
-        try {
-          const documentRes = await getDocumentByIdAPI(id);
-          actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
-          if (mounted) setFetchedDoc(actualDocument);
-        } catch (e) {
-          console.warn('Direct document fetch failed when no bins present', e?.message || e);
-        }
-
-        if (actualDocument && mounted) {
-          setSubmission({
-            id: 'unknown',
-            title: actualDocument.title || 'Document',
-            submittedBy: { name: 'Unknown', role: 'Faculty', email: '' },
-            submittedAt: actualDocument.createdAt || actualDocument.created_at,
-            status: 'submitted',
-            files: [{
-              id: id,
-              name: actualDocument.title || 'Document',
-              url: actualDocument.filePath || '',
-              size: actualDocument.size || 0,
-              uploadedAt: actualDocument.createdAt || actualDocument.created_at,
-              _fullData: actualDocument
-            }],
-            viewedBy: [],
-            notes: [],
-            deadline: null
-          });
-          setError('');
-        } else {
-          throw new Error('No submission bin found for this document');
-        }
-        if (mounted) setLoading(false);
-        return;
+        // No submission bin context: do not attempt direct GET if we lack explicit bin info
+        // Show a friendly error to the user instead of trying to GET protected document
+        throw new Error('No submission bin found for this document');
       }
 
-      // Use the first matching bin as the primary context (frontend already behaved this way)
-  const binId = bins[0]._id || bins[0].id;
-  setCurrentBinId(binId);
-  const binData = await getSubmissionBinAPI(binId);
+      // Determine binId: prefer routeBinId -> chosen bin from bins -> fallback first bin
+      const normalizeId = (b) => b?._id || b?.id || b;
+      let chosenBin = null;
+      let binId = routeBinId || null;
+
+      if (!binId) {
+        if (!bins || bins.length === 0) {
+          // handled above (no bins case)
+        } else {
+          // Prefer a bin that explicitly contains a submission entry for this document
+          for (const b of bins) {
+            const subs = Array.isArray(b.submissions) ? b.submissions : [];
+            const found = subs.find(s => {
+              if (Array.isArray(s.documents) && s.documents.some(dd => String(dd?._id || dd?.id || dd) === String(id))) return true;
+              if (s.document && String(s.document?._id || s.document?.id || s.document) === String(id)) return true;
+              return false;
+            });
+            if (found) { chosenBin = b; break; }
+          }
+
+          // If still not chosen and user is faculty, prefer bin assigned to them
+          if (!chosenBin) {
+            try {
+              const uid = user?._id || user?.id || null;
+              if (uid) {
+                for (const b of bins) {
+                  const subs = Array.isArray(b.submissions) ? b.submissions : [];
+                  if (subs.some(s => String(s.faculty) === String(uid))) { chosenBin = b; break; }
+                }
+              }
+            } catch (_) {}
+          }
+
+          // If still not chosen, prefer bin created by current user
+          if (!chosenBin) {
+            const uid = user?._id || user?.id || null;
+            for (const b of bins) {
+              if (uid && String(b.created_by || b.createdBy || '') === String(uid)) { chosenBin = b; break; }
+            }
+          }
+
+          // fallback to any forwarded bin or the first bin
+          if (!chosenBin) chosenBin = bins.find(b => b.is_forwarded) || bins[0];
+        }
+
+        binId = normalizeId(chosenBin);
+        if (binId) setCurrentBinId(binId);
+      } else {
+        // routeBinId present
+        setCurrentBinId(binId);
+      }
+
+      const binData = await getSubmissionBinAPI(binId);
       console.log('Bin data:', binData);
 
       // Enforce frontend restriction: if current user is Dean/Secretary and bin not forwarded, show friendly error

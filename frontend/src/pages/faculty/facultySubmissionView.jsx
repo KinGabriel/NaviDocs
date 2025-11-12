@@ -312,7 +312,7 @@ export default function FacultySubmissionView() {
       toast.error("Invalid document ID");
       return;
     }
-    navigate(`/submissions/${documentId}`);
+    navigate(`/submissions/${id}/${documentId}`);
   };
 
     if (loading) {
