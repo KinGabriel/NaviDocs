@@ -344,19 +344,20 @@ export const listBinsByDocument = async (req, res) => {
 /**
  * Get a specific Submission item by a contained document id
  *
- * @route GET /api/documents/submission-bins/document/:documentId
- * @desc Finds the submission bin that contains the provided document id 
+ * @route GET /api/documents/submission-bins/:binId/document/:documentId
+ * @desc Uses the provided submission bin id to authorize and return the document content
  */
 export const getDocumentContent = async (req, res) => {
 	try {
-		const { documentId } = req.params;
+		const { documentId, binId } = req.params;
 		if (!documentId) return res.status(400).json({ message: 'documentId required' });
+		if (!binId) return res.status(400).json({ message: 'binId required' });
 
-		// Find the bin that contains this document in any submission.documents (used for authorization/context)
-		const bin = await SubmissionBin.findOne({ 'submissions.documents': documentId });
-		if (!bin) return res.status(404).json({ message: 'Submission not found in any bin' });
+		// Load the bin by id (caller-supplied context). Use this bin as source of truth for forwarding state.
+		const bin = await SubmissionBin.findById(binId);
+		if (!bin) return res.status(404).json({ message: 'Submission bin not found' });
 
-		// Find the specific submission item that contains the document
+		// Find the specific submission item that contains the document inside this bin
 		const obj = bin.toObject ? bin.toObject() : JSON.parse(JSON.stringify(bin));
 		const submissions = Array.isArray(obj.submissions) ? obj.submissions : [];
 		let matched = null;
@@ -365,24 +366,30 @@ export const getDocumentContent = async (req, res) => {
 				matched = s;
 				break;
 			}
+			// also allow legacy single 'document' field
+			if (s.document && String(s.document._id || s.document.id || s.document) === String(documentId)) {
+				matched = s;
+				break;
+			}
 		}
-		if (!matched) return res.status(404).json({ message: 'Submission item for document not found' });
+		if (!matched) return res.status(404).json({ message: 'Submission item for document not found in the provided bin' });
 
-		// Authorization: allow bin owner, submission faculty, Department Head. Dean/Secretary allowed only when forwarded and same school.
+		// Authorization: allow bin owner, submission faculty, Department Head.
+		// For Dean/Secretary allow only when bin.is_forwarded === true (main basis per requirement).
 		try {
 			const actorId = String(req.user?._id || req.user?.id || '');
 			const isBinOwner = actorId && String(bin.created_by || '') === actorId;
 			const isSubmissionFaculty = actorId && String(matched.faculty || '') === actorId;
 			const isDeptHead = hasRole(req, ['Department Head']);
-			const isDeanOrSecretary = hasRole(req, ['dean']) || hasRole(req, ['secretary']);
+			const isDeanOrSecretary = hasRole(req, ['Dean']) || hasRole(req, ['Secretary']) || hasRole(req, ['dean']) || hasRole(req, ['secretary']);
 
 			if (!isBinOwner && !isSubmissionFaculty && !isDeptHead && !isDeanOrSecretary) {
 				return res.status(403).json({ message: 'Not authorized to access this document' });
 			}
 
 			if (isDeanOrSecretary) {
-				const sameSchool = !req.user?.school || String(bin.school || '') === String(req.user.school || '');
-				if (!sameSchool || !bin.is_forwarded) {
+				// main basis: only require the bin to be forwarded
+				if (!bin.is_forwarded) {
 					return res.status(403).json({ message: 'Not authorized to access this document' });
 				}
 			}
@@ -402,8 +409,8 @@ export const getDocumentContent = async (req, res) => {
 			return res.status(500).json({ message: 'Failed to fetch document', error: e.message });
 		}
 
-		// Return the exact document content (pages_json, field_values, metadata)
-		return res.json({ document: documentObj });
+		// Return the exact document content and the matched submission id
+		return res.json({ document: documentObj, submissionId: matched._id || null });
 	} catch (err) {
 		console.error('getDocumentContent error', err);
 		return res.status(500).json({ message: 'Failed to fetch document content', error: err.message });

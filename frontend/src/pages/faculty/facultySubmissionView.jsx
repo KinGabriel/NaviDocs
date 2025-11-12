@@ -210,7 +210,8 @@ export default function FacultySubmissionView() {
           // Prefer submission-aware content API
           let res = null;
           try {
-            res = await getDocumentContentAPI(doc.id);
+            //  page is already scoped to a bin (route param `id`), pass it as binId
+            res = await getDocumentContentAPI(doc.id, id);
           } catch (e) {
             // fallback to documentsAPI if needed
             const mod = await import('../../api/documentsAPI');

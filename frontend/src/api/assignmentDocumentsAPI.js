@@ -242,12 +242,15 @@ export const listSubmissionBinsByDocumentAPI = async (documentId) => {
 
 /**
  * Get exact document content by contained document id (authorized viewers only)
+ * Requires the caller to provide the submission bin id the document belongs to.
  * @param {string} documentId
+ * @param {string} binId
  */
-export const getDocumentContentAPI = async (documentId) => {
+export const getDocumentContentAPI = async (documentId, binId) => {
 	try {
 		if (!documentId) throw new Error('documentId is required');
-		const res = await axios.get(`${API_URL}/api/documents/submission-bins/document/${documentId}/content`, { withCredentials: true });
+		if (!binId) throw new Error('binId is required');
+		const res = await axios.get(`${API_URL}/api/documents/submission-bins/${binId}/document/${documentId}/content`, { withCredentials: true });
 		return res.data;
 	} catch (error) {
 		const message = error.response?.data?.message || error.message || 'Failed to fetch document content';

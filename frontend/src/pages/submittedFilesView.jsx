@@ -160,6 +160,7 @@ export default function SubmittedFilesView() {
   const [selectedAction, setSelectedAction] = useState(null); // 'submit', 'return'
   const [selectedFileIndex, setSelectedFileIndex] = useState(0); // For multi-file navigation
   const [previewDocument, setPreviewDocument] = useState(null);
+  const [currentBinId, setCurrentBinId] = useState(null);
   const tpl = state?.doc || {};
   const [template, setTemplate] = useState(tpl);
   const [downloading, setDownloading] = useState(false);
@@ -184,63 +185,54 @@ useEffect(() => {
     try {
       setLoading(true);
       console.log('Fetching document with ID:', id);
-      
-      // Try to fetch the document content via the submission-aware API (preferred)
-      let actualDocument = null;
-      try {
-        const documentRes = await getDocumentContentAPI(id);
-        actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
-        if (mounted) {
-          setFetchedDoc(actualDocument);
-        }
-      } catch (docErr) {
-        console.warn('Could not fetch document via submission API, falling back to document API:', docErr?.message || docErr);
+
+      // First: fetch submission bins for this document so we have the bin context
+      const bins = await listSubmissionBinsByDocumentAPI(id);
+      console.log('Bins response:', bins);
+
+      if (!bins || bins.length === 0) {
+        console.warn('No bins found for document', id);
+        // Try a best-effort direct document fetch and create a fallback submission
+        let actualDocument = null;
         try {
           const documentRes = await getDocumentByIdAPI(id);
           actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
           if (mounted) setFetchedDoc(actualDocument);
-        } catch (fallbackErr) {
-          console.warn('Fallback direct document fetch failed:', fallbackErr?.message || fallbackErr);
+        } catch (e) {
+          console.warn('Direct document fetch failed when no bins present', e?.message || e);
         }
-      }
-      // Fetch the submission bin data to get submission metadata
-      const bins = await listSubmissionBinsByDocumentAPI(id);
-      console.log('Bins response:', bins);
-      
-      if (!bins || bins.length === 0) {
-        console.warn('No bins found for document', id);
-        // If we have the actual document but no bins, create a fallback submission
+
         if (actualDocument && mounted) {
-            setSubmission({
-              id: 'unknown',
-              title: actualDocument.title || 'Document',
-              submittedBy: { name: 'Unknown', role: 'Faculty', email: '' },
-              submittedAt: actualDocument.createdAt || actualDocument.created_at,
-              status: 'submitted',
-              files: [{
-                id: id,
-                name: actualDocument.title || "Document",
-                url: actualDocument.filePath || "",
-                size: actualDocument.size || 0,
-                uploadedAt: actualDocument.createdAt || actualDocument.created_at,
-                _fullData: actualDocument
-              }],
-              viewedBy: [],
-              notes: [],
-              deadline: null
-            });
-          setError("");
+          setSubmission({
+            id: 'unknown',
+            title: actualDocument.title || 'Document',
+            submittedBy: { name: 'Unknown', role: 'Faculty', email: '' },
+            submittedAt: actualDocument.createdAt || actualDocument.created_at,
+            status: 'submitted',
+            files: [{
+              id: id,
+              name: actualDocument.title || 'Document',
+              url: actualDocument.filePath || '',
+              size: actualDocument.size || 0,
+              uploadedAt: actualDocument.createdAt || actualDocument.created_at,
+              _fullData: actualDocument
+            }],
+            viewedBy: [],
+            notes: [],
+            deadline: null
+          });
+          setError('');
         } else {
           throw new Error('No submission bin found for this document');
         }
-        if (mounted) {
-          setLoading(false);
-        }
+        if (mounted) setLoading(false);
         return;
       }
-      
-      const binId = bins[0]._id || bins[0].id;
-      const binData = await getSubmissionBinAPI(binId);
+
+      // Use the first matching bin as the primary context (frontend already behaved this way)
+  const binId = bins[0]._id || bins[0].id;
+  setCurrentBinId(binId);
+  const binData = await getSubmissionBinAPI(binId);
       console.log('Bin data:', binData);
 
       // Enforce frontend restriction: if current user is Dean/Secretary and bin not forwarded, show friendly error
@@ -258,7 +250,24 @@ useEffect(() => {
       } catch (e) {
         // ignore role parse errors and proceed
       }
-      
+
+      // submission-aware content endpoint using the bin context
+      let actualDocument = null;
+      try {
+        const documentRes = await getDocumentContentAPI(id, binId);
+        actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
+        if (mounted) setFetchedDoc(actualDocument);
+      } catch (docErr) {
+        console.warn('Could not fetch document via submission API, falling back to document API:', docErr?.message || docErr);
+        try {
+          const documentRes = await getDocumentByIdAPI(id);
+          actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
+          if (mounted) setFetchedDoc(actualDocument);
+        } catch (fallbackErr) {
+          console.warn('Fallback direct document fetch failed:', fallbackErr?.message || fallbackErr);
+        }
+      }
+
       // Find the submission item that contains this document
       const submissionItem = binData.submissions?.find(sub => {
         const hasInDocuments = Array.isArray(sub.documents) && sub.documents.some(doc => 
@@ -285,7 +294,7 @@ useEffect(() => {
           // Prefer submission-aware content endpoint to avoid protected direct GETs
           let docFromApi = null;
           try {
-            const resp = await getDocumentContentAPI(docId);
+            const resp = await getDocumentContentAPI(docId, binId);
             docFromApi = resp?.document || resp?.data?.document || resp?.data || resp;
           } catch (e) {
             // Fallback to existing loader
@@ -334,7 +343,7 @@ useEffect(() => {
           try {
             let docFromApi = null;
             try {
-              const resp = await getDocumentContentAPI(docId);
+              const resp = await getDocumentContentAPI(docId, binId);
               docFromApi = resp?.document || resp?.data?.document || resp?.data || resp;
             } catch (_) { docFromApi = null; }
 
@@ -500,7 +509,7 @@ const handleZoomReset = () => setZoom(1);
           // Fetch the document if not already loaded
           console.log('Fetching preview for document:', selectedFile.id);
           // Prefer the submission-aware content API to avoid protected direct GETs
-          getDocumentContentAPI(selectedFile.id)
+          (currentBinId ? getDocumentContentAPI(selectedFile.id, currentBinId) : Promise.reject(new Error('no binId')))
             .then(res => {
               const docData = res?.document || res?.data?.document || res?.data || res;
               let pagesJson = docData.pages_json;

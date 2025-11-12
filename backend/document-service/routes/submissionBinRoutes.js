@@ -26,7 +26,8 @@ router.post('/', createSubmissionBin);
 router.get('/', listBins);
 router.get('/by-document/:documentId', listBinsByDocument);
 // Returns the exact document content for an authorized viewer
-router.get('/document/:documentId/content', getDocumentContent);
+
+router.get('/:binId/document/:documentId/content', getDocumentContent);
 router.get('/:id', getBin);
 router.patch('/:id', updateBin);
 
