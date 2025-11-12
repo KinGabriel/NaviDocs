@@ -723,8 +723,10 @@ export const submitTemplate = async (req, res) => {
     let nextRoleFriendly = null; // 'Unit Document Controller' | 'Lead Document Controller' | 'Document Control Officer'
     let nextAssignedUser = null;
     
-    // Determine if UDC endorsement is required for this submission
-    const requiresUDC = (submitterRole === 'Department Head') || !!approvals?.unit_document_controller?.assigned_to;
+  // Determine role categories and whether UDC endorsement is required for this submission
+  const isDeptHead = submitterRole === 'Department Head';
+  const isDeanOrSecretary = submitterRole === 'Dean' || submitterRole === 'Secretary';
+  const requiresUDC = isDeptHead || !!approvals?.unit_document_controller?.assigned_to;
 
   if (unitApproved) {
       // UDC already endorsed → status stays 'endorsed', go to LDC or DCO depending on LDC state
@@ -787,7 +789,21 @@ export const submitTemplate = async (req, res) => {
       }
     }
 
-  // Stamp submission time (always overwrite to reflect this submission)
+    // Enforce explicit status rules for certain submitter roles:
+    // - Dean or Secretary submissions should be treated as 'endorsed' (skip UDC)
+    // - Department Head submissions should be treated as 'pending' (UDC endorsement expected)
+    if (isDeanOrSecretary) {
+      template.status = 'endorsed';
+      // Ensure nextRoleFriendly routes to LDC when dean/secretary submit
+      if (!nextRoleFriendly || nextRoleFriendly === 'Unit Document Controller') {
+        nextRoleFriendly = 'Lead Document Controller';
+      }
+    } else if (isDeptHead) {
+      template.status = 'pending';
+      if (!nextRoleFriendly) nextRoleFriendly = 'Unit Document Controller';
+    }
+
+    // Stamp submission time (always overwrite to reflect this submission)
   template.status_meta = template.status_meta || {};
   template.status_meta.submitted_at = new Date();
 

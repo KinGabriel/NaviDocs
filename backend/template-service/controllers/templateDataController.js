@@ -1,5 +1,6 @@
 import Template from "../models/templateModel.js";
 import { fetchUserInfoById } from '../../document-service/utils/userServiceUtils.js';
+import { getRecentPublished } from '../utils/recentTemplates.js';
 
 /**
  * @desc Get dashboard information for document controller
@@ -72,29 +73,103 @@ export const dashboardInfoDocConroller = async (req, res) => {
       dcoQuery.school = school;
     }
 
-    // Also fetch recently published templates (for the dashboard "Recently Published Templates")
-    const publishedQuery = { ...baseFilter, status: 'published' };
-    if (school) publishedQuery.school = school;
+  // Also fetch the 5 most recently published templates for the dashboard.
+  const publishedQuery = { status: 'published' };
 
-    // Fetch recent items in parallel (small queries)
-    const [udcRecent, ldcRecent, dcoRecent, publishedRecent, counts] = await Promise.all([
+
+    const userId = req.user && req.user.id ? String(req.user.id) : null;
+    const userRoleNorm = userRole; // already normalized
+
+    const buildMyTurnFilterForRole = (role) => {
+      if (role === 'unit_document_controller') {
+        return {
+          $or: [
+            { $and: [ { status: 'pending' }, { $or: [ { 'status_meta.approvals.unit_document_controller.approved_at': { $exists: false } }, { 'status_meta.approvals.unit_document_controller.approved_at': null } ] } ] },
+            { status: 'returned' }
+          ]
+        };
+      }
+      if (role === 'lead_document_controller') {
+        return {
+          $or: [
+            { $and: [
+                { $or: [
+                  { $and: [ { status: 'pending' }, { 'status_meta.approvals.unit_document_controller.approved_at': { $ne: null } } ] },
+                  { status: 'endorsed' }
+                ] },
+                { $or: [ { 'status_meta.approvals.lead_document_controller.approved_at': { $exists: false } }, { 'status_meta.approvals.lead_document_controller.approved_at': null } ] }
+              ]
+            },
+            { $and: [ { status: 'returned' }, { $or: [ { 'status_meta.approvals.unit_document_controller.approved_at': { $exists: true } } ] } ] }
+          ]
+        };
+      }
+      if (role === 'document_controller_officer') {
+        return {
+          $or: [
+            { $and: [
+                { 'status_meta.approvals.lead_document_controller.approved_at': { $ne: null } },
+                { $or: [ { status: { $ne: 'pending' } }, { 'status_meta.approvals.unit_document_controller.approved_at': { $ne: null } } ] },
+                { $or: [ { 'status_meta.approvals.document_controller_officer.approved_at': { $exists: false } }, { 'status_meta.approvals.document_controller_officer.approved_at': null } ] }
+              ]
+            },
+            { $and: [ { status: 'returned' }, { 'status_meta.approvals.lead_document_controller.approved_at': { $ne: null } } ] }
+          ]
+        };
+      }
+      return null;
+    };
+
+    const udcMyTurn = buildMyTurnFilterForRole('unit_document_controller');
+    const ldcMyTurn = buildMyTurnFilterForRole('lead_document_controller');
+    const dcoMyTurn = buildMyTurnFilterForRole('document_controller_officer');
+
+    // Visibility base for this user (creator, assigned, or explicitly assigned approver)
+    const visibilityOr = [
+      { created_by: userId },
+      { assigned: userId },
+      { 'status_meta.approvals.lead_document_controller.assigned_to': userId },
+      { 'status_meta.approvals.document_controller_officer.assigned_to': userId },
+      { 'status_meta.approvals.unit_document_controller.assigned_to': userId }
+    ];
+
+    if (udcMyTurn) visibilityOr.push(udcMyTurn);
+    if (ldcMyTurn) visibilityOr.push(ldcMyTurn);
+    if (dcoMyTurn) visibilityOr.push(dcoMyTurn);
+
+    const visibilityFilter = { ...baseFilter, $or: visibilityOr };
+
+    if (school) {
+      visibilityFilter.school = school;
+    }
+
+    // Fetch recent items for each role (limited projection) and published list in parallel
+    const [udcRecent, ldcRecent, dcoRecent, publishedRecent] = await Promise.all([
       Template.find(udcQuery, projection).sort({ 'status_meta.submitted_at': -1, updatedAt: -1 }).limit(limit).lean(),
       Template.find(ldcQuery, projection).sort({ 'status_meta.submitted_at': -1, updatedAt: -1 }).limit(limit).lean(),
       Template.find(dcoQuery, projection).sort({ 'status_meta.submitted_at': -1, updatedAt: -1 }).limit(limit).lean(),
-      Template.find(publishedQuery, { _id: 1, title: 1, document_code: 1, revision_no: 1, created_by: 1, 'status_meta.published_at': 1 }).sort({ 'status_meta.published_at': -1, updatedAt: -1 }).limit(limit).lean(),
-      // counts for dashboard badges/metrics
-      Template.aggregate([
-        { $match: baseFilter },
-        { $facet: {
-          udc: [ { $match: udcQuery }, { $count: 'count' } ],
-          ldc: [ { $match: ldcQuery }, { $count: 'count' } ],
-          dco: [ { $match: dcoQuery }, { $count: 'count' } ],
-          total: [ { $count: 'count' } ]
-        }}
-      ])
+      getRecentPublished(limit)
     ]);
 
-    const parsedCounts = (counts && counts[0]) ? counts[0] : { udc: [], ldc: [], dco: [], total: [] };
+    // Compute counts scoped to user's visibility for each role
+    // Ensure DCO pending count excludes already-approved templates
+    const dcoCountFilter = { ...baseFilter, ...(school ? { school } : {}), $and: [ dcoMyTurn || {}, { $or: visibilityOr }, { status: { $ne: 'approved' } } ] };
+
+    const [udcCount, ldcCount, dcoCount, approvedCount, publishedCount, totalCount] = await Promise.all([
+      Template.countDocuments({ ...baseFilter, $and: [ udcMyTurn || {}, { $or: visibilityOr } ] , ...(school ? { school } : {}) }),
+      Template.countDocuments({ ...baseFilter, $and: [ ldcMyTurn || {}, { $or: visibilityOr } ] , ...(school ? { school } : {}) }),
+      Template.countDocuments(dcoCountFilter),
+      Template.countDocuments({ ...baseFilter, status: 'approved', ...(school ? { school } : {}) }),
+      Template.countDocuments({ ...baseFilter, status: 'published', ...(school ? { school } : {}) }),
+      Template.countDocuments({ ...baseFilter, ...(school ? { school } : {}) })
+    ]);
+
+    // approval-by-role counts (global within school scope)
+    const [udcApprovalsCount, ldcApprovalsCount, dcoApprovalsCount] = await Promise.all([
+      Template.countDocuments({ ...baseFilter, 'status_meta.approvals.unit_document_controller.approved_at': { $exists: true, $ne: null }, ...(school ? { school } : {}) }),
+      Template.countDocuments({ ...baseFilter, 'status_meta.approvals.lead_document_controller.approved_at': { $exists: true, $ne: null }, ...(school ? { school } : {}) }),
+      Template.countDocuments({ ...baseFilter, 'status_meta.approvals.document_controller_officer.approved_at': { $exists: true, $ne: null }, ...(school ? { school } : {}) })
+    ]);
 
     // Enrich created_by -> createdByName using user service (best-effort)
     const allUserIds = new Set();
@@ -110,11 +185,10 @@ export const dashboardInfoDocConroller = async (req, res) => {
       const fetches = Array.from(allUserIds).map(id => fetchUserInfoById(id, req, { basic: true }).then(u => ({ id, u })));
       const fetchResults = await Promise.all(fetches);
       fetchResults.forEach(({ id, u }) => {
-        if (u && u.data) {
-          // Attempt common fields
-          userIdMap[id] = u.data.displayName || u.data.fullName || u.data.name || `${u.data.firstName || ''} ${u.data.lastName || ''}`.trim();
-        } else if (u) {
-          userIdMap[id] = u.displayName || u.fullName || u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim();
+        if (u) {
+          // User service returns { firstname, lastname } for basic info, or full profile with name.
+          const name = u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || u.displayName || u.email || null;
+          userIdMap[id] = name || null;
         } else {
           userIdMap[id] = null;
         }
@@ -130,16 +204,48 @@ export const dashboardInfoDocConroller = async (req, res) => {
       recent: {
         udc: enrich(udcRecent),
         ldc: enrich(ldcRecent),
-        dco: enrich(dcoRecent)
+        dco: enrich(dcoRecent),
+        published: enrich(publishedRecent)
       },
       counts: {
-        udc: (parsedCounts.udc && parsedCounts.udc[0] && parsedCounts.udc[0].count) || 0,
-        ldc: (parsedCounts.ldc && parsedCounts.ldc[0] && parsedCounts.ldc[0].count) || 0,
-        dco: (parsedCounts.dco && parsedCounts.dco[0] && parsedCounts.dco[0].count) || 0,
-        total: (parsedCounts.total && parsedCounts.total[0] && parsedCounts.total[0].count) || 0
+        // Counts scoped to the current user's visibility where appropriate
+        udc_pending: udcCount || 0,
+        ldc_endorsed: ldcCount || 0,
+        dco_ready: dcoCount || 0,
+        udc_approvals: udcApprovalsCount || 0,
+        ldc_approvals: ldcApprovalsCount || 0,
+        dco_approvals: dcoApprovalsCount || 0,
+        approved: approvedCount || 0,
+        published: publishedCount || 0,
+        total: totalCount || 0
       },
       role: userRole
     };
+
+    // Provide a UI-friendly recentlySubmitted list chosen by the current user's role
+    // Map to the simple shape used by the frontend table: { id, title, createdBy, status, createdAt }
+    const pickRecentForRole = () => {
+      const r = userRole || '';
+      const lc = r.toLowerCase();
+      if (lc.includes('unit')) return enrich(udcRecent);
+      if (lc.includes('lead')) return enrich(ldcRecent);
+      if (lc.includes('document')) return enrich(dcoRecent);
+      // combine all recent lists ordered by createdAt
+      const combined = (enrich(udcRecent) || []).concat(enrich(ldcRecent) || []).concat(enrich(dcoRecent) || []);
+      // sort by createdAt desc and take up to limit
+      combined.sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0));
+      return combined.slice(0, limit);
+    };
+
+    const recentlyForUI = (pickRecentForRole() || []).map(item => ({
+      id: item._id || item.id,
+      title: item.title || '',
+      createdBy: item.createdByName || item.created_by_user?.displayName || item.created_by || '',
+      status: item.status || '',
+      createdAt: item.createdAt || null
+    }));
+
+    result.recentlySubmitted = recentlyForUI;
 
     return res.status(200).json({ success: true, message: 'Dashboard data retrieved', data: result });
   } catch (error) {

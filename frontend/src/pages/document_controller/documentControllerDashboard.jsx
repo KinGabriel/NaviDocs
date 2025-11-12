@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
@@ -7,6 +7,7 @@ import Greeting from "../../components/greeting";
 import { CalendarClock, Clock, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "../../utils/formatters";
+import { fetchDashboardInfoAPI } from "../../api/documentContollerAPI";
 
 
 export default function DocumentControllerDashboard() {
@@ -26,56 +27,26 @@ export default function DocumentControllerDashboard() {
   }
 
 
-  // Sample data
-  const templates = [
-    {
-      id: 1,
-      title: "Research Proposal Template",
-      createdBy: "Admin User",
-      status: "Approved",
-    },
-    {
-      id: 2,
-      title: "Thesis Format Guide",
-      createdBy: "Admin User",
-      status: "Rejected",
-    },
-    {
-      id: 3,
-      title: "Internship Report Template",
-      createdBy: "Admin User",
-      status: "Returned",
-    },
-    {
-      id: 4,
-      title: "Course Syllabus Template",
-      createdBy: "Admin User",
-      status: "Approved",
-    },
-    {
-      id: 5,
-      title: "Capstone Project Template",
-      createdBy: "Admin User",
-      status: "Pending",
-    },
-    {
-      id: 6,
-      title: "Department Memo Format",
-      createdBy: "Admin User",
-      status: "Endorsed",
-    },
-  ];
+  // Recently submitted templates (will be fetched from dashboard)
+  const [templates, setTemplates] = useState([]);
 
 
 
 
-  const publishedTemplates = [
+  const [publishedTemplates, setPublishedTemplates] = useState([
     { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
     { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
     { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-  ];
+    { id: 4, code: "DOC-004", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+    { id: 5, code: "DOC-005", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+  ]);
+
+  const [dashboard, setDashboard] = useState({
+    udcPending: 0,
+    approved: 0,
+    published: 0,
+    total: 0
+  });
 
 
   const templateColumns = [
@@ -154,6 +125,52 @@ export default function DocumentControllerDashboard() {
     },
   ];
 
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const data = await fetchDashboardInfoAPI(user);
+        if (!mounted) return;
+        // data shape (new): { udcPending, ldcEndorsed, dcoReady, udcApprovals, ldcApprovals, dcoApprovals, approved, published, total, publishedTemplates }
+        setDashboard({
+          udcPending: data.udcPending || 0,
+          approved: data.approved || 0,
+          published: data.published || 0,
+          total: data.total || 0,
+        });
+
+        // map server-published items into table rows
+        const mapped = (data.publishedTemplates || []).map((t, idx) => ({
+          id: t.id || t._id || idx,
+          code: t.document_code || t.documentCode || "",
+          rev: t.revision_no ?? t.rev ?? "",
+          date: t.effectivity || t.createdAt || t.published_at || null,
+          title: t.title,
+          createdBy: t.createdByName || t.created_by_user?.displayName || t.created_by || "",
+          _raw: t
+        }));
+
+        // map recently submitted list into template table rows
+        const recent = (data.recentlySubmitted || []).map((t, idx) => ({
+          id: t.id || t._id || idx,
+          title: t.title,
+          createdBy: t.createdByName || t.created_by || '',
+          status: t.status || '',
+          _raw: t
+        }));
+
+        if (recent.length) setTemplates(recent);
+
+        if (mapped.length) setPublishedTemplates(mapped);
+      } catch (err) {
+        // ignore for now; keep defaults
+        console.error("Failed to load dashboard info", err);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, [user]);
+
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -166,19 +183,8 @@ export default function DocumentControllerDashboard() {
           <Greeting name={user?.firstname || "Document Controller"} />
 
 
-          {/* Stat cards */}
+          {/* Stat cards (Assigned card removed) */}
           <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
-            {/* Assigned */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-[#00ACC1] rounded-full flex items-center justify-center">
-                <CalendarClock className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Assigned</div>
-                <div className="text-3xl font-bold text-gray-900">5</div>
-              </div>
-            </div>
-
             {/* Pending Approvals */}
             <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
               <div className="w-12 h-12 bg-[#FB8C00] rounded-full flex items-center justify-center">
@@ -186,7 +192,7 @@ export default function DocumentControllerDashboard() {
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-600 mb-1">Pending Approvals</div>
-                <div className="text-3xl font-bold text-gray-900">3</div>
+                <div className="text-3xl font-bold text-gray-900">{dashboard?.udcPending ?? 0}</div>
               </div>
             </div>
 
@@ -196,8 +202,8 @@ export default function DocumentControllerDashboard() {
                 <CheckCircle className="h-6 w-6 text-white" />
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Approved</div>
-                <div className="text-3xl font-bold text-gray-900">10</div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Responded</div>
+                <div className="text-3xl font-bold text-gray-900">{dashboard?.approved ?? 0}</div>
               </div>
             </div>
           </div>

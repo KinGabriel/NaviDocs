@@ -1,11 +1,11 @@
 
 import { adminDashboardResolver } from './adminDashboardResolver.js';
-import { templateDashboardResolvers } from './templateDashboardResolvers.js';
+import { docControllerResolvers } from './docControllerDashboardResolvers.js';
 
 export const resolvers = {
   Query: {
     ...adminDashboardResolver.Query,
-    ...templateDashboardResolvers.Query
+    ...docControllerResolvers.Query
   },
-  ...(templateDashboardResolvers.Template && { Template: templateDashboardResolvers.Template })
+  ...(docControllerResolvers.DocumentItem && { DocumentItem: docControllerResolvers.DocumentItem })
 };
