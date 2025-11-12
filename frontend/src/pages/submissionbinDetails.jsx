@@ -28,6 +28,7 @@ import { getFacultyByDepartmentAPI } from "../api/userAPI";
 import { getTemplateByIdAPI, fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import TextEditor from "../layout/create_template/textEditor";
 import Loader from "../components/loader";
+import { getSubmissionBinStatus } from "../utils/submissionStatus";
 
 export default function SubmissionDetails() {
   const user = useUser();
@@ -103,44 +104,26 @@ export default function SubmissionDetails() {
 
   // Determine the actual display status for the bin
   const binDisplayStatus = useMemo(() => {
-    if (!bin || !Array.isArray(bin.submissions)) return bin?.status || 'active';
-    
-    const items = bin.submissions;
-    if (items.length === 0) return bin.status;
+      return getSubmissionBinStatus(bin);
+    }, [bin]);
+
+    // Auto-update bin status to completed
+    useEffect(() => {
+      if (!bin || !isDeptHead) return;
     
     // Check if ANY submission is returned
-    const hasReturnedSubmissions = items.some(sub => 
+    const hasReturnedSubmissions = bin.submissions?.some(sub => 
       sub.status === 'returned' || 
       (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
     );
     
-    // Check if ALL submissions are returned
-    const allReturned = items.every(sub => 
-      sub.status === 'returned' || 
-      (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
-    );
-    
-    // If ALL are returned, show "returned"
-    if (allReturned) return 'returned';
-    
-    // If SOME are returned, show as "pending" (awaiting resubmission)
-    if (hasReturnedSubmissions) return 'pending';
-    
-    // Otherwise use the bin's actual status
-    return bin.status;
-  }, [bin?.submissions, bin?.status]);
-    
-
-  // Auto-update bin status to completed
-  useEffect(() => {
-    if (!bin || !isDeptHead) return;
-    if (binShouldBeCompleted && bin.status !== 'completed') {
+    if (binShouldBeCompleted && bin.status !== 'completed' && !hasReturnedSubmissions) {
       // Silently update the bin status
       updateSubmissionBinAPI(bin._id || bin.id, { status: 'completed' })
         .then(updated => setBin(updated))
         .catch(err => console.error('Failed to auto-complete bin:', err));
     }
-  }, [binShouldBeCompleted, bin?.status, bin?._id, bin?.id, isDeptHead]);
+  }, [binShouldBeCompleted, bin?.status, bin?._id, bin?.id, isDeptHead, bin?.submissions]);
 
   useEffect(() => {
     let mounted = true;

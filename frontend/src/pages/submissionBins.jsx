@@ -10,6 +10,7 @@ import TaskAssignmentModal from "../components/modals/taskAssignmentModal";
 import { StatusBadge, formatDate } from "../utils/formatters";
 import { Plus, Calendar, Users, FileText, Clock, CheckCircle, AlertCircle, Eye, TrendingUp, Send, RotateCcw} from 'lucide-react';
 import { listSubmissionBinsAPI, forwardSubmissionBinAPI } from "../api/assignmentDocumentsAPI";
+import { getSubmissionBinStatus } from "../utils/submissionStatus";
 
 const STATUS_OPTIONS = ["All Status", "Active", "Completed", "Pending", "Returned", "Overdue"];
 const SORT_OPTIONS = ["Recent", "Oldest", "Due Soon", "A–Z"];
@@ -65,43 +66,8 @@ export default function SubmissionBins() {
     if (statusFilter !== "All Status") {
       const target = statusFilter.toLowerCase();
       rows = rows.filter(r => {
-        const st = (r.status || '').toLowerCase();
-        const deadline = r.deadline ? new Date(r.deadline) : null;
-        const now = new Date();
-        
-        // Check if any submission item is returned
-        const hasReturnedSubmissions = Array.isArray(r.submissions) && 
-          r.submissions.some(sub => 
-            sub.status === 'returned' || 
-            (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
-          );
-        
-        // Check if ALL submissions are returned
-        const allReturnedSubmissions = Array.isArray(r.submissions) && 
-          r.submissions.length > 0 &&
-          r.submissions.every(sub => 
-            sub.status === 'returned' || 
-            (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
-          );
-        
-        const isOverdue = deadline && deadline < now && st !== 'completed' && !hasReturnedSubmissions;
-        
-        // "returned" - ALL submissions must be returned
-        if (target === 'returned') return allReturnedSubmissions;
-        
-        // "pending" - SOME (but not all) submissions are returned
-        if (target === 'pending') return hasReturnedSubmissions && !allReturnedSubmissions;
-        
-        if (target === 'overdue') return isOverdue;
-        if (target === 'draft') return st === 'archived'; // map Draft -> Archived
-        
-        // "completed" filter, exclude bins with returned submissions
-        if (target === 'completed') return st === 'completed' && !hasReturnedSubmissions;
-        
-        //  "active" filter, also exclude bins with returned submissions
-        if (target === 'active') return st === 'active' && !hasReturnedSubmissions;
-        
-        return st === target;
+        const actualStatus = getSubmissionBinStatus(r);
+        return actualStatus.toLowerCase() === target;
       });
     }
     
@@ -482,6 +448,8 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding,
   const daysUntilDue = Math.ceil((new Date(submission.deadline) - new Date()) / (1000 * 60 * 60 * 24));
   const items = Array.isArray(submission.submissions) ? submission.submissions : (submission.submission || []);
   
+  const displayStatus = getSubmissionBinStatus(submission);
+
   // Check for returned submissions
   const hasReturnedSubmissions = items.some(sub => 
     sub.status === 'returned' || 
@@ -503,9 +471,9 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding,
     (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
   );
 
-  const displayStatus = allReturned 
-    ? 'returned' 
-    : (hasReturnedSubmissions ? 'pending' : submission.status);
+  // const displayStatus = allReturned 
+  //   ? 'returned' 
+  //   : (hasReturnedSubmissions ? 'pending' : submission.status);
 
   // Count faculty members who actually submitted documents
   const submittedCount = items.filter(s => {

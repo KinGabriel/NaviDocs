@@ -23,8 +23,9 @@ import {
   ZoomOut,
   RotateCcw
 } from "lucide-react";
-import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI, getDocumentContentAPI } from "../api/assignmentDocumentsAPI";
+import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI, getDocumentContentAPI, forwardSubmissionBinAPI} from "../api/assignmentDocumentsAPI";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
+import { getSubmissionBinStatus, getSubmissionItemStatus } from "../utils/submissionStatus";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -169,6 +170,19 @@ export default function SubmittedFilesView() {
   const [error, setError] = useState("");
   const [zoom, setZoom] = useState(1);
   const previewContainerRef = useRef(null);
+  const actualStatus = useMemo(() => {
+  if (!submission) return 'pending';
+  
+  // Compute the individual submission item status
+  const submissionItem = {
+    status: submission.status,
+    documents: submission.files?.map(f => f.id) || [],
+    submitted_at: submission.submittedAt,
+    notes: submission.notes || []
+  };
+  
+  return getSubmissionItemStatus(submissionItem, submission.deadline);
+}, [submission]);
 
   // Fetch submission data
 useEffect(() => {
@@ -194,13 +208,23 @@ useEffect(() => {
           setFetchedDoc(actualDocument);
         }
       } catch (docErr) {
-        console.warn('Could not fetch document via submission API, falling back to document API:', docErr?.message || docErr);
+        console.warn('Could not fetch document via submission API:', docErr?.message || docErr);
+        
+        // Only try fallback for non-Dean/Secretary roles
+        const isDeanOrSecretary = ['dean', 'secretary'].includes(
+          (user?.role?.name || user?.role || '').toString().toLowerCase()
+        );
+        
+        if (!isDeanOrSecretary) {
         try {
           const documentRes = await getDocumentByIdAPI(id);
           actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
           if (mounted) setFetchedDoc(actualDocument);
         } catch (fallbackErr) {
           console.warn('Fallback direct document fetch failed:', fallbackErr?.message || fallbackErr);
+        }
+        } else {
+          console.warn('Dean/Secretary can only access forwarded documents through submission context');
         }
       }
       // Fetch the submission bin data to get submission metadata
@@ -453,7 +477,8 @@ useEffect(() => {
               };
             })
           : [],
-            deadline: binData.deadline
+            deadline: binData.deadline,
+            binData: binData
           };
       
       if (mounted) {
@@ -499,7 +524,37 @@ const handleZoomReset = () => setZoom(1);
         } else if (selectedFile?.id) {
           // Fetch the document if not already loaded
           console.log('Fetching preview for document:', selectedFile.id);
-          // Prefer the submission-aware content API to avoid protected direct GETs
+        // Try content API for Dean/Secretary - they can ONLY access through submission context
+        const isDeanOrSecretary = ['dean', 'secretary'].includes(
+          (user?.role?.name || user?.role || '').toString().toLowerCase()
+        );
+        
+        if (isDeanOrSecretary) {
+          // Dean/Secretary: ONLY use submission-aware content API
+          getDocumentContentAPI(selectedFile.id)
+            .then(res => {
+              const docData = res?.document || res?.data?.document || res?.data || res;
+              let pagesJson = docData.pages_json;
+              if (!pagesJson && docData.from_template?.pages_json) {
+                pagesJson = docData.from_template.pages_json;
+              }
+              const normalizedData = {
+                ...docData,
+                pages_json: pagesJson || docData.pages_json,
+                pageSetup: docData.pageSetup || docData.from_template?.pageSetup,
+                headerConfig: docData.headerConfig || docData.from_template?.headerConfig,
+                logoConfig: docData.logoConfig || docData.from_template?.logoConfig,
+              };
+              console.log('Fetched document (content API):', normalizedData);
+              setPreviewDocument(normalizedData);
+            })
+            .catch(err => {
+              console.error("Dean/Secretary cannot access this document:", err);
+              // Show a user-friendly message instead of breaking
+              setError("Unable to load document preview. This document may not have been properly forwarded.");
+            });
+        } else {
+          // Other roles: Try content API first, fallback to direct API
           getDocumentContentAPI(selectedFile.id)
             .then(res => {
               const docData = res?.document || res?.data?.document || res?.data || res;
@@ -518,7 +573,7 @@ const handleZoomReset = () => setZoom(1);
               setPreviewDocument(normalizedData);
             })
             .catch(() => {
-              // Fallback to legacy GET when content API isn't available for this document/user
+              // Fallback to legacy GET for non-Dean/Secretary roles
               getDocumentByIdAPI(selectedFile.id)
                 .then(res => {
                   const docData = res?.document || res?.data?.document || res?.data || res;
@@ -536,11 +591,12 @@ const handleZoomReset = () => setZoom(1);
                   console.log('Fetched document (fallback):', normalizedData);
                   setPreviewDocument(normalizedData);
                 })
-                .catch(err => console.error("Failed to fetch preview (both content API and fallback):", err));
+                .catch(err => console.error("Failed to fetch preview (both APIs):", err));
             });
         }
       }
-    }, [selectedFileIndex, submission?.files]);
+    }
+  }, [selectedFileIndex, submission?.files, user]);
 
   const d = state?.doc || fetchedDoc || {};
   const doc = {
@@ -605,14 +661,17 @@ const handleZoomReset = () => setZoom(1);
         await returnSubmissionAPI(binId, submissionId, { 
           reason: actionNote || 'Document returned for revision' 
         });
+        
+        const binData = await getSubmissionBinAPI(binId);
+        if (binData.status === 'completed') {
+          await updateSubmissionBinAPI(binId, { status: 'active' });
+        }
       } else if (selectedAction === 'submit') {
-        // Update submission status or forward bin
-        await updateSubmissionBinAPI(binId, { 
-          status: 'completed'
-        });
+        if (isDeptHead) {
+          await forwardSubmissionBinAPI(binId);
+        }
       }
       
-      // Refresh the data
       const updatedBin = await getSubmissionBinAPI(binId);
       const updatedItem = updatedBin.submissions?.find(s => String(s._id || s.id) === String(submissionId));
       
@@ -628,7 +687,8 @@ const handleZoomReset = () => setZoom(1);
       setActionNote("");
       setSelectedAction(null);
       
-      alert(`Successfully ${selectedAction === 'submit' ? 'submitted' : 'returned'} the document!`);
+      alert(`Successfully ${selectedAction === 'submit' ? 'forwarded' : 'returned'} the document!`);
+      setTimeout(() => navigate(-1), 1000);
       
     } catch (err) {
       console.error("Action error:", err);
@@ -1194,7 +1254,7 @@ const handleZoomReset = () => setZoom(1);
                       )}
 
                       {/* Action Buttons Based on Role */}
-                      {submission?.status === 'submitted' && (
+                      {actualStatus === 'submitted' && (
                         <div className="space-y-3">
                           {/* Department Head can Submit or Return */}
                           {canSubmitOrReturn && (
@@ -1232,15 +1292,15 @@ const handleZoomReset = () => setZoom(1);
                         
                       )}
 
-                    {(submission?.status === 'pending' || submission?.status === 'returned') && (
+                    {(actualStatus === 'pending' || actualStatus === 'returned') && (
                       <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
                         <div className="flex justify-center mb-3">
-                          <StatusBadge type={submission?.status} />
+                          <StatusBadge type={actualStatus} />
                         </div>
-                        {submission?.status === 'pending' && (
+                        {actualStatus === 'pending' && (
                           <p className="text-xs text-gray-600">This document has been submitted by Department Head</p>
                         )}
-                        {submission?.status === 'returned' && (
+                        {actualStatus === 'returned' && (
                           <p className="text-xs text-gray-600">Returned for revision</p>
                         )}
                       </div>
@@ -1258,7 +1318,7 @@ const handleZoomReset = () => setZoom(1);
                         <div className="mb-4 pb-4 border-b">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-xs text-gray-500">Current Status</span>
-                            <StatusBadge type={submission?.status || 'submitted'} />
+                            <StatusBadge type={actualStatus || 'submitted'} />
                           </div>
                           <p className="text-xs text-gray-600">
                             Submitted on {submission?.submittedAt ? formatDateTime(submission.submittedAt) : "Loading..." }

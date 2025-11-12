@@ -23,6 +23,7 @@ import { getSubmissionBinAPI, submitSubmissionDocumentAPI, getDocumentContentAPI
 import { getTemplateByIdAPI } from "../../api/documentContollerAPI";
 import TextEditor from "../../layout/create_template/textEditor";
 import Loader from "../../components/loader";
+import { getSubmissionItemStatus } from "../../utils/submissionStatus";
 
 export default function FacultySubmissionView() {
   const user = useUser();
@@ -104,7 +105,7 @@ export default function FacultySubmissionView() {
 
     const submission = useMemo(() => {
         if (!bin || !assignedItem) return null;
-
+        const status = getSubmissionItemStatus(assignedItem, bin.deadline);
         const assignedAt = bin?.createdAt || bin?.created_at;
         const deadline = bin?.deadline || null;
         
@@ -117,9 +118,9 @@ export default function FacultySubmissionView() {
                           (Array.isArray(assignedItem?.notes) && 
                             assignedItem.notes.some(n => String(n.type).toLowerCase() === 'returned'));
         
-        const status = isReturned 
-          ? 'returned' 
-          : (hasDocuments && assignedItem?.submitted_at ? 'submitted' : 'pending');
+        // const status = isReturned 
+        //   ? 'returned' 
+        //   : (hasDocuments && assignedItem?.submitted_at ? 'submitted' : 'pending');
         
         const submittedAt = assignedItem?.submitted_at || null;
 
