@@ -19,7 +19,7 @@ import {
   AlertCircle,
   Eye,
 } from "lucide-react";
-import { getSubmissionBinAPI, submitSubmissionDocumentAPI, getDocumentContentAPI } from "../../api/assignmentDocumentsAPI";
+import { getSubmissionBinAPI, submitSubmissionDocumentAPI, getDocumentContentAPI, addSubmissionCommentAPI } from "../../api/assignmentDocumentsAPI";
 import { getTemplateByIdAPI } from "../../api/documentContollerAPI";
 import TextEditor from "../../layout/create_template/textEditor";
 import Loader from "../../components/loader";
@@ -193,6 +193,7 @@ export default function FacultySubmissionView() {
       submissionMessage, 
     };
   }, [assignedItem, bin]);
+  
 
   useEffect(() => {
     if (!submission?.submittedFiles) return;
@@ -273,7 +274,6 @@ export default function FacultySubmissionView() {
       }
       
       // Submit each document individually
-      // Backend expects { documentId: string, message?: string }
       for (let i = 0; i < documentIds.length; i++) {
         const documentId = documentIds[i];
         
@@ -281,12 +281,15 @@ export default function FacultySubmissionView() {
           documentId: documentId
         };
         
-        // Add message to all submissions
-        if (message.trim()) {
-          payload.message = message.trim();
-        }
-        
         await submitSubmissionDocumentAPI(bin?._id || id, assignedItem?._id, payload);
+      }
+      
+      // Add comment/message separately if provided
+      if (message.trim()) {
+        await addSubmissionCommentAPI(bin?._id || id, assignedItem?._id, {
+          message: message.trim(),
+          type: 'comment'
+        });
       }
       
       // Show success message with count

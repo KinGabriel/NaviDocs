@@ -413,7 +413,46 @@ useEffect(() => {
             status: submissionItem.status || (submissionItem.submitted_at ? "submitted" : "pending"),
             files: submittedDocs && submittedDocs.length > 0 ? submittedDocs : [],
             viewedBy: submissionItem.viewed_by || [],
-            notes: submissionItem.notes || [],
+          notes: Array.isArray(submissionItem.notes) 
+          ? submissionItem.notes.map(note => {
+              let userInfo = null;
+              
+              // If note.by is already a populated object
+              if (note.by && typeof note.by === 'object') {
+                userInfo = note.by;
+              } 
+              // If note.by is just an ID string, try to match it
+              else if (typeof note.by === 'string') {
+                const noteById = String(note.by);
+                
+                // Check if it matches the submitting faculty
+                if (submissionItem.faculty_user && 
+                    String(submissionItem.faculty_user._id || submissionItem.faculty_user.id) === noteById) {
+                  userInfo = {
+                    ...submissionItem.faculty_user,
+                    role: { name: 'Faculty' } // Override role to ensure it shows "Faculty"
+                  };
+                }
+                // Check if it matches current user (dept head/dean/secretary)
+                else if (user && String(user._id || user.id) === noteById) {
+                  userInfo = user;
+                }
+                // Check if it matches bin creator
+                else if (binData.created_by && typeof binData.created_by === 'object' &&
+                        String(binData.created_by._id || binData.created_by.id) === noteById) {
+                  userInfo = binData.created_by;
+                }
+              }
+              
+              return {
+                ...note,
+                id: note._id || note.id,
+                at: note.createdAt || note.created_at || note.at || note.timestamp,
+                by: userInfo, 
+                message: note.message || note.text || note.comment || note.reason || ''
+              };
+            })
+          : [],
             deadline: binData.deadline
           };
       
@@ -1085,7 +1124,7 @@ const handleZoomReset = () => setZoom(1);
                     </div>
                   )}
 
-                      {/* Comments/Notes */}
+                      {/* Comments/Notes from Faculty/Submitter */}
                       {submission?.notes && submission.notes.length > 0 && (
                         <div className="mb-4 pb-4 border-b">
                           <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
@@ -1094,34 +1133,44 @@ const handleZoomReset = () => setZoom(1);
                           </h4>
                           <div className="space-y-3">
                             {submission.notes.map((note) => {
-                        
                               let userName = 'Unknown User';
                               let userRole = 'User';
                               
-                              // Check if 'by' is populated as an object
-                              if (note.by && typeof note.by === 'object') {
-                                userName = note.by.name || 
-                                          note.by.fullname || 
-                                          (note.by.firstname && note.by.lastname 
-                                            ? `${note.by.firstname} ${note.by.lastname}`.trim() 
-                                            : null) ||
-                                          note.by.email || 
+                              // The 'by' field should contain the user object
+                              const userObj = note.by;
+                              
+                              if (userObj && typeof userObj === 'object') {
+                                // Extract name - try different possible field structures
+                                const firstName = userObj.firstname || userObj.first_name || userObj.firstName || '';
+                                const lastName = userObj.lastname || userObj.last_name || userObj.lastName || '';
+                                
+                                userName = userObj.name || 
+                                          userObj.fullname || 
+                                          userObj.full_name ||
+                                          (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
+                                          userObj.username ||
+                                          userObj.email || 
                                           'Unknown User';
                                 
-                                userRole = note.by.role?.name || note.by.role || 'User';
-                              } 
-                              // If 'by' is just an ID string, show a placeholder
-                              else if (note.by && typeof note.by === 'string') {
-                                userName = 'User'; // Don't show the ID
+                                // Extract role - try different possible field structures
+                                if (userObj.role) {
+                                  if (typeof userObj.role === 'object') {
+                                    userRole = userObj.role.name || 
+                                              userObj.role.title || 
+                                              userObj.role.role_name ||
+                                              'User';
+                                  } else if (typeof userObj.role === 'string') {
+                                    userRole = userObj.role;
+                                  }
+                                } else {
+                                  userRole = userObj.role_name || 
+                                            userObj.position || 
+                                            'User';
+                                }
+                              } else if (userObj && typeof userObj === 'string') {
+                                // If it's just an ID string, show a generic message
+                                userName = 'User';
                                 userRole = 'Reviewer';
-                              }
-                              // If there's a created_by field (alternative field name)
-                              else if (note.created_by && typeof note.created_by === 'object') {
-                                userName = note.created_by.name || 
-                                          note.created_by.fullname || 
-                                          note.created_by.email || 
-                                          'Unknown User';
-                                userRole = note.created_by.role?.name || note.created_by.role || 'User';
                               }
                               
                               return (
@@ -1291,33 +1340,49 @@ const handleZoomReset = () => setZoom(1);
                               let userName = 'Unknown User';
                               let userRole = 'User';
                               
-                              if (note.by && typeof note.by === 'object') {
-                                userName = note.by.name || 
-                                          note.by.fullname || 
-                                          (note.by.firstname && note.by.lastname 
-                                            ? `${note.by.firstname} ${note.by.lastname}`.trim() 
-                                            : null) ||
-                                          note.by.email || 
+                              const userObj = note.by;
+                              
+                              if (userObj && typeof userObj === 'object') {
+                                // Extract name
+                                const firstName = userObj.firstname || userObj.first_name || userObj.firstName || '';
+                                const lastName = userObj.lastname || userObj.last_name || userObj.lastName || '';
+                                
+                                userName = userObj.name || 
+                                          userObj.fullname || 
+                                          userObj.full_name ||
+                                          (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
+                                          userObj.username ||
+                                          userObj.email || 
                                           'Unknown User';
-                                userRole = note.by.role?.name || note.by.role || 'User';
-                              } else if (note.by && typeof note.by === 'string') {
+                                
+                                // Extract role
+                                if (userObj.role) {
+                                  if (typeof userObj.role === 'object') {
+                                    userRole = userObj.role.name || 
+                                              userObj.role.title || 
+                                              userObj.role.role_name ||
+                                              'User';
+                                  } else if (typeof userObj.role === 'string') {
+                                    userRole = userObj.role;
+                                  }
+                                } else {
+                                  userRole = userObj.role_name || 
+                                            userObj.position || 
+                                            'User';
+                                }
+                              } else if (userObj && typeof userObj === 'string') {
                                 userName = 'Reviewer';
                                 userRole = 'Staff';
-                              } else if (note.created_by && typeof note.created_by === 'object') {
-                                userName = note.created_by.name || note.created_by.fullname || note.created_by.email || 'Unknown User';
-                                userRole = note.created_by.role?.name || note.created_by.role || 'User';
                               }
                               
                               return (
                               <div key={note.id || note.at} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
                                 <div className="flex items-start gap-2 mb-2">
-                                  <MessageSquare size={16} className="text-amber-600 mt-0.5" />
+                                  <MessageSquare size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
                                   <div className="flex-1">
-                                    <p className="text-xs font-medium text-gray-900">
-                                        {userName}
-                                    </p>
+                                    <p className="text-xs font-medium text-gray-900">{userName}</p>
                                     <p className="text-xs text-gray-500">
-                                      {userRole} • {note.at ? formatDateTime(note.at) : ''}
+                                      {userRole} • {note.at ? formatDateTime(note.at) : 'Recently'}
                                     </p>
                                   </div>
                                 </div>
