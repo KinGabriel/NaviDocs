@@ -90,9 +90,15 @@ export default function DepartmentHeadDashboard() {
     {
       key: "action",
       label: "Action",
-      render: () => (
+      render: (row) => (
         <button
-          onClick={() => navigate("")}
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id ?? row.templateId;
+            navigate(`/dept-head/document-workflow/${id}`, {
+              state: { doc: row, origin: "deptHead:recently-submitted" },
+            });
+          }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
           Review
@@ -113,7 +119,13 @@ export default function DepartmentHeadDashboard() {
       label: "Action",
       render: (row) => (
         <button
-          onClick={() => navigate("")}
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id ?? row.templateId;
+            navigate(`/templates/published/${id}`, {
+              state: { doc: row, origin: "deptHead:recently-published" },
+            });
+          }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
           Review
@@ -274,7 +286,7 @@ export default function DepartmentHeadDashboard() {
                   </div>
 
                   <button
-                    onClick={() => navigate("")}
+                    onClick={() => navigate("/document-workflow")}
                     className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
                   >
                     View All
