@@ -79,16 +79,22 @@ export default function DeanDashboard() {
       render: (row) => <StatusBadge type={row.status} />,
     },
     {
-      key: "action",
-      label: "Action",
-      render: () => (
-        <button
-          onClick={() => navigate("")}
-          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
-        >
-          Review
-        </button>
-      ),
+    key: "action",
+    label: "Action",
+    render: (row) => (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          const id = row._id ?? row.id ?? row.templateId;
+          navigate(`/dean/document-workflow/${id}`, {
+            state: { doc: row, origin: "dean:recently-submitted" },
+          });
+        }}
+        className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+      >
+        Review
+      </button>
+    ),
     },
   ];
 
@@ -99,16 +105,22 @@ export default function DeanDashboard() {
     { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
     { key: "createdBy", label: "Created By" },
     {
-      key: "action",
-      label: "Action",
-      render: (row) => (
-        <button
-          onClick={() => navigate("")}
-          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
-        >
-          Review
-        </button>
-      ),
+    key: "action",
+    label: "Action",
+    render: (row) => (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          const id = row._id ?? row.id ?? row.templateId;
+          navigate(`/templates/published/${id}`, {
+            state: { doc: row, origin: "dean:recently-published" },
+          });
+        }}
+        className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+      >
+        Review
+      </button>
+    ),
     },
   ];
 
