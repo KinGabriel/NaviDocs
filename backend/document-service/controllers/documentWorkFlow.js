@@ -346,22 +346,14 @@ export const listBinsByDocument = async (req, res) => {
  * @route GET /api/documents/submission-bins/document/:documentId
  * @desc Finds the submission bin that contains the provided document id 
  */
-export const getSubmissionByDocument = async (req, res) => {
+export const getDocumentContent = async (req, res) => {
 	try {
 		const { documentId } = req.params;
 		if (!documentId) return res.status(400).json({ message: 'documentId required' });
 
-		// Find the bin that contains this document in any submission.documents
+		// Find the bin that contains this document in any submission.documents (used for authorization/context)
 		const bin = await SubmissionBin.findOne({ 'submissions.documents': documentId });
 		if (!bin) return res.status(404).json({ message: 'Submission not found in any bin' });
-
-		// Enforce role-based view restrictions (same as getBin)
-		if (hasRole(req, ['dean']) || hasRole(req, ['secretary'])) {
-			const sameSchool = !req.user?.school || String(bin.school || '') === String(req.user.school || '');
-			if (!sameSchool || !bin.is_forwarded) {
-				return res.status(403).json({ message: 'Not authorized to access this submission' });
-			}
-		}
 
 		// Find the specific submission item that contains the document
 		const obj = bin.toObject ? bin.toObject() : JSON.parse(JSON.stringify(bin));
@@ -375,63 +367,45 @@ export const getSubmissionByDocument = async (req, res) => {
 		}
 		if (!matched) return res.status(404).json({ message: 'Submission item for document not found' });
 
-		// Enrich faculty info
-		let faculty_user = null;
+		// Authorization: allow bin owner, submission faculty, Department Head. Dean/Secretary allowed only when forwarded and same school.
 		try {
-			const info = await fetchUserInfoById(String(matched.faculty), req, { basic: true });
-			const data = info?.data || info || {};
-			faculty_user = { id: String(matched.faculty), name: data?.name || data?.fullname || `${data?.firstname || ''} ${data?.lastname || ''}`.trim() || String(matched.faculty), email: data?.email };
-		} catch (e) {
-			faculty_user = { id: String(matched.faculty), name: String(matched.faculty) };
+			const actorId = String(req.user?._id || req.user?.id || '');
+			const isBinOwner = actorId && String(bin.created_by || '') === actorId;
+			const isSubmissionFaculty = actorId && String(matched.faculty || '') === actorId;
+			const isDeptHead = hasRole(req, ['Department Head']);
+			const isDeanOrSecretary = hasRole(req, ['dean']) || hasRole(req, ['secretary']);
+
+			if (!isBinOwner && !isSubmissionFaculty && !isDeptHead && !isDeanOrSecretary) {
+				return res.status(403).json({ message: 'Not authorized to access this document' });
+			}
+
+			if (isDeanOrSecretary) {
+				const sameSchool = !req.user?.school || String(bin.school || '') === String(req.user.school || '');
+				if (!sameSchool || !bin.is_forwarded) {
+					return res.status(403).json({ message: 'Not authorized to access this document' });
+				}
+			}
+		} catch (authErr) {
+			console.error('Authorization check failed for getDocumentContent', authErr);
+			return res.status(500).json({ message: 'Authorization check failed' });
 		}
 
-		// Fetch document metadata if available
+		// Fetch the exact document content
 		let documentObj = null;
 		try {
 			const doc = await Document.findById(documentId).lean();
-			documentObj = doc || null;
+			if (!doc) return res.status(404).json({ message: 'Document not found' });
+			documentObj = doc;
 		} catch (e) {
-			documentObj = null;
+			console.error('Failed to fetch document', e);
+			return res.status(500).json({ message: 'Failed to fetch document', error: e.message });
 		}
 
-			// Fetch template title (best-effort) for UI using shared header util
-			let templateMeta = null;
-			try {
-				const templateId = matched.template ? String(matched.template) : null;
-				if (templateId) {
-					const templateServiceUrl = process.env.TEMPLATE_SERVICE_URL || 'http://localhost:8002';
-					const headers = buildUserServiceHeaders(req) || {};
-					const resp = await axios.get(`${templateServiceUrl}/api/templates/${templateId}`, { headers, withCredentials: true });
-					const tpl = resp?.data?.template || resp?.data || null;
-					if (tpl) templateMeta = { id: templateId, title: tpl.title || tpl.name || null };
-				}
-			} catch (e) {
-				templateMeta = null;
-			}
-
-		// Build response shape similar to getBin enrichment but scoped to matched submission
-		const result = {
-			bin: {
-				id: String(bin._id),
-				title: bin.title,
-				instructions: bin.instructions,
-				school: bin.school,
-				deadline: bin.deadline,
-				status: bin.status,
-				is_forwarded: bin.is_forwarded,
-			},
-			submission: {
-				...matched,
-				faculty_user,
-			},
-			document: documentObj,
-			template: templateMeta,
-		};
-
-		return res.json(result);
+		// Return the exact document content (pages_json, field_values, metadata)
+		return res.json({ document: documentObj });
 	} catch (err) {
-		console.error('getSubmissionByDocument error', err);
-		return res.status(500).json({ message: 'Failed to fetch submission by document', error: err.message });
+		console.error('getDocumentContent error', err);
+		return res.status(500).json({ message: 'Failed to fetch document content', error: err.message });
 	}
 };
 
@@ -449,7 +423,7 @@ export const getBin = async (req, res) => {
 		if (!bin) return res.status(404).json({ message: 'Bin not found' });
 
 		// Enforce access for dean/secretary: only forwarded bins in their school (role-agnostic)
-		if (hasRole(req, ['dean']) || hasRole(req, ['secretary'])) {
+		if (hasRole(req, ['Dean']) || hasRole(req, ['Secretary'])) {
 			const sameSchool = !req.user?.school || String(bin.school || '') === String(req.user.school || '');
 			if (!sameSchool || !bin.is_forwarded) {
 				return res.status(403).json({ message: 'Not authorized to access this bin' });

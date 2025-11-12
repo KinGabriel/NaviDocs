@@ -19,7 +19,7 @@ import {
   AlertCircle,
   Eye,
 } from "lucide-react";
-import { getSubmissionBinAPI, submitSubmissionDocumentAPI } from "../../api/assignmentDocumentsAPI";
+import { getSubmissionBinAPI, submitSubmissionDocumentAPI, getDocumentContentAPI } from "../../api/assignmentDocumentsAPI";
 import { getTemplateByIdAPI } from "../../api/documentContollerAPI";
 import TextEditor from "../../layout/create_template/textEditor";
 import Loader from "../../components/loader";
@@ -195,17 +195,23 @@ export default function FacultySubmissionView() {
     
     // Fetch the actual document data
     const fetchDocuments = async () => {
-      const { getDocumentByIdAPI } = await import('../../api/documentsAPI');
-      
       for (const doc of unpopulatedDocs) {
         try {
-          const res = await getDocumentByIdAPI(doc.id);
+          // Prefer submission-aware content API
+          let res = null;
+          try {
+            res = await getDocumentContentAPI(doc.id);
+          } catch (e) {
+            // fallback to documentsAPI if needed
+            const mod = await import('../../api/documentsAPI');
+            res = await mod.getDocumentByIdAPI(doc.id);
+          }
           const docData = res?.document || res?.data?.document || res?.data || res;
-          
+
           // Update the submission state with fetched data
           setAssignedItem(prev => {
             if (!prev) return prev;
-            
+
             const updatedDocs = (prev.documents || []).map(d => {
               const dId = typeof d === 'string' ? d : (d._id || d.id);
               if (String(dId) === String(doc.id)) {
@@ -213,7 +219,7 @@ export default function FacultySubmissionView() {
               }
               return d;
             });
-            
+
             return { ...prev, documents: updatedDocs };
           });
         } catch (err) {

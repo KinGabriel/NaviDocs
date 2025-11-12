@@ -221,16 +221,16 @@ export const listSubmissionBinsByDocumentAPI = async (documentId) => {
 };
 
 /**
- * Get a submission item by contained document id (enriched)
+ * Get exact document content by contained document id (authorized viewers only)
  * @param {string} documentId
  */
-export const getSubmissionByDocumentAPI = async (documentId) => {
+export const getDocumentContentAPI = async (documentId) => {
 	try {
 		if (!documentId) throw new Error('documentId is required');
-		const res = await axios.get(`${API_URL}/api/documents/submission-bins/document/${documentId}`, { withCredentials: true });
+		const res = await axios.get(`${API_URL}/api/documents/submission-bins/document/${documentId}/content`, { withCredentials: true });
 		return res.data;
 	} catch (error) {
-		const message = error.response?.data?.message || error.message || 'Failed to fetch submission by document';
+		const message = error.response?.data?.message || error.message || 'Failed to fetch document content';
 		const err = new Error(message);
 		err.responseData = error.response?.data;
 		err.status = error.response?.status;

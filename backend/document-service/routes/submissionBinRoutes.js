@@ -4,7 +4,7 @@ import {
   createSubmissionBin,
   listBins,
   listBinsByDocument,
-  getSubmissionByDocument,
+  getDocumentContent,
   getBin,
   updateBin,
   upsertSubmission,
@@ -24,7 +24,8 @@ router.use(authenticateJWT);
 router.post('/', createSubmissionBin);
 router.get('/', listBins);
 router.get('/by-document/:documentId', listBinsByDocument);
-router.get('/document/:documentId', getSubmissionByDocument);
+// Returns the exact document content for an authorized viewer
+router.get('/document/:documentId/content', getDocumentContent);
 router.get('/:id', getBin);
 router.patch('/:id', updateBin);
 

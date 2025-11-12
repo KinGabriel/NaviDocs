@@ -23,7 +23,7 @@ import {
   ZoomOut,
   RotateCcw
 } from "lucide-react";
-import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI } from "../api/assignmentDocumentsAPI";
+import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI, getDocumentContentAPI } from "../api/assignmentDocumentsAPI";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -112,6 +112,39 @@ const FALLBACK_DOC = {
   document_size: "8.5 x 13",
 };
 
+// Local helper: normalize a raw document object (from content API) into the
+// shape used by components (matches fetchAndNormalizeDocument output partially)
+function normalizeRawDocument(doc) {
+  if (!doc) return null;
+  const document = doc;
+  const _id = doc._id || doc.id;
+  const title = doc.title || doc.name || 'Untitled Document';
+  const createdAt = doc.createdAt || doc.created_at || null;
+
+  const from_template = doc.from_template || null;
+  const pages_json = Array.isArray(doc.pages_json)
+    ? doc.pages_json
+    : (doc.pages_json ? [doc.pages_json] : (from_template && Array.isArray(from_template.pages_json) ? from_template.pages_json : []));
+  const pageSetup = doc.pageSetup || from_template?.pageSetup || null;
+  const headerConfig = doc.headerConfig || from_template?.headerConfig || doc.logoConfig || from_template?.logoConfig || null;
+  const field_values = doc.field_values || {};
+  const body = doc.body || doc.content || null;
+
+  return {
+    document,
+    _id,
+    title,
+    createdAt,
+    from_template,
+    pages_json,
+    pageSetup,
+    headerConfig,
+    logoConfig: headerConfig,
+    field_values,
+    body,
+  };
+}
+
 export default function SubmittedFilesView() {
   const user = useUser();
   const { id } = useParams();
@@ -152,16 +185,23 @@ useEffect(() => {
       setLoading(true);
       console.log('Fetching document with ID:', id);
       
-      // Try to fetch the document directly
+      // Try to fetch the document content via the submission-aware API (preferred)
       let actualDocument = null;
       try {
-        const documentRes = await getDocumentByIdAPI(id);
+        const documentRes = await getDocumentContentAPI(id);
         actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
         if (mounted) {
           setFetchedDoc(actualDocument);
         }
       } catch (docErr) {
-        console.warn('Could not fetch document directly:', docErr.message);
+        console.warn('Could not fetch document via submission API, falling back to document API:', docErr?.message || docErr);
+        try {
+          const documentRes = await getDocumentByIdAPI(id);
+          actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
+          if (mounted) setFetchedDoc(actualDocument);
+        } catch (fallbackErr) {
+          console.warn('Fallback direct document fetch failed:', fallbackErr?.message || fallbackErr);
+        }
       }
       // Fetch the submission bin data to get submission metadata
       const bins = await listSubmissionBinsByDocumentAPI(id);
@@ -226,17 +266,37 @@ useEffect(() => {
       if (submissionItem.document) { 
         const docId = submissionItem.document._id || submissionItem.document.id || submissionItem.document;
         try {
-          const normalizedDoc = await fetchAndNormalizeDocument(docId);
-          
-          submittedDocs.push({
-            id: docId,
-            name: normalizedDoc.title,
-            url: normalizedDoc.document.filePath || "",
-            size: normalizedDoc.document.size || 0,
-            uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
-            _fullData: normalizedDoc
-          });
-          
+          // Prefer submission-aware content endpoint to avoid protected direct GETs
+          let docFromApi = null;
+          try {
+            const resp = await getDocumentContentAPI(docId);
+            docFromApi = resp?.document || resp?.data?.document || resp?.data || resp;
+          } catch (e) {
+            // Fallback to existing loader
+            docFromApi = null;
+          }
+
+          if (docFromApi) {
+            const normalizedDoc = normalizeRawDocument(docFromApi);
+            submittedDocs.push({
+              id: docId,
+              name: normalizedDoc.title,
+              url: normalizedDoc.document?.filePath || "",
+              size: normalizedDoc.document?.size || 0,
+              uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
+              _fullData: normalizedDoc
+            });
+          } else {
+            const normalizedDoc = await fetchAndNormalizeDocument(docId);
+            submittedDocs.push({
+              id: docId,
+              name: normalizedDoc.title,
+              url: normalizedDoc.document.filePath || "",
+              size: normalizedDoc.document.size || 0,
+              uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
+              _fullData: normalizedDoc
+            });
+          }
         } catch (err) {
           console.error(`Failed to fetch document ${docId}:`, err);
           // Use placeholder if can't fetch the document
@@ -256,16 +316,33 @@ useEffect(() => {
         for (const doc of submissionItem.documents) {
           const docId = doc._id || doc.id || doc;
           try {
-            const normalizedDoc = await fetchAndNormalizeDocument(docId);
-            
-            submittedDocs.push({
-              id: docId,
-              name: normalizedDoc.title,
-              url: normalizedDoc.document.filePath || "",
-              size: normalizedDoc.document.size || 0,
-              uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
-              _fullData: normalizedDoc
-            });
+            let docFromApi = null;
+            try {
+              const resp = await getDocumentContentAPI(docId);
+              docFromApi = resp?.document || resp?.data?.document || resp?.data || resp;
+            } catch (_) { docFromApi = null; }
+
+            if (docFromApi) {
+              const normalizedDoc = normalizeRawDocument(docFromApi);
+              submittedDocs.push({
+                id: docId,
+                name: normalizedDoc.title,
+                url: normalizedDoc.document?.filePath || "",
+                size: normalizedDoc.document?.size || 0,
+                uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
+                _fullData: normalizedDoc
+              });
+            } else {
+              const normalizedDoc = await fetchAndNormalizeDocument(docId);
+              submittedDocs.push({
+                id: docId,
+                name: normalizedDoc.title,
+                url: normalizedDoc.document.filePath || "",
+                size: normalizedDoc.document.size || 0,
+                uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
+                _fullData: normalizedDoc
+              });
+            }
           } catch (err) {
             console.error(`Failed to fetch document ${docId}:`, err);
             // Use placeholder if can't fetch the document
@@ -367,15 +444,14 @@ const handleZoomReset = () => setZoom(1);
         } else if (selectedFile?.id) {
           // Fetch the document if not already loaded
           console.log('Fetching preview for document:', selectedFile.id);
-          getDocumentByIdAPI(selectedFile.id)
+          // Prefer the submission-aware content API to avoid protected direct GETs
+          getDocumentContentAPI(selectedFile.id)
             .then(res => {
               const docData = res?.document || res?.data?.document || res?.data || res;
-              
               let pagesJson = docData.pages_json;
               if (!pagesJson && docData.from_template?.pages_json) {
                 pagesJson = docData.from_template.pages_json;
               }
-              
               const normalizedData = {
                 ...docData,
                 pages_json: pagesJson || docData.pages_json,
@@ -383,12 +459,30 @@ const handleZoomReset = () => setZoom(1);
                 headerConfig: docData.headerConfig || docData.from_template?.headerConfig,
                 logoConfig: docData.logoConfig || docData.from_template?.logoConfig,
               };
-              
-              console.log('Fetched document:', normalizedData);
-              console.log('Has pages_json:', !!normalizedData.pages_json);
+              console.log('Fetched document (content API):', normalizedData);
               setPreviewDocument(normalizedData);
             })
-            .catch(err => console.error("Failed to fetch preview:", err));
+            .catch(() => {
+              // Fallback to legacy GET when content API isn't available for this document/user
+              getDocumentByIdAPI(selectedFile.id)
+                .then(res => {
+                  const docData = res?.document || res?.data?.document || res?.data || res;
+                  let pagesJson = docData.pages_json;
+                  if (!pagesJson && docData.from_template?.pages_json) {
+                    pagesJson = docData.from_template.pages_json;
+                  }
+                  const normalizedData = {
+                    ...docData,
+                    pages_json: pagesJson || docData.pages_json,
+                    pageSetup: docData.pageSetup || docData.from_template?.pageSetup,
+                    headerConfig: docData.headerConfig || docData.from_template?.headerConfig,
+                    logoConfig: docData.logoConfig || docData.from_template?.logoConfig,
+                  };
+                  console.log('Fetched document (fallback):', normalizedData);
+                  setPreviewDocument(normalizedData);
+                })
+                .catch(err => console.error("Failed to fetch preview (both content API and fallback):", err));
+            });
         }
       }
     }, [selectedFileIndex, submission?.files]);
