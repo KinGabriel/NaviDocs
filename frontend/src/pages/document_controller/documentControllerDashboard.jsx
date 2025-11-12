@@ -4,8 +4,7 @@ import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
 import Greeting from "../../components/greeting";
-import UpcomingDeadlines from "../../components/upcomingDeadlines";
-import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
+import { CalendarClock, Clock, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "../../utils/formatters";
 
@@ -169,46 +168,45 @@ export default function DocumentControllerDashboard() {
 
           {/* Stat cards */}
           <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
-            {/* Upcoming Deadlines */}
+            {/* Assigned */}
             <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 bg-[#00ACC1] rounded-full flex items-center justify-center">
                 <CalendarClock className="h-6 w-6 text-white" />
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Assigned</div>
+                <div className="text-3xl font-bold text-gray-900">5</div>
               </div>
             </div>
 
-
-            {/* Due Today */}
+            {/* Pending Approvals */}
             <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                <CalendarCheck className="h-6 w-6 text-white" />
+              <div className="w-12 h-12 bg-[#FB8C00] rounded-full flex items-center justify-center">
+                <Clock className="h-6 w-6 text-white" />
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Pending Approvals</div>
+                <div className="text-3xl font-bold text-gray-900">3</div>
               </div>
             </div>
 
-
-            {/* Overdue Deadlines */}
+            {/* Approved */}
             <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
-                <CalendarX className="h-6 w-6 text-white" />
+              <div className="w-12 h-12 bg-[#43A047] rounded-full flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-white" />
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Approved</div>
+                <div className="text-3xl font-bold text-gray-900">10</div>
               </div>
             </div>
           </div>
 
 
+
           {/* Tables and Upcoming Deadlines */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
-            <div className="lg:col-span-3 space-y-6">
+            <div className="lg:col-span-4 space-y-6">
               <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
                 <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
                   <div>
@@ -232,14 +230,6 @@ export default function DocumentControllerDashboard() {
                   <Table columns={templateColumns} data={templates} />
                 </div>
               </div>
-            </div>
-
-
-            <div className="lg:col-span-1 space-y-6">
-              <UpcomingDeadlines
-                deadlines={upcomingDeadlines}
-                formatDate={formatDate}
-              />
             </div>
 
 
