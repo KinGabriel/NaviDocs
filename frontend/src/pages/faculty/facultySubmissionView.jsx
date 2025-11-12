@@ -114,8 +114,8 @@ export default function FacultySubmissionView() {
         const status = hasDocuments && assignedItem?.submitted_at ? 'submitted' : 'pending';
         const submittedAt = assignedItem?.submitted_at || null;
 
-    // Ensure submissionMessage is always a string
-    const rawMessage = assignedItem?.message || assignedItem?.comment || assignedItem?.notes || '';
+  // Ensure submissionMessage is always a string
+  const rawMessage = assignedItem?.message || assignedItem?.comment || (Array.isArray(assignedItem?.notes) ? assignedItem.notes.map(n => n.message).join('\n\n') : '') || '';
     const submissionMessage = typeof rawMessage === 'string' ? rawMessage : String(rawMessage || '');
     
     // Handle multiple documents 
@@ -548,18 +548,25 @@ export default function FacultySubmissionView() {
                   </div>
                 )}
 
-                {/* Display Return Reason (if returned) */}
-                {assignedItem?.return_reason && String(assignedItem.return_reason).trim() && (
-                  <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                    <div className="flex items-start gap-2 mb-2">
-                      <AlertCircle size={18} className="text-orange-600 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm font-semibold text-gray-900">Return Reason:</p>
-                    </div>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap pl-6">
-                      {String(assignedItem.return_reason)}
-                    </p>
-                  </div>
-                )}
+                {/* Display Return Reason (if returned) - read from comments/notes history */}
+                {(() => {
+                  const returnedFromNotes = (Array.isArray(assignedItem?.notes) ? assignedItem.notes : []).filter(n => String(n.type).toLowerCase() === 'returned');
+                  const lastReturned = returnedFromNotes.slice(-1)[0];
+                  if (lastReturned && lastReturned.message && String(lastReturned.message).trim()) {
+                    return (
+                      <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                        <div className="flex items-start gap-2 mb-2">
+                          <AlertCircle size={18} className="text-orange-600 mt-0.5 flex-shrink-0" />
+                          <p className="text-sm font-semibold text-gray-900">Return Reason:</p>
+                        </div>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap pl-6">
+                          {String(lastReturned.message)}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* Submitted Documents */}
                 <div className="space-y-3">

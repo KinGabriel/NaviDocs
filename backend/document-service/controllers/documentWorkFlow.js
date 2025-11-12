@@ -624,6 +624,7 @@ export const submitDocument = async (req, res) => {
 			docTemplateId = doc.template_id ? String(doc.template_id) : (doc.from_template && doc.from_template.id ? String(doc.from_template.id) : null);
 		} catch (_) { docTemplateId = null; }
 		if (!docTemplateId) return res.status(400).json({ message: 'Document is not associated with a template' });
+		console.log('submitDocument: docTemplateId=', docTemplateId, 'itemTemplateId=', itemTemplateId);
 		if (docTemplateId !== itemTemplateId) return res.status(400).json({ message: 'Document template does not match required template' });
 		try {
 			const allowed = Array.isArray(bin.template_ids) ? bin.template_ids.map(t => String(t)) : [];
@@ -801,8 +802,10 @@ export const returnSubmission = async (req, res) => {
 		item.status = 'returned';
 		item.returned_at = new Date();
 		item.returned_by = req.user?._id || req.user?.id || null;
-		item.returned_reason = reason;
-		item.notes.push({ type: 'returned', message: reason || 'Returned', by: (req.user?._id || req.user?.id || null) });
+	// push to notes array for history
+	const returnedNote = { type: 'returned', message: reason || 'Returned', by: (req.user?._id || req.user?.id || null), at: new Date() };
+	item.notes = Array.isArray(item.notes) ? item.notes : [];
+	item.notes.push(returnedNote);
 
 		await bin.save();
 
@@ -833,6 +836,59 @@ export const returnSubmission = async (req, res) => {
 	} catch (err) {
 		console.error('returnSubmission error', err);
 		return res.status(500).json({ message: 'Failed to return submission', error: err.message });
+	}
+};
+
+/**
+ *
+ * @route POST /api/submission-details/:id/submissions/:submissionId/comment
+ * @desc Allows authorized users (bin owner, submission faculty, Department Head, secretary, dean)
+ *       to add a comment/note on a specific submission item. The note will be appended to
+ *       the submission's notes array with type 'comment' by default.
+ */
+export const addSubmissionComment = async (req, res) => {
+	try {
+		const { id, submissionId } = req.params;
+		const { message = '', type = 'comment' } = req.body || {};
+		if (!message || String(message).trim().length === 0) {
+			return res.status(400).json({ message: 'message is required' });
+		}
+
+		const bin = await SubmissionBin.findById(id);
+		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+		const item = bin.submissions.id(submissionId);
+		if (!item) return res.status(404).json({ message: 'Submission item not found' });
+
+		// Permission: allow bin owner, submission faculty, Department Head, secretary, dean
+		try {
+			const actorId = String(req.user?._id || req.user?.id || '');
+			const isBinOwner = actorId && String(bin.created_by || '') === actorId;
+			const isSubmissionFaculty = actorId && String(item.faculty || '') === actorId;
+			const isDeptHead = hasRole(req, ['Department Head']);
+			const isSecretary = hasRole(req, ['secretary']);
+			const isDean = hasRole(req, ['dean']);
+
+			if (!isBinOwner && !isSubmissionFaculty && !isDeptHead && !isSecretary && !isDean) {
+				return res.status(403).json({ message: 'Not authorized to comment on this submission' });
+			}
+		} catch (_) { /* best-effort permission check */ }
+
+		const note = {
+			type: type || 'comment',
+			message: String(message),
+			by: req.user?._id || req.user?.id || null,
+			at: new Date(),
+		};
+
+		if (!Array.isArray(item.notes)) item.notes = [];
+		item.notes.push(note);
+
+		await bin.save();
+
+		return res.json({ success: true, note, submission: item, binId: bin._id });
+	} catch (err) {
+		console.error('addSubmissionComment error', err);
+		return res.status(500).json({ message: 'Failed to add comment', error: err.message });
 	}
 };
 

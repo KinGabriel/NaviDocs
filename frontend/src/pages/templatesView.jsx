@@ -427,7 +427,7 @@ export default function TemplatesView() {
               returned_at: new Date().toISOString(),
               returned_by: user?._id,
               returned_by_name: user?.name,
-              return_reason: message
+
             };
           }
           return approval;

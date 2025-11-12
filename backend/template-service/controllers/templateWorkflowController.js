@@ -904,7 +904,7 @@ export const returnTemplate = async (req, res) => {
   template.status_meta.returned_by = String(req.user?.id || req.user?._id || '');
   template.status_meta.returned_role = roleKey;
   template.status_meta.returned_at = new Date();
-    if (reason) template.status_meta.returned_reason = reason;
+
     // Ensure approvals object exists and, if UDC is the actor, persist their id in the UDC slot
     template.status_meta.approvals = template.status_meta.approvals || { unit_document_controller: {}, lead_document_controller: {}, document_controller_officer: {} };
     const actorId = String(req.user?.id || req.user?._id || '');

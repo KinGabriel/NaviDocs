@@ -226,7 +226,7 @@ useEffect(() => {
                 _fullData: actualDocument
               }],
               viewedBy: [],
-              comments: [],
+              notes: [],
               deadline: null
             });
           setError("");
@@ -397,7 +397,7 @@ useEffect(() => {
             status: submissionItem.status || (submissionItem.submitted_at ? "submitted" : "pending"),
             files: submittedDocs && submittedDocs.length > 0 ? submittedDocs : [],
             viewedBy: submissionItem.viewed_by || [],
-            comments: submissionItem.comments || [],
+            notes: submissionItem.notes || [],
             deadline: binData.deadline
           };
       
@@ -561,11 +561,11 @@ const handleZoomReset = () => setZoom(1);
       const updatedBin = await getSubmissionBinAPI(binId);
       const updatedItem = updatedBin.submissions?.find(s => String(s._id || s.id) === String(submissionId));
       
-      if (updatedItem) {
+        if (updatedItem) {
         setSubmission(prev => ({
           ...prev,
           status: updatedItem.status,
-          comments: updatedItem.comments || prev.comments
+          notes: updatedItem.notes || prev.notes
         }));
       }
       
@@ -1070,26 +1070,26 @@ const handleZoomReset = () => setZoom(1);
                   )}
 
                       {/* Comments/Notes */}
-                      {submission?.comments && submission.comments.length > 0 && (
+                      {submission?.notes && submission.notes.length > 0 && (
                         <div className="mb-4 pb-4 border-b">
                           <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
                             <MessageSquare size={16} />
-                            Comments & Notes ({submission.comments.length})
+                            Comments & Notes ({submission.notes.length})
                           </h4>
                           <div className="space-y-3">
-                            {submission.comments.map((comment) => (
-                              <div key={comment.id} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            {submission.notes.map((note) => (
+                              <div key={note.id || note.at} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                                 <div className="flex items-start gap-2 mb-2">
                                   <div className="flex-1">
                                     <p className="text-xs font-medium text-gray-900">
-                                      {comment.author}
+                                      {note.by && (note.by.name || note.by.fullname) ? (note.by.name || note.by.fullname) : String(note.by || 'Someone')}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                      {comment.role} • {formatDateTime(comment.createdAt)}
+                                      {String(note.by?.role?.name || '')} • {note.at ? formatDateTime(note.at) : ''}
                                     </p>
                                   </div>
                                 </div>
-                                <p className="text-sm text-gray-700">{comment.message}</p>
+                                <p className="text-sm text-gray-700">{note.message}</p>
                               </div>
                             ))}
                           </div>
@@ -1232,27 +1232,27 @@ const handleZoomReset = () => setZoom(1);
                       )}
 
                       {/* Comments/Feedback from Reviewers */}
-                      {submission?.comments && submission.comments.length > 0 && (
+                      {submission?.notes && submission.notes.length > 0 && (
                         <div className="mb-4 pb-4 border-b">
                           <h4 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
                             <MessageSquare size={16} />
-                            Feedback & Comments ({submission.comments.length})
+                            Feedback & Comments ({submission.notes.length})
                           </h4>
                           <div className="space-y-3">
-                            {submission.comments.map((comment) => (
-                              <div key={comment.id} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                            {submission.notes.map((note) => (
+                              <div key={note.id || note.at} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
                                 <div className="flex items-start gap-2 mb-2">
                                   <MessageSquare size={16} className="text-amber-600 mt-0.5" />
                                   <div className="flex-1">
                                     <p className="text-xs font-medium text-gray-900">
-                                      {comment.author}
+                                      {note.by && (note.by.name || note.by.fullname) ? (note.by.name || note.by.fullname) : String(note.by || 'Someone')}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                      {comment.role} • {formatDateTime(comment.createdAt)}
+                                      {String(note.by?.role?.name || '')} • {note.at ? formatDateTime(note.at) : ''}
                                     </p>
                                   </div>
                                 </div>
-                                <p className="text-sm text-gray-700 ml-6">{comment.message}</p>
+                                <p className="text-sm text-gray-700 ml-6">{note.message}</p>
                               </div>
                             ))}
                           </div>

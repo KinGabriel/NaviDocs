@@ -5,6 +5,7 @@ import {
   listBins,
   listBinsByDocument,
   getDocumentContent,
+  addSubmissionComment,
   getBin,
   updateBin,
   upsertSubmission,
@@ -35,6 +36,7 @@ router.patch('/:id/submissions', upsertSubmission);
 router.post('/:id/submissions/:submissionId/submit', submitDocument);
 router.post('/:id/submissions/:submissionId/unsubmit', unsubmitDocument);
 router.post('/:id/submissions/:submissionId/return', returnSubmission);
+router.post('/:id/submissions/:submissionId/comment', addSubmissionComment);
 // router.post('/:id/submissions/:submissionId/approve', approveSubmission); // disabled for now
 router.post('/:id/forward', forwardBin);
 router.post('/:id/evaluate', evaluateBinCompletion);
