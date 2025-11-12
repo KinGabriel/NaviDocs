@@ -20,6 +20,7 @@ import {
   User,
   RotateCcw
 } from 'lucide-react';
+import { getSubmissionItemStatus } from "../../utils/submissionStatus";
 
 
 const STATUS_FILTERS = ["All Status", "Pending", "Submitted", "Returned", "Overdue"];
@@ -61,25 +62,7 @@ export default function FacultySubmissions() {
           
           return userSubmissions.map(sub => {
           // Determine status - validate that submission actually has documents 
-          let status = 'pending';
-
-          // Check if there are actually submitted documents
-          const hasDocuments = (Array.isArray(sub.documents) && sub.documents.length > 0) || 
-                                (sub.document && sub.document !== null);
-
-            // Check if submission was returned 
-            const isReturned = sub.status === 'returned' || 
-                              (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'));
-
-            if (isReturned) {
-              status = 'returned';
-            } else if (hasDocuments && sub.submitted_at) {
-            status = 'submitted';
-          } else if (!hasDocuments && new Date(bin.deadline) < new Date()) {
-            status = 'overdue';
-          } else {
-            status = 'pending';
-          }
+            let status = getSubmissionItemStatus(sub, bin.deadline);
 
           // Handle submittedFiles - supports both documents array and single document
           let submittedFiles = [];
