@@ -31,7 +31,16 @@ body { font-family: 'Poppins', sans-serif; }
 /* Generic content hygiene */
 .ProseMirror img { max-width: 100%; height: auto; }
 
-/* Cells */
+/* -------------------------------------------------------------------------- */
+/*  TIPTAP v2 TABLES + COLUMN RESIZING                                        */
+/* -------------------------------------------------------------------------- */
+
+.ProseMirror table {
+  width: 100% !important;
+  border-collapse: collapse;
+  table-layout: fixed; /* required for resizing */
+}
+
 .ProseMirror td,
 .ProseMirror th {
   min-width: 1em;
@@ -39,6 +48,7 @@ body { font-family: 'Poppins', sans-serif; }
   padding: 3px 5px;
   vertical-align: top;
   box-sizing: border-box;
+  position: relative; /* required for resize handle */
   break-inside: auto !important;
   page-break-inside: auto !important;
   white-space: normal;
@@ -53,10 +63,6 @@ body { font-family: 'Poppins', sans-serif; }
   background-color: #f1f3f4;
 }
 
-/* Repeat table header/footer for print/PDF */
-.ProseMirror table thead { display: table-header-group !important; }
-.ProseMirror table tfoot { display: table-footer-group !important; }
-
 /* Selected cell visual */
 .ProseMirror .selectedCell:after {
   z-index: 2;
@@ -67,19 +73,26 @@ body { font-family: 'Poppins', sans-serif; }
   pointer-events: none;
 }
 
-/* Column resize handles (keep visible on screen, hide for print) */
-.ProseMirror .handle,
-.ProseMirror .table-plus ~ .handle {
+/* Column resize handle (Tiptap v2) */
+.ProseMirror .column-resize-handle {
   position: absolute;
-  top: 50%;
-  width: 3px;
-  height: 12px;
-  transform: translate(-50%, -50%);
-  cursor: ew-resize;
-  background: #353535;
-  z-index: 9999;
-  border-radius: 50%;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: rgba(0,0,0,0.15);
+  pointer-events: none;
+  z-index: 10;
 }
+
+/* Resize cursor while dragging */
+.tiptap.resize-cursor {
+  cursor: col-resize !important;
+}
+
+/* Repeat table header/footer for print/PDF */
+.ProseMirror table thead { display: table-header-group !important; }
+.ProseMirror table tfoot { display: table-footer-group !important; }
 
 /* -------------------------------------------------------------------------- */
 /*  PAGE BANDS (headers/footers rendered by PaginationPlus)                   */
@@ -325,6 +338,6 @@ body { font-family: 'Poppins', sans-serif; }
     page-break-inside: avoid !important;
   }
 
-  /* Hide UI handles on print */
-  .ProseMirror .handle { display: none !important; }
+  /* Hide resize handles on print */
+  .ProseMirror .column-resize-handle { display: none !important; }
 }
