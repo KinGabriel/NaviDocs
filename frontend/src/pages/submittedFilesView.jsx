@@ -1799,7 +1799,7 @@ const handleZoomReset = () => setZoom(1);
                         </div>
                       )}
                       {/* Action Buttons Based on Role */}
-                      {submission?.status === 'submitted' && (
+                      {(submission?.status === 'submitted' || submission?.status === 'returned') && (
                         <div className="space-y-3">
                           {canSubmitOrReturn && (
                             <>
@@ -1846,10 +1846,20 @@ const handleZoomReset = () => setZoom(1);
                             
                             <button
                               onClick={() => handleActionClick('return')}
-                              className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
+                              disabled={hasAlreadyReturned}
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all shadow-sm ${
+                                hasAlreadyReturned
+                                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                  : 'bg-orange-600 hover:bg-orange-700 text-white'
+                              }`}
+                              title={
+                                hasAlreadyReturned
+                                  ? 'You have already returned this document'
+                                  : ''
+                              }
                             >
                               <XCircle size={20} />
-                              Return for Revision
+                              {hasAlreadyReturned ? 'Already Returned' : 'Return for Revision'}
                             </button>
                           </>
                         )}

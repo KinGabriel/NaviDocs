@@ -321,84 +321,11 @@ export default function EditableFields() {
   // PANELS / FIELDS SETUP
   // ---------------------------
 
-  // backup config if document/template doesn't define fields
-  const panelsConfig = [
-    {
-      number: 1,
-      title: "Hello World",
-      color: "bg-blue-500",
-      fields: [
-        {
-          type: "input",
-          name: "courseName",
-          label: "Course Name",
-          placeholder: "Enter course name",
-        },
-        {
-          type: "input",
-          name: "courseNumber",
-          label: "Course Number",
-          placeholder: "Enter course number",
-        },
-        {
-          type: "input",
-          name: "semesterOffered",
-          label: "Semester and Year Offered",
-          placeholder: "e.g., 3rd Year 1st Semester",
-        },
-      ],
-    },
-    {
-      number: 2,
-      title: "Institution",
-      color: "bg-green-500",
-      fields: [
-        {
-          type: "input",
-          name: "institution",
-          label: "Institution",
-          placeholder: "Enter institution name",
-        },
-        {
-          type: "input",
-          name: "schoolDepartment",
-          label: "School/Department",
-          placeholder: "Enter school/department",
-        },
-        {
-          type: "input",
-          name: "program",
-          label: "Program",
-          placeholder: "Enter program",
-        },
-      ],
-    },
-    {
-      number: 3,
-      title: "Course Requirements & Description",
-      color: "bg-purple-500",
-      fields: [
-        {
-          type: "textarea",
-          name: "prerequisites",
-          label: "Pre-requisites",
-          placeholder: "Enter prerequisites",
-        },
-        {
-          type: "textarea",
-          name: "corequisites",
-          label: "Co-requisites",
-          placeholder: "Enter corequisites",
-        },
-        {
-          type: "textarea",
-          name: "courseDescription",
-          label: "Course Description",
-          placeholder: "Enter course description",
-        },
-      ],
-    },
-  ];
+  // fallback panelsConfig: empty by default (avoid shipping dummy data)
+  const panelsConfig = [];
+
+  // allow manual reloads if load fails
+  const [reloadCounter, setReloadCounter] = useState(0);
 
   // panels from template (prefer rich labels/instructions; supports grouped sections)
   const panelsFromTemplate = useMemo(() => {
@@ -792,7 +719,7 @@ export default function EditableFields() {
     return () => {
       ignore = true;
     };
-  }, [id]);
+  }, [id, reloadCounter]);
 
   // after docData changes, merge formData again + maybe autofill
   useEffect(() => {
@@ -2103,9 +2030,45 @@ export default function EditableFields() {
             {/* Content / Editor */}
             <div className="flex-1 overflow-auto">
               {loadingDoc ? (
-                <div className="text-center py-12 text-gray-400 italic">Loading document preview…</div>
+                <div className="text-center py-12">
+                  <div className="flex flex-col items-center gap-3">
+                    <svg className="animate-spin h-8 w-8 text-gray-500" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                    </svg>
+                    <div className="text-gray-600 font-medium">Loading document preview…</div>
+                    <div className="text-sm text-gray-400">If this takes more than a few seconds, try retrying.</div>
+                    <div>
+                      <button
+                        onClick={() => setReloadCounter((c) => c + 1)}
+                        className="mt-3 px-4 py-2 bg-white border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                </div>
               ) : docError ? (
-                <div className="text-center py-12 text-red-600 font-medium">{docError}</div>
+                <div className="text-center py-8">
+                  <div className="max-w-xl mx-auto bg-red-50 border border-red-100 rounded-lg p-6">
+                    <div className="text-red-700 font-semibold mb-2">Failed to load document</div>
+                    <div className="text-sm text-red-600 mb-4">{docError}</div>
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        onClick={() => setReloadCounter((c) => c + 1)}
+                        className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                      >
+                        Retry
+                      </button>
+                      <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-[#003DA5] text-white rounded-md text-sm hover:bg-[#052c6d]"
+                      >
+                        Hard Refresh
+                      </button>
+                    </div>
+                  </div>
+                </div>
               ) : docData && contentForEditor ? (
                 <TextEditor
                   content={contentForEditor}
@@ -2193,8 +2156,25 @@ export default function EditableFields() {
                     onContentChange={() => {}}
                   />
                 ) : (
-                  <div className="text-center py-12 text-gray-400 italic">
-                    No document preview available.
+                  <div className="text-center py-8">
+                    <div className="max-w-lg mx-auto bg-yellow-50 border border-yellow-100 rounded-lg p-6">
+                      <div className="text-yellow-800 font-semibold mb-2">No document preview available</div>
+                      <div className="text-sm text-yellow-700 mb-4">This document doesn't contain a previewable page or the editor content could not be rendered. You can still edit fields or try reloading the document.</div>
+                      <div className="flex items-center justify-center gap-3">
+                        <button
+                          onClick={() => setReloadCounter((c) => c + 1)}
+                          className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                        >
+                          Retry
+                        </button>
+                        <button
+                          onClick={() => window.location.reload()}
+                          className="px-4 py-2 bg-[#003DA5] text-white rounded-md text-sm hover:bg-[#052c6d]"
+                        >
+                          Hard Refresh
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

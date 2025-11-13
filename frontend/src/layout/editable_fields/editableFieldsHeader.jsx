@@ -314,7 +314,7 @@ export default function EditableFieldsHeader({
                     </div>
                   </button>
 
-                  {/* SHOW "Submit" ONLY IF not Dean/Secretary/Dept Head */}
+                  {/* SHOW "Submit" ONLY IF not Dean/Secretary/Dept Head
                   {canSeeSubmit && (
                     <button className="w-full text-left px-4 py-3 hover:bg-green-50 flex items-center gap-3" onClick={() => setIsQuickOpen(false)}>
                       <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
@@ -325,7 +325,7 @@ export default function EditableFieldsHeader({
                         <div className="text-xs text-gray-500">Send to department head</div>
                       </div>
                     </button>
-                  )}
+                  )} */}
 
                   <div className="px-2 py-2">
                     <button

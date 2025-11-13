@@ -864,21 +864,29 @@ export const submitDocument = async (req, res) => {
 		// Additionally, if this is a resubmission, notify ALL users who returned it from the notes
 		if (isResubmission && Array.isArray(item.notes)) {
 			console.log('[submitDocument] This is a resubmission, checking for additional returners in notes...');
-			// Find all 'returned' notes after the last 'resubmitted' note
+			// IMPORTANT: We just appended a 'resubmitted' note above. We want the returners SINCE THE PREVIOUS resubmission,
+			// so we must exclude the current 'resubmitted' note when computing the window.
+			const notesArr = Array.isArray(item.notes) ? item.notes : [];
 			let lastResubmitIdx = -1;
-			for (let i = item.notes.length - 1; i >= 0; i--) {
-				if (String(item.notes[i].type || '').toLowerCase() === 'resubmitted') {
+			for (let i = notesArr.length - 1; i >= 0; i--) {
+				if (String(notesArr[i].type || '').toLowerCase() === 'resubmitted') {
 					lastResubmitIdx = i;
 					break;
 				}
 			}
-			
-			console.log('[submitDocument] Last resubmit index:', lastResubmitIdx);
-			
-			// Check all notes after the last resubmission (or all notes if no resubmission)
-			const startIdx = lastResubmitIdx >= 0 ? lastResubmitIdx + 1 : 0;
-			for (let i = startIdx; i < item.notes.length; i++) {
-				const note = item.notes[i];
+			// Find the previous 'resubmitted' before the current one (if any)
+			let prevResubmitIdx = -1;
+			if (lastResubmitIdx > 0) {
+				for (let i = lastResubmitIdx - 1; i >= 0; i--) {
+					if (String(notesArr[i].type || '').toLowerCase() === 'resubmitted') { prevResubmitIdx = i; break; }
+				}
+			}
+			console.log('[submitDocument] Resubmission window indices:', { lastResubmitIdx, prevResubmitIdx });
+			// Build the window: after PREVIOUS resubmission up to (but excluding) the CURRENT resubmission
+			const windowStart = prevResubmitIdx >= 0 ? prevResubmitIdx + 1 : 0;
+			const windowEnd = lastResubmitIdx >= 0 ? lastResubmitIdx : notesArr.length;
+			for (let i = windowStart; i < windowEnd; i++) {
+				const note = notesArr[i];
 				if (String(note.type || '').toLowerCase() === 'returned') {
 					// Extract the user ID who returned it
 					let returnedBy = null;
@@ -887,9 +895,7 @@ export const submitDocument = async (req, res) => {
 					} else if (note.by) {
 						returnedBy = typeof note.by === 'string' ? note.by : (note.by._id || note.by.id);
 					}
-					
 					console.log('[submitDocument] Found returned note by:', returnedBy);
-					
 					if (returnedBy) {
 						const returnedByStr = String(returnedBy);
 						// Don't notify if they are the one resubmitting (shouldn't happen but just in case)
