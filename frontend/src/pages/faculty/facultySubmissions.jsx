@@ -20,7 +20,7 @@ import {
   User,
   RotateCcw
 } from 'lucide-react';
-import { getSubmissionItemStatus } from "../../utils/submissionStatus";
+import { getSubmissionBinStatus } from "../../utils/submissionStatus";
 import toast from "react-hot-toast";
 
 
@@ -63,7 +63,7 @@ export default function FacultySubmissions() {
           
           return userSubmissions.map(sub => {
           // Determine status - validate that submission actually has documents 
-            let status = getSubmissionItemStatus(sub, bin.deadline);
+            let status = getSubmissionBinStatus(sub, bin.deadline);
 
           // Handle submittedFiles - supports both documents array and single document
           let submittedFiles = [];

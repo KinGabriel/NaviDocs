@@ -24,7 +24,7 @@ import { getSubmissionBinAPI, submitSubmissionDocumentAPI, getDocumentContentAPI
 import { getTemplateByIdAPI } from "../../api/documentContollerAPI";
 import TextEditor from "../../layout/create_template/textEditor";
 import Loader from "../../components/loader";
-import { getSubmissionItemStatus } from "../../utils/submissionStatus";
+import { getSubmissionBinStatus } from "../../utils/submissionStatus";
 import { getUsersInfoByIdsAPI } from "../../api/userAPI"; 
 
 export default function FacultySubmissionView() {
@@ -158,7 +158,7 @@ export default function FacultySubmissionView() {
 
     const submission = useMemo(() => {
         if (!bin || !assignedItem) return null;
-        const status = getSubmissionItemStatus(assignedItem, bin.deadline);
+        const status = getSubmissionBinStatus(assignedItem, bin.deadline);
         const assignedAt = bin?.createdAt || bin?.created_at;
         const deadline = bin?.deadline || null;
         
