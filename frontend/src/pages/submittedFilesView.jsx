@@ -1785,7 +1785,7 @@ const handleZoomReset = () => setZoom(1);
                                     </div>
                                   </div>
                                 );
-                              })
+                              }) 
                             ) : (
                               <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm text-gray-600">
                                 No views recorded for this document.
