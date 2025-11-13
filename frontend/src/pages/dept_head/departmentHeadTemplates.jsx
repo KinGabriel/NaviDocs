@@ -10,6 +10,7 @@ import usePagination from '../../hooks/usePagination';
 import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
 import AssignTemplateModal from '../../components/modals/assignTemplateModal';
 import Loader from '../../components/loader';
+import toast from 'react-hot-toast';
 
 import { fetchFacultyAPI, assignTemplateAPI } from '../../api/departmentHeadAPI';
 
@@ -160,7 +161,7 @@ export default function DepartmentHeadTemplates() {
   // Confirm assignment
   const handleConfirmAssign = async () => {
     if (!selectedTemplate || selectedFacultyIds.length === 0) {
-      alert('Please select at least one faculty to assign.');
+      toast.error('Please select at least one faculty to assign.');
       return;
     }
     setAssignLoading(true);
@@ -175,13 +176,13 @@ export default function DepartmentHeadTemplates() {
         setShowAssignModal(false);
         setSelectedTemplate(null);
         setSelectedFacultyIds([]);
-        alert('Template assigned successfully.');
+        toast.success('Template assigned successfully.');
       } else {
         throw new Error(res?.message || 'Assignment failed');
       }
     } catch (e) {
       console.error('Assignment error:', e);
-      alert(e?.message || 'Failed to assign template');
+      toast.error(e?.message || 'Failed to assign template');
     } finally {
       setAssignLoading(false);
     }

@@ -10,6 +10,8 @@ import DownloadingModal from "../components/modals/downloadingModal";
 import StoragePickerModal from "../components/modals/storagePickerModal";
 import { StatusBadge } from "../utils/formatters";
 import Loader from "../components/loader";
+import toast from "react-hot-toast";
+
 import { 
   CheckCircle, 
   XCircle, 
@@ -680,11 +682,11 @@ const handleZoomReset = () => setZoom(1);
       setActionNote("");
       setSelectedAction(null);
       
-      alert(`Successfully ${selectedAction === 'submit' ? 'submitted' : 'returned'} the document!`);
+      toast.success(`Successfully ${selectedAction === 'submit' ? 'submitted' : 'returned'} the document!`);
       
     } catch (err) {
       console.error("Action error:", err);
-      alert(err?.responseData?.message || err?.message || `Failed to ${selectedAction} document`);
+      toast.error(err?.responseData?.message || err?.message || `Failed to ${selectedAction} document`);
     } finally {
       setIsSubmittingAction(false);
     }

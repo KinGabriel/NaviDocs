@@ -28,6 +28,7 @@ import { getFacultyByDepartmentAPI } from "../api/userAPI";
 import { getTemplateByIdAPI, fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import TextEditor from "../layout/create_template/textEditor";
 import Loader from "../components/loader";
+import toast from "react-hot-toast";
 import { getSubmissionBinStatus } from "../utils/submissionStatus";
 
 export default function SubmissionDetails() {
@@ -68,7 +69,7 @@ export default function SubmissionDetails() {
     : (submissionItem.document?._id || submissionItem.document?.id || submissionItem.document);
   
   if (!documentId) {
-    alert("No document found in this submission");
+    toast.warning("No document found in this submission");
     return;
   }
   navigate(`/submissions/${id}/${documentId}`);
@@ -418,7 +419,7 @@ export default function SubmissionDetails() {
                               const updated = await forwardSubmissionBinAPI(bin._id || bin.id);
                               setBin(updated);
                             } catch (err) {
-                              alert(err?.responseData?.message || err?.message || 'Failed to forward');
+                              toast.error(err?.responseData?.message || err?.message || 'Failed to forward');
                             } finally {
                               setForwarding(false);
                             }
@@ -599,7 +600,7 @@ export default function SubmissionDetails() {
                                     setBin(updated);
                                     setTemplatesInfo(prev => prev.filter(x => String(x._id||x.id) !== String(id)));
                                   } catch (e) {
-                                    alert(e?.responseData?.message || e?.message || 'Failed to remove template');
+                                    toast.error(e?.responseData?.message || e?.message || 'Failed to remove template');
                                   }
                                 }}
                                 title="Remove template"
@@ -731,7 +732,7 @@ export default function SubmissionDetails() {
             setBin(updated);
             setShowEdit(false);
           } catch (err) {
-            alert(err?.responseData?.message || err?.message || 'Failed to update bin');
+            toast.error(err?.responseData?.message || err?.message || 'Failed to update bin');
           } finally {
             setSaving(false);
           }
@@ -989,7 +990,7 @@ export default function SubmissionDetails() {
                   setShowAddTemplate(false);
                   setSelectedTemplateIds([]);
                 } catch (e) {
-                  alert(e?.responseData?.message || e?.message || 'Failed to add templates');
+                  toast.error(e?.responseData?.message || e?.message || 'Failed to add templates');
                 } finally {
                   setAddingTpl(false);
                 }
@@ -1022,7 +1023,7 @@ export default function SubmissionDetails() {
               try {
                 setAssigning(true);
                 if (!Array.isArray(bin.template_ids) || bin.template_ids.length === 0) {
-                  alert('No templates are configured for this bin. Ask the owner to add templates first.');
+                  toast.warning('No templates are configured for this bin. Ask the owner to add templates first.');
                   return;
                 }
                 let updated = bin;
@@ -1037,7 +1038,7 @@ export default function SubmissionDetails() {
                 setBin(updated);
                 setShowAssign(false);
               } catch (err) {
-                alert(err?.responseData?.message || err?.message || 'Failed to assign');
+                toast.error(err?.responseData?.message || err?.message || 'Failed to assign');
               } finally {
                 setAssigning(false);
               }

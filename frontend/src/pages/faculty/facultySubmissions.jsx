@@ -21,6 +21,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { getSubmissionItemStatus } from "../../utils/submissionStatus";
+import toast from "react-hot-toast";
 
 
 const STATUS_FILTERS = ["All Status", "Pending", "Submitted", "Returned", "Overdue"];
@@ -339,11 +340,11 @@ export default function FacultySubmissions() {
       }));
       
       setUploadedFiles([]);
-      alert('Files submitted successfully!');
+      toast.success('Files submitted successfully!');
       
     } catch (error) {
       console.error('Upload failed:', error);
-      alert('Failed to upload files. Please try again.');
+      toast.error('Failed to upload files. Please try again.');
     } finally {
       setIsUploading(false);
     }
