@@ -191,9 +191,11 @@ export default function SubmissionBins() {
     }
   };
 
-  const handleAssignComplete = (result) => {
-    console.log("Assignment created:", result);
+  const handleAssignComplete = (newBin) => {
     setShowAssignModal(false);
+    if (newBin) {
+      setBins((prevBins) => [newBin, ...prevBins]);
+    }
   };
 
   function getEllipsedPages(current, total, siblings = 1) {
