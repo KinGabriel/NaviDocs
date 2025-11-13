@@ -5,7 +5,7 @@ import { listFieldGroupLibraryAPI } from '../../api/fieldGroupLibraryAPI';
 export default function GroupBrowserModal2({ open, onClose, onInsert }) {
   const [loading, setLoading] = useState(false);
   const [groups, setGroups] = useState([]);
-  const [activeTab, setActiveTab] = useState('all'); // all | user | school | global
+  // No scope selection anymore — always show user-scoped groups
   const [q, setQ] = useState('');
   const [tagFilter, setTagFilter] = useState([]);
   const [selectedGroupKey, setSelectedGroupKey] = useState(null);
@@ -15,7 +15,8 @@ export default function GroupBrowserModal2({ open, onClose, onInsert }) {
     (async () => {
       try {
         setLoading(true);
-        const list = await listFieldGroupLibraryAPI();
+        // always request only user-scoped groups
+        const list = await listFieldGroupLibraryAPI({ scope: 'user' });
         setGroups(Array.isArray(list) ? list : []);
       } catch (e) {
         console.warn('Failed to load groups', e);
@@ -45,7 +46,8 @@ export default function GroupBrowserModal2({ open, onClose, onInsert }) {
   const filteredGroups = useMemo(() => {
     const text = q.trim().toLowerCase();
     return (groups || []).filter((g) => {
-      if (activeTab !== 'all' && g.scope !== activeTab) return false;
+      // groups are already loaded with scope:user; keep defensive check
+      if (g.scope && g.scope !== 'user') return false;
       let matchesText = true;
       if (text) {
         const hay = `${g.key || ''} ${g.label || ''}`.toLowerCase();
@@ -62,7 +64,7 @@ export default function GroupBrowserModal2({ open, onClose, onInsert }) {
       }
       return matchesText && matchesTags;
     });
-  }, [groups, activeTab, q, tagFilter]);
+  }, [groups, q, tagFilter]);
 
   const selectedGroup = useMemo(() => {
     if (!selectedGroupKey) return null;
@@ -90,17 +92,7 @@ export default function GroupBrowserModal2({ open, onClose, onInsert }) {
 
         <div className="p-3 space-y-3">
           <div className="flex items-center gap-2">
-            <div className="flex rounded-md border border-slate-300 overflow-hidden">
-              {['all','user','school','global'].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setActiveTab(t)}
-                  className={`px-3 py-1 text-sm ${activeTab===t? 'bg-indigo-600 text-white':'bg-white text-slate-700 hover:bg-slate-50'}`}
-                >
-                  {t==='all' ? 'All' : t.charAt(0).toUpperCase()+t.slice(1)}
-                </button>
-              ))}
-            </div>
+            <div className="text-xs text-slate-600 px-2 py-1 rounded bg-slate-50 border border-slate-200">User</div>
             <input
               placeholder="Search by name or field…"
               value={q}

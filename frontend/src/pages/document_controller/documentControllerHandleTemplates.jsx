@@ -43,6 +43,122 @@ function getAllRoleNames(user) {
   return names.map((n) => String(n).toLowerCase());
 }
 
+const normalizeStatus = (s) => String(s || "").toLowerCase().trim();
+
+/**
+ * Check if the Lead / Unit Document Controller has already approved/endorsed
+ * this template, based on approvals arrays/metadata if available.
+ */
+function hasLdcApproved(row) {
+  const approvals = Array.isArray(row?.approvals) ? row.approvals : [];
+  const metaApprovals = row?.status_meta?.approvals || {};
+
+  const roleMatchesLdc = (role) =>
+    typeof role === "string" &&
+    role.toLowerCase().includes("lead document controller");
+
+  let approved = false;
+
+  // Check approvals[] array
+  for (const a of approvals) {
+    if (!a) continue;
+    if (roleMatchesLdc(a.role) || roleMatchesLdc(a.role_name)) {
+      const st = normalizeStatus(a.status);
+      if (a.isApproved || a.isEndorsed || st === "endorsed" || st === "approved") {
+        approved = true;
+        break;
+      }
+    }
+  }
+
+  // Check status_meta.approvals (keys usually like "lead_document_controller")
+  if (!approved && metaApprovals && typeof metaApprovals === "object") {
+    for (const key of Object.keys(metaApprovals)) {
+      if (key.toLowerCase().includes("lead_document_controller")) {
+        const entry = metaApprovals[key] || {};
+        const st = normalizeStatus(entry.status);
+        if (entry.isApproved || entry.isEndorsed || st === "endorsed" || st === "approved") {
+          approved = true;
+          break;
+        }
+      }
+    }
+  }
+
+  return approved;
+}
+
+/**
+ * Map underlying status → label to show in StatusBadge,
+ * depending on the viewer's role.
+ *
+ * For LDC/Unit DC:
+ *  - If Dean already forwarded and raw status is "endorsed" BUT LDC has NOT approved yet
+ *    → show "Pending"
+ *  - After LDC approves (hasLdcApproved = true) and raw status is "endorsed"
+ *    → show "Endorsed"
+ */
+function mapStatusForRole(row, {
+  isLeadDocController,
+  isUnitDocController,
+  isDocControlOfficer
+}) {
+  const rawStatus = row?.status;
+  const status = normalizeStatus(rawStatus);
+
+  // Document Control Officer view
+  if (isDocControlOfficer) {
+    // DCO should see only Pending / Approved / Rejected
+    if (status === "endorsed") return "Pending";
+    if (status === "approved") return "Approved";
+    if (status === "rejected" || status === "disapproved") return "Rejected";
+
+    // Fallbacks (just in case)
+    if (status === "pending" || status === "pending approval") return "Pending";
+    return "Pending";
+  }
+
+  // Lead / Unit Document Controller view
+  if (isLeadDocController || isUnitDocController) {
+    const ldcApproved = hasLdcApproved(row);
+
+    // Always show Returned as Returned
+    if (status === "returned") return "Returned";
+
+    // BEFORE LDC endorses:
+    // regardless if backend already uses "endorsed" internally,
+    // treat it as Pending in the LDC's queue until he approves.
+    if (!ldcApproved) {
+      if (
+        status === "pending" ||
+        status === "pending approval" ||
+        status === "endorsed"
+      ) {
+        return "Pending";
+      }
+    }
+
+    // AFTER LDC endorses:
+    if (ldcApproved && status === "endorsed") return "Endorsed";
+
+    // Fallbacks
+    if (status === "approved") return "Approved";
+    if (status === "rejected" || status === "disapproved") return "Rejected";
+    return "-";
+  }
+
+  // Other roles (Dean, Secretary, Dept Head, etc.)
+  if (status === "approved") return "Approved";
+  if (status === "pending" || status === "pending approval") return "Pending";
+  if (status === "assigned") return "Draft";
+  if (status === "published") return "Published";
+  if (status === "returned") return "Returned";
+  if (status === "endorsed") return "Endorsed";
+  if (status === "rejected" || status === "disapproved") return "Rejected";
+
+  return "-";
+}
+
 export default function DeanTemplates() {
   const user = useUser();
   const navigate = useNavigate();
@@ -68,8 +184,7 @@ export default function DeanTemplates() {
     STELA: "STL",
   };
 
-  // ---------- ROLE-BASED TAB LOGIC ----------
-
+  // ---------- ROLE DETECTION ----------
   const roleNames = getAllRoleNames(user);
 
   const isLeadDocController = roleNames.some((r) =>
@@ -82,40 +197,51 @@ export default function DeanTemplates() {
     r.includes("document control officer")
   );
 
+  // hide "Archived Documents" for ldc, udc, dco
   const canViewArchived = !(
     isLeadDocController ||
     isUnitDocController ||
     isDocControlOfficer
   );
 
+  const isApproverRole = isLeadDocController || isUnitDocController || isDocControlOfficer;
+
+  // ---------- ROLE-BASED TABS & FILTERING ----------
+
   let tabs = [];
   let tabToStatus = {};
-  let allowedStatusSet = null;
+  let allowedStatusSet = null; // underlying statuses allowed for this role
 
   if (isDocControlOfficer) {
-    tabs = ["All", "Approved", "Endorsed", "Pending", "Returned", "Rejected"];
+    // DCO should see pending (endorsed), approved, rejected
+    tabs = ["All", "Pending", "Approved", "Rejected"];
     tabToStatus = {
+      Pending: "Endorsed",   // underlying is "endorsed", DCO sees as "Pending"
       Approved: "Approved",
-      "Pending Approvals": "Pending Approval",
       Rejected: "Rejected",
     };
     allowedStatusSet = new Set([
+      "endorsed",       // mapped to Pending in UI
       "approved",
-      "endorsed",
-      "pending",
-      "pending approval",
       "rejected",
       "disapproved",
     ]);
   } else if (isLeadDocController || isUnitDocController) {
-    tabs = ["All", "Endorsed", "Pending", "Returned"];
+    // LDC / Unit: pending, endorsed, returned
+    tabs = ["All", "Pending", "Endorsed", "Returned"];
     tabToStatus = {
+      Pending: "Pending Approval",  // underlying is "pending"/"pending approval"/"endorsed in queue"
       Endorsed: "Endorsed",
-      Pending: "Pending",
       Returned: "Returned",
     };
-    allowedStatusSet = new Set(["endorsed", "returned"]);
+    allowedStatusSet = new Set([
+      "pending",
+      "pending approval",
+      "endorsed",
+      "returned",
+    ]);
   } else {
+    // Other roles: keep a more general view
     tabs = ["All", "Endorsed", "Returned", "Rejected", "Approved"];
     tabToStatus = {
       Endorsed: "Endorsed",
@@ -126,13 +252,16 @@ export default function DeanTemplates() {
     allowedStatusSet = null;
   }
 
-  const normalizeStatus = (s) => String(s || "").toLowerCase().trim();
-
   const fetchTemplates = async () => {
     setLoading(true);
     setError(null);
     try {
-      const apiStatus = tabToStatus[selectedStatus] || selectedStatus;
+      // For approver roles (LDC, Unit DC, DCO), don't filter by status in API.
+      // We'll do all status filtering on the frontend using mapStatusForRole.
+      const apiStatus =
+        isApproverRole || selectedStatus === "All"
+          ? undefined
+          : (tabToStatus[selectedStatus] || selectedStatus);
 
       const res = await fetchDeanTemplatesAPI({
         user,
@@ -155,12 +284,26 @@ export default function DeanTemplates() {
         setTotalPages(1);
       }
 
-      // Hide drafts
+      // Hide drafts everywhere
       arr = arr.filter((t) => normalizeStatus(t.status) !== "draft");
 
-      // Restrict list by role-allowed statuses
+      // Restrict list by role-allowed underlying statuses (raw statuses)
       if (allowedStatusSet) {
-        arr = arr.filter((t) => allowedStatusSet.has(normalizeStatus(t.status)));
+        arr = arr.filter((t) =>
+          allowedStatusSet.has(normalizeStatus(t.status))
+        );
+      }
+
+      // Now filter by the *displayed* status using mapStatusForRole
+      if (selectedStatus !== "All") {
+        arr = arr.filter((t) => {
+          const mapped = mapStatusForRole(t, {
+            isLeadDocController,
+            isUnitDocController,
+            isDocControlOfficer,
+          });
+          return mapped === selectedStatus;
+        });
       }
 
       // Sorting
@@ -173,16 +316,6 @@ export default function DeanTemplates() {
           (a, b) =>
             new Date(b.createdAt || b.created_at) -
             new Date(a.createdAt || a.created_at)
-        );
-      }
-
-      if (selectedStatus === "Endorsed") {
-        arr = arr.filter((t) => normalizeStatus(t.status) === "endorsed");
-      } else if (selectedStatus === "Rejected") {
-        arr = arr.filter(
-          (t) =>
-            normalizeStatus(t.status) === "rejected" ||
-            normalizeStatus(t.status) === "disapproved"
         );
       }
 
@@ -217,18 +350,11 @@ export default function DeanTemplates() {
       key: "status",
       label: "Status",
       render: (row) => {
-        const status = normalizeStatus(row.status);
-        let type = "-";
-
-        if (status === "approved") type = "Approved";
-        else if (status === "pending" || status === "pending approval")
-          type = "Pending";
-        else if (status === "assigned") type = "Draft";
-        else if (status === "published") type = "Published";
-        else if (status === "returned") type = "Returned";
-        else if (status === "endorsed") type = "Endorsed";
-        else if (status === "rejected" || status === "disapproved")
-          type = "Rejected";
+        const type = mapStatusForRole(row, {
+          isLeadDocController,
+          isUnitDocController,
+          isDocControlOfficer,
+        });
 
         return <StatusBadge type={type} />;
       },
@@ -243,7 +369,7 @@ export default function DeanTemplates() {
               state: { from: "dean-templates", template: row },
             })
           }
-          className="text-white hover:text-white font-medium transition-colors rounded-sm bg-blue-500 h-7 w-15 duration-200"
+          className="text-white hover:text-white font-medium transition-colors rounded-sm bg-blue-500 h-7 px-4 duration-200"
         >
           View
         </button>
@@ -251,7 +377,7 @@ export default function DeanTemplates() {
     },
   ];
 
-  // ---------- PAGINATION (WITH ELLIPSIS) ----------
+  // ---------- PAGINATION WITH ELLIPSIS ----------
 
   function getEllipsedPages(current, total, siblings = 1) {
     const pages = [];
@@ -283,7 +409,7 @@ export default function DeanTemplates() {
 
           {/* Controls */}
           <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-end">
-            {/* Archived Documents Button – hidden for approver roles */}
+            {/* Archived Documents Button – hidden for LDC, Unit DC, DCO */}
             {canViewArchived && (
               <button
                 type="button"
@@ -362,10 +488,11 @@ export default function DeanTemplates() {
                     setSelectedStatus(tab);
                     pagination.handlePage(1); // reset to page 1 when switching tabs
                   }}
-                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${selectedStatus === tab
+                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                    selectedStatus === tab
                       ? "border-[#003DA5] text-[#003DA5]"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    }`}
+                  }`}
                 >
                   {tab}
                 </button>
@@ -411,10 +538,11 @@ export default function DeanTemplates() {
                     <button
                       key={num}
                       onClick={() => pagination.handlePage(num)}
-                      className={`px-3 py-1 rounded border ${pagination.currentPage === num
+                      className={`px-3 py-1 rounded border ${
+                        pagination.currentPage === num
                           ? "bg-blue-600 text-white"
                           : "bg-white text-gray-700 hover:bg-gray-100"
-                        }`}
+                      }`}
                       aria-current={
                         pagination.currentPage === num ? "page" : undefined
                       }
