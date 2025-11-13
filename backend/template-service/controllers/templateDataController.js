@@ -280,6 +280,57 @@ export const dashboardInfoDocConroller = async (req, res) => {
 }
 
 /**
+ * @desc Get department-head specific dashboard data. Returns the latest non-draft templates owned by the requesting user and the most recent published templates
+ * @route GET /api/templates/dashboard-dept-head
+ * @access Private (Department Head)
+ * @returns {Promise<import('express').Response>} JSON payload with `ownerTemplates` and `publishedRecent`
+ */
+export const dashboardDeptHead = async (req, res) => {
+  try {
+    // Return two sets of templates for the department head dashboard:
+    const userId = req.user && req.user.id ? String(req.user.id) : null;
+    const limit = 5;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'Missing user id' });
+    }
+
+    const baseFilter = { $or: [{ isArchived: { $exists: false } }, { isArchived: false }] };
+
+    // Owner templates: exclude drafts and archived items
+    const ownerFilter = {
+      ...baseFilter,
+      created_by: userId,
+      status: { $ne: 'draft' }
+    };
+
+    const projection = {
+      title: 1,
+      status: 1,
+      updatedAt: 1,
+      createdAt: 1
+    };
+
+    const ownerTemplates = await Template.find(ownerFilter, projection).sort({ createdAt: -1, updatedAt: -1 }).limit(limit).lean();
+
+    // Reuse helper to fetch recent published templates (global)
+    const publishedRecent = await getRecentPublished(limit);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Department head dashboard data retrieved',
+      data: {
+        ownerTemplates,
+        publishedRecent
+      }
+    });
+  } catch (error) {
+    console.error('Error in dashboardDeptHead:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch department head dashboard data', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+  }
+};
+
+/**
  * @desc Get template statistics
  * @route GET /api/templates/stats
  * @access Private
