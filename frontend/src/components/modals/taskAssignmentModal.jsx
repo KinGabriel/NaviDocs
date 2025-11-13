@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import {Users, CheckCircle, User, FileText, File, Clock, AlertCircle, X, Calendar, Search, FileCode, History, Eye, ChevronRight, ZoomIn, Download, Filter} from 'lucide-react';
+import {Users, CheckCircle, User, FileText, File, Clock, AlertCircle, X, ZoomOut, Search, ZoomIn, Eye, ChevronRight, Filter, RotateCcw} from 'lucide-react';
 import { fetchPublishedTemplatesAPI } from '../../api/documentContollerAPI';
 import { getFacultyByDepartmentAPI } from '../../api/userAPI';
 import { createSubmissionBinAPI } from '../../api/assignmentDocumentsAPI';
@@ -47,7 +47,9 @@ const ProgressSteps = ({ currentStep }) => {
 const DocumentPreview = ({ template, onClose, onSelect }) => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
+  const [zoom, setZoom] = useState(1);
   const previewRef = useRef(null);
+  const containerRef = useRef(null);
 
   const pageNodes = useMemo(() => {
     const baseDoc = template?.pages_json?.[0] || { type: "doc", content: [] };
@@ -55,6 +57,7 @@ const DocumentPreview = ({ template, onClose, onSelect }) => {
   }, [template]);
 
   const totalPages = pageNodes.length || 0;
+  const isLandscape = template?.pageSetup?.orientation === 'landscape';
 
   const contentForEditor = useMemo(() => {
     const baseDoc = template?.pages_json?.[0] || { type: "doc", content: [] };
@@ -87,17 +90,40 @@ const DocumentPreview = ({ template, onClose, onSelect }) => {
   useEffect(() => {
     if (template) {
       setLoading(false);
+      // Auto-fit zoom for landscape
+      if (isLandscape && containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth - 48;
+        const estimatedPageWidth = 1400;
+        const autoZoom = Math.min((containerWidth / estimatedPageWidth), 1);
+        setZoom(autoZoom);
+      }
     }
-  }, [template]);
+  }, [template, isLandscape]);
+
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
+  const handleZoomFit = () => {
+    if (containerRef.current) {
+      const containerWidth = containerRef.current.offsetWidth - 48;
+      const estimatedPageWidth = isLandscape ? 1400 : 900;
+      const autoZoom = Math.min((containerWidth / estimatedPageWidth), 1);
+      setZoom(autoZoom);
+    }
+  };
+  const handleZoomReset = () => setZoom(1);
 
   return (
-    <div className="fixed inset-0 backdrop-blur-[2px] bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="p-6 border-b border-gray-200 flex items-start justify-between bg-gray-50">
-          <div className="flex-1">
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Template Preview</h3>
-            <p className="text-sm text-gray-600 mb-2">{template.title}</p>
-            <div className="flex gap-2">
+    <div className="fixed inset-0 bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+      <div 
+        className="bg-white rounded-xl shadow-2xl w-full max-h-[98vh] sm:max-h-[95vh] overflow-hidden flex flex-col"
+        style={{ maxWidth: '98vw' }}
+      >
+        {/* Header */}
+        <div className="p-3 sm:p-4 border-b border-gray-200 flex items-start justify-between bg-gradient-to-r from-gray-50 to-white">
+          <div className="flex-1 min-w-0 pr-2">
+            <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1 truncate">Template Preview</h3>
+            <p className="text-xs sm:text-sm text-gray-600 mb-2 truncate">{template.title}</p>
+            <div className="flex gap-1 sm:gap-2 flex-wrap">
               {template.document_code && (
                 <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded font-medium">
                   {template.document_code}
@@ -108,24 +134,102 @@ const DocumentPreview = ({ template, onClose, onSelect }) => {
                   Rev. {String(template.revision_number || template.revision_no).padStart(2, '0')}
                 </span>
               )}
+              {isLandscape && (
+                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
+                  Landscape
+                </span>
+              )}
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-            <X size={24} />
+          <button 
+            onClick={onClose} 
+            className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded-lg flex-shrink-0"
+          >
+            <X size={20} className="sm:w-6 sm:h-6" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 bg-gray-100">
+        {/* Zoom Controls */}
+        <div className="sticky top-0 z-10 px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button
+                onClick={handleZoomOut}
+                className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg transition-colors border border-gray-300"
+                title="Zoom Out"
+              >
+                <ZoomOut size={14} className="sm:w-4 sm:h-4" />
+              </button>
+              <button
+                onClick={handleZoomIn}
+                className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg transition-colors border border-gray-300"
+                title="Zoom In"
+              >
+                <ZoomIn size={14} className="sm:w-4 sm:h-4" />
+              </button>
+              <span className="text-xs sm:text-sm font-medium text-gray-700 min-w-[50px] sm:min-w-[60px] text-center bg-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-gray-300">
+                {Math.round(zoom * 100)}%
+              </span>
+              <button
+                onClick={handleZoomFit}
+                className="hidden sm:block px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-white rounded-lg transition-colors border border-gray-300"
+              >
+                Fit
+              </button>
+              <button
+                onClick={handleZoomReset}
+                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 rounded-lg border border-gray-300 transition-colors"
+                title="Reset"
+              >
+                <RotateCcw size={14} className="sm:w-4 sm:h-4 text-gray-600" />
+                <span className="hidden sm:inline">Reset</span>
+              </button>
+            </div>
+            <div className="hidden md:block text-xs sm:text-sm text-gray-600">
+              Scroll to navigate • Use zoom controls
+            </div>
+          </div>
+        </div>
+
+        {/* Preview Content */}
+        <div 
+          ref={containerRef}
+          className="flex-1 overflow-auto bg-gradient-to-br from-gray-50 to-gray-100"
+          style={{
+            padding: '2rem',
+          }}
+        >
           {loading ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center min-h-full w-full">
               <div className="text-center">
-                <Loader message='Loading preview...' />
+                <Loader message="Loading preview..." />
               </div>
             </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-lg p-8 max-w-4xl mx-auto">
-              <div ref={previewRef} className="overflow-hidden bg-white">
+            <div
+              style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'center',
+                paddingBottom: '2rem',
+              }}
+            >
+              <div
+                style={{
+                  width: isLandscape ? '1200px' : '900px',
+                  maxWidth: 'none',
+                }}
+              >
+                <div
+                  ref={previewRef}
+                  className="transition-transform duration-200"
+                  style={{
+                    transform: `scale(${zoom})`,
+                    transformOrigin: 'top center',
+                  }}
+                >
                 {template?.pages_json && template.pages_json.length > 0 ? (
+                   <div style={{ width: 'fit-content', margin: '0 auto' }}>
                   <TextEditor
                     content={contentForEditor}
                     pageSetup={template?.pageSetup}
@@ -138,34 +242,38 @@ const DocumentPreview = ({ template, onClose, onSelect }) => {
                     revisionNo={template?.revision_no ?? template?.revisionNo}
                     effectivity={template?.effectivity || template?.effectivity_date}
                   />
+                    </div>
                 ) : (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
-                    <FileText size={48} className="mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-600 mb-2">Template preview not available</p>
-                    <p className="text-sm text-gray-500">No content to display</p>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 sm:p-12 text-center">
+                    <FileText size={36} className="sm:w-12 sm:h-12 mx-auto text-gray-300 mb-4" />
+                    <p className="text-sm sm:text-base text-gray-600 mb-2">Template preview not available</p>
+                    <p className="text-xs sm:text-sm text-gray-500">No content to display</p>
                   </div>
                 )}
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="p-6 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+        {/* Footer */}
+        <div className="p-3 sm:p-4 border-t border-gray-200 bg-gradient-to-r from-white to-gray-50 flex items-center justify-between gap-2 sm:gap-3">
           <button
             onClick={onClose}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+            className="px-3 sm:px-6 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg text-sm sm:text-base text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all"
           >
-            Close Preview
+            Close
           </button>
           <button
             onClick={() => {
               onSelect(template);
               onClose();
             }}
-            className="px-8 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="px-4 sm:px-8 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
           >
-            <CheckCircle size={18} />
-            Select This Template
+            <CheckCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span className="hidden sm:inline">Select This Template</span>
+            <span className="sm:hidden">Select</span>
           </button>
         </div>
       </div>

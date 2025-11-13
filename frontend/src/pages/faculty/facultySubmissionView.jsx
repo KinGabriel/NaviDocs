@@ -19,10 +19,11 @@ import {
   AlertCircle,
   Eye,
 } from "lucide-react";
-import { getSubmissionBinAPI, submitSubmissionDocumentAPI } from "../../api/assignmentDocumentsAPI";
+import { getSubmissionBinAPI, submitSubmissionDocumentAPI, getDocumentContentAPI, addSubmissionCommentAPI } from "../../api/assignmentDocumentsAPI";
 import { getTemplateByIdAPI } from "../../api/documentContollerAPI";
 import TextEditor from "../../layout/create_template/textEditor";
 import Loader from "../../components/loader";
+import { getSubmissionItemStatus } from "../../utils/submissionStatus";
 
 export default function FacultySubmissionView() {
   const user = useUser();
@@ -104,18 +105,27 @@ export default function FacultySubmissionView() {
 
     const submission = useMemo(() => {
         if (!bin || !assignedItem) return null;
-
+        const status = getSubmissionItemStatus(assignedItem, bin.deadline);
         const assignedAt = bin?.createdAt || bin?.created_at;
         const deadline = bin?.deadline || null;
         
         // Determine actual status based on documents
         const hasDocuments = (Array.isArray(assignedItem?.documents) && assignedItem.documents.length > 0) || 
                             (assignedItem?.document && assignedItem.document !== null);
-        const status = hasDocuments && assignedItem?.submitted_at ? 'submitted' : 'pending';
+        
+        // Check if submission was returned
+        const isReturned = assignedItem?.status === 'returned' || 
+                          (Array.isArray(assignedItem?.notes) && 
+                            assignedItem.notes.some(n => String(n.type).toLowerCase() === 'returned'));
+        
+        // const status = isReturned 
+        //   ? 'returned' 
+        //   : (hasDocuments && assignedItem?.submitted_at ? 'submitted' : 'pending');
+        
         const submittedAt = assignedItem?.submitted_at || null;
 
-    // Ensure submissionMessage is always a string
-    const rawMessage = assignedItem?.message || assignedItem?.comment || assignedItem?.notes || '';
+  // Ensure submissionMessage is always a string
+  const rawMessage = assignedItem?.message || assignedItem?.comment || (Array.isArray(assignedItem?.notes) ? assignedItem.notes.map(n => n.message).join('\n\n') : '') || '';
     const submissionMessage = typeof rawMessage === 'string' ? rawMessage : String(rawMessage || '');
     
     // Handle multiple documents 
@@ -184,6 +194,7 @@ export default function FacultySubmissionView() {
       submissionMessage, 
     };
   }, [assignedItem, bin]);
+  
 
   useEffect(() => {
     if (!submission?.submittedFiles) return;
@@ -195,17 +206,24 @@ export default function FacultySubmissionView() {
     
     // Fetch the actual document data
     const fetchDocuments = async () => {
-      const { getDocumentByIdAPI } = await import('../../api/documentsAPI');
-      
       for (const doc of unpopulatedDocs) {
         try {
-          const res = await getDocumentByIdAPI(doc.id);
+          // Prefer submission-aware content API
+          let res = null;
+          try {
+            //  page is already scoped to a bin (route param `id`), pass it as binId
+            res = await getDocumentContentAPI(doc.id, id);
+          } catch (e) {
+            // fallback to documentsAPI if needed
+            const mod = await import('../../api/documentsAPI');
+            res = await mod.getDocumentByIdAPI(doc.id);
+          }
           const docData = res?.document || res?.data?.document || res?.data || res;
-          
+
           // Update the submission state with fetched data
           setAssignedItem(prev => {
             if (!prev) return prev;
-            
+
             const updatedDocs = (prev.documents || []).map(d => {
               const dId = typeof d === 'string' ? d : (d._id || d.id);
               if (String(dId) === String(doc.id)) {
@@ -213,7 +231,7 @@ export default function FacultySubmissionView() {
               }
               return d;
             });
-            
+
             return { ...prev, documents: updatedDocs };
           });
         } catch (err) {
@@ -258,7 +276,6 @@ export default function FacultySubmissionView() {
       }
       
       // Submit each document individually
-      // Backend expects { documentId: string, message?: string }
       for (let i = 0; i < documentIds.length; i++) {
         const documentId = documentIds[i];
         
@@ -266,12 +283,15 @@ export default function FacultySubmissionView() {
           documentId: documentId
         };
         
-        // Add message to all submissions
-        if (message.trim()) {
-          payload.message = message.trim();
-        }
-        
         await submitSubmissionDocumentAPI(bin?._id || id, assignedItem?._id, payload);
+      }
+      
+      // Add comment/message separately if provided
+      if (message.trim()) {
+        await addSubmissionCommentAPI(bin?._id || id, assignedItem?._id, {
+          message: message.trim(),
+          type: 'comment'
+        });
       }
       
       // Show success message with count
@@ -292,7 +312,7 @@ export default function FacultySubmissionView() {
       toast.error("Invalid document ID");
       return;
     }
-    navigate(`/submissions/${documentId}`);
+    navigate(`/submissions/${id}/${documentId}`);
   };
 
     if (loading) {
@@ -542,18 +562,25 @@ export default function FacultySubmissionView() {
                   </div>
                 )}
 
-                {/* Display Return Reason (if returned) */}
-                {assignedItem?.return_reason && String(assignedItem.return_reason).trim() && (
-                  <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                    <div className="flex items-start gap-2 mb-2">
-                      <AlertCircle size={18} className="text-orange-600 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm font-semibold text-gray-900">Return Reason:</p>
-                    </div>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap pl-6">
-                      {String(assignedItem.return_reason)}
-                    </p>
-                  </div>
-                )}
+                {/* Display Return Reason (if returned) - read from comments/notes history */}
+                {(() => {
+                  const returnedFromNotes = (Array.isArray(assignedItem?.notes) ? assignedItem.notes : []).filter(n => String(n.type).toLowerCase() === 'returned');
+                  const lastReturned = returnedFromNotes.slice(-1)[0];
+                  if (lastReturned && lastReturned.message && String(lastReturned.message).trim()) {
+                    return (
+                      <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                        <div className="flex items-start gap-2 mb-2">
+                          <AlertCircle size={18} className="text-orange-600 mt-0.5 flex-shrink-0" />
+                          <p className="text-sm font-semibold text-gray-900">Return Reason:</p>
+                        </div>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap pl-6">
+                          {String(lastReturned.message)}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* Submitted Documents */}
                 <div className="space-y-3">
@@ -641,12 +668,29 @@ export default function FacultySubmissionView() {
                   )}
                 </div>
               </div>
-            ) : (
+            ) : (submission?.status?.toLowerCase() === 'pending' || submission?.status?.toLowerCase() === 'returned') ? (
               /* Upload Form */
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  {/* Add a notice when resubmitting */}
+                  {submission?.status?.toLowerCase() === 'returned' && (
+                    <div className="mb-6 p-4 bg-orange-50 border-l-4 border-orange-400 rounded">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle size={20} className="text-orange-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-bold text-orange-900 mb-1">
+                            Resubmission Required
+                          </h4>
+                          <p className="text-sm text-orange-800">
+                            Your previous submission was returned for revision. Please review the feedback <span className="text-orange font-xs italic">(if provided)</span> and submit again.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <Plus size={20} className="text-blue-600" />
-                  Submit Your Work
+                  {submission?.status?.toLowerCase() === 'returned' ? 'Resubmit Your Work' : 'Submit Your Work'}
                 </h3>
 
                 {/* File Upload Section */}
@@ -742,16 +786,22 @@ export default function FacultySubmissionView() {
                     {isSubmitting ? (
                       <>
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        Submitting {selectedFiles.length} document{selectedFiles.length !== 1 ? 's' : ''}...
+                        {submission?.status?.toLowerCase() === 'returned' ? 'Resubmitting' : 'Submitting'} {selectedFiles.length} document{selectedFiles.length !== 1 ? 's' : ''}...
                       </>
                     ) : (
                       <>
                         <Upload size={20} />
-                        Submit {selectedFiles.length > 0 ? `(${selectedFiles.length}) ` : ''}Document{selectedFiles.length !== 1 ? 's' : ''}
+                        {submission?.status?.toLowerCase() === 'returned' ? 'Resubmit' : 'Submit'} {selectedFiles.length > 0 ? `(${selectedFiles.length}) ` : ''}Document{selectedFiles.length !== 1 ? 's' : ''}
                       </>
                     )}
                   </button>
                 </div>
+              </div>
+            ): (
+               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
+                <AlertCircle size={48} className="mx-auto text-gray-400 mb-3" />
+                <p className="text-gray-600">Unable to load submission form</p>
+                <p className="text-sm text-gray-500 mt-1">Status: {submission?.status}</p>
               </div>
             )}
           </div>

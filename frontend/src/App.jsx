@@ -117,7 +117,6 @@ function App() {
   if (checkingSession) {
     return (
       <>
-        <Toaster />
         <Loader />
       </>
     );
@@ -367,7 +366,7 @@ function App() {
         />
 
         <Route
-          path="/submissions/:id"
+          path="/submissions/:binId/:id"
           element={
             <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
               <SubmittedFilesView />

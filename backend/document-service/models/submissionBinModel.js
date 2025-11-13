@@ -18,7 +18,6 @@ const SubmissionItemSchema = new Schema({
   submitted_at: { type: Date, default: null },
   returned_at: { type: Date, default: null },
   returned_by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
-  returned_reason: { type: String, default: '' },
   approved_at: { type: Date, default: null },
   approved_by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   notes: { type: [SubmissionNoteSchema], default: [] },

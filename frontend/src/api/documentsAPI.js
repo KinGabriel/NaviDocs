@@ -33,6 +33,49 @@ export const createDocumentAPI = async (documentData) => {
 };
 
 /**
+ * Backwards-compatible API used by the frontend page.
+ * Calls the analytics GraphQL helper and maps the result to the shape
+ * expected by `departmentHeadDashboard.jsx` (templates, publishedTemplates, bins).
+ */
+export const getDeptHeadDashboardAPI = async () => {
+	const gql = await getDeptHeadDashboardGraphQL();
+	if (!gql) return { templates: [], publishedTemplates: [], bins: [] };
+
+	const templates = (gql.ownerTemplates || []).map(t => ({
+		id: t.id || t._id || null,
+		title: t.title || '',
+		createdBy: t.createdByName || '',
+		status: t.status || ''
+	}));
+
+	const publishedTemplates = (gql.publishedRecent || []).map(t => ({
+		id: t.id || t._id || null,
+		code: t.code || '',
+		rev: t.rev || '',
+		date: t.created_at || t.createdAt || null,
+		title: t.title || '',
+		createdBy: t.createdByName || ''
+	}));
+
+	const bins = (gql.bins || []).map(b => ({
+		id: b.id || b._id || null,
+		name: b.title || b.id || '',
+		totalDocs: b.documentsCount || 0,
+		onTime: b.onTimeCount || b.on_time_count || 0,
+		late: b.lateCount || b.late_count || 0,
+		// map backend pendingCount -> frontend column 'pendingNotPassed'
+		pendingNotPassed: b.pendingCount || b.pending_count || 0,
+		completion: b.completion || b.completionPercent || '—'
+	}));
+
+  const upcoming = mapDeadlineBins(gql.upcoming || [], 'Upcoming');
+  const dueToday = mapDeadlineBins(gql.dueToday || [], 'Due Today');
+  const overdue = mapDeadlineBins(gql.overdue || [], 'Overdue');
+
+  return { templates, publishedTemplates, bins, upcoming, dueToday, overdue };
+};
+
+/**
  * List documents with optional filters and pagination.
  * @param {Object} params - Query params (page, limit, creator, assignedTo, mine, search, status)
  * @returns {Promise<Object>} - API response data (should include pagination)
@@ -43,12 +86,135 @@ export const listDocumentsAPI = async (params = {}) => {
 			params,
 			withCredentials: true,
 		});
-        console.log("listDocumentsAPI response:", res.data);
+		console.log("listDocumentsAPI response:", res.data);
 		return res.data;
 	} catch (error) {
 		throw new Error(error.response?.data?.message || "Failed to list documents");
 	}
 };
+
+export const getDeptHeadDashboardGraphQL = async () => {
+	const query = `
+		query DeptHeadDashboard {
+			deptHeadDashboard {
+				ownerCount
+				deptCount
+				totalReturned
+				bins {
+					id
+					title
+					department
+					school
+					created_by
+					is_forwarded
+					forwarded_at
+					submissionsCount
+					documentsCount
+					submittedCount
+					onTimeCount
+					lateCount
+					pendingCount
+					completion
+					createdAt
+				}
+				upcoming {
+					id
+					title
+					department
+					deadline
+					is_forwarded
+					is_completed
+					submissionsCount
+					onTimeCount
+					lateCount
+					pendingCount
+					completion
+				}
+				dueToday {
+					id
+					title
+					department
+					deadline
+					is_forwarded
+					is_completed
+					submissionsCount
+					onTimeCount
+					lateCount
+					pendingCount
+					completion
+				}
+				overdue {
+					id
+					title
+					department
+					deadline
+					is_forwarded
+					is_completed
+					submissionsCount
+					onTimeCount
+					lateCount
+					pendingCount
+					completion
+				}
+				ownerTemplates {
+					id
+					title
+					status
+					createdByName
+					created_at
+					updated_at
+					code
+					rev
+				}
+				publishedRecent {
+					id
+					title
+					status
+					createdByName
+					created_at
+					updated_at
+					code
+					rev
+				}
+			}
+		}
+	`;
+	try {
+		const res = await axios.post(`${API_URL}/graphql`, { query }, {
+			withCredentials: true,
+			headers: { 'Content-Type': 'application/json' },
+		});
+
+		// GraphQL shape: { data: { deptHeadDashboard: { ... } } }
+		if (res.data?.errors) {
+			const msg = res.data.errors.map(e => e.message).join('; ');
+			const err = new Error(msg || 'GraphQL error');
+			err.graphql = res.data.errors;
+			throw err;
+		}
+		return res.data?.data?.deptHeadDashboard ?? null;
+	} catch (error) {
+		// preserve status/response when available for UI handling
+		// Log raw GraphQL response body (useful in browser devtools)
+		console.error('GraphQL request failed:', error.response?.data || error.message || error);
+		const graphqlErrors = error.response?.data?.errors;
+		const message = (graphqlErrors && Array.isArray(graphqlErrors)) ? graphqlErrors.map(e => e.message).join('; ') : (error.response?.data?.message || error.message || 'Failed to fetch dept head dashboard (graphql)');
+		const err = new Error(message);
+		err.status = error.response?.status;
+		err.responseData = error.response?.data;
+		throw err;
+	}
+};
+
+// Map upcoming/dueToday/overdue arrays to a simple frontend-friendly shape
+const mapDeadlineBins = (arr, priorityLabel) => (Array.isArray(arr) ? arr.map(b => ({
+	id: b.id || b._id || null,
+	title: b.title || '',
+	date: b.deadline || b.createdAt || null,
+	priority: priorityLabel,
+	department: b.department || ''
+})) : []);
+
 
 /**
  * Fetch a single document by id.

@@ -1,13 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
 import Greeting from "../../components/greeting";
-import UpcomingDeadlines from "../../components/upcomingDeadlines";
-import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
+import { CalendarClock, Clock, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "../../utils/formatters";
+import { fetchDashboardInfoAPI } from "../../api/documentContollerAPI";
 
 
 export default function DocumentControllerDashboard() {
@@ -27,56 +27,26 @@ export default function DocumentControllerDashboard() {
   }
 
 
-  // Sample data
-  const templates = [
-    {
-      id: 1,
-      title: "Research Proposal Template",
-      createdBy: "Admin User",
-      status: "Approved",
-    },
-    {
-      id: 2,
-      title: "Thesis Format Guide",
-      createdBy: "Admin User",
-      status: "Rejected",
-    },
-    {
-      id: 3,
-      title: "Internship Report Template",
-      createdBy: "Admin User",
-      status: "Returned",
-    },
-    {
-      id: 4,
-      title: "Course Syllabus Template",
-      createdBy: "Admin User",
-      status: "Approved",
-    },
-    {
-      id: 5,
-      title: "Capstone Project Template",
-      createdBy: "Admin User",
-      status: "Pending",
-    },
-    {
-      id: 6,
-      title: "Department Memo Format",
-      createdBy: "Admin User",
-      status: "Endorsed",
-    },
-  ];
+  // Recently submitted templates (will be fetched from dashboard)
+  const [templates, setTemplates] = useState([]);
 
 
 
 
-  const publishedTemplates = [
+  const [publishedTemplates, setPublishedTemplates] = useState([
     { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
     { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
     { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-  ];
+    { id: 4, code: "DOC-004", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+    { id: 5, code: "DOC-005", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+  ]);
+
+  const [dashboard, setDashboard] = useState({
+    udcPending: 0,
+    approved: 0,
+    published: 0,
+    total: 0
+  });
 
 
   const templateColumns = [
@@ -90,9 +60,13 @@ export default function DocumentControllerDashboard() {
     {
       key: "action",
       label: "Action",
-      render: () => (
+      render: (row) => (
         <button
-          onClick={() => navigate("")}
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id;
+            navigate(`/document-controller/document-workflow/${id}`, { state: { doc: row, origin: "dashboard:recently-submitted" } });
+          }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
           Review
@@ -113,7 +87,11 @@ export default function DocumentControllerDashboard() {
       label: "Action",
       render: (row) => (
         <button
-          onClick={() => navigate("")}
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id;
+            navigate(`/templates/published/${id}`, { state: { doc: row, origin: "dashboard:recently-published" } });
+          }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
           Review
@@ -147,6 +125,84 @@ export default function DocumentControllerDashboard() {
     },
   ];
 
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const data = await fetchDashboardInfoAPI(user);
+        if (!mounted) return;
+        // Normalize various possible server shapes and pick counts based on current user's role
+        // Server may return snake_case or camelCase and either per-role scoped counts or an analytics.global block.
+        const server = (data && data.data) ? data.data : data || {};
+        const counts = server.counts || server.analytics?.global || server;
+
+        const getVal = (...keys) => {
+          for (const k of keys) {
+            if (counts == null) continue;
+            if (typeof counts[k] === 'number') return counts[k];
+            if (counts[k] != null) return counts[k];
+          }
+          return 0;
+        };
+
+        const roleStr = (user?.role?.name || user?.role || '').toString().toLowerCase();
+        let pending = 0;
+        let responded = 0;
+
+        if (roleStr.includes('unit')) {
+          pending = getVal('udc_pending', 'udcPending', 'udcCount', 'udc_pending');
+          responded = getVal('udc_responded', 'udcResponded', 'udc_approvals', 'udcApprovals', 'approved');
+        } else if (roleStr.includes('lead')) {
+          pending = getVal('ldc_pending', 'ldcPending', 'ldc_endorsed', 'ldcEndorsed', 'ldcCount');
+          responded = getVal('ldc_responded', 'ldcResponded', 'ldc_approvals', 'ldcApprovals', 'approved');
+        } else if (roleStr.includes('document') || roleStr.includes('officer') || roleStr.includes('dco')) {
+          pending = getVal('dco_ready', 'dcoReady', 'dcoCount');
+          responded = getVal('dco_responded', 'dcoResponded', 'dco_approvals', 'dcoApprovals', 'approved');
+        } else {
+          // default to global totals if role not recognized
+          pending = getVal('udc_pending', 'udcPending', 'udcCount') || getVal('ldc_pending', 'ldcPending') || getVal('dco_ready', 'dcoReady');
+          responded = getVal('approved', 'responded', 'total');
+        }
+
+        setDashboard({
+          udcPending: pending || 0,
+          approved: responded || 0,
+          published: getVal('published', 'publishedCount', 'published_at') || 0,
+          total: getVal('total', 'totalCount') || 0,
+        });
+
+        // map server-published items into table rows
+        const mapped = (data.publishedTemplates || []).map((t, idx) => ({
+          id: t.id || t._id || idx,
+          code: t.document_code || t.documentCode || "",
+          rev: t.revision_no ?? t.rev ?? "",
+          date: t.effectivity || t.createdAt || t.published_at || null,
+          title: t.title,
+          createdBy: t.createdByName || t.created_by_user?.displayName || t.created_by || "",
+          _raw: t
+        }));
+
+        // map recently submitted list into template table rows
+        const recent = (data.recentlySubmitted || []).map((t, idx) => ({
+          id: t.id || t._id || idx,
+          title: t.title,
+          createdBy: t.createdByName || t.created_by || '',
+          status: t.status || '',
+          _raw: t
+        }));
+
+        if (recent.length) setTemplates(recent);
+
+        if (mapped.length) setPublishedTemplates(mapped);
+      } catch (err) {
+        // ignore for now; keep defaults
+        console.error("Failed to load dashboard info", err);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, [user]);
+
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -159,48 +215,36 @@ export default function DocumentControllerDashboard() {
           <Greeting name={user?.firstname || "Document Controller"} />
 
 
-          {/* Stat cards */}
+          {/* Stat cards (Assigned card removed) */}
           <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
-            {/* Upcoming Deadlines */}
+            {/* Pending Approvals */}
             <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
-                <CalendarClock className="h-6 w-6 text-white" />
+              <div className="w-12 h-12 bg-[#FB8C00] rounded-full flex items-center justify-center">
+                <Clock className="h-6 w-6 text-white" />
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Pending Approvals</div>
+                <div className="text-3xl font-bold text-gray-900">{dashboard?.udcPending ?? 0}</div>
               </div>
             </div>
 
-
-            {/* Due Today */}
+            {/* Approved */}
             <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                <CalendarCheck className="h-6 w-6 text-white" />
+              <div className="w-12 h-12 bg-[#43A047] rounded-full flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-white" />
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
-              </div>
-            </div>
-
-
-            {/* Overdue Deadlines */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
-                <CalendarX className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Responded</div>
+                <div className="text-3xl font-bold text-gray-900">{dashboard?.approved ?? 0}</div>
               </div>
             </div>
           </div>
 
 
+
           {/* Tables and Upcoming Deadlines */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
-            <div className="lg:col-span-3 space-y-6">
+            <div className="lg:col-span-4 space-y-6">
               <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
                 <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
                   <div>
@@ -211,7 +255,7 @@ export default function DocumentControllerDashboard() {
                   </div>
 
                   <button
-                    onClick={() => navigate("")}
+                    onClick={() => navigate("/templates", { state: { status: "Published" } })}
                     className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
                   >
                     View All
@@ -224,14 +268,6 @@ export default function DocumentControllerDashboard() {
                   <Table columns={templateColumns} data={templates} />
                 </div>
               </div>
-            </div>
-
-
-            <div className="lg:col-span-1 space-y-6">
-              <UpcomingDeadlines
-                deadlines={upcomingDeadlines}
-                formatDate={formatDate}
-              />
             </div>
 
 

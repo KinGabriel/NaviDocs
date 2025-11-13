@@ -185,7 +185,7 @@ export const shareDocument = async (req, res) => {
  * @param {import('express').Response} res Express response
  * @returns {Promise<void>} 201 with created bin, or error status
  */
-export const createSubmissionBin = async (req, res) => {
+export const createSubmissionBin = async (req, res, callback) => {
 	try {
 		if (!hasRole(req, ['Department Head'])) {
 			return res.status(403).json({ message: 'Only Department Head can create bins' });
@@ -278,6 +278,14 @@ export const createSubmissionBin = async (req, res) => {
 			console.error('createSubmissionBin notification error', e?.message || e);
 		}
 
+		if (typeof callback === 'function') {
+			try {
+				callback(bin);
+			} catch (cbErr) {
+				console.error('createSubmissionBin callback error', cbErr);
+			}
+		}
+
 		return res.status(201).json(bin);
 	} catch (err) {
 		console.error('createSubmissionBin error', err);
@@ -302,12 +310,13 @@ export const listBins = async (req, res) => {
 		if (mine === 'true') filter.created_by = (req.user?._id || req.user?.id);
 
 		// Restrict dean/secretary views to forwarded bins in their school (role-agnostic)
-		if (hasRole(req, ['dean']) || hasRole(req, ['secretary'])) {
+		if (hasRole(req, ['Dean']) || hasRole(req, ['Secretary'])) {
 			if (req.user?.school) filter.school = req.user.school;
 			filter.is_forwarded = true;
 		}
 
 		const bins = await SubmissionBin.find(filter).sort({ createdAt: -1 });
+		console.log('listBins', { filter, count: bins.length });
 		return res.json(bins);
 	} catch (err) {
 		console.error('listBins error', err);
@@ -341,6 +350,83 @@ export const listBinsByDocument = async (req, res) => {
 };
 
 /**
+ * Get a specific Submission item by a contained document id
+ *
+ * @route GET /api/documents/submission-bins/:binId/document/:documentId
+ * @desc Uses the provided submission bin id to authorize and return the document content
+ */
+export const getDocumentContent = async (req, res) => {
+	try {
+		const { documentId, binId } = req.params;
+		if (!documentId) return res.status(400).json({ message: 'documentId required' });
+		if (!binId) return res.status(400).json({ message: 'binId required' });
+		console.log('getDocumentContent called', { documentId, binId });
+
+		// Load the bin by id (caller-supplied context). Use this bin as source of truth for forwarding state.
+		const bin = await SubmissionBin.findById(binId);
+		if (!bin) return res.status(404).json({ message: 'Submission bin not found' });
+
+		// Find the specific submission item that contains the document inside this bin
+		const obj = bin.toObject ? bin.toObject() : JSON.parse(JSON.stringify(bin));
+		const submissions = Array.isArray(obj.submissions) ? obj.submissions : [];
+		let matched = null;
+		for (const s of submissions) {
+			if (Array.isArray(s.documents) && s.documents.map(String).includes(String(documentId))) {
+				matched = s;
+				break;
+			}
+			// also allow legacy single 'document' field
+			if (s.document && String(s.document._id || s.document.id || s.document) === String(documentId)) {
+				matched = s;
+				break;
+			}
+		}
+		if (!matched) return res.status(404).json({ message: 'Submission item for document not found in the provided bin' });
+
+		// Authorization: allow bin owner, submission faculty, Department Head.
+		// For Dean/Secretary allow only when bin.is_forwarded === true (main basis per requirement).
+		try {
+			const actorId = String(req.user?._id || req.user?.id || '');
+			const isBinOwner = actorId && String(bin.created_by || '') === actorId;
+			const isSubmissionFaculty = actorId && String(matched.faculty || '') === actorId;
+			const isDeptHead = hasRole(req, ['Department Head']);
+			const isDeanOrSecretary = hasRole(req, ['Dean']) || hasRole(req, ['Secretary']) || hasRole(req, ['dean']) || hasRole(req, ['secretary']);
+
+			if (!isBinOwner && !isSubmissionFaculty && !isDeptHead && !isDeanOrSecretary) {
+				return res.status(403).json({ message: 'Not authorized to access this document' });
+			}
+console.log('getDocumentContent: authorization check passed', { actorId, isBinOwner, isSubmissionFaculty, isDeptHead, is_forwarded: bin.is_forwarded });
+			if (isDeanOrSecretary) {
+				// main basis: only require the bin to be forwarded
+				if (!bin.is_forwarded) {
+					return res.status(403).json({ message: 'Not authorized to access this document' });
+				}
+			}
+		} catch (authErr) {
+			console.error('Authorization check failed for getDocumentContent', authErr);
+			return res.status(500).json({ message: 'Authorization check failed' });
+		}
+
+		// Fetch the exact document content
+		let documentObj = null;
+		try {
+			const doc = await Document.findById(documentId).lean();
+			if (!doc) return res.status(404).json({ message: 'Document not found' });
+			documentObj = doc;
+		} catch (e) {
+			console.error('Failed to fetch document', e);
+			return res.status(500).json({ message: 'Failed to fetch document', error: e.message });
+		}
+
+		// Return the exact document content and the matched submission id
+		return res.json({ document: documentObj, submissionId: matched._id || null });
+	} catch (err) {
+		console.error('getDocumentContent error', err);
+		return res.status(500).json({ message: 'Failed to fetch document content', error: err.message });
+	}
+};
+
+/**
  * Get Submission Bin by ID
  *
  * @route GET /api/submission-bins/:id
@@ -354,7 +440,7 @@ export const getBin = async (req, res) => {
 		if (!bin) return res.status(404).json({ message: 'Bin not found' });
 
 		// Enforce access for dean/secretary: only forwarded bins in their school (role-agnostic)
-		if (hasRole(req, ['dean']) || hasRole(req, ['secretary'])) {
+		if (hasRole(req, ['Dean']) || hasRole(req, ['Secretary'])) {
 			const sameSchool = !req.user?.school || String(bin.school || '') === String(req.user.school || '');
 			if (!sameSchool || !bin.is_forwarded) {
 				return res.status(403).json({ message: 'Not authorized to access this bin' });
@@ -555,6 +641,7 @@ export const submitDocument = async (req, res) => {
 			docTemplateId = doc.template_id ? String(doc.template_id) : (doc.from_template && doc.from_template.id ? String(doc.from_template.id) : null);
 		} catch (_) { docTemplateId = null; }
 		if (!docTemplateId) return res.status(400).json({ message: 'Document is not associated with a template' });
+		console.log('submitDocument: docTemplateId=', docTemplateId, 'itemTemplateId=', itemTemplateId);
 		if (docTemplateId !== itemTemplateId) return res.status(400).json({ message: 'Document template does not match required template' });
 		try {
 			const allowed = Array.isArray(bin.template_ids) ? bin.template_ids.map(t => String(t)) : [];
@@ -732,8 +819,10 @@ export const returnSubmission = async (req, res) => {
 		item.status = 'returned';
 		item.returned_at = new Date();
 		item.returned_by = req.user?._id || req.user?.id || null;
-		item.returned_reason = reason;
-		item.notes.push({ type: 'returned', message: reason || 'Returned', by: (req.user?._id || req.user?.id || null) });
+	// push to notes array for history
+	const returnedNote = { type: 'returned', message: reason || 'Returned', by: (req.user?._id || req.user?.id || null), at: new Date() };
+	item.notes = Array.isArray(item.notes) ? item.notes : [];
+	item.notes.push(returnedNote);
 
 		await bin.save();
 
@@ -764,6 +853,59 @@ export const returnSubmission = async (req, res) => {
 	} catch (err) {
 		console.error('returnSubmission error', err);
 		return res.status(500).json({ message: 'Failed to return submission', error: err.message });
+	}
+};
+
+/**
+ *
+ * @route POST /api/submission-details/:id/submissions/:submissionId/comment
+ * @desc Allows authorized users (bin owner, submission faculty, Department Head, secretary, dean)
+ *       to add a comment/note on a specific submission item. The note will be appended to
+ *       the submission's notes array with type 'comment' by default.
+ */
+export const addSubmissionComment = async (req, res) => {
+	try {
+		const { id, submissionId } = req.params;
+		const { message = '', type = 'comment' } = req.body || {};
+		if (!message || String(message).trim().length === 0) {
+			return res.status(400).json({ message: 'message is required' });
+		}
+
+		const bin = await SubmissionBin.findById(id);
+		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+		const item = bin.submissions.id(submissionId);
+		if (!item) return res.status(404).json({ message: 'Submission item not found' });
+
+		// Permission: allow bin owner, submission faculty, Department Head, secretary, dean
+		try {
+			const actorId = String(req.user?._id || req.user?.id || '');
+			const isBinOwner = actorId && String(bin.created_by || '') === actorId;
+			const isSubmissionFaculty = actorId && String(item.faculty || '') === actorId;
+			const isDeptHead = hasRole(req, ['Department Head']);
+			const isSecretary = hasRole(req, ['secretary']);
+			const isDean = hasRole(req, ['dean']);
+
+			if (!isBinOwner && !isSubmissionFaculty && !isDeptHead && !isSecretary && !isDean) {
+				return res.status(403).json({ message: 'Not authorized to comment on this submission' });
+			}
+		} catch (_) { /* best-effort permission check */ }
+
+		const note = {
+			type: type || 'comment',
+			message: String(message),
+			by: req.user?._id || req.user?.id || null,
+			at: new Date(),
+		};
+
+		if (!Array.isArray(item.notes)) item.notes = [];
+		item.notes.push(note);
+
+		await bin.save();
+
+		return res.json({ success: true, note, submission: item, binId: bin._id });
+	} catch (err) {
+		console.error('addSubmissionComment error', err);
+		return res.status(500).json({ message: 'Failed to add comment', error: err.message });
 	}
 };
 

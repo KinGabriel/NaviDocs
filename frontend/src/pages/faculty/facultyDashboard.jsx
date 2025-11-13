@@ -8,6 +8,7 @@ import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
 import Greeting from "../../components/greeting";
 import UpcomingDeadlines from "../../components/upcomingDeadlines";
 import Loader from "../../components/loader";
+import { useNavigate } from "react-router-dom";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -32,6 +33,7 @@ ChartJS.register(
 export default function FacultyDashboard() {
   const user = useUser();
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   // Loading simulation — replace later with your API call
   useEffect(() => {
@@ -86,8 +88,17 @@ export default function FacultyDashboard() {
     {
       key: "action",
       label: "Action",
-      render: () => (
-        <button className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200 whitespace-nowrap">
+      render: (row) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id ?? row.templateId;
+            navigate(`/document-controller/document-workflow/${id}`, {
+              state: { doc: row, origin: "faculty:recently-submitted" },
+            });
+          }}
+          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200 whitespace-nowrap"
+        >
           Review
         </button>
       ),
@@ -157,7 +168,10 @@ export default function FacultyDashboard() {
                     <h2 className="font-bold text-sm text-gray-800 tracking-wide">RECENTLY SUBMITTED TEMPLATES</h2>
                     <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                   </div>
-                  <button className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto">
+                  <button
+                    onClick={() => navigate("/faculty/document-workflow")}
+                    className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+                  >
                     View All
                   </button>
                 </div>

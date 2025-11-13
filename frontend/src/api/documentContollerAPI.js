@@ -8,8 +8,14 @@ const API_URL =
 
 /**
  * Fetches dashboard statistics and published templates for the document controller dashboard.
- * Queries the GraphQL API for published, pending, and approved document counts, and published template details including creator info.
- * @returns {Promise<Object>} Dashboard info: { countPublished, countPendingApproval, countApproved, getPublishedTemplates: Array<{id, title, document_code, revision_no, effectivity, created_by, created_by_user: {firstname, lastname}}>} 
+ * Queries the GraphQL API for counts and recently published templates.
+ * Returns the new/current shape only (no legacy/backwards-compatible keys):
+ * {
+ *   udcPending, ldcEndorsed, dcoReady, udcApprovals, ldcApprovals, dcoApprovals,
+ *   approved, published, total, publishedTemplates: Array<...>
+ * }
+ * Each item in publishedTemplates is returned as provided by the server (includes createdByName when available).
+ * @returns {Promise<Object>} Dashboard info (new shape only).
  * @throws {Error} When the HTTP request or GraphQL query fails.
  */
 // Accept user as a parameter (from useUser hook)
@@ -19,23 +25,39 @@ export const fetchDashboardInfoAPI = async (user) => {
   if (user) {
     school = user?.role?.school || user?.school || null;
   }
+  // New GraphQL query (doc controller dashboard) — returns counts and recently published templates.
   const query = `
     query {
-      templateDashboard {
-        countPublished
-        countPendingApproval
-        countApproved
-        getPublishedTemplates {
+      docControllerDashboard {
+        udcPending
+        ldcEndorsed
+        dcoReady
+        udcApprovals
+        ldcApprovals
+        dcoApprovals
+        approved
+        published
+        total
+        publishedTemplates {
           id
           title
           document_code
           revision_no
           effectivity
           created_by
-          created_by_user {
-            firstname
-            lastname
-          }
+          createdByName
+          created_by_user { displayName }
+          status_meta { published_at }
+          createdAt
+          status
+        }
+        recentlySubmitted {
+          id
+          title
+          createdByName
+          created_by
+          createdAt
+          status
         }
       }
     }
@@ -49,7 +71,25 @@ export const fetchDashboardInfoAPI = async (user) => {
         headers: school ? { 'X-User-School': school } : {},
       }
     );
-    return res.data.data.templateDashboard;
+    const data = res.data.data?.docControllerDashboard;
+    if (!data) throw new Error('No dashboard data returned');
+
+    // Return the new/current shape only. publishedTemplates is returned by the server as-is.
+    const published = Array.isArray(data.publishedTemplates) ? data.publishedTemplates : [];
+
+    return {
+      udcPending: data.udcPending || 0,
+      ldcEndorsed: data.ldcEndorsed || 0,
+      dcoReady: data.dcoReady || 0,
+      udcApprovals: data.udcApprovals || 0,
+      ldcApprovals: data.ldcApprovals || 0,
+      dcoApprovals: data.dcoApprovals || 0,
+      approved: data.approved || 0,
+      published: data.published || 0,
+      total: data.total || 0,
+      publishedTemplates: published,
+      recentlySubmitted: Array.isArray(data.recentlySubmitted) ? data.recentlySubmitted : []
+    };
   } catch (error) {
     throw new Error(error.response?.data?.errors?.[0]?.message || "Failed to fetch dashboard info.");
   }

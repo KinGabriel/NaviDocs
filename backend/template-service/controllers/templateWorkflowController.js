@@ -616,11 +616,25 @@ export const rejectTemplate = async (req, res) => {
       const actorId = String(req.user?.id || req.user?._id || '');
       if (actorId) {
         template.status_meta.approvals.document_controller_officer = template.status_meta.approvals.document_controller_officer || {};
-        template.status_meta.approvals.document_controller_officer.assigned_to = actorId;
+        // only set assigned_to if not already present
+        if (!template.status_meta.approvals.document_controller_officer.assigned_to) {
+          template.status_meta.approvals.document_controller_officer.assigned_to = actorId;
+        }
+        // mark rejection timestamp (do not clear other prior approval fields)
+        template.status_meta.approvals.document_controller_officer.rejected_at = new Date();
+        template.status_meta.approvals.document_controller_officer.isApproved = false;
       }
     } catch (_e) {
       // best-effort attribution; do not fail rejection if this write fails
     }
+  // Top-level rejection timestamp (overwrite any prior rejected_at to reflect this event)
+  try {
+    template.status_meta = template.status_meta || {};
+    template.status_meta.rejected_at = new Date();
+    template.status_meta.rejected_by = String(req.user?.id || req.user?._id || '');
+  } catch (e) {
+    // noop
+  }
   // Preserve any previously approved slots (do not clear UDC/LDC/DCO approvals)
   template.status = 'rejected';
   template.status_meta.approvals = preservePriorApprovals(template.status_meta.approvals, template.status_meta.approvals);
@@ -709,8 +723,10 @@ export const submitTemplate = async (req, res) => {
     let nextRoleFriendly = null; // 'Unit Document Controller' | 'Lead Document Controller' | 'Document Control Officer'
     let nextAssignedUser = null;
     
-    // Determine if UDC endorsement is required for this submission
-    const requiresUDC = (submitterRole === 'Department Head') || !!approvals?.unit_document_controller?.assigned_to;
+  // Determine role categories and whether UDC endorsement is required for this submission
+  const isDeptHead = submitterRole === 'Department Head';
+  const isDeanOrSecretary = submitterRole === 'Dean' || submitterRole === 'Secretary';
+  const requiresUDC = isDeptHead || !!approvals?.unit_document_controller?.assigned_to;
 
   if (unitApproved) {
       // UDC already endorsed → status stays 'endorsed', go to LDC or DCO depending on LDC state
@@ -772,6 +788,24 @@ export const submitTemplate = async (req, res) => {
         }
       }
     }
+
+    // Enforce explicit status rules for certain submitter roles:
+    // - Dean or Secretary submissions should be treated as 'endorsed' (skip UDC)
+    // - Department Head submissions should be treated as 'pending' (UDC endorsement expected)
+    if (isDeanOrSecretary) {
+      template.status = 'endorsed';
+      // Ensure nextRoleFriendly routes to LDC when dean/secretary submit
+      if (!nextRoleFriendly || nextRoleFriendly === 'Unit Document Controller') {
+        nextRoleFriendly = 'Lead Document Controller';
+      }
+    } else if (isDeptHead) {
+      template.status = 'pending';
+      if (!nextRoleFriendly) nextRoleFriendly = 'Unit Document Controller';
+    }
+
+    // Stamp submission time (always overwrite to reflect this submission)
+  template.status_meta = template.status_meta || {};
+  template.status_meta.submitted_at = new Date();
 
   // Preserve any prior approvals (especially UDC endorsement) from being lost
   template.status_meta.approvals = preservePriorApprovals(approvals, priorApprovals);
@@ -860,10 +894,10 @@ export const returnTemplate = async (req, res) => {
     }
     const template = await Template.findById(req.params.id);
     if (!template) return res.status(404).json({ success:false, message:'Template not found' });
-    // Check if template is already in returned state
-    if (String(template.status) === 'returned') {
-      return res.status(409).json({ success:false, code:'ALREADY_RETURNED', message:'Template already returned', template: template.toObject?.() || template });
-    }
+    // Note: allow multiple returns — returning is a feedback action and should
+    // overwrite prior returned timestamps/actors. Do NOT reject here if the
+    // template is already in 'returned' state; proceed to record the new return
+    // event so the returned_at/returned_by fields are refreshed.
     // If already rejected, cannot return; inform client
     if (String(template.status) === 'rejected') {
       return res.status(409).json({ success:false, code:'ALREADY_REJECTED', message:'Template already rejected; cannot return', template: template.toObject?.() || template });
@@ -883,22 +917,28 @@ export const returnTemplate = async (req, res) => {
     });
     // Stamp who returned it so resubmission can route back to them
     template.status_meta = template.status_meta || {};
-    template.status_meta.returned_by = String(req.user?.id || req.user?._id || '');
-    template.status_meta.returned_role = roleKey;
-    template.status_meta.returned_at = new Date();
-    if (reason) template.status_meta.returned_reason = reason;
+  template.status_meta.returned_by = String(req.user?.id || req.user?._id || '');
+  template.status_meta.returned_role = roleKey;
+  template.status_meta.returned_at = new Date();
+
     // Ensure approvals object exists and, if UDC is the actor, persist their id in the UDC slot
     template.status_meta.approvals = template.status_meta.approvals || { unit_document_controller: {}, lead_document_controller: {}, document_controller_officer: {} };
     const actorId = String(req.user?.id || req.user?._id || '');
-    if (roleKey === 'unit_document_controller') {
-      template.status_meta.approvals.unit_document_controller = template.status_meta.approvals.unit_document_controller || {};
-      template.status_meta.approvals.unit_document_controller.assigned_to = actorId;
-    } else if (roleKey === 'lead_document_controller') {
-      template.status_meta.approvals.lead_document_controller = template.status_meta.approvals.lead_document_controller || {};
-      template.status_meta.approvals.lead_document_controller.assigned_to = actorId;
-    } else if (roleKey === 'document_controller_officer') {
-      template.status_meta.approvals.document_controller_officer = template.status_meta.approvals.document_controller_officer || {};
-      template.status_meta.approvals.document_controller_officer.assigned_to = actorId;
+    if (actorId) {
+      if (roleKey === 'unit_document_controller') {
+        template.status_meta.approvals.unit_document_controller = template.status_meta.approvals.unit_document_controller || {};
+        if (!template.status_meta.approvals.unit_document_controller.assigned_to) template.status_meta.approvals.unit_document_controller.assigned_to = actorId;
+        // stamp returned_at on the slot (do not clear prior approvals)
+        template.status_meta.approvals.unit_document_controller.returned_at = new Date();
+      } else if (roleKey === 'lead_document_controller') {
+        template.status_meta.approvals.lead_document_controller = template.status_meta.approvals.lead_document_controller || {};
+        if (!template.status_meta.approvals.lead_document_controller.assigned_to) template.status_meta.approvals.lead_document_controller.assigned_to = actorId;
+        template.status_meta.approvals.lead_document_controller.returned_at = new Date();
+      } else if (roleKey === 'document_controller_officer') {
+        template.status_meta.approvals.document_controller_officer = template.status_meta.approvals.document_controller_officer || {};
+        if (!template.status_meta.approvals.document_controller_officer.assigned_to) template.status_meta.approvals.document_controller_officer.assigned_to = actorId;
+        template.status_meta.approvals.document_controller_officer.returned_at = new Date();
+      }
     }
   // Preserve any previously approved slots (do not clear UDC/LDC/DCO approvals)
   template.status = 'returned';

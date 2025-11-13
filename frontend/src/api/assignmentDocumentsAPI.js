@@ -204,6 +204,26 @@ export const returnSubmissionAPI = async (binId, submissionId, data = {}) => {
 };
 
 /**
+ * Add a comment/note to a specific submission item in a bin
+ * @param {string} binId
+ * @param {string} submissionId
+ * @param {{ message: string, type?: string }} data
+ */
+export const addSubmissionCommentAPI = async (binId, submissionId, data = {}) => {
+	try {
+		if (!binId || !submissionId) throw new Error('binId and submissionId are required');
+		const res = await axios.post(`${API_URL}/api/documents/submission-bins/${binId}/submissions/${submissionId}/comment`, data, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		const message = error.response?.data?.message || error.message || 'Failed to add submission comment';
+		const err = new Error(message);
+		err.responseData = error.response?.data;
+		err.status = error.response?.status;
+		throw err;
+	}
+};
+
+/**
  * List bins that reference a given document in any submission
  * @param {string} documentId
  */
@@ -213,6 +233,27 @@ export const listSubmissionBinsByDocumentAPI = async (documentId) => {
 		return res.data;
 	} catch (error) {
 		const message = error.response?.data?.message || error.message || 'Failed to list bins by document';
+		const err = new Error(message);
+		err.responseData = error.response?.data;
+		err.status = error.response?.status;
+		throw err;
+	}
+};
+
+/**
+ * Get exact document content by contained document id (authorized viewers only)
+ * Requires the caller to provide the submission bin id the document belongs to.
+ * @param {string} documentId
+ * @param {string} binId
+ */
+export const getDocumentContentAPI = async (documentId, binId) => {
+	try {
+		if (!documentId) throw new Error('documentId is required');
+		if (!binId) throw new Error('binId is required');
+		const res = await axios.get(`${API_URL}/api/documents/submission-bins/${binId}/document/${documentId}/content`, { withCredentials: true });
+		return res.data;
+	} catch (error) {
+		const message = error.response?.data?.message || error.message || 'Failed to fetch document content';
 		const err = new Error(message);
 		err.responseData = error.response?.data;
 		err.status = error.response?.status;

@@ -5,8 +5,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
  * Header & Footer Panel (Tabbed)
  * - Two tabs: Header / Footer
  * - Enable toggles for each band
- * - Margin controls (inches)
- * - Header: Logos + center text + document stamp
+ * - Header: Logos + center text
  * - Footer: Page number + freeform text, both with alignment & font styling
  *
  * Backward compatibility:
@@ -48,6 +47,7 @@ const DEFAULTS = {
       italic: false,
       color: "#000000",
       showHeaderLine: false,
+      headerLineOffsetPx: 4,
     },
   },
 
@@ -137,6 +137,7 @@ function mergeDefaults(value) {
     line4: v.line4 ?? v.header?.centerText?.line4 ?? "",
     showLine4: v.showLine4 ?? v.header?.centerText?.showLine4 ?? false,
     showHeaderLine: v.showHeaderLine ?? v.header?.centerText?.showHeaderLine ?? false,
+    headerLineOffsetPx: v.header?.centerText?.headerLineOffsetPx ?? DEFAULTS.header.centerText.headerLineOffsetPx,
   };
 
   // Document stamp (legacy mirrors)
@@ -164,7 +165,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
   // Assets
   const [assets, setAssets] = useState(initial.assets);
 
-  // Toggles & margins
+  // Toggles & margins (margins kept in state but NOT rendered in UI)
   const [headerEnabled, setHeaderEnabled] = useState(initial.headerEnabled);
   const [footerEnabled, setFooterEnabled] = useState(initial.footerEnabled);
   const [headerMarginIn, setHeaderMarginIn] = useState(initial.headerMarginIn);
@@ -192,7 +193,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
   const [color, setColor] = useState(initial.header.centerText.color);
   const [showHeaderLine, setShowHeaderLine] = useState(initial.header.centerText.showHeaderLine);
 
-  // Document stamp
+  // Document stamp (kept for data, UI hidden)
   const [docCode, setDocCode] = useState(initial.documentStamp.docCode);
   const [revisionNo, setRevisionNo] = useState(initial.documentStamp.revisionNo);
   const [effectivity, setEffectivity] = useState(
@@ -423,7 +424,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
     <div className="p-5 bg-white rounded-2xl shadow-md w-full overflow-auto rm-panel">
       <h2 className="text-lg font-semibold text-gray-800 mb-1">Header &amp; Footer</h2>
       <p className="text-sm text-gray-500 mb-4">
-        Configure header/footer visibility, margins, logos, and text styling.
+        Configure header/footer visibility, logos, and text styling.
       </p>
 
       {/* Tabs */}
@@ -452,25 +453,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
         <Toggle label="Enable Footer" checked={!!footerEnabled} onChange={setFooterEnabled} />
       </div>
 
-      {/* Margins */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mb-6">
-        <NumberField
-          label="Header margin (inches from top)"
-          value={headerMarginIn}
-          min={0}
-          step={0.1}
-          disabled={!headerEnabled}
-          onChange={setHeaderMarginIn}
-        />
-        <NumberField
-          label="Footer margin (inches from bottom)"
-          value={footerMarginIn}
-          min={0}
-          step={0.1}
-          disabled={!footerEnabled}
-          onChange={setFooterMarginIn}
-        />
-      </div>
+      {/* Margins UI removed intentionally */}
 
       {tab === "header" ? (
         <HeaderTab
@@ -675,10 +658,10 @@ function HeaderTab({
               onChange={setCenter.setFontFamily}
               options={[
                 { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
-                { label: "Times New Roman", value: "\"Times New Roman\", Times, serif" },
+                { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
                 { label: "Georgia", value: "Georgia, serif" },
                 { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-                { label: "Courier New", value: "\"Courier New\", Courier, monospace" },
+                { label: "Courier New", value: '"Courier New", Courier, monospace' },
               ]}
             />
             <NumberField
@@ -707,55 +690,8 @@ function HeaderTab({
         </div>
       </div>
 
-      {/* Document Stamp */}
-      <div className="rounded-xl border p-4">
-        <div className="mb-2 text-sm font-semibold text-slate-700">
-          Document Stamp (Right Side Table)
-        </div>
-        <p className="text-xs text-gray-500 mb-3">
-          Fixed labels; only values are editable. Page count is automatic.
-        </p>
-
-        <div className="space-y-2">
-          <LabeledRow label="Document Code">
-            <input
-              type="text"
-              className="border rounded-md px-2 py-1 text-sm w-full"
-              value={documentStamp.docCode}
-              onChange={(e) => setDocumentStamp.setDocCode(e.target.value)}
-            />
-          </LabeledRow>
-
-          <LabeledRow label="Revision No.">
-            <input
-              type="text"
-              className="border rounded-md px-2 py-1 text-sm w-full"
-              value={documentStamp.revisionNo}
-              onChange={(e) => setDocumentStamp.setRevisionNo(e.target.value)}
-            />
-          </LabeledRow>
-
-          <LabeledRow label="Effectivity">
-            <input
-              type="date"
-              className="border rounded-md px-2 py-1 text-sm w-full"
-              value={normalizeEffectivityLocal(documentStamp.effectivity)}
-              onChange={(e) =>
-                setDocumentStamp.setEffectivity(normalizeEffectivityLocal(e.target.value))
-              }
-            />
-          </LabeledRow>
-
-          <LabeledRow label="Page">
-            <input
-              type="text"
-              className="border rounded-md px-2 py-1 text-sm w-full bg-gray-50 text-gray-500"
-              value="1 of N (auto)"
-              disabled
-            />
-          </LabeledRow>
-        </div>
-      </div>
+      {/* Document Stamp UI intentionally hidden */}
+      {/* Values still exist in state & payload for compatibility */}
     </div>
   );
 }
@@ -805,10 +741,10 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             onChange={setPageNumber.setFontFamily}
             options={[
               { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
-              { label: "Times New Roman", value: "\"Times New Roman\", Times, serif" },
+              { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
               { label: "Georgia", value: "Georgia, serif" },
               { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-              { label: "Courier New", value: "\"Courier New\", Courier, monospace" },
+              { label: "Courier New", value: '"Courier New", Courier, monospace' },
             ]}
           />
 
@@ -889,10 +825,10 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             onChange={setBody.setFontFamily}
             options={[
               { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
-              { label: "Times New Roman", value: "\"Times New Roman\", Times, serif" },
+              { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
               { label: "Georgia", value: "Georgia, serif" },
               { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-              { label: "Courier New", value: "\"Courier New\", Courier, monospace" },
+              { label: "Courier New", value: '"Courier New", Courier, monospace' },
             ]}
           />
 
@@ -918,7 +854,6 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
     </div>
   );
 }
-
 
 /* --------------------- UI Blocks & Inputs --------------------- */
 
