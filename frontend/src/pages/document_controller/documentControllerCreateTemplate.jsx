@@ -17,7 +17,6 @@ import VersionHistory from "../version_history/templateVersionHistory";
 // Panels
 import FontPanel from "../../layout/create_template/fontPanel";
 import PageSetupPanel from "../../layout/create_template/pageSetupPanel";
-import LayoutPanel from "../../layout/create_template/layoutPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import FieldsPanel from "../../layout/create_template/fieldsPanel";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
@@ -488,8 +487,6 @@ export default function DocumentControllerCreateTemplate() {
             onFontSettingsChange={setFontSettings}
           />
         );
-      case "layout":
-        return <LayoutPanel editor={editorInstance} />;
       case "insert":
         return <InsertPanel editor={editorInstance} />;
       case "pagesetup":
