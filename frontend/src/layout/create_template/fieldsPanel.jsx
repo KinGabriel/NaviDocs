@@ -4,7 +4,6 @@ import useUser from "../../hooks/useUser";
 import AccordionList from "../../components/editable_fields/accordionList";
 import TagsManager from "../../components/editable_fields/tagsManager";
 import { listTagsAPI } from "../../api/tagsAPI";
-// Reuse-by-Tag modal removed per request
 
 /**
  * FieldsPanel — Enhanced panel with:
@@ -159,6 +158,7 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
     let placeholder =
       (field.placeholder && String(field.placeholder).trim()) || "";
 
+    // Fallback placeholder logic per type
     if (!placeholder) {
       if (type === "date") {
         const df = field.dateFormat || "YYYY-MM-DD";
@@ -171,18 +171,24 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
       }
     }
 
+    const baseAttrs = {
+      key,
+      type,
+      placeholder,
+      tags: Array.isArray(field.tags) ? field.tags : [],
+    };
+
+    if (type === "date" && field.dateFormat) {
+      baseAttrs.dateFormat = field.dateFormat;
+    }
+
+    // Image fields now go through EditableField as well.
+    // If later you want to bind actual imageSrc/width/height,
+    // you can extend this branch to include those attrs.
     editor
       .chain()
       .focus()
-      .insertEditableField({
-        key,
-        type,
-        placeholder,
-        tags: Array.isArray(field.tags) ? field.tags : [],
-        ...(type === "date" && field.dateFormat
-          ? { dateFormat: field.dateFormat }
-          : {}),
-      })
+      .insertEditableField(baseAttrs)
       .run();
   };
 
