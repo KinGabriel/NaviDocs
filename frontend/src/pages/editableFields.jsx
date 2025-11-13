@@ -446,7 +446,8 @@ export default function EditableFields() {
               _originalKey: key,
               label,
               placeholder: f.placeholder || '',
-              instructions: f.instructions || '',
+                instructions: f.instructions || '',
+                dateFormat: f.dateFormat || null,
               required: !!f.required,
               options: f.options ?? null,
               tags: Array.isArray(f.tags) ? f.tags : [],
@@ -493,6 +494,7 @@ export default function EditableFields() {
             _originalKey: key,
           label,
           placeholder: f.placeholder || '',
+          dateFormat: f.dateFormat || null,
           instructions: f.instructions || '',
           required: !!f.required,
           options: f.options ?? null,
@@ -589,6 +591,8 @@ export default function EditableFields() {
             label: displayLabel,
             placeholder,
             instructions: instructionsAttr || "",
+            // pass through dateFormat if present on the editableField node
+            dateFormat: node.attrs?.dateFormat || null,
             required: requiredAttr,
             options: optionsAttr,
           });
