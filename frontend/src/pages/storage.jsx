@@ -132,8 +132,8 @@ export default function Storage() {
   const [rootFiles, setRootFiles] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState(null);
 
-  const [loadingFolders, setLoadingFolders] = useState(true);
-  const [loadingRootFiles, setLoadingRootFiles] = useState(true);
+  const [loadingFolders, setLoadingFolders] = useState(false);
+  const [loadingRootFiles, setLoadingRootFiles] = useState(false);
   const [loadingFolderDetails, setLoadingFolderDetails] = useState(false);
 
   /* ---------- menus & modals (table view) ---------- */
@@ -286,7 +286,9 @@ export default function Storage() {
   }, [showNewFolderModal, selectedFolder]);
 
   useEffect(() => {
-    if (!user || !user._id) return;
+    // Trigger content load even if `user` is not yet populated so the page shell appears
+    // and the app can progressively hydrate when auth arrives. Backend will fallback to
+    // authenticated user from cookies when applicable.
     loadContent();
     // eslint-disable-next-line
   }, [id, user, selectedStatus]);
