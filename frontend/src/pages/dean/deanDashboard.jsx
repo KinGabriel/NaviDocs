@@ -28,6 +28,7 @@ ChartJS.register(
   Legend,
   ArcElement
 );
+import Loader from "../../components/loader";
 
 export default function DeanDashboard() {
   const user = useUser();
@@ -36,6 +37,7 @@ export default function DeanDashboard() {
   // URL route used by react-router for navigation (keep this pointing to your route path)
   const SUBMISSION_BINS_ROUTE = "/submission-bins";
   const DOC_CONTROLLER_TEMPLATES_ROUTE = "/templates?status=Published";
+  const [isLoading, setIsLoading] = useState(false);
 
   function formatDate(dateValue) {
     if (!dateValue) return "-";
@@ -191,7 +193,8 @@ export default function DeanDashboard() {
         {/* Main content panel with responsive padding/card treatment */}
         <main
           className="
-          flex-1 flex flex-col bg-white
+          relative flex-1 flex flex-col bg-white
+          bg-white
           lg:shadow
           pt-1 pb-4
           px-4 sm:px-6 lg:px-8
@@ -202,7 +205,12 @@ export default function DeanDashboard() {
         "
         >
           <Greeting name={user?.firstname || "Department Head"} />
-
+        {isLoading ? (
+            <div className="flex-1 flex justify-center items-center min-h-[60vh]">
+              <Loader message="Loading dashboard..." />
+            </div>
+        ) : (
+          <>
           {/* Stat cards */}
           <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
             {/* Templates */}
@@ -353,7 +361,8 @@ export default function DeanDashboard() {
               <Table columns={publishedTemplatesColumns} data={publishedTemplates} />
             </div>
           </div>
-
+           </>
+          )}
         </main>
       </div>
     </div>
