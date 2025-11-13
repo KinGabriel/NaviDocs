@@ -13,11 +13,18 @@ export const EditableField = Node.create({
 
   addAttributes() {
     return {
-      key: { default: null },                // unique ID
-      type: { default: "text" },             // "text" | "image" | "date"
-      placeholder: { default: "" },          // visible placeholder text or image
-      tags: { default: [] },                 // array of tag IDs
-      dateFormat: { default: null },         // only used when type === "date"
+      key: { default: null },               // unique ID
+      type: { default: "text" },            // "text" | "image" | "date"
+      placeholder: { default: "" },         // visible placeholder text or image
+      tags: { default: [] },                // array of tag IDs
+
+      // For date fields
+      dateFormat: { default: null },
+
+      // For image fields (future-proof for when you bind real image data)
+      imageSrc: { default: null },
+      imageWidth: { default: null },
+      imageHeight: { default: null },
     };
   },
 
@@ -33,13 +40,24 @@ export const EditableField = Node.create({
             ? el.getAttribute("data-tags").split(",")
             : [],
           dateFormat: el.getAttribute("data-format") || null,
+          imageSrc: el.getAttribute("data-src") || null,
+          imageWidth: el.getAttribute("data-w") || null,
+          imageHeight: el.getAttribute("data-h") || null,
         }),
       },
     ];
   },
 
   renderHTML({ HTMLAttributes }) {
-    const { key, type, placeholder, dateFormat } = HTMLAttributes;
+    const {
+      key,
+      type,
+      placeholder,
+      dateFormat,
+      imageSrc,
+      imageWidth,
+      imageHeight,
+    } = HTMLAttributes;
 
     const baseAttrs = {
       "data-node": "editable-field",
@@ -59,8 +77,41 @@ export const EditableField = Node.create({
       baseAttrs["data-format"] = dateFormat;
     }
 
-    // Image field frame
     if (type === "image") {
+      // If imageSrc exists, render an <img> inside the frame
+      if (imageSrc) {
+        const frameAttrs = {
+          class: "nd-image-field-frame",
+        };
+
+        const imgAttrs = {
+          src: imageSrc,
+          style: "",
+        };
+
+        if (imageWidth) imgAttrs.style += `width:${imageWidth}px;`;
+        if (imageHeight) imgAttrs.style += `height:${imageHeight}px;`;
+        if (!imgAttrs.style) {
+          imgAttrs.style = "max-width:100%;height:auto;";
+        }
+
+        return [
+          "span",
+          {
+            ...baseAttrs,
+            "data-src": imageSrc,
+            "data-w": imageWidth ?? "",
+            "data-h": imageHeight ?? "",
+          },
+          [
+            "span",
+            frameAttrs,
+            ["img", imgAttrs],
+          ],
+        ];
+      }
+
+      // No image yet – show placeholder frame
       return [
         "span",
         baseAttrs,
@@ -74,6 +125,7 @@ export const EditableField = Node.create({
       ];
     }
 
+    // Text / Date fields share the same inner text span
     return [
       "span",
       baseAttrs,
@@ -90,23 +142,15 @@ export const EditableField = Node.create({
 
   addCommands() {
     return {
+      // Accept a generic attrs object so caller (FieldsPanel) controls type-specific props
       insertEditableField:
-        ({ key, type = "text", placeholder = "", tags = [], dateFormat = null }) =>
+        (attrs = {}) =>
         ({ chain }) => {
+          const key = attrs.key;
+          const placeholder = attrs.placeholder ?? "";
+
           if (!key || !placeholder) return false;
 
-          const attrs = {
-            key,
-            type,
-            placeholder,
-            tags,
-          };
-
-          if (type === "date" && dateFormat) {
-            attrs.dateFormat = dateFormat;
-          }
-
-          // Insert node + trailing space (caret placed after)
           return chain()
             .insertContent([
               {
