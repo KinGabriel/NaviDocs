@@ -643,3 +643,63 @@ export const dashboardFaculty = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 }
+
+/**
+ * @desc
+ * @route 
+ */
+export const dashboardDeanSec = async (req, res) => {
+  try {
+    const userSchool = req.user?.school || null;
+    if (!userSchool) return res.status(400).json({ success: false, message: 'Missing school context' });
+
+    // base filter: only forwarded, not archived, within this school
+    const baseFilter = { is_forwarded: true, status: { $ne: 'archived' }, school: userSchool };
+
+    // Run three parallel queries:
+    // 1) total count of forwarded bins for the school
+    // 2) latest 5 forwarded bins (sorted by forwarded_at desc)
+    // 3) aggregation: count forwarded bins grouped by department for graph data
+    const [totalForwardedCount, latestRaw, forwardedByDepartment] = await Promise.all([
+      SubmissionBin.countDocuments(baseFilter),
+      SubmissionBin.find(baseFilter)
+        .sort({ forwarded_at: -1 })
+        .limit(5)
+        .select('title department school forwarded_at created_by deadline submissions createdAt')
+        .lean(),
+      SubmissionBin.aggregate([
+        { $match: baseFilter },
+        { $group: { _id: { $ifNull: ['$department', 'Unspecified'] }, count: { $sum: 1 } } },
+        { $project: { department: '$_id', count: 1, _id: 0 } },
+        { $sort: { count: -1 } }
+      ])
+    ]);
+
+    // Map latest forwarded bins into a lightweight shape the frontend can consume
+    const latestForwarded = (latestRaw || []).map((b) => ({
+      id: b._id,
+      title: b.title,
+      department: b.department || 'Unspecified',
+      school: b.school || userSchool,
+      forwarded_at: b.forwarded_at || null,
+      created_by: b.created_by || null,
+      deadline: b.deadline || null,
+      submissionsCount: Array.isArray(b.submissions) ? b.submissions.length : 0,
+      submittedCount: Array.isArray(b.submissions)
+        ? b.submissions.filter((s) => (s && (s.submitted_at || ['submitted', 'approved'].includes(s.status)))).length
+        : 0,
+      createdAt: b.createdAt || null
+    }));
+
+    return res.json({
+      success: true,
+      school: userSchool,
+      totalForwardedCount: totalForwardedCount || 0,
+      latestForwarded,
+      forwardedByDepartment: forwardedByDepartment || []
+    });
+  } catch (err) {
+    console.error('dashboardDeanSec error', err);
+    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+}

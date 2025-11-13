@@ -330,6 +330,91 @@ export const dashboardDeptHead = async (req, res) => {
   }
 };
 
+
+/**
+ * Get Dean/Secretary dashboard for templates.
+ * @desc Returns counts and recent lists for templates relevant to the current user (Dean/Secretary).
+ *       Response payload is normalized for the frontend and includes:
+ *         - submittedCount: number (count of non-draft templates owned by the user)
+ *         - recentSubmitted: Array of recently submitted templates (limited)
+ *         - publishedRecent: Array of recently published templates (global limit)
+ * @route GET /api/templates/dashboard-dean-sec
+ * @access Private (Dean/Secretary)
+ * @returns {Promise<import('express').Response>} - JSON response
+ */
+export const dashboardDeanSec = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id ? String(req.user.id) : null;
+    if (!userId) return res.status(400).json({ success: false, message: 'Missing user id' });
+
+    const limit = 5;
+    const baseFilter = { $or: [{ isArchived: { $exists: false } }, { isArchived: false }] };
+
+    // Count of submitted templates owned by this user (exclude drafts)
+    const ownerFilter = { ...baseFilter, created_by: userId, status: { $ne: 'draft' } };
+
+    const projection = {
+      title: 1,
+      document_code: 1,
+      revision_no: 1,
+      status: 1,
+      school: 1,
+      status_meta: 1,
+      created_by: 1,
+      updatedAt: 1,
+      createdAt: 1
+    };
+
+    // Execute queries in parallel: count, recent submitted (owner), recent published (global helper)
+    const [submittedCount, recentSubmittedRaw, publishedRecent] = await Promise.all([
+      Template.countDocuments(ownerFilter),
+      Template.find(ownerFilter, projection).sort({ 'status_meta.submitted_at': -1, updatedAt: -1 }).limit(limit).lean(),
+      getRecentPublished(limit)
+    ]);
+
+    // Enrich created_by -> createdByName using user service (best-effort)
+    const allUserIds = new Set();
+    (recentSubmittedRaw || []).forEach(item => { if (item && item.created_by) allUserIds.add(String(item.created_by)); });
+    (publishedRecent || []).forEach(item => { if (item && item.created_by) allUserIds.add(String(item.created_by)); });
+
+    const userIdMap = {};
+    if (allUserIds.size > 0) {
+      const fetches = Array.from(allUserIds).map(id => fetchUserInfoById(id, req, { basic: true }).then(u => ({ id, u })));
+      const fetchResults = await Promise.all(fetches);
+      fetchResults.forEach(({ id, u }) => {
+        if (u) {
+          const name = u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || u.displayName || u.email || null;
+          userIdMap[id] = name || null;
+        } else {
+          userIdMap[id] = null;
+        }
+      });
+    }
+
+    const enrich = (list) => (list || []).map(item => ({
+      id: item._id || item.id || null,
+      title: item.title || '',
+      code: item.document_code || item.code || '',
+      rev: item.revision_no || item.rev || '',
+      status: item.status || '',
+      createdBy: item.created_by ? (userIdMap[String(item.created_by)] || item.created_by) : null,
+      createdAt: (item && item.status_meta && item.status_meta.submitted_at) ? item.status_meta.submitted_at : (item.createdAt || item.updatedAt || null)
+    }));
+
+    const result = {
+      submittedCount: submittedCount || 0,
+      recentSubmitted: enrich(recentSubmittedRaw),
+      publishedRecent: enrich(publishedRecent)
+    };
+console.log(result);
+    return res.status(200).json({ success: true, message: 'Dean/Secretary dashboard data retrieved', data: result });
+  } catch (error) {
+    console.error('Error in dashboardDeanSec:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch dean dashboard data', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+  }
+
+}
+
 /**
  * @desc Get template statistics
  * @route GET /api/templates/stats
