@@ -4,6 +4,8 @@ import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import TagPicker from "./TagPicker";
 import { makeId } from "../../utils/ids";
 import PermanentlyDeleteDocumentModal from "../modals/permanentlyDeleteDocumentModal";
+import DeleteFieldModal from "../modals/deleteFieldModal";
+import SimpleMessageModal from "../modals/simpleMessageModal";
 
 const DATE_FORMAT_PRESETS = [
   { value: "YYYY-MM-DD", label: "2025-03-15 (YYYY-MM-DD)", example: "2025-03-15" },
@@ -32,10 +34,29 @@ export default function AccordionList({
     dateFormat: "YYYY-MM-DD",
   });
 
+  // DELETE GROUP MODAL
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [targetGroup, setTargetGroup] = useState(null);
   const [submittingDelete, setSubmittingDelete] = useState(false);
   const [deleteErr, setDeleteErr] = useState("");
+
+  // DELETE FIELD MODAL
+  const [deleteFieldOpen, setDeleteFieldOpen] = useState(false);
+  const [targetField, setTargetField] = useState(null);
+  const [targetFieldGroupId, setTargetFieldGroupId] = useState(null);
+  const [submittingFieldDelete, setSubmittingFieldDelete] = useState(false);
+  const [deleteFieldErr, setDeleteFieldErr] = useState("");
+
+  // SIMPLE ALERT MODAL (replaces window.alert)
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertOpen(true);
+  };
 
   const toggleAccordion = (id) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -101,11 +122,49 @@ export default function AccordionList({
     }
   };
 
+  // OPEN FIELD DELETE MODAL
+  const askDeleteField = (accordionId, field) => {
+    setTargetField(field);
+    setTargetFieldGroupId(accordionId);
+    setDeleteFieldErr("");
+    setDeleteFieldOpen(true);
+  };
+
+  // CONFIRM FIELD DELETE
+  const onConfirmDeleteField = async () => {
+    try {
+      setSubmittingFieldDelete(true);
+
+      if (!targetFieldGroupId || !targetField?.id) {
+        setDeleteFieldErr("Failed to identify field to delete.");
+        return;
+      }
+
+      setAccordions((prev) =>
+        prev.map((a) =>
+          a.id === targetFieldGroupId
+            ? { ...a, fields: a.fields.filter((f) => f.id !== targetField.id) }
+            : a
+        )
+      );
+
+      onRemoveField(targetField.id);
+
+      setDeleteFieldOpen(false);
+      setTargetField(null);
+      setTargetFieldGroupId(null);
+    } catch (e) {
+      setDeleteFieldErr(e?.message || "Failed to delete field.");
+    } finally {
+      setSubmittingFieldDelete(false);
+    }
+  };
+
   const addField = (accordionId) => {
     const nameTrimmed = newFieldData.name.trim();
 
     if (!nameTrimmed) {
-      window.alert("Field name is required.");
+      showAlert("Field Name Required", "Field name is required.");
       return;
     }
 
@@ -115,7 +174,8 @@ export default function AccordionList({
         (f) => f.name.trim().toLowerCase() === nameTrimmed.toLowerCase()
       );
       if (exists) {
-        window.alert(
+        showAlert(
+          "Duplicate Field Name",
           "A field with this name already exists in this group. Please use another name."
         );
         return;
@@ -156,16 +216,6 @@ export default function AccordionList({
       instructions: "",
       dateFormat: "YYYY-MM-DD",
     });
-  };
-
-  const removeField = (accordionId, fieldId) => {
-    if (!window.confirm("Remove this field from template?")) return;
-    setAccordions((prev) =>
-      prev.map((a) =>
-        a.id === accordionId ? { ...a, fields: a.fields.filter((f) => f.id !== fieldId) } : a
-      )
-    );
-    onRemoveField(fieldId);
   };
 
   const insertFieldToEditor = (field) => {
@@ -259,7 +309,8 @@ export default function AccordionList({
                           a.name.trim().toLowerCase() === newName.toLowerCase()
                       );
                       if (exists) {
-                        window.alert(
+                        showAlert(
+                          "Duplicate Group Name",
                           "A group with this name already exists. Please use another name."
                         );
                         return;
@@ -343,7 +394,7 @@ export default function AccordionList({
                         Insert
                       </button>
                       <button
-                        onClick={() => removeField(acc.id, f.id)}
+                        onClick={() => askDeleteField(acc.id, f)}
                         className="rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
                       >
                         Delete
@@ -398,7 +449,11 @@ export default function AccordionList({
                   ) : (
                     <input
                       type="text"
-                      placeholder={newFieldData.type === "image" ? "Placeholder (e.g. Upload image)" : "Placeholder"}
+                      placeholder={
+                        newFieldData.type === "image"
+                          ? "Placeholder (e.g. Upload image)"
+                          : "Placeholder"
+                      }
                       value={newFieldData.placeholder}
                       onChange={(e) =>
                         setNewFieldData((prev) => ({
@@ -436,6 +491,7 @@ export default function AccordionList({
         </div>
       ))}
 
+      {/* DELETE GROUP MODAL */}
       <PermanentlyDeleteDocumentModal
         open={deleteOpen}
         onClose={() => !submittingDelete && setDeleteOpen(false)}
@@ -443,9 +499,27 @@ export default function AccordionList({
         submitting={submittingDelete}
         error={deleteErr}
         title="Delete Group"
-        message="Are you sure you want to delete this group? This will remove all fields inside it."
+        message="This will permanently delete this group and remove all fields inside it. This action cannot be undone."
         confirmLabel="Delete"
         itemTitle={targetGroup?.name}
+      />
+
+      {/* DELETE FIELD MODAL */}
+      <DeleteFieldModal
+        open={deleteFieldOpen}
+        onClose={() => !submittingFieldDelete && setDeleteFieldOpen(false)}
+        onConfirm={onConfirmDeleteField}
+        submitting={submittingFieldDelete}
+        error={deleteFieldErr}
+        fieldName={targetField?.name}
+      />
+
+      {/* SIMPLE ALERT MODAL */}
+      <SimpleMessageModal
+        open={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        title={alertTitle}
+        message={alertMessage}
       />
     </div>
   );
