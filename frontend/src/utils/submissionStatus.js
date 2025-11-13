@@ -15,10 +15,19 @@ export function getSubmissionBinStatus(bin) {
     (Array.isArray(sub.documents) && sub.documents.length > 0) || 
     (sub.document && sub.document !== null);
   
-  // Helper: check if submission is returned
-  const isReturned = (sub) => 
-    sub.status === 'returned' || 
-    (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'));
+  // Helper: check if submission is currently returned (since the last resubmission)
+  const isReturned = (sub) => {
+    if (!sub) return false;
+    if (String(sub.status || '').toLowerCase() === 'returned') return true;
+    const notes = Array.isArray(sub.notes) ? sub.notes : [];
+    if (!notes.length) return false;
+    let lastResubmitIdx = -1;
+    for (let i = notes.length - 1; i >= 0; i--) {
+      if (String(notes[i].type || '').toLowerCase() === 'resubmitted') { lastResubmitIdx = i; break; }
+    }
+    const windowNotes = lastResubmitIdx >= 0 ? notes.slice(lastResubmitIdx + 1) : notes;
+    return windowNotes.some(n => String(n.type || '').toLowerCase() === 'returned');
+  };
   
   // Check if ALL submissions are returned
   const allReturned = items.every(sub => isReturned(sub));
@@ -55,9 +64,18 @@ export function getSubmissionItemStatus(submissionItem, binDeadline) {
   if (!submissionItem) return 'pending';
   
   // Check if returned
-  const isReturned = submissionItem.status === 'returned' || 
-    (Array.isArray(submissionItem.notes) && 
-      submissionItem.notes.some(n => String(n.type).toLowerCase() === 'returned'));
+  const isReturned = (() => {
+    if (!submissionItem) return false;
+    if (String(submissionItem.status || '').toLowerCase() === 'returned') return true;
+    const notes = Array.isArray(submissionItem.notes) ? submissionItem.notes : [];
+    if (!notes.length) return false;
+    let lastResubmitIdx = -1;
+    for (let i = notes.length - 1; i >= 0; i--) {
+      if (String(notes[i].type || '').toLowerCase() === 'resubmitted') { lastResubmitIdx = i; break; }
+    }
+    const windowNotes = lastResubmitIdx >= 0 ? notes.slice(lastResubmitIdx + 1) : notes;
+    return windowNotes.some(n => String(n.type || '').toLowerCase() === 'returned');
+  })();
   
   if (isReturned) return 'returned';
   

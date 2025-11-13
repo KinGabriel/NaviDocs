@@ -102,24 +102,30 @@ export default function SubmissionBins() {
   const stats = useMemo(() => {
     const now = new Date();
 
-    // Helper to check if bin has ANY returned submissions
+    // Helper: check if a submission is currently returned (after the most recent resubmission)
+    const isCurrentlyReturned = (sub) => {
+      if (!sub) return false;
+      if (String(sub.status || '').toLowerCase() === 'returned') return true;
+      const notes = Array.isArray(sub.notes) ? sub.notes : [];
+      if (!notes.length) return false;
+      let lastResubmitIdx = -1;
+      for (let i = notes.length - 1; i >= 0; i--) {
+        if (String(notes[i].type || '').toLowerCase() === 'resubmitted') { lastResubmitIdx = i; break; }
+      }
+      const windowNotes = lastResubmitIdx >= 0 ? notes.slice(lastResubmitIdx + 1) : notes;
+      return windowNotes.some(n => String(n.type || '').toLowerCase() === 'returned');
+    };
+
+    // Helper to check if bin has ANY currently returned submissions
     const hasReturnedSubmissions = (bin) => 
       Array.isArray(bin.submissions) &&
-      bin.submissions.some(sub =>
-        sub.status === 'returned' ||
-        (Array.isArray(sub.notes) &&
-          sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
-      );
+      bin.submissions.some(isCurrentlyReturned);
 
     // Helper to check if ALL submissions in a bin are returned
     const allSubmissionsReturned = (bin) => {
       const items = bin.submissions || [];
       if (items.length === 0) return false;
-      return items.every(sub =>
-        sub.status === 'returned' ||
-        (Array.isArray(sub.notes) &&
-          sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
-      );
+      return items.every(isCurrentlyReturned);
     };
 
     // Returned count = bins where ALL submissions are returned
@@ -454,33 +460,41 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding,
   
   const displayStatus = getSubmissionBinStatus(submission);
 
-  // Check for returned submissions
-  const hasReturnedSubmissions = items.some(sub => 
-    sub.status === 'returned' || 
-    (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
-  );
+  // Helper: is currently returned
+  const isCurrentlyReturned = (sub) => {
+    if (!sub) return false;
+    if (String(sub.status || '').toLowerCase() === 'returned') return true;
+    const notes = Array.isArray(sub.notes) ? sub.notes : [];
+    if (!notes.length) return false;
+    let lastResubmitIdx = -1;
+    for (let i = notes.length - 1; i >= 0; i--) {
+      if (String(notes[i].type || '').toLowerCase() === 'resubmitted') { lastResubmitIdx = i; break; }
+    }
+    const windowNotes = lastResubmitIdx >= 0 ? notes.slice(lastResubmitIdx + 1) : notes;
+    return windowNotes.some(n => String(n.type || '').toLowerCase() === 'returned');
+  };
+
+  // Check for currently returned submissions
+  const hasReturnedSubmissions = items.some(isCurrentlyReturned);
   
   // Count how many submissions are returned
-  const returnedCount = items.filter(sub => 
-    sub.status === 'returned' || 
-    (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
-  ).length;
+  const returnedCount = items.filter(isCurrentlyReturned).length;
   
   // Determine display status
   // If ALL submissions are returned, show "returned"
   // If SOME submissions are returned, show "pending" (awaiting resubmission)
   // Otherwise show the bin's actual status
-  const allReturned = items.length > 0 && items.every(sub => 
-    sub.status === 'returned' || 
-    (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
-  );
+  const allReturned = items.length > 0 && items.every(isCurrentlyReturned);
 
   // const displayStatus = allReturned 
   //   ? 'returned' 
   //   : (hasReturnedSubmissions ? 'pending' : submission.status);
 
-  // Count faculty members who actually submitted documents
+  // Count faculty members who actually submitted documents (excluding currently returned)
   const submittedCount = items.filter(s => {
+    // Don't count if currently returned (awaiting resubmission)
+    if (isCurrentlyReturned(s)) return false;
+    
     // Check if submission has documents
     const hasDocuments = (Array.isArray(s.documents) && s.documents.length > 0) || 
                         (s.document && s.document !== null);

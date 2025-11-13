@@ -93,7 +93,7 @@ export default function DeanTemplates() {
   let allowedStatusSet = null;
 
   if (isDocControlOfficer) {
-    tabs = ["All", "Approved", "Endorsed", "Pending Approvals", "Rejected"];
+    tabs = ["All", "Approved", "Endorsed", "Pending", "Returned", "Rejected"];
     tabToStatus = {
       Approved: "Approved",
       "Pending Approvals": "Pending Approval",
@@ -108,9 +108,10 @@ export default function DeanTemplates() {
       "disapproved",
     ]);
   } else if (isLeadDocController || isUnitDocController) {
-    tabs = ["All", "Endorsed", "Returned"];
+    tabs = ["All", "Endorsed", "Pending", "Returned"];
     tabToStatus = {
       Endorsed: "Endorsed",
+      Pending: "Pending",
       Returned: "Returned",
     };
     allowedStatusSet = new Set(["endorsed", "returned"]);
