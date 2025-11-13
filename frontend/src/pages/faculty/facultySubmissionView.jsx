@@ -602,18 +602,100 @@ export default function FacultySubmissionView() {
                   </div>
                 </div>
 
-               {/* Display Faculty's Comment */}
-                {submission.submissionMessage.trim() && (
+             {/* Display All Comments from Everyone */}
+              {(() => {
+                const notes = Array.isArray(assignedItem?.notes) ? assignedItem.notes : [];
+                
+                // Filter for actual comments (not just return notes)
+                const allComments = notes.filter(n => {
+                  const message = n.message || n.reason || n.text || n.comment || '';
+                  return String(message).trim() !== '';
+                });
+                
+                if (allComments.length === 0) return null;
+                
+                return (
                   <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-start gap-2 mb-2">
-                      <FileText size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm font-semibold text-gray-900">Your Comment:</p>
+                    <div className="flex items-start gap-2 mb-3">
+                      <MessageSquare size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm font-semibold text-gray-900">Comments & Feedback ({allComments.length}):</p>
                     </div>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap pl-6">
-                      {submission.submissionMessage}
-                    </p>
+                    <div className="space-y-3 pl-6">
+                      {allComments.map((note, idx) => {
+                        const message = note.message || note.reason || note.text || note.comment || '';
+                        if (!String(message).trim()) return null;
+                        
+                        // Extract reviewer info - prioritize fetched user data
+                        let reviewerName = 'Unknown User';
+                        let reviewerRole = '';
+                        let reviewerEmail = '';
+
+                        // Get user ID
+                        const userId = typeof note.by === 'string' 
+                          ? note.by 
+                          : (note.by?._id || note.by?.id);
+
+                        // Check if we have fetched user data
+                        if (userId && reviewerUsers[userId]) {
+                          const fetchedUser = reviewerUsers[userId];
+                          reviewerName = fetchedUser.name;
+                          reviewerRole = fetchedUser.role;
+                          reviewerEmail = fetchedUser.email;
+                        } 
+                        // Fallback to note.by object if available
+                        else if (note.by && typeof note.by === 'object') {
+                          const firstName = note.by.firstname || note.by.first_name || note.by.firstName || '';
+                          const lastName = note.by.lastname || note.by.last_name || note.by.lastName || '';
+                          
+                          reviewerName = note.by.name || 
+                                        note.by.fullname || 
+                                        note.by.full_name ||
+                                        (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
+                                        note.by.username ||
+                                        note.by.email || 
+                                        'Unknown User';
+                          
+                          if (note.by.role) {
+                            reviewerRole = typeof note.by.role === 'object' 
+                              ? (note.by.role.name || note.by.role.title || note.by.role.role_name || '')
+                              : String(note.by.role);
+                          }
+                          
+                          reviewerEmail = note.by.email || '';
+                        }
+                        
+                        const timestamp = note.createdAt || note.created_at || note.at || note.timestamp;
+                        
+                        return (
+                          <div key={note._id || note.id || idx} className="bg-white p-3 rounded-md border border-blue-300 shadow-sm">
+                            <div className="flex items-start justify-between mb-2 gap-2">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-xs font-semibold text-gray-900 block">{reviewerName}</span>
+                                {reviewerEmail && (
+                                  <span className="text-xs text-gray-500 block truncate">{reviewerEmail}</span>
+                                )}
+                              </div>
+                              {reviewerRole && (
+                                <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium whitespace-nowrap flex-shrink-0">
+                                  {reviewerRole}
+                                </span>
+                              )}
+                            </div>
+                            {timestamp && (
+                              <p className="text-xs text-gray-500 mb-2">
+                                {formatDateTime(timestamp)}
+                              </p>
+                            )}
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                              {String(message)}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
+                );
+              })()}
 
                 {/* Display Return Reason (if returned) - read from comments/notes history */}
                 {(() => {
@@ -659,16 +741,16 @@ export default function FacultySubmissionView() {
                         const message = note.message || note.reason || note.text || note.comment || '';
                         if (!String(message).trim()) return null;
                         
-                        // Extract reviewer info - prioritize fetched user data
+                          // Extract reviewer info - prioritize fetched user data
                         let reviewerName = 'Reviewer';
                         let reviewerRole = '';
                         let reviewerEmail = '';
-                        
+
                         // Get user ID
                         const userId = typeof note.by === 'string' 
                           ? note.by 
                           : (note.by?._id || note.by?.id);
-                        
+
                         // Check if we have fetched user data
                         if (userId && reviewerUsers[userId]) {
                           const fetchedUser = reviewerUsers[userId];
@@ -678,16 +760,20 @@ export default function FacultySubmissionView() {
                         } 
                         // Fallback to note.by object if available
                         else if (note.by && typeof note.by === 'object') {
-                          const firstName = note.by.firstname || note.by.first_name || '';
-                          const lastName = note.by.lastname || note.by.last_name || '';
+                          const firstName = note.by.firstname || note.by.first_name || note.by.firstName || '';
+                          const lastName = note.by.lastname || note.by.last_name || note.by.lastName || '';
+                          
                           reviewerName = note.by.name || 
                                         note.by.fullname || 
+                                        note.by.full_name ||
                                         (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
+                                        note.by.username ||
+                                        note.by.email || 
                                         'Reviewer';
                           
                           if (note.by.role) {
                             reviewerRole = typeof note.by.role === 'object' 
-                              ? (note.by.role.name || note.by.role.title || '')
+                              ? (note.by.role.name || note.by.role.title || note.by.role.role_name || '')
                               : String(note.by.role);
                           }
                           
@@ -696,31 +782,31 @@ export default function FacultySubmissionView() {
                         
                         const timestamp = note.createdAt || note.created_at || note.at || note.timestamp;
                           
-                          return (
-                            <div key={note._id || note.id || idx} className="bg-white p-3 rounded-md border border-orange-300">
-                              <div className="flex items-start justify-between mb-2 gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <span className="text-xs font-semibold text-gray-900 block">{reviewerName}</span>
-                                  {reviewerEmail && (
-                                    <span className="text-xs text-gray-500 block truncate">{reviewerEmail}</span>
-                                  )}
-                                </div>
-                                {reviewerRole && (
-                                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium whitespace-nowrap flex-shrink-0">
-                                    {reviewerRole}
-                                  </span>
-                                )}
-                              </div>
-                              {timestamp && (
-                                <p className="text-xs text-gray-500 mb-2">
-                                  {formatDateTime(timestamp)}
-                                </p>
-                              )}
-                              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                {String(message)}
-                              </p>
-                            </div>
-                          );
+                   return (
+                    <div key={note._id || note.id || idx} className="bg-white p-3 rounded-md border border-orange-300">
+                      <div className="flex items-start justify-between mb-2 gap-2">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-semibold text-gray-900 block">{reviewerName}</span>
+                          {reviewerEmail && (
+                            <span className="text-xs text-gray-500 block truncate">{reviewerEmail}</span>
+                          )}
+                        </div>
+                        {reviewerRole && (
+                          <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium whitespace-nowrap flex-shrink-0">
+                            {reviewerRole}
+                          </span>
+                        )}
+                      </div>
+                      {timestamp && (
+                        <p className="text-xs text-gray-500 mb-2">
+                          {formatDateTime(timestamp)}
+                        </p>
+                      )}
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                        {String(message)}
+                      </p>
+                    </div>
+                  );
                         })}
                       </div>
                     </div>
