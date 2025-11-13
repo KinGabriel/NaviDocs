@@ -945,11 +945,15 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             !pageNumber.enabled ? "opacity-60 pointer-events-none" : ""
           }`}
         >
-          <TextField
+          {/* Pattern dropdown: Page of Page / Page only */}
+          <SelectField
             label="Pattern"
             value={pageNumber.pattern}
             onChange={setPageNumber.setPattern}
-            placeholder="Use {page} and {total}, e.g., {page} of {total}"
+            options={[
+              { label: "Page of Page", value: "{page} of {total}" },
+              { label: "Page only", value: "{page}" },
+            ]}
           />
 
           <SelectField
@@ -963,17 +967,15 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             ]}
           />
 
+          {/* Font family from utils textFonts */}
           <SelectField
             label="Font Family"
             value={pageNumber.fontFamily}
             onChange={setPageNumber.setFontFamily}
-            options={[
-              { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
-              { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
-              { label: "Georgia", value: "Georgia, serif" },
-              { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-              { label: "Courier New", value: '"Courier New", Courier, monospace' },
-            ]}
+            options={FONT_OPTIONS.map(f => ({
+              ...f,
+              style: { fontFamily: f.value },
+            }))}
           />
 
           <NumberField
@@ -1002,10 +1004,6 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             value={pageNumber.color}
             onChange={setPageNumber.setColor}
           />
-
-          <Hint>
-            The renderer replaces tokens: {"{page}"} → current page, {"{total}"} → total pages.
-          </Hint>
         </div>
       </div>
 
@@ -1047,17 +1045,15 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             ]}
           />
 
+          {/* Font family from utils textFonts */}
           <SelectField
             label="Font Family"
             value={body.fontFamily}
             onChange={setBody.setFontFamily}
-            options={[
-              { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
-              { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
-              { label: "Georgia", value: "Georgia, serif" },
-              { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-              { label: "Courier New", value: '"Courier New", Courier, monospace' },
-            ]}
+            options={FONT_OPTIONS.map(f => ({
+              ...f,
+              style: { fontFamily: f.value },
+            }))}
           />
 
           <NumberField
@@ -1073,10 +1069,6 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
           <CheckboxField label="Italic" checked={!!body.italic} onChange={setBody.setItalic} />
 
           <ColorField label="Text Color" value={body.color} onChange={setBody.setColor} />
-
-          <Hint>
-            The footer text appears stacked under the page number when both are enabled.
-          </Hint>
         </div>
       </div>
     </div>
@@ -1406,7 +1398,11 @@ function SelectField({ label, value, onChange, options, disabled }) {
         disabled={disabled}
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value}>
+          <option
+            key={o.value}
+            value={o.value}
+            style={o.style}
+          >
             {o.label}
           </option>
         ))}
@@ -1414,6 +1410,8 @@ function SelectField({ label, value, onChange, options, disabled }) {
     </div>
   );
 }
+
+
 
 function Hint({ children }) {
   return <p className="mt-2 text-xs text-slate-500">{children}</p>;
