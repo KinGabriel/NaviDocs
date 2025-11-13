@@ -27,6 +27,7 @@ ChartJS.register(
   Legend,
   ArcElement
 );
+import Loader from "../../components/loader";
 
 export default function DeanDashboard() {
   const user = useUser();
@@ -35,6 +36,7 @@ export default function DeanDashboard() {
   // URL route used by react-router for navigation (keep this pointing to your route path)
   const SUBMISSION_BINS_ROUTE = "/submission-bins";
   const DOC_CONTROLLER_TEMPLATES_ROUTE = "/templates?status=Published";
+  const [isLoading, setIsLoading] = useState(false);
   const SUBMISSIONS_ROUTE = "/submissions"; // use the same path your router uses for the Submissions page
 
   function formatDate(dateValue) {
@@ -191,7 +193,8 @@ export default function DeanDashboard() {
         {/* Main content panel with responsive padding/card treatment */}
         <main
           className="
-          flex-1 flex flex-col bg-white
+          relative flex-1 flex flex-col bg-white
+          bg-white
           lg:shadow
           pt-1 pb-4
           px-4 sm:px-6 lg:px-8
@@ -202,6 +205,35 @@ export default function DeanDashboard() {
         "
         >
           <Greeting name={user?.firstname || "Department Head"} />
+        {isLoading ? (
+            <div className="flex-1 flex justify-center items-center min-h-[60vh]">
+              <Loader message="Loading dashboard..." />
+            </div>
+        ) : (
+          <>
+          {/* Stat cards */}
+          <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
+            {/* Templates */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                <FileText className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Templates</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
+              </div>
+            </div>
+            {/* Submission Bins */}
+            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+                <FolderOpen className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Submission Bins</div>
+                <div className="text-3xl font-bold text-gray-900">1</div>
+              </div>
+            </div>
+          </div>
 
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
@@ -331,7 +363,8 @@ export default function DeanDashboard() {
               <Table columns={publishedTemplatesColumns} data={publishedTemplates} />
             </div>
           </div>
-
+           </>
+          )}
         </main>
       </div>
     </div>
