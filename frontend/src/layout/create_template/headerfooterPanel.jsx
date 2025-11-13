@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
  * Header & Footer Panel (Tabbed)
  * - Two tabs: Header / Footer
  * - Enable toggles for each band
- * - Header: Logos + center text + document stamp
+ * - Header: Logos + center text
  * - Footer: Page number + freeform text, both with alignment & font styling
  *
  * Backward compatibility:
@@ -191,7 +191,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
   const [color, setColor] = useState(initial.header.centerText.color);
   const [showHeaderLine, setShowHeaderLine] = useState(initial.header.centerText.showHeaderLine);
 
-  // Document stamp
+  // Document stamp (kept for data, UI hidden)
   const [docCode, setDocCode] = useState(initial.documentStamp.docCode);
   const [revisionNo, setRevisionNo] = useState(initial.documentStamp.revisionNo);
   const [effectivity, setEffectivity] = useState(
@@ -656,10 +656,10 @@ function HeaderTab({
               onChange={setCenter.setFontFamily}
               options={[
                 { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
-                { label: "Times New Roman", value: "\"Times New Roman\", Times, serif" },
+                { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
                 { label: "Georgia", value: "Georgia, serif" },
                 { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-                { label: "Courier New", value: "\"Courier New\", Courier, monospace" },
+                { label: "Courier New", value: '"Courier New", Courier, monospace' },
               ]}
             />
             <NumberField
@@ -688,55 +688,8 @@ function HeaderTab({
         </div>
       </div>
 
-      {/* Document Stamp */}
-      <div className="rounded-xl border p-4">
-        <div className="mb-2 text-sm font-semibold text-slate-700">
-          Document Stamp (Right Side Table)
-        </div>
-        <p className="text-xs text-gray-500 mb-3">
-          Fixed labels; only values are editable. Page count is automatic.
-        </p>
-
-        <div className="space-y-2">
-          <LabeledRow label="Document Code">
-            <input
-              type="text"
-              className="border rounded-md px-2 py-1 text-sm w-full"
-              value={documentStamp.docCode}
-              onChange={(e) => setDocumentStamp.setDocCode(e.target.value)}
-            />
-          </LabeledRow>
-
-          <LabeledRow label="Revision No.">
-            <input
-              type="text"
-              className="border rounded-md px-2 py-1 text-sm w-full"
-              value={documentStamp.revisionNo}
-              onChange={(e) => setDocumentStamp.setRevisionNo(e.target.value)}
-            />
-          </LabeledRow>
-
-          <LabeledRow label="Effectivity">
-            <input
-              type="date"
-              className="border rounded-md px-2 py-1 text-sm w-full"
-              value={normalizeEffectivityLocal(documentStamp.effectivity)}
-              onChange={(e) =>
-                setDocumentStamp.setEffectivity(normalizeEffectivityLocal(e.target.value))
-              }
-            />
-          </LabeledRow>
-
-          <LabeledRow label="Page">
-            <input
-              type="text"
-              className="border rounded-md px-2 py-1 text-sm w-full bg-gray-50 text-gray-500"
-              value="1 of N (auto)"
-              disabled
-            />
-          </LabeledRow>
-        </div>
-      </div>
+      {/* Document Stamp UI intentionally hidden */}
+      {/* Values still exist in state & payload for compatibility */}
     </div>
   );
 }
@@ -786,10 +739,10 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             onChange={setPageNumber.setFontFamily}
             options={[
               { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
-              { label: "Times New Roman", value: "\"Times New Roman\", Times, serif" },
+              { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
               { label: "Georgia", value: "Georgia, serif" },
               { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-              { label: "Courier New", value: "\"Courier New\", Courier, monospace" },
+              { label: "Courier New", value: '"Courier New", Courier, monospace' },
             ]}
           />
 
@@ -870,10 +823,10 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             onChange={setBody.setFontFamily}
             options={[
               { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
-              { label: "Times New Roman", value: "\"Times New Roman\", Times, serif" },
+              { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
               { label: "Georgia", value: "Georgia, serif" },
               { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-              { label: "Courier New", value: "\"Courier New\", Courier, monospace" },
+              { label: "Courier New", value: '"Courier New", Courier, monospace' },
             ]}
           />
 
@@ -899,7 +852,6 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
     </div>
   );
 }
-
 
 /* --------------------- UI Blocks & Inputs --------------------- */
 
