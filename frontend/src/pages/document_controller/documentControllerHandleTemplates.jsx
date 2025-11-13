@@ -204,6 +204,8 @@ export default function DeanTemplates() {
     isDocControlOfficer
   );
 
+  const isApproverRole = isLeadDocController || isUnitDocController || isDocControlOfficer;
+
   // ---------- ROLE-BASED TABS & FILTERING ----------
 
   let tabs = [];
@@ -254,7 +256,12 @@ export default function DeanTemplates() {
     setLoading(true);
     setError(null);
     try {
-      const apiStatus = tabToStatus[selectedStatus] || selectedStatus;
+      // For approver roles (LDC, Unit DC, DCO), don't filter by status in API.
+      // We'll do all status filtering on the frontend using mapStatusForRole.
+      const apiStatus =
+        isApproverRole || selectedStatus === "All"
+          ? undefined
+          : (tabToStatus[selectedStatus] || selectedStatus);
 
       const res = await fetchDeanTemplatesAPI({
         user,
@@ -280,9 +287,23 @@ export default function DeanTemplates() {
       // Hide drafts everywhere
       arr = arr.filter((t) => normalizeStatus(t.status) !== "draft");
 
-      // Restrict list by role-allowed underlying statuses
+      // Restrict list by role-allowed underlying statuses (raw statuses)
       if (allowedStatusSet) {
-        arr = arr.filter((t) => allowedStatusSet.has(normalizeStatus(t.status)));
+        arr = arr.filter((t) =>
+          allowedStatusSet.has(normalizeStatus(t.status))
+        );
+      }
+
+      // Now filter by the *displayed* status using mapStatusForRole
+      if (selectedStatus !== "All") {
+        arr = arr.filter((t) => {
+          const mapped = mapStatusForRole(t, {
+            isLeadDocController,
+            isUnitDocController,
+            isDocControlOfficer,
+          });
+          return mapped === selectedStatus;
+        });
       }
 
       // Sorting
@@ -542,23 +563,6 @@ export default function DeanTemplates() {
           </div>
         </main>
       </div>
-
-      {/* Assignment Modal (if you’re still using it) */}
-      {isAssignmentModalOpen && (
-        <div className="fixed inset-0 z-50 bg-opacity-30 backdrop-blur-[2px] flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <TaskAssignmentModal
-              templateId={selectedTemplateId}
-              isOpen={isAssignmentModalOpen}
-              onClose={() => setIsAssignmentModalOpen(false)}
-              onAssign={(result) => {
-                console.log("Assignment created:", result);
-                fetchTemplates();
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
