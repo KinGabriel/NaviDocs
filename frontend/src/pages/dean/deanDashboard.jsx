@@ -88,7 +88,7 @@ export default function DeanDashboard() {
           onClick={(e) => {
             e.stopPropagation();
             const id = row._id ?? row.id ?? row.templateId;
-            navigate(`/dean/document-workflow/${id}`, {
+            navigate(`/templates/published/${id}`, {
               state: { doc: row, origin: "dean:recently-submitted" },
             });
           }}
