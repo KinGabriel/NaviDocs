@@ -8,6 +8,10 @@ import { StatusBadge } from "../../utils/formatters";
 import Greeting from "../../components/greeting";
 import { Doughnut } from "react-chartjs-2";
 import {
+  FileText,
+  FolderOpen
+} from "lucide-react";
+import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
