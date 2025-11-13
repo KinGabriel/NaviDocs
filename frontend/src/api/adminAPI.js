@@ -141,15 +141,46 @@ export const fetchUserAccountByIdAPI = async (userId) => {
  * @returns {Promise<{success:boolean,data:Array,page:number,limit:number,total:number,pages:number}>}
  */
 export const fetchLoginActivityAPI = async (params = {}) => {
-  const { page = 1, limit = 10, role, status, date, search, browser } = params;
+  const { page = 1, limit = 10, role, status, date, search, browserName } = params;
   try {
     const res = await axios.get(`${API_URL}/api/auth/logs`, {
       withCredentials: true,
-      params: { page, limit, role, status, date, search, browser }
+      params: { page, limit, role, status, date, search, browserName }
     });
     return res.data;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Failed to fetch login activity.');
+  }
+};
+
+/**
+ * Export login activity as CSV for the given month and filters.
+ * Returns a Blob/stream; set responseType: 'blob'.
+ */
+export const exportLoginActivityCSV = async (params = {}) => {
+  try {
+    const res = await axios.get(`${API_URL}/api/auth/logs/export`, {
+      withCredentials: true,
+      params,
+      responseType: 'blob'
+    });
+    return res;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to export login activity.');
+  }
+};
+
+/**
+ * Delete login activity logs in batch. Provide either { ids: [...] } or { month: 'YYYY-MM' }
+ */
+export const deleteLoginActivityAPI = async (body = {}) => {
+  try {
+    const res = await axios.post(`${API_URL}/api/auth/logs/delete`, body, {
+      withCredentials: true
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to delete login activity.');
   }
 };
 
