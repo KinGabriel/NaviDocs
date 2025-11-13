@@ -1,8 +1,8 @@
-// src/components/editable_fields/accordionList.jsx
 import React, { useState } from "react";
-import { ChevronDown, ChevronRight, Plus, Trash2, Edit3, Check, X, Tag } from "lucide-react";
+import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import TagPicker from "./TagPicker";
 import { makeId } from "../../utils/ids";
+import PermanentlyDeleteDocumentModal from "../modals/permanentlyDeleteDocumentModal";
 
 export default function AccordionList({
   accordions = [],
@@ -13,13 +13,20 @@ export default function AccordionList({
   onUpdateField = () => {},
 }) {
   const [expanded, setExpanded] = useState({});
-  const [editingAccordion, setEditingAccordion] = useState(null);
-  const [newAccordionName, setNewAccordionName] = useState("");
   const [renaming, setRenaming] = useState({});
   const [renameDraft, setRenameDraft] = useState({});
-  const [editingFieldId, setEditingFieldId] = useState(null);
-  const [newFieldData, setNewFieldData] = useState({ name: "", type: "text", placeholder: "", instructions: "" });
+  const [newAccordionName, setNewAccordionName] = useState("");
+  const [newFieldData, setNewFieldData] = useState({
+    name: "",
+    type: "text",
+    placeholder: "",
+    instructions: "",
+  });
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [targetGroup, setTargetGroup] = useState(null);
+  const [submittingDelete, setSubmittingDelete] = useState(false);
+  const [deleteErr, setDeleteErr] = useState("");
 
   const toggleAccordion = (id) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -27,18 +34,39 @@ export default function AccordionList({
 
   const addAccordion = () => {
     if (!newAccordionName.trim()) return;
-    const newAcc = { id: makeId('grp'), name: newAccordionName.trim(), fields: [] };
+    const newAcc = { id: makeId("grp"), name: newAccordionName.trim(), fields: [] };
     setAccordions((prev) => [...prev, newAcc]);
     setNewAccordionName("");
   };
 
   const removeAccordion = (id) => {
-    if (accordions.length <= 1) {
-      alert('At least one group is required.');
-      return;
+    const acc = accordions.find((a) => a.id === id);
+    setTargetGroup(acc || null);
+    setDeleteErr("");
+    setDeleteOpen(true);
+  };
+
+  // called by modal confirm
+  const onConfirmDeleteGroup = async () => {
+    try {
+      setSubmittingDelete(true);
+
+      if (accordions.length <= 1) {
+        setDeleteErr("At least one group is required. You cannot delete the last group.");
+        return;
+      }
+
+      // TODO: call your API if needed
+      // await deleteGroupAPI(targetGroup.id);
+
+      setAccordions((prev) => prev.filter((a) => a.id !== (targetGroup?.id || "")));
+      setDeleteOpen(false);
+      setTargetGroup(null);
+    } catch (e) {
+      setDeleteErr(e?.message || "Failed to delete group.");
+    } finally {
+      setSubmittingDelete(false);
     }
-    if (!window.confirm("Remove this group and all its fields?")) return;
-    setAccordions((prev) => prev.filter((a) => a.id !== id));
   };
 
   const addField = (accordionId) => {
@@ -51,20 +79,17 @@ export default function AccordionList({
       tags: [],
     };
     setAccordions((prev) =>
-      prev.map((a) =>
-        a.id === accordionId ? { ...a, fields: [...a.fields, field] } : a
-      )
+      prev.map((a) => (a.id === accordionId ? { ...a, fields: [...a.fields, field] } : a))
     );
-  setNewFieldData({ name: "", type: "text", placeholder: "", instructions: "" });
+    setNewFieldData({ name: "", type: "text", placeholder: "", instructions: "" });
   };
 
+  // you can keep this confirm for fields, or wire a second modal similarly
   const removeField = (accordionId, fieldId) => {
     if (!window.confirm("Remove this field from template?")) return;
     setAccordions((prev) =>
       prev.map((a) =>
-        a.id === accordionId
-          ? { ...a, fields: a.fields.filter((f) => f.id !== fieldId) }
-          : a
+        a.id === accordionId ? { ...a, fields: a.fields.filter((f) => f.id !== fieldId) } : a
       )
     );
     onRemoveField(fieldId);
@@ -80,9 +105,7 @@ export default function AccordionList({
         a.id === accordionId
           ? {
               ...a,
-              fields: a.fields.map((f) =>
-                f.id === fieldId ? { ...f, tags } : f
-              ),
+              fields: a.fields.map((f) => (f.id === fieldId ? { ...f, tags } : f)),
             }
           : a
       )
@@ -116,23 +139,25 @@ export default function AccordionList({
           >
             <div className="flex items-center gap-2">
               {expanded[acc.id] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              {!renaming[acc.id] && (
-                <span className="font-medium text-slate-800">{acc.name}</span>
-              )}
+              {!renaming[acc.id] && <span className="font-medium text-slate-800">{acc.name}</span>}
               {renaming[acc.id] && (
                 <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="text"
                     className="rounded-md border border-slate-300 px-2 py-1 text-sm"
                     value={renameDraft[acc.id] ?? acc.name}
-                    onChange={(e) => setRenameDraft((prev) => ({ ...prev, [acc.id]: e.target.value }))}
+                    onChange={(e) =>
+                      setRenameDraft((prev) => ({ ...prev, [acc.id]: e.target.value }))
+                    }
                   />
                   <button
                     className="rounded-md bg-indigo-600 px-2 py-1 text-xs text-white"
                     onClick={() => {
                       const newName = (renameDraft[acc.id] ?? acc.name).trim();
                       if (!newName) return;
-                      setAccordions((prev) => prev.map((a) => a.id === acc.id ? { ...a, name: newName } : a));
+                      setAccordions((prev) =>
+                        prev.map((a) => (a.id === acc.id ? { ...a, name: newName } : a))
+                      );
                       setRenaming((prev) => ({ ...prev, [acc.id]: false }));
                     }}
                   >
@@ -163,9 +188,10 @@ export default function AccordionList({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  removeAccordion(acc.id);
+                  removeAccordion(acc.id); // opens modal
                 }}
                 className="text-red-600 hover:text-red-800"
+                title="Delete group"
               >
                 <Trash2 size={16} />
               </button>
@@ -179,17 +205,11 @@ export default function AccordionList({
               )}
 
               {acc.fields.map((f) => (
-                <div
-                  key={f.id}
-                  className="rounded-md border border-slate-200 p-2 hover:bg-slate-50"
-                >
+                <div key={f.id} className="rounded-md border border-slate-200 p-2 hover:bg-slate-50">
                   <div className="flex justify-between items-center">
                     <div>
                       <div className="font-medium text-sm text-slate-800">
-                        {f.name}{" "}
-                        <span className="text-slate-400 text-xs">
-                          ({f.type})
-                        </span>
+                        {f.name} <span className="text-slate-400 text-xs">({f.type})</span>
                       </div>
                       <div className="text-xs text-slate-500">
                         Placeholder: <em>{f.placeholder}</em>
@@ -226,23 +246,17 @@ export default function AccordionList({
 
               <div className="mt-3 border-t border-slate-200 pt-3">
                 <div className="text-xs mb-1 text-slate-600 font-medium">Add New Field</div>
-                <div
-                  className="grid grid-cols-4 gap-2 mb-2"
-                >
+                <div className="grid grid-cols-4 gap-2 mb-2">
                   <input
                     type="text"
                     placeholder="Field name"
                     value={newFieldData.name}
-                    onChange={(e) =>
-                      setNewFieldData({ ...newFieldData, name: e.target.value })
-                    }
+                    onChange={(e) => setNewFieldData({ ...newFieldData, name: e.target.value })}
                     className="col-span-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
                   />
                   <select
                     value={newFieldData.type}
-                    onChange={(e) =>
-                      setNewFieldData({ ...newFieldData, type: e.target.value })
-                    }
+                    onChange={(e) => setNewFieldData({ ...newFieldData, type: e.target.value })}
                     className="col-span-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
                   >
                     <option value="text">Text</option>
@@ -253,10 +267,7 @@ export default function AccordionList({
                     placeholder="Placeholder"
                     value={newFieldData.placeholder}
                     onChange={(e) =>
-                      setNewFieldData({
-                        ...newFieldData,
-                        placeholder: e.target.value,
-                      })
+                      setNewFieldData({ ...newFieldData, placeholder: e.target.value })
                     }
                     className="col-span-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
                   />
@@ -265,10 +276,7 @@ export default function AccordionList({
                     placeholder="Instructions (optional)"
                     value={newFieldData.instructions}
                     onChange={(e) =>
-                      setNewFieldData({
-                        ...newFieldData,
-                        instructions: e.target.value,
-                      })
+                      setNewFieldData({ ...newFieldData, instructions: e.target.value })
                     }
                     className="col-span-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
                   />
@@ -284,6 +292,19 @@ export default function AccordionList({
           )}
         </div>
       ))}
+
+      {/* ✅ Single shared confirmation modal for deleting a group */}
+      <PermanentlyDeleteDocumentModal
+        open={deleteOpen}
+        onClose={() => !submittingDelete && setDeleteOpen(false)}
+        onConfirm={onConfirmDeleteGroup}
+        submitting={submittingDelete}
+        error={deleteErr}
+        title="Delete Group"
+        message="Are you sure you want to delete this group? This will remove all fields inside it."
+        confirmLabel="Delete"
+        itemTitle={targetGroup?.name}
+      />
     </div>
   );
 }

@@ -172,10 +172,9 @@ export default function PageSetupPanel({
             />
           ))}
         </div>
-        <div className="text-[11px] text-gray-500 mt-1">Values snap to 0.25″ and clamp between 0–3″.</div>
       </div>
 
-      {/* Header/Footer band heights UI intentionally removed (compatibility values still emitted) */}
+  
 
       {/* Actions */}
       <div className="flex justify-end items-center gap-6 mt-20">

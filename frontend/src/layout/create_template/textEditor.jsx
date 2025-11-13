@@ -245,7 +245,7 @@ const stripDefaultPageNumber = (scopeEl) => {
 };
 
 /* ---------------------------- dynamic header/footer --------------------------- */
-const MIN_HEADER_FOOTER_PX = 90;
+const MIN_HEADER_FOOTER_PX = 120;
 const getHeaderBasePx = (cfg) =>
   cfg.headerEnabled ? Math.max(MIN_HEADER_FOOTER_PX, inchToPx(cfg.headerMarginIn ?? 0)) : 0;
 const getFooterBasePx = (cfg) =>

@@ -185,7 +185,7 @@ export const shareDocument = async (req, res) => {
  * @param {import('express').Response} res Express response
  * @returns {Promise<void>} 201 with created bin, or error status
  */
-export const createSubmissionBin = async (req, res) => {
+export const createSubmissionBin = async (req, res, callback) => {
 	try {
 		if (!hasRole(req, ['Department Head'])) {
 			return res.status(403).json({ message: 'Only Department Head can create bins' });
@@ -276,6 +276,14 @@ export const createSubmissionBin = async (req, res) => {
 			}
 		} catch (e) {
 			console.error('createSubmissionBin notification error', e?.message || e);
+		}
+
+		if (typeof callback === 'function') {
+			try {
+				callback(bin);
+			} catch (cbErr) {
+				console.error('createSubmissionBin callback error', cbErr);
+			}
 		}
 
 		return res.status(201).json(bin);
