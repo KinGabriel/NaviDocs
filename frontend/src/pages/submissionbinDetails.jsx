@@ -457,6 +457,7 @@ export default function SubmissionDetails() {
                               setForwarding(true);
                               const updated = await forwardSubmissionBinAPI(bin._id || bin.id);
                               setBin(updated);
+                              toast.success("Bin forwarded successfully!");
                             } catch (err) {
                               toast.error(err?.responseData?.message || err?.message || 'Failed to forward');
                             } finally {

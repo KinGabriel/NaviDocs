@@ -185,6 +185,7 @@ export default function SubmissionBins() {
       setForwardingId(binId);
       const updated = await forwardSubmissionBinAPI(binId);
       setBins(prev => prev.map(b => (String(b._id || b.id) === String(binId) ? updated : b)));
+      toast.success('Bin forwarded successfully!');
     } catch (e) {
       toast.error(e?.responseData?.message || e?.message || 'Failed to forward bin');
     } finally {

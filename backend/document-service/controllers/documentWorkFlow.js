@@ -518,11 +518,36 @@ export const forwardBin = async (req, res) => {
 		if (!isCompleted) {
 			return res.status(400).json({ message: 'Bin must be completed before it can be forwarded' });
 		}
+
+		// Check if any submissions have been returned for resubmission
+		const submissions = Array.isArray(bin.submissions) ? bin.submissions : [];
+		const hasReturnedSubmissions = submissions.some(sub => {
+			// Check if submission status is 'returned'
+			if (sub.status === 'returned') return true;
+			
+			// Check if any notes indicate a return
+			if (Array.isArray(sub.notes)) {
+				return sub.notes.some(note => {
+					const noteType = String(note.type || '').toLowerCase();
+					return noteType === 'returned' || noteType === 'return';
+				});
+			}
+			
+			return false;
+		});
+
+		if (hasReturnedSubmissions) {
+			return res.status(400).json({ 
+				message: 'Cannot forward the bin because some documents are awaiting resubmission',
+				hasReturnedSubmissions: true
+			});
+		}
+
 		bin.is_forwarded = true;
 		bin.forwarded_at = new Date();
 		bin.forwarded_by = req.user?._id || req.user?.id || null;
 		await bin.save();
-
+		
 		// --- NEW: Notify Secretary & Dean roles that bin is ready to view ---
         try {
 		const message = `Submission bin "${bin.title}" has been forwarded and can be reviewed.`;
