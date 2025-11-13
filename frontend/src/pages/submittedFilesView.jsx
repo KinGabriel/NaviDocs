@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI, getDocumentContentAPI, addSubmissionCommentAPI } from "../api/assignmentDocumentsAPI";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
+import { getUsersInfoByIdsAPI } from "../api/userAPI"; 
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -179,6 +180,7 @@ export default function SubmittedFilesView() {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [reviewerUsers, setReviewerUsers] = useState({}); 
 
   // Fetch submission data
 useEffect(() => {
@@ -470,48 +472,48 @@ useEffect(() => {
             status: submissionItem.status || (submissionItem.submitted_at ? "submitted" : "pending"),
             files: submittedDocs && submittedDocs.length > 0 ? submittedDocs : [],
             viewedBy: submissionItem.viewed_by || [],
-          notes: Array.isArray(submissionItem.notes) 
-          ? submissionItem.notes.map(note => {
-              let userInfo = null;
-              
-              // If note.by is already a populated object
-              if (note.by && typeof note.by === 'object') {
-                userInfo = note.by;
-              } 
-              // If note.by is just an ID string, try to match it
-              else if (typeof note.by === 'string') {
-                const noteById = String(note.by);
+            notes: Array.isArray(submissionItem.notes) 
+            ? submissionItem.notes.map(note => {
+                let userInfo = null;
                 
-                // Check if it matches the submitting faculty
-                if (submissionItem.faculty_user && 
-                    String(submissionItem.faculty_user._id || submissionItem.faculty_user.id) === noteById) {
-                  userInfo = {
-                    ...submissionItem.faculty_user,
-                    role: { name: 'Faculty' } // Override role to ensure it shows "Faculty"
-                  };
+                // If note.by is already a populated object
+                if (note.by && typeof note.by === 'object') {
+                  userInfo = note.by;
+                } 
+                // If note.by is just an ID string, try to match it
+                else if (typeof note.by === 'string') {
+                  const noteById = String(note.by);
+                  
+                  // Check if it matches the submitting faculty
+                  if (submissionItem.faculty_user && 
+                      String(submissionItem.faculty_user._id || submissionItem.faculty_user.id) === noteById) {
+                    userInfo = {
+                      ...submissionItem.faculty_user,
+                      role: { name: 'Faculty' } // Override role to ensure it shows "Faculty"
+                    };
+                  }
+                  // Check if it matches current user (dept head/dean/secretary)
+                  else if (user && String(user._id || user.id) === noteById) {
+                    userInfo = user;
+                  }
+                  // Check if it matches bin creator
+                  else if (binData.created_by && typeof binData.created_by === 'object' &&
+                          String(binData.created_by._id || binData.created_by.id) === noteById) {
+                    userInfo = binData.created_by;
+                  }
                 }
-                // Check if it matches current user (dept head/dean/secretary)
-                else if (user && String(user._id || user.id) === noteById) {
-                  userInfo = user;
-                }
-                // Check if it matches bin creator
-                else if (binData.created_by && typeof binData.created_by === 'object' &&
-                        String(binData.created_by._id || binData.created_by.id) === noteById) {
-                  userInfo = binData.created_by;
-                }
-              }
-              
-              return {
-                ...note,
-                id: note._id || note.id,
-                at: note.createdAt || note.created_at || note.at || note.timestamp,
-                by: userInfo, 
-                message: note.message || note.text || note.comment || note.reason || ''
-              };
-            })
-          : [],
-            deadline: binData.deadline
-          };
+                
+                return {
+                  ...note,
+                  id: note._id || note.id,
+                  at: note.createdAt || note.created_at || note.at || note.timestamp,
+                  by: userInfo, 
+                  message: note.message || note.text || note.comment || note.reason || ''
+                };
+              })
+            : [],
+              deadline: binData.deadline
+            };
       
       if (mounted) {
         setSubmission(mappedSubmission);
@@ -535,9 +537,58 @@ useEffect(() => {
   return () => { mounted = false; };
 }, [id, state]);
 
+// Fetch reviewer user information from notes
+useEffect(() => {
+  if (!submission?.notes || !Array.isArray(submission.notes)) return;
+  
+  const userIds = submission.notes
+    .map(note => {
+      if (typeof note.by === 'string') return note.by;
+      if (note.by && typeof note.by === 'object') return note.by._id || note.by.id;
+      return null;
+    })
+    .filter(Boolean);
+  
+  if (userIds.length === 0) return;
+  
+  // Remove duplicates
+  const uniqueIds = [...new Set(userIds)];
+  
+  let mounted = true;
+  
+  getUsersInfoByIdsAPI(uniqueIds)
+    .then(users => {
+      if (!mounted || !users) return;
+      
+      // Create a map of userId -> user object
+      const userMap = {};
+      users.forEach(user => {
+        const id = user.userId || user._id || user.id;
+        if (id) {
+          userMap[id] = {
+            name: user.name || 
+                  user.fullname || 
+                  `${user.firstname || ''} ${user.lastname || ''}`.trim() || 
+                  user.email || 
+                  'Unknown User',
+            role: user.role?.name || user.role || 'Reviewer',
+            email: user.email
+          };
+        }
+      });
+      
+      setReviewerUsers(userMap);
+    })
+    .catch(err => {
+      console.error('Failed to fetch reviewer info:', err);
+    });
+  
+  return () => { mounted = false; };
+}, [submission?.notes]);
+
 const handleSubmitComment = async () => {
   if (!commentText.trim()) {
-    alert('Please enter a comment');
+    toast.error('Please enter a comment');
     return;
   }
   
@@ -562,13 +613,13 @@ const handleSubmitComment = async () => {
     const updatedItem = updatedBin.submissions?.find(s => String(s._id || s.id) === String(submissionId));
     
     if (updatedItem) {
-      // Map the notes properly
+      // Map the notes properly - keep the 'by' field as is so useEffect can fetch user data
       const mappedNotes = Array.isArray(updatedItem.notes) 
         ? updatedItem.notes.map(note => ({
             ...note,
             id: note._id || note.id,
             at: note.createdAt || note.created_at || note.at || note.timestamp,
-            by: note.by,
+            by: note.by, // Keep the by field as-is (could be ID string or object)
             message: note.message || note.text || note.comment || note.reason || ''
           }))
         : [];
@@ -577,15 +628,51 @@ const handleSubmitComment = async () => {
         ...prev,
         notes: mappedNotes
       }));
+      
+      // Fetch user info for new notes
+      const userIds = mappedNotes
+        .map(note => {
+          if (typeof note.by === 'string') return note.by;
+          if (note.by && typeof note.by === 'object') return note.by._id || note.by.id;
+          return null;
+        })
+        .filter(Boolean);
+      
+      if (userIds.length > 0) {
+        const uniqueIds = [...new Set(userIds)];
+        try {
+          const users = await getUsersInfoByIdsAPI(uniqueIds);
+          if (users) {
+            const userMap = {};
+            users.forEach(user => {
+              const id = user.userId || user._id || user.id;
+              if (id) {
+                userMap[id] = {
+                  name: user.name || 
+                        user.fullname || 
+                        `${user.firstname || ''} ${user.lastname || ''}`.trim() || 
+                        user.email || 
+                        'Unknown User',
+                  role: user.role?.name || user.role || 'Reviewer',
+                  email: user.email
+                };
+              }
+            });
+            setReviewerUsers(prev => ({ ...prev, ...userMap }));
+          }
+        } catch (err) {
+          console.error('Failed to fetch user info for new comments:', err);
+        }
+      }
     }
     
     setShowCommentModal(false);
     setCommentText("");
-    alert('Comment added successfully!');
+    toast.success('Comment added successfully!');
     
   } catch (err) {
     console.error("Failed to add comment:", err);
-    alert(err?.responseData?.message || err?.message || 'Failed to add comment');
+    toast.error(err?.responseData?.message || err?.message || 'Failed to add comment');
   } finally {
     setIsSubmittingComment(false);
   }
@@ -1237,74 +1324,86 @@ const handleZoomReset = () => setZoom(1);
                     </div>
                   )}
 
-                      {/* Comments/Notes from Faculty/Submitter */}
-                      {submission?.notes && submission.notes.length > 0 && (
-                        <div className="mb-4 pb-4 border-b">
-                          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                            <MessageSquare size={16} />
-                            Comments & Notes ({submission.notes.length})
-                          </h4>
-                          <div className="space-y-3">
-                            {submission.notes.map((note) => {
-                              let userName = 'Unknown User';
-                              let userRole = 'User';
-                              
-                              // The 'by' field should contain the user object
-                              const userObj = note.by;
-                              
-                              if (userObj && typeof userObj === 'object') {
-                                // Extract name - try different possible field structures
-                                const firstName = userObj.firstname || userObj.first_name || userObj.firstName || '';
-                                const lastName = userObj.lastname || userObj.last_name || userObj.lastName || '';
-                                
-                                userName = userObj.name || 
-                                          userObj.fullname || 
-                                          userObj.full_name ||
-                                          (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
-                                          userObj.username ||
-                                          userObj.email || 
-                                          'Unknown User';
-                                
-                                // Extract role - try different possible field structures
-                                if (userObj.role) {
-                                  if (typeof userObj.role === 'object') {
-                                    userRole = userObj.role.name || 
-                                              userObj.role.title || 
-                                              userObj.role.role_name ||
-                                              'User';
-                                  } else if (typeof userObj.role === 'string') {
-                                    userRole = userObj.role;
-                                  }
-                                } else {
-                                  userRole = userObj.role_name || 
-                                            userObj.position || 
-                                            'User';
-                                }
-                              } else if (userObj && typeof userObj === 'string') {
-                                // If it's just an ID string, show a generic message
-                                userName = 'User';
-                                userRole = 'Reviewer';
-                              }
-                              
-                              return (
-                              <div key={note.id || note._id || note.at} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                <div className="flex items-start gap-2 mb-2">
-                                  <div className="flex-1">
-                                    <p className="text-xs font-medium text-gray-900">
-                                        {userName}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      {userRole} • {note.at ? formatDateTime(note.at) : 'Recently'}
-                                    </p>
-                                  </div>
-                                </div>
-                                <p className="text-sm text-gray-700">{note.message}</p>
-                              </div>
-                            );
-                          })}
+                    {/* Comments/Notes from Faculty/Submitter */}
+                    {submission?.notes && submission.notes.length > 0 && (
+                      <div className="mb-4 pb-4 border-b">
+                        <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                          <MessageSquare size={16} />
+                          Comments & Notes ({submission.notes.length})
+                        </h4>
+                        <div className="space-y-3">
+                          {submission.notes.map((note) => {
+                      let userName = 'Unknown User';
+                      let userRole = 'User';
+                      let userEmail = '';
+                      
+                      // Get user ID from note
+                      const userId = typeof note.by === 'string' 
+                        ? note.by 
+                        : (note.by?._id || note.by?.id);
+                      
+                      // Check if we have fetched user data
+                      if (userId && reviewerUsers[userId]) {
+                        const fetchedUser = reviewerUsers[userId];
+                        userName = fetchedUser.name;
+                        userRole = fetchedUser.role;
+                        userEmail = fetchedUser.email;
+                      } 
+                      // Fallback to note.by object if available
+                      else if (note.by && typeof note.by === 'object') {
+                        const firstName = note.by.firstname || note.by.first_name || note.by.firstName || '';
+                        const lastName = note.by.lastname || note.by.last_name || note.by.lastName || '';
+                        
+                        userName = note.by.name || 
+                                  note.by.fullname || 
+                                  note.by.full_name ||
+                                  (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
+                                  note.by.username ||
+                                  note.by.email || 
+                                  'Unknown User';
+                        
+                        if (note.by.role) {
+                          if (typeof note.by.role === 'object') {
+                            userRole = note.by.role.name || 
+                                      note.by.role.title || 
+                                      note.by.role.role_name ||
+                                      'User';
+                          } else if (typeof note.by.role === 'string') {
+                            userRole = note.by.role;
+                          }
+                        } else {
+                          userRole = note.by.role_name || 
+                                    note.by.position || 
+                                    'User';
+                        }
+                        
+                        userEmail = note.by.email || '';
+                      }
+                      
+                      return (
+                        <div key={note.id || note._id || note.at} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex items-start gap-2 mb-2">
+                            <div className="flex-1">
+                              <p className="text-xs font-medium text-gray-900">
+                                {userName}
+                              </p>
+                              {userEmail && (
+                                <p className="text-xs text-gray-400 truncate">
+                                  {userEmail}
+                                </p>
+                              )}
+                              <p className="text-xs text-gray-500">
+                                {userRole} • {note.at ? formatDateTime(note.at) : 'Recently'}
+                              </p>
+                            </div>
                           </div>
+                          <p className="text-sm text-gray-700">{note.message}</p>
                         </div>
-                      )}
+                      );
+                    })}
+                </div>
+              </div>
+            )}
 
                       {/* Action Buttons Based on Role */}
                       {submission?.status === 'submitted' && (
@@ -1452,70 +1551,85 @@ const handleZoomReset = () => setZoom(1);
                       )}
 
                       {/* Comments/Feedback from Reviewers */}
-                      {submission?.notes && submission.notes.length > 0 && (
-                        <div className="mb-4 pb-4 border-b">
-                          <h4 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                            <MessageSquare size={16} />
-                            Feedback & Comments ({submission.notes.length})
-                          </h4>
-                          <div className="space-y-3">
-                            {submission.notes.map((note) => {
-                              let userName = 'Unknown User';
-                              let userRole = 'User';
-                              
-                              const userObj = note.by;
-                              
-                              if (userObj && typeof userObj === 'object') {
-                                // Extract name
-                                const firstName = userObj.firstname || userObj.first_name || userObj.firstName || '';
-                                const lastName = userObj.lastname || userObj.last_name || userObj.lastName || '';
-                                
-                                userName = userObj.name || 
-                                          userObj.fullname || 
-                                          userObj.full_name ||
-                                          (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
-                                          userObj.username ||
-                                          userObj.email || 
-                                          'Unknown User';
-                                
-                                // Extract role
-                                if (userObj.role) {
-                                  if (typeof userObj.role === 'object') {
-                                    userRole = userObj.role.name || 
-                                              userObj.role.title || 
-                                              userObj.role.role_name ||
-                                              'User';
-                                  } else if (typeof userObj.role === 'string') {
-                                    userRole = userObj.role;
-                                  }
-                                } else {
-                                  userRole = userObj.role_name || 
-                                            userObj.position || 
-                                            'User';
-                                }
-                              } else if (userObj && typeof userObj === 'string') {
-                                userName = 'Reviewer';
-                                userRole = 'Staff';
-                              }
-                              
-                              return (
-                              <div key={note.id || note.at} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                                <div className="flex items-start gap-2 mb-2">
-                                  <MessageSquare size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                                  <div className="flex-1">
-                                    <p className="text-xs font-medium text-gray-900">{userName}</p>
-                                    <p className="text-xs text-gray-500">
-                                      {userRole} • {note.at ? formatDateTime(note.at) : 'Recently'}
-                                    </p>
-                                  </div>
-                                </div>
-                                <p className="text-sm text-gray-700 ml-6">{note.message}</p>
-                              </div>
-                            );
-                          })}
+                     {submission?.notes && submission.notes.length > 0 && (
+                      <div className="mb-4 pb-4 border-b">
+                        <h4 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <MessageSquare size={16} />
+                          Feedback & Comments ({submission.notes.length})
+                        </h4>
+                        <div className="space-y-3">
+                          {submission.notes.map((note) => {
+                          let userName = 'Unknown User';
+                          let userRole = 'User';
+                          let userEmail = '';
+                      
+                      // Get user ID from note
+                      const userId = typeof note.by === 'string' 
+                        ? note.by 
+                        : (note.by?._id || note.by?.id);
+                      
+                      // Check if we have fetched user data
+                      if (userId && reviewerUsers[userId]) {
+                        const fetchedUser = reviewerUsers[userId];
+                        userName = fetchedUser.name;
+                        userRole = fetchedUser.role;
+                        userEmail = fetchedUser.email;
+                      } 
+                      // Fallback to note.by object if available
+                      else if (note.by && typeof note.by === 'object') {
+                        const firstName = note.by.firstname || note.by.first_name || note.by.firstName || '';
+                        const lastName = note.by.lastname || note.by.last_name || note.by.lastName || '';
+                        
+                        userName = note.by.name || 
+                                  note.by.fullname || 
+                                  note.by.full_name ||
+                                  (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
+                                  note.by.username ||
+                                  note.by.email || 
+                                  'Unknown User';
+                        
+                        if (note.by.role) {
+                          if (typeof note.by.role === 'object') {
+                            userRole = note.by.role.name || 
+                                      note.by.role.title || 
+                                      note.by.role.role_name ||
+                                      'User';
+                          } else if (typeof note.by.role === 'string') {
+                            userRole = note.by.role;
+                          }
+                        } else {
+                          userRole = note.by.role_name || 
+                                    note.by.position || 
+                                    'User';
+                        }
+                        
+                        userEmail = note.by.email || '';
+                      }
+                      
+                      return (
+                        <div key={note.id || note.at} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                          <div className="flex items-start gap-2 mb-2">
+                            <MessageSquare size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="text-xs font-medium text-gray-900">{userName}</p>
+                              {userEmail && (
+                                <p className="text-xs text-gray-400 truncate">
+                                  {userEmail}
+                                </p>
+                              )}
+                              <p className="text-xs text-gray-500">
+                                {userRole} • {note.at ? formatDateTime(note.at) : 'Recently'}
+                              </p>
+                            </div>
                           </div>
+                          <p className="text-sm text-gray-700 ml-6">{note.message}</p>
                         </div>
-                      )}
+                      );
+                   })}
+                </div>
+              </div>
+            )}
+
                       {/* Deadline Info */}
                       {submission?.deadline && (
                         <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">

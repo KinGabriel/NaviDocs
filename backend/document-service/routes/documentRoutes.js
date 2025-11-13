@@ -13,7 +13,7 @@ import {
   unarchiveDocumentById,
   listArchivedDocuments,
 } from '../controllers/documentFunctionalityController.js';
-import { dashboardDeptHead } from '../controllers/documentDataController.js';
+import { dashboardDeptHead, dashboardFaculty } from '../controllers/documentDataController.js';
 import { shareDocument,   exportDocumentPdf } from '../controllers/documentWorkFlow.js';
 import multer from 'multer';
 import {
@@ -48,6 +48,7 @@ router.get('/', authenticateJWT, listDocuments);
 
 // Department head dashboard (must be registered before the '/:id' route)
 router.get('/dashboard-dept-head', authenticateJWT, dashboardDeptHead);
+router.get('/dashboard-faculty', authenticateJWT, dashboardFaculty);
 router.get('/archived', authenticateJWT, requireDocumentAccess('view'), listArchivedDocuments);
 
 router.post('/:id/duplicate', authenticateJWT, requireDocumentAccess('view'), duplicateDocumentById);

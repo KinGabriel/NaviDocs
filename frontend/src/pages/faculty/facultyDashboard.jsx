@@ -8,6 +8,7 @@ import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
 import Greeting from "../../components/greeting";
 import UpcomingDeadlines from "../../components/upcomingDeadlines";
 import Loader from "../../components/loader";
+import { getFacultyDashboardAPI } from "../../api/documentsAPI";
 import { useNavigate } from "react-router-dom";
 import {
   Chart as ChartJS,
@@ -33,14 +34,38 @@ ChartJS.register(
 export default function FacultyDashboard() {
   const user = useUser();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [recentSubmissions, setRecentSubmissions] = useState([]);
+  const [assignedBins, setAssignedBins] = useState([]);
+  const [upcomingDeadlines, setUpcomingDeadlines] = useState([]);
   const navigate = useNavigate();
 
-  // Loading simulation — replace later with your API call
+  // Fetch faculty dashboard data from analytics GraphQL via API wrapper
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1200);
-    return () => clearTimeout(timer);
+    let mounted = true;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const res = await getFacultyDashboardAPI();
+        if (!mounted) return;
+  setRecentSubmissions(res.submissions || []);
+  setAssignedBins(res.assignedBins || []);
+  // use server-provided deadline buckets when available
+  const dueToday = Array.isArray(res.dueToday) ? res.dueToday : [];
+  const upcoming = Array.isArray(res.upcoming) ? res.upcoming : [];
+  const overdue = Array.isArray(res.overdue) ? res.overdue : [];
+  setUpcomingDeadlines([...dueToday, ...upcoming, ...overdue]);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to load faculty dashboard', err);
+        if (!mounted) return;
+        setError(err.message || 'Failed to load dashboard');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
   }, []);
 
   function formatDate(dateValue) {
@@ -69,30 +94,43 @@ export default function FacultyDashboard() {
     );
   }
 
-  // Recently Submitted Templates
-  const submittedTemplates = [
-    { id: 1, title: "Research Proposal Template", viewedBy: "Admin User", status: "Approved" },
-    { id: 2, title: "Thesis Format Guide", viewedBy: "Admin User", status: "Rejected" },
-    { id: 3, title: "Internship Report Template", viewedBy: "Admin User", status: "Returned" },
-    { id: 4, title: "Course Syllabus Template", viewedBy: "Admin User", status: "Approved" },
-    { id: 5, title: "Capstone Project Template", viewedBy: "Admin User", status: "Pending" },
-    { id: 6, title: "Department Memo Format", viewedBy: "Admin User", status: "Endorsed" },
-    { id: 7, title: "Department Memo Format", viewedBy: "Admin User", status: "Endorsed" },
-    { id: 8, title: "Department Memo Format", viewedBy: "Admin User", status: "Endorsed" },
-  ];
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+
+        <div className="flex flex-1 flex-col md:flex-row">
+          <Sidebar user={user} active="Dashboard" />
+          <div className="flex-1 flex items-center justify-center bg-white rounded-xl m-4 shadow p-6">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-red-600">Failed to load dashboard</h3>
+              <div className="text-sm text-gray-600 mt-2">{error}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Recently Submitted Templates (from API)
+  const submittedTemplates = recentSubmissions.map(s => ({
+    id: s.submissionId || s.templateId || s.documents?.[0]?.id || null,
+    title: s.documents?.[0]?.title || s.binTitle || 'Submitted Document',
+    status: s.status || 'Submitted',
+    documents: s.documents || []
+  }));
 
   const submittedTemplatesColumns = [
     { key: "title", label: "Title", render: (row) => <span className="max-w-xs truncate block">{row.title}</span> },
-    { key: "viewedBy", label: "Viewed By" },
     { key: "status", label: "Status", render: (row) => <StatusBadge type={row.status} /> },
     {
       key: "action",
       label: "Action",
       render: (row) => (
         <button
-          onClick={(e) => {
+            onClick={(e) => {
             e.stopPropagation();
-            const id = row._id ?? row.id ?? row.templateId;
+            const id = row.documents?.[0]?.id || row._id || row.id || row.templateId;
             navigate(`/document-controller/document-workflow/${id}`, {
               state: { doc: row, origin: "faculty:recently-submitted" },
             });
@@ -105,12 +143,7 @@ export default function FacultyDashboard() {
     },
   ];
 
-  const upcomingDeadlines = [
-    { id: 1, title: "Course Syllabi Review", date: "2025-08-01", priority: "Overdue", department: "BS Computer Science" },
-    { id: 2, title: "Faculty Performance Reports", date: "2025-08-21", priority: "Due Today", department: "BS Information Technology" },
-    { id: 3, title: "Budget Allocation Review", date: "2025-08-31", priority: "Due This Week", department: "Administration" },
-    { id: 4, title: "Field Trip Agenda Review", date: "2025-09-23", priority: "Upcoming", department: "BS Information Technology" },
-  ];
+  // upcomingDeadlines is provided by server (dueToday, upcoming, overdue merged)
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -131,7 +164,7 @@ export default function FacultyDashboard() {
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
+                <div className="text-3xl font-bold text-gray-900">{upcomingDeadlines.filter(d => d.priority === 'Upcoming').length}</div>
               </div>
             </div>
 
@@ -142,7 +175,7 @@ export default function FacultyDashboard() {
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
+                <div className="text-3xl font-bold text-gray-900">{upcomingDeadlines.filter(d => d.priority === 'Due Today').length}</div>
               </div>
             </div>
 
@@ -153,7 +186,7 @@ export default function FacultyDashboard() {
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
+                <div className="text-3xl font-bold text-gray-900">{upcomingDeadlines.filter(d => d.priority === 'Overdue').length}</div>
               </div>
             </div>
           </div>
