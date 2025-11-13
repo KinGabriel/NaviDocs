@@ -63,6 +63,7 @@ const postNotificationWithCallback = async (payload, cb) => {
   return { err, resp };
 };
 
+
 /**
  * @route POST /api/documents/:id/share
  * @desc Share a document with external emails or other userIds. This only records the share action on the document as a note.
@@ -369,29 +370,34 @@ export const getDocumentContent = async (req, res) => {
 		const bin = await SubmissionBin.findById(binId);
 		if (!bin) return res.status(404).json({ message: 'Submission bin not found' });
 
-		// Find the specific submission item that contains the document inside this bin
-		const obj = bin.toObject ? bin.toObject() : JSON.parse(JSON.stringify(bin));
-		const submissions = Array.isArray(obj.submissions) ? obj.submissions : [];
-		let matched = null;
-		for (const s of submissions) {
-			if (Array.isArray(s.documents) && s.documents.map(String).includes(String(documentId))) {
-				matched = s;
-				break;
-			}
-			// also allow legacy single 'document' field
-			if (s.document && String(s.document._id || s.document.id || s.document) === String(documentId)) {
-				matched = s;
-				break;
-			}
-		}
-		if (!matched) return res.status(404).json({ message: 'Submission item for document not found in the provided bin' });
+				// Find the specific submission item that contains the document inside this bin.
+				// We need both a plain JS object (for response) and the mongoose subdoc (for updates).
+				let matched = null;
+				let matchedSubdoc = null;
+				for (const sub of (Array.isArray(bin.submissions) ? bin.submissions : [])) {
+					try {
+						const docs = Array.isArray(sub.documents) ? sub.documents.map(String) : [];
+						if (docs.includes(String(documentId))) {
+							matchedSubdoc = sub;
+							matched = sub.toObject ? sub.toObject() : JSON.parse(JSON.stringify(sub));
+							break;
+						}
+						// legacy single document field
+						if (sub.document && String(sub.document._id || sub.document.id || sub.document) === String(documentId)) {
+							matchedSubdoc = sub;
+							matched = sub.toObject ? sub.toObject() : JSON.parse(JSON.stringify(sub));
+							break;
+						}
+					} catch (_) { /* ignore malformed subdocs */ }
+				}
+				if (!matchedSubdoc || !matched) return res.status(404).json({ message: 'Submission item for document not found in the provided bin' });
 
 		// Authorization: allow bin owner, submission faculty, Department Head.
 		// For Dean/Secretary allow only when bin.is_forwarded === true (main basis per requirement).
 		try {
 			const actorId = String(req.user?._id || req.user?.id || '');
 			const isBinOwner = actorId && String(bin.created_by || '') === actorId;
-			const isSubmissionFaculty = actorId && String(matched.faculty || '') === actorId;
+			const isSubmissionFaculty = actorId && String(matched.faculty || matchedSubdoc.faculty || '') === actorId;
 			const isDeptHead = hasRole(req, ['Department Head']);
 			const isDeanOrSecretary = hasRole(req, ['Dean']) || hasRole(req, ['Secretary']) || hasRole(req, ['dean']) || hasRole(req, ['secretary']);
 
@@ -410,7 +416,7 @@ console.log('getDocumentContent: authorization check passed', { actorId, isBinOw
 			return res.status(500).json({ message: 'Authorization check failed' });
 		}
 
-		// Fetch the exact document content
+				// Fetch the exact document content
 		let documentObj = null;
 		try {
 			const doc = await Document.findById(documentId).lean();
@@ -421,8 +427,49 @@ console.log('getDocumentContent: authorization check passed', { actorId, isBinOw
 			return res.status(500).json({ message: 'Failed to fetch document', error: e.message });
 		}
 
-		// Return the exact document content and the matched submission id
-		return res.json({ document: documentObj, submissionId: matched._id || null });
+				// Record a view for auditing: who viewed this submission item and when.
+				try {
+					const viewerId = req.user?._id || req.user?.id || null;
+					if (viewerId && matchedSubdoc) {
+						matchedSubdoc.views = Array.isArray(matchedSubdoc.views) ? matchedSubdoc.views : [];
+						const lastView = matchedSubdoc.views.length ? matchedSubdoc.views[matchedSubdoc.views.length - 1] : null;
+						const now = new Date();
+						const shouldPush = !lastView || String(lastView.user) !== String(viewerId) || (now.getTime() - new Date(lastView.at).getTime() > 60 * 1000);
+									if (shouldPush) {
+										// record which document was viewed so counts are per-file
+										matchedSubdoc.views.push({ user: viewerId, document: documentId, at: now });
+										// mark that a reminder is no longer needed for this submission (legacy flag)
+										matchedSubdoc.viewReminderSent = true;
+										try { await bin.save(); } catch (e) { console.warn('Failed to persist view record', e?.message || e); }
+									}
+					}
+				} catch (e) {
+					console.error('Failed to record view for submission item', e?.message || e);
+				}
+
+		// Build view entries for the current document and return them along with document content
+		try {
+			// matchedSubdoc is a mongoose subdoc; build a normalized view list filtered to this document
+			const rawViews = Array.isArray(matchedSubdoc.views) ? matchedSubdoc.views : [];
+			const viewedBy = rawViews
+				.map((v) => {
+					try {
+						const userId = (v && (v.user && (v.user.$oid || v.user._id) ? (v.user.$oid || v.user._id) : v.user)) || v.user || v.userId || v.by || null;
+						const docId = (v && (v.document && (v.document.$oid || v.document._id) ? (v.document.$oid || v.document._id) : v.document)) || v.document || v.documentId || null;
+						const at = (v && (v.at && (v.at.$date ? (v.at.$date) : v.at))) || v.at || v.viewedAt || v.timestamp || null;
+						return { user: userId ? String(userId) : null, document: docId ? String(docId) : null, at };
+					} catch (e) {
+						return null;
+					}
+				})
+				.filter(Boolean)
+				.filter((entry) => !entry.document || String(entry.document) === String(documentId));
+
+			return res.json({ document: documentObj, submissionId: matched._id || null, viewedBy, rawViews });
+		} catch (e) {
+			// If normalization fails, still return document and submissionId
+			return res.json({ document: documentObj, submissionId: matched._id || null });
+		}
 	} catch (err) {
 		console.error('getDocumentContent error', err);
 		return res.status(500).json({ message: 'Failed to fetch document content', error: err.message });
