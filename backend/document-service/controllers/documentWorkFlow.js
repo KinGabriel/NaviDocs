@@ -204,12 +204,15 @@ export const createSubmissionBin = async (req, res, callback) => {
 			target_scope: targetScopeRaw = undefined,
 		} = req.body || {};
 
+	
+		const departmentToUse = req.user?.department ?? null;
+
 		const actorId = req.user?._id || req.user?.id || null;
 		const target_scope = (targetScopeRaw || req.body?.scope || 'department');
 		const bin = await SubmissionBin.create({
 			title,
 			instructions,
-			department,
+			department: departmentToUse,
 			school,
 			created_by: actorId,
 			route_to,

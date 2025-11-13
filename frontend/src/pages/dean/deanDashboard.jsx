@@ -6,7 +6,6 @@ import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
 import { StatusBadge } from "../../utils/formatters";
 import Greeting from "../../components/greeting";
-import { FolderOpen, FileText } from "lucide-react";
 import { Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -203,34 +202,10 @@ export default function DeanDashboard() {
         >
           <Greeting name={user?.firstname || "Department Head"} />
 
-          {/* Stat cards */}
-          <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
-            {/* Templates */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                <FileText className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Templates</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
-              </div>
-            </div>
-            {/* Submission Bins */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
-                <FolderOpen className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Submission Bins</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
-              </div>
-            </div>
-          </div>
-
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
             {/* Left side: tables */}
-            <div className="lg:col-span-3 space-y-6">
+            <div className="lg:col-span-3 space-y-6 mt-6">
               {/* Templates Table */}
               <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
                 <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
@@ -249,14 +224,15 @@ export default function DeanDashboard() {
                   </button>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overflow-y-auto max-h-72">
                   <Table columns={templateColumns} data={templates} />
                 </div>
+
               </div>
             </div>
 
             {/* Right side: deadlines + chart */}
-            <div className="lg:col-span-1 space-y-6">
+            <div className="lg:col-span-1 space-y-6 mt-6">
 
 
               {/* Deadlines Summary Doughnut Chart */}
@@ -326,7 +302,7 @@ export default function DeanDashboard() {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-72">
               <Table columns={forwardedSubmissionBinsColumns} data={forwardedSubmissionBins} />
             </div>
           </div>
@@ -349,7 +325,7 @@ export default function DeanDashboard() {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-72">
               <Table columns={publishedTemplatesColumns} data={publishedTemplates} />
             </div>
           </div>

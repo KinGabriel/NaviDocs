@@ -20,7 +20,8 @@ import {
 import {
         dashboardInfoDocConroller,
         getTemplateStats,
-        dashboardDeptHead
+        dashboardDeptHead,
+        dashboardDeanSec
 } from "../controllers/templateDataController.js";
 
 import {
@@ -59,6 +60,7 @@ router.get("/published", authenticateJWT, getPublishedTemplates);
 router.get("/user/:userId", authenticateJWT, getTemplatesByUser);
 router.get("/archived", authenticateJWT, getArchivedTemplates);
 router.get('/dashboard-dept-head', authenticateJWT, dashboardDeptHead);
+router.get('/dashboard-dean-sec', authenticateJWT, dashboardDeanSec);
 
 router.get("/:id", authenticateJWT, getTemplateById);
 router.get('/:id/versions', authenticateJWT, listTemplateVersions);
