@@ -60,10 +60,12 @@ export default function ApprovalModal({
   const canApprove = isUDC || isLDC || isDCO;
   const canReject = isDCO; // Only DCO can reject
   const canReturn = isUDC || isLDC; // UDC and LDC can return
-  const approveLabel = isUDC ? 'Endorse' : 'Approve';
-  const approveTitle = isUDC ? 'Endorse Template' : 'Approve Template';
-  const approvedDoneTitle = isUDC ? 'Template Endorsed' : 'Template Approved';
-  const approvedDoneBody = isUDC
+
+  // LDC and UDC = Endorse
+  const approveLabel = (isUDC || isLDC) ? 'Endorse' : 'Approve';
+  const approveTitle = (isUDC || isLDC) ? 'Endorse Template' : 'Approve Template';
+  const approvedDoneTitle = (isUDC || isLDC) ? 'Template Endorsed' : 'Template Approved';
+  const approvedDoneBody = (isUDC || isLDC)
     ? 'Your endorsement has been recorded and the status is now Endorsed.'
     : 'Your approval has been recorded and the status is now Approved.';
 

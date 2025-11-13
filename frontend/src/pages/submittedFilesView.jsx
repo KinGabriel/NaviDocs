@@ -169,6 +169,7 @@ export default function SubmittedFilesView() {
   const [selectedFileIndex, setSelectedFileIndex] = useState(0); // For multi-file navigation
   const [previewDocument, setPreviewDocument] = useState(null);
   const [currentBinId, setCurrentBinId] = useState(null);
+  const [currentBin, setCurrentBin] = useState(null); // Store bin data to check if forwarded
   const tpl = state?.doc || {};
   const [template, setTemplate] = useState(tpl);
   const [downloading, setDownloading] = useState(false);
@@ -288,6 +289,9 @@ useEffect(() => {
 
       const binData = await getSubmissionBinAPI(binId);
       console.log('Bin data:', binData);
+      
+      // Store bin data in state to access is_forwarded flag
+      if (mounted) setCurrentBin(binData);
 
       // Enforce frontend restriction: if current user is Dean/Secretary and bin not forwarded, show friendly error
       try {
@@ -1785,7 +1789,7 @@ const handleZoomReset = () => setZoom(1);
                                     </div>
                                   </div>
                                 );
-                              })
+                              }) 
                             ) : (
                               <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm text-gray-600">
                                 No views recorded for this document.
@@ -1809,10 +1813,22 @@ const handleZoomReset = () => setZoom(1);
 
                               <button
                                 onClick={() => handleActionClick('return')}
-                                className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
+                                disabled={hasAlreadyReturned || (isDeptHead && currentBin?.is_forwarded)}
+                                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all shadow-sm ${
+                                  hasAlreadyReturned || (isDeptHead && currentBin?.is_forwarded)
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-orange-600 hover:bg-orange-700 text-white'
+                                }`}
+                                title={
+                                  hasAlreadyReturned 
+                                    ? 'You have already returned this document' 
+                                    : (isDeptHead && currentBin?.is_forwarded) 
+                                    ? 'Cannot return after bin is forwarded' 
+                                    : ''
+                                }
                               >
                                 <XCircle size={20} />
-                                {hasAlreadyReturned ? 'Already Returned' : 'Return for Revision'}
+                                {hasAlreadyReturned ? 'Already Returned' : (isDeptHead && currentBin?.is_forwarded) ? 'Bin Forwarded' : 'Return for Revision'}
                               </button>
                             </>
                           )}
