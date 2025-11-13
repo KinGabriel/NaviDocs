@@ -97,17 +97,34 @@ export const createSubmissionBinAPI = async (data) => {
  * @param {Object} data
  */
 export const updateSubmissionBinAPI = async (binId, data) => {
-	try {
-		const res = await axios.patch(`${API_URL}/api/documents/submission-bins/${binId}`, data, { withCredentials: true });
-		return res.data;
-	} catch (error) {
-		const message = error.response?.data?.message || error.message || 'Failed to update submission bin';
-		const err = new Error(message);
-		err.responseData = error.response?.data;
-		err.status = error.response?.status;
-		throw err;
-	}
+  try {
+    const res = await axios.patch(
+      `${API_URL}/api/documents/submission-bins/${binId}`,
+      data,
+      { withCredentials: true }
+    );
+
+    // Normalize common patterns:
+    const raw = res.data;
+    const bin =
+      raw?.bin ||
+      raw?.data ||
+      raw?.submissionBin ||
+      raw; // fallback if backend already returns the bin directly
+
+    return bin;
+  } catch (error) {
+    const message =
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to update submission bin";
+    const err = new Error(message);
+    err.responseData = error.response?.data;
+    err.status = error.response?.status;
+    throw err;
+  }
 };
+
 
 /**
  * Forward a Submission Bin (Dept Head only)

@@ -20,7 +20,7 @@ import {
   User,
   RotateCcw
 } from 'lucide-react';
-import { getSubmissionItemStatus } from "../../utils/submissionStatus";
+import { getSubmissionBinStatus } from "../../utils/submissionStatus";
 import toast from "react-hot-toast";
 
 
@@ -50,8 +50,14 @@ export default function FacultySubmissions() {
         
         const bins = Array.isArray(response) ? response : (response.data || []);
         
+        // Filter out archived bins
+        const activeBins = bins.filter(bin => {
+          const binStatus = String(bin.status || '').toLowerCase();
+          return binStatus !== 'archived';
+        });
+        
         // Transform bins into submission items for the current user
-        const transformedSubmissions = bins.flatMap(bin => {
+        const transformedSubmissions = activeBins.flatMap(bin => {
                  
           // Find submissions in this bin that belong to current user
           const userSubmissions = (bin.submissions || []).filter(sub => {
@@ -63,7 +69,7 @@ export default function FacultySubmissions() {
           
           return userSubmissions.map(sub => {
           // Determine status - validate that submission actually has documents 
-            let status = getSubmissionItemStatus(sub, bin.deadline);
+            let status = getSubmissionBinStatus(sub, bin.deadline);
 
           // Handle submittedFiles - supports both documents array and single document
           let submittedFiles = [];

@@ -24,7 +24,7 @@ import { getSubmissionBinAPI, submitSubmissionDocumentAPI, getDocumentContentAPI
 import { getTemplateByIdAPI } from "../../api/documentContollerAPI";
 import TextEditor from "../../layout/create_template/textEditor";
 import Loader from "../../components/loader";
-import { getSubmissionItemStatus } from "../../utils/submissionStatus";
+import { getSubmissionBinStatus } from "../../utils/submissionStatus";
 import { getUsersInfoByIdsAPI } from "../../api/userAPI"; 
 
 export default function FacultySubmissionView() {
@@ -55,6 +55,17 @@ export default function FacultySubmissionView() {
         setError("");
         const data = await getSubmissionBinAPI(id);
         if (!mounted) return;
+        
+        // Check if bin is archived - prevent access to archived bins
+        const binStatus = String(data?.status || '').toLowerCase();
+        if (binStatus === 'archived') {
+          setError("This submission bin has been archived and is no longer accessible.");
+          setBin(null);
+          setAssignedItem(null);
+          setLoading(false);
+          return;
+        }
+        
         setBin(data);
         const uid = user?._id || user?.id;
         const item = Array.isArray(data?.submissions)
@@ -158,7 +169,7 @@ export default function FacultySubmissionView() {
 
     const submission = useMemo(() => {
         if (!bin || !assignedItem) return null;
-        const status = getSubmissionItemStatus(assignedItem, bin.deadline);
+        const status = getSubmissionBinStatus(assignedItem, bin.deadline);
         const assignedAt = bin?.createdAt || bin?.created_at;
         const deadline = bin?.deadline || null;
         
