@@ -117,6 +117,7 @@ const FALLBACK_DOC = {
 
 // Local helper: normalize a raw document object (from content API) into the
 // shape used by components (matches fetchAndNormalizeDocument output partially)
+// Deduplicate and normalize view events into viewedBy (latest per user)
 function normalizeRawDocument(doc) {
   if (!doc) return null;
   const document = doc;
@@ -182,6 +183,8 @@ export default function SubmittedFilesView() {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [reviewerUsers, setReviewerUsers] = useState({}); 
   const [showRawViews, setShowRawViews] = useState(false);
+  const [expandedViewerId, setExpandedViewerId] = useState(null);
+
 
   // Fetch submission data
 useEffect(() => {
@@ -521,37 +524,45 @@ useEffect(() => {
             };
       
       if (mounted) {
-        // Deduplicate and normalize view events into viewedBy (latest per user)
-        try {
-          const raw = Array.isArray(mappedSubmission.rawViews) ? mappedSubmission.rawViews : [];
-          const normalized = raw.map(rv => ({
-            userId: rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null,
-            at: rv.at || rv.timestamp || rv.viewedAt || null,
-            _id: rv._id || rv.id || null,
-            raw: rv
-          })).filter(r => r.userId);
+      // Deduplicate and normalize view events into viewedBy (latest per user)
+      try {
+        const raw = Array.isArray(mappedSubmission.rawViews) ? mappedSubmission.rawViews : [];
+        const normalized = raw.map(rv => ({
+          userId: rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null,
+          at: rv.at || rv.timestamp || rv.viewedAt || null,
+          _id: rv._id || rv.id || null,
+          raw: rv
+        })).filter(r => r.userId);
 
-          // Keep latest per user (by at)
-          const byUser = {};
-          normalized.forEach(n => {
-            const prev = byUser[n.userId];
-            if (!prev) byUser[n.userId] = n;
-            else {
-              const prevT = prev.at ? new Date(prev.at).getTime() : 0;
-              const curT = n.at ? new Date(n.at).getTime() : 0;
-              if (curT >= prevT) byUser[n.userId] = n;
-            }
+        // Keep latest per user (by at)
+        const byUser = {};
+        normalized.forEach(n => {
+          const prev = byUser[n.userId];
+          if (!prev) byUser[n.userId] = n;
+          else {
+            const prevT = prev.at ? new Date(prev.at).getTime() : 0;
+            const curT = n.at ? new Date(n.at).getTime() : 0;
+            if (curT >= prevT) byUser[n.userId] = n;
+          }
+        });
+
+        // Sort by most recent first
+        const deduped = Object.values(byUser)
+          .map(v => ({ id: v.userId, viewedAt: v.at, _id: v._id }))
+          .sort((a, b) => {
+            const timeA = a.viewedAt ? new Date(a.viewedAt).getTime() : 0;
+            const timeB = b.viewedAt ? new Date(b.viewedAt).getTime() : 0;
+            return timeB - timeA; // Most recent first
           });
-
-          const deduped = Object.values(byUser).map(v => ({ id: v.userId, viewedAt: v.at, _id: v._id }));
-          mappedSubmission.viewedBy = deduped;
-        } catch (e) {
-          mappedSubmission.viewedBy = mappedSubmission.viewedBy || [];
-        }
-
-        setSubmission(mappedSubmission);
-        setError("");
+          
+        mappedSubmission.viewedBy = deduped;
+      } catch (e) {
+        mappedSubmission.viewedBy = mappedSubmission.viewedBy || [];
       }
+
+      setSubmission(mappedSubmission);
+      setError("");
+    }
       
     } catch (err) {
       console.error("Error fetching submission:", err);
@@ -844,17 +855,68 @@ const handleZoomReset = () => setZoom(1);
 }, [previewDocument, fetchedDoc, d]);
 
   // Check user role permissions
-    const roleName = user?.role?.name || user?.role || '';
-    const userRole = typeof roleName === 'string' ? roleName.toLowerCase() : '';
-    const isDean = userRole === 'dean';
-    const isSecretary = userRole === 'secretary';
-    const isDeptHead = userRole === 'department head' || userRole === 'department_head' || userRole === 'dept-head' || userRole === 'Department Head';
-    const isFaculty = userRole === 'faculty';
+  const roleName = user?.role?.name || user?.role || "";
+  const userRole =
+    typeof roleName === "string" ? roleName.toLowerCase() : "";
 
-    // Role-based action permissions
-    const canReturnOnly = (isDean || isSecretary) && !isDeptHead; // Can only return with comment
-    const canSubmitOrReturn = isDeptHead; // Can submit or return with comment
-    const canViewStatus = isFaculty; // Can view status and comments
+  const isDean = userRole === "dean";
+  const isSecretary = userRole === "secretary";
+  const isDeptHead =
+    userRole === "department head" ||
+    userRole === "department_head" ||
+    userRole === "dept-head" ||
+    userRole === "department head"; // in case backend sends this exact string
+  const isFaculty = userRole === "faculty";
+
+  // Role-based action permissions
+  const canReturnOnly = (isDean || isSecretary) && !isDeptHead; // Dean / Sec only
+  const canSubmitOrReturn = isDeptHead; // Dept Head
+  const canViewStatus = isFaculty; // Faculty
+
+  // Faculty view = faculty sidebar (they should see all viewers, including themselves)
+  // Non-faculty view (Dept Head / Dean / Sec) uses filtered lists without faculty
+  const isFacultyView = canViewStatus && !(canReturnOnly || canSubmitOrReturn);
+
+  const nonFacultyViewedBy = useMemo(() => {
+    if (!submission || !Array.isArray(submission.viewedBy)) return [];
+
+    return submission.viewedBy.filter((viewer) => {
+      const uid =
+        viewer.id ||
+        viewer.userId ||
+        viewer._id ||
+        viewer.user ||
+        null;
+
+      const meta = uid ? reviewerUsers[uid] : null;
+      const roleName = (meta?.role || viewer.role || "")
+        .toString()
+        .toLowerCase();
+
+      // hide faculty in reviewer view
+      return !roleName.includes("faculty");
+    });
+  }, [submission?.viewedBy, reviewerUsers]);
+
+  const nonFacultyRawViews = useMemo(() => {
+    if (!submission || !Array.isArray(submission.rawViews)) return [];
+
+    return submission.rawViews.filter((rv) => {
+      const uid =
+        rv.user ||
+        rv.userId ||
+        (rv.by && (rv.by._id || rv.by.id)) ||
+        null;
+
+      const meta = uid ? reviewerUsers[uid] : null;
+      const roleName = (meta?.role || rv.role || "")
+        .toString()
+        .toLowerCase();
+
+      return !roleName.includes("faculty");
+    });
+  }, [submission?.rawViews, reviewerUsers]);
+
 
     const handleActionClick = (action) => {
       setSelectedAction(action);
@@ -1161,7 +1223,7 @@ const handleZoomReset = () => setZoom(1);
         onExportToStorage={() => setShowStoragePicker(true)}
         user={user}
       />
-      
+
       {/* Storage Picker */}
       <StoragePickerModal
         open={showStoragePicker}
@@ -1183,8 +1245,8 @@ const handleZoomReset = () => setZoom(1);
             });
             setDownloading(false);
           } catch (err) {
-            console.error('Export to storage failed:', err);
-            setDownloadError(err?.message || 'Failed to export and save to storage.');
+            console.error("Export to storage failed:", err);
+            setDownloadError(err?.message || "Failed to export and save to storage.");
           }
         }}
       />
@@ -1236,97 +1298,114 @@ const handleZoomReset = () => setZoom(1);
                 </div>
               </div>
 
-            {loading ? (
-              <div className="h-full w-full flex items-center justify-center bg-white rounded-lg border border-gray-200 shadow-sm" style={{ minHeight: 600 }}>
-                <div className="text-center">
-                  <Loader message="Loading document preview..." />
+              {loading ? (
+                <div
+                  className="h-full w-full flex items-center justify-center bg-white rounded-lg border border-gray-200 shadow-sm"
+                  style={{ minHeight: 600 }}
+                >
+                  <div className="text-center">
+                    <Loader message="Loading document preview..." />
+                  </div>
                 </div>
-              </div>
-            ) : error ? (
-              <div className="h-full w-full flex items-center justify-center bg-white rounded-lg border border-red-200 shadow-sm" style={{ minHeight: 600 }}>
-                <div className="text-center p-8">
-                  <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Document</h3>
-                  <p className="text-gray-600 mb-4">{error}</p>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Retry
-                  </button>
+              ) : error ? (
+                <div
+                  className="h-full w-full flex items-center justify-center bg-white rounded-lg border border-red-200 shadow-sm"
+                  style={{ minHeight: 600 }}
+                >
+                  <div className="text-center p-8">
+                    <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      Failed to Load Document
+                    </h3>
+                    <p className="text-gray-600 mb-4">{error}</p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Retry
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (previewDocument || fetchedDoc || d)?.pages_json ? (
-              <div 
+              ) : (previewDocument || fetchedDoc || d)?.pages_json ? (
+                <div
                   ref={previewContainerRef}
                   className="w-full bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg shadow-sm overflow-auto"
-                  style={{ 
-                    padding: '2rem',
-                    minHeight: '600px'
+                  style={{
+                    padding: "2rem",
+                    minHeight: "600px",
                   }}
                 >
                   <div
                     style={{
-                      width: '100%',
-                      display: 'flex',
-                      justifyContent: 'center',
-                      paddingBottom: '2rem',
+                      width: "100%",
+                      display: "flex",
+                      justifyContent: "center",
+                      paddingBottom: "2rem",
                     }}
                   >
                     <div
                       style={{
-                        width: isLandscape ? '1200px' : '900px',
-                        maxWidth: 'none',
+                        width: isLandscape ? "1200px" : "900px",
+                        maxWidth: "none",
                       }}
                     >
                       <div
                         style={{
                           transform: `scale(${zoom})`,
-                          transformOrigin: 'top center',
+                          transformOrigin: "top center",
                         }}
                         className="transition-transform duration-200"
                       >
-                  <div ref={previewRef} id="template-preview-capture">
-                   <TextEditor
-                      content={contentForEditor}
-                      pageSetup={(previewDocument || d)?.pageSetup}
-                      className="pointer-events-none opacity-100 w-full"
-                      onEditorReady={(editor) =>
-                        editor && editor.setEditable(false)
-                      }
-                      mode="document" 
-                      headerConfig={normalizedHeaderConfig}
-                      templateStatus={(previewDocument || d)?.status || "published"}
-                      documentCode={normalizedHeaderConfig.document_code}
-                      revisionNo={normalizedHeaderConfig.revision_no}
-                      effectivity={normalizedHeaderConfig.effectivity}
-                      fieldValues={(() => {
-                      const activeDoc = previewDocument || d;
-                      const rawValues = activeDoc?.field_values || {};
-                      return rawValues;
-                    })()}
-                    />
+                        <div ref={previewRef} id="template-preview-capture">
+                          <TextEditor
+                            content={contentForEditor}
+                            pageSetup={(previewDocument || d)?.pageSetup}
+                            className="pointer-events-none opacity-100 w-full"
+                            onEditorReady={(editor) =>
+                              editor && editor.setEditable(false)
+                            }
+                            mode="document"
+                            headerConfig={normalizedHeaderConfig}
+                            templateStatus={
+                              (previewDocument || d)?.status || "published"
+                            }
+                            documentCode={normalizedHeaderConfig.document_code}
+                            revisionNo={normalizedHeaderConfig.revision_no}
+                            effectivity={normalizedHeaderConfig.effectivity}
+                            fieldValues={(() => {
+                              const activeDoc = previewDocument || d;
+                              const rawValues = activeDoc?.field_values || {};
+                              return rawValues;
+                            })()}
+                          />
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-            ) : (
-              <div className="h-full w-full flex items-center justify-center bg-white rounded-lg border border-gray-200 shadow-sm" style={{ minHeight: 600 }}>
-                <div className="text-center p-8">
-                  <FileText size={48} className="mx-auto text-gray-300 mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Document Content</h3>
-                  <p className="text-gray-600">The document doesn't have any content to display.</p>
+              ) : (
+                <div
+                  className="h-full w-full flex items-center justify-center bg-white rounded-lg border border-gray-200 shadow-sm"
+                  style={{ minHeight: 600 }}
+                >
+                  <div className="text-center p-8">
+                    <FileText size={48} className="mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      No Document Content
+                    </h3>
+                    <p className="text-gray-600">
+                      The document does not have any content to display.
+                    </p>
                   </div>
                 </div>
               )}
             </section>
+
             {/* Actions/Details Sidebar */}
             <aside className="col-span-12 lg:col-span-4">
               <div className="bg-white border rounded-lg shadow-sm">
                 <div className="p-5">
                   {canReturnOnly || canSubmitOrReturn ? (
-                    /* Actions for Dean, Secretary, Department Head */
                     <>
                       <h3 className="text-sm font-semibold tracking-widest text-gray-900 uppercase">
                         Review Submission
@@ -1335,241 +1414,50 @@ const handleZoomReset = () => setZoom(1);
 
                       {/* Submission Info */}
                       {submission ? (
-                      <div className="mb-4 pb-4 border-b">
-                        <div className="flex items-start gap-3 mb-3">
-                          <User size={18} className="text-gray-500 mt-0.5" />
-                          <div className="flex-1">
-                            <p className="text-xs text-gray-500 mb-0.5">Submitted by</p>
-                            <p className="text-sm font-medium text-gray-900">
-                                {submission?.submittedBy?.name || "Unknown" }
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {submission?.submittedBy?.role}
-                            </p>
+                        <div className="mb-4 pb-4 border-b">
+                          <div className="flex items-start gap-3 mb-3">
+                            <User size={18} className="text-gray-500 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-xs text-gray-500 mb-0.5">
+                                Submitted by
+                              </p>
+                              <p className="text-sm font-medium text-gray-900">
+                                {submission?.submittedBy?.name || "Unknown"}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {submission?.submittedBy?.role}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-3">
+                            <Clock size={18} className="text-gray-500 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-xs text-gray-500 mb-0.5">
+                                Submitted on
+                              </p>
+                              <p className="text-sm font-medium text-gray-900">
+                                {submission?.submittedAt
+                                  ? formatDateTime(submission.submittedAt)
+                                  : "N/A"}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                        
-                        <div className="flex items-start gap-3">
-                          <Clock size={18} className="text-gray-500 mt-0.5" />
-                          <div className="flex-1">
-                            <p className="text-xs text-gray-500 mb-0.5">Submitted on</p>
-                            <p className="text-sm font-medium text-gray-900">
-                            {submission?.submittedAt ? formatDateTime(submission.submittedAt) : "N/A" }
-                           </p>
-                          </div>
-                        </div>
-                     </div>
                       ) : (
                         <div className="mb-4 pb-4 border-b">
                           <Loader message="Loading submission info..." />
                         </div>
                       )}
+
                   {/* Submitted Files */}
                   {submission?.files && submission.files.length > 0 && (
-                    <div className="mb-4 pb-4 border-b">
-                      <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                        <FileText size={16} />
-                        Submitted Files ({submission.files.length})
-                      </h4>
-                      
-                      {/* Files List - clickable to switch preview */}
-                      <div className="space-y-2">
-                        {submission.files.map((file, index) => (
-                          <button
-                            key={file.id}
-                            onClick={() => setSelectedFileIndex(index)}
-                            className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
-                              index === selectedFileIndex
-                                ? 'bg-blue-50 border-blue-400 shadow-sm'
-                                : 'bg-gray-50 border-gray-200 hover:border-gray-300 hover:bg-gray-100'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <FileText size={16} className={index === selectedFileIndex ? 'text-blue-600' : 'text-gray-600'} />
-                              <span className={`text-sm font-medium truncate ${
-                                index === selectedFileIndex ? 'text-blue-900' : 'text-gray-900'
-                              }`}>
-                                {file.name}
-                              </span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                    {/* Comments/Notes from Faculty/Submitter */}
-                    {submission?.notes && submission.notes.length > 0 && (
-                      <div className="mb-4 pb-4 border-b">
-                        <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                          <MessageSquare size={16} />
-                          Comments & Notes ({submission.notes.length})
-                        </h4>
-                        <div className="space-y-3">
-                          {submission.notes.map((note) => {
-                      let userName = 'Unknown User';
-                      let userRole = 'User';
-                      let userEmail = '';
-                      
-                      // Get user ID from note
-                      const userId = typeof note.by === 'string' 
-                        ? note.by 
-                        : (note.by?._id || note.by?.id);
-                      
-                      // Check if we have fetched user data
-                      if (userId && reviewerUsers[userId]) {
-                        const fetchedUser = reviewerUsers[userId];
-                        userName = fetchedUser.name;
-                        userRole = fetchedUser.role;
-                        userEmail = fetchedUser.email;
-                      } 
-                      // Fallback to note.by object if available
-                      else if (note.by && typeof note.by === 'object') {
-                        const firstName = note.by.firstname || note.by.first_name || note.by.firstName || '';
-                        const lastName = note.by.lastname || note.by.last_name || note.by.lastName || '';
-                        
-                        userName = note.by.name || 
-                                  note.by.fullname || 
-                                  note.by.full_name ||
-                                  (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
-                                  note.by.username ||
-                                  note.by.email || 
-                                  'Unknown User';
-                        
-                        if (note.by.role) {
-                          if (typeof note.by.role === 'object') {
-                            userRole = note.by.role.name || 
-                                      note.by.role.title || 
-                                      note.by.role.role_name ||
-                                      'User';
-                          } else if (typeof note.by.role === 'string') {
-                            userRole = note.by.role;
-                          }
-                        } else {
-                          userRole = note.by.role_name || 
-                                    note.by.position || 
-                                    'User';
-                        }
-                        
-                        userEmail = note.by.email || '';
-                      }
-                      
-                      return (
-                        <div key={note.id || note._id || note.at} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <div className="flex items-start gap-2 mb-2">
-                            <div className="flex-1">
-                              <p className="text-xs font-medium text-gray-900">
-                                {userName}
-                              </p>
-                              {userEmail && (
-                                <p className="text-xs text-gray-400 truncate">
-                                  {userEmail}
-                                </p>
-                              )}
-                              <p className="text-xs text-gray-500">
-                                {userRole} • {note.at ? formatDateTime(note.at) : 'Recently'}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-sm text-gray-700">{note.message}</p>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
-
-                      {/* Action Buttons Based on Role */}
-                      {submission?.status === 'submitted' && (
-                        <div className="space-y-3">
-                          {/* Department Head can Submit or Return */}
-                          {canSubmitOrReturn && (
-                            <>
-                              {/* Add Comment Button */}
-                              <button
-                                onClick={() => setShowCommentModal(true)}
-                                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
-                              >
-                                <MessageSquare size={20} />
-                                Add Comment
-                              </button>
-                              
-                              <button
-                                onClick={() => handleActionClick('return')}
-                                className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
-                              >
-                                <XCircle size={20} />
-                                Return for Revision
-                              </button>
-                            </>
-                      )}
-
-                          {/* Dean and Secretary can only Return */}
-                          {canReturnOnly && (
-                          <>
-                            {/* Add Comment Button */}
-                            <button
-                              onClick={() => setShowCommentModal(true)}
-                              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
-                            >
-                              <MessageSquare size={20} />
-                              Add Comment
-                            </button>
-                            
-                            <button
-                              onClick={() => handleActionClick('return')}
-                              className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
-                            >
-                              <XCircle size={20} />
-                              Return for Revision
-                            </button>
-                          </>
-                        )}
-                      </div>
-                  )}
-
-                    {(submission?.status === 'pending' || submission?.status === 'returned') && (
-                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
-                        <div className="flex justify-center mb-3">
-                          <StatusBadge type={submission?.status} />
-                        </div>
-                        {submission?.status === 'pending' && (
-                          <p className="text-xs text-gray-600">This document has been submitted by Department Head</p>
-                        )}
-                        {submission?.status === 'returned' && (
-                          <p className="text-xs text-gray-600">Returned for revision</p>
-                        )}
-                      </div>
-                    )}
-                    </>
-                  ) : canViewStatus ? (
-                    /* Details for Faculty */
-                    <>
-                      <h3 className="text-sm font-semibold tracking-widest text-gray-900 uppercase">
-                        Submission Status
-                      </h3>
-                      <div className="w-24 h-0.5 bg-yellow-400 mt-2 mb-4 rounded" />
-
-                      {/* Status Badge */}
-                        <div className="mb-4 pb-4 border-b">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-gray-500">Current Status</span>
-                            <StatusBadge type={submission?.status || 'submitted'} />
-                          </div>
-                          <p className="text-xs text-gray-600">
-                            Submitted on {submission?.submittedAt ? formatDateTime(submission.submittedAt) : "Loading..." }
-                          </p>
-                        </div>
-
-                      {/* Your Submitted Files with Navigation */}
-                      {submission?.files && submission.files.length > 0 && (
                         <div className="mb-4 pb-4 border-b">
                           <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
                             <FileText size={16} />
-                            Your Submitted Files ({submission.files.length})
+                            Submitted Files ({submission.files.length})
                           </h4>
-                          
-                          {/* Files List - Clickable */}
+
                           <div className="space-y-2">
                             {submission.files.map((file, index) => (
                               <button
@@ -1577,15 +1465,378 @@ const handleZoomReset = () => setZoom(1);
                                 onClick={() => setSelectedFileIndex(index)}
                                 className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
                                   index === selectedFileIndex
-                                    ? 'bg-blue-50 border-blue-400 shadow-sm'
-                                    : 'bg-gray-50 border-gray-200 hover:border-gray-300 hover:bg-gray-100'
+                                    ? "bg-blue-50 border-blue-400 shadow-sm"
+                                    : "bg-gray-50 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
                                 }`}
                               >
                                 <div className="flex items-center gap-2 mb-1">
-                                  <FileText size={16} className={index === selectedFileIndex ? 'text-blue-600' : 'text-gray-600'} />
-                                  <span className={`text-sm font-medium truncate ${
-                                    index === selectedFileIndex ? 'text-blue-900' : 'text-gray-900'
-                                  }`}>
+                                  <FileText
+                                    size={16}
+                                    className={
+                                      index === selectedFileIndex
+                                        ? "text-blue-600"
+                                        : "text-gray-600"
+                                    }
+                                  />
+                                  <span
+                                    className={`text-sm font-medium truncate ${
+                                      index === selectedFileIndex
+                                        ? "text-blue-900"
+                                        : "text-gray-900"
+                                    }`}
+                                  >
+                                    {file.name}
+                                  </span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Comments / Notes from reviewers (Dean / Dept Head view) */}
+                      {submission?.notes && submission.notes.length > 0 && (
+                        <div className="mb-4 pb-4 border-b">
+                          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                            <MessageSquare size={16} />
+                            Comments &amp; Notes ({submission.notes.length})
+                          </h4>
+                          <div className="space-y-3">
+                            {submission.notes.map((note) => {
+                              let userName = "Unknown User";
+                              let userRole = "User";
+                              let userEmail = "";
+
+                              const userId =
+                                typeof note.by === "string"
+                                  ? note.by
+                                  : note.by?._id || note.by?.id;
+
+                              if (userId && reviewerUsers[userId]) {
+                                const fetchedUser = reviewerUsers[userId];
+                                userName = fetchedUser.name;
+                                userRole = fetchedUser.role;
+                                userEmail = fetchedUser.email;
+                              } else if (
+                                note.by &&
+                                typeof note.by === "object"
+                              ) {
+                                const firstName =
+                                  note.by.firstname ||
+                                  note.by.first_name ||
+                                  note.by.firstName ||
+                                  "";
+                                const lastName =
+                                  note.by.lastname ||
+                                  note.by.last_name ||
+                                  note.by.lastName ||
+                                  "";
+
+                                userName =
+                                  note.by.name ||
+                                  note.by.fullname ||
+                                  note.by.full_name ||
+                                  (firstName && lastName
+                                    ? `${firstName} ${lastName}`.trim()
+                                    : "") ||
+                                  note.by.username ||
+                                  note.by.email ||
+                                  "Unknown User";
+
+                                if (note.by.role) {
+                                  if (typeof note.by.role === "object") {
+                                    userRole =
+                                      note.by.role.name ||
+                                      note.by.role.title ||
+                                      note.by.role.role_name ||
+                                      "User";
+                                  } else if (
+                                    typeof note.by.role === "string"
+                                  ) {
+                                    userRole = note.by.role;
+                                  }
+                                } else {
+                                  userRole =
+                                    note.by.role_name ||
+                                    note.by.position ||
+                                    "User";
+                                }
+
+                                userEmail = note.by.email || "";
+                              }
+
+                              return (
+                                <div
+                                  key={note.id || note._id || note.at}
+                                  className="p-3 bg-blue-50 rounded-lg border border-blue-200"
+                                >
+                                  <div className="flex items-start gap-2 mb-2">
+                                    <div className="flex-1">
+                                      <p className="text-xs font-medium text-gray-900">
+                                        {userName}
+                                      </p>
+                                      {userEmail && (
+                                        <p className="text-xs text-gray-400 truncate">
+                                          {userEmail}
+                                        </p>
+                                      )}
+                                      <p className="text-xs text-gray-500">
+                                        {userRole} •{" "}
+                                        {note.at
+                                          ? formatDateTime(note.at)
+                                          : "Recently"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-gray-700">
+                                    {note.message}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Viewed By (Reviewer view – Dean / Dept Head / Secretary) */}
+                      {submission && (
+                        <div className="mb-4 pb-4 border-b">
+                          <h4 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <Eye size={16} />
+                            Viewed By (
+                            {(nonFacultyViewedBy && nonFacultyViewedBy.length) ||
+                              (nonFacultyRawViews && nonFacultyRawViews.length) ||
+                              0}
+                            )
+                          </h4>
+
+                          <div className="space-y-2">
+                            {nonFacultyViewedBy && nonFacultyViewedBy.length > 0 ? (
+                            nonFacultyViewedBy.map((viewer, idx) => {
+                              const uid = viewer.id || viewer.userId || viewer._id || viewer.user || null;
+                              const fetchedUser = uid ? reviewerUsers[uid] : null;
+                              const displayName = fetchedUser?.name || viewer.name || uid || "Unknown";
+                              const displayRole = fetchedUser?.role || viewer.role || "";
+                              
+                              // Get all views for this user from rawViews
+                              const userViews = (submission.rawViews || [])
+                                .filter(rv => {
+                                  const rvUid = rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null;
+                                  return String(rvUid) === String(uid);
+                                })
+                                .map(rv => ({
+                                  at: rv.at || rv.timestamp || rv.viewedAt || null,
+                                  _id: rv._id || rv.id
+                                }))
+                                .filter(v => v.at)
+                                .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+                              
+                              const isExpanded = expandedViewerId === uid;
+                              
+                              return (
+                                <div key={uid || idx} className="bg-gray-50 rounded-lg overflow-hidden">
+                                  <button
+                                    onClick={() => setExpandedViewerId(isExpanded ? null : uid)}
+                                    className="w-full flex items-start gap-3 p-2 hover:bg-gray-100 transition-colors"
+                                  >
+                                    <div className="p-1.5 bg-blue-100 rounded-full">
+                                      <Eye size={14} className="text-blue-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0 text-left">
+                                      <p className="text-sm font-medium text-gray-900 truncate">
+                                        {displayName}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        {displayRole} • {viewer.viewedAt ? formatDateTime(viewer.viewedAt) : ""}
+                                        {userViews.length > 1 && (
+                                          <span className="ml-1 text-blue-600">({userViews.length} views)</span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </button>
+                                  
+                                  {isExpanded && userViews.length > 1 && (
+                                    <div className="px-2 pb-2 space-y-1">
+                                      <div className="ml-9 pt-1 border-t border-gray-200">
+                                        <p className="text-xs font-semibold text-gray-600 mb-1">View History:</p>
+                                        {userViews.map((view, vIdx) => (
+                                          <div key={view._id || vIdx} className="text-xs text-gray-500 py-0.5">
+                                            • {formatDateTime(view.at)}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                          ) : 
+                             nonFacultyRawViews && nonFacultyRawViews.length > 0 ? (
+                              nonFacultyRawViews.map((rv, idx) => {
+                                const uid =
+                                  rv.user ||
+                                  rv.userId ||
+                                  (rv.by && (rv.by._id || rv.by.id)) ||
+                                  null;
+                                const at =
+                                  rv.at || rv.timestamp || rv.viewedAt || null;
+                                const fetchedUser = uid ? reviewerUsers[uid] : null;
+                                const displayName =
+                                  fetchedUser?.name || uid || "Unknown";
+                                const displayRole = fetchedUser?.role || "";
+                                return (
+                                  <div
+                                    key={rv._id || idx}
+                                    className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg"
+                                  >
+                                    <div className="p-1.5 bg-blue-100 rounded-full">
+                                      <Eye size={14} className="text-blue-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 truncate">
+                                        {displayName}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        {displayRole} {at ? "• " + formatDateTime(at) : ""}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm text-gray-600">
+                                No views recorded for this document.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      {submission?.status === "submitted" && (
+                        <div className="space-y-3">
+                          {canSubmitOrReturn && (
+                            <>
+                              <button
+                                onClick={() => setShowCommentModal(true)}
+                                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
+                              >
+                                <MessageSquare size={20} />
+                                Add Comment
+                              </button>
+
+                              <button
+                                onClick={() => handleActionClick("return")}
+                                className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
+                              >
+                                <XCircle size={20} />
+                                Return for Revision
+                              </button>
+                            </>
+                          )}
+
+                          {canReturnOnly && (
+                            <>
+                              <button
+                                onClick={() => setShowCommentModal(true)}
+                                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
+                              >
+                                <MessageSquare size={20} />
+                                Add Comment
+                              </button>
+
+                              <button
+                                onClick={() => handleActionClick("return")}
+                                className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
+                              >
+                                <XCircle size={20} />
+                                Return for Revision
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {(submission?.status === "pending" ||
+                        submission?.status === "returned") && (
+                        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-center mt-4">
+                          <div className="flex justify-center mb-3">
+                            <StatusBadge type={submission?.status} />
+                          </div>
+                          {submission?.status === "pending" && (
+                            <p className="text-xs text-gray-600">
+                              This document has been submitted by Department
+                              Head.
+                            </p>
+                          )}
+                          {submission?.status === "returned" && (
+                            <p className="text-xs text-gray-600">
+                              Returned for revision.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : canViewStatus ? (
+                    <>
+                      <h3 className="text-sm font-semibold tracking-widest text-gray-900 uppercase">
+                        Submission Status
+                      </h3>
+                      <div className="w-24 h-0.5 bg-yellow-400 mt-2 mb-4 rounded" />
+
+                      {/* Status Badge */}
+                      <div className="mb-4 pb-4 border-b">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-gray-500">
+                            Current Status
+                          </span>
+                          <StatusBadge
+                            type={submission?.status || "submitted"}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-600">
+                          Submitted on{" "}
+                          {submission?.submittedAt
+                            ? formatDateTime(submission.submittedAt)
+                            : "Loading..."}
+                        </p>
+                      </div>
+
+                      {/* Your Submitted Files */}
+                      {submission?.files && submission.files.length > 0 && (
+                        <div className="mb-4 pb-4 border-b">
+                          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                            <FileText size={16} />
+                            Your Submitted Files ({submission.files.length})
+                          </h4>
+
+                          <div className="space-y-2">
+                            {submission.files.map((file, index) => (
+                              <button
+                                key={file.id}
+                                onClick={() => setSelectedFileIndex(index)}
+                                className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
+                                  index === selectedFileIndex
+                                    ? "bg-blue-50 border-blue-400 shadow-sm"
+                                    : "bg-gray-50 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 mb-1">
+                                  <FileText
+                                    size={16}
+                                    className={
+                                      index === selectedFileIndex
+                                        ? "text-blue-600"
+                                        : "text-gray-600"
+                                    }
+                                  />
+                                  <span
+                                    className={`text-sm font-medium truncate ${
+                                      index === selectedFileIndex
+                                        ? "text-blue-900"
+                                        : "text-gray-900"
+                                    }`}
+                                  >
                                     {file.name}
                                   </span>
                                 </div>
@@ -1597,160 +1848,268 @@ const handleZoomReset = () => setZoom(1);
                           </div>
                         </div>
                       )}
-                      {/* Viewed By */}
+
+                      {/* Viewed By (Faculty) */}
                       {submission && (
                         <div className="mb-4 pb-4 border-b">
                           <h4 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
                             <Eye size={16} />
-                            Viewed By ({(submission.viewedBy && submission.viewedBy.length) || (submission.rawViews && submission.rawViews.length) || 0})
+                            Viewed By (
+                            {(submission.viewedBy &&
+                              submission.viewedBy.length) ||
+                              (submission.rawViews &&
+                                submission.rawViews.length) ||
+                              0}
+                            )
                           </h4>
-                          <div className="flex items-center justify-between mb-3">
-                            <div />
-                            <div className="text-xs text-gray-500">
-                              <button onClick={() => setShowRawViews(s => !s)} className="text-blue-600 hover:underline">{showRawViews ? 'Hide raw' : 'Show raw'}</button>
-                            </div>
-                          </div>
+                         
 
                           <div className="space-y-2">
-                            {submission.viewedBy && submission.viewedBy.length > 0 ? (
-                              submission.viewedBy.map((viewer, idx) => {
-                                const uid = viewer.id || viewer.userId || viewer._id || null;
-                                const fetchedUser = uid ? reviewerUsers[uid] : null;
-                                const displayName = fetchedUser?.name || viewer.name || uid || 'Unknown';
-                                const displayRole = fetchedUser?.role || viewer.role || '';
-                                return (
-                                <div key={uid || idx} className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
-                                  <div className="p-1.5 bg-blue-100 rounded-full">
-                                    <Eye size={14} className="text-blue-600" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900 truncate">
-                                      {displayName}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      {displayRole} {viewer.viewedAt ? '• ' + formatDateTime(viewer.viewedAt) : ''}
-                                    </p>
-                                  </div>
-                                </div>
-                              )})
-                            ) : submission.rawViews && submission.rawViews.length > 0 ? (
-                              submission.rawViews.map((rv, idx) => {
-                                const uid = rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null;
-                                const at = rv.at || rv.timestamp || rv.viewedAt || null;
-                                const fetchedUser = uid ? reviewerUsers[uid] : null;
-                                const displayName = fetchedUser?.name || uid || 'Unknown';
-                                const displayRole = fetchedUser?.role || '';
-                                return (
-                                  <div key={rv._id || idx} className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
+                           {submission.viewedBy && submission.viewedBy.length > 0 ? (
+                            submission.viewedBy.map((viewer, idx) => {
+                              const uid = viewer.id || viewer.userId || viewer._id || null;
+                              const fetchedUser = uid ? reviewerUsers[uid] : null;
+                              const displayName = fetchedUser?.name || viewer.name || uid || "Unknown";
+                              const displayRole = fetchedUser?.role || viewer.role || "";
+                              
+                              // Get all views for this user from rawViews
+                              const userViews = (submission.rawViews || [])
+                                .filter(rv => {
+                                  const rvUid = rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null;
+                                  return String(rvUid) === String(uid);
+                                })
+                                .map(rv => ({
+                                  at: rv.at || rv.timestamp || rv.viewedAt || null,
+                                  _id: rv._id || rv.id
+                                }))
+                                .filter(v => v.at)
+                                .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+                              
+                              const isExpanded = expandedViewerId === uid;
+                              
+                              return (
+                                <div key={uid || idx} className="bg-gray-50 rounded-lg overflow-hidden">
+                                  <button
+                                    onClick={() => setExpandedViewerId(isExpanded ? null : uid)}
+                                    className="w-full flex items-start gap-3 p-2 hover:bg-gray-100 transition-colors"
+                                  >
                                     <div className="p-1.5 bg-blue-100 rounded-full">
                                       <Eye size={14} className="text-blue-600" />
                                     </div>
+                                    <div className="flex-1 min-w-0 text-left">
+                                      <p className="text-sm font-medium text-gray-900 truncate">
+                                        {displayName}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        {displayRole} • {viewer.viewedAt ? formatDateTime(viewer.viewedAt) : ""}
+                                        {userViews.length > 1 && (
+                                          <span className="ml-1 text-blue-600">({userViews.length} views)</span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </button>
+                                  
+                                  {isExpanded && userViews.length > 1 && (
+                                    <div className="px-2 pb-2 space-y-1">
+                                      <div className="ml-9 pt-1 border-t border-gray-200">
+                                        <p className="text-xs font-semibold text-gray-600 mb-1">View History:</p>
+                                        {userViews.map((view, vIdx) => (
+                                          <div key={view._id || vIdx} className="text-xs text-gray-500 py-0.5">
+                                            • {formatDateTime(view.at)}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                          ) : submission.rawViews &&
+                              submission.rawViews.length > 0 ? (
+                              submission.rawViews.map((rv, idx) => {
+                                const uid =
+                                  rv.user ||
+                                  rv.userId ||
+                                  (rv.by &&
+                                    (rv.by._id || rv.by.id)) ||
+                                  null;
+                                const at =
+                                  rv.at ||
+                                  rv.timestamp ||
+                                  rv.viewedAt ||
+                                  null;
+                                const fetchedUser = uid
+                                  ? reviewerUsers[uid]
+                                  : null;
+                                const displayName =
+                                  fetchedUser?.name || uid || "Unknown";
+                                const displayRole =
+                                  fetchedUser?.role || "";
+                                return (
+                                  <div
+                                    key={rv._id || idx}
+                                    className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg"
+                                  >
+                                    <div className="p-1.5 bg-blue-100 rounded-full">
+                                      <Eye
+                                        size={14}
+                                        className="text-blue-600"
+                                      />
+                                    </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
-                                      <p className="text-xs text-gray-500">{displayRole} {at ? '• ' + formatDateTime(at) : ''}</p>
+                                      <p className="text-sm font-medium text-gray-900 truncate">
+                                        {displayName}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        {displayRole}{" "}
+                                        {at
+                                          ? "• " + formatDateTime(at)
+                                          : ""}
+                                      </p>
                                     </div>
                                   </div>
                                 );
                               })
                             ) : (
-                              <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm text-gray-600">No views recorded for this document.</div>
-                            )}
-
-                            {showRawViews && submission.rawViews && submission.rawViews.length > 0 && (
-                              <div className="mt-3 p-3 bg-gray-50 border border-gray-100 rounded text-xs text-gray-600">
-                                <pre className="font-mono text-[11px] leading-snug whitespace-pre-wrap">{JSON.stringify(submission.rawViews, null, 2)}</pre>
+                              <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm text-gray-600">
+                                No views recorded for this document.
                               </div>
                             )}
+
+                            {showRawViews &&
+                              submission.rawViews &&
+                              submission.rawViews.length > 0 && (
+                                <div className="mt-3 p-3 bg-gray-50 border border-gray-100 rounded text-xs text-gray-600">
+                                  <pre className="font-mono text-[11px] leading-snug whitespace-pre-wrap">
+                                    {JSON.stringify(
+                                      submission.rawViews,
+                                      null,
+                                      2
+                                    )}
+                                  </pre>
+                                </div>
+                              )}
                           </div>
                         </div>
                       )}
 
-                      {/* Comments/Feedback from Reviewers */}
-                     {submission?.notes && submission.notes.length > 0 && (
-                      <div className="mb-4 pb-4 border-b">
-                        <h4 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                          <MessageSquare size={16} />
-                          Feedback & Comments ({submission.notes.length})
-                        </h4>
-                        <div className="space-y-3">
-                          {submission.notes.map((note) => {
-                          let userName = 'Unknown User';
-                          let userRole = 'User';
-                          let userEmail = '';
-                      
-                      // Get user ID from note
-                      const userId = typeof note.by === 'string' 
-                        ? note.by 
-                        : (note.by?._id || note.by?.id);
-                      
-                      // Check if we have fetched user data
-                      if (userId && reviewerUsers[userId]) {
-                        const fetchedUser = reviewerUsers[userId];
-                        userName = fetchedUser.name;
-                        userRole = fetchedUser.role;
-                        userEmail = fetchedUser.email;
-                      } 
-                      // Fallback to note.by object if available
-                      else if (note.by && typeof note.by === 'object') {
-                        const firstName = note.by.firstname || note.by.first_name || note.by.firstName || '';
-                        const lastName = note.by.lastname || note.by.last_name || note.by.lastName || '';
-                        
-                        userName = note.by.name || 
-                                  note.by.fullname || 
+                      {/* Feedback & Comments (Faculty view) */}
+                      {submission?.notes && submission.notes.length > 0 && (
+                        <div className="mb-4 pb-4 border-b">
+                          <h4 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <MessageSquare size={16} />
+                            Feedback &amp; Comments (
+                            {submission.notes.length})
+                          </h4>
+                          <div className="space-y-3">
+                            {submission.notes.map((note) => {
+                              let userName = "Unknown User";
+                              let userRole = "User";
+                              let userEmail = "";
+
+                              const userId =
+                                typeof note.by === "string"
+                                  ? note.by
+                                  : note.by?._id || note.by?.id;
+
+                              if (userId && reviewerUsers[userId]) {
+                                const fetchedUser = reviewerUsers[userId];
+                                userName = fetchedUser.name;
+                                userRole = fetchedUser.role;
+                                userEmail = fetchedUser.email;
+                              } else if (
+                                note.by &&
+                                typeof note.by === "object"
+                              ) {
+                                const firstName =
+                                  note.by.firstname ||
+                                  note.by.first_name ||
+                                  note.by.firstName ||
+                                  "";
+                                const lastName =
+                                  note.by.lastname ||
+                                  note.by.last_name ||
+                                  note.by.lastName ||
+                                  "";
+
+                                userName =
+                                  note.by.name ||
+                                  note.by.fullname ||
                                   note.by.full_name ||
-                                  (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
+                                  (firstName && lastName
+                                    ? `${firstName} ${lastName}`.trim()
+                                    : "") ||
                                   note.by.username ||
-                                  note.by.email || 
-                                  'Unknown User';
-                        
-                        if (note.by.role) {
-                          if (typeof note.by.role === 'object') {
-                            userRole = note.by.role.name || 
-                                      note.by.role.title || 
+                                  note.by.email ||
+                                  "Unknown User";
+
+                                if (note.by.role) {
+                                  if (typeof note.by.role === "object") {
+                                    userRole =
+                                      note.by.role.name ||
+                                      note.by.role.title ||
                                       note.by.role.role_name ||
-                                      'User';
-                          } else if (typeof note.by.role === 'string') {
-                            userRole = note.by.role;
-                          }
-                        } else {
-                          userRole = note.by.role_name || 
-                                    note.by.position || 
-                                    'User';
-                        }
-                        
-                        userEmail = note.by.email || '';
-                      }
-                      
-                      return (
-                        <div key={note.id || note.at} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                          <div className="flex items-start gap-2 mb-2">
-                            <MessageSquare size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1">
-                              <p className="text-xs font-medium text-gray-900">{userName}</p>
-                              {userEmail && (
-                                <p className="text-xs text-gray-400 truncate">
-                                  {userEmail}
-                                </p>
-                              )}
-                              <p className="text-xs text-gray-500">
-                                {userRole} • {note.at ? formatDateTime(note.at) : 'Recently'}
-                              </p>
-                            </div>
+                                      "User";
+                                  } else if (
+                                    typeof note.by.role === "string"
+                                  ) {
+                                    userRole = note.by.role;
+                                  }
+                                } else {
+                                  userRole =
+                                    note.by.role_name ||
+                                    note.by.position ||
+                                    "User";
+                                }
+
+                                userEmail = note.by.email || "";
+                              }
+
+                              return (
+                                <div
+                                  key={note.id || note.at}
+                                  className="p-3 bg-amber-50 rounded-lg border border-amber-200"
+                                >
+                                  <div className="flex items-start gap-2 mb-2">
+                                    <MessageSquare
+                                      size={16}
+                                      className="text-amber-600 mt-0.5 flex-shrink-0"
+                                    />
+                                    <div className="flex-1">
+                                      <p className="text-xs font-medium text-gray-900">
+                                        {userName}
+                                      </p>
+                                      {userEmail && (
+                                        <p className="text-xs text-gray-400 truncate">
+                                          {userEmail}
+                                        </p>
+                                      )}
+                                      <p className="text-xs text-gray-500">
+                                        {userRole} •{" "}
+                                        {note.at
+                                          ? formatDateTime(note.at)
+                                          : "Recently"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-gray-700 ml-6">
+                                    {note.message}
+                                  </p>
+                                </div>
+                              );
+                            })}
                           </div>
-                          <p className="text-sm text-gray-700 ml-6">{note.message}</p>
                         </div>
-                      );
-                   })}
-                </div>
-              </div>
-            )}
+                      )}
 
                       {/* Deadline Info */}
                       {submission?.deadline && (
                         <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                           <div className="flex items-center gap-2 mb-1">
                             <Clock size={16} className="text-blue-600" />
-                            <span className="text-xs font-semibold text-blue-900">Deadline</span>
+                            <span className="text-xs font-semibold text-blue-900">
+                              Deadline
+                            </span>
                           </div>
                           <p className="text-sm text-blue-800">
                             {formatDateTime(submission.deadline)}
@@ -1759,7 +2118,6 @@ const handleZoomReset = () => setZoom(1);
                       )}
                     </>
                   ) : (
-                    /* Fallback for other roles */
                     <>
                       <h3 className="text-sm font-semibold tracking-widest text-gray-900 uppercase">
                         Submission Details
@@ -1780,26 +2138,30 @@ const handleZoomReset = () => setZoom(1);
         <div className="fixed inset-0 backdrop-blur-[2px] bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {selectedAction === 'submit' ? 'Submit Document' : 'Return for Revision'}
+              {selectedAction === "submit"
+                ? "Submit Document"
+                : "Return for Revision"}
             </h3>
-            
+
             <p className="text-sm text-gray-600 mb-4">
-              {selectedAction === 'submit' 
-                ? 'Are you sure you want to submit this document? You can add an optional note.'
-                : 'Please provide feedback for the faculty member to revise their submission.'}
+              {selectedAction === "submit"
+                ? "Are you sure you want to submit this document? You can add an optional note."
+                : "Please provide feedback for the faculty member to revise their submission."}
             </p>
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {selectedAction === 'submit' ? 'Add a note (optional)' : 'Feedback (required)'}
+                {selectedAction === "submit"
+                  ? "Add a note (optional)"
+                  : "Feedback (required)"}
               </label>
               <textarea
                 value={actionNote}
                 onChange={(e) => setActionNote(e.target.value)}
                 placeholder={
-                  selectedAction === 'submit' 
-                    ? 'Add any comments or notes...'
-                    : 'Explain what needs to be revised...'
+                  selectedAction === "submit"
+                    ? "Add any comments or notes..."
+                    : "Explain what needs to be revised..."
                 }
                 rows="4"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
@@ -1820,11 +2182,14 @@ const handleZoomReset = () => setZoom(1);
               </button>
               <button
                 onClick={handleSubmitAction}
-                disabled={isSubmittingAction || (selectedAction === 'return' && !actionNote.trim())}
+                disabled={
+                  isSubmittingAction ||
+                  (selectedAction === "return" && !actionNote.trim())
+                }
                 className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${
-                  selectedAction === 'submit'
-                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : 'bg-orange-600 hover:bg-orange-700 text-white'
+                  selectedAction === "submit"
+                    ? "bg-green-600 hover:bg-green-700 text-white"
+                    : "bg-orange-600 hover:bg-orange-700 text-white"
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {isSubmittingAction ? (
@@ -1832,19 +2197,15 @@ const handleZoomReset = () => setZoom(1);
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     Processing...
                   </>
+                ) : selectedAction === "submit" ? (
+                  <>
+                    <CheckCircle size={18} />
+                    Confirm Submission
+                  </>
                 ) : (
                   <>
-                    {selectedAction === 'submit' ? (
-                      <>
-                        <CheckCircle size={18} />
-                        Confirm Submission
-                      </>
-                    ) : (
-                      <>
-                        <XCircle size={18} />
-                        Return Document
-                      </>
-                    )}
+                    <XCircle size={18} />
+                    Return Document
                   </>
                 )}
               </button>
@@ -1860,9 +2221,10 @@ const handleZoomReset = () => setZoom(1);
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Add Comment
             </h3>
-            
+
             <p className="text-sm text-gray-600 mb-4">
-              Add a comment or feedback for the faculty member. This will be visible to them.
+              Add a comment or feedback for the faculty member. This will be
+              visible to them.
             </p>
 
             <div className="mb-4">
