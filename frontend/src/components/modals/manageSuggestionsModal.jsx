@@ -19,6 +19,7 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
   const [expandedFields, setExpandedFields] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [showAllFields, setShowAllFields] = useState(false);
+  const [matchMode, setMatchMode] = useState('label-tags'); // label / label + tags mode 
 
   // state for delete modal
   const [deleteTarget, setDeleteTarget] = useState(null); 
@@ -211,9 +212,11 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
           </button>
         </div>
 
-        {/* Scope Selector and Search */}
+        {/* Scope and Search */}
         <div className="px-6 py-4 border-b border-gray-200 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* Scope selector (same as before) */}
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">Scope:</span>
               <div className="flex items-center bg-gray-100 rounded-lg p-1">
@@ -225,24 +228,54 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  User
-                </button>
-                {isController && (
+                    User
+                  </button>
+                  {isController && (
+                    <button
+                      onClick={() => setActiveScope('school')}
+                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                        activeScope === 'school' 
+                          ? 'bg-white text-blue-700 shadow-sm' 
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      School
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Mode tab (Label / Label + Tags)  */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700">Match by:</span>
+                <div className="flex items-center bg-gray-100 rounded-lg p-1">
                   <button
-                    onClick={() => setActiveScope('school')}
                     className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                      activeScope === 'school' 
+                      matchMode === 'label' 
                         ? 'bg-white text-blue-700 shadow-sm' 
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
+                    type="button"
+                    onClick={() => setMatchMode('label')}
                   >
-                    School
+                    Label only
                   </button>
-                )}
+                  <button
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                      matchMode === 'label-tags' 
+                        ? 'bg-white text-blue-700 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    type="button"
+                    onClick={() => setMatchMode('label-tags')}
+                  >
+                    Label + Tags
+                  </button>
+                </div>
               </div>
             </div>
-            
-            {/* Search*/}
+
+            {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -277,10 +310,22 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
                 <>
                   {displayedFields.map((f) => {
                     const allSuggestions = suggestions[f.name] || [];
+
+                    // if "label + tags" mode, hide suggestions that have no tags at all
+                    const filteredSuggestions = allSuggestions.filter((s) => {
+                      if (matchMode !== 'label-tags') return true;
+                      const rawTags = Array.isArray(s.tags)
+                        ? s.tags
+                        : (s.tag ? [s.tag] : []);
+                      return rawTags.length > 0;
+                    });
+
                     const isExpanded = expandedFields[f.name];
                     const INITIAL_DISPLAY = 3;
-                    const displayList = isExpanded ? allSuggestions : allSuggestions.slice(0, INITIAL_DISPLAY);
-                    const hasMore = allSuggestions.length > INITIAL_DISPLAY;
+                    const displayList = isExpanded
+                      ? filteredSuggestions
+                      : filteredSuggestions.slice(0, INITIAL_DISPLAY);
+                    const hasMore = filteredSuggestions.length > INITIAL_DISPLAY;
 
                     return (
                       <div 
@@ -291,15 +336,17 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
                         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg">
                           <h4 className="text-sm font-semibold text-gray-900">{f.label || f.name}</h4>
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {allSuggestions.length} {allSuggestions.length === 1 ? 'value' : 'values'}
+                            {filteredSuggestions.length} {filteredSuggestions.length === 1 ? 'value' : 'values'}
                           </span>
                         </div>
 
                         {/* Field Content */}
                         <div className="p-4">
-                          {allSuggestions.length === 0 ? (
+                          {filteredSuggestions.length === 0 ? (
                             <div className="text-center py-6 text-sm text-gray-400">
-                              No saved values for this field
+                              {matchMode === 'label-tags'
+                                ? 'No tagged saved values for this field'
+                                : 'No saved values for this field'}
                             </div>
                           ) : (
                             <div className="space-y-2">
@@ -307,7 +354,28 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
                                 const id = s._id || s.id;
                                 const isEditing = editing[id] !== undefined;
                                 const isBusy = busyIds.has(id);
-                                const valueLabel = String(s.value ?? s);
+
+                                const rawValue = s.value ?? s;
+                                const valueLabel = typeof rawValue === 'string'
+                                  ? rawValue
+                                  : String(rawValue);
+
+                                const displayLabel = s.label || valueLabel;
+
+                                // tags chips (same idea as AutoFillModal)
+                                const rawTags = Array.isArray(s.tags)
+                                  ? s.tags
+                                  : (s.tag ? [s.tag] : []);
+                                const tags = rawTags
+                                  .map(t => {
+                                    if (!t) return null;
+                                    if (typeof t === 'string') return t;
+                                    return t.label || t.name || String(t);
+                                  })
+                                  .filter(Boolean);
+                                const MAX_TAGS = 4;
+                                const visibleTags = tags.slice(0, MAX_TAGS);
+                                const extraCount = tags.length - visibleTags.length;
 
                                 return (
                                   <div 
@@ -325,8 +393,35 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
                                           autoFocus
                                         />
                                       ) : (
-                                        <div className="text-sm text-gray-800 truncate">
-                                          {valueLabel}
+                                        <div className="space-y-1">
+                                          <div className="text-sm text-gray-900 font-medium truncate">
+                                            {displayLabel}
+                                          </div>
+
+                                          {/* tags row */}
+                                          {tags.length > 0 && (
+                                            <div className="flex flex-wrap gap-1">
+                                              {visibleTags.map((tag, idx) => (
+                                                <span
+                                                  key={idx}
+                                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700"
+                                                >
+                                                  {tag}
+                                                </span>
+                                              ))}
+                                              {extraCount > 0 && (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-200 text-gray-700">
+                                                  +{extraCount} more
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+
+                                          {displayLabel !== valueLabel && (
+                                            <p className="text-xs text-gray-500 truncate">
+                                              Value: {valueLabel}
+                                            </p>
+                                          )}
                                         </div>
                                       )}
                                     </div>
@@ -389,7 +484,7 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
                                   ) : (
                                     <>
                                       <ChevronDown className="w-4 h-4" />
-                                      Show {allSuggestions.length - INITIAL_DISPLAY} more
+                                      Show {filteredSuggestions.length - INITIAL_DISPLAY} more
                                     </>
                                   )}
                                 </button>
