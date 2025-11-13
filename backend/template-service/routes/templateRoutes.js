@@ -18,8 +18,9 @@ import {
 
 
 import {
-        dashboardInfo,
-        getTemplateStats
+        dashboardInfoDocConroller,
+        getTemplateStats,
+        dashboardDeptHead
 } from "../controllers/templateDataController.js";
 
 import {
@@ -52,11 +53,13 @@ router.post("/assign-controllers", authenticateJWT, assignControllersToTemplate)
 router.post("/create-template", authenticateJWT, createTemplate);
 router.get("/", authenticateJWT, getTemplates);
 router.post("/assign", authenticateJWT, assignUsersToCreateTemplate);
-router.get("/dashboard-info", authenticateJWT, dashboardInfo);
+router.get("/dashboard-info", authenticateJWT, dashboardInfoDocConroller);
 router.get("/stats", authenticateJWT, getTemplateStats);
 router.get("/published", authenticateJWT, getPublishedTemplates);
 router.get("/user/:userId", authenticateJWT, getTemplatesByUser);
 router.get("/archived", authenticateJWT, getArchivedTemplates);
+router.get('/dashboard-dept-head', authenticateJWT, dashboardDeptHead);
+
 router.get("/:id", authenticateJWT, getTemplateById);
 router.get('/:id/versions', authenticateJWT, listTemplateVersions);
 router.get('/:id/versions/:versionId', authenticateJWT, getTemplateVersion);

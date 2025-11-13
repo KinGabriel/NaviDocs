@@ -23,7 +23,7 @@ import {
   ZoomOut,
   RotateCcw
 } from "lucide-react";
-import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI } from "../api/assignmentDocumentsAPI";
+import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI, getDocumentContentAPI } from "../api/assignmentDocumentsAPI";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -112,11 +112,48 @@ const FALLBACK_DOC = {
   document_size: "8.5 x 13",
 };
 
+// Local helper: normalize a raw document object (from content API) into the
+// shape used by components (matches fetchAndNormalizeDocument output partially)
+function normalizeRawDocument(doc) {
+  if (!doc) return null;
+  const document = doc;
+  const _id = doc._id || doc.id;
+  const title = doc.title || doc.name || 'Untitled Document';
+  const createdAt = doc.createdAt || doc.created_at || null;
+
+  const from_template = doc.from_template || null;
+  const pages_json = Array.isArray(doc.pages_json)
+    ? doc.pages_json
+    : (doc.pages_json ? [doc.pages_json] : (from_template && Array.isArray(from_template.pages_json) ? from_template.pages_json : []));
+  const pageSetup = doc.pageSetup || from_template?.pageSetup || null;
+  const headerConfig = doc.headerConfig || from_template?.headerConfig || doc.logoConfig || from_template?.logoConfig || null;
+  const field_values = doc.field_values || {};
+  const body = doc.body || doc.content || null;
+
+  return {
+    document,
+    _id,
+    title,
+    createdAt,
+    from_template,
+    pages_json,
+    pageSetup,
+    headerConfig,
+    logoConfig: headerConfig,
+    field_values,
+    body,
+  };
+}
+
 export default function SubmittedFilesView() {
   const user = useUser();
-  const { id } = useParams();
+  const params = useParams();
+  // Params may be registered as /submissions/:id or /submission/:binId/:docId
+  const id = params.docId || params.id || params.documentId || null;
+  const routeBinId = params.binId || params.submissionBinId || params.bid || null;
   const navigate = useNavigate();
   const { state } = useLocation();
+  const navBinId = state?.binId || state?.bin?._id || state?.submissionBinId || null;
   const [fetchedDoc, setFetchedDoc] = useState(null);
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -127,6 +164,7 @@ export default function SubmittedFilesView() {
   const [selectedAction, setSelectedAction] = useState(null); // 'submit', 'return'
   const [selectedFileIndex, setSelectedFileIndex] = useState(0); // For multi-file navigation
   const [previewDocument, setPreviewDocument] = useState(null);
+  const [currentBinId, setCurrentBinId] = useState(null);
   const tpl = state?.doc || {};
   const [template, setTemplate] = useState(tpl);
   const [downloading, setDownloading] = useState(false);
@@ -151,58 +189,128 @@ useEffect(() => {
     try {
       setLoading(true);
       console.log('Fetching document with ID:', id);
-      
-      // Try to fetch the document directly
-      let actualDocument = null;
-      try {
-        const documentRes = await getDocumentByIdAPI(id);
-        actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
-        if (mounted) {
-          setFetchedDoc(actualDocument);
-        }
-      } catch (docErr) {
-        console.warn('Could not fetch document directly:', docErr.message);
+
+      // If a bin id was supplied via the route or navigation state (preferred), use it directly and skip listing bins
+      let bins = null;
+      const preferredBinId = routeBinId || navBinId || null;
+      if (preferredBinId) {
+        console.debug && console.debug('Using binId from route params or navigation state:', preferredBinId);
+      } else {
+        // First: fetch submission bins for this document so we have the bin context
+        bins = await listSubmissionBinsByDocumentAPI(id);
+        console.log('Bins response:', bins);
       }
-      // Fetch the submission bin data to get submission metadata
-      const bins = await listSubmissionBinsByDocumentAPI(id);
-      console.log('Bins response:', bins);
-      
+
+      // If we didn't fetch bins and a preferredBinId exists, try to load that bin; otherwise handle no-bins case
+      if ((!bins || bins.length === 0) && preferredBinId) {
+        // Load the specific bin provided via route/state
+        try {
+          const binData = await getSubmissionBinAPI(preferredBinId);
+          if (!binData) throw new Error('Bin not found');
+          setCurrentBinId(preferredBinId);
+          // proceed using binData below by assigning bins to [binData]
+          bins = [binData];
+        } catch (e) {
+          console.warn('Preferred binId provided but failed to load bin', preferredBinId, e?.message || e);
+          // fall through to existing no-bins behavior
+        }
+      }
+
       if (!bins || bins.length === 0) {
         console.warn('No bins found for document', id);
-        // If we have the actual document but no bins, create a fallback submission
-        if (actualDocument && mounted) {
-            setSubmission({
-              id: 'unknown',
-              title: actualDocument.title || 'Document',
-              submittedBy: { name: 'Unknown', role: 'Faculty', email: '' },
-              submittedAt: actualDocument.createdAt || actualDocument.created_at,
-              status: 'submitted',
-              files: [{
-                id: id,
-                name: actualDocument.title || "Document",
-                url: actualDocument.filePath || "",
-                size: actualDocument.size || 0,
-                uploadedAt: actualDocument.createdAt || actualDocument.created_at,
-                _fullData: actualDocument
-              }],
-              viewedBy: [],
-              comments: [],
-              deadline: null
-            });
-          setError("");
-        } else {
-          throw new Error('No submission bin found for this document');
-        }
-        if (mounted) {
-          setLoading(false);
-        }
-        return;
+        // No submission bin context: do not attempt direct GET if we lack explicit bin info
+        // Show a friendly error to the user instead of trying to GET protected document
+        throw new Error('No submission bin found for this document');
       }
-      
-      const binId = bins[0]._id || bins[0].id;
+
+      // Determine binId: prefer routeBinId -> chosen bin from bins -> fallback first bin
+      const normalizeId = (b) => b?._id || b?.id || b;
+      let chosenBin = null;
+      let binId = routeBinId || null;
+
+      if (!binId) {
+        if (!bins || bins.length === 0) {
+          // handled above (no bins case)
+        } else {
+          // Prefer a bin that explicitly contains a submission entry for this document
+          for (const b of bins) {
+            const subs = Array.isArray(b.submissions) ? b.submissions : [];
+            const found = subs.find(s => {
+              if (Array.isArray(s.documents) && s.documents.some(dd => String(dd?._id || dd?.id || dd) === String(id))) return true;
+              if (s.document && String(s.document?._id || s.document?.id || s.document) === String(id)) return true;
+              return false;
+            });
+            if (found) { chosenBin = b; break; }
+          }
+
+          // If still not chosen and user is faculty, prefer bin assigned to them
+          if (!chosenBin) {
+            try {
+              const uid = user?._id || user?.id || null;
+              if (uid) {
+                for (const b of bins) {
+                  const subs = Array.isArray(b.submissions) ? b.submissions : [];
+                  if (subs.some(s => String(s.faculty) === String(uid))) { chosenBin = b; break; }
+                }
+              }
+            } catch (_) {}
+          }
+
+          // If still not chosen, prefer bin created by current user
+          if (!chosenBin) {
+            const uid = user?._id || user?.id || null;
+            for (const b of bins) {
+              if (uid && String(b.created_by || b.createdBy || '') === String(uid)) { chosenBin = b; break; }
+            }
+          }
+
+          // fallback to any forwarded bin or the first bin
+          if (!chosenBin) chosenBin = bins.find(b => b.is_forwarded) || bins[0];
+        }
+
+        binId = normalizeId(chosenBin);
+        if (binId) setCurrentBinId(binId);
+      } else {
+        // routeBinId present
+        setCurrentBinId(binId);
+      }
+
       const binData = await getSubmissionBinAPI(binId);
       console.log('Bin data:', binData);
-      
+
+      // Enforce frontend restriction: if current user is Dean/Secretary and bin not forwarded, show friendly error
+      try {
+        const roleNameLocal = (user?.role?.name || user?.role || '').toString().toLowerCase();
+        const isDeanLocal = roleNameLocal === 'dean';
+        const isSecretaryLocal = roleNameLocal === 'secretary';
+        if ((isDeanLocal || isSecretaryLocal) && !binData.is_forwarded) {
+          if (mounted) {
+            setError('This submission has not been forwarded to your office.');
+            setLoading(false);
+          }
+          return;
+        }
+      } catch (e) {
+        // ignore role parse errors and proceed
+      }
+
+      // submission-aware content endpoint using the bin context
+      let actualDocument = null;
+      try {
+        const documentRes = await getDocumentContentAPI(id, binId);
+        actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
+        if (mounted) setFetchedDoc(actualDocument);
+      } catch (docErr) {
+        console.warn('Could not fetch document via submission API, falling back to document API:', docErr?.message || docErr);
+        try {
+          const documentRes = await getDocumentByIdAPI(id);
+          actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
+          if (mounted) setFetchedDoc(actualDocument);
+        } catch (fallbackErr) {
+          console.warn('Fallback direct document fetch failed:', fallbackErr?.message || fallbackErr);
+        }
+      }
+
       // Find the submission item that contains this document
       const submissionItem = binData.submissions?.find(sub => {
         const hasInDocuments = Array.isArray(sub.documents) && sub.documents.some(doc => 
@@ -226,17 +334,37 @@ useEffect(() => {
       if (submissionItem.document) { 
         const docId = submissionItem.document._id || submissionItem.document.id || submissionItem.document;
         try {
-          const normalizedDoc = await fetchAndNormalizeDocument(docId);
-          
-          submittedDocs.push({
-            id: docId,
-            name: normalizedDoc.title,
-            url: normalizedDoc.document.filePath || "",
-            size: normalizedDoc.document.size || 0,
-            uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
-            _fullData: normalizedDoc
-          });
-          
+          // Prefer submission-aware content endpoint to avoid protected direct GETs
+          let docFromApi = null;
+          try {
+            const resp = await getDocumentContentAPI(docId, binId);
+            docFromApi = resp?.document || resp?.data?.document || resp?.data || resp;
+          } catch (e) {
+            // Fallback to existing loader
+            docFromApi = null;
+          }
+
+          if (docFromApi) {
+            const normalizedDoc = normalizeRawDocument(docFromApi);
+            submittedDocs.push({
+              id: docId,
+              name: normalizedDoc.title,
+              url: normalizedDoc.document?.filePath || "",
+              size: normalizedDoc.document?.size || 0,
+              uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
+              _fullData: normalizedDoc
+            });
+          } else {
+            const normalizedDoc = await fetchAndNormalizeDocument(docId);
+            submittedDocs.push({
+              id: docId,
+              name: normalizedDoc.title,
+              url: normalizedDoc.document.filePath || "",
+              size: normalizedDoc.document.size || 0,
+              uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
+              _fullData: normalizedDoc
+            });
+          }
         } catch (err) {
           console.error(`Failed to fetch document ${docId}:`, err);
           // Use placeholder if can't fetch the document
@@ -256,16 +384,33 @@ useEffect(() => {
         for (const doc of submissionItem.documents) {
           const docId = doc._id || doc.id || doc;
           try {
-            const normalizedDoc = await fetchAndNormalizeDocument(docId);
-            
-            submittedDocs.push({
-              id: docId,
-              name: normalizedDoc.title,
-              url: normalizedDoc.document.filePath || "",
-              size: normalizedDoc.document.size || 0,
-              uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
-              _fullData: normalizedDoc
-            });
+            let docFromApi = null;
+            try {
+              const resp = await getDocumentContentAPI(docId, binId);
+              docFromApi = resp?.document || resp?.data?.document || resp?.data || resp;
+            } catch (_) { docFromApi = null; }
+
+            if (docFromApi) {
+              const normalizedDoc = normalizeRawDocument(docFromApi);
+              submittedDocs.push({
+                id: docId,
+                name: normalizedDoc.title,
+                url: normalizedDoc.document?.filePath || "",
+                size: normalizedDoc.document?.size || 0,
+                uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
+                _fullData: normalizedDoc
+              });
+            } else {
+              const normalizedDoc = await fetchAndNormalizeDocument(docId);
+              submittedDocs.push({
+                id: docId,
+                name: normalizedDoc.title,
+                url: normalizedDoc.document.filePath || "",
+                size: normalizedDoc.document.size || 0,
+                uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
+                _fullData: normalizedDoc
+              });
+            }
           } catch (err) {
             console.error(`Failed to fetch document ${docId}:`, err);
             // Use placeholder if can't fetch the document
@@ -320,7 +465,46 @@ useEffect(() => {
             status: submissionItem.status || (submissionItem.submitted_at ? "submitted" : "pending"),
             files: submittedDocs && submittedDocs.length > 0 ? submittedDocs : [],
             viewedBy: submissionItem.viewed_by || [],
-            comments: submissionItem.comments || [],
+          notes: Array.isArray(submissionItem.notes) 
+          ? submissionItem.notes.map(note => {
+              let userInfo = null;
+              
+              // If note.by is already a populated object
+              if (note.by && typeof note.by === 'object') {
+                userInfo = note.by;
+              } 
+              // If note.by is just an ID string, try to match it
+              else if (typeof note.by === 'string') {
+                const noteById = String(note.by);
+                
+                // Check if it matches the submitting faculty
+                if (submissionItem.faculty_user && 
+                    String(submissionItem.faculty_user._id || submissionItem.faculty_user.id) === noteById) {
+                  userInfo = {
+                    ...submissionItem.faculty_user,
+                    role: { name: 'Faculty' } // Override role to ensure it shows "Faculty"
+                  };
+                }
+                // Check if it matches current user (dept head/dean/secretary)
+                else if (user && String(user._id || user.id) === noteById) {
+                  userInfo = user;
+                }
+                // Check if it matches bin creator
+                else if (binData.created_by && typeof binData.created_by === 'object' &&
+                        String(binData.created_by._id || binData.created_by.id) === noteById) {
+                  userInfo = binData.created_by;
+                }
+              }
+              
+              return {
+                ...note,
+                id: note._id || note.id,
+                at: note.createdAt || note.created_at || note.at || note.timestamp,
+                by: userInfo, 
+                message: note.message || note.text || note.comment || note.reason || ''
+              };
+            })
+          : [],
             deadline: binData.deadline
           };
       
@@ -367,15 +551,14 @@ const handleZoomReset = () => setZoom(1);
         } else if (selectedFile?.id) {
           // Fetch the document if not already loaded
           console.log('Fetching preview for document:', selectedFile.id);
-          getDocumentByIdAPI(selectedFile.id)
+          // Prefer the submission-aware content API to avoid protected direct GETs
+          (currentBinId ? getDocumentContentAPI(selectedFile.id, currentBinId) : Promise.reject(new Error('no binId')))
             .then(res => {
               const docData = res?.document || res?.data?.document || res?.data || res;
-              
               let pagesJson = docData.pages_json;
               if (!pagesJson && docData.from_template?.pages_json) {
                 pagesJson = docData.from_template.pages_json;
               }
-              
               const normalizedData = {
                 ...docData,
                 pages_json: pagesJson || docData.pages_json,
@@ -383,12 +566,30 @@ const handleZoomReset = () => setZoom(1);
                 headerConfig: docData.headerConfig || docData.from_template?.headerConfig,
                 logoConfig: docData.logoConfig || docData.from_template?.logoConfig,
               };
-              
-              console.log('Fetched document:', normalizedData);
-              console.log('Has pages_json:', !!normalizedData.pages_json);
+              console.log('Fetched document (content API):', normalizedData);
               setPreviewDocument(normalizedData);
             })
-            .catch(err => console.error("Failed to fetch preview:", err));
+            .catch(() => {
+              // Fallback to legacy GET when content API isn't available for this document/user
+              getDocumentByIdAPI(selectedFile.id)
+                .then(res => {
+                  const docData = res?.document || res?.data?.document || res?.data || res;
+                  let pagesJson = docData.pages_json;
+                  if (!pagesJson && docData.from_template?.pages_json) {
+                    pagesJson = docData.from_template.pages_json;
+                  }
+                  const normalizedData = {
+                    ...docData,
+                    pages_json: pagesJson || docData.pages_json,
+                    pageSetup: docData.pageSetup || docData.from_template?.pageSetup,
+                    headerConfig: docData.headerConfig || docData.from_template?.headerConfig,
+                    logoConfig: docData.logoConfig || docData.from_template?.logoConfig,
+                  };
+                  console.log('Fetched document (fallback):', normalizedData);
+                  setPreviewDocument(normalizedData);
+                })
+                .catch(err => console.error("Failed to fetch preview (both content API and fallback):", err));
+            });
         }
       }
     }, [selectedFileIndex, submission?.files]);
@@ -467,11 +668,11 @@ const handleZoomReset = () => setZoom(1);
       const updatedBin = await getSubmissionBinAPI(binId);
       const updatedItem = updatedBin.submissions?.find(s => String(s._id || s.id) === String(submissionId));
       
-      if (updatedItem) {
+        if (updatedItem) {
         setSubmission(prev => ({
           ...prev,
           status: updatedItem.status,
-          comments: updatedItem.comments || prev.comments
+          notes: updatedItem.notes || prev.notes
         }));
       }
       
@@ -733,7 +934,7 @@ const handleZoomReset = () => setZoom(1);
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <HeaderSubmittedFilesView
-        title={doc.title}
+        title={previewDocument?.title || fetchedDoc?.title || d?.title || "Submitted Document"}
         onExportDownload={handleExportDownload}
         onExportToStorage={() => setShowStoragePicker(true)}
         user={user}
@@ -975,29 +1176,71 @@ const handleZoomReset = () => setZoom(1);
                     </div>
                   )}
 
-                      {/* Comments/Notes */}
-                      {submission?.comments && submission.comments.length > 0 && (
+                      {/* Comments/Notes from Faculty/Submitter */}
+                      {submission?.notes && submission.notes.length > 0 && (
                         <div className="mb-4 pb-4 border-b">
                           <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
                             <MessageSquare size={16} />
-                            Comments & Notes ({submission.comments.length})
+                            Comments & Notes ({submission.notes.length})
                           </h4>
                           <div className="space-y-3">
-                            {submission.comments.map((comment) => (
-                              <div key={comment.id} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            {submission.notes.map((note) => {
+                              let userName = 'Unknown User';
+                              let userRole = 'User';
+                              
+                              // The 'by' field should contain the user object
+                              const userObj = note.by;
+                              
+                              if (userObj && typeof userObj === 'object') {
+                                // Extract name - try different possible field structures
+                                const firstName = userObj.firstname || userObj.first_name || userObj.firstName || '';
+                                const lastName = userObj.lastname || userObj.last_name || userObj.lastName || '';
+                                
+                                userName = userObj.name || 
+                                          userObj.fullname || 
+                                          userObj.full_name ||
+                                          (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
+                                          userObj.username ||
+                                          userObj.email || 
+                                          'Unknown User';
+                                
+                                // Extract role - try different possible field structures
+                                if (userObj.role) {
+                                  if (typeof userObj.role === 'object') {
+                                    userRole = userObj.role.name || 
+                                              userObj.role.title || 
+                                              userObj.role.role_name ||
+                                              'User';
+                                  } else if (typeof userObj.role === 'string') {
+                                    userRole = userObj.role;
+                                  }
+                                } else {
+                                  userRole = userObj.role_name || 
+                                            userObj.position || 
+                                            'User';
+                                }
+                              } else if (userObj && typeof userObj === 'string') {
+                                // If it's just an ID string, show a generic message
+                                userName = 'User';
+                                userRole = 'Reviewer';
+                              }
+                              
+                              return (
+                              <div key={note.id || note._id || note.at} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                                 <div className="flex items-start gap-2 mb-2">
                                   <div className="flex-1">
                                     <p className="text-xs font-medium text-gray-900">
-                                      {comment.author}
+                                        {userName}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                      {comment.role} • {formatDateTime(comment.createdAt)}
+                                      {userRole} • {note.at ? formatDateTime(note.at) : 'Recently'}
                                     </p>
                                   </div>
                                 </div>
-                                <p className="text-sm text-gray-700">{comment.message}</p>
+                                <p className="text-sm text-gray-700">{note.message}</p>
                               </div>
-                            ))}
+                            );
+                          })}
                           </div>
                         </div>
                       )}
@@ -1138,33 +1381,70 @@ const handleZoomReset = () => setZoom(1);
                       )}
 
                       {/* Comments/Feedback from Reviewers */}
-                      {submission?.comments && submission.comments.length > 0 && (
+                      {submission?.notes && submission.notes.length > 0 && (
                         <div className="mb-4 pb-4 border-b">
                           <h4 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
                             <MessageSquare size={16} />
-                            Feedback & Comments ({submission.comments.length})
+                            Feedback & Comments ({submission.notes.length})
                           </h4>
                           <div className="space-y-3">
-                            {submission.comments.map((comment) => (
-                              <div key={comment.id} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                            {submission.notes.map((note) => {
+                              let userName = 'Unknown User';
+                              let userRole = 'User';
+                              
+                              const userObj = note.by;
+                              
+                              if (userObj && typeof userObj === 'object') {
+                                // Extract name
+                                const firstName = userObj.firstname || userObj.first_name || userObj.firstName || '';
+                                const lastName = userObj.lastname || userObj.last_name || userObj.lastName || '';
+                                
+                                userName = userObj.name || 
+                                          userObj.fullname || 
+                                          userObj.full_name ||
+                                          (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
+                                          userObj.username ||
+                                          userObj.email || 
+                                          'Unknown User';
+                                
+                                // Extract role
+                                if (userObj.role) {
+                                  if (typeof userObj.role === 'object') {
+                                    userRole = userObj.role.name || 
+                                              userObj.role.title || 
+                                              userObj.role.role_name ||
+                                              'User';
+                                  } else if (typeof userObj.role === 'string') {
+                                    userRole = userObj.role;
+                                  }
+                                } else {
+                                  userRole = userObj.role_name || 
+                                            userObj.position || 
+                                            'User';
+                                }
+                              } else if (userObj && typeof userObj === 'string') {
+                                userName = 'Reviewer';
+                                userRole = 'Staff';
+                              }
+                              
+                              return (
+                              <div key={note.id || note.at} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
                                 <div className="flex items-start gap-2 mb-2">
-                                  <MessageSquare size={16} className="text-amber-600 mt-0.5" />
+                                  <MessageSquare size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
                                   <div className="flex-1">
-                                    <p className="text-xs font-medium text-gray-900">
-                                      {comment.author}
-                                    </p>
+                                    <p className="text-xs font-medium text-gray-900">{userName}</p>
                                     <p className="text-xs text-gray-500">
-                                      {comment.role} • {formatDateTime(comment.createdAt)}
+                                      {userRole} • {note.at ? formatDateTime(note.at) : 'Recently'}
                                     </p>
                                   </div>
                                 </div>
-                                <p className="text-sm text-gray-700 ml-6">{comment.message}</p>
+                                <p className="text-sm text-gray-700 ml-6">{note.message}</p>
                               </div>
-                            ))}
+                            );
+                          })}
                           </div>
                         </div>
                       )}
-
                       {/* Deadline Info */}
                       {submission?.deadline && (
                         <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">

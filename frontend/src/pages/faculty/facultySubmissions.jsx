@@ -17,11 +17,13 @@ import {
   CheckCircle, 
   Eye,
   Upload,
-  User
+  User,
+  RotateCcw
 } from 'lucide-react';
+import { getSubmissionItemStatus } from "../../utils/submissionStatus";
 
 
-const STATUS_FILTERS = ["All Status", "Pending", "Submitted", "Overdue"];
+const STATUS_FILTERS = ["All Status", "Pending", "Submitted", "Returned", "Overdue"];
 const SORT_OPTIONS = ["Recent", "Due Soon", "Oldest", "A–Z"];
 
 export default function FacultySubmissions() {
@@ -60,20 +62,7 @@ export default function FacultySubmissions() {
           
           return userSubmissions.map(sub => {
           // Determine status - validate that submission actually has documents 
-          let status = 'pending';
-          
-          // Check if there are actually submitted documents
-          const hasDocuments = (Array.isArray(sub.documents) && sub.documents.length > 0) || 
-                                (sub.document && sub.document !== null);
-          
-          // Only mark as submitted if has documents AND submitted_at timestamp
-          if (hasDocuments && sub.submitted_at) {
-            status = 'submitted';
-          } else if (!hasDocuments && new Date(bin.deadline) < new Date()) {
-            status = 'overdue';
-          } else {
-            status = 'pending';
-          }
+            let status = getSubmissionItemStatus(sub, bin.deadline);
 
           // Handle submittedFiles - supports both documents array and single document
           let submittedFiles = [];
@@ -155,9 +144,10 @@ export default function FacultySubmissions() {
   const stats = useMemo(() => {
   const pending = submissions.filter(s => s.status === "pending").length; 
   const submitted = submissions.filter(s => s.status === "submitted").length;
+  const returned = submissions.filter(s => s.status === "returned").length;
   const overdue = submissions.filter(s => s.status === "overdue").length;
   
-  return { total: submissions.length, pending, submitted, overdue };
+  return { total: submissions.length, pending, returned, submitted, overdue };
   }, [submissions]); 
 
   // Pagination
@@ -329,7 +319,7 @@ export default function FacultySubmissions() {
       });
       formData.append('submissionId', id);
       
-      // TODO: Replace with your actual API call
+      // TODO: Replace with actual API call
       
       // Simulate API call for demo
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -388,13 +378,19 @@ export default function FacultySubmissions() {
                   icon={Clock}
                   label="Pending"
                   value={stats.pending}
-                  color="orange"
+                  color="yellow"
                 />
                 <StatCard
                   icon={CheckCircle}
                   label="Submitted"
                   value={stats.submitted}
                   color="green"
+                />
+                <StatCard
+                  icon={RotateCcw}
+                  label="Returned"
+                  value={stats.returned}
+                  color="orange"
                 />
                 <StatCard
                   icon={AlertCircle}
@@ -510,6 +506,7 @@ function StatCard({ icon: Icon, label, value, color }) {
     green: "bg-green-50 text-green-600 border-green-100",
     red: "bg-red-50 text-red-600 border-red-100",
     orange: "bg-orange-50 text-orange-600 border-orange-100",
+    yellow: "bg-yellow-50 text-yellow-600 border-yellow-100",
   };
 
   return (
@@ -531,6 +528,7 @@ function SubmissionCard({ submission, onView }) {
   const daysUntilDue = Math.ceil((new Date(submission.deadline) - new Date()) / (1000 * 60 * 60 * 24));
   const isOverdue = submission.status === "overdue";
   const isSubmitted = submission.status === "submitted";
+  const isReturned = submission.status === "returned";
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all hover:border-blue-300 overflow-hidden">
@@ -567,11 +565,14 @@ function SubmissionCard({ submission, onView }) {
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Calendar size={16} className="text-gray-400" />
             <span>Due {formatDate(submission.deadline)}</span>
-            {!isSubmitted && daysUntilDue > 0 && daysUntilDue <= 3 && (
+            {!isSubmitted && !isReturned && daysUntilDue > 0 && daysUntilDue <= 3 && (
               <span className="text-orange-600 font-semibold">({daysUntilDue}d left)</span>
             )}
             {isOverdue && (
               <span className="text-red-600 font-semibold">(Overdue)</span>
+            )}
+            {isReturned && (
+              <span className="text-orange-600 font-semibold">(Needs Resubmission)</span>
             )}
           </div>
         </div>
@@ -587,6 +588,8 @@ function SubmissionCard({ submission, onView }) {
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${
               isSubmitted
                 ? "bg-gray-600 text-white hover:bg-gray-700"
+                : isReturned
+                ? "bg-orange-600 text-white hover:bg-orange-700"
                 : "bg-blue-600 text-white hover:bg-blue-700"
             }`}
           >
@@ -594,6 +597,11 @@ function SubmissionCard({ submission, onView }) {
               <>
                 <Eye size={16} />
                 View Submission
+              </>
+            ) : isReturned ? (
+              <>
+                <Upload size={16} />
+                Resubmit Now
               </>
             ) : (
               <>

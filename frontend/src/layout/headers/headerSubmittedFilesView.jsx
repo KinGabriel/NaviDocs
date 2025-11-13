@@ -12,7 +12,7 @@ const API_URL =
   API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
 
 export default function HeaderSubmittedFilesView({
-  title,
+  title = "Submitted Document", 
   onExportDownload,
   onExportToStorage,
   user,
@@ -24,7 +24,7 @@ export default function HeaderSubmittedFilesView({
   useEffect(() => {
     const onDocClick = (e) => {
       if (!exportRef.current) return;
-      if (!exportRef.current.contains(e.target)) setIsExportOpen(false);
+      if (!exportRef.current.contains(e.target.value)) setIsExportOpen(false);
     };
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
@@ -75,14 +75,11 @@ export default function HeaderSubmittedFilesView({
             className="h-6 w-px bg-gray-300 mx-1"
           />
 
-          {/* Title */}
+          {/* Title - Show actual title or placeholder */}
           <div className="flex items-center">
-            <input
-              className="bg-transparent text-xl font-medium text-gray-800 outline-none border-none"
-              value={title}
-              placeholder="Document Title"
-              readOnly
-            />
+            <h1 className="text-xl font-medium text-gray-800">
+              {title || "Submitted Document"}
+            </h1>
           </div>
         </div>
 

@@ -8,10 +8,11 @@ import Dropdown from "../components/dropdowns/dropdown";
 import SearchBar from "../components/searchbar";
 import TaskAssignmentModal from "../components/modals/taskAssignmentModal";
 import { StatusBadge, formatDate } from "../utils/formatters";
-import { Plus, Calendar, Users, FileText, Clock, CheckCircle, AlertCircle, Eye, TrendingUp, Send } from 'lucide-react';
+import { Plus, Calendar, Users, FileText, Clock, CheckCircle, AlertCircle, Eye, TrendingUp, Send, RotateCcw} from 'lucide-react';
 import { listSubmissionBinsAPI, forwardSubmissionBinAPI } from "../api/assignmentDocumentsAPI";
+import { getSubmissionBinStatus } from "../utils/submissionStatus";
 
-const STATUS_OPTIONS = ["All Status", "Active", "Completed", "Overdue", "Draft"];
+const STATUS_OPTIONS = ["All Status", "Active", "Completed", "Pending", "Returned", "Overdue"];
 const SORT_OPTIONS = ["Recent", "Oldest", "Due Soon", "A–Z"];
 
 export default function SubmissionBins() {
@@ -31,6 +32,9 @@ export default function SubmissionBins() {
   const roleName = (user?.role?.name || user?.role || '').toString();
   const userRole = roleName.toLowerCase();
   const isDeptHead = ['department head','department_head','dept-head','dept head','department-head'].includes(userRole);
+  const isDean = userRole === 'dean';
+  const isSecretary = userRole === 'secretary';
+  const isDeanOrSecretary = isDean || isSecretary;
 
   // Fetch bins from API
   useEffect(() => {
@@ -62,13 +66,8 @@ export default function SubmissionBins() {
     if (statusFilter !== "All Status") {
       const target = statusFilter.toLowerCase();
       rows = rows.filter(r => {
-        const st = (r.status || '').toLowerCase();
-        const deadline = r.deadline ? new Date(r.deadline) : null;
-        const now = new Date();
-        const isOverdue = deadline && deadline < now && st !== 'completed';
-        if (target === 'overdue') return isOverdue;
-        if (target === 'draft') return st === 'archived'; // map Draft -> Archived
-        return st === target;
+        const actualStatus = getSubmissionBinStatus(r);
+        return actualStatus.toLowerCase() === target;
       });
     }
     
@@ -100,13 +99,66 @@ export default function SubmissionBins() {
 
   // Stats calculation
   const stats = useMemo(() => {
-    const active = bins.filter(s => (s.status || '').toLowerCase() === "active").length;
-    const completed = bins.filter(s => (s.status || '').toLowerCase() === "completed").length;
     const now = new Date();
-    const overdue = bins.filter(s => s.deadline && new Date(s.deadline) < now && (s.status || '').toLowerCase() !== 'completed').length;
-    const totalAssigned = bins.reduce((sum, s) => sum + (Array.isArray(s.submissions) ? s.submissions.length : 0), 0);
+
+    // Helper to check if bin has ANY returned submissions
+    const hasReturnedSubmissions = (bin) => 
+      Array.isArray(bin.submissions) &&
+      bin.submissions.some(sub =>
+        sub.status === 'returned' ||
+        (Array.isArray(sub.notes) &&
+          sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+      );
+
+    // Helper to check if ALL submissions in a bin are returned
+    const allSubmissionsReturned = (bin) => {
+      const items = bin.submissions || [];
+      if (items.length === 0) return false;
+      return items.every(sub =>
+        sub.status === 'returned' ||
+        (Array.isArray(sub.notes) &&
+          sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+      );
+    };
+
+    // Returned count = bins where ALL submissions are returned
+    const returned = bins.filter(s => allSubmissionsReturned(s)).length;
     
-    return { active, completed, overdue, totalAssigned };
+    // Pending count = bins where SOME (but NOT all) submissions are returned
+    const pending = bins.filter(s => {
+      const hasReturned = hasReturnedSubmissions(s);
+      const allReturned = allSubmissionsReturned(s);
+      // Only count if has returned submissions BUT not all are returned
+      return hasReturned && !allReturned;
+    }).length;
+
+    // Count active (exclude bins with ANY returned submissions)
+    const active = bins.filter(s => {
+      const st = (s.status || '').toLowerCase();
+      return st === 'active' && !hasReturnedSubmissions(s);
+    }).length;
+
+    // Count completed (must be completed AND no returned submissions)
+    const completed = bins.filter(s => {
+      const st = (s.status || '').toLowerCase();
+      return st === 'completed' && !hasReturnedSubmissions(s);
+    }).length;
+
+    // Overdue (exclude bins with returned submissions)
+    const overdue = bins.filter(
+      s =>
+        s.deadline &&
+        new Date(s.deadline) < now &&
+        (s.status || '').toLowerCase() !== 'completed' &&
+        !hasReturnedSubmissions(s)
+    ).length;
+
+    const totalAssigned = bins.reduce(
+      (sum, s) => sum + (Array.isArray(s.submissions) ? s.submissions.length : 0),
+      0
+    );
+
+    return { active, completed, overdue, totalAssigned, returned, pending };
   }, [bins]);
 
   // Pagination
@@ -173,6 +225,7 @@ export default function SubmissionBins() {
                   </h1>
                   <p className="text-gray-600 mt-1">Manage and track all document submissions</p>
                 </div>
+                {!isDeanOrSecretary && (
                 <button
                   onClick={() => setShowAssignModal(true)}
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
@@ -180,6 +233,7 @@ export default function SubmissionBins() {
                   <Plus size={20} />
                   Assign a Submission
                 </button>
+                )}
               </div>
 
               {/* Stats Cards */}
@@ -195,6 +249,18 @@ export default function SubmissionBins() {
                   label="Completed"
                   value={stats.completed}
                   color="green"
+                />
+                <StatCard
+                  icon={Clock}
+                  label="Pending"
+                  value={stats.pending}
+                  color="yellow"
+                />
+                <StatCard
+                  icon={RotateCcw}
+                  label="Returned"
+                  value={stats.returned}
+                  color="orange"
                 />
                 <StatCard
                   icon={AlertCircle}
@@ -252,20 +318,29 @@ export default function SubmissionBins() {
             ) : pageRows.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
                 <FileText size={48} className="mx-auto text-gray-300 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No submissions found</h3>
-                <p className="text-gray-600 mb-6">
-                  {query || statusFilter !== "All Status"
-                    ? "Try adjusting your filters"
-                    : "Create your first submission to get started"}
-                </p>
-                {!query && statusFilter === "All Status" && (
-                  <button
-                    onClick={() => setShowAssignModal(true)}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Plus size={20} />
-                    Create New Submission
-                  </button>
+                {isDeanOrSecretary ? (
+                  <>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No forwarded submissions</h3>
+                    <p className="text-gray-600 mb-6">There are currently no submission bins forwarded to your office.</p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No submissions found</h3>
+                    <p className="text-gray-600 mb-6">
+                      {query || statusFilter !== "All Status"
+                        ? "Try adjusting your filters"
+                        : "Create your first submission to get started"}
+                    </p>
+                    {!query && statusFilter === "All Status" && (
+                      <button
+                        onClick={() => setShowAssignModal(true)}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <Plus size={20} />
+                        Create New Submission
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             ) : (
@@ -278,6 +353,7 @@ export default function SubmissionBins() {
                     canForward={isDeptHead && !submission.is_forwarded && (String(submission.status || '').toLowerCase() === 'completed')}
                     onForward={() => handleForward(submission._id || submission.id)}
                     forwarding={forwardingId === (submission._id || submission.id)}
+                    canView={(!isDeanOrSecretary) || Boolean(submission.is_forwarded)}
                   />
                 ))}
               </div>
@@ -349,6 +425,8 @@ function StatCard({ icon: Icon, label, value, color }) {
     green: "bg-green-50 text-green-600 border-green-100",
     red: "bg-red-50 text-red-600 border-red-100",
     purple: "bg-purple-50 text-purple-600 border-purple-100",
+    orange: "bg-orange-50 text-orange-600 border-orange-100",
+    yellow: "bg-yellow-50 text-yellow-600 border-yellow-100",
   };
 
   return (
@@ -366,10 +444,53 @@ function StatCard({ icon: Icon, label, value, color }) {
   );
 }
 
-function SubmissionCard({ submission, onView, onForward, canForward, forwarding }) {
+function SubmissionCard({ submission, onView, onForward, canForward, forwarding, canView = true }) {
   const daysUntilDue = Math.ceil((new Date(submission.deadline) - new Date()) / (1000 * 60 * 60 * 24));
   const items = Array.isArray(submission.submissions) ? submission.submissions : (submission.submission || []);
-  const submittedCount = items.filter(s => s.status === "submitted").length;
+  
+  const displayStatus = getSubmissionBinStatus(submission);
+
+  // Check for returned submissions
+  const hasReturnedSubmissions = items.some(sub => 
+    sub.status === 'returned' || 
+    (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+  );
+  
+  // Count how many submissions are returned
+  const returnedCount = items.filter(sub => 
+    sub.status === 'returned' || 
+    (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+  ).length;
+  
+  // Determine display status
+  // If ALL submissions are returned, show "returned"
+  // If SOME submissions are returned, show "pending" (awaiting resubmission)
+  // Otherwise show the bin's actual status
+  const allReturned = items.length > 0 && items.every(sub => 
+    sub.status === 'returned' || 
+    (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
+  );
+
+  // const displayStatus = allReturned 
+  //   ? 'returned' 
+  //   : (hasReturnedSubmissions ? 'pending' : submission.status);
+
+  // Count faculty members who actually submitted documents
+  const submittedCount = items.filter(s => {
+    // Check if submission has documents
+    const hasDocuments = (Array.isArray(s.documents) && s.documents.length > 0) || 
+                        (s.document && s.document !== null);
+    // Must have both documents AND submitted_at timestamp
+    return hasDocuments && s.submitted_at;
+  }).length;
+  
+  // Total number of documents across all submissions
+  const totalDocuments = items.reduce((count, s) => {
+    if (Array.isArray(s.documents)) return count + s.documents.length;
+    if (s.document) return count + 1;
+    return count;
+  }, 0);
+  
   const totalAssigned = items.length;
 
   return (
@@ -382,7 +503,17 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding 
               {submission.title}
             </h3>
           </div>
-          <StatusBadge type={submission.status} />
+          <div className="flex flex-col gap-2 items-end">
+            <StatusBadge type={displayStatus} />
+            {hasReturnedSubmissions && (
+              <div className="flex items-center gap-1 px-3 py-1 bg-orange-100 border border-orange-300 rounded-full">
+                <AlertCircle size={14} className="text-orange-700" />
+                <span className="text-xs font-semibold text-orange-700">
+                  {returnedCount} Awaiting Resubmission
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Instructions */}
@@ -415,6 +546,11 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding 
               {submittedCount}/{totalAssigned}
             </span>
           </div>
+          {totalDocuments > 0 && (
+            <p className="text-xs text-gray-600 mb-2">
+              {totalDocuments} document{totalDocuments !== 1 ? 's' : ''} submitted
+            </p>
+          )}
           <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
             <div
               className="bg-blue-600 h-full rounded-full transition-all"
@@ -429,9 +565,9 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding 
             <Users size={16} className="text-gray-400" />
             <span>{totalAssigned} assigned</span>
           </div>
-          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
             {submission.is_forwarded && (
-              <span className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200">Forwarded</span>
+              <span className="text-xs px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200">Forwarded</span>
             )}
             {canForward && (
               <button
@@ -446,10 +582,11 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding 
             )}
             <button
               onClick={onView}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+              disabled={!canView}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm ${canView ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
             >
               <Eye size={16} />
-              View Details
+              {canView ? 'View Details' : 'Restricted'}
             </button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
@@ -8,6 +8,7 @@ import UpcomingDeadlines from "../../components/upcomingDeadlines";
 import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "../../utils/formatters";
+import { getDeptHeadDashboardAPI } from "../../api/documentsAPI";
 
 
 export default function DepartmentHeadDashboard() {
@@ -27,56 +28,17 @@ export default function DepartmentHeadDashboard() {
   }
 
 
-  // Sample data
-  const templates = [
-    {
-      id: 1,
-      title: "Research Proposal Template",
-      createdBy: "Admin User",
-      status: "Approved",
-    },
-    {
-      id: 2,
-      title: "Thesis Format Guide",
-      createdBy: "Admin User",
-      status: "Rejected",
-    },
-    {
-      id: 3,
-      title: "Internship Report Template",
-      createdBy: "Admin User",
-      status: "Returned",
-    },
-    {
-      id: 4,
-      title: "Course Syllabus Template",
-      createdBy: "Admin User",
-      status: "Approved",
-    },
-    {
-      id: 5,
-      title: "Capstone Project Template",
-      createdBy: "Admin User",
-      status: "Pending",
-    },
-    {
-      id: 6,
-      title: "Department Memo Format",
-      createdBy: "Admin User",
-      status: "Endorsed",
-    },
-  ];
+  // Data loaded from API
+  const [templates, setTemplates] = useState([]);
+  const [publishedTemplates, setPublishedTemplates] = useState([]);
+  const [submissionOverviewData, setSubmissionOverviewData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
 
 
 
-  const publishedTemplates = [
-    { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
-    { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-    { id: 4, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-    { id: 5, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-  ];
+  // publishedTemplates controlled by state (see effect below)
 
 
   const templateColumns = [
@@ -90,9 +52,15 @@ export default function DepartmentHeadDashboard() {
     {
       key: "action",
       label: "Action",
-      render: () => (
+      render: (row) => (
         <button
-          onClick={() => navigate("")}
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id ?? row.templateId;
+            navigate(`/dept-head/document-workflow/${id}`, {
+              state: { doc: row, origin: "deptHead:recently-submitted" },
+            });
+          }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
           Review
@@ -113,7 +81,13 @@ export default function DepartmentHeadDashboard() {
       label: "Action",
       render: (row) => (
         <button
-          onClick={() => navigate("")}
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id ?? row.templateId;
+            navigate(`/templates/published/${id}`, {
+              state: { doc: row, origin: "deptHead:recently-published" },
+            });
+          }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
           Review
@@ -123,92 +97,46 @@ export default function DepartmentHeadDashboard() {
   ];
 
 
-  const upcomingDeadlines = [
-    {
-      id: 1,
-      title: "Template Review for AY 2025",
-      date: "2025-08-15",
-      priority: "Overdue",
-      department: "Quality Assurance",
-    },
-    {
-      id: 2,
-      title: "Annual Document Audit",
-      date: "2025-08-28",
-      priority: "Due Today",
-      department: "Administration",
-    },
-    {
-      id: 3,
-      title: "Syllabus Submission Check",
-      date: "2025-09-10",
-      priority: "Upcoming",
-      department: "Academics",
-    },
-  ];
+  // upcoming/dueToday/overdue will be loaded from API
+  const [upcomingDeadlinesData, setUpcomingDeadlinesData] = useState([]);
+  const [dueTodayData, setDueTodayData] = useState([]);
+  const [overdueData, setOverdueData] = useState([]);
 
-  const submissionOverviewData = [
-    {
-      id: 1,
-      name: "Syllabus AY 2025",
-      totalDocs: 50,
-      onTime: 35,
-      late: 10,
-      pendingPassed: 3,
-      pendingNotPassed: 2,
-      completion: "90%"
-    },
-    {
-      id: 2,
-      name: "Capstone 1 Documents",
-      totalDocs: 120,
-      onTime: 70,
-      late: 30,
-      pendingPassed: 10,
-      pendingNotPassed: 10,
-      completion: "83%"
-    },
-    {
-      id: 3,
-      name: "Internship Requirements",
-      totalDocs: 95,
-      onTime: 80,
-      late: 5,
-      pendingPassed: 5,
-      pendingNotPassed: 5,
-      completion: "89%"
-    },
-    {
-      id: 4,
-      name: "Internship Requirements",
-      totalDocs: 95,
-      onTime: 80,
-      late: 5,
-      pendingPassed: 5,
-      pendingNotPassed: 5,
-      completion: "89%"
-    },
-    {
-      id: 5,
-      name: "Internship Requirements",
-      totalDocs: 95,
-      onTime: 80,
-      late: 5,
-      pendingPassed: 5,
-      pendingNotPassed: 5,
-      completion: "89%"
-    },
-  ];
+  // submissionOverviewData is controlled by state
 
   const submissionOverviewColumns = [
     { key: "name", label: "Submission Name" },
     { key: "totalDocs", label: "Total Docs" },
     { key: "onTime", label: "Submitted (On-Time)" },
     { key: "late", label: "Submitted (Late)" },
-    { key: "pendingPassed", label: "Pending (Deadline Passed)" },
-    { key: "pendingNotPassed", label: "Pending (Deadline Not Passed)" },
+    { key: "pendingNotPassed", label: "Pending" },
     { key: "completion", label: "Completion %" },
   ];
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await getDeptHeadDashboardAPI();
+        if (!mounted) return;
+  setTemplates(res.templates || []);
+  setPublishedTemplates(res.publishedTemplates || []);
+  setSubmissionOverviewData(res.bins || []);
+  setUpcomingDeadlinesData(res.upcoming || []);
+  setDueTodayData(res.dueToday || []);
+  setOverdueData(res.overdue || []);
+      } catch (e) {
+        console.error('Failed to load dept head dashboard', e);
+        if (mounted) setError(e.message || 'Failed to load dashboard');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
 
 
   return (
@@ -231,7 +159,7 @@ export default function DepartmentHeadDashboard() {
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
+                <div className="text-3xl font-bold text-gray-900">{upcomingDeadlinesData.length}</div>
               </div>
             </div>
 
@@ -243,7 +171,7 @@ export default function DepartmentHeadDashboard() {
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
+                <div className="text-3xl font-bold text-gray-900">{dueTodayData.length}</div>
               </div>
             </div>
 
@@ -255,7 +183,7 @@ export default function DepartmentHeadDashboard() {
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
+                <div className="text-3xl font-bold text-gray-900">{overdueData.length}</div>
               </div>
             </div>
           </div>
@@ -274,7 +202,7 @@ export default function DepartmentHeadDashboard() {
                   </div>
 
                   <button
-                    onClick={() => navigate("")}
+                    onClick={() => navigate("/document-workflow")}
                     className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
                   >
                     View All
@@ -291,10 +219,29 @@ export default function DepartmentHeadDashboard() {
 
 
             <div className="lg:col-span-1 space-y-6">
-              <UpcomingDeadlines
-                deadlines={upcomingDeadlines}
-                formatDate={formatDate}
-              />
+              {/* combine all categories into a single list the component can filter by priority */}
+              {(() => {
+                const allDeadlines = [
+                  ...(upcomingDeadlinesData || []),
+                  ...(dueTodayData || []),
+                  ...(overdueData || []),
+                ];
+                // ensure each item has a priority field and a date field the component expects
+                const normalized = allDeadlines.map(d => ({
+                  id: d.id || d._id || null,
+                  title: d.title || d.title,
+                  date: d.date || d.deadline || d.createdAt || null,
+                  priority: d.priority || (d.completion ? 'Upcoming' : 'Upcoming'),
+                  department: d.department || ''
+                }));
+
+                return (
+                  <UpcomingDeadlines
+                    deadlines={normalized}
+                    formatDate={formatDate}
+                  />
+                );
+              })()}
             </div>
 
             <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
