@@ -195,21 +195,20 @@ const getCfg = (cfg) => {
     showHeaderLine: !!(rawCenter.showHeaderLine ?? cfg?.showHeaderLine),
   };
 
-  // Per-line styles (safe even if not present)
+  // Per-line styles (safe even if not present) – this wires your HeaderLineStyleEditor
   center.line1Style = buildLineStyle(center, rawCenter.line1Style);
   center.line2Style = buildLineStyle(center, rawCenter.line2Style);
   center.line3Style = buildLineStyle(center, rawCenter.line3Style);
   center.line4Style = buildLineStyle(center, rawCenter.line4Style);
 
   return {
-    headerEnabled: !!cfg?.headerEnabled,
+    headerEnabled: cfg?.headerEnabled !== undefined ? !!cfg.headerEnabled : true,
     footerEnabled: !!cfg?.footerEnabled,
     headerMarginIn,
     footerMarginIn: Number(cfg?.footerMarginIn ?? headerMarginIn),
     assets: cfg?.assets || {},
     center,
     logos: {
-      // DO NOT hardcode. Use cfg.assets.slu / cfg.assets.cicm like the original.
       slu: {
         enabled: !!(logos.slu?.enabled ?? cfg?.showSLULogo),
         sizePx: Number(logos.slu?.sizePx ?? 56),
@@ -316,6 +315,7 @@ export default function TextEditor({
   const setPolicyRef = useRef(null);
   const observerRef = useRef(null);
 
+  // initial header/footer height from headerConfig (wired)
   const initialHeaderH = getHeaderBasePx(getCfg(headerConfig));
   const initialFooterH = getFooterBasePx(getCfg(headerConfig));
 
@@ -531,7 +531,7 @@ export default function TextEditor({
       trip.center.innerHTML = "";
       trip.right.innerHTML = "";
 
-      // LEFT: SLU logo (retrieved EXACTLY from cfg.assets.slu)
+      // LEFT: SLU logo (from cfg.assets.slu)
       if (cfg.logos.slu?.enabled && cfg.assets?.slu) {
         const sluImg = document.createElement("img");
         sluImg.src = resolveAssetUrl(cfg.assets.slu);
@@ -545,7 +545,7 @@ export default function TextEditor({
         trip.left.appendChild(sluImg);
       }
 
-      // CENTER: header text block with per-line styles
+      // CENTER: header text block with per-line styles (wired to line1Style...line4Style)
       const c = cfg.center;
 
       const lineHtml = (txt, st) => {
@@ -574,7 +574,7 @@ export default function TextEditor({
         </div>
       `;
 
-      // RIGHT: CICM logo + stamp card (CICM retrieved EXACTLY from cfg.assets.cicm)
+      // RIGHT: CICM logo + stamp card (CICM from cfg.assets.cicm)
       const rightRow = document.createElement("div");
       rightRow.style.display = "flex";
       rightRow.style.alignItems = "center";
@@ -759,20 +759,17 @@ export default function TextEditor({
         const root = document.querySelector(".rm-with-pagination");
         if (!root) return;
 
-        // Compute cfg ONCE per pass and reuse, exactly like original behavior.
         const cfg = getCfg(headerConfig);
 
         const breakers = root.querySelectorAll(".rm-page-break");
         const total = breakers.length;
 
-        // First page header
         const firstHeader = root.querySelector(".rm-first-page-header");
         if (firstHeader) {
           const trip = ensureFlexBand(firstHeader, "header");
           renderHeaderContent(trip, cfg, 1, total);
         }
 
-        // Iterate pages
         breakers.forEach((brk, i) => {
           const pageNo = i + 1;
 
@@ -795,13 +792,11 @@ export default function TextEditor({
 
   /* ---------------------------- observe pagination ---------------------------- */
   useEffect(() => {
-    // Initial paint
     applyHeaderFooterBands();
 
     const root = document.querySelector(".rm-with-pagination");
     observerRef.current?.disconnect();
     if (root) {
-      // Observe only childList changes at the page container level; batch via rAF
       observerRef.current = new MutationObserver((muts) => {
         let needs = false;
         for (const m of muts) {
