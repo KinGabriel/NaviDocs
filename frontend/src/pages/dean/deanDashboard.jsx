@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
@@ -6,9 +6,7 @@ import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
 import { StatusBadge } from "../../utils/formatters";
 import Greeting from "../../components/greeting";
-import { FolderOpen, FileText } from "lucide-react";
 import { Doughnut } from "react-chartjs-2";
-import { getDeanSecDashboardAPI } from "../../api/documentsAPI";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -49,8 +47,8 @@ export default function DeanDashboard() {
     });
   }
 
-  // placeholder data (used until API returns)
-  const templatesPlaceholder = [
+  // placeholder data
+  const templates = [
     { id: 1, title: "Research Proposal Template", createdBy: "Admin User", status: "Approved" },
     { id: 2, title: "Thesis Format Guide", createdBy: "Admin User", status: "Rejected" },
     { id: 3, title: "Internship Report Template", createdBy: "Admin User", status: "Returned" },
@@ -59,17 +57,13 @@ export default function DeanDashboard() {
     { id: 6, title: "Department Memo Format", createdBy: "Admin User", status: "Endorsed" },
   ];
 
-  const publishedTemplatesPlaceholder = [
+  const publishedTemplates = [
     { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
     { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
     { id: 3, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
     { id: 4, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
     { id: 5, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
   ];
-
-  // live template data from API
-  const [templatesData, setTemplatesData] = useState(templatesPlaceholder);
-  const [publishedTemplatesData, setPublishedTemplatesData] = useState(publishedTemplatesPlaceholder);
 
   const templateColumns = [
     { key: "title", label: "Title" },
@@ -125,50 +119,13 @@ export default function DeanDashboard() {
     },
   ];
 
-  // Dean/Sec live data
-  const [latestForwarded, setLatestForwarded] = useState([]);
-  const [forwardedByDepartment, setForwardedByDepartment] = useState([]);
-  const [totalForwardedCount, setTotalForwardedCount] = useState(0);
-  const [loadingDean, setLoadingDean] = useState(true);
-  const [errorDean, setErrorDean] = useState(null);
-
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      setLoadingDean(true);
-      try {
-        const res = await getDeanSecDashboardAPI();
-        if (!mounted) return;
-        setLatestForwarded(res.latestForwarded || []);
-        setForwardedByDepartment(res.forwardedByDepartment || []);
-        setTotalForwardedCount(res.totalForwardedCount || 0);
-          // set templates data if analytics returned them (keep placeholders otherwise)
-          setTemplatesData(res.templates || templatesPlaceholder);
-          setPublishedTemplatesData(res.publishedTemplates || publishedTemplatesPlaceholder);
-        setErrorDean(null);
-      } catch (e) {
-        console.error('Failed to load dean/sec dashboard', e);
-        if (!mounted) return;
-        setErrorDean(e.message || 'Failed to load dean dashboard');
-      } finally {
-        if (mounted) setLoadingDean(false);
-      }
-    };
-    load();
-    return () => { mounted = false; };
-  }, []);
-
-  const forwardedSubmissionBinsPlaceholder = [
+  const forwardedSubmissionBins = [
     { id: 1, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
     { id: 2, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
     { id: 3, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
     { id: 4, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
     { id: 5, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
   ];
-
-  const forwardedSubmissionBinsData = (latestForwarded && latestForwarded.length)
-    ? latestForwarded.map(b => ({ id: b.id, title: b.title, department: b.department, submission: b.submissionsCount }))
-    : forwardedSubmissionBinsPlaceholder;
 
   const forwardedSubmissionBinsColumns = [
     { key: "title", label: "Title" },
@@ -182,9 +139,8 @@ export default function DeanDashboard() {
           onClick={(e) => {
             e.stopPropagation();
             const id = row._id ?? row.id ?? row.templateId;
-            // forwarded submission bins should open the submission bin review page
-            navigate(`${SUBMISSION_BINS_ROUTE}/${id}`, {
-              state: { doc: row, origin: "dean:recently-forwarded" },
+            navigate(`/templates/published/${id}`, {
+              state: { doc: row, origin: "dean:recently-published" },
             });
           }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
@@ -195,13 +151,12 @@ export default function DeanDashboard() {
     },
   ];
 
-  const defaultColors = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4"];
   const chartData = {
-    labels: (forwardedByDepartment && forwardedByDepartment.length) ? forwardedByDepartment.map(d => d.department) : ["Computing and Information Studies", "Management", "Accountancy"],
+    labels: ["Computing and Information Studies", "Management", "Accountancy"],
     datasets: [
       {
-        data: (forwardedByDepartment && forwardedByDepartment.length) ? forwardedByDepartment.map(d => d.count) : [56, 36, 5],
-        backgroundColor: (forwardedByDepartment && forwardedByDepartment.length) ? forwardedByDepartment.map((_, i) => defaultColors[i % defaultColors.length]) : ["#3B82F6", "#10B981", "#F59E0B"],
+        data: [56, 36, 5],
+        backgroundColor: ["#3B82F6", "#10B981", "#F59E0B"],
         borderWidth: 0,
         cutout: "60%",
       },
@@ -247,14 +202,10 @@ export default function DeanDashboard() {
         >
           <Greeting name={user?.firstname || "Department Head"} />
 
-          {/* Stat cards */}
-           <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
-           </div>
-
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
             {/* Left side: tables */}
-            <div className="lg:col-span-3 space-y-6">
+            <div className="lg:col-span-3 space-y-6 mt-6">
               {/* Templates Table */}
               <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
                 <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
@@ -274,13 +225,13 @@ export default function DeanDashboard() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <Table columns={templateColumns} data={templatesData} />
+                  <Table columns={templateColumns} data={templates} />
                 </div>
               </div>
             </div>
 
             {/* Right side: deadlines + chart */}
-            <div className="lg:col-span-1 space-y-6">
+            <div className="lg:col-span-1 space-y-6 mt-6">
 
 
               {/* Deadlines Summary Doughnut Chart */}
@@ -298,43 +249,29 @@ export default function DeanDashboard() {
                   </div>
 
                   <div className="space-y-3">
-                    {forwardedByDepartment && forwardedByDepartment.length > 0 ? (
-                      forwardedByDepartment.map((d, i) => (
-                        <div key={d.department || i} className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full`} style={{ backgroundColor: defaultColors[i % defaultColors.length] }}></div>
-                            <span className="text-gray-600">{d.department}</span>
-                          </div>
-                          <span className="font-medium text-gray-800">{d.count}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                            <span className="text-gray-600">Department of Computing and Information Studies</span>
-                          </div>
-                          <span className="font-medium text-gray-800">56</span>
-                        </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <span className="text-gray-600">Department of Computing and Information Studies</span>
+                      </div>
+                      <span className="font-medium text-gray-800">56</span>
+                    </div>
 
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                            <span className="text-gray-600">Department of Management</span>
-                          </div>
-                          <span className="font-medium text-gray-800">36</span>
-                        </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span className="text-gray-600">Department of Management</span>
+                      </div>
+                      <span className="font-medium text-gray-800">36</span>
+                    </div>
 
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                            <span className="text-gray-600">Department of Accountancy</span>
-                          </div>
-                          <span className="font-medium text-gray-800">7</span>
-                        </div>
-                      </>
-                    )}
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <span className="text-gray-600">Department of Accountancy</span>
+                      </div>
+                      <span className="font-medium text-gray-800">7</span>
+                    </div>
 
                   </div>
                 </div>
@@ -365,7 +302,7 @@ export default function DeanDashboard() {
             </div>
 
             <div className="overflow-x-auto">
-              <Table columns={forwardedSubmissionBinsColumns} data={forwardedSubmissionBinsData} />
+              <Table columns={forwardedSubmissionBinsColumns} data={forwardedSubmissionBins} />
             </div>
           </div>
 
@@ -388,7 +325,7 @@ export default function DeanDashboard() {
             </div>
 
             <div className="overflow-x-auto">
-              <Table columns={publishedTemplatesColumns} data={publishedTemplatesData} />
+              <Table columns={publishedTemplatesColumns} data={publishedTemplates} />
             </div>
           </div>
 
