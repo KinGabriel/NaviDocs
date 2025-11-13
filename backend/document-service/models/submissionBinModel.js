@@ -3,9 +3,10 @@ import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
 const SubmissionNoteSchema = new Schema({
-  type: { type: String, enum: ['general','returned','comment'], default: 'general' },
+  type: { type: String, enum: ['general','returned','resubmitted','comment'], default: 'general' },
   message: { type: String, default: '' },
   by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  role: { type: String, default: null }, // Track the role of the person who made this note
   at: { type: Date, default: Date.now },
 }, { _id: false });
 

@@ -111,6 +111,7 @@ export function StatusBadge({ type }) {
     // Document/Template statuses
     approved: "bg-green-50 text-green-700 border border-green-200",
     submitted: "bg-green-50 text-green-700 border border-green-200",
+    resubmitted: "bg-indigo-50 text-indigo-700 border border-indigo-200",
     pending: "bg-yellow-50 text-yellow-700 border border-yellow-200",
     late: "bg-red-50 text-red-700 border border-red-200",
     rejected: "bg-red-50 text-red-700 border border-red-200",
@@ -142,6 +143,7 @@ export function StatusBadge({ type }) {
     // Document/Template statuses
     approved: "bg-green-500",
     submitted: "bg-green-500",
+    resubmitted: "bg-indigo-500",
     pending: "bg-yellow-500",
     late: "bg-red-500",
     rejected: "bg-red-500",

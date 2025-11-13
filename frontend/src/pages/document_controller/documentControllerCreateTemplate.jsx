@@ -195,7 +195,7 @@ export default function DocumentControllerCreateTemplate() {
   const userRole = user?.role?.name || user?.role || "";
   const normalizedRole = String(userRole).toLowerCase().replace(/[_\s]+/g, " ").trim();
   const isDocumentControlOfficer = normalizedRole === "document control officer" || normalizedRole === "document_controller_officer";
-  
+
   // Creators cannot edit published templates unless they are Document Control Officers
   const isReadOnly = isPublished && isCreator && !isDocumentControlOfficer;
 
@@ -230,9 +230,10 @@ export default function DocumentControllerCreateTemplate() {
       if (normalized.fontSettings) setFontSettings(normalized.fontSettings);
       if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
 
-      const loadedHeader = normalized.headerConfig && Object.keys(normalized.headerConfig).length
-        ? normalized.headerConfig
-        : DEFAULT_HEADER_CONFIG;
+      const loadedHeader =
+        normalized.headerConfig && Object.keys(normalized.headerConfig).length
+          ? normalized.headerConfig
+          : DEFAULT_HEADER_CONFIG;
       setHeaderConfig(loadedHeader);
 
       if (normalized.document_code !== undefined) setDocumentCode(normalized.document_code ?? "");
@@ -303,7 +304,7 @@ export default function DocumentControllerCreateTemplate() {
       const payload = {
         title: (templateTitle || "").trim() || "Untitled Template",
         pages_json,
-        body: editor ? editor.getHTML() : (typeof templateContent === "string" ? templateContent : ""),
+        body: editor ? editor.getHTML() : typeof templateContent === "string" ? templateContent : "",
         pageSetup,
         fields: editableFields,
         headerConfig,
@@ -345,7 +346,7 @@ export default function DocumentControllerCreateTemplate() {
   useEffect(() => {
     // Skip autosave if template is read-only
     if (isReadOnly) return;
-    
+
     if (!templateId && !templateTitle && !templateContent) return;
 
     const isDirty =
@@ -472,7 +473,9 @@ export default function DocumentControllerCreateTemplate() {
         <div className="flex h-full items-center justify-center p-6">
           <div className="text-center text-gray-700">
             <p className="mb-2 text-lg font-semibold">Template is Published</p>
-            <p className="text-sm text-gray-600">This template cannot be edited after being published by the Document Control Officer.</p>
+            <p className="text-sm text-gray-600">
+              This template cannot be edited after being published by the Document Control Officer.
+            </p>
           </div>
         </div>
       );
@@ -575,7 +578,8 @@ export default function DocumentControllerCreateTemplate() {
           TextEditor={TextEditor}
         />
       ) : (
-        <div className="flex min-h-screen flex-col bg-slate-50">
+        <div className="relative min-h-screen bg-slate-50">
+          {/* Header */}
           <Header2
             title={templateTitle}
             setTitle={setTemplateTitle}
@@ -600,37 +604,47 @@ export default function DocumentControllerCreateTemplate() {
             onShowVersionHistory={() => setShowVersionHistory(true)}
           />
 
-          <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
-            <div className="flex gap-4">
-              <TemplateSidebar
-                selectedPanel={selectedPanel}
-                onSelectPanel={setSelectedPanel}
-                topOffsetPx={110}
-                bottomOffsetPx={16}
-              >
-                {renderPanel()}
-              </TemplateSidebar>
+          {/* Main editor area – fixed under the header */}
+          <div
+            className="fixed left-0 right-0 bottom-0 overflow-hidden"
+            style={{ top: headerH || 80 }}
+          >
+            <div className="flex h-full w-full px-4 py-4 md:pl-2">
+              {/* Sidebar column with fixed width so it doesn't overlap the doc */}
+              <div className="shrink-0 w-[340px] max-w-xs">
+                <TemplateSidebar
+                  selectedPanel={selectedPanel}
+                  onSelectPanel={setSelectedPanel}
+                  topOffsetPx={110}
+                  bottomOffsetPx={16}
+                >
+                  {renderPanel()}
+                </TemplateSidebar>
+              </div>
 
-              <main className="min-h-[60vh] flex-1">
-                <TextEditor
-                  content={templateContent}
-                  pageSetup={pageSetup}
-                  onEditorReady={handleEditorReady}
-                  onContentChange={setTemplateContent}
-                  headerConfig={{
-                    ...(headerConfig || {}),
-                    documentStamp: {
-                      docCode: documentCode ?? "",
-                      revisionNo: revisionNo ?? 0,
-                      effectivity: effectivity ?? "",
-                    },
-                  }}
-                  templateStatus={status}
-                  documentCode={documentCode}
-                  revisionNo={revisionNo}
-                  effectivity={effectivity}
-                  readOnly={isReadOnly}
-                />
+              {/* Editor fills the rest; small padding-left keeps a nice gap */}
+              <main className="flex-1 h-full overflow-auto flex items-center justify-center pl-4">
+                <div className="w-full h-full flex items-center justify-center">
+                  <TextEditor
+                    content={templateContent}
+                    pageSetup={pageSetup}
+                    onEditorReady={handleEditorReady}
+                    onContentChange={setTemplateContent}
+                    headerConfig={{
+                      ...(headerConfig || {}),
+                      documentStamp: {
+                        docCode: documentCode ?? "",
+                        revisionNo: revisionNo ?? 0,
+                        effectivity: effectivity ?? "",
+                      },
+                    }}
+                    templateStatus={status}
+                    documentCode={documentCode}
+                    revisionNo={revisionNo}
+                    effectivity={effectivity}
+                    readOnly={isReadOnly}
+                  />
+                </div>
               </main>
             </div>
           </div>
