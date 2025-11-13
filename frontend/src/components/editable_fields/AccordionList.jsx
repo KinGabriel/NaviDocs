@@ -190,8 +190,6 @@ export default function AccordionList({
       dateFormat = newFieldData.dateFormat || "YYYY-MM-DD";
       const preset = DATE_FORMAT_PRESETS.find((p) => p.value === dateFormat);
       placeholder = preset?.example || dateFormat;
-    } else if (newFieldData.type === "image") {
-      placeholder = newFieldData.placeholder.trim() || "Upload image";
     } else {
       placeholder = newFieldData.placeholder.trim() || "Enter value...";
     }
@@ -420,7 +418,6 @@ export default function AccordionList({
                     className="rounded-md border border-slate-300 px-2 py-1 text-sm"
                   >
                     <option value="text">Text</option>
-                    <option value="image">Image</option>
                     <option value="date">Date</option>
                   </select>
 
@@ -449,11 +446,7 @@ export default function AccordionList({
                   ) : (
                     <input
                       type="text"
-                      placeholder={
-                        newFieldData.type === "image"
-                          ? "Placeholder (e.g. Upload image)"
-                          : "Placeholder"
-                      }
+                      placeholder="Placeholder"
                       value={newFieldData.placeholder}
                       onChange={(e) =>
                         setNewFieldData((prev) => ({
