@@ -224,9 +224,10 @@ export default function DeanDashboard() {
                   </button>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overflow-y-auto max-h-72">
                   <Table columns={templateColumns} data={templates} />
                 </div>
+
               </div>
             </div>
 
@@ -301,7 +302,7 @@ export default function DeanDashboard() {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-72">
               <Table columns={forwardedSubmissionBinsColumns} data={forwardedSubmissionBins} />
             </div>
           </div>
@@ -324,7 +325,7 @@ export default function DeanDashboard() {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-72">
               <Table columns={publishedTemplatesColumns} data={publishedTemplates} />
             </div>
           </div>
