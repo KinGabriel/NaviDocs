@@ -5,7 +5,7 @@ import Loader from "../../components/loader";
 import SearchBar from "../../components/searchbar";
 import Dropdown from "../../components/dropdowns/dropdown";
 import useUser from "../../hooks/useUser";
-import { fetchLoginActivityAPI } from "../../api/adminAPI";
+import { fetchLoginActivityAPI, exportLoginActivityCSV, deleteLoginActivityAPI } from "../../api/adminAPI";
 
 export default function AdminLoginActivity() {
   const user = useUser();
@@ -16,6 +16,8 @@ export default function AdminLoginActivity() {
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [browserFilter, setBrowserFilter] = useState("");
+  const [exportMonth, setExportMonth] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
   const itemsPerPage = 10;
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -41,7 +43,7 @@ export default function AdminLoginActivity() {
     const params = { page: currentPage, limit: itemsPerPage };
     if (search && search.trim()) params.search = search.trim();
     if (selectedDate) params.date = selectedDate;
-    if (browserFilter && browserFilter.trim()) params.browser = browserFilter.trim();
+  if (browserFilter && browserFilter.trim()) params.browserName = browserFilter.trim();
     if (statusFilter === "Active") params.status = "active";
     else if (statusFilter === "Logged Out") params.status = "inactive";
     if (roleFilter && roleFilter !== "All Roles") params.role = roleFilter;
@@ -58,12 +60,13 @@ export default function AdminLoginActivity() {
         const items = Array.isArray(res?.data) ? res.data : [];
         if (!cancelled) {
           const mapped = items.map((it, idx) => ({
-            id: it._id || `${it.email}-${it.login_time || idx}`,
+            _id: it._id,
+            id: String(it._id || `${it.email}-${it.login_time || idx}`),
             email: it.email,
             role: it.role,
             ip: it.ip,
-            browser: it.browser,
-            userAgent: it.userAgent,
+            browserName: it.browserName,
+            
             login_time: it.login_time,
             logout_time: it.logout_time,
           }));
@@ -85,6 +88,86 @@ export default function AdminLoginActivity() {
     load();
     return () => { cancelled = true; };
   }, [apiParams]);
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const s = new Set(prev || []);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return Array.from(s);
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!currentLogs || currentLogs.length === 0) return;
+    if (selectedIds.length === currentLogs.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(currentLogs.map((l) => l.id || l._id));
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      if (!exportMonth) {
+        alert('Choose a month to export (YYYY-MM)');
+        return;
+      }
+      const resp = await exportLoginActivityCSV({ month: exportMonth });
+      // resp is an axios response with data blob
+      const blob = resp.data;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `login-activity-${exportMonth}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert('Export failed');
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    try {
+      if (!selectedIds || selectedIds.length === 0) {
+        alert('No rows selected');
+        return;
+      }
+      if (!confirm(`Delete ${selectedIds.length} selected logs? This cannot be undone.`)) return;
+      const res = await deleteLoginActivityAPI({ ids: selectedIds });
+      if (res?.success) {
+        setLogs((prev) => prev.filter(l => !selectedIds.includes(l.id && String(l.id)) && !selectedIds.includes(String(l._id))));
+        setSelectedIds([]);
+        alert(`Deleted ${res.deletedCount || 0} logs`);
+      } else {
+        alert('Delete failed');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Delete failed');
+    }
+  };
+
+  const handleDeleteByMonth = async () => {
+    try {
+      if (!exportMonth) { alert('Choose month to delete (YYYY-MM)'); return; }
+      if (!confirm(`Delete all logs for ${exportMonth}? This cannot be undone.`)) return;
+      const res = await deleteLoginActivityAPI({ month: exportMonth });
+      if (res?.success) {
+        // Reload current page
+        setCurrentPage(1);
+        setTimeout(() => window.location.reload(), 200); // simple refresh to reflect changes
+      } else {
+        alert('Delete failed');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Delete failed');
+    }
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -229,6 +312,19 @@ export default function AdminLoginActivity() {
                   />
                 </div>
               </div>
+
+              {/* Export / Delete controls (desktop) */}
+              <div className="order-6 w-full md:w-auto flex items-center gap-2">
+                <input
+                  type="month"
+                  className="h-10 w-40 border border-gray-300 rounded-lg px-3 text-sm"
+                  value={exportMonth}
+                  onChange={(e) => setExportMonth(e.target.value)}
+                />
+                <button onClick={handleExport} className="px-3 py-2 bg-blue-600 text-white rounded">Export CSV</button>
+                <button onClick={handleDeleteByMonth} className="px-3 py-2 bg-red-600 text-white rounded">Delete By Month</button>
+                <button onClick={handleDeleteSelected} className="px-3 py-2 bg-red-400 text-white rounded">Delete Selected</button>
+              </div>
             </div>
 
             {loading ? (
@@ -250,14 +346,17 @@ export default function AdminLoginActivity() {
                           className="rounded-lg border border-gray-200 p-4 bg-white"
                         >
                           <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-gray-900 break-all">
-                                {log.email}
-                              </p>
-                              <p className="text-xs text-gray-600 mt-0.5">
-                                {log.role || "—"} • {log.browser || log.userAgent || "—"}
-                              </p>
-                            </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <input type="checkbox" checked={selectedIds.includes(log.id || log._id)} onChange={() => toggleSelect(log.id || log._id)} />
+                                    <p className="text-sm font-semibold text-gray-900 break-all">
+                                      {log.email}
+                                    </p>
+                                  </div>
+                                  <p className="text-xs text-gray-600 mt-0.5">
+                                    {log.role || "—"} • {log.browserName || "—"}
+                                  </p>
+                                </div>
                             <span
                               className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${
                                 !log.logout_time
@@ -306,6 +405,9 @@ export default function AdminLoginActivity() {
                   <table className="w-full min-w-[760px]">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
+                        <th className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          <input type="checkbox" onChange={toggleSelectAll} checked={selectedIds.length > 0 && currentLogs.length > 0 && selectedIds.length === currentLogs.length} />
+                        </th>
                         <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                           Email Address
                         </th>
@@ -330,6 +432,9 @@ export default function AdminLoginActivity() {
                       {currentLogs.length > 0 ? (
                         currentLogs.map((log) => (
                           <tr key={log.id} className="hover:bg-blue-50 transition-colors text-sm">
+                            <td className="px-3 py-4 text-gray-700">
+                              <input type="checkbox" checked={selectedIds.includes(log.id || log._id)} onChange={() => toggleSelect(log.id || log._id)} />
+                            </td>
                             <td className="px-5 py-4 text-gray-900 font-medium break-all">
                               {log.email}
                             </td>
@@ -340,7 +445,7 @@ export default function AdminLoginActivity() {
                               {log.ip}
                             </td>
                             <td className="px-5 py-4 text-gray-700 whitespace-nowrap">
-                              {log.browser || log.userAgent || '—'}
+                              {log.browserName || '—'}
                             </td>
                             <td className="px-5 py-4 text-gray-700 whitespace-nowrap">
                               {formatTimestamp(log.login_time) || "—"}
@@ -356,7 +461,7 @@ export default function AdminLoginActivity() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="6" className="text-center py-6 text-gray-500 text-sm">
+                          <td colSpan="7" className="text-center py-6 text-gray-500 text-sm">
                             No results found
                           </td>
                         </tr>

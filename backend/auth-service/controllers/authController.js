@@ -3,6 +3,7 @@ import Log from "../models/logsModel.js";
 import PasswordResetToken from "../models/passwordResetToken.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import UAParser from 'ua-parser-js';
 
 
 /**
@@ -38,20 +39,22 @@ export const loginUser = async (req, res) => {
       req.ip ||
       "";
 
-    // Capture user-agent and derive a short browser name for display
+    // Capture user-agent and parse structured fields, generate a sessionId
     const userAgent = String(req.headers['user-agent'] || "").trim();
-    const detectBrowser = (ua) => {
-      if (!ua) return null;
-      const u = ua.toLowerCase();
-      if (u.includes('opr/') || u.includes('opera')) return 'Opera';
-      if (u.includes('edg/')) return 'Edge';
-      if (u.includes('chrome/') && !u.includes('chromium')) return 'Chrome';
-      if (u.includes('firefox/')) return 'Firefox';
-      if (u.includes('safari/') && !u.includes('chrome')) return 'Safari';
-      if (u.includes('msie') || u.includes('trident')) return 'Internet Explorer';
-      return 'Other';
-    };
-    const browser = detectBrowser(userAgent);
+    // legacy short 'browser' field removed; we rely on structured parsed fields (browserName/browserVersion)
+
+    // Parse UA into structured pieces using ua-parser-js (best-effort)
+    let browserName = null, browserVersion = null, osName = null, osVersion = null, deviceType = null;
+    try {
+      const parsed = new UAParser(userAgent).getResult();
+      browserName = parsed.browser?.name || null;
+      browserVersion = parsed.browser?.version || null;
+      osName = parsed.os?.name || null;
+      osVersion = parsed.os?.version || null;
+      deviceType = parsed.device?.type || (parsed.device?.model ? 'mobile' : 'desktop') || null;
+    } catch (e) {
+      // ignore parse errors
+    }
 
     // Create login activity log (logout_time left null until logout)
     try {
@@ -61,7 +64,11 @@ export const loginUser = async (req, res) => {
         role: user.role?.name || user.role || "",
         ip,
         userAgent,
-        browser,
+        browserName,
+        browserVersion,
+        osName,
+        osVersion,
+        deviceType,
         login_time: new Date(),
         logout_time: null,
       });
@@ -124,7 +131,7 @@ export const logoutUser = async (req, res) => {
     path: '/',
   });
   try {
-    // Best-effort: update most recent login record for this user
+    // Best-effort: update most recent login record for this user (use req.user from JWT)
     const userId = req.user?.id || req.user?._id; // may be undefined if logout without auth
     if (userId) {
       const latest = await Log.findOne({ userId, logout_time: null }).sort({ login_time: -1 });
@@ -159,12 +166,12 @@ export const getLoginLogs = async (req, res) => {
     if (role && role !== 'All' && role !== 'all') {
       q.role = role;
     }
-    // allow filtering by browser (short name) or userAgent substring
-    const { browser } = req.query;
-    if (browser) {
+    // allow filtering by browser name (structured) or userAgent substring
+    const { browserName } = req.query;
+    if (browserName) {
       q.$or = [
-        { browser: { $regex: new RegExp(browser, 'i') } },
-        { userAgent: { $regex: new RegExp(browser, 'i') } }
+        { browserName: { $regex: new RegExp(browserName, 'i') } },
+        { userAgent: { $regex: new RegExp(browserName, 'i') } }
       ];
     }
     if (status === 'active') {
@@ -186,8 +193,8 @@ export const getLoginLogs = async (req, res) => {
 
     const pageNum = Math.max(1, parseInt(page));
     const perPage = Math.max(1, Math.min(100, parseInt(limit)));
-    // Project only the fields the frontend needs to display
-    const projection = 'userId email role ip userAgent browser login_time logout_time';
+  // Project only the fields the frontend needs to display
+  const projection = 'userId email role ip userAgent browserName browserVersion osName osVersion deviceType login_time logout_time';
     const [items, total] = await Promise.all([
       Log.find(q).select(projection).sort({ login_time: -1 }).skip((pageNum - 1) * perPage).limit(perPage).lean(),
       Log.countDocuments(q),
@@ -384,5 +391,121 @@ export const resetPasswordWithOtp = async (req, res) => {
   } catch (err) {
     console.error("resetPasswordWithOtp error:", err);
     return res.status(500).json({ success: false, message: "Failed to reset password." });
+  }
+};
+
+/**
+ * @desc Export login logs as CSV for a given month (admin)
+ * @route GET /api/auth/logs/export?month=YYYY-MM
+ * @access Private (Admin)
+ */
+export const exportLoginLogs = async (req, res) => {
+  try {
+    const userRole = req.user?.role?.name || req.user?.role;
+    if (userRole !== 'Admin') return res.status(403).json({ success: false, message: 'Admin only' });
+
+    const { month } = req.query; // format YYYY-MM
+    let start; let end;
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const [y, m] = month.split('-').map(Number);
+      start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
+      end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
+    } else {
+      const now = new Date();
+      start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0));
+      end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0));
+    }
+
+    // Build query based on optional filters (reuse some query logic)
+    const q = {};
+    if (req.query.role && req.query.role !== 'All' && req.query.role !== 'all') q.role = req.query.role;
+    if (req.query.status === 'active') q.logout_time = null;
+    else if (req.query.status === 'inactive') q.logout_time = { $ne: null };
+    if (req.query.search) q.email = { $regex: new RegExp(req.query.search, 'i') };
+    if (req.query.browserName) {
+      q.$or = [{ browserName: { $regex: new RegExp(req.query.browserName, 'i') } }, { userAgent: { $regex: new RegExp(req.query.browserName, 'i') } }];
+    }
+    if (start && end) q.login_time = { $gte: start, $lt: end };
+
+    // Set response headers for CSV download
+    const monthLabel = month || `${start.getUTCFullYear()}-${String(start.getUTCMonth() + 1).padStart(2, '0')}`;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="login-activity-${monthLabel}.csv"`);
+
+    // Stream results using a cursor to avoid memory spikes
+    const cursor = Log.find(q).sort({ login_time: -1 }).cursor();
+    // Write CSV header
+    const header = [
+      'id','userId','email','role','ip','browserName','browserVersion','osName','osVersion','deviceType','login_time','logout_time'
+    ].join(',') + '\r\n';
+    res.write(header);
+
+    for await (const doc of cursor) {
+      const row = [
+        doc._id,
+        doc.userId || '',
+        doc.email || '',
+        doc.role || '',
+        doc.ip || '',
+  doc.browserName || '',
+        doc.browserVersion || '',
+        doc.osName || '',
+        doc.osVersion || '',
+        doc.deviceType || '',
+        doc.login_time ? new Date(doc.login_time).toISOString() : '',
+        doc.logout_time ? new Date(doc.logout_time).toISOString() : '',
+        doc.userAgent ? ('"' + String(doc.userAgent).replace(/"/g, '""') + '"') : ''
+      ]
+      // Escape commas/newlines by wrapping fields in quotes when necessary
+      .map(v => {
+        if (v === null || v === undefined) return '';
+        const s = String(v);
+        if (s.includes(',') || s.includes('\n') || s.includes('\r') || s.includes('"')) {
+          return '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+      }).join(',') + '\r\n';
+      if (!res.write(row)) {
+        // backpressure: wait for drain
+        await new Promise((resolve) => res.once('drain', resolve));
+      }
+    }
+
+    // End response
+    return res.end();
+  } catch (err) {
+    console.error('Export logs error:', err?.message || err);
+    return res.status(500).json({ success: false, message: 'Failed to export logs' });
+  }
+};
+
+/**
+ * @desc Delete login logs in batch by IDs or by month
+ * @route POST /api/auth/logs/delete
+ * @access Private (Admin)
+ */
+export const deleteLoginLogs = async (req, res) => {
+  try {
+    const userRole = req.user?.role?.name || req.user?.role;
+    if (userRole !== 'Admin') return res.status(403).json({ success: false, message: 'Admin only' });
+
+    const { ids, month } = req.body || {};
+    let result = null;
+    if (Array.isArray(ids) && ids.length > 0) {
+      // delete by ids
+      result = await Log.deleteMany({ _id: { $in: ids } });
+    } else if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const [y, m] = month.split('-').map(Number);
+      const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
+      const end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
+      result = await Log.deleteMany({ login_time: { $gte: start, $lt: end } });
+    } else {
+      return res.status(400).json({ success: false, message: 'Provide ids array or month in YYYY-MM' });
+    }
+
+    return res.json({ success: true, deletedCount: result?.deletedCount || 0 });
+  } catch (err) {
+    console.error('Delete logs error:', err?.message || err);
+    return res.status(500).json({ success: false, message: 'Failed to delete logs' });
   }
 };

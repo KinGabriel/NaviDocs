@@ -32,13 +32,13 @@ export const loginAPI = async (email, password) => {
  * @throws {Error} - Throws an error if logout fails.
  */
 export const logoutAPI = async () => {
-    try {
-        await axios.post(`${API_URL}/api/auth/logout`, {}, {
-            withCredentials: true 
-        });
-    } catch (error) {
-        throw new Error(error.response?.data?.message || "Logout failed");
-    }
+  try {
+    await axios.post(`${API_URL}/api/auth/logout`, {}, {
+      withCredentials: true 
+    });
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Logout failed");
+  }
 }
 
 /**
