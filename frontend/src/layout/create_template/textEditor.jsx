@@ -14,7 +14,16 @@ import { PaginationPlus } from "tiptap-pagination-plus";
 import { Extension } from "@tiptap/core";
 import { ImagePlus } from "tiptap-image-plus";
 
-import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
+// Tiptap v2 table extensions
+import Table from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableHeader from "@tiptap/extension-table-header";
+import TableCell from "@tiptap/extension-table-cell";
+
+import {
+  EditableField,
+  createLockOutsideFieldsPlugin,
+} from "../../extensions/fields";
 import { formatDate } from "../../utils/formatters.jsx";
 
 /* ---------------------------- TextStyle extra attrs ---------------------------- */
@@ -43,10 +52,30 @@ const TextStyleAttrs = Extension.create({
   },
 });
 
+/* ----------------------------- TableCell extra attrs ----------------------------- */
+// Allow cell background via setCellAttribute('backgroundColor', value)
+const TableCellBg = TableCell.extend({
+  addAttributes() {
+    const parent = this.parent?.() || {};
+    return {
+      ...parent,
+      backgroundColor: {
+        default: null,
+        renderHTML: (attrs) =>
+          attrs.backgroundColor
+            ? { style: `background-color: ${attrs.backgroundColor}` }
+            : {},
+        parseHTML: (el) => ({
+          backgroundColor: el.style.backgroundColor || null,
+        }),
+      },
+    };
+  },
+});
+
 /* ----------------------------------- utils ----------------------------------- */
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
 const px = (n) => `${Math.max(0, Number(n) || 0)}px`;
-// 1pt ≈ 1.3333px at 96dpi
 const ptToPx = (pt) => Math.round(Number(pt || 0) * (96 / 72));
 
 /* ------------------------ Env-aware API base & assets ------------------------ */
@@ -155,7 +184,9 @@ const buildLineStyle = (center, lineStyleRaw) => {
 const getCfg = (cfg) => {
   const rawCenter = cfg?.header?.centerText || cfg?.center || {};
   const logos = cfg?.header?.logos || {};
-  const headerMarginIn = Number(cfg?.headerMarginIn ?? cfg?.header?.marginIn ?? 0);
+  const headerMarginIn = Number(
+    cfg?.headerMarginIn ?? cfg?.header?.marginIn ?? 0
+  );
   const pageNumber = cfg?.footer?.pageNumber || {};
   const body = cfg?.footer?.body || {};
 
@@ -180,7 +211,8 @@ const getCfg = (cfg) => {
   center.line4Style = buildLineStyle(center, rawCenter.line4Style);
 
   return {
-    headerEnabled: cfg?.headerEnabled !== undefined ? !!cfg.headerEnabled : true,
+    headerEnabled:
+      cfg?.headerEnabled !== undefined ? !!cfg.headerEnabled : true,
     footerEnabled: !!cfg?.footerEnabled,
     headerMarginIn,
     footerMarginIn: Number(cfg?.footerMarginIn ?? headerMarginIn),
@@ -264,9 +296,13 @@ const stripDefaultPageNumber = (scopeEl) => {
 /* ---------------------------- dynamic header/footer --------------------------- */
 const MIN_HEADER_FOOTER_PX = 120;
 const getHeaderBasePx = (cfg) =>
-  cfg.headerEnabled ? Math.max(MIN_HEADER_FOOTER_PX, inchToPx(cfg.headerMarginIn ?? 0)) : 0;
+  cfg.headerEnabled
+    ? Math.max(MIN_HEADER_FOOTER_PX, inchToPx(cfg.headerMarginIn ?? 0))
+    : 0;
 const getFooterBasePx = (cfg) =>
-  cfg.footerEnabled ? Math.max(MIN_HEADER_FOOTER_PX, inchToPx(cfg.footerMarginIn ?? 0)) : 0;
+  cfg.footerEnabled
+    ? Math.max(MIN_HEADER_FOOTER_PX, inchToPx(cfg.footerMarginIn ?? 0))
+    : 0;
 
 /* ------------------------------ perf helpers -------------------------------- */
 const makeRafBatcher = (fn) => {
@@ -307,13 +343,33 @@ export default function TextEditor({
       FontFamily,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({
-        types: ["heading", "paragraph", "imagePlus", "image"],
+        // include tables & images so alignment works inside cells
+        types: [
+          "heading",
+          "paragraph",
+          "tableCell",
+          "tableHeader",
+          "imagePlus",
+          "image",
+        ],
       }),
       Underline,
       Superscript,
       Subscript,
       ImagePlus.configure({}),
       EditableField,
+
+      // Tiptap v2 tables
+      Table.configure({
+        resizable: true,
+        HTMLAttributes: {
+          style: "width: 100%; table-layout: fixed;",
+        },
+      }),
+      TableRow,
+      TableHeader,
+      TableCellBg,
+
       PaginationPlus.configure({
         pageGap: 2,
         pageGapBorderSize: 1,
@@ -324,7 +380,9 @@ export default function TextEditor({
     ],
     content: normalizeInitialContent(content),
     editorProps: {
-      attributes: { class: "tiptap ProseMirror nd-editor-canvas rm-with-pagination" },
+      attributes: {
+        class: "tiptap ProseMirror nd-editor-canvas rm-with-pagination",
+      },
     },
     onCreate: ({ editor }) => {
       const { plugin, setPolicy } = createLockOutsideFieldsPlugin({
@@ -384,7 +442,9 @@ export default function TextEditor({
         setPolicyRef.current?.("off");
         editor.commands.setContent(val, false);
       } finally {
-        setPolicyRef.current?.(mode === "document" ? "document" : "template");
+        setPolicyRef.current?.(
+          mode === "document" ? "document" : "template"
+        );
       }
     };
     if (typeof content === "string" || !content?.type) {
@@ -404,7 +464,10 @@ export default function TextEditor({
     const headerH = getHeaderBasePx(c);
     const footerH = getFooterBasePx(c);
 
-    const ext = editor.extensionManager.extensions.find((e) => e.name === "paginationPlus");
+    const ext =
+      editor.extensionManager.extensions.find(
+        (e) => e.name === "paginationPlus"
+      );
     if (ext && ext.options) {
       ext.options.pageHeaderHeight = headerH;
       ext.options.pageFooterHeight = footerH;
@@ -415,7 +478,8 @@ export default function TextEditor({
   /* --------------------------- header/footer renderer ------------------------- */
   const ensureFlexBand = useCallback((bandEl, kind /* 'header' | 'footer' */) => {
     if (!bandEl) return null;
-    const isFooter = kind === "footer" || bandEl.classList.contains("rm-page-footer");
+    const isFooter =
+      kind === "footer" || bandEl.classList.contains("rm-page-footer");
 
     bandEl.style.display = "flex";
     bandEl.style.alignItems = "center";
@@ -657,7 +721,11 @@ export default function TextEditor({
         host.style.display = "flex";
         host.style.flexDirection = "column";
         host.style.alignItems =
-          align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
+          align === "left"
+            ? "flex-start"
+            : align === "right"
+            ? "flex-end"
+            : "center";
         host.style.justifyContent = "center";
         host.style.gap = "2px";
         return host;
@@ -679,7 +747,11 @@ export default function TextEditor({
           .replace("{total}", String(total));
         pnHost.appendChild(el);
 
-        if (cfg.footer.body.enabled && cfg.footer.body.align === pn.align && cfg.footer.body.text) {
+        if (
+          cfg.footer.body.enabled &&
+          cfg.footer.body.align === pn.align &&
+          cfg.footer.body.text
+        ) {
           const b = cfg.footer.body;
           const w2 = b.bold ? 700 : 400;
           const el2 = document.createElement("div");
@@ -800,7 +872,10 @@ function autoFitBand(editor, bandEl, kind, basePx) {
   if (!editor || !bandEl) return;
   const needed = Math.ceil(bandEl.scrollHeight);
   const next = Math.max(basePx, needed);
-  const ext = editor.extensionManager.extensions.find((e) => e.name === "paginationPlus");
+  const ext =
+    editor.extensionManager.extensions.find(
+      (e) => e.name === "paginationPlus"
+    );
   if (!ext || !ext.options) return;
   const key = kind === "footer" ? "pageFooterHeight" : "pageHeaderHeight";
   if (ext.options[key] !== next) {
