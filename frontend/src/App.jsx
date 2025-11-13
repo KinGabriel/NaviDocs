@@ -275,6 +275,24 @@ function App() {
           element={<SubmissionBins />} 
         />
 
+         <Route 
+          path="/submission-bins" 
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head"]}>
+              <SubmissionBins />
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route
+          path="/submissions"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head"]}>
+              <SubmissionBins />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Department Head Module */}
         <Route
           path="/dept-head/dashboard"

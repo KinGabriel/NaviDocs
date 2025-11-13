@@ -35,6 +35,7 @@ export default function DeanDashboard() {
   // URL route used by react-router for navigation (keep this pointing to your route path)
   const SUBMISSION_BINS_ROUTE = "/submission-bins";
   const DOC_CONTROLLER_TEMPLATES_ROUTE = "/templates?status=Published";
+  const SUBMISSIONS_ROUTE = "/submissions"; // use the same path your router uses for the Submissions page
 
   function formatDate(dateValue) {
     if (!dateValue) return "-";
@@ -284,7 +285,7 @@ export default function DeanDashboard() {
           */}
           </div>
 
-          {/* Recently Published Table */}
+          {/* Recently Forwarded Submission Bins */}
           <div className="bg-[#FBFBFB] shadow p-4 rounded w-full mt-6">
             <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
               <div>
@@ -295,7 +296,7 @@ export default function DeanDashboard() {
               </div>
 
               <button
-                onClick={() => navigate(DOC_CONTROLLER_TEMPLATES_ROUTE)}
+                onClick={() => navigate(SUBMISSIONS_ROUTE)}
                 className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
               >
                 View All
@@ -306,6 +307,7 @@ export default function DeanDashboard() {
               <Table columns={forwardedSubmissionBinsColumns} data={forwardedSubmissionBins} />
             </div>
           </div>
+
 
           {/* Recently Published Table */}
           <div className="bg-[#FBFBFB] shadow p-4 rounded w-full mt-6">
