@@ -38,6 +38,21 @@ export const loginUser = async (req, res) => {
       req.ip ||
       "";
 
+    // Capture user-agent and derive a short browser name for display
+    const userAgent = String(req.headers['user-agent'] || "").trim();
+    const detectBrowser = (ua) => {
+      if (!ua) return null;
+      const u = ua.toLowerCase();
+      if (u.includes('opr/') || u.includes('opera')) return 'Opera';
+      if (u.includes('edg/')) return 'Edge';
+      if (u.includes('chrome/') && !u.includes('chromium')) return 'Chrome';
+      if (u.includes('firefox/')) return 'Firefox';
+      if (u.includes('safari/') && !u.includes('chrome')) return 'Safari';
+      if (u.includes('msie') || u.includes('trident')) return 'Internet Explorer';
+      return 'Other';
+    };
+    const browser = detectBrowser(userAgent);
+
     // Create login activity log (logout_time left null until logout)
     try {
       await Log.create({
@@ -45,6 +60,8 @@ export const loginUser = async (req, res) => {
         email: user.email,
         role: user.role?.name || user.role || "",
         ip,
+        userAgent,
+        browser,
         login_time: new Date(),
         logout_time: null,
       });
@@ -142,6 +159,14 @@ export const getLoginLogs = async (req, res) => {
     if (role && role !== 'All' && role !== 'all') {
       q.role = role;
     }
+    // allow filtering by browser (short name) or userAgent substring
+    const { browser } = req.query;
+    if (browser) {
+      q.$or = [
+        { browser: { $regex: new RegExp(browser, 'i') } },
+        { userAgent: { $regex: new RegExp(browser, 'i') } }
+      ];
+    }
     if (status === 'active') {
       q.logout_time = null;
     } else if (status === 'inactive') {
@@ -161,8 +186,10 @@ export const getLoginLogs = async (req, res) => {
 
     const pageNum = Math.max(1, parseInt(page));
     const perPage = Math.max(1, Math.min(100, parseInt(limit)));
+    // Project only the fields the frontend needs to display
+    const projection = 'userId email role ip userAgent browser login_time logout_time';
     const [items, total] = await Promise.all([
-      Log.find(q).sort({ login_time: -1 }).skip((pageNum - 1) * perPage).limit(perPage).lean(),
+      Log.find(q).select(projection).sort({ login_time: -1 }).skip((pageNum - 1) * perPage).limit(perPage).lean(),
       Log.countDocuments(q),
     ]);
 

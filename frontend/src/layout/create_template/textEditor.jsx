@@ -14,6 +14,12 @@ import { PaginationPlus } from "tiptap-pagination-plus";
 import { Extension } from "@tiptap/core";
 import { ImagePlus } from "tiptap-image-plus";
 
+// PURE TIPTAP V2 TABLE
+import Table from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableHeader from "@tiptap/extension-table-header";
+import TableCell from "@tiptap/extension-table-cell";
+
 import {
   EditableField,
   createLockOutsideFieldsPlugin,
@@ -310,6 +316,15 @@ export default function TextEditor({
   const editor = useEditor({
     extensions: [
       StarterKit,
+
+      // PURE TIPTAP V2 TABLE
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
+
       TextStyle,
       TextStyleAttrs,
       Color,
