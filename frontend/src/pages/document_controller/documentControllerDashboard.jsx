@@ -68,7 +68,7 @@ export default function DocumentControllerDashboard() {
           onClick={(e) => {
             e.stopPropagation();
             const id = row._id ?? row.id;
-            navigate(`/document-controller/document-workflow/${id}`, { state: { doc: row, origin: "dashboard:recently-submitted" } });
+            navigate(`/templates/published/${id}`, { state: { doc: row, origin: "dashboard:recently-submitted" } });
           }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
