@@ -46,6 +46,7 @@ export default function SubmissionDetails() {
   const isSecretary = roleName.toLowerCase() === 'secretary';
   const isDeanOrSecretary = isDean || isSecretary;
   const userId = user?._id || user?.id;
+  const canManageTemplates = isDeptHead || String(bin?.created_by || "") === String(userId || "");
 
   // edit form state
   const [form, setForm] = useState({ title: '', instructions: '', deadline: '', status: 'active' });
@@ -560,67 +561,88 @@ export default function SubmissionDetails() {
                   </div>
                 </div>
 
-                {Array.isArray(bin.template_ids) && bin.template_ids.length > 0 && (
-                  <div className="mt-6 p-5 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 justify-between">
-                        <div className="flex items-center gap-2">
-                          <FileText size={18} className="text-gray-700" />
-                          <p className="text-base font-semibold text-gray-900">
-                            Templates required for Submissions:
-                          </p>
-                        </div>
-                        {(isDeptHead || String(bin.created_by || '') === String(userId || '')) && (
-                          <button
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-sm hover:shadow-md text-sm font-medium"
-                            onClick={() => setShowAddTemplate(true)}
-                          >
-                            <Plus size={16} /> Add Template
-                          </button>
-                        )}
+            <div className="mt-6 p-5 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 shadow-sm">
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText size={18} className="text-gray-700" />
+                        <p className="text-base font-semibold text-gray-900">
+                          Templates required for Submissions:
+                        </p>
                       </div>
-
-                      {loadingTemplates && (
-                        <div className="flex justify-center mt-2">
-                          <Loader message="Loading..." />
-                        </div>
+                      {canManageTemplates && (
+                        <button
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-sm hover:shadow-md text-sm font-medium"
+                          onClick={() => setShowAddTemplate(true)}
+                        >
+                          <Plus size={16} /> Add Template
+                        </button>
                       )}
                     </div>
+
+                    {loadingTemplates && (
+                      <div className="flex justify-center mt-2">
+                        <Loader message="Loading..." />
+                      </div>
+                    )}
+                  </div>
+
+                  {Array.isArray(bin.template_ids) && bin.template_ids.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                       {(templatesInfo.length ? templatesInfo : bin.template_ids).map((t) => {
-                        const id = typeof t === 'string' ? t : (t._id || t.id);
-                        const title = typeof t === 'string' ? String(t) : (t.title || String(id));
-                        const docCode = typeof t === 'string' ? '' : (t.document_code || t.docCode || '');
-                        const revision = typeof t === 'string' ? '' : (t.revision_no ?? t.revision_number);
-                        const effectivity = typeof t === 'string' ? '' : (t.effectivity || t.effectivity_date || '');
+                        const id = typeof t === "string" ? t : (t._id || t.id);
+                        const title = typeof t === "string" ? String(t) : (t.title || String(id));
+                        const docCode =
+                          typeof t === "string" ? "" : (t.document_code || t.docCode || "");
+                        const revision =
+                          typeof t === "string" ? "" : (t.revision_no ?? t.revision_number);
+
                         return (
-                          <div key={String(id)} className="border border-gray-200 rounded-lg bg-white p-4 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow">
+                          <div
+                            key={String(id)}
+                            className="border border-gray-200 rounded-lg bg-white p-4 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow"
+                          >
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-bold text-gray-900 truncate mb-2" title={title}>{title}</p>
+                              <p
+                                className="text-sm font-bold text-gray-900 truncate mb-2"
+                                title={title}
+                              >
+                                {title}
+                              </p>
                               <div className="flex flex-wrap gap-2">
                                 {docCode && (
                                   <span className="text-xs px-2.5 py-1 bg-purple-100 text-purple-700 rounded-md font-medium">
                                     {docCode}
                                   </span>
                                 )}
-                                {(revision !== undefined && revision !== null && revision !== '') && (
-                                  <span className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-medium">
-                                    Rev. {String(revision).padStart(2,'0')}
-                                  </span>
-                                )}
+                                {revision !== undefined &&
+                                  revision !== null &&
+                                  revision !== "" && (
+                                    <span className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-medium">
+                                      Rev. {String(revision).padStart(2, "0")}
+                                    </span>
+                                  )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
                               <button
                                 className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                                onClick={() => { setTplToPreview(typeof t === 'string' ? null : t); setTplCurrentPage(0); setShowTplPreview(true); }}
-                                disabled={typeof t === 'string'}
-                                title={typeof t === 'string' ? 'Details still loading…' : 'Preview template'}
+                                onClick={() => {
+                                  setTplToPreview(typeof t === "string" ? null : t);
+                                  setTplCurrentPage(0);
+                                  setShowTplPreview(true);
+                                }}
+                                disabled={typeof t === "string"}
+                                title={
+                                  typeof t === "string"
+                                    ? "Details still loading…"
+                                    : "Preview template"
+                                }
                               >
                                 <Eye size={14} />
                                 Preview
                               </button>
-                              {(isDeptHead || String(bin.created_by||'')===String(userId||'')) && (
+                              {canManageTemplates && (
                                 <button
                                   className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                                   onClick={() => {
@@ -628,13 +650,13 @@ export default function SubmissionDetails() {
                                       id,
                                       title,
                                       docCode,
-                                      revision
+                                      revision,
                                     });
                                     setShowRemoveTemplateModal(true);
                                   }}
                                   title="Remove template"
                                 >
-                                  <Trash2 size={16}/>
+                                  <Trash2 size={16} />
                                 </button>
                               )}
                             </div>
@@ -642,8 +664,20 @@ export default function SubmissionDetails() {
                         );
                       })}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="mt-2 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-3">
+                      <AlertCircle size={18} className="text-yellow-700 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-yellow-800">
+                          No templates configured for this submission bin.
+                        </p>
+                        <p className="text-xs text-yellow-700 mt-1">
+                          Add at least one template so faculty can submit documents using this bin.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
