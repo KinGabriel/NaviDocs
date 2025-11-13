@@ -113,7 +113,7 @@ export default function SecretaryDashboard() {
           onClick={(e) => {
             e.stopPropagation();
             const id = row._id ?? row.id ?? row.templateId;
-            navigate(`/document-controller/document-workflow/${id}`, {
+            navigate(`/templates/published/${id}`, {
               state: { doc: row, origin: "secretary:recently-submitted" },
             });
           }}

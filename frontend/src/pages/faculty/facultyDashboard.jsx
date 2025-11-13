@@ -131,7 +131,7 @@ export default function FacultyDashboard() {
             onClick={(e) => {
             e.stopPropagation();
             const id = row.documents?.[0]?.id || row._id || row.id || row.templateId;
-            navigate(`/document-controller/document-workflow/${id}`, {
+            navigate(`/templates/published/${id}`, {
               state: { doc: row, origin: "faculty:recently-submitted" },
             });
           }}
