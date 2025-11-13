@@ -108,10 +108,11 @@ function mapStatusForRole(row, {
 
   // Document Control Officer view
   if (isDocControlOfficer) {
-    // DCO should see only Pending / Approved / Rejected
+    // DCO should see Pending / Approved / Rejected / Published
     if (status === "endorsed") return "Pending";
     if (status === "approved") return "Approved";
     if (status === "rejected" || status === "disapproved") return "Rejected";
+    if (status === "published") return "Published";
 
     // Fallbacks (just in case)
     if (status === "pending" || status === "pending approval") return "Pending";
@@ -144,6 +145,7 @@ function mapStatusForRole(row, {
     // Fallbacks
     if (status === "approved") return "Approved";
     if (status === "rejected" || status === "disapproved") return "Rejected";
+    if (status === "published") return "Published";
     return "-";
   }
 
@@ -213,18 +215,20 @@ export default function DeanTemplates() {
   let allowedStatusSet = null; // underlying statuses allowed for this role
 
   if (isDocControlOfficer) {
-    // DCO should see pending (endorsed), approved, rejected
-    tabs = ["All", "Pending", "Approved", "Rejected"];
+    // DCO should see pending (endorsed), approved, rejected, published
+    tabs = ["All", "Pending", "Approved", "Rejected", "Published"];
     tabToStatus = {
       Pending: "Endorsed",   // underlying is "endorsed", DCO sees as "Pending"
       Approved: "Approved",
       Rejected: "Rejected",
+      Published: "Published",
     };
     allowedStatusSet = new Set([
       "endorsed",       // mapped to Pending in UI
       "approved",
       "rejected",
       "disapproved",
+      "published",
     ]);
   } else if (isLeadDocController || isUnitDocController) {
     // LDC / Unit: pending, endorsed, returned
@@ -241,13 +245,14 @@ export default function DeanTemplates() {
       "returned",
     ]);
   } else {
-    // Other roles: keep a more general view
-    tabs = ["All", "Endorsed", "Returned", "Rejected", "Approved"];
+    // Other roles: general view
+    tabs = ["All", "Endorsed", "Returned", "Rejected", "Approved", "Published"];
     tabToStatus = {
       Endorsed: "Endorsed",
       Returned: "Returned",
       Rejected: "Rejected",
       Approved: "Approved",
+      Published: "Published",
     };
     allowedStatusSet = null;
   }
