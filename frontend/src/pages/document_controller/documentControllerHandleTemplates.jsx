@@ -7,15 +7,46 @@ import useUser from "../../hooks/useUser";
 import SearchBar from "../../components/searchbar";
 import Dropdown from "../../components/dropdowns/dropdown";
 import usePagination from "../../hooks/usePagination";
-import { StatusBadge, formatDateTime } from '../../utils/formatters';
+import { StatusBadge } from '../../utils/formatters';
 import Loader from '../../components/loader';
-import { fetchTemplatesAPI as fetchDeanTemplatesAPI, approveTemplateAPI,createTemplateAPI } from "../../api/documentContollerAPI";
+import { fetchTemplatesAPI as fetchDeanTemplatesAPI } from "../../api/documentContollerAPI";
 import TaskAssignmentModal from '../../components/modals/taskAssignmentModal';
-import {FileText} from "lucide-react";
+
+/**
+ * Helper to collect all role names from user object in lowercase.
+ */
+function getAllRoleNames(user) {
+  const names = [];
+
+  if (!user) return names;
+
+  if (typeof user === "string") {
+    names.push(user);
+  }
+
+  if (user.role) {
+    if (typeof user.role === "string") {
+      names.push(user.role);
+    } else if (user.role.name) {
+      names.push(user.role.name);
+    }
+  }
+
+  if (Array.isArray(user.roles)) {
+    user.roles.forEach((r) => {
+      if (!r) return;
+      if (typeof r === "string") names.push(r);
+      else if (r.name) names.push(r.name);
+    });
+  }
+
+  return names.map((n) => String(n).toLowerCase());
+}
 
 export default function DeanTemplates() {
   const user = useUser();
   const navigate = useNavigate();
+
   const [search, setSearch] = useState("");
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -24,14 +55,9 @@ export default function DeanTemplates() {
   const [selectedSchool, setSelectedSchool] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [sortOrder, setSortOrder] = useState("Recent");
-  const tabs = ["All", "Assigned", "Pending Approvals", "Approved"];
+
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
-
-  const tabToStatus = {
-    "Pending Approvals": "Pending Approval",
-    "Approved": "Approved",
-  };
 
   const PAGE_SIZE = 10;
   const pagination = usePagination(totalPages, 1);
@@ -42,12 +68,63 @@ export default function DeanTemplates() {
     STELA: "STL",
   };
 
+  // ---------- ROLE-BASED TAB LOGIC ----------
+
+  const roleNames = getAllRoleNames(user);
+
+  const isLeadDocController = roleNames.some((r) =>
+    r.includes("lead document controller")
+  );
+  const isUnitDocController = roleNames.some((r) =>
+    r.includes("unit document controller")
+  );
+  const isDocControlOfficer = roleNames.some((r) =>
+    r.includes("document control officer")
+  );
+
+  let tabs = [];
+  let tabToStatus = {};
+  let allowedStatusSet = null;
+
+  if (isDocControlOfficer) {
+    tabs = ["All", "Approved", "Pending Approvals", "Rejected"];
+    tabToStatus = {
+      Approved: "Approved",
+      "Pending Approvals": "Pending Approval",
+      Rejected: "Rejected",
+    };
+    allowedStatusSet = new Set([
+      "approved",
+      "pending",
+      "pending approval",
+      "rejected",
+      "disapproved",
+    ]);
+  } else if (isLeadDocController || isUnitDocController) {
+    tabs = ["All", "Endorsed", "Returned"];
+    tabToStatus = {
+      Endorsed: "Endorsed",
+      Returned: "Returned",
+    };
+    allowedStatusSet = new Set(["endorsed", "returned"]);
+  } else {
+    tabs = ["All", "Endorsed", "Returned", "Rejected", "Approved"];
+    tabToStatus = {
+      Endorsed: "Endorsed",
+      Returned: "Returned",
+      Rejected: "Rejected",
+      Approved: "Approved",
+    };
+    allowedStatusSet = null;
+  }
+
+  const normalizeStatus = (s) => String(s || "").toLowerCase().trim();
+
   const fetchTemplates = async () => {
     setLoading(true);
     setError(null);
     try {
-      const apiStatus =
-        selectedStatus === "Assigned" ? "All" : tabToStatus[selectedStatus] || selectedStatus;
+      const apiStatus = tabToStatus[selectedStatus] || selectedStatus;
 
       const res = await fetchDeanTemplatesAPI({
         user,
@@ -71,15 +148,11 @@ export default function DeanTemplates() {
       }
 
       // Hide drafts
-      arr = arr.filter((t) => t.status !== 'draft');
+      arr = arr.filter((t) => normalizeStatus(t.status) !== "draft");
 
-      // Assigned tab: keep only templates with assignees (client-side)
-      if (selectedStatus === "Assigned") {
-        arr = arr.filter(
-          (t) =>
-            (Array.isArray(t.assigned) && t.assigned.length > 0) ||
-            (Array.isArray(t.assignees) && t.assignees.length > 0)
-        );
+      // Restrict list by role-allowed statuses
+      if (allowedStatusSet) {
+        arr = arr.filter((t) => allowedStatusSet.has(normalizeStatus(t.status)));
       }
 
       // Sorting
@@ -90,7 +163,8 @@ export default function DeanTemplates() {
       } else {
         arr.sort(
           (a, b) =>
-            new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at)
+            new Date(b.createdAt || b.created_at) -
+            new Date(a.createdAt || a.created_at)
         );
       }
 
@@ -109,26 +183,37 @@ export default function DeanTemplates() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
-  // Table columns
+  // ---------- TABLE COLUMNS ----------
+
   const columns = [
     { key: "title", label: "Template Name" },
-    { key: "createdByName", label: "Assigned To", render: row =>
-      Array.isArray(row.assignedNames) && row.assignedNames.length > 0
-        ? row.assignedNames.filter(Boolean).join(", ")
-        : row.createdByName || row.created_by_name || "-" },
+    {
+      key: "createdByName",
+      label: "Assigned To",
+      render: (row) =>
+        Array.isArray(row.assignedNames) && row.assignedNames.length > 0
+          ? row.assignedNames.filter(Boolean).join(", ")
+          : row.createdByName || row.created_by_name || "-",
+    },
     {
       key: "status",
       label: "Status",
-      render: row => {
+      render: (row) => {
+        const status = normalizeStatus(row.status);
         let type = "-";
-        if (row.status === "approved") type = "Approved";
-        else if (row.status === "pending") type = "Pending";
-        else if (row.status === "assigned") type = "Draft";
-        else if (row.status === "published") type = "Published";
-        else if (row.status === "rejected") type = "Rejected";
-        else if (row.status === "returned") type = "Returned";
+
+        if (status === "approved") type = "Approved";
+        else if (status === "pending" || status === "pending approval")
+          type = "Pending";
+        else if (status === "assigned") type = "Draft";
+        else if (status === "published") type = "Published";
+        else if (status === "returned") type = "Returned";
+        else if (status === "endorsed") type = "Endorsed";
+        else if (status === "rejected" || status === "disapproved")
+          type = "Rejected";
+
         return <StatusBadge type={type} />;
-      }
+      },
     },
     {
       key: "actions",
@@ -144,9 +229,11 @@ export default function DeanTemplates() {
         >
           View
         </button>
-      )
-    }
+      ),
+    },
   ];
+
+  // ---------- PAGINATION (WITH ELLIPSIS) ----------
 
   function getEllipsedPages(current, total, siblings = 1) {
     const pages = [];
@@ -157,7 +244,9 @@ export default function DeanTemplates() {
     for (let p = start; p <= end; p++) pages.push(p);
     if (end < total - 1) pages.push("…");
     if (total > 1) pages.push(total);
-    return Array.from(new Set(pages)).filter(p => (p >= 1 && p <= total) || p === "…");
+    return Array.from(new Set(pages)).filter(
+      (p) => (p >= 1 && p <= total) || p === "…"
+    );
   }
 
   return (
@@ -166,7 +255,7 @@ export default function DeanTemplates() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar user={user} active="Templates" />
         <main className="flex-1 bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl flex flex-col overflow-hidden">
-          {/* Header */}
+          {/* Page Header */}
           <div className="px-1 py-3">
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-4">
               Templates
@@ -176,7 +265,7 @@ export default function DeanTemplates() {
 
           {/* Controls */}
           <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-end">
-            {/* Archived Documents */}
+            {/* Archived Documents Button */}
             <button
               type="button"
               onClick={() => navigate("/archived-documents")}
@@ -218,7 +307,10 @@ export default function DeanTemplates() {
             <div className="flex justify-start lg:justify-end">
               <div className="flex items-center gap-2">
                 <div className="w-64">
-                  <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
+                  <SearchBar
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
                 </div>
               </div>
             </div>
@@ -246,7 +338,10 @@ export default function DeanTemplates() {
               {tabs.map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setSelectedStatus(tab)}
+                  onClick={() => {
+                    setSelectedStatus(tab);
+                    pagination.handlePage(1); // reset to page 1 when switching tabs
+                  }}
                   className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                     selectedStatus === tab
                       ? "border-[#003DA5] text-[#003DA5]"
@@ -259,7 +354,7 @@ export default function DeanTemplates() {
             </div>
           </div>
 
-          {/* Table + Pagination area: fills remaining height */}
+          {/* Table + Pagination area */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {loading ? (
               <div className="flex-1 flex justify-center items-center">
@@ -284,23 +379,31 @@ export default function DeanTemplates() {
               >
                 Prev
               </button>
-              {getEllipsedPages(pagination.currentPage, totalPages, 1).map((num, idx) =>
-                num === "…" ? (
-                  <span key={`e-${idx}`} className="px-2 text-gray-400 select-none">…</span>
-                ) : (
-                  <button
-                    key={num}
-                    onClick={() => pagination.handlePage(num)}
-                    className={`px-3 py-1 rounded border ${
-                      pagination.currentPage === num
-                        ? "bg-blue-600 text-white"
-                        : "bg-white text-gray-700 hover:bg-gray-100"
-                    }`}
-                    aria-current={pagination.currentPage === num ? "page" : undefined}
-                  >
-                    {num}
-                  </button>
-                )
+              {getEllipsedPages(pagination.currentPage, totalPages, 1).map(
+                (num, idx) =>
+                  num === "…" ? (
+                    <span
+                      key={`e-${idx}`}
+                      className="px-2 text-gray-400 select-none"
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={num}
+                      onClick={() => pagination.handlePage(num)}
+                      className={`px-3 py-1 rounded border ${
+                        pagination.currentPage === num
+                          ? "bg-blue-600 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-100"
+                      }`}
+                      aria-current={
+                        pagination.currentPage === num ? "page" : undefined
+                      }
+                    >
+                      {num}
+                    </button>
+                  )
               )}
 
               <button
@@ -314,23 +417,6 @@ export default function DeanTemplates() {
           </div>
         </main>
       </div>
-
-      {/* Assignment Modal */}
-      {isAssignmentModalOpen && (
-        <div className="fixed inset-0 z-50 inset-0 bg-opacity-30 backdrop-blur-[2px] flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <TaskAssignmentModal
-              templateId={selectedTemplateId}
-              isOpen={isAssignmentModalOpen}
-              onClose={() => setIsAssignmentModalOpen(false)}
-              onAssign={(result) => {
-                console.log('Assignment created:', result);
-                fetchTemplates();
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
