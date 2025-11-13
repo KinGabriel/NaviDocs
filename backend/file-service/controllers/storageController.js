@@ -18,12 +18,16 @@ import { saveDocumentFile } from '../utils/saveDocumentFile.js';
 export const createFolder = async (req, res) => {
   try {
     let { folderName, owner, parentFolder } = req.body;
+    // Prefer owner from authenticated user if not provided in body
+    owner = owner || (req.user?._id || req.user?.id || null);
     console.log('[createFolder] folderName:', folderName, 'owner:', owner, 'parentFolder:', parentFolder);
     if (parentFolder && typeof parentFolder === 'string') {
       try {
         parentFolder = new mongoose.Types.ObjectId(parentFolder);
       } catch (e) {
-        return res.status(400).json({ message: 'Invalid parentFolder ID.' });
+        // If parentFolder id is invalid, treat as root-level (no parent)
+        console.warn('[createFolder] invalid parentFolder id provided, falling back to root level');
+        parentFolder = null;
       }
     } else if (!parentFolder) {
       parentFolder = null;
@@ -48,6 +52,10 @@ export const createFolder = async (req, res) => {
         allowedUsers = parent.allowedUsers || [];
         allowedSchools = parent.allowedSchools || [];
         allowedDepartments = parent.allowedDepartments || [];
+      } else {
+        // If parent folder was not found, fallback to root-level creation instead of failing
+        console.warn('[createFolder] parent folder not found, creating folder at root level for owner', owner);
+        parentFolder = null;
       }
     }
     // Create folder in DB
@@ -68,8 +76,10 @@ export const createFolder = async (req, res) => {
       // Find parent folder's path recursively
       const parent = await Storage.findById(parentFolder);
       if (!parent) {
-        return res.status(400).json({ message: 'Parent folder not found.' });
-      }
+        // If parent no longer exists, fallback to root-level path
+        console.warn('[createFolder] parent folder disappeared, using root-level path');
+        parentFolder = null;
+      } else {
       // Build the nested path: uploads/owner/parent1/parent2/.../folderName
       let parentNames = [parent.folderName];
       let current = parent;
@@ -79,6 +89,7 @@ export const createFolder = async (req, res) => {
         else break;
       }
       folderPath = path.join(uploadsRoot, owner, ...parentNames, folderName);
+      }
     } else {
       folderPath = path.join(uploadsRoot, owner, folderName);
     }
@@ -99,7 +110,9 @@ export const createFolder = async (req, res) => {
  */
 export const getFolder = async (req, res) => {
   try {
-    const { userId, school, department, status } = req.query;
+    // Prefer explicit userId query param, otherwise fall back to authenticated user
+    let { userId, school, department, status } = req.query;
+    userId = userId || (req.user?._id || req.user?.id || null);
     if (!userId) {
       return res.status(400).json({ message: 'userId is required' });
     }
@@ -751,7 +764,9 @@ export const addOrphanFile = async (req, res) => {
  */
 export const getOrphanFiles = async (req, res) => {
   try {
-    const { userId, status, school, department } = req.query;
+    // Prefer explicit userId query param, otherwise fall back to authenticated user
+    let { userId, status, school, department } = req.query;
+    userId = userId || (req.user?._id || req.user?.id || null);
     if (!userId) {
       return res.status(400).json({ message: 'userId is required' });
     }
