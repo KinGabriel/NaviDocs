@@ -14,7 +14,6 @@ import { PaginationPlus } from "tiptap-pagination-plus";
 import { Extension } from "@tiptap/core";
 import { PaginationTable } from "tiptap-table-plus";
 
-import RichImage from "../../extensions/image/ImageNode";
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 import { formatDate } from "../../utils/formatters.jsx";
 
@@ -223,7 +222,9 @@ const getCfg = (cfg) => {
     stamp: {
       docCode:
         cfg?.documentStamp?.docCode ??
+
         cfg?.documentStamp?.document_code ??
+        cfg?.documentStamp?.documentCode ??
         cfg?.document_code ??
         "",
       revisionNo: normRevision(
@@ -332,7 +333,6 @@ export default function TextEditor({
       Superscript,
       Subscript,
 
-      RichImage.configure({ onOpenImageOptions: () => {} }),
       EditableField,
 
       // ---- Table Plus (pagination + resize aligned) ----

@@ -50,67 +50,6 @@ export default function InsertPanel({ editor }) {
       .run();
   };
 
-  // Compute page inner width (kept as you had it)
-  const getUsablePageContentWidth = () => {
-    const pageEl =
-      editor?.view?.dom?.closest?.(".nd-page") || document.querySelector(".nd-page");
-    if (!pageEl) {
-      const rs = getComputedStyle(document.documentElement);
-      const pageWidthPx = parseFloat(rs.getPropertyValue("--nd-page-width")) || 800;
-      const padL = parseFloat(rs.getPropertyValue("--nd-margin-left")) || 96;
-      const padR = parseFloat(rs.getPropertyValue("--nd-margin-right")) || 96;
-      return Math.max(100, Math.round(pageWidthPx - padL - padR));
-    }
-    const cs = getComputedStyle(pageEl);
-    const rectW = pageEl.getBoundingClientRect().width;
-    const padL = parseFloat(cs.paddingLeft) || 0;
-    const padR = parseFloat(cs.paddingRight) || 0;
-    return Math.max(100, Math.round(rectW - padL - padR));
-  };
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !editor) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const src = reader.result;
-      const img = new Image();
-      img.onload = () => {
-        const usableW = getUsablePageContentWidth();
-        const natW = img.naturalWidth || 1;
-        const natH = img.naturalHeight || 1;
-        const scale = Math.min(1, usableW / natW);
-        const width = Math.round(natW * scale);
-        const height = Math.round(natH * scale);
-        const ok = editor
-          .chain()
-          .focus()
-          .insertImage({
-            src,
-            srcOriginal: src,
-            width,
-            height,
-            keepAspect: true,
-            wrapMode: "break",
-          })
-          .run();
-        if (!ok) {
-          editor
-            .chain()
-            .focus()
-            .insertContent({
-              type: "richImage",
-              attrs: { src, srcOriginal: src, width, height, keepAspect: true, wrapMode: "break" },
-            })
-            .run();
-        }
-      };
-      img.src = src;
-    };
-    reader.readAsDataURL(file);
-    e.target.value = "";
-  };
-
   const isInTable = !!editor?.isActive?.("table");
   const Btn = ({ onClick, label, disabled, className = "" }) => (
     <button
@@ -126,15 +65,6 @@ export default function InsertPanel({ editor }) {
 
   return (
     <div className="w-full p-4 space-y-6">
-      {/* Image Upload */}
-      <div>
-        <h2 className="text-lg font-semibold mb-2">Insert Image</h2>
-        <label className="w-full bg-gray-100 border-2 border-dashed rounded-lg flex flex-col items-center justify-center h-40 cursor-pointer hover:bg-gray-200">
-          <span className="text-gray-600">Upload Image</span>
-          <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-        </label>
-      </div>
-
       {/* Table Insertion */}
       <div>
         <h2 className="text-lg font-semibold mb-2">Insert Table</h2>
@@ -282,7 +212,7 @@ export default function InsertPanel({ editor }) {
               </div>
             </div>
 
-            {/* Text Align (TextAlign must include tableCell/tableHeader) */}
+            {/* Text Align */}
             <div>
               <h3 className="text-sm font-semibold mb-1">Text Align</h3>
               <div className="grid grid-cols-4 gap-2">
@@ -325,16 +255,22 @@ export default function InsertPanel({ editor }) {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Btn
-                  onClick={() => exec((ch) => ch.duplicateColumn({ withContent: !!copyDupContent }))}
+                  onClick={() =>
+                    exec((ch) => ch.duplicateColumn({ withContent: !!copyDupContent }))
+                  }
                   label="Duplicate Column"
                   disabled={!canExec((ch) =>
                     ch.duplicateColumn({ withContent: !!copyDupContent })
                   )}
                 />
                 <Btn
-                  onClick={() => exec((ch) => ch.duplicateRow({ withContent: !!copyDupContent }))}
+                  onClick={() =>
+                    exec((ch) => ch.duplicateRow({ withContent: !!copyDupContent }))
+                  }
                   label="Duplicate Row"
-                  disabled={!canExec((ch) => ch.duplicateRow({ withContent: !!copyDupContent }))}
+                  disabled={!canExec((ch) =>
+                    ch.duplicateRow({ withContent: !!copyDupContent })
+                  )}
                 />
               </div>
             </div>
