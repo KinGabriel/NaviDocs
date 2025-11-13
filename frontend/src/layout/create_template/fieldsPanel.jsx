@@ -163,8 +163,6 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
       if (type === "date") {
         const df = field.dateFormat || "YYYY-MM-DD";
         placeholder = df;
-      } else if (type === "image") {
-        placeholder = "Upload image";
       } else {
         placeholder =
           (field.name && String(field.name).trim()) || "Enter value...";
@@ -182,9 +180,6 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
       baseAttrs.dateFormat = field.dateFormat;
     }
 
-    // Image fields now go through EditableField as well.
-    // If later you want to bind actual imageSrc/width/height,
-    // you can extend this branch to include those attrs.
     editor
       .chain()
       .focus()
