@@ -1,3 +1,4 @@
+// src/components/editable_fields/accordionList.jsx
 import React, { useState } from "react";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import TagPicker from "./TagPicker";
@@ -16,6 +17,7 @@ export default function AccordionList({
   const [renaming, setRenaming] = useState({});
   const [renameDraft, setRenameDraft] = useState({});
   const [newAccordionName, setNewAccordionName] = useState("");
+  const [groupNameError, setGroupNameError] = useState("");
   const [newFieldData, setNewFieldData] = useState({
     name: "",
     type: "text",
@@ -33,10 +35,27 @@ export default function AccordionList({
   };
 
   const addAccordion = () => {
-    if (!newAccordionName.trim()) return;
-    const newAcc = { id: makeId("grp"), name: newAccordionName.trim(), fields: [] };
+    const name = newAccordionName.trim();
+
+    // Require group name
+    if (!name) {
+      setGroupNameError("Group name is required.");
+      return;
+    }
+
+    // Prevent duplicate group names (case-insensitive)
+    const exists = accordions.some(
+      (a) => a.name.trim().toLowerCase() === name.toLowerCase()
+    );
+    if (exists) {
+      setGroupNameError("A group with this name already exists. Please use another name.");
+      return;
+    }
+
+    const newAcc = { id: makeId("grp"), name, fields: [] };
     setAccordions((prev) => [...prev, newAcc]);
     setNewAccordionName("");
+    setGroupNameError("");
   };
 
   const removeAccordion = (id) => {
@@ -56,10 +75,20 @@ export default function AccordionList({
         return;
       }
 
-      // TODO: call your API if needed
-      // await deleteGroupAPI(targetGroup.id);
+      const groupId = targetGroup?.id;
+      if (!groupId) {
+        setDeleteErr("Failed to identify group to delete.");
+        return;
+      }
 
-      setAccordions((prev) => prev.filter((a) => a.id !== (targetGroup?.id || "")));
+      // Remove all fields of this group from the editor as well
+      if (targetGroup && Array.isArray(targetGroup.fields)) {
+        targetGroup.fields.forEach((f) => {
+          if (f?.id) onRemoveField(f.id);
+        });
+      }
+
+      setAccordions((prev) => prev.filter((a) => a.id !== groupId));
       setDeleteOpen(false);
       setTargetGroup(null);
     } catch (e) {
@@ -70,14 +99,37 @@ export default function AccordionList({
   };
 
   const addField = (accordionId) => {
+    const nameTrimmed = newFieldData.name.trim();
+
+    // Require a field name
+    if (!nameTrimmed) {
+      window.alert("Field name is required.");
+      return;
+    }
+
+    // Prevent duplicate field names within the same group (case-insensitive)
+    const group = accordions.find((a) => a.id === accordionId);
+    if (group && Array.isArray(group.fields)) {
+      const exists = group.fields.some(
+        (f) => f.name.trim().toLowerCase() === nameTrimmed.toLowerCase()
+      );
+      if (exists) {
+        window.alert(
+          "A field with this name already exists in this group. Please use another name."
+        );
+        return;
+      }
+    }
+
     const field = {
       id: makeId(),
-      name: newFieldData.name.trim() || "Untitled Field",
+      name: nameTrimmed,
       type: newFieldData.type,
       placeholder: newFieldData.placeholder.trim() || "Enter value...",
       instructions: newFieldData.instructions.trim() || "",
       tags: [],
     };
+
     setAccordions((prev) =>
       prev.map((a) => (a.id === accordionId ? { ...a, fields: [...a.fields, field] } : a))
     );
@@ -115,20 +167,28 @@ export default function AccordionList({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={newAccordionName}
-          placeholder="Accordion name"
-          onChange={(e) => setNewAccordionName(e.target.value)}
-          className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
-        />
-        <button
-          onClick={addAccordion}
-          className="rounded-md bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700"
-        >
-          + Add
-        </button>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={newAccordionName}
+            placeholder="Group name"
+            onChange={(e) => {
+              setNewAccordionName(e.target.value);
+              if (groupNameError) setGroupNameError("");
+            }}
+            className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
+          />
+          <button
+            onClick={addAccordion}
+            className="rounded-md bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700"
+          >
+            + Add
+          </button>
+        </div>
+        {groupNameError && (
+          <p className="text-xs text-red-600 px-1">{groupNameError}</p>
+        )}
       </div>
 
       {accordions.map((acc) => (
@@ -139,7 +199,9 @@ export default function AccordionList({
           >
             <div className="flex items-center gap-2">
               {expanded[acc.id] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              {!renaming[acc.id] && <span className="font-medium text-slate-800">{acc.name}</span>}
+              {!renaming[acc.id] && (
+                <span className="font-medium text-slate-800">{acc.name}</span>
+              )}
               {renaming[acc.id] && (
                 <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                   <input
@@ -155,6 +217,20 @@ export default function AccordionList({
                     onClick={() => {
                       const newName = (renameDraft[acc.id] ?? acc.name).trim();
                       if (!newName) return;
+
+                      // Prevent duplicate group names on rename (case-insensitive)
+                      const exists = accordions.some(
+                        (a) =>
+                          a.id !== acc.id &&
+                          a.name.trim().toLowerCase() === newName.toLowerCase()
+                      );
+                      if (exists) {
+                        window.alert(
+                          "A group with this name already exists. Please use another name."
+                        );
+                        return;
+                      }
+
                       setAccordions((prev) =>
                         prev.map((a) => (a.id === acc.id ? { ...a, name: newName } : a))
                       );
@@ -251,12 +327,16 @@ export default function AccordionList({
                     type="text"
                     placeholder="Field name"
                     value={newFieldData.name}
-                    onChange={(e) => setNewFieldData({ ...newFieldData, name: e.target.value })}
+                    onChange={(e) =>
+                      setNewFieldData({ ...newFieldData, name: e.target.value })
+                    }
                     className="col-span-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
                   />
                   <select
                     value={newFieldData.type}
-                    onChange={(e) => setNewFieldData({ ...newFieldData, type: e.target.value })}
+                    onChange={(e) =>
+                      setNewFieldData({ ...newFieldData, type: e.target.value })
+                    }
                     className="col-span-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
                   >
                     <option value="text">Text</option>
@@ -293,7 +373,7 @@ export default function AccordionList({
         </div>
       ))}
 
-      {/* ✅ Single shared confirmation modal for deleting a group */}
+      {/* Single shared confirmation modal for deleting a group */}
       <PermanentlyDeleteDocumentModal
         open={deleteOpen}
         onClose={() => !submittingDelete && setDeleteOpen(false)}
