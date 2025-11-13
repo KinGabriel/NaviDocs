@@ -445,13 +445,14 @@ useEffect(() => {
           });
         }
       
-      // Set the first document for preview
+      // Prefer the MOST RECENT document for initial preview (last in the array)
       if (submittedDocs.length > 0) {
-        const firstDoc = submittedDocs[0]._fullData;
+        const lastIndex = submittedDocs.length - 1;
+        const latestDoc = submittedDocs[lastIndex]._fullData;
         if (mounted) {
-          setFetchedDoc(firstDoc);
-          setPreviewDocument(firstDoc);
-          setSelectedFileIndex(0);
+          setFetchedDoc(latestDoc);
+          setPreviewDocument(latestDoc);
+          setSelectedFileIndex(lastIndex);
         }
       }
           
@@ -472,46 +473,51 @@ useEffect(() => {
             status: submissionItem.status || (submissionItem.submitted_at ? "submitted" : "pending"),
             files: submittedDocs && submittedDocs.length > 0 ? submittedDocs : [],
             viewedBy: submissionItem.viewed_by || [],
-            notes: Array.isArray(submissionItem.notes) 
-            ? submissionItem.notes.map(note => {
-                let userInfo = null;
-                
-                // If note.by is already a populated object
-                if (note.by && typeof note.by === 'object') {
-                  userInfo = note.by;
-                } 
-                // If note.by is just an ID string, try to match it
-                else if (typeof note.by === 'string') {
-                  const noteById = String(note.by);
-                  
-                  // Check if it matches the submitting faculty
-                  if (submissionItem.faculty_user && 
-                      String(submissionItem.faculty_user._id || submissionItem.faculty_user.id) === noteById) {
-                    userInfo = {
-                      ...submissionItem.faculty_user,
-                      role: { name: 'Faculty' } // Override role to ensure it shows "Faculty"
-                    };
+            notes: Array.isArray(submissionItem.notes)
+              ? submissionItem.notes.map(note => {
+                  let userInfo = null;
+                  let originalBy = note.by;
+
+                  // Preserve original identifier (string or object) for later logic (e.g. hasAlreadyReturned)
+                  // Attempt enrichment ONLY if we can positively identify the user
+                  if (note.by && typeof note.by === 'object') {
+                    userInfo = note.by; // already populated by backend enrichment
+                  } else if (typeof note.by === 'string') {
+                    const noteById = String(note.by);
+                    // Match submitting faculty
+                    if (
+                      submissionItem.faculty_user &&
+                      String(submissionItem.faculty_user._id || submissionItem.faculty_user.id) === noteById
+                    ) {
+                      userInfo = {
+                        ...submissionItem.faculty_user,
+                        role: { name: 'Faculty' },
+                      };
+                    }
+                    // Match current viewer
+                    else if (user && String(user._id || user.id) === noteById) {
+                      userInfo = user;
+                    }
+                    // Match bin creator (dept head)
+                    else if (
+                      binData.created_by &&
+                      typeof binData.created_by === 'object' &&
+                      String(binData.created_by._id || binData.created_by.id) === noteById
+                    ) {
+                      userInfo = binData.created_by;
+                    }
                   }
-                  // Check if it matches current user (dept head/dean/secretary)
-                  else if (user && String(user._id || user.id) === noteById) {
-                    userInfo = user;
-                  }
-                  // Check if it matches bin creator
-                  else if (binData.created_by && typeof binData.created_by === 'object' &&
-                          String(binData.created_by._id || binData.created_by.id) === noteById) {
-                    userInfo = binData.created_by;
-                  }
-                }
-                
-                return {
-                  ...note,
-                  id: note._id || note.id,
-                  at: note.createdAt || note.created_at || note.at || note.timestamp,
-                  by: userInfo, 
-                  message: note.message || note.text || note.comment || note.reason || ''
-                };
-              })
-            : [],
+
+                  return {
+                    ...note,
+                    id: note._id || note.id,
+                    at: note.createdAt || note.created_at || note.at || note.timestamp,
+                    by: userInfo || originalBy, // fall back to original value when enrichment failed
+                    originalBy, // keep an explicit copy for reliability
+                    message: note.message || note.text || note.comment || note.reason || '',
+                  };
+                })
+              : [],
               deadline: binData.deadline
             };
       
@@ -781,6 +787,84 @@ const handleZoomReset = () => setZoom(1);
     const canReturnOnly = (isDean || isSecretary) && !isDeptHead; // Can only return with comment
     const canSubmitOrReturn = isDeptHead; // Can submit or return with comment
     const canViewStatus = isFaculty; // Can view status and comments
+
+    // Check if current user has already returned since last resubmission
+    const hasAlreadyReturned = useMemo(() => {
+      if (!submission?.notes || !Array.isArray(submission.notes)) return false;
+      if (!user?._id && !user?.id) return false;
+      
+      const currentUserId = String(user._id || user.id);
+      
+      console.log('[hasAlreadyReturned] checking', {
+        currentUserId,
+        currentUserRole: userRole,
+        totalNotes: submission.notes.length,
+        notes: submission.notes.map(n => ({
+          type: n.type,
+          by: n.by,
+          originalBy: n.originalBy
+        }))
+      });
+      
+      // Find the index of the most recent 'resubmitted' note
+      let lastResubmitIndex = -1;
+      for (let i = submission.notes.length - 1; i >= 0; i--) {
+        if (submission.notes[i].type === 'resubmitted') {
+          lastResubmitIndex = i;
+          break;
+        }
+      }
+      
+      // Check notes after the last resubmission (or all notes if no resubmission)
+      const notesToCheck = lastResubmitIndex >= 0 
+        ? submission.notes.slice(lastResubmitIndex + 1) 
+        : submission.notes;
+      
+      console.log('[hasAlreadyReturned] after resubmit filter', {
+        lastResubmitIndex,
+        notesToCheckCount: notesToCheck.length
+      });
+      
+      // Check if THIS SPECIFIC USER has already returned
+      const result = notesToCheck.some(note => {
+        if (note.type !== 'returned') return false;
+        
+        // Get the user ID from the note - try multiple sources
+        let noteUserId = null;
+        
+        // First try originalBy (which we preserved)
+        if (note.originalBy) {
+          if (typeof note.originalBy === 'string') {
+            noteUserId = note.originalBy;
+          } else if (typeof note.originalBy === 'object') {
+            noteUserId = note.originalBy._id || note.originalBy.id;
+          }
+        }
+        
+        // Fallback to note.by
+        if (!noteUserId && note.by) {
+          if (typeof note.by === 'string') {
+            noteUserId = note.by;
+          } else if (typeof note.by === 'object') {
+            noteUserId = note.by._id || note.by.id;
+          }
+        }
+        
+        const match = noteUserId && String(noteUserId) === currentUserId;
+        
+        console.log('[hasAlreadyReturned] note check', {
+          noteType: note.type,
+          noteUserId,
+          currentUserId,
+          match
+        });
+        
+        return match;
+      });
+      
+      console.log('[hasAlreadyReturned] final result:', result);
+      return result;
+    }, [submission?.notes, user, userRole]);
 
     const handleActionClick = (action) => {
       setSelectedAction(action);
@@ -1406,7 +1490,7 @@ const handleZoomReset = () => setZoom(1);
             )}
 
                       {/* Action Buttons Based on Role */}
-                      {submission?.status === 'submitted' && (
+                      {(submission?.status === 'submitted' || submission?.status === 'returned') && (
                         <div className="space-y-3">
                           {/* Department Head can Submit or Return */}
                           {canSubmitOrReturn && (
@@ -1422,10 +1506,16 @@ const handleZoomReset = () => setZoom(1);
                               
                               <button
                                 onClick={() => handleActionClick('return')}
-                                className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
+                                disabled={hasAlreadyReturned}
+                                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all shadow-sm ${
+                                  hasAlreadyReturned
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-orange-600 hover:bg-orange-700 text-white'
+                                }`}
+                                title={hasAlreadyReturned ? 'You have already returned this document' : ''}
                               >
                                 <XCircle size={20} />
-                                Return for Revision
+                                {hasAlreadyReturned ? 'Already Returned' : 'Return for Revision'}
                               </button>
                             </>
                       )}
@@ -1444,10 +1534,16 @@ const handleZoomReset = () => setZoom(1);
                             
                             <button
                               onClick={() => handleActionClick('return')}
-                              className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
+                              disabled={hasAlreadyReturned}
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all shadow-sm ${
+                                hasAlreadyReturned
+                                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                  : 'bg-orange-600 hover:bg-orange-700 text-white'
+                              }`}
+                              title={hasAlreadyReturned ? 'You have already returned this document' : ''}
                             >
                               <XCircle size={20} />
-                              Return for Revision
+                              {hasAlreadyReturned ? 'Already Returned' : 'Return for Revision'}
                             </button>
                           </>
                         )}

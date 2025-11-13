@@ -519,21 +519,21 @@ export const forwardBin = async (req, res) => {
 			return res.status(400).json({ message: 'Bin must be completed before it can be forwarded' });
 		}
 
-		// Check if any submissions have been returned for resubmission
+		// Check if any submissions are currently returned for resubmission
 		const submissions = Array.isArray(bin.submissions) ? bin.submissions : [];
 		const hasReturnedSubmissions = submissions.some(sub => {
-			// Check if submission status is 'returned'
-			if (sub.status === 'returned') return true;
-			
-			// Check if any notes indicate a return
-			if (Array.isArray(sub.notes)) {
-				return sub.notes.some(note => {
-					const noteType = String(note.type || '').toLowerCase();
-					return noteType === 'returned' || noteType === 'return';
-				});
+			// Quick path: explicit status
+			if (String(sub.status).toLowerCase() === 'returned') return true;
+
+			// Determine if there is a 'returned' note AFTER the most recent 'resubmitted'
+			const notes = Array.isArray(sub.notes) ? sub.notes : [];
+			if (!notes.length) return false;
+			let lastResubmitIdx = -1;
+			for (let i = notes.length - 1; i >= 0; i--) {
+				if (String(notes[i].type || '').toLowerCase() === 'resubmitted') { lastResubmitIdx = i; break; }
 			}
-			
-			return false;
+			const windowNotes = lastResubmitIdx >= 0 ? notes.slice(lastResubmitIdx + 1) : notes;
+			return windowNotes.some(n => String(n.type || '').toLowerCase() === 'returned');
 		});
 
 		if (hasReturnedSubmissions) {
@@ -671,12 +671,25 @@ export const submitDocument = async (req, res) => {
 		const item = bin.submissions.id(submissionId);
 		if (!item) return res.status(404).json({ message: 'Submission item not found' });
 
-		// Allow resubmission if the item was returned, even if bin is completed
+		// Check if this is a newly added faculty (never submitted before) or a resubmission
 		const isReturned = String(item.status || '').toLowerCase() === 'returned';
+		const hasNeverSubmitted = !item.submitted_at && (!Array.isArray(item.documents) || item.documents.length === 0);
 		const binCompleted = String(bin.status || '').toLowerCase() === 'completed';
 
-		// Block submission only if bin is completed AND the item is NOT in 'returned' status
-		if (binCompleted && !isReturned) {
+		console.log('[submitDocument] Validation check:', {
+			binCompleted,
+			isReturned,
+			hasNeverSubmitted,
+			itemStatus: item.status,
+			submitted_at: item.submitted_at,
+			documentsCount: item.documents?.length || 0
+		});
+
+		// Allow submissions if:
+		// 1. Item is in 'returned' status (resubmission after return)
+		// 2. Faculty has never submitted before (newly added faculty after bin was forwarded)
+		// Block only if bin is completed AND faculty has already submitted AND is not in returned status
+		if (binCompleted && !isReturned && !hasNeverSubmitted) {
 			return res.status(400).json({ message: 'This bin is already completed; submissions are closed.' });
 		}
 
@@ -700,14 +713,31 @@ export const submitDocument = async (req, res) => {
 
 		// Ensure documents array exists
 		if (!Array.isArray(item.documents)) item.documents = [];
+		
+		// Check if this is a resubmission (status was 'returned')
+		const isResubmission = String(item.status || '').toLowerCase() === 'returned';
+		
 		// Add new document if not already present
 		if (!item.documents.find(d => String(d) === String(documentId))) {
 			item.documents.push(documentId);
 		}
+		
 		// Mark submitted when at least one document present
-		if (item.documents.length > 0 && item.status !== 'submitted') {
+		if (item.documents.length > 0) {
 			item.status = 'submitted';
 			item.submitted_at = new Date();
+			
+			// If this is a resubmission, add a note to track it
+			if (isResubmission) {
+				const resubmitNote = {
+					type: 'resubmitted',
+					message: 'Document resubmitted after return',
+					by: req.user?._id || req.user?.id || null,
+					at: new Date()
+				};
+				item.notes = Array.isArray(item.notes) ? item.notes : [];
+				item.notes.push(resubmitNote);
+			}
 		}
 
 		await bin.save();
@@ -716,7 +746,81 @@ export const submitDocument = async (req, res) => {
         try {
 		const actorName = safeNameFromUser(req.user);
 		const deptHeadId = bin.created_by ? String(bin.created_by) : null;
+		const notifyUserIds = [];
+		
+		// Always notify Department Head
 		if (deptHeadId && String(deptHeadId) !== String(req.user?.id || req.user?._id)) {
+			notifyUserIds.push(deptHeadId);
+		}
+		
+		// If this is a resubmission, notify the person who returned it
+		if (isResubmission && Array.isArray(item.notes)) {
+			// Find the most recent 'returned' note to get who returned it
+			for (let i = item.notes.length - 1; i >= 0; i--) {
+				const note = item.notes[i];
+				if (String(note.type || '').toLowerCase() === 'returned') {
+					// Extract the user ID who returned it
+					let returnedBy = null;
+					if (note.originalBy) {
+						returnedBy = typeof note.originalBy === 'string' ? note.originalBy : (note.originalBy._id || note.originalBy.id);
+					} else if (note.by) {
+						returnedBy = typeof note.by === 'string' ? note.by : (note.by._id || note.by.id);
+					}
+					
+					if (returnedBy) {
+						const returnedByStr = String(returnedBy);
+						// Don't notify if they are the one resubmitting (shouldn't happen but just in case)
+						if (returnedByStr !== String(req.user?.id || req.user?._id) && !notifyUserIds.includes(returnedByStr)) {
+							notifyUserIds.push(returnedByStr);
+						}
+					}
+					break; // Only notify the most recent returner
+				}
+			}
+		}
+		
+		// If bin is forwarded, also notify Dean and Secretary
+		if (bin.is_forwarded) {
+			// Fetch Dean and Secretary user IDs
+			try {
+				const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8001';
+				const headers = {};
+				const context = req.context || {};
+				if (context.token) {
+					headers['Cookie'] = `token=${context.token}`;
+				} else if (req.cookies && req.cookies.token) {
+					headers['Cookie'] = `token=${req.cookies.token}`;
+				}
+				
+				// Fetch Dean users
+				const deanResp = await axios.get(`${userServiceUrl}/api/users/by-role/dean`, { 
+					headers, 
+					withCredentials: true,
+					params: { school: bin.school }
+				});
+				const deans = Array.isArray(deanResp?.data) ? deanResp.data : [];
+				deans.forEach(d => {
+					const dId = String(d._id || d.id);
+					if (!notifyUserIds.includes(dId)) notifyUserIds.push(dId);
+				});
+				
+				// Fetch Secretary users
+				const secResp = await axios.get(`${userServiceUrl}/api/users/by-role/secretary`, { 
+					headers, 
+					withCredentials: true,
+					params: { school: bin.school }
+				});
+				const secretaries = Array.isArray(secResp?.data) ? secResp.data : [];
+				secretaries.forEach(s => {
+					const sId = String(s._id || s.id);
+					if (!notifyUserIds.includes(sId)) notifyUserIds.push(sId);
+				});
+			} catch (err) {
+				console.warn('Failed to fetch Dean/Secretary for notification:', err?.message || err);
+			}
+		}
+		
+		if (notifyUserIds.length > 0) {
 			const templateId = item.template ? String(item.template) : '';
 			// Best-effort fetch of template title for human-friendly notification
 			let templateName = templateId;
@@ -735,14 +839,16 @@ export const submitDocument = async (req, res) => {
 					if (tpl && (tpl.title || tpl.name)) templateName = tpl.title || tpl.name;
 				}
 			} catch (_) { /* ignore lookup failures */ }
-			const message = `${actorName} submitted a document for template "${templateName}" in submission bin "${bin.title}".`;
+			
+			const actionText = isResubmission ? 'resubmitted' : 'submitted';
+			const message = `${actorName} ${actionText} a document for template "${templateName}" in submission bin "${bin.title}".`;
 			await postNotificationWithCallback(
 			{
-				type: 'submission_item_submitted',
+				type: isResubmission ? 'submission_item_resubmitted' : 'submission_item_submitted',
 				message,
 				link: `/submission-details/${bin._id}?submission=${item._id}`,
-				targetedUserIds: [deptHeadId],
-				recipientUser: deptHeadId,
+				targetedUserIds: notifyUserIds,
+				recipientUser: notifyUserIds[0], // Primary recipient
 			},
 			(err) => {
 				if (err) console.warn('submitDocument notification callback: failed');
@@ -864,15 +970,103 @@ export const returnSubmission = async (req, res) => {
 		const item = bin.submissions.id(submissionId);
 		if (!item) return res.status(404).json({ message: 'Submission item not found' });
 
+		// Get the user's role and ID
+		const userRole = safeRoleFromUser(req.user).toLowerCase();
+		const userId = req.user?._id || req.user?.id || null;
+
+		// Debug logging: summarize existing notes (types and by ids) before decision
+		try {
+			const noteSummary = (Array.isArray(item.notes) ? item.notes : []).map(n => ({
+				type: n.type,
+				by: typeof n.by === 'object' ? (n.by?._id || n.by?.id || null) : n.by,
+				role: n.role || null
+			}));
+			console.log('[returnSubmission] attempt', {
+				binId: bin._id?.toString(),
+				submissionId: item._id?.toString(),
+				actorUserId: String(userId),
+				actorRole: userRole,
+				statusBefore: item.status,
+				noteSummary
+			});
+		} catch (logErr) { /* ignore logging errors */ }
+		
+		// Check if this specific user has already returned the document since the last resubmission
+		const notes = Array.isArray(item.notes) ? item.notes : [];
+		
+		// Find the index of the most recent 'resubmitted' note
+		let lastResubmitIndex = -1;
+		for (let i = notes.length - 1; i >= 0; i--) {
+			if (notes[i].type === 'resubmitted') {
+				lastResubmitIndex = i;
+				break;
+			}
+		}
+		
+		// Check notes after the last resubmission (or all notes if no resubmission exists)
+		const notesToCheck = lastResubmitIndex >= 0 ? notes.slice(lastResubmitIndex + 1) : notes;
+		
+		// Debug: log what we're checking
+		console.log('[returnSubmission] checking for duplicate', {
+			currentUserId: String(userId),
+			lastResubmitIndex,
+			notesToCheckCount: notesToCheck.length,
+			notesToCheckDetails: notesToCheck.map(n => ({
+				type: n.type,
+				byRaw: n.by,
+				byType: typeof n.by,
+				byExtracted: (n && typeof n.by === 'object')
+					? (n.by?._id || n.by?.id || (typeof n.by.toString === 'function' ? n.by.toString() : null))
+					: n.by,
+				role: n.role
+			}))
+		});
+		
+		// Check if THIS SPECIFIC USER (by userId) has already returned
+		const hasAlreadyReturned = notesToCheck.some(note => {
+			if (note.type !== 'returned') return false;
+			let noteUserId = null;
+			if (note && typeof note.by === 'object') {
+				noteUserId = note.by?._id || note.by?.id || (typeof note.by.toString === 'function' ? note.by.toString() : null);
+			} else {
+				noteUserId = note?.by;
+			}
+			const match = noteUserId && String(noteUserId) === String(userId);
+			console.log('[returnSubmission] note comparison', {
+				noteUserId: noteUserId ? String(noteUserId) : null,
+				currentUserId: String(userId),
+				match
+			});
+			return match;
+		});
+		
+		if (hasAlreadyReturned) {
+			console.log('[returnSubmission] BLOCKED duplicate return', { actorUserId: String(userId), actorRole: userRole });
+			return res.status(403).json({ 
+				message: 'You have already returned this document. You cannot return it again until the faculty resubmits it.' 
+			});
+		}
+		
+		console.log('[returnSubmission] ALLOWING return (no duplicate found)', { actorUserId: String(userId), actorRole: userRole });
+		
+		// Set status to returned
 		item.status = 'returned';
 		item.returned_at = new Date();
-		item.returned_by = req.user?._id || req.user?.id || null;
-	// push to notes array for history
-	const returnedNote = { type: 'returned', message: reason || 'Returned', by: (req.user?._id || req.user?.id || null), at: new Date() };
-	item.notes = Array.isArray(item.notes) ? item.notes : [];
-	item.notes.push(returnedNote);
+		item.returned_by = userId; // Keep the last person who returned it
+		
+		// Push to notes array for history (this tracks all returns)
+		const returnedNote = { 
+			type: 'returned', 
+			message: reason || 'Returned', 
+			by: userId,
+			role: userRole,
+			at: new Date() 
+		};
+		item.notes = Array.isArray(item.notes) ? item.notes : [];
+		item.notes.push(returnedNote);
 
 		await bin.save();
+		console.log('[returnSubmission] recorded return', { actorUserId: String(userId), actorRole: userRole, noteCount: item.notes.length });
 
 		// --- NEW: Notify faculty (owner) that submission was returned ---
         try {

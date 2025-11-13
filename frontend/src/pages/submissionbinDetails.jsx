@@ -66,17 +66,36 @@ export default function SubmissionDetails() {
   };
 
  const handleViewSubmission = (submissionItem) => {
-  // Get the first document ID from the submission
-  const documentId = Array.isArray(submissionItem.documents) && submissionItem.documents.length > 0
-    ? (submissionItem.documents[0]._id || submissionItem.documents[0].id || submissionItem.documents[0])
-    : (submissionItem.document?._id || submissionItem.document?.id || submissionItem.document);
-  
+  // Prefer the MOST RECENT document (last in the array) for viewing
+  let documentId = null;
+  if (Array.isArray(submissionItem.documents) && submissionItem.documents.length > 0) {
+    const lastIdx = submissionItem.documents.length - 1;
+    const lastDoc = submissionItem.documents[lastIdx];
+    documentId = (lastDoc && (lastDoc._id || lastDoc.id)) || lastDoc;
+  } else if (submissionItem.document) {
+    documentId = submissionItem.document._id || submissionItem.document.id || submissionItem.document;
+  }
+
   if (!documentId) {
     toast.warning("No document found in this submission");
     return;
   }
   navigate(`/submissions/${id}/${documentId}`);
 };
+
+  // Helper: is a submission currently returned (since last resubmission)?
+  const isCurrentlyReturned = (sub) => {
+    if (!sub) return false;
+    if (String(sub.status || '').toLowerCase() === 'returned') return true;
+    const notes = Array.isArray(sub.notes) ? sub.notes : [];
+    if (!notes.length) return false;
+    let lastResubmitIdx = -1;
+    for (let i = notes.length - 1; i >= 0; i--) {
+      if (String(notes[i].type || '').toLowerCase() === 'resubmitted') { lastResubmitIdx = i; break; }
+    }
+    const windowNotes = lastResubmitIdx >= 0 ? notes.slice(lastResubmitIdx + 1) : notes;
+    return windowNotes.some(n => String(n.type || '').toLowerCase() === 'returned');
+  };
 
   // Check if bin should be marked as completed
   const binShouldBeCompleted = useMemo(() => {
@@ -85,11 +104,8 @@ export default function SubmissionDetails() {
       const items = bin.submissions;
       if (items.length === 0) return false;
       
-    // Check if ANY submission is returned - if so, bin should NOT be completed
-    const hasReturnedSubmissions = items.some(sub => 
-      sub.status === 'returned' || 
-      (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
-    );
+    // Check if ANY submission is currently returned - bin should NOT be completed
+    const hasReturnedSubmissions = items.some(isCurrentlyReturned);
     
     // If any submission is returned, bin should not be completed
     if (hasReturnedSubmissions) return false;
@@ -115,10 +131,7 @@ export default function SubmissionDetails() {
       if (!bin || !isDeptHead) return;
     
     // Check if ANY submission is returned
-    const hasReturnedSubmissions = bin.submissions?.some(sub => 
-      sub.status === 'returned' || 
-      (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
-    );
+    const hasReturnedSubmissions = bin.submissions?.some(isCurrentlyReturned);
     
     if (binShouldBeCompleted && bin.status !== 'completed' && !hasReturnedSubmissions) {
       // Silently update the bin status
@@ -163,28 +176,42 @@ export default function SubmissionDetails() {
     const items = Array.isArray(bin?.submissions) ? bin.submissions : [];
     const total = items.length;
   
-    // Count returned submissions 
-    const returned = items.filter(u =>
-      u.status === 'returned' ||
-      (Array.isArray(u.notes) &&
-        u.notes.some(n => String(n.type).toLowerCase() === 'returned'))
-    ).length;
+    // Helper to check if has resubmitted after return
+    const hasResubmitted = (item) => {
+      if (!Array.isArray(item.notes)) return false;
+      let foundReturn = false;
+      for (let i = 0; i < item.notes.length; i++) {
+        const noteType = String(item.notes[i].type || '').toLowerCase();
+        if (noteType === 'returned') {
+          foundReturn = true;
+        }
+        if (foundReturn && noteType === 'resubmitted') {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // Count resubmitted (has resubmission after a return)
+    const resubmitted = items.filter(hasResubmitted).length;
+
+    // Count returned submissions (currently returned, NOT resubmitted)
+    const returned = items.filter(u => isCurrentlyReturned(u) && !hasResubmitted(u)).length;
     
-    // Count submitted (has documents, submitted_at, and NOT returned)
+    // Count submitted (has documents, submitted_at, and NOT returned, NOT resubmitted)
     const submitted = items.filter((u) => {
-      const isReturned = u.status === 'returned' || 
-        (Array.isArray(u.notes) && u.notes.some(n => String(n.type).toLowerCase() === 'returned'));
+      const isReturned = isCurrentlyReturned(u);
+      const isResubmitted = hasResubmitted(u);
       
       const hasDocuments = (Array.isArray(u.documents) && u.documents.length > 0) || 
                             (u.document && u.document !== null);
       
-      return hasDocuments && u.submitted_at && !isReturned;
+      return hasDocuments && u.submitted_at && !isReturned && !isResubmitted;
     }).length;
     
     // Pending (no documents OR no submitted_at, BUT NOT returned)
     const pending = items.filter((u) => {
-      const isReturned = u.status === 'returned' || 
-        (Array.isArray(u.notes) && u.notes.some(n => String(n.type).toLowerCase() === 'returned'));
+      const isReturned = isCurrentlyReturned(u);
       
       const hasDocuments = (Array.isArray(u.documents) && u.documents.length > 0) || 
                             (u.document && u.document !== null);
@@ -195,7 +222,7 @@ export default function SubmissionDetails() {
     
     const late = 0;
     const percentage = total > 0 ? Math.round((submitted / total) * 100) : 0;
-    return { total, submitted, pending, returned, late, percentage };
+    return { total, submitted, pending, returned, resubmitted, late, percentage };
   }, [bin]);
 
   const daysUntilDue = useMemo(() => {
@@ -658,9 +685,10 @@ export default function SubmissionDetails() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
               <StatsCard label="Total Assigned" value={stats.total} icon={Users} color="blue" />
               <StatsCard label="Submitted" value={stats.submitted} icon={CheckCircle} color="green" />
+              <StatsCard label="Resubmitted" value={stats.resubmitted} icon={CheckCircle} color="indigo" />
               <StatsCard label="Pending" value={stats.pending} icon={Clock} color="yellow" />
               <StatsCard label="Returned" value={stats.returned} icon={Clock} color="orange" />
               <StatsCard label="Late/Missing" value={stats.late} icon={AlertCircle} color="red" />
@@ -688,17 +716,46 @@ export default function SubmissionDetails() {
                         // Check if actually has documents
                         const hasDocuments = (Array.isArray(item.documents) && item.documents.length > 0) || 
                                               (item.document && item.document !== null);
+                        
+                        // Check if there's a resubmission after a return
+                        const hasResubmitted = Array.isArray(item.notes) && (() => {
+                          let foundReturn = false;
+                          // Iterate from oldest to newest
+                          for (let i = 0; i < item.notes.length; i++) {
+                            const noteType = String(item.notes[i].type || '').toLowerCase();
+                            if (noteType === 'returned') {
+                              foundReturn = true;
+                            }
+                            if (foundReturn && noteType === 'resubmitted') {
+                              return true; // Found resubmission after a return
+                            }
+                          }
+                          return false;
+                        })();
+                        
                         const isReturned = item.status === 'returned' || 
                         (Array.isArray(item.notes) && item.notes.some(n => String(n.type).toLowerCase() === 'returned'));
 
-                          const actualStatus = isReturned 
-                            ? 'returned' 
-                            : (hasDocuments && item.submitted_at ? 'submitted' : 'pending');
+                        // Determine actual status with priority: resubmitted > returned > submitted > pending
+                        let actualStatus;
+                        if (hasResubmitted) {
+                          actualStatus = 'resubmitted';
+                        } else if (isReturned) {
+                          actualStatus = 'returned';
+                        } else if (hasDocuments && item.submitted_at) {
+                          actualStatus = 'submitted';
+                        } else {
+                          actualStatus = 'pending';
+                        }
 
                     
                           console.log('Submission item:', {
                             faculty: item.faculty_name || item.faculty_user?.name,
                             hasDocuments,
+                            hasResubmitted,
+                            isReturned,
+                            actualStatus,
+                            notes: item.notes?.map(n => ({ type: n.type, timestamp: n.timestamp })),
                             documents: item.documents,
                             document: item.document,
                             submitted_at: item.submitted_at
@@ -728,7 +785,7 @@ export default function SubmissionDetails() {
                             <td className="px-6 py-4"><StatusBadge type={actualStatus} /></td>
                             <td className="px-6 py-4 text-sm text-gray-600">{item.submitted_at && hasDocuments ? formatDateTime(item.submitted_at) : '-'}</td>
                             <td className="px-6 py-4">
-                              {actualStatus === 'submitted' && hasDocuments ? (
+                              {hasDocuments ? (
                                 <button
                                   className="inline-flex items-center justify-center px-4 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
                                   onClick={() => handleViewSubmission(item)}
@@ -1340,6 +1397,8 @@ function StatsCard({ label, value, icon: Icon, color }) {
   const colors = {
     blue: "bg-blue-50 text-blue-600 border-blue-100",
     green: "bg-green-50 text-green-600 border-green-100",
+    purple: "bg-purple-50 text-purple-600 border-purple-100",
+    indigo: "bg-indigo-50 text-indigo-600 border-indigo-100",
     orange: "bg-orange-50 text-orange-600 border-orange-100",
     red: "bg-red-50 text-red-600 border-red-100",
     yellow: "bg-yellow-50 text-yellow-600 border-yellow-100",
