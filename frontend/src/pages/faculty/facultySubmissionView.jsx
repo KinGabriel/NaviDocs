@@ -55,6 +55,17 @@ export default function FacultySubmissionView() {
         setError("");
         const data = await getSubmissionBinAPI(id);
         if (!mounted) return;
+        
+        // Check if bin is archived - prevent access to archived bins
+        const binStatus = String(data?.status || '').toLowerCase();
+        if (binStatus === 'archived') {
+          setError("This submission bin has been archived and is no longer accessible.");
+          setBin(null);
+          setAssignedItem(null);
+          setLoading(false);
+          return;
+        }
+        
         setBin(data);
         const uid = user?._id || user?.id;
         const item = Array.isArray(data?.submissions)

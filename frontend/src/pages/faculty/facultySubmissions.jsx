@@ -50,8 +50,14 @@ export default function FacultySubmissions() {
         
         const bins = Array.isArray(response) ? response : (response.data || []);
         
+        // Filter out archived bins
+        const activeBins = bins.filter(bin => {
+          const binStatus = String(bin.status || '').toLowerCase();
+          return binStatus !== 'archived';
+        });
+        
         // Transform bins into submission items for the current user
-        const transformedSubmissions = bins.flatMap(bin => {
+        const transformedSubmissions = activeBins.flatMap(bin => {
                  
           // Find submissions in this bin that belong to current user
           const userSubmissions = (bin.submissions || []).filter(sub => {
