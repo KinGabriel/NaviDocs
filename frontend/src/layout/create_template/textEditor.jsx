@@ -12,14 +12,10 @@ import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import { PaginationPlus } from "tiptap-pagination-plus";
 import { Extension } from "@tiptap/core";
-import { PaginationTable } from "tiptap-table-plus";
 import { ImagePlus } from "tiptap-image-plus";
 
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 import { formatDate } from "../../utils/formatters.jsx";
-
-/* ---------------------------- Tiptap Table & Pagination Plus ---------------------------- */
-const { TablePlus, TableRowPlus, TableCellPlus, TableHeaderPlus } = PaginationTable;
 
 /* ---------------------------- TextStyle extra attrs ---------------------------- */
 const TextStyleAttrs = Extension.create({
@@ -44,23 +40,6 @@ const TextStyleAttrs = Extension.create({
         },
       },
     ];
-  },
-});
-
-/* ----------------------------- TableCell extra attrs ----------------------------- */
-// Optional: allow cell background via setCellAttribute('backgroundColor', value)
-const TableCellBg = TableCellPlus.extend({
-  addAttributes() {
-    const parent = this.parent?.() || {};
-    return {
-      ...parent,
-      backgroundColor: {
-        default: null,
-        renderHTML: (attrs) =>
-          attrs.backgroundColor ? { style: `background-color: ${attrs.backgroundColor}` } : {},
-        parseHTML: (el) => ({ backgroundColor: el.style.backgroundColor || null }),
-      },
-    };
   },
 });
 
@@ -195,7 +174,6 @@ const getCfg = (cfg) => {
     showHeaderLine: !!(rawCenter.showHeaderLine ?? cfg?.showHeaderLine),
   };
 
-  // Per-line styles (safe even if not present)
   center.line1Style = buildLineStyle(center, rawCenter.line1Style);
   center.line2Style = buildLineStyle(center, rawCenter.line2Style);
   center.line3Style = buildLineStyle(center, rawCenter.line3Style);
@@ -224,6 +202,7 @@ const getCfg = (cfg) => {
       docCode:
         cfg?.documentStamp?.docCode ??
         cfg?.documentStamp?.document_code ??
+        cfg?.documentStamp?.documentCode ??
         cfg?.documentStamp?.documentCode ??
         cfg?.document_code ??
         "",
@@ -316,7 +295,6 @@ export default function TextEditor({
   const setPolicyRef = useRef(null);
   const observerRef = useRef(null);
 
-  // initial header/footer height from headerConfig (wired)
   const initialHeaderH = getHeaderBasePx(getCfg(headerConfig));
   const initialFooterH = getFooterBasePx(getCfg(headerConfig));
 
@@ -329,26 +307,13 @@ export default function TextEditor({
       FontFamily,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({
-        // IMPORTANT: use "imagePlus" (node name from tiptap-image-plus)
-        types: ["heading", "paragraph", "tableCell", "tableHeader", "imagePlus"],
+        types: ["heading", "paragraph", "imagePlus", "image"],
       }),
       Underline,
       Superscript,
       Subscript,
-
-      ImagePlus.configure({
-        // add custom config here if needed (wrapperStyle, defaultWidth, etc.)
-      }),
-
+      ImagePlus.configure({}),
       EditableField,
-
-      // ---- Table Plus (pagination + resize aligned) ----
-      TablePlus.configure({ resizeHandleStyle: { width: "4px", opacity: 0.7 } }),
-      TableRowPlus,
-      TableCellBg,
-      TableHeaderPlus,
-
-      // ---- Pagination must come after the table nodes ----
       PaginationPlus.configure({
         pageGap: 2,
         pageGapBorderSize: 1,
@@ -538,7 +503,6 @@ export default function TextEditor({
       trip.center.innerHTML = "";
       trip.right.innerHTML = "";
 
-      // LEFT: SLU logo (from cfg.assets.slu)
       if (cfg.logos.slu?.enabled && cfg.assets?.slu) {
         const sluImg = document.createElement("img");
         sluImg.src = resolveAssetUrl(cfg.assets.slu);
@@ -552,7 +516,6 @@ export default function TextEditor({
         trip.left.appendChild(sluImg);
       }
 
-      // CENTER: header text block with per-line styles
       const c = cfg.center;
 
       const lineHtml = (txt, st) => {
@@ -581,7 +544,6 @@ export default function TextEditor({
         </div>
       `;
 
-      // RIGHT: CICM logo + stamp card (CICM from cfg.assets.cicm)
       const rightRow = document.createElement("div");
       rightRow.style.display = "flex";
       rightRow.style.alignItems = "center";
