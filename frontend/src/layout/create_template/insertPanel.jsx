@@ -32,6 +32,7 @@ export default function InsertPanel({ editor }) {
       return false;
     }
   };
+
   const exec = (fn) => {
     if (!editor) return;
     fn(editor.chain().focus()).run();
@@ -50,17 +51,23 @@ export default function InsertPanel({ editor }) {
       .run();
   };
 
-  // Compute page inner width (kept as you had it)
+  // ---------- Compute usable page inner width (for image sizing) ----------
   const getUsablePageContentWidth = () => {
     const pageEl =
-      editor?.view?.dom?.closest?.(".nd-page") || document.querySelector(".nd-page");
+      editor?.view?.dom?.closest?.(".nd-page") ||
+      document.querySelector(".nd-page");
+
     if (!pageEl) {
       const rs = getComputedStyle(document.documentElement);
-      const pageWidthPx = parseFloat(rs.getPropertyValue("--nd-page-width")) || 800;
-      const padL = parseFloat(rs.getPropertyValue("--nd-margin-left")) || 96;
-      const padR = parseFloat(rs.getPropertyValue("--nd-margin-right")) || 96;
+      const pageWidthPx =
+        parseFloat(rs.getPropertyValue("--nd-page-width")) || 800;
+      const padL =
+        parseFloat(rs.getPropertyValue("--nd-margin-left")) || 96;
+      const padR =
+        parseFloat(rs.getPropertyValue("--nd-margin-right")) || 96;
       return Math.max(100, Math.round(pageWidthPx - padL - padR));
     }
+
     const cs = getComputedStyle(pageEl);
     const rectW = pageEl.getBoundingClientRect().width;
     const padL = parseFloat(cs.paddingLeft) || 0;
@@ -68,13 +75,16 @@ export default function InsertPanel({ editor }) {
     return Math.max(100, Math.round(rectW - padL - padR));
   };
 
+  // ---------- Image upload (uses ImagePlus -> setImage) ----------
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file || !editor) return;
+
     const reader = new FileReader();
     reader.onload = () => {
       const src = reader.result;
       const img = new Image();
+
       img.onload = () => {
         const usableW = getUsablePageContentWidth();
         const natW = img.naturalWidth || 1;
@@ -82,42 +92,37 @@ export default function InsertPanel({ editor }) {
         const scale = Math.min(1, usableW / natW);
         const width = Math.round(natW * scale);
         const height = Math.round(natH * scale);
-        const ok = editor
+
+        editor
           .chain()
           .focus()
-          .insertImage({
+          .setImage({
             src,
-            srcOriginal: src,
             width,
             height,
             keepAspect: true,
             wrapMode: "break",
           })
           .run();
-        if (!ok) {
-          editor
-            .chain()
-            .focus()
-            .insertContent({
-              type: "richImage",
-              attrs: { src, srcOriginal: src, width, height, keepAspect: true, wrapMode: "break" },
-            })
-            .run();
-        }
       };
+
       img.src = src;
     };
+
     reader.readAsDataURL(file);
     e.target.value = "";
   };
 
   const isInTable = !!editor?.isActive?.("table");
+
   const Btn = ({ onClick, label, disabled, className = "" }) => (
     <button
       onClick={onClick}
       disabled={disabled}
       className={`text-sm px-3 py-1 rounded ${
-        disabled ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-gray-100 hover:bg-gray-200"
+        disabled
+          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+          : "bg-gray-100 hover:bg-gray-200"
       } ${className}`}
     >
       {label}
@@ -131,7 +136,12 @@ export default function InsertPanel({ editor }) {
         <h2 className="text-lg font-semibold mb-2">Insert Image</h2>
         <label className="w-full bg-gray-100 border-2 border-dashed rounded-lg flex flex-col items-center justify-center h-40 cursor-pointer hover:bg-gray-200">
           <span className="text-gray-600">Upload Image</span>
-          <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
         </label>
       </div>
 
@@ -146,7 +156,9 @@ export default function InsertPanel({ editor }) {
               min={1}
               max={20}
               value={rows}
-              onChange={(e) => setRows(parseInt(e.target.value) || 1)}
+              onChange={(e) =>
+                setRows(parseInt(e.target.value) || 1)
+              }
               className="border px-2 py-1 rounded-md w-20"
             />
           </div>
@@ -157,7 +169,9 @@ export default function InsertPanel({ editor }) {
               min={1}
               max={10}
               value={cols}
-              onChange={(e) => setCols(parseInt(e.target.value) || 1)}
+              onChange={(e) =>
+                setCols(parseInt(e.target.value) || 1)
+              }
               className="border px-2 py-1 rounded-md w-20"
             />
           </div>
@@ -218,20 +232,28 @@ export default function InsertPanel({ editor }) {
 
             {/* Headers & Merge */}
             <div>
-              <h3 className="text-sm font-semibold mb-1">Headers & Merge</h3>
+              <h3 className="text-sm font-semibold mb-1">
+                Headers &amp; Merge
+              </h3>
               <div className="grid grid-cols-3 gap-2">
                 <Btn
-                  onClick={() => exec((ch) => ch.toggleHeaderRow())}
+                  onClick={() =>
+                    exec((ch) => ch.toggleHeaderRow())
+                  }
                   label="Toggle Header Row"
                   disabled={!canExec((ch) => ch.toggleHeaderRow())}
                 />
                 <Btn
-                  onClick={() => exec((ch) => ch.toggleHeaderColumn())}
+                  onClick={() =>
+                    exec((ch) => ch.toggleHeaderColumn())
+                  }
                   label="Toggle Header Column"
                   disabled={!canExec((ch) => ch.toggleHeaderColumn())}
                 />
                 <Btn
-                  onClick={() => exec((ch) => ch.toggleHeaderCell())}
+                  onClick={() =>
+                    exec((ch) => ch.toggleHeaderCell())
+                  }
                   label="Toggle Header Cell"
                   disabled={!canExec((ch) => ch.toggleHeaderCell())}
                 />
@@ -255,10 +277,14 @@ export default function InsertPanel({ editor }) {
 
             {/* Navigate */}
             <div>
-              <h3 className="text-sm font-semibold mb-1">Navigate</h3>
+              <h3 className="text-sm font-semibold mb-1">
+                Navigate
+              </h3>
               <div className="grid grid-cols-2 gap-2">
                 <Btn
-                  onClick={() => exec((ch) => ch.goToPreviousCell())}
+                  onClick={() =>
+                    exec((ch) => ch.goToPreviousCell())
+                  }
                   label="Previous Cell"
                   disabled={!canExec((ch) => ch.goToPreviousCell())}
                 />
@@ -272,7 +298,9 @@ export default function InsertPanel({ editor }) {
 
             {/* Maintenance */}
             <div>
-              <h3 className="text-sm font-semibold mb-1">Maintenance</h3>
+              <h3 className="text-sm font-semibold mb-1">
+                Maintenance
+              </h3>
               <div className="grid grid-cols-1 gap-2">
                 <Btn
                   onClick={() => exec((ch) => ch.fixTables())}
@@ -282,83 +310,136 @@ export default function InsertPanel({ editor }) {
               </div>
             </div>
 
-            {/* Text Align (TextAlign must include tableCell/tableHeader) */}
+            {/* Text Align (TextAlign must include tableCell/tableHeader/image) */}
             <div>
-              <h3 className="text-sm font-semibold mb-1">Text Align</h3>
+              <h3 className="text-sm font-semibold mb-1">
+                Text Align
+              </h3>
               <div className="grid grid-cols-4 gap-2">
                 <Btn
-                  onClick={() => exec((ch) => ch.setTextAlign("left"))}
+                  onClick={() =>
+                    exec((ch) => ch.setTextAlign("left"))
+                  }
                   label="Left"
-                  disabled={!canExec((ch) => ch.setTextAlign("left"))}
+                  disabled={!canExec((ch) =>
+                    ch.setTextAlign("left")
+                  )}
                 />
                 <Btn
-                  onClick={() => exec((ch) => ch.setTextAlign("center"))}
+                  onClick={() =>
+                    exec((ch) => ch.setTextAlign("center"))
+                  }
                   label="Center"
-                  disabled={!canExec((ch) => ch.setTextAlign("center"))}
+                  disabled={!canExec((ch) =>
+                    ch.setTextAlign("center")
+                  )}
                 />
                 <Btn
-                  onClick={() => exec((ch) => ch.setTextAlign("right"))}
+                  onClick={() =>
+                    exec((ch) => ch.setTextAlign("right"))
+                  }
                   label="Right"
-                  disabled={!canExec((ch) => ch.setTextAlign("right"))}
+                  disabled={!canExec((ch) =>
+                    ch.setTextAlign("right")
+                  )}
                 />
                 <Btn
-                  onClick={() => exec((ch) => ch.unsetTextAlign())}
+                  onClick={() =>
+                    exec((ch) => ch.unsetTextAlign())
+                  }
                   label="Clear"
-                  disabled={!canExec((ch) => ch.unsetTextAlign())}
+                  disabled={!canExec((ch) =>
+                    ch.unsetTextAlign()
+                  )}
                 />
               </div>
             </div>
 
             {/* Table Plus Duplicate */}
             <div>
-              <h3 className="text-sm font-semibold mb-1">Duplicate (Table Plus)</h3>
+              <h3 className="text-sm font-semibold mb-1">
+                Duplicate (Table Plus)
+              </h3>
               <div className="flex items-center gap-3 mb-2">
                 <input
                   id="dupContent"
                   type="checkbox"
                   checked={copyDupContent}
-                  onChange={(e) => setCopyDupContent(e.target.checked)}
+                  onChange={(e) =>
+                    setCopyDupContent(e.target.checked)
+                  }
                 />
-                <label htmlFor="dupContent" className="text-sm">
+                <label
+                  htmlFor="dupContent"
+                  className="text-sm"
+                >
                   Copy cell content when duplicating
                 </label>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Btn
-                  onClick={() => exec((ch) => ch.duplicateColumn({ withContent: !!copyDupContent }))}
+                  onClick={() =>
+                    exec((ch) =>
+                      ch.duplicateColumn({
+                        withContent: !!copyDupContent,
+                      })
+                    )
+                  }
                   label="Duplicate Column"
                   disabled={!canExec((ch) =>
-                    ch.duplicateColumn({ withContent: !!copyDupContent })
+                    ch.duplicateColumn({
+                      withContent: !!copyDupContent,
+                    })
                   )}
                 />
                 <Btn
-                  onClick={() => exec((ch) => ch.duplicateRow({ withContent: !!copyDupContent }))}
+                  onClick={() =>
+                    exec((ch) =>
+                      ch.duplicateRow({
+                        withContent: !!copyDupContent,
+                      })
+                    )
+                  }
                   label="Duplicate Row"
-                  disabled={!canExec((ch) => ch.duplicateRow({ withContent: !!copyDupContent }))}
+                  disabled={!canExec((ch) =>
+                    ch.duplicateRow({
+                      withContent: !!copyDupContent,
+                    })
+                  )}
                 />
               </div>
             </div>
 
             {/* Cell Background via setCellAttribute */}
             <div>
-              <h3 className="text-sm font-semibold mb-1">Cell Background</h3>
+              <h3 className="text-sm font-semibold mb-1">
+                Cell Background
+              </h3>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   placeholder="#fff3cd or empty"
                   value={cellBg}
-                  onChange={(e) => setCellBg(e.target.value)}
+                  onChange={(e) =>
+                    setCellBg(e.target.value)
+                  }
                   className="border px-2 py-1 rounded-md w-40"
                 />
                 <Btn
                   onClick={() =>
                     exec((ch) =>
-                      ch.setCellAttribute("backgroundColor", cellBg.trim() || null)
+                      ch.setCellAttribute(
+                        "backgroundColor",
+                        cellBg.trim() || null
+                      )
                     )
                   }
                   label="Apply"
                   disabled={!canExec((ch) =>
-                    ch.setCellAttribute("backgroundColor", cellBg.trim() || null)
+                    ch.setCellAttribute(
+                      "backgroundColor",
+                      cellBg.trim() || null
+                    )
                   )}
                 />
               </div>

@@ -248,6 +248,12 @@ body { font-family: 'Poppins', sans-serif; }
   font-style: italic;
 }
 
+.nd-editable-field--date .nd-editable-field__text:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  font-style: italic;
+}
+
 /* Image field */
 .nd-editable-field--image { padding: 0; }
 .nd-image-field-frame {

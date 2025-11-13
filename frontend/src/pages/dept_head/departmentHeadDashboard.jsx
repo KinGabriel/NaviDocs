@@ -51,7 +51,7 @@ export default function DepartmentHeadDashboard() {
           onClick={(e) => {
             e.stopPropagation();
             const id = row._id ?? row.id ?? row.templateId;
-            navigate(`/dept-head/document-workflow/${id}`, {
+            navigate(`/templates/published/${id}`, {
               state: { doc: row, origin: "deptHead:recently-submitted" },
             });
           }}
