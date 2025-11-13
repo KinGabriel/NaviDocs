@@ -329,12 +329,15 @@ export default function ArchivedDocuments() {
     />
 
     <PermanentlyDeleteDocumentModal
-      open={openPermanentDelete}
-      onClose={() => setOpenPermanentDelete(false)}
-      itemTitle={selectedDoc?.title}
-      submitting={modalSubmitting}
-      error={modalError}
-      onConfirm={confirmPermanentDelete}
+      open={open}
+      onClose={() => !submitting && setOpen(false)}
+      onConfirm={handleDeleteDocument}
+      submitting={submitting}
+      error={error}
+      title="Delete Document"
+      message="This will permanently delete the document. This action cannot be undone."
+      confirmLabel="Delete"
+      itemTitle={doc?.title}
     />
   </div>
   );
