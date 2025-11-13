@@ -8,11 +8,14 @@ import { CalendarClock, Clock, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "../../utils/formatters";
 import { fetchDashboardInfoAPI } from "../../api/documentContollerAPI";
+import Loader from "../../components/loader";
 
 
 export default function DocumentControllerDashboard() {
   const user = useUser();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
 
   function formatDate(dateValue) {
@@ -213,7 +216,19 @@ export default function DocumentControllerDashboard() {
 
         <main className="flex-1 flex flex-col bg-white lg:shadow pt-1 pb-4 px-4 sm:px-6 lg:px-8 mx-0 lg:mx-6 mt-4 lg:mt-8 rounded-none lg:rounded-xl w-full max-w-full">
           <Greeting name={user?.firstname || "Document Controller"} />
-
+        {loading ? (
+                  <div className="flex-1 flex justify-center items-center min-h-[60vh]">
+                    <Loader message="Loading dashboard..." />
+                  </div>
+                ) : error ? (
+                  <div className="flex-1 flex justify-center items-center min-h-[60vh] text-red-500">
+                    <div className="text-center">
+                      <p className="text-lg font-semibold mb-2">Error loading dashboard</p>
+                      <p className="text-sm">{error}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
 
           {/* Stat cards (Assigned card removed) */}
           <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
@@ -297,11 +312,10 @@ export default function DocumentControllerDashboard() {
               </div>
             </div>
           </div>
+          </>
+        )}
         </main>
       </div>
     </div>
   );
 }
-
-
-

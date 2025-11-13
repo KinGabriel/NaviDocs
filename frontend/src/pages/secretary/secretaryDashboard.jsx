@@ -29,11 +29,14 @@ ChartJS.register(
   Legend,
   ArcElement
 );
+import Loader from "../../components/loader";
 
 export default function SecretaryDashboard() {
   const user = useUser();
   const navigate = useNavigate();
   const SUBMISSION_BINS_ROUTE = "/submission-bins";
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   function formatDate(dateValue) {
     if (!dateValue) return "-";
@@ -274,8 +277,21 @@ export default function SecretaryDashboard() {
           w-full max-w-full
         "
         >
-          <Greeting name={user?.firstname || "Department Head"} />
-
+       
+          <Greeting name={user?.firstname || "Secretary"} />
+          {loading ? (
+            <div className="flex-1 flex justify-center items-center min-h-[60vh]">
+              <Loader message="Loading dashboard data..." />
+            </div>
+          ) : error ? (
+            <div className="flex-1 flex justify-center items-center min-h-[60vh] text-red-500">
+              <div className="text-center">
+                <p className="text-lg font-semibold mb-2">Error loading dashboard</p>
+                <p className="text-sm">{error}</p>
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Stat cards */}
           <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
             {/* Upcoming Deadlines */}
@@ -438,8 +454,10 @@ export default function SecretaryDashboard() {
 
             <div className="overflow-x-auto">
               <Table columns={publishedTemplatesColumns} data={publishedTemplates} />
-            </div>
+              </div>
           </div>
+        </>
+      )}
         </main>
       </div>
     </div>

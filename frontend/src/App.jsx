@@ -275,6 +275,24 @@ function App() {
           element={<SubmissionBins />} 
         />
 
+         <Route 
+          path="/submission-bins" 
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head"]}>
+              <SubmissionBins />
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route
+          path="/submissions"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head"]}>
+              <SubmissionBins />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Department Head Module */}
         <Route
           path="/dept-head/dashboard"
@@ -439,13 +457,11 @@ function App() {
         <Route
           path="/archived-documents"
           element={
-            <ProtectedRoute allowedRoles={["Dean", "Department Head", "Secretary", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+            <ProtectedRoute allowedRoles={["Dean", "Department Head", "Secretary", "Faculty"]}>
               <ArchivedDocuments />
             </ProtectedRoute>
           }
         />
-
-
 
         {/* Error Pages */}
         <Route path="*" element={<NotFoundPage />} />
@@ -456,6 +472,5 @@ function App() {
 
   )
 }
-
 
 export default App;

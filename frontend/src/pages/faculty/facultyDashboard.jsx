@@ -152,9 +152,8 @@ export default function FacultyDashboard() {
       <div className="flex flex-1 flex-col md:flex-row">
         <Sidebar user={user} active="Dashboard" />
 
-        <main className="flex-1 flex flex-col bg-white shadow rounded-xl mx-4 my-4 md:mx-6 md:mt-8 p-4 md:p-10">
-          <Greeting name={user?.firstname || "Department Head"} />
-
+      <main className="flex-1 flex flex-col bg-white shadow rounded-xl mx-4 my-4 md:mx-6 md:mt-8 p-4 md:p-10">
+        <Greeting name={user?.firstname || "Faculty"} />
           {/* Stat cards */}
           <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
             {/* Upcoming Deadlines */}
