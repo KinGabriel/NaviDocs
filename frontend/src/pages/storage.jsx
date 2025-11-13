@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { getFoldersAPI, getFolderByIDAPI, createFolderAPI, addDocumentsAPI, addOrphanFileAPI, getOrphanFilesAPI, moveFolderAPI, moveFileAPI, renameFolderAPI, renameFileAPI, deleteFolderByIDAPI, deleteFileAPI, deleteFileFromFolderAPI, addAccessToFoldersAPI, addAccessToFileAPI, } from "../api/storageAPI";
-import { searchUsersByEmailAPI, getUserIdByEmailAPI } from "../api/userAPI";
+import { searchUsersByEmailAPI, getUserIdByEmailAPI, getUsersInfoByIdsAPI } from "../api/userAPI";
 import { SCHOOL_OPTIONS, DEPARTMENT_OPTIONS } from "../utils/options";
 import Header from "../layout/headers/header";
 import Sidebar from "../layout/sidebars/sidebar";
@@ -192,6 +192,9 @@ export default function Storage() {
   const API_URLS = rawUrls.split(",");
   const API_URL = API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
+    // fetch owner
+  const [ownerNameMap, setOwnerNameMap] = useState({});
+
   // --- MATCH grid view URL construction (same behavior as file.jsx) ---
   const getFileUrl = (file) => {
     if (!file || typeof file === "string") return null;
@@ -293,6 +296,78 @@ export default function Storage() {
     // eslint-disable-next-line
   }, [id, user, selectedStatus]);
 
+  useEffect(() => {
+  // collect possible owner IDs from folders and files
+  const ids = new Set();
+
+  // from folders (mapped structure)
+  folders.forEach((f) => {
+    const rawOwner = f.data?.owner;
+    if (f.data?.ownerId) ids.add(String(f.data.ownerId));
+
+    if (rawOwner && typeof rawOwner === "object") {
+      if (rawOwner._id) ids.add(String(rawOwner._id));
+      if (rawOwner.id) ids.add(String(rawOwner.id));
+      if (rawOwner.userId) ids.add(String(rawOwner.userId));
+    } else if (typeof rawOwner === "string" && !rawOwner.includes("@")) {
+      // treat non-email string as userId
+      ids.add(rawOwner);
+    }
+  });
+
+  // from files (either root or inside selectedFolder)
+  const filesSource = selectedFolder ? selectedFolder.dbfiles || [] : rootFiles;
+  filesSource.forEach((file) => {
+    const rawOwner = file.owner;
+    if (file.ownerId) ids.add(String(file.ownerId));
+
+    if (rawOwner && typeof rawOwner === "object") {
+      if (rawOwner._id) ids.add(String(rawOwner._id));
+      if (rawOwner.id) ids.add(String(rawOwner.id));
+      if (rawOwner.userId) ids.add(String(rawOwner.userId));
+    } else if (typeof rawOwner === "string" && !rawOwner.includes("@")) {
+      ids.add(rawOwner);
+    }
+  });
+
+  const uniqueIds = Array.from(ids);
+  if (!uniqueIds.length) return;
+
+  (async () => {
+    try {
+      const users = await getUsersInfoByIdsAPI(uniqueIds);
+      const map = {};
+
+      users.forEach((u) => {
+        const key = String(u.userId || u._id || u.id || "").trim();
+        if (!key) return;
+
+        const fullName =
+          (u.firstname || u.lastname)
+            ? `${u.firstname || ""} ${u.lastname || ""}`.trim()
+            : u.name || (u.email ? u.email.split("@")[0] : "");
+
+        if (!fullName) return;
+
+        // map by ID
+        map[key] = fullName;
+
+        // also map by email for convenience
+        if (u.email) {
+          map[u.email.trim().toLowerCase()] = fullName;
+        }
+      });
+
+      if (Object.keys(map).length) {
+        setOwnerNameMap((prev) => ({ ...prev, ...map }));
+      }
+    } catch (err) {
+      console.error("Failed to fetch owner names", err);
+    }
+  })();
+}, [folders, rootFiles, selectedFolder]);
+
+
   const loadContent = async () => {
     setLoadingFolders(true);
     setLoadingRootFiles(true);
@@ -306,7 +381,7 @@ export default function Storage() {
     }
   };
 
-  const loadRootContent = async () => {
+    const loadRootContent = async () => {
     try {
       const foldersData = await getFoldersAPI({ user, status: selectedStatus });
       const mapped = (foldersData.folders || []).map((f) => ({
@@ -316,10 +391,16 @@ export default function Storage() {
         data: { ...f, parentFolder: f.parentFolder ? String(f.parentFolder) : null },
       }));
       setFolders(mapped);
+
       const orphanFiles = await getOrphanFilesAPI(user._id, selectedStatus);
       setRootFiles(orphanFiles.files || []);
       setSelectedFolder(null);
       setFolderPath([]);
+
+      await resolveOwnerNames(
+        mapped.map((m) => m.data),
+        orphanFiles.files || []
+      );
     } finally {
       setLoadingFolders(false);
       setLoadingRootFiles(false);
@@ -327,7 +408,8 @@ export default function Storage() {
     }
   };
 
-  const loadFolderById = async (folderId) => {
+
+   const loadFolderById = async (folderId) => {
     try {
       const allFoldersData = await getFoldersAPI({ user, status: selectedStatus });
       const mapped = (allFoldersData.folders || []).map((f) => ({
@@ -340,6 +422,11 @@ export default function Storage() {
 
       const folderData = await getFolderByIDAPI(folderId, user._id, selectedStatus);
       setSelectedFolder(folderData.folder);
+
+      await resolveOwnerNames(
+        mapped.map((m) => m.data),
+        folderData.folder?.dbfiles || []
+      );
     } finally {
       setLoadingFolders(false);
       setLoadingRootFiles(false);
@@ -593,11 +680,94 @@ export default function Storage() {
     navigator.clipboard.writeText(`https://mydrive.com/folder/${f.name.replace(/\s+/g, "-")}`);
     toast.success("Link copied to clipboard!");
   };
+
   const copyFileLink = (file) => {
     const name = file?.originalName || file?.name || file?.fileName || "file";
     navigator.clipboard.writeText(`https://mydrive.com/file/${name.replace(/\s+/g, "-")}`);
     toast.success("Link copied to clipboard!");
   };
+    const resolveOwnerNames = async (folderDatas = [], fileDatas = []) => {
+    try {
+      const candidates = new Set();
+
+      const collectFromOwnerish = (ownerObj, ownerEmail, ownerIdFallback) => {
+        // Prefer explicit email
+        if (ownerEmail && typeof ownerEmail === "string") {
+          candidates.add(ownerEmail.trim().toLowerCase());
+          return;
+        }
+
+        // If owner is a string and looks like an email
+        if (typeof ownerObj === "string" && ownerObj.includes("@")) {
+          candidates.add(ownerObj.trim().toLowerCase());
+          return;
+        }
+
+        // If owner is an object with email
+        if (ownerObj && typeof ownerObj === "object" && ownerObj.email) {
+          candidates.add(String(ownerObj.email).trim().toLowerCase());
+          return;
+        }
+
+        // If all we have is an id, we keep it as key
+        if (ownerIdFallback) {
+          candidates.add(String(ownerIdFallback));
+        }
+      };
+
+      // FOLDERS
+      folderDatas.forEach((f) => {
+        if (!f) return;
+        collectFromOwnerish(
+          f.owner,
+          f.ownerEmail,
+          f.owner && typeof f.owner === "object" ? f.owner._id : f.owner
+        );
+      });
+
+      // FILES
+      fileDatas.forEach((file) => {
+        if (!file) return;
+        collectFromOwnerish(
+          file.owner,
+          file.ownerEmail,
+          file.owner && typeof file.owner === "object" ? file.owner._id : file.owner
+        );
+      });
+
+      const currentMap = ownerNameMap;
+      const toFetch = Array.from(candidates).filter(
+        (key) => !currentMap[key] && key.includes("@") // only fetch for emails
+      );
+
+      if (!toFetch.length) return;
+
+      const updates = {};
+
+      for (const email of toFetch) {
+        try {
+          const users = await searchUsersByEmailAPI(email);
+          if (Array.isArray(users) && users.length > 0) {
+            const u = users[0];
+            const displayName =
+              u.name ||
+              [u.firstname, u.lastname].filter(Boolean).join(" ") ||
+              email.split("@")[0];
+            updates[email] = displayName;
+          }
+        } catch {
+          // ignore failures, fallback will be used in UI
+        }
+      }
+
+      if (Object.keys(updates).length) {
+        setOwnerNameMap((prev) => ({ ...prev, ...updates }));
+      }
+    } catch {
+      // silent fail; UI will just show fallback owner text
+    }
+  };
+
 
   /* ================================== UI ================================== */
   return (
@@ -868,13 +1038,35 @@ export default function Storage() {
                               </div>
                             </td>
                             <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
-                              {folder.data?.owner?.name
-                                || (folder.data?.ownerEmail
-                                  ? folder.data.ownerEmail.split("@")[0]
-                                  : (typeof folder.data?.owner === "string"
-                                    ? folder.data.owner.split("@")[0]
-                                    : "Unknown"))}
+                              {(() => {
+                                const rawOwner = folder.data?.owner;
+                                const ownerEmail =
+                                  folder.data?.ownerEmail ||
+                                  (rawOwner && typeof rawOwner === "object" && rawOwner.email
+                                    ? rawOwner.email
+                                    : typeof rawOwner === "string" && rawOwner.includes("@")
+                                    ? rawOwner
+                                    : null);
+
+                                // prefer ID-like keys for lookup
+                                const ownerId =
+                                  (folder.data?.ownerId && String(folder.data.ownerId)) ||
+                                  (rawOwner && typeof rawOwner === "object" && (rawOwner.userId || rawOwner._id || rawOwner.id)) ||
+                                  (typeof rawOwner === "string" && !rawOwner.includes("@") ? rawOwner : null);
+
+                                const idKey = ownerId ? String(ownerId).trim() : null;
+                                const emailKey = ownerEmail ? ownerEmail.trim().toLowerCase() : null;
+
+                                const resolved =
+                                  (idKey && ownerNameMap[idKey]) ||
+                                  (emailKey && ownerNameMap[emailKey]) ||
+                                  folder.data?.owner?.name ||
+                                  (ownerEmail ? ownerEmail.split("@")[0] : null);
+
+                                return resolved || "Unknown";
+                              })()}
                             </td>
+
                             <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
                               {formatDate(folder.date)}
                             </td>
@@ -1175,12 +1367,34 @@ export default function Storage() {
                                 </div>
                               </td>
 
-                              <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
-                                {file.owner?.name
-                                  || (file.ownerEmail
-                                    ? file.ownerEmail.split("@")[0]
-                                    : (typeof file.owner === "string" ? file.owner.split("@")[0] : "Unknown"))}
-                              </td>
+                            <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
+                              {(() => {
+                                const rawOwner = file.owner;
+                                const ownerEmail =
+                                  file.ownerEmail ||
+                                  (rawOwner && typeof rawOwner === "object" && rawOwner.email
+                                    ? rawOwner.email
+                                    : typeof rawOwner === "string" && rawOwner.includes("@")
+                                    ? rawOwner
+                                    : null);
+
+                                const ownerId =
+                                  (file.ownerId && String(file.ownerId)) ||
+                                  (rawOwner && typeof rawOwner === "object" && (rawOwner.userId || rawOwner._id || rawOwner.id)) ||
+                                  (typeof rawOwner === "string" && !rawOwner.includes("@") ? rawOwner : null);
+
+                                const idKey = ownerId ? String(ownerId).trim() : null;
+                                const emailKey = ownerEmail ? ownerEmail.trim().toLowerCase() : null;
+
+                                const resolved =
+                                  (idKey && ownerNameMap[idKey]) ||
+                                  (emailKey && ownerNameMap[emailKey]) ||
+                                  file.owner?.name ||
+                                  (ownerEmail ? ownerEmail.split("@")[0] : null);
+
+                                return resolved || "Unknown";
+                              })()}
+                            </td>
 
                               <td className="px-4 md:px-6 py-4 text-sm text-gray-600">
                                 {formatDate(file.uploadedAt || file.createdAt)}
