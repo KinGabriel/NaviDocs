@@ -5,6 +5,12 @@ import TagPicker from "./TagPicker";
 import { makeId } from "../../utils/ids";
 import PermanentlyDeleteDocumentModal from "../modals/permanentlyDeleteDocumentModal";
 
+const DATE_FORMAT_PRESETS = [
+  { value: "YYYY-MM-DD", label: "2025-03-15 (YYYY-MM-DD)", example: "2025-03-15" },
+  { value: "DD/MM/YYYY", label: "15/03/2025 (DD/MM/YYYY)", example: "15/03/2025" },
+  { value: "MM/DD/YYYY", label: "03/15/2025 (MM/DD/YYYY)", example: "03/15/2025" },
+];
+
 export default function AccordionList({
   accordions = [],
   setAccordions = () => {},
@@ -23,6 +29,7 @@ export default function AccordionList({
     type: "text",
     placeholder: "",
     instructions: "",
+    dateFormat: "YYYY-MM-DD",
   });
 
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -37,13 +44,11 @@ export default function AccordionList({
   const addAccordion = () => {
     const name = newAccordionName.trim();
 
-    // Require group name
     if (!name) {
       setGroupNameError("Group name is required.");
       return;
     }
 
-    // Prevent duplicate group names (case-insensitive)
     const exists = accordions.some(
       (a) => a.name.trim().toLowerCase() === name.toLowerCase()
     );
@@ -65,7 +70,6 @@ export default function AccordionList({
     setDeleteOpen(true);
   };
 
-  // called by modal confirm
   const onConfirmDeleteGroup = async () => {
     try {
       setSubmittingDelete(true);
@@ -81,7 +85,6 @@ export default function AccordionList({
         return;
       }
 
-      // Remove all fields of this group from the editor as well
       if (targetGroup && Array.isArray(targetGroup.fields)) {
         targetGroup.fields.forEach((f) => {
           if (f?.id) onRemoveField(f.id);
@@ -101,13 +104,11 @@ export default function AccordionList({
   const addField = (accordionId) => {
     const nameTrimmed = newFieldData.name.trim();
 
-    // Require a field name
     if (!nameTrimmed) {
       window.alert("Field name is required.");
       return;
     }
 
-    // Prevent duplicate field names within the same group (case-insensitive)
     const group = accordions.find((a) => a.id === accordionId);
     if (group && Array.isArray(group.fields)) {
       const exists = group.fields.some(
@@ -121,22 +122,42 @@ export default function AccordionList({
       }
     }
 
+    let placeholder = "";
+    let dateFormat;
+    const instructions = newFieldData.instructions.trim() || "";
+
+    if (newFieldData.type === "date") {
+      dateFormat = newFieldData.dateFormat || "YYYY-MM-DD";
+      const preset = DATE_FORMAT_PRESETS.find((p) => p.value === dateFormat);
+      placeholder = preset?.example || dateFormat;
+    } else if (newFieldData.type === "image") {
+      placeholder = newFieldData.placeholder.trim() || "Upload image";
+    } else {
+      placeholder = newFieldData.placeholder.trim() || "Enter value...";
+    }
+
     const field = {
       id: makeId(),
       name: nameTrimmed,
       type: newFieldData.type,
-      placeholder: newFieldData.placeholder.trim() || "Enter value...",
-      instructions: newFieldData.instructions.trim() || "",
+      placeholder,
+      instructions,
       tags: [],
+      ...(newFieldData.type === "date" ? { dateFormat } : {}),
     };
 
     setAccordions((prev) =>
       prev.map((a) => (a.id === accordionId ? { ...a, fields: [...a.fields, field] } : a))
     );
-    setNewFieldData({ name: "", type: "text", placeholder: "", instructions: "" });
+    setNewFieldData({
+      name: "",
+      type: "text",
+      placeholder: "",
+      instructions: "",
+      dateFormat: "YYYY-MM-DD",
+    });
   };
 
-  // you can keep this confirm for fields, or wire a second modal similarly
   const removeField = (accordionId, fieldId) => {
     if (!window.confirm("Remove this field from template?")) return;
     setAccordions((prev) =>
@@ -163,6 +184,20 @@ export default function AccordionList({
       )
     );
     onUpdateField(fieldId, { tags });
+  };
+
+  const handleTypeChange = (value) => {
+    setNewFieldData((prev) => ({
+      ...prev,
+      type: value,
+    }));
+  };
+
+  const handleDateFormatChange = (value) => {
+    setNewFieldData((prev) => ({
+      ...prev,
+      dateFormat: value,
+    }));
   };
 
   return (
@@ -218,7 +253,6 @@ export default function AccordionList({
                       const newName = (renameDraft[acc.id] ?? acc.name).trim();
                       if (!newName) return;
 
-                      // Prevent duplicate group names on rename (case-insensitive)
                       const exists = accordions.some(
                         (a) =>
                           a.id !== acc.id &&
@@ -264,7 +298,7 @@ export default function AccordionList({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  removeAccordion(acc.id); // opens modal
+                  removeAccordion(acc.id);
                 }}
                 className="text-red-600 hover:text-red-800"
                 title="Delete group"
@@ -290,6 +324,11 @@ export default function AccordionList({
                       <div className="text-xs text-slate-500">
                         Placeholder: <em>{f.placeholder}</em>
                       </div>
+                      {f.type === "date" && f.dateFormat && (
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          Format: <em>{f.dateFormat}</em>
+                        </div>
+                      )}
                       {f.instructions && (
                         <div className="text-[11px] text-slate-500 mt-0.5">
                           Instructions: <em>{f.instructions}</em>
@@ -322,45 +361,69 @@ export default function AccordionList({
 
               <div className="mt-3 border-t border-slate-200 pt-3">
                 <div className="text-xs mb-1 text-slate-600 font-medium">Add New Field</div>
-                <div className="grid grid-cols-4 gap-2 mb-2">
+
+                <div className="flex flex-col gap-2 mb-2">
+                  <select
+                    value={newFieldData.type}
+                    onChange={(e) => handleTypeChange(e.target.value)}
+                    className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                  >
+                    <option value="text">Text</option>
+                    <option value="image">Image</option>
+                    <option value="date">Date</option>
+                  </select>
+
                   <input
                     type="text"
                     placeholder="Field name"
                     value={newFieldData.name}
                     onChange={(e) =>
-                      setNewFieldData({ ...newFieldData, name: e.target.value })
+                      setNewFieldData((prev) => ({ ...prev, name: e.target.value }))
                     }
-                    className="col-span-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    className="rounded-md border border-slate-300 px-2 py-1 text-sm"
                   />
-                  <select
-                    value={newFieldData.type}
-                    onChange={(e) =>
-                      setNewFieldData({ ...newFieldData, type: e.target.value })
-                    }
-                    className="col-span-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
-                  >
-                    <option value="text">Text</option>
-                    <option value="image">Image</option>
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="Placeholder"
-                    value={newFieldData.placeholder}
-                    onChange={(e) =>
-                      setNewFieldData({ ...newFieldData, placeholder: e.target.value })
-                    }
-                    className="col-span-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
-                  />
+
+                  {newFieldData.type === "date" ? (
+                    <select
+                      value={newFieldData.dateFormat}
+                      onChange={(e) => handleDateFormatChange(e.target.value)}
+                      className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    >
+                      {DATE_FORMAT_PRESETS.map((fmt) => (
+                        <option key={fmt.value} value={fmt.value}>
+                          {fmt.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder={newFieldData.type === "image" ? "Placeholder (e.g. Upload image)" : "Placeholder"}
+                      value={newFieldData.placeholder}
+                      onChange={(e) =>
+                        setNewFieldData((prev) => ({
+                          ...prev,
+                          placeholder: e.target.value,
+                        }))
+                      }
+                      className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    />
+                  )}
+
                   <input
                     type="text"
                     placeholder="Instructions (optional)"
                     value={newFieldData.instructions}
                     onChange={(e) =>
-                      setNewFieldData({ ...newFieldData, instructions: e.target.value })
+                      setNewFieldData((prev) => ({
+                        ...prev,
+                        instructions: e.target.value,
+                      }))
                     }
-                    className="col-span-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    className="rounded-md border border-slate-300 px-2 py-1 text-sm"
                   />
                 </div>
+
                 <button
                   onClick={() => addField(acc.id)}
                   className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
@@ -373,7 +436,6 @@ export default function AccordionList({
         </div>
       ))}
 
-      {/* Single shared confirmation modal for deleting a group */}
       <PermanentlyDeleteDocumentModal
         open={deleteOpen}
         onClose={() => !submittingDelete && setDeleteOpen(false)}

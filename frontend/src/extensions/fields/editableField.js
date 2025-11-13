@@ -8,15 +8,16 @@ export const EditableField = Node.create({
   // Render from node content so textContent updates are visible
   // (no longer an atom)
   atom: false,
-  content: 'text*',
+  content: "text*",
   selectable: true,
 
   addAttributes() {
     return {
-      key: { default: null }, // unique ID
-      type: { default: "text" }, // "text" | "image"
-      placeholder: { default: "" }, // visible placeholder text or image
-      tags: { default: [] }, // array of tag IDs
+      key: { default: null },                // unique ID
+      type: { default: "text" },             // "text" | "image" | "date"
+      placeholder: { default: "" },          // visible placeholder text or image
+      tags: { default: [] },                 // array of tag IDs
+      dateFormat: { default: null },         // only used when type === "date"
     };
   },
 
@@ -31,13 +32,15 @@ export const EditableField = Node.create({
           tags: el.getAttribute("data-tags")
             ? el.getAttribute("data-tags").split(",")
             : [],
+          dateFormat: el.getAttribute("data-format") || null,
         }),
       },
     ];
   },
 
   renderHTML({ HTMLAttributes }) {
-    const { key, type, placeholder } = HTMLAttributes;
+    const { key, type, placeholder, dateFormat } = HTMLAttributes;
+
     const baseAttrs = {
       "data-node": "editable-field",
       "data-field": key,
@@ -52,6 +55,11 @@ export const EditableField = Node.create({
       "aria-label": `Editable Field: ${key}`,
     };
 
+    if (type === "date" && dateFormat) {
+      baseAttrs["data-format"] = dateFormat;
+    }
+
+    // Image field frame
     if (type === "image") {
       return [
         "span",
@@ -83,16 +91,27 @@ export const EditableField = Node.create({
   addCommands() {
     return {
       insertEditableField:
-        ({ key, type = "text", placeholder = "", tags = [] }) =>
+        ({ key, type = "text", placeholder = "", tags = [], dateFormat = null }) =>
         ({ chain }) => {
           if (!key || !placeholder) return false;
+
+          const attrs = {
+            key,
+            type,
+            placeholder,
+            tags,
+          };
+
+          if (type === "date" && dateFormat) {
+            attrs.dateFormat = dateFormat;
+          }
 
           // Insert node + trailing space (caret placed after)
           return chain()
             .insertContent([
               {
                 type: this.name,
-                attrs: { key, type, placeholder, tags },
+                attrs,
               },
               { type: "text", text: " " },
             ])
