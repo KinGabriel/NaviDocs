@@ -32,67 +32,9 @@ body { font-family: 'Poppins', sans-serif; }
 .ProseMirror img { max-width: 100%; height: auto; }
 
 /* -------------------------------------------------------------------------- */
-/*  TIPTAP v2 TABLES + COLUMN RESIZING                                        */
+/*  TIPTAP v2 TABLES — REMOVED COMPLETELY                                     */
 /* -------------------------------------------------------------------------- */
 
-.ProseMirror table {
-  width: 100% !important;
-  border-collapse: collapse;
-  table-layout: fixed; /* required for resizing */
-}
-
-.ProseMirror td,
-.ProseMirror th {
-  min-width: 1em;
-  border: 2px solid #ced4da;
-  padding: 3px 5px;
-  vertical-align: top;
-  box-sizing: border-box;
-  position: relative; /* required for resize handle */
-  break-inside: auto !important;
-  page-break-inside: auto !important;
-  white-space: normal;
-  word-break: break-word;
-  overflow: visible !important;
-}
-
-/* Header cells */
-.ProseMirror th {
-  font-weight: bold;
-  text-align: left;
-  background-color: #f1f3f4;
-}
-
-/* Selected cell visual */
-.ProseMirror .selectedCell:after {
-  z-index: 2;
-  position: absolute;
-  content: "";
-  left: 0; right: 0; top: 0; bottom: 0;
-  background: rgba(200, 200, 255, 0.4);
-  pointer-events: none;
-}
-
-/* Column resize handle (Tiptap v2) */
-.ProseMirror .column-resize-handle {
-  position: absolute;
-  right: -2px;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background-color: rgba(0,0,0,0.15);
-  pointer-events: none;
-  z-index: 10;
-}
-
-/* Resize cursor while dragging */
-.tiptap.resize-cursor {
-  cursor: col-resize !important;
-}
-
-/* Repeat table header/footer for print/PDF */
-.ProseMirror table thead { display: table-header-group !important; }
-.ProseMirror table tfoot { display: table-footer-group !important; }
 
 /* -------------------------------------------------------------------------- */
 /*  PAGE BANDS (headers/footers rendered by PaginationPlus)                   */
@@ -181,6 +123,12 @@ body { font-family: 'Poppins', sans-serif; }
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Extra variables originally used by tables (kept harmless if other code uses them) */
+  --gray-1: #f3f4f6;
+  --gray-2: #e5e7eb;
+  --gray-3: #d1d5db;
+  --purple: #a855f7;
 }
 
 .dark {
@@ -217,7 +165,7 @@ body { font-family: 'Poppins', sans-serif; }
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-/* Base layer hookup for Tailwind tokens */
+/* Base layer hookup */
 @layer base {
   * { @apply border-border outline-ring/50; }
   body { @apply bg-background text-foreground; }
@@ -323,12 +271,6 @@ body { font-family: 'Poppins', sans-serif; }
 /*  PRINT                                                                     */
 /* -------------------------------------------------------------------------- */
 @media print {
-  /* allow natural fragmentation and header/footer repetition */
-  .ProseMirror table { page-break-inside: auto !important; }
-  .ProseMirror tr    { page-break-inside: avoid !important; }
-  .ProseMirror td, .ProseMirror th { page-break-inside: auto !important; }
-
-  /* critical: no scroll containers during print */
   .nd-editor-canvas { overflow: visible !important; }
 
   .rm-first-page-header,
@@ -337,7 +279,4 @@ body { font-family: 'Poppins', sans-serif; }
   .rm-page-footer {
     page-break-inside: avoid !important;
   }
-
-  /* Hide resize handles on print */
-  .ProseMirror .column-resize-handle { display: none !important; }
 }

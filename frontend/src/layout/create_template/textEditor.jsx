@@ -14,12 +14,6 @@ import { PaginationPlus } from "tiptap-pagination-plus";
 import { Extension } from "@tiptap/core";
 import { ImagePlus } from "tiptap-image-plus";
 
-// Tiptap v2 table extensions
-import Table from "@tiptap/extension-table";
-import TableRow from "@tiptap/extension-table-row";
-import TableHeader from "@tiptap/extension-table-header";
-import TableCell from "@tiptap/extension-table-cell";
-
 import {
   EditableField,
   createLockOutsideFieldsPlugin,
@@ -49,27 +43,6 @@ const TextStyleAttrs = Extension.create({
         },
       },
     ];
-  },
-});
-
-/* ----------------------------- TableCell extra attrs ----------------------------- */
-// Allow cell background via setCellAttribute('backgroundColor', value)
-const TableCellBg = TableCell.extend({
-  addAttributes() {
-    const parent = this.parent?.() || {};
-    return {
-      ...parent,
-      backgroundColor: {
-        default: null,
-        renderHTML: (attrs) =>
-          attrs.backgroundColor
-            ? { style: `background-color: ${attrs.backgroundColor}` }
-            : {},
-        parseHTML: (el) => ({
-          backgroundColor: el.style.backgroundColor || null,
-        }),
-      },
-    };
   },
 });
 
@@ -343,33 +316,13 @@ export default function TextEditor({
       FontFamily,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({
-        // include tables & images so alignment works inside cells
-        types: [
-          "heading",
-          "paragraph",
-          "tableCell",
-          "tableHeader",
-          "imagePlus",
-          "image",
-        ],
+        types: ["heading", "paragraph", "imagePlus", "image"],
       }),
       Underline,
       Superscript,
       Subscript,
       ImagePlus.configure({}),
       EditableField,
-
-      // Tiptap v2 tables
-      Table.configure({
-        resizable: true,
-        HTMLAttributes: {
-          style: "width: 100%; table-layout: fixed;",
-        },
-      }),
-      TableRow,
-      TableHeader,
-      TableCellBg,
-
       PaginationPlus.configure({
         pageGap: 2,
         pageGapBorderSize: 1,
