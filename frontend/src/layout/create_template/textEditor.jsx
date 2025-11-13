@@ -31,12 +31,14 @@ const TextStyleAttrs = Extension.create({
         attributes: {
           fontSize: {
             default: null,
-            renderHTML: (attrs) => (attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {}),
+            renderHTML: (attrs) =>
+              attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
             parseHTML: (el) => ({ fontSize: el.style.fontSize || null }),
           },
           lineHeight: {
             default: null,
-            renderHTML: (attrs) => (attrs.lineHeight ? { style: `line-height: ${attrs.lineHeight}` } : {}),
+            renderHTML: (attrs) =>
+              attrs.lineHeight ? { style: `line-height: ${attrs.lineHeight}` } : {},
             parseHTML: (el) => ({ lineHeight: el.style.lineHeight || null }),
           },
         },
@@ -54,7 +56,8 @@ const TableCellBg = TableCellPlus.extend({
       ...parent,
       backgroundColor: {
         default: null,
-        renderHTML: (attrs) => (attrs.backgroundColor ? { style: `background-color: ${attrs.backgroundColor}` } : {}),
+        renderHTML: (attrs) =>
+          attrs.backgroundColor ? { style: `background-color: ${attrs.backgroundColor}` } : {},
         parseHTML: (el) => ({ backgroundColor: el.style.backgroundColor || null }),
       },
     };
@@ -64,6 +67,8 @@ const TableCellBg = TableCellPlus.extend({
 /* ----------------------------------- utils ----------------------------------- */
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
 const px = (n) => `${Math.max(0, Number(n) || 0)}px`;
+// 1pt ≈ 1.3333px at 96dpi
+const ptToPx = (pt) => Math.round(Number(pt || 0) * (96 / 72));
 
 /* ------------------------ Env-aware API base & assets ------------------------ */
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -144,32 +149,65 @@ const normRevision = (val) => {
   return String(n).padStart(2, "0");
 };
 
+const buildLineStyle = (center, lineStyleRaw) => {
+  const ls = lineStyleRaw || {};
+  const baseFamily = center.fontFamily ?? "Inter, system-ui, sans-serif";
+  const baseColor = center.color ?? "#000000";
+  const baseBold = !!center.bold;
+  const baseItalic = !!center.italic;
+  const baseFontSizePx = Number(center.fontSize ?? 14);
+
+  const fontFamily = ls.fontFamily ?? baseFamily;
+  const fontSizePx =
+    ls.fontSizePt != null ? ptToPx(ls.fontSizePt) : baseFontSizePx;
+  const bold = ls.bold != null ? !!ls.bold : baseBold;
+  const italic = ls.italic != null ? !!ls.italic : baseItalic;
+  const color = ls.color ?? baseColor;
+
+  return {
+    fontFamily,
+    fontSizePx,
+    bold,
+    italic,
+    color,
+  };
+};
+
 const getCfg = (cfg) => {
-  const center = cfg?.header?.centerText || cfg?.center || {};
+  const rawCenter = cfg?.header?.centerText || cfg?.center || {};
   const logos = cfg?.header?.logos || {};
   const headerMarginIn = Number(cfg?.headerMarginIn ?? cfg?.header?.marginIn ?? 0);
   const pageNumber = cfg?.footer?.pageNumber || {};
   const body = cfg?.footer?.body || {};
+
+  const center = {
+    enabled: rawCenter.enabled ?? true,
+    line1: rawCenter.line1 ?? cfg?.center?.line1 ?? "Saint Louis University",
+    line2: rawCenter.line2 ?? cfg?.center?.line2 ?? "",
+    line3: rawCenter.line3 ?? cfg?.center?.line3 ?? "",
+    line4: rawCenter.line4 ?? cfg?.center?.line4 ?? "",
+    showLine4: !!(rawCenter.showLine4 ?? cfg?.center?.showLine4),
+    fontFamily: rawCenter.fontFamily ?? "Inter, system-ui, sans-serif",
+    fontSize: Number(rawCenter.fontSize ?? 14),
+    bold: !!rawCenter.bold,
+    italic: !!rawCenter.italic,
+    color: rawCenter.color ?? "#000000",
+    showHeaderLine: !!(rawCenter.showHeaderLine ?? cfg?.showHeaderLine),
+  };
+
+  // Per-line styles (safe even if not present)
+  center.line1Style = buildLineStyle(center, rawCenter.line1Style);
+  center.line2Style = buildLineStyle(center, rawCenter.line2Style);
+  center.line3Style = buildLineStyle(center, rawCenter.line3Style);
+  center.line4Style = buildLineStyle(center, rawCenter.line4Style);
+
   return {
     headerEnabled: !!cfg?.headerEnabled,
     footerEnabled: !!cfg?.footerEnabled,
     headerMarginIn,
     footerMarginIn: Number(cfg?.footerMarginIn ?? headerMarginIn),
     assets: cfg?.assets || {},
-    center: {
-      enabled: center.enabled ?? true,
-      line1: center.line1 ?? cfg?.center?.line1 ?? "Saint Louis University",
-      line2: center.line2 ?? cfg?.center?.line2 ?? "",
-      line3: center.line3 ?? cfg?.center?.line3 ?? "",
-      line4: center.line4 ?? cfg?.center?.line4 ?? "",
-      showLine4: !!(center.showLine4 ?? cfg?.center?.showLine4),
-      fontFamily: center.fontFamily ?? "Inter, system-ui, sans-serif",
-      fontSize: Number(center.fontSize ?? 14),
-      bold: !!center.bold,
-      italic: !!center.italic,
-      color: center.color ?? "#000000",
-      showHeaderLine: !!(center.showHeaderLine ?? cfg?.showHeaderLine),
-    },
+    center,
     logos: {
       // DO NOT hardcode. Use cfg.assets.slu / cfg.assets.cicm like the original.
       slu: {
@@ -245,7 +283,7 @@ const stripDefaultPageNumber = (scopeEl) => {
 };
 
 /* ---------------------------- dynamic header/footer --------------------------- */
-const MIN_HEADER_FOOTER_PX = 90;
+const MIN_HEADER_FOOTER_PX = 120;
 const getHeaderBasePx = (cfg) =>
   cfg.headerEnabled ? Math.max(MIN_HEADER_FOOTER_PX, inchToPx(cfg.headerMarginIn ?? 0)) : 0;
 const getFooterBasePx = (cfg) =>
@@ -418,8 +456,14 @@ export default function TextEditor({
     bandEl.style.background = "white";
 
     let left =
-      bandEl.querySelector(isFooter ? ":scope > .rm-page-footer-left" : ":scope > .rm-page-header-left") ||
-      bandEl.querySelector(isFooter ? ":scope > .rm-first-page-footer-left" : ":scope > .rm-first-page-header-left") ||
+      bandEl.querySelector(
+        isFooter ? ":scope > .rm-page-footer-left" : ":scope > .rm-page-header-left"
+      ) ||
+      bandEl.querySelector(
+        isFooter
+          ? ":scope > .rm-first-page-footer-left"
+          : ":scope > .rm-first-page-header-left"
+      ) ||
       bandEl.querySelector(":scope > .nv-band-left");
 
     if (!left) {
@@ -429,8 +473,14 @@ export default function TextEditor({
     }
 
     let right =
-      bandEl.querySelector(isFooter ? ":scope > .rm-page-footer-right" : ":scope > .rm-page-header-right") ||
-      bandEl.querySelector(isFooter ? ":scope > .rm-first-page-footer-right" : ":scope > .rm-first-page-header-right") ||
+      bandEl.querySelector(
+        isFooter ? ":scope > .rm-page-footer-right" : ":scope > .rm-page-header-right"
+      ) ||
+      bandEl.querySelector(
+        isFooter
+          ? ":scope > .rm-first-page-footer-right"
+          : ":scope > .rm-first-page-header-right"
+      ) ||
       bandEl.querySelector(":scope > .nv-band-right");
 
     if (!right) {
@@ -458,141 +508,158 @@ export default function TextEditor({
       bandEl.insertBefore(center, right);
     }
 
-    bandEl.querySelectorAll(":scope > .nv-header-left, :scope > .nv-header-right").forEach((el) => {
-      if (el !== left && el !== right) el.remove();
-    });
+    bandEl
+      .querySelectorAll(":scope > .nv-header-left, :scope > .nv-header-right")
+      .forEach((el) => {
+        if (el !== left && el !== right) el.remove();
+      });
 
     return { left, center, right, bandEl };
   }, []);
 
-  const renderHeaderContent = useCallback((trip, cfg, pageNo, total) => {
-    trip.bandEl.style.visibility = cfg.headerEnabled ? "visible" : "hidden";
-    if (!cfg.headerEnabled) {
+  const renderHeaderContent = useCallback(
+    (trip, cfg, pageNo, total) => {
+      trip.bandEl.style.visibility = cfg.headerEnabled ? "visible" : "hidden";
+      if (!cfg.headerEnabled) {
+        trip.left.innerHTML = "";
+        trip.center.innerHTML = "";
+        trip.right.innerHTML = "";
+        return;
+      }
+
       trip.left.innerHTML = "";
       trip.center.innerHTML = "";
       trip.right.innerHTML = "";
-      return;
-    }
 
-    trip.left.innerHTML = "";
-    trip.center.innerHTML = "";
-    trip.right.innerHTML = "";
+      // LEFT: SLU logo (retrieved EXACTLY from cfg.assets.slu)
+      if (cfg.logos.slu?.enabled && cfg.assets?.slu) {
+        const sluImg = document.createElement("img");
+        sluImg.src = resolveAssetUrl(cfg.assets.slu);
+        sluImg.alt = "SLU";
+        sluImg.style.height = px(cfg.logos.slu.sizePx || 56);
+        sluImg.style.objectFit = "contain";
+        sluImg.style.pointerEvents = "none";
+        sluImg.style.userSelect = "none";
+        trip.left.style.display = "flex";
+        trip.left.style.alignItems = "center";
+        trip.left.appendChild(sluImg);
+      }
 
-    // LEFT: SLU logo (retrieved EXACTLY from cfg.assets.slu)
-    if (cfg.logos.slu?.enabled && cfg.assets?.slu) {
-      const sluImg = document.createElement("img");
-      sluImg.src = resolveAssetUrl(cfg.assets.slu);
-      sluImg.alt = "SLU";
-      sluImg.style.height = px(cfg.logos.slu.sizePx || 56);
-      sluImg.style.objectFit = "contain";
-      sluImg.style.pointerEvents = "none";
-      sluImg.style.userSelect = "none";
-      trip.left.style.display = "flex";
-      trip.left.style.alignItems = "center";
-      trip.left.appendChild(sluImg);
-    }
+      // CENTER: header text block with per-line styles
+      const c = cfg.center;
 
-    // CENTER: header text block
-    const weight = cfg.center.bold ? 700 : 400;
-    const styleStr =
-      `display:flex;flex-direction:column;align-items:center;line-height:1.15;` +
-      `font-family:${cfg.center.fontFamily};color:${cfg.center.color};` +
-      `font-size:${px(cfg.center.fontSize)};font-style:${cfg.center.italic ? "italic" : "normal"};` +
-      `font-weight:${weight};text-align:center;`;
-    const line = (txt, extra = "") => (txt ? `<div style="${extra}">${escapeHtml(txt)}</div>` : "");
-    trip.center.innerHTML = `
-      <div class="nv-center-text" style="${styleStr}">
-        ${line(cfg.center.line1)}
-        ${line(cfg.center.line2)}
-        ${line(cfg.center.line3, "font-size:12px;")}
-        ${cfg.center.showLine4 ? line(cfg.center.line4) : ""}
-      </div>
-    `;
-
-    // RIGHT: CICM logo + stamp card (CICM retrieved EXACTLY from cfg.assets.cicm)
-    const rightRow = document.createElement("div");
-    rightRow.style.display = "flex";
-    rightRow.style.alignItems = "center";
-    rightRow.style.gap = "8px";
-
-    if (cfg.logos.cicm?.enabled && cfg.assets?.cicm) {
-      const cicmImg = document.createElement("img");
-      cicmImg.src = resolveAssetUrl(cfg.assets.cicm);
-      cicmImg.alt = "CICM";
-      cicmImg.style.height = px(cfg.logos.cicm.sizePx || 52);
-      cicmImg.style.objectFit = "contain";
-      cicmImg.style.pointerEvents = "none";
-      cicmImg.style.userSelect = "none";
-      rightRow.appendChild(cicmImg);
-    }
-
-    const hasDocCode = String(cfg.stamp.docCode || "").trim().length > 0;
-    if (hasDocCode) {
-      const card = document.createElement("div");
-      card.style.border = "1px solid #000";
-      card.style.fontSize = "11px";
-      card.style.fontFamily = "Arial,sans-serif";
-      card.style.background = "#fff";
-      card.style.display = "flex";
-      card.style.flexDirection = "column";
-
-      const row = (label, value) => {
-        const r = document.createElement("div");
-        r.style.display = "flex";
-        r.style.alignItems = "stretch";
-        r.style.borderTop = "1px solid #000";
-        const l = document.createElement("div");
-        l.textContent = label;
-        l.style.padding = "2px 6px";
-        l.style.borderRight = "1px solid #000";
-        const v = document.createElement("div");
-        v.textContent = value;
-        v.style.padding = "2px 6px";
-        r.appendChild(l);
-        r.appendChild(v);
-        return r;
+      const lineHtml = (txt, st) => {
+        if (!txt) return "";
+        const weight = st.bold ? 700 : 400;
+        const styleStr =
+          `font-family:${st.fontFamily};` +
+          `color:${st.color};` +
+          `font-size:${px(st.fontSizePx)};` +
+          `font-style:${st.italic ? "italic" : "normal"};` +
+          `font-weight:${weight};` +
+          `line-height:1.15;` +
+          `text-align:center;`;
+        return `<div style="${styleStr}">${escapeHtml(txt)}</div>`;
       };
 
-      const first = document.createElement("div");
-      first.style.display = "flex";
-      const fl = document.createElement("div");
-      fl.textContent = "Document Code";
-      fl.style.padding = "2px 6px";
-      fl.style.borderRight = "1px solid #000";
-      const fv = document.createElement("div");
-      fv.textContent = String(cfg.stamp.docCode);
-      fv.style.padding = "2px 6px";
-      first.appendChild(fl);
-      first.appendChild(fv);
-      card.appendChild(first);
+      const containerStyle =
+        "display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;";
 
-      card.appendChild(row("Revision No.", String(cfg.stamp.revisionNo)));
-      card.appendChild(row("Effectivity", String(cfg.stamp.effectivity)));
-      card.appendChild(row("Page", `${pageNo} of ${total}`));
+      trip.center.innerHTML = `
+        <div class="nv-center-text" style="${containerStyle}">
+          ${lineHtml(c.line1, c.line1Style)}
+          ${lineHtml(c.line2, c.line2Style)}
+          ${lineHtml(c.line3, c.line3Style)}
+          ${c.showLine4 ? lineHtml(c.line4, c.line4Style) : ""}
+        </div>
+      `;
 
-      rightRow.appendChild(card);
-    }
+      // RIGHT: CICM logo + stamp card (CICM retrieved EXACTLY from cfg.assets.cicm)
+      const rightRow = document.createElement("div");
+      rightRow.style.display = "flex";
+      rightRow.style.alignItems = "center";
+      rightRow.style.gap = "8px";
 
-    trip.right.appendChild(rightRow);
+      if (cfg.logos.cicm?.enabled && cfg.assets?.cicm) {
+        const cicmImg = document.createElement("img");
+        cicmImg.src = resolveAssetUrl(cfg.assets.cicm);
+        cicmImg.alt = "CICM";
+        cicmImg.style.height = px(cfg.logos.cicm.sizePx || 52);
+        cicmImg.style.objectFit = "contain";
+        cicmImg.style.pointerEvents = "none";
+        cicmImg.style.userSelect = "none";
+        rightRow.appendChild(cicmImg);
+      }
 
-    const wantLine = !!cfg.center.showHeaderLine;
-    let lineEl = trip.bandEl.querySelector(":scope > .nv-header-line");
-    if (wantLine && !lineEl) {
-      lineEl = document.createElement("div");
-      lineEl.className = "nv-header-line";
-      lineEl.style.position = "absolute";
-      lineEl.style.left = "0";
-      lineEl.style.right = "0";
-      lineEl.style.bottom = "0";
-      lineEl.style.height = "1px";
-      lineEl.style.background = "#000";
-      trip.bandEl.appendChild(lineEl);
-    } else if (!wantLine && lineEl) {
-      lineEl.remove();
-    }
+      const hasDocCode = String(cfg.stamp.docCode || "").trim().length > 0;
+      if (hasDocCode) {
+        const card = document.createElement("div");
+        card.style.border = "1px solid #000";
+        card.style.fontSize = "11px";
+        card.style.fontFamily = "Arial,sans-serif";
+        card.style.background = "#fff";
+        card.style.display = "flex";
+        card.style.flexDirection = "column";
 
-    autoFitBand(editor, trip.bandEl, "header", getHeaderBasePx(cfg));
-  }, [editor]);
+        const row = (label, value) => {
+          const r = document.createElement("div");
+          r.style.display = "flex";
+          r.style.alignItems = "stretch";
+          r.style.borderTop = "1px solid #000";
+          const l = document.createElement("div");
+          l.textContent = label;
+          l.style.padding = "2px 6px";
+          l.style.borderRight = "1px solid #000";
+          const v = document.createElement("div");
+          v.textContent = value;
+          v.style.padding = "2px 6px";
+          r.appendChild(l);
+          r.appendChild(v);
+          return r;
+        };
+
+        const first = document.createElement("div");
+        first.style.display = "flex";
+        const fl = document.createElement("div");
+        fl.textContent = "Document Code";
+        fl.style.padding = "2px 6px";
+        fl.style.borderRight = "1px solid #000";
+        const fv = document.createElement("div");
+        fv.textContent = String(cfg.stamp.docCode);
+        fv.style.padding = "2px 6px";
+        first.appendChild(fl);
+        first.appendChild(fv);
+        card.appendChild(first);
+
+        card.appendChild(row("Revision No.", String(cfg.stamp.revisionNo)));
+        card.appendChild(row("Effectivity", String(cfg.stamp.effectivity)));
+        card.appendChild(row("Page", `${pageNo} of ${total}`));
+
+        rightRow.appendChild(card);
+      }
+
+      trip.right.appendChild(rightRow);
+
+      const wantLine = !!cfg.center.showHeaderLine;
+      let lineEl = trip.bandEl.querySelector(":scope > .nv-header-line");
+      if (wantLine && !lineEl) {
+        lineEl = document.createElement("div");
+        lineEl.className = "nv-header-line";
+        lineEl.style.position = "absolute";
+        lineEl.style.left = "0";
+        lineEl.style.right = "0";
+        lineEl.style.bottom = "0";
+        lineEl.style.height = "1px";
+        lineEl.style.background = "#000";
+        trip.bandEl.appendChild(lineEl);
+      } else if (!wantLine && lineEl) {
+        lineEl.remove();
+      }
+
+      autoFitBand(editor, trip.bandEl, "header", getHeaderBasePx(cfg));
+    },
+    [editor]
+  );
 
   const pickSlot = (trip, align) => {
     if (align === "left") return trip.left;
@@ -600,85 +667,90 @@ export default function TextEditor({
     return trip.center;
   };
 
-  const renderFooterContent = useCallback((trip, cfg, pageNo, total) => {
-    trip.bandEl.style.visibility = cfg.footerEnabled ? "visible" : "hidden";
-    if (!cfg.footerEnabled) {
+  const renderFooterContent = useCallback(
+    (trip, cfg, pageNo, total) => {
+      trip.bandEl.style.visibility = cfg.footerEnabled ? "visible" : "hidden";
+      if (!cfg.footerEnabled) {
+        trip.left.innerHTML = "";
+        trip.center.innerHTML = "";
+        trip.right.innerHTML = "";
+        return;
+      }
+
+      stripDefaultPageNumber(trip.bandEl);
+
       trip.left.innerHTML = "";
       trip.center.innerHTML = "";
       trip.right.innerHTML = "";
-      return;
-    }
 
-    stripDefaultPageNumber(trip.bandEl);
+      const blockFor = (align) => {
+        const host = pickSlot(trip, align);
+        host.style.display = "flex";
+        host.style.flexDirection = "column";
+        host.style.alignItems =
+          align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
+        host.style.justifyContent = "center";
+        host.style.gap = "2px";
+        return host;
+      };
 
-    trip.left.innerHTML = "";
-    trip.center.innerHTML = "";
-    trip.right.innerHTML = "";
+      if (cfg.footer.pageNumber.enabled) {
+        const pn = cfg.footer.pageNumber;
+        const weight = pn.bold ? 700 : 400;
+        const pnHost = blockFor(pn.align);
+        const el = document.createElement("div");
+        el.style.fontFamily = pn.fontFamily;
+        el.style.fontSize = px(pn.fontSize);
+        el.style.color = pn.color;
+        el.style.fontStyle = pn.italic ? "italic" : "normal";
+        el.style.fontWeight = weight;
+        el.style.lineHeight = "1.2";
+        el.textContent = (pn.pattern || "{page} of {total}")
+          .replace("{page}", String(pageNo))
+          .replace("{total}", String(total));
+        pnHost.appendChild(el);
 
-    const blockFor = (align) => {
-      const host = pickSlot(trip, align);
-      host.style.display = "flex";
-      host.style.flexDirection = "column";
-      host.style.alignItems = align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
-      host.style.justifyContent = "center";
-      host.style.gap = "2px";
-      return host;
-    };
-
-    if (cfg.footer.pageNumber.enabled) {
-      const pn = cfg.footer.pageNumber;
-      const weight = pn.bold ? 700 : 400;
-      const pnHost = blockFor(pn.align);
-      const el = document.createElement("div");
-      el.style.fontFamily = pn.fontFamily;
-      el.style.fontSize = px(pn.fontSize);
-      el.style.color = pn.color;
-      el.style.fontStyle = pn.italic ? "italic" : "normal";
-      el.style.fontWeight = weight;
-      el.style.lineHeight = "1.2";
-      el.textContent = (pn.pattern || "{page} of {total}")
-        .replace("{page}", String(pageNo))
-        .replace("{total}", String(total));
-      pnHost.appendChild(el);
-
-      if (cfg.footer.body.enabled && cfg.footer.body.align === pn.align && cfg.footer.body.text) {
-        const b = cfg.footer.body;
-        const w2 = b.bold ? 700 : 400;
-        const el2 = document.createElement("div");
-        el2.style.fontFamily = b.fontFamily;
-        el2.style.fontSize = px(b.fontSize);
-        el2.style.color = b.color;
-        el2.style.fontStyle = b.italic ? "italic" : "normal";
-        el2.style.fontWeight = w2;
-        el2.style.lineHeight = "1.2";
-        el2.style.whiteSpace = "pre-wrap";
-        el2.textContent = b.text;
-        pnHost.appendChild(el2);
+        if (cfg.footer.body.enabled && cfg.footer.body.align === pn.align && cfg.footer.body.text) {
+          const b = cfg.footer.body;
+          const w2 = b.bold ? 700 : 400;
+          const el2 = document.createElement("div");
+          el2.style.fontFamily = b.fontFamily;
+          el2.style.fontSize = px(b.fontSize);
+          el2.style.color = b.color;
+          el2.style.fontStyle = b.italic ? "italic" : "normal";
+          el2.style.fontWeight = w2;
+          el2.style.lineHeight = "1.2";
+          el2.style.whiteSpace = "pre-wrap";
+          el2.textContent = b.text;
+          pnHost.appendChild(el2);
+        }
       }
-    }
 
-    if (
-      cfg.footer.body.enabled &&
-      cfg.footer.body.text &&
-      (!cfg.footer.pageNumber.enabled || cfg.footer.body.align !== cfg.footer.pageNumber.align)
-    ) {
-      const b = cfg.footer.body;
-      const host = blockFor(b.align);
-      const w = b.bold ? 700 : 400;
-      const el = document.createElement("div");
-      el.style.fontFamily = b.fontFamily;
-      el.style.fontSize = px(b.fontSize);
-      el.style.color = b.color;
-      el.style.fontStyle = b.italic ? "italic" : "normal";
-      el.style.fontWeight = w;
-      el.style.lineHeight = "1.2";
-      el.style.whiteSpace = "pre-wrap";
-      el.textContent = b.text;
-      host.appendChild(el);
-    }
+      if (
+        cfg.footer.body.enabled &&
+        cfg.footer.body.text &&
+        (!cfg.footer.pageNumber.enabled ||
+          cfg.footer.body.align !== cfg.footer.pageNumber.align)
+      ) {
+        const b = cfg.footer.body;
+        const host = blockFor(b.align);
+        const w = b.bold ? 700 : 400;
+        const el = document.createElement("div");
+        el.style.fontFamily = b.fontFamily;
+        el.style.fontSize = px(b.fontSize);
+        el.style.color = b.color;
+        el.style.fontStyle = b.italic ? "italic" : "normal";
+        el.style.fontWeight = w;
+        el.style.lineHeight = "1.2";
+        el.style.whiteSpace = "pre-wrap";
+        el.textContent = b.text;
+        host.appendChild(el);
+      }
 
-    autoFitBand(editor, trip.bandEl, "footer", getFooterBasePx(cfg));
-  }, [editor]);
+      autoFitBand(editor, trip.bandEl, "footer", getFooterBasePx(cfg));
+    },
+    [editor]
+  );
 
   /* ----------------------------- main apply pass ------------------------------ */
   const applyHeaderFooterBands = useMemo(

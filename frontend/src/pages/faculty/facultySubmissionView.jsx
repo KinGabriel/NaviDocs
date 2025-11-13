@@ -18,12 +18,14 @@ import {
   CheckCircle,
   AlertCircle,
   Eye,
+  MessageSquare
 } from "lucide-react";
 import { getSubmissionBinAPI, submitSubmissionDocumentAPI, getDocumentContentAPI, addSubmissionCommentAPI } from "../../api/assignmentDocumentsAPI";
 import { getTemplateByIdAPI } from "../../api/documentContollerAPI";
 import TextEditor from "../../layout/create_template/textEditor";
 import Loader from "../../components/loader";
 import { getSubmissionItemStatus } from "../../utils/submissionStatus";
+import { getUsersInfoByIdsAPI } from "../../api/userAPI"; 
 
 export default function FacultySubmissionView() {
   const user = useUser();
@@ -42,6 +44,7 @@ export default function FacultySubmissionView() {
   const [showTplPreview, setShowTplPreview] = useState(false);
   const [tplToPreview, setTplToPreview] = useState(null);
   const [tplCurrentPage, setTplCurrentPage] = useState(0);
+  const [reviewerUsers, setReviewerUsers] = useState({}); 
 
   // Load the bin by ID and find the student's/faculty's assigned submission item
   useEffect(() => {
@@ -102,6 +105,56 @@ export default function FacultySubmissionView() {
     
     return () => { cancelled = true; };
   }, [bin?.template_ids]);
+
+  // Fetch reviewer user information from notes
+  useEffect(() => {
+    if (!assignedItem?.notes || !Array.isArray(assignedItem.notes)) return;
+    
+    const userIds = assignedItem.notes
+      .map(note => {
+        if (typeof note.by === 'string') return note.by;
+        if (note.by && typeof note.by === 'object') return note.by._id || note.by.id;
+        return null;
+      })
+      .filter(Boolean);
+    
+    if (userIds.length === 0) return;
+    
+    // Remove duplicates
+    const uniqueIds = [...new Set(userIds)];
+    
+    let mounted = true;
+    
+    getUsersInfoByIdsAPI(uniqueIds)
+      .then(users => {
+        if (!mounted || !users) return;
+        
+        // Create a map of userId -> user object
+        const userMap = {};
+        users.forEach(user => {
+          const id = user.userId || user._id || user.id;
+          if (id) {
+            userMap[id] = {
+              name: user.name || 
+                    user.fullname || 
+                    `${user.firstname || ''} ${user.lastname || ''}`.trim() || 
+                    user.email || 
+                    'Unknown User',
+              role: user.role?.name || user.role || 'Reviewer',
+              email: user.email
+            };
+          }
+        });
+        
+        setReviewerUsers(userMap);
+      })
+      .catch(err => {
+        console.error('Failed to fetch reviewer info:', err);
+      });
+    
+    return () => { mounted = false; };
+  }, [assignedItem?.notes]);
+  
 
     const submission = useMemo(() => {
         if (!bin || !assignedItem) return null;
@@ -442,7 +495,7 @@ export default function FacultySubmissionView() {
                       className={`font-semibold ${
                         isOverdue
                           ? "text-red-900"
-                          : daysUntilDue <= 3
+                          : daysUntilDue <= 5
                           ? "text-orange-900"
                           : "text-blue-900"
                       }`}
@@ -453,7 +506,7 @@ export default function FacultySubmissionView() {
                       className={`text-sm ${
                         isOverdue
                           ? "text-red-700"
-                          : daysUntilDue <= 3
+                          : daysUntilDue <= 5
                           ? "text-orange-700"
                           : "text-blue-700"
                       }`}
@@ -564,22 +617,114 @@ export default function FacultySubmissionView() {
 
                 {/* Display Return Reason (if returned) - read from comments/notes history */}
                 {(() => {
-                  const returnedFromNotes = (Array.isArray(assignedItem?.notes) ? assignedItem.notes : []).filter(n => String(n.type).toLowerCase() === 'returned');
-                  const lastReturned = returnedFromNotes.slice(-1)[0];
-                  if (lastReturned && lastReturned.message && String(lastReturned.message).trim()) {
+                  // Check if submission was returned
+                  const isReturned = assignedItem?.status === 'returned' || 
+                                    submission?.status?.toLowerCase() === 'returned';
+                  
+                  if (!isReturned) return null;
+                  
+                  const notes = Array.isArray(assignedItem?.notes) ? assignedItem.notes : [];
+                  
+                  // Filter for return-type notes
+                  const returnedNotes = notes.filter(n => {
+                    const noteType = String(n.type || '').toLowerCase();
+                    return noteType === 'returned' || noteType === 'return';
+                  });
+                  
+                  // If no specific return notes, show all notes when status is returned
+                  const notesToShow = returnedNotes.length > 0 ? returnedNotes : notes;
+                  
+                  if (notesToShow.length === 0) {
                     return (
                       <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
                         <div className="flex items-start gap-2 mb-2">
                           <AlertCircle size={18} className="text-orange-600 mt-0.5 flex-shrink-0" />
-                          <p className="text-sm font-semibold text-gray-900">Return Reason:</p>
+                          <p className="text-sm font-semibold text-gray-900">Returned for Revision</p>
                         </div>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap pl-6">
-                          {String(lastReturned.message)}
+                        <p className="text-sm text-gray-700 pl-6">
+                          This submission was returned. Please review and resubmit.
                         </p>
                       </div>
                     );
                   }
-                  return null;
+                  
+                  return (
+                    <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                      <div className="flex items-start gap-2 mb-3">
+                        <AlertCircle size={18} className="text-orange-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm font-semibold text-gray-900">Feedback from Reviewer:</p>
+                      </div>
+                      <div className="space-y-3 pl-6">
+                      {notesToShow.map((note, idx) => {
+                        const message = note.message || note.reason || note.text || note.comment || '';
+                        if (!String(message).trim()) return null;
+                        
+                        // Extract reviewer info - prioritize fetched user data
+                        let reviewerName = 'Reviewer';
+                        let reviewerRole = '';
+                        let reviewerEmail = '';
+                        
+                        // Get user ID
+                        const userId = typeof note.by === 'string' 
+                          ? note.by 
+                          : (note.by?._id || note.by?.id);
+                        
+                        // Check if we have fetched user data
+                        if (userId && reviewerUsers[userId]) {
+                          const fetchedUser = reviewerUsers[userId];
+                          reviewerName = fetchedUser.name;
+                          reviewerRole = fetchedUser.role;
+                          reviewerEmail = fetchedUser.email;
+                        } 
+                        // Fallback to note.by object if available
+                        else if (note.by && typeof note.by === 'object') {
+                          const firstName = note.by.firstname || note.by.first_name || '';
+                          const lastName = note.by.lastname || note.by.last_name || '';
+                          reviewerName = note.by.name || 
+                                        note.by.fullname || 
+                                        (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
+                                        'Reviewer';
+                          
+                          if (note.by.role) {
+                            reviewerRole = typeof note.by.role === 'object' 
+                              ? (note.by.role.name || note.by.role.title || '')
+                              : String(note.by.role);
+                          }
+                          
+                          reviewerEmail = note.by.email || '';
+                        }
+                        
+                        const timestamp = note.createdAt || note.created_at || note.at || note.timestamp;
+                          
+                          return (
+                            <div key={note._id || note.id || idx} className="bg-white p-3 rounded-md border border-orange-300">
+                              <div className="flex items-start justify-between mb-2 gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-xs font-semibold text-gray-900 block">{reviewerName}</span>
+                                  {reviewerEmail && (
+                                    <span className="text-xs text-gray-500 block truncate">{reviewerEmail}</span>
+                                  )}
+                                </div>
+                                {reviewerRole && (
+                                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium whitespace-nowrap flex-shrink-0">
+                                    {reviewerRole}
+                                  </span>
+                                )}
+                              </div>
+                              {timestamp && (
+                                <p className="text-xs text-gray-500 mb-2">
+                                  {formatDateTime(timestamp)}
+                                </p>
+                              )}
+                              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                {String(message)}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
                 })()}
 
                 {/* Submitted Documents */}
@@ -671,9 +816,10 @@ export default function FacultySubmissionView() {
             ) : (submission?.status?.toLowerCase() === 'pending' || submission?.status?.toLowerCase() === 'returned') ? (
               /* Upload Form */
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  {/* Add a notice when resubmitting */}
-                  {submission?.status?.toLowerCase() === 'returned' && (
-                    <div className="mb-6 p-4 bg-orange-50 border-l-4 border-orange-400 rounded">
+                {/* Add a notice when resubmitting */}
+                {submission?.status?.toLowerCase() === 'returned' && (
+                  <>
+                    <div className="mb-4 p-4 bg-orange-50 border-l-4 border-orange-400 rounded">
                       <div className="flex items-start gap-3">
                         <AlertCircle size={20} className="text-orange-600 mt-0.5 flex-shrink-0" />
                         <div className="flex-1">
@@ -681,17 +827,107 @@ export default function FacultySubmissionView() {
                             Resubmission Required
                           </h4>
                           <p className="text-sm text-orange-800">
-                            Your previous submission was returned for revision. Please review the feedback <span className="text-orange font-xs italic">(if provided)</span> and submit again.
+                            Your previous submission was returned for revision. Please review the feedback below and submit again.
                           </p>
                         </div>
                       </div>
                     </div>
-                  )}
-                  
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Plus size={20} className="text-blue-600" />
-                  {submission?.status?.toLowerCase() === 'returned' ? 'Resubmit Your Work' : 'Submit Your Work'}
-                </h3>
+
+                    {/* Display feedback from reviewers */}
+                    {(() => {
+                      const notes = Array.isArray(assignedItem?.notes) ? assignedItem.notes : [];
+                      
+                      // Filter for return-type notes
+                      const returnedNotes = notes.filter(n => {
+                        const noteType = String(n.type || '').toLowerCase();
+                        return noteType === 'returned' || noteType === 'return';
+                      });
+                      
+                      // If no specific return notes, show all notes when status is returned
+                      const notesToShow = returnedNotes.length > 0 ? returnedNotes : notes;
+                      
+                      if (notesToShow.length === 0) return null;
+                      
+                      return (
+                        <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
+                          <div className="flex items-start gap-2 mb-3">
+                            <MessageSquare size={18} className="text-red-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-sm font-semibold text-gray-900">Feedback from Reviewer:</p>
+                          </div>
+                          <div className="space-y-3">
+                            {notesToShow.map((note, idx) => {
+                              const message = note.message || note.reason || note.text || note.comment || '';
+                              if (!String(message).trim()) return null;
+                              
+                              // Extract reviewer info - prioritize fetched user data
+                              let reviewerName = 'Reviewer';
+                              let reviewerRole = '';
+                              let reviewerEmail = '';
+                              
+                              // Get user ID
+                              const userId = typeof note.by === 'string' 
+                                ? note.by 
+                                : (note.by?._id || note.by?.id);
+                              
+                              // Check if we have fetched user data
+                              if (userId && reviewerUsers[userId]) {
+                                const fetchedUser = reviewerUsers[userId];
+                                reviewerName = fetchedUser.name;
+                                reviewerRole = fetchedUser.role;
+                                reviewerEmail = fetchedUser.email;
+                              } 
+                              // Fallback to note.by object if available
+                              else if (note.by && typeof note.by === 'object') {
+                                const firstName = note.by.firstname || note.by.first_name || '';
+                                const lastName = note.by.lastname || note.by.last_name || '';
+                                reviewerName = note.by.name || 
+                                              note.by.fullname || 
+                                              (firstName && lastName ? `${firstName} ${lastName}`.trim() : '') ||
+                                              'Reviewer';
+                                
+                                if (note.by.role) {
+                                  reviewerRole = typeof note.by.role === 'object' 
+                                    ? (note.by.role.name || note.by.role.title || '')
+                                    : String(note.by.role);
+                                }
+                                
+                                reviewerEmail = note.by.email || '';
+                              }
+                              
+                              const timestamp = note.createdAt || note.created_at || note.at || note.timestamp;
+                              
+                              return (
+                                <div key={note._id || note.id || idx} className="bg-white p-3 rounded-md border border-red-300 shadow-sm">
+                                  <div className="flex items-start justify-between mb-2 gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <span className="text-xs font-semibold text-gray-900 block">{reviewerName}</span>
+                                      {reviewerEmail && (
+                                        <span className="text-xs text-gray-500 block truncate">{reviewerEmail}</span>
+                                      )}
+                                    </div>
+                                    {reviewerRole && (
+                                      <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium whitespace-nowrap flex-shrink-0">
+                                        {reviewerRole}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {timestamp && (
+                                    <p className="text-xs text-gray-500 mb-2">
+                                      {formatDateTime(timestamp)}
+                                    </p>
+                                  )}
+                                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                                    {String(message)}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
 
                 {/* File Upload Section */}
              <div className="mb-6">

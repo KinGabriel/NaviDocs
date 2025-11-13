@@ -47,6 +47,7 @@ const DEFAULTS = {
       italic: false,
       color: "#000000",
       showHeaderLine: false,
+      headerLineOffsetPx: 4,
     },
   },
 
@@ -76,6 +77,19 @@ const DEFAULTS = {
       color: "#000000",
     },
   },
+};
+
+// px ⇄ pt helpers (96 dpi → 1pt ≈ 1.333px)
+const pxToPt = (px) => {
+  const n = Number(px);
+  if (!Number.isFinite(n) || n <= 0) return 12;
+  return Math.round(n * 0.75);
+};
+
+const ptToPx = (pt) => {
+  const n = Number(pt);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULTS.header.centerText.fontSize;
+  return Math.round(n * (4 / 3));
 };
 
 // normalize to strict yyyy-mm-dd (local)
@@ -136,6 +150,8 @@ function mergeDefaults(value) {
     line4: v.line4 ?? v.header?.centerText?.line4 ?? "",
     showLine4: v.showLine4 ?? v.header?.centerText?.showLine4 ?? false,
     showHeaderLine: v.showHeaderLine ?? v.header?.centerText?.showHeaderLine ?? false,
+    headerLineOffsetPx:
+      v.header?.centerText?.headerLineOffsetPx ?? DEFAULTS.header.centerText.headerLineOffsetPx,
   };
 
   // Document stamp (legacy mirrors)
@@ -177,7 +193,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
   const [cicmSizePx, setCicmSizePx] = useState(initial.header.logos.cicm.sizePx);
   const [cicmXPercent, setCicmXPercent] = useState(initial.header.logos.cicm.xPercent);
 
-  // Center text + style
+  // Center text lines
   const [line1, setLine1] = useState(initial.header.centerText.line1);
   const [line2, setLine2] = useState(initial.header.centerText.line2);
   const [line3, setLine3] = useState(initial.header.centerText.line3);
@@ -190,6 +206,51 @@ export default function HeaderFooterPanel({ value, onChange }) {
   const [italic, setItalic] = useState(initial.header.centerText.italic);
   const [color, setColor] = useState(initial.header.centerText.color);
   const [showHeaderLine, setShowHeaderLine] = useState(initial.header.centerText.showHeaderLine);
+
+  // Per-line styles (font family, size in pt, bold, italic, color)
+  const baseCt = initial.header.centerText;
+
+  const [line1FontFamily, setLine1FontFamily] = useState(
+    baseCt.line1Style?.fontFamily || baseCt.fontFamily
+  );
+  const [line1FontSizePt, setLine1FontSizePt] = useState(
+    baseCt.line1Style?.fontSizePt ?? pxToPt(baseCt.fontSize)
+  );
+  const [line1Bold, setLine1Bold] = useState(baseCt.line1Style?.bold ?? baseCt.bold);
+  const [line1Italic, setLine1Italic] = useState(baseCt.line1Style?.italic ?? baseCt.italic);
+  const [line1Color, setLine1Color] = useState(baseCt.line1Style?.color || baseCt.color);
+
+  const [line2FontFamily, setLine2FontFamily] = useState(
+    baseCt.line2Style?.fontFamily || baseCt.fontFamily
+  );
+  const [line2FontSizePt, setLine2FontSizePt] = useState(
+    baseCt.line2Style?.fontSizePt ?? pxToPt(baseCt.fontSize)
+  );
+  const [line2Bold, setLine2Bold] = useState(baseCt.line2Style?.bold ?? baseCt.bold);
+  const [line2Italic, setLine2Italic] = useState(baseCt.line2Style?.italic ?? baseCt.italic);
+  const [line2Color, setLine2Color] = useState(baseCt.line2Style?.color || baseCt.color);
+
+  const [line3FontFamily, setLine3FontFamily] = useState(
+    baseCt.line3Style?.fontFamily || baseCt.fontFamily
+  );
+  const [line3FontSizePt, setLine3FontSizePt] = useState(
+    baseCt.line3Style?.fontSizePt ?? pxToPt(baseCt.fontSize)
+  );
+  const [line3Bold, setLine3Bold] = useState(baseCt.line3Style?.bold ?? baseCt.bold);
+  const [line3Italic, setLine3Italic] = useState(baseCt.line3Style?.italic ?? baseCt.italic);
+  const [line3Color, setLine3Color] = useState(baseCt.line3Style?.color || baseCt.color);
+
+  const [line4FontFamily, setLine4FontFamily] = useState(
+    baseCt.line4Style?.fontFamily || baseCt.fontFamily
+  );
+  const [line4FontSizePt, setLine4FontSizePt] = useState(
+    baseCt.line4Style?.fontSizePt ?? pxToPt(baseCt.fontSize)
+  );
+  const [line4Bold, setLine4Bold] = useState(baseCt.line4Style?.bold ?? baseCt.bold);
+  const [line4Italic, setLine4Italic] = useState(baseCt.line4Style?.italic ?? baseCt.italic);
+  const [line4Color, setLine4Color] = useState(baseCt.line4Style?.color || baseCt.color);
+
+  const [activeHeaderLine, setActiveHeaderLine] = useState("line1");
 
   // Document stamp (kept for data, UI hidden)
   const [docCode, setDocCode] = useState(initial.documentStamp.docCode);
@@ -253,6 +314,32 @@ export default function HeaderFooterPanel({ value, onChange }) {
     setColor(next.header.centerText.color);
     setShowHeaderLine(next.header.centerText.showHeaderLine);
 
+    const ct = next.header.centerText;
+
+    setLine1FontFamily(ct.line1Style?.fontFamily || ct.fontFamily);
+    setLine1FontSizePt(ct.line1Style?.fontSizePt ?? pxToPt(ct.fontSize));
+    setLine1Bold(ct.line1Style?.bold ?? ct.bold);
+    setLine1Italic(ct.line1Style?.italic ?? ct.italic);
+    setLine1Color(ct.line1Style?.color || ct.color);
+
+    setLine2FontFamily(ct.line2Style?.fontFamily || ct.fontFamily);
+    setLine2FontSizePt(ct.line2Style?.fontSizePt ?? pxToPt(ct.fontSize));
+    setLine2Bold(ct.line2Style?.bold ?? ct.bold);
+    setLine2Italic(ct.line2Style?.italic ?? ct.italic);
+    setLine2Color(ct.line2Style?.color || ct.color);
+
+    setLine3FontFamily(ct.line3Style?.fontFamily || ct.fontFamily);
+    setLine3FontSizePt(ct.line3Style?.fontSizePt ?? pxToPt(ct.fontSize));
+    setLine3Bold(ct.line3Style?.bold ?? ct.bold);
+    setLine3Italic(ct.line3Style?.italic ?? ct.italic);
+    setLine3Color(ct.line3Style?.color || ct.color);
+
+    setLine4FontFamily(ct.line4Style?.fontFamily || ct.fontFamily);
+    setLine4FontSizePt(ct.line4Style?.fontSizePt ?? pxToPt(ct.fontSize));
+    setLine4Bold(ct.line4Style?.bold ?? ct.bold);
+    setLine4Italic(ct.line4Style?.italic ?? ct.italic);
+    setLine4Color(ct.line4Style?.color || ct.color);
+
     setDocCode(next.documentStamp.docCode);
     setRevisionNo(next.documentStamp.revisionNo);
     setEffectivity(normalizeEffectivityLocal(next.documentStamp.effectivity));
@@ -289,6 +376,40 @@ export default function HeaderFooterPanel({ value, onChange }) {
   useEffect(() => {
     if (isSyncingRef.current) return;
 
+    const line1Style = {
+      fontFamily: line1FontFamily,
+      fontSizePt: coerceNum(line1FontSizePt, pxToPt(DEFAULTS.header.centerText.fontSize)),
+      bold: !!line1Bold,
+      italic: !!line1Italic,
+      color: line1Color,
+    };
+
+    const line2Style = {
+      fontFamily: line2FontFamily,
+      fontSizePt: coerceNum(line2FontSizePt, pxToPt(DEFAULTS.header.centerText.fontSize)),
+      bold: !!line2Bold,
+      italic: !!line2Italic,
+      color: line2Color,
+    };
+
+    const line3Style = {
+      fontFamily: line3FontFamily,
+      fontSizePt: coerceNum(line3FontSizePt, pxToPt(DEFAULTS.header.centerText.fontSize)),
+      bold: !!line3Bold,
+      italic: !!line3Italic,
+      color: line3Color,
+    };
+
+    const line4Style = {
+      fontFamily: line4FontFamily,
+      fontSizePt: coerceNum(line4FontSizePt, pxToPt(DEFAULTS.header.centerText.fontSize)),
+      bold: !!line4Bold,
+      italic: !!line4Italic,
+      color: line4Color,
+    };
+
+    const primary = line1Style;
+
     const payload = {
       headerEnabled: !!headerEnabled,
       footerEnabled: !!footerEnabled,
@@ -317,12 +438,21 @@ export default function HeaderFooterPanel({ value, onChange }) {
           line3,
           line4,
           showLine4: !!showLine4,
-          fontFamily,
-          fontSize: coerceNum(fontSize, DEFAULTS.header.centerText.fontSize),
-          bold: !!bold,
-          italic: !!italic,
-          color,
+          // Backward-compatible "global" style driven from Header 1
+          fontFamily: primary.fontFamily || fontFamily,
+          fontSize: coerceNum(
+            ptToPx(primary.fontSizePt),
+            DEFAULTS.header.centerText.fontSize
+          ),
+          bold: !!primary.bold,
+          italic: !!primary.italic,
+          color: primary.color || color,
           showHeaderLine: !!showHeaderLine,
+          // Per-line style payload (new)
+          line1Style,
+          line2Style,
+          line3Style,
+          line4Style,
         },
       },
 
@@ -394,6 +524,26 @@ export default function HeaderFooterPanel({ value, onChange }) {
     italic,
     color,
     showHeaderLine,
+    line1FontFamily,
+    line1FontSizePt,
+    line1Bold,
+    line1Italic,
+    line1Color,
+    line2FontFamily,
+    line2FontSizePt,
+    line2Bold,
+    line2Italic,
+    line2Color,
+    line3FontFamily,
+    line3FontSizePt,
+    line3Bold,
+    line3Italic,
+    line3Color,
+    line4FontFamily,
+    line4FontSizePt,
+    line4Bold,
+    line4Italic,
+    line4Color,
     // stamp
     docCode,
     revisionNo,
@@ -476,12 +626,28 @@ export default function HeaderFooterPanel({ value, onChange }) {
             line3,
             line4,
             showLine4,
-            fontFamily,
-            fontSize,
-            bold,
-            italic,
-            color,
             showHeaderLine,
+            line1FontFamily,
+            line1FontSizePt,
+            line1Bold,
+            line1Italic,
+            line1Color,
+            line2FontFamily,
+            line2FontSizePt,
+            line2Bold,
+            line2Italic,
+            line2Color,
+            line3FontFamily,
+            line3FontSizePt,
+            line3Bold,
+            line3Italic,
+            line3Color,
+            line4FontFamily,
+            line4FontSizePt,
+            line4Bold,
+            line4Italic,
+            line4Color,
+            activeHeaderLine,
           }}
           setCenter={{
             setCenterEnabled,
@@ -490,12 +656,28 @@ export default function HeaderFooterPanel({ value, onChange }) {
             setLine3,
             setLine4,
             setShowLine4,
-            setFontFamily,
-            setFontSize,
-            setBold,
-            setItalic,
-            setColor,
             setShowHeaderLine,
+            setLine1FontFamily,
+            setLine1FontSizePt,
+            setLine1Bold,
+            setLine1Italic,
+            setLine1Color,
+            setLine2FontFamily,
+            setLine2FontSizePt,
+            setLine2Bold,
+            setLine2Italic,
+            setLine2Color,
+            setLine3FontFamily,
+            setLine3FontSizePt,
+            setLine3Bold,
+            setLine3Italic,
+            setLine3Color,
+            setLine4FontFamily,
+            setLine4FontSizePt,
+            setLine4Bold,
+            setLine4Italic,
+            setLine4Color,
+            setActiveHeaderLine,
           }}
           documentStamp={{
             docCode,
@@ -611,70 +793,108 @@ function HeaderTab({
         </div>
 
         <div className={`${!center.enabled ? "opacity-60 pointer-events-none" : ""} space-y-2`}>
+          {/* Header 1 */}
           <TextField
-            label="Line 1"
+            label="Header 1"
             value={center.line1}
             onChange={setCenter.setLine1}
-            placeholder="Line 1 (e.g., Saint Louis University)"
+            placeholder="Header 1 (e.g., Saint Louis University)"
+            onFocus={() => setCenter.setActiveHeaderLine("line1")}
           />
+          {center.activeHeaderLine === "line1" && (
+            <HeaderLineStyleEditor
+              fontFamily={center.line1FontFamily}
+              setFontFamily={setCenter.setLine1FontFamily}
+              fontSizePt={center.line1FontSizePt}
+              setFontSizePt={setCenter.setLine1FontSizePt}
+              bold={center.line1Bold}
+              setBold={setCenter.setLine1Bold}
+              italic={center.line1Italic}
+              setItalic={setCenter.setLine1Italic}
+              color={center.line1Color}
+              setColor={setCenter.setLine1Color}
+            />
+          )}
+
+          {/* Header 2 */}
           <TextField
-            label="Line 2"
+            label="Header 2"
             value={center.line2}
             onChange={setCenter.setLine2}
-            placeholder="Line 2 (e.g., Office / School / Department)"
+            placeholder="Header 2 (e.g., Office / School / Department)"
+            onFocus={() => setCenter.setActiveHeaderLine("line2")}
           />
+          {center.activeHeaderLine === "line2" && (
+            <HeaderLineStyleEditor
+              fontFamily={center.line2FontFamily}
+              setFontFamily={setCenter.setLine2FontFamily}
+              fontSizePt={center.line2FontSizePt}
+              setFontSizePt={setCenter.setLine2FontSizePt}
+              bold={center.line2Bold}
+              setBold={setCenter.setLine2Bold}
+              italic={center.line2Italic}
+              setItalic={setCenter.setLine2Italic}
+              color={center.line2Color}
+              setColor={setCenter.setLine2Color}
+            />
+          )}
+
+          {/* Header 3 */}
           <TextField
-            label="Line 3"
+            label="Header 3"
             value={center.line3}
             onChange={setCenter.setLine3}
-            placeholder="Line 3 (e.g., Cluster: Academic Cluster)"
+            placeholder="Header 3 (e.g., Cluster or secondary detail)"
+            onFocus={() => setCenter.setActiveHeaderLine("line3")}
           />
+          {center.activeHeaderLine === "line3" && (
+            <HeaderLineStyleEditor
+              fontFamily={center.line3FontFamily}
+              setFontFamily={setCenter.setLine3FontFamily}
+              fontSizePt={center.line3FontSizePt}
+              setFontSizePt={setCenter.setLine3FontSizePt}
+              bold={center.line3Bold}
+              setBold={setCenter.setLine3Bold}
+              italic={center.line3Italic}
+              setItalic={setCenter.setLine3Italic}
+              color={center.line3Color}
+              setColor={setCenter.setLine3Color}
+            />
+          )}
 
-          <div className="flex items-center gap-3">
+          {/* Header 4 toggle + field + style editor */}
+          <div className="space-y-2 mt-2">
             <CheckboxField
-              label="Show additional line"
+              label="Add Header 4"
               checked={!!center.showLine4}
               onChange={setCenter.setShowLine4}
             />
             {center.showLine4 && (
-              <div className="flex-1 min-w-0">
-                <input
-                  type="text"
-                  className="border rounded-md px-3 py-2 w-full text-sm"
-                  placeholder="Line 4 (e.g., Document Title)"
+              <>
+                <TextField
+                  label="Header 4"
                   value={center.line4}
-                  onChange={(e) => setCenter.setLine4(e.target.value)}
+                  onChange={setCenter.setLine4}
+                  placeholder="Header 4 (optional additional line)"
+                  onFocus={() => setCenter.setActiveHeaderLine("line4")}
                 />
-              </div>
+                {center.activeHeaderLine === "line4" && (
+                  <HeaderLineStyleEditor
+                    fontFamily={center.line4FontFamily}
+                    setFontFamily={setCenter.setLine4FontFamily}
+                    fontSizePt={center.line4FontSizePt}
+                    setFontSizePt={setCenter.setLine4FontSizePt}
+                    bold={center.line4Bold}
+                    setBold={setCenter.setLine4Bold}
+                    italic={center.line4Italic}
+                    setItalic={setCenter.setLine4Italic}
+                    color={center.line4Color}
+                    setColor={setCenter.setLine4Color}
+                  />
+                )}
+              </>
             )}
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <SelectField
-              label="Font family"
-              value={center.fontFamily}
-              onChange={setCenter.setFontFamily}
-              options={[
-                { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
-                { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
-                { label: "Georgia", value: "Georgia, serif" },
-                { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-                { label: "Courier New", value: '"Courier New", Courier, monospace' },
-              ]}
-            />
-            <NumberField
-              label="Font size (px)"
-              value={center.fontSize}
-              min={8}
-              max={64}
-              step={1}
-              onChange={setCenter.setFontSize}
-            />
-            <CheckboxField label="Bold" checked={!!center.bold} onChange={setCenter.setBold} />
-            <CheckboxField label="Italic" checked={!!center.italic} onChange={setCenter.setItalic} />
-          </div>
-
-          <ColorField label="Text color" value={center.color} onChange={setCenter.setColor} />
 
           <div className="mt-2">
             <CheckboxField
@@ -683,8 +903,6 @@ function HeaderTab({
               onChange={setCenter.setShowHeaderLine}
             />
           </div>
-
-          <Hint>Center text is rendered horizontally centered within the header band.</Hint>
         </div>
       </div>
 
@@ -855,12 +1073,64 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
 
 /* --------------------- UI Blocks & Inputs --------------------- */
 
+function HeaderLineStyleEditor({
+  fontFamily,
+  setFontFamily,
+  fontSizePt,
+  setFontSizePt,
+  bold,
+  setBold,
+  italic,
+  setItalic,
+  color,
+  setColor,
+}) {
+  return (
+    <div className="mt-2 mb-3 rounded-md border border-slate-200 bg-slate-50 p-3 space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <SelectField
+          label="Font family"
+          value={fontFamily}
+          onChange={setFontFamily}
+          options={[
+            { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
+            { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
+            { label: "Georgia", value: "Georgia, serif" },
+            { label: "Arial", value: "Arial, Helvetica, sans-serif" },
+            { label: "Courier New", value: '"Courier New", Courier, monospace' },
+          ]}
+        />
+        <NumberField
+          label="Font size (pt)"
+          value={fontSizePt}
+          min={6}
+          max={48}
+          step={1}
+          onChange={setFontSizePt}
+        />
+        <div className="flex flex-col gap-2">
+          <CheckboxField label="Bold" checked={!!bold} onChange={setBold} />
+          <CheckboxField label="Italic" checked={!!italic} onChange={setItalic} />
+        </div>
+      </div>
+
+      <ColorField label="Text color" value={color} onChange={setColor} />
+    </div>
+  );
+}
+
 function LogoBlock({ title, previewSrc, value, onToggle, onSize, onPos, disabled }) {
   return (
     <div className="rounded-lg border p-3">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="text-sm font-semibold text-slate-700">{title}</div>
-        <Toggle label="Enabled" checked={!!value.enabled} onChange={onToggle} compact disabled={disabled} />
+        <Toggle
+          label="Enabled"
+          checked={!!value.enabled}
+          onChange={onToggle}
+          compact
+          disabled={disabled}
+        />
       </div>
       {value.enabled && (
         <div className="mb-3">
@@ -906,7 +1176,7 @@ function Label({ children }) {
   return <div className="text-xs font-medium text-slate-600 mb-1">{children}</div>;
 }
 
-function TextField({ label, value, onChange, placeholder }) {
+function TextField({ label, value, onChange, placeholder, onFocus }) {
   return (
     <div className="min-w-0">
       {label ? <Label>{label}</Label> : null}
@@ -916,6 +1186,7 @@ function TextField({ label, value, onChange, placeholder }) {
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        onFocus={onFocus}
       />
     </div>
   );
@@ -1015,7 +1286,11 @@ function Toggle({ label, checked, onChange, compact = false, disabled = false })
 
 function CheckboxField({ label, checked, onChange, disabled }) {
   return (
-    <label className={`flex items-center gap-2 text-sm ${disabled ? "opacity-60 pointer-events-none" : ""}`}>
+    <label
+      className={`flex items-center gap-2 text-sm ${
+        disabled ? "opacity-60 pointer-events-none" : ""
+      }`}
+    >
       <input
         type="checkbox"
         className="h-4 w-4 accent-blue-600"
