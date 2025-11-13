@@ -5,6 +5,8 @@ const logSchema = new mongoose.Schema({
     email: { type: String, required: true },
     role: { type: String, required: true },
     ip: { type: String, required: true },
+    userAgent: { type: String, default: null },
+    browser: { type: String, default: null },
     login_time: { type: Date, default: Date.now },  
     logout_time: { type: Date, default: null }
 }, { timestamps: true });

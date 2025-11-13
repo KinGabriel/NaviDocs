@@ -15,6 +15,7 @@ export default function AdminLoginActivity() {
 
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
+  const [browserFilter, setBrowserFilter] = useState("");
   const itemsPerPage = 10;
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -40,11 +41,12 @@ export default function AdminLoginActivity() {
     const params = { page: currentPage, limit: itemsPerPage };
     if (search && search.trim()) params.search = search.trim();
     if (selectedDate) params.date = selectedDate;
+    if (browserFilter && browserFilter.trim()) params.browser = browserFilter.trim();
     if (statusFilter === "Active") params.status = "active";
     else if (statusFilter === "Logged Out") params.status = "inactive";
     if (roleFilter && roleFilter !== "All Roles") params.role = roleFilter;
     return params;
-  }, [search, selectedDate, statusFilter, roleFilter, currentPage]);
+  }, [search, selectedDate, statusFilter, roleFilter, currentPage, browserFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +62,8 @@ export default function AdminLoginActivity() {
             email: it.email,
             role: it.role,
             ip: it.ip,
+            browser: it.browser,
+            userAgent: it.userAgent,
             login_time: it.login_time,
             logout_time: it.logout_time,
           }));
@@ -84,7 +88,7 @@ export default function AdminLoginActivity() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, selectedDate, statusFilter, roleFilter]);
+  }, [search, selectedDate, statusFilter, roleFilter, browserFilter]);
 
   const currentLogs = logs;
 
@@ -155,6 +159,21 @@ export default function AdminLoginActivity() {
                   }}
                   options={statusOptions}
                   width="w-full md:w-52"
+                />
+              </div>
+
+              {/* 4) Browser filter */}
+              <div className="order-4 w-full md:w-auto">
+                <input
+                  type="text"
+                  placeholder="Browser (Chrome, Firefox...)"
+                  className="h-10 w-full md:w-56 border border-gray-300 rounded-lg px-3 text-sm
+                             focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={browserFilter}
+                  onChange={(e) => {
+                    setBrowserFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
                 />
               </div>
 
@@ -236,7 +255,7 @@ export default function AdminLoginActivity() {
                                 {log.email}
                               </p>
                               <p className="text-xs text-gray-600 mt-0.5">
-                                {log.role || "—"}
+                                {log.role || "—"} • {log.browser || log.userAgent || "—"}
                               </p>
                             </div>
                             <span
@@ -297,6 +316,9 @@ export default function AdminLoginActivity() {
                           IP Address
                         </th>
                         <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Browser
+                        </th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                           Login Time
                         </th>
                         <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
@@ -318,6 +340,9 @@ export default function AdminLoginActivity() {
                               {log.ip}
                             </td>
                             <td className="px-5 py-4 text-gray-700 whitespace-nowrap">
+                              {log.browser || log.userAgent || '—'}
+                            </td>
+                            <td className="px-5 py-4 text-gray-700 whitespace-nowrap">
                               {formatTimestamp(log.login_time) || "—"}
                             </td>
                             <td className="px-5 py-4 text-gray-700 whitespace-nowrap">
@@ -331,7 +356,7 @@ export default function AdminLoginActivity() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="5" className="text-center py-6 text-gray-500 text-sm">
+                          <td colSpan="6" className="text-center py-6 text-gray-500 text-sm">
                             No results found
                           </td>
                         </tr>
