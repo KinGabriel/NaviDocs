@@ -117,6 +117,8 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
           }
           return {
             id: fid,
+            // keep both name and label for compatibility; label is used by documents/editable fields
+            label: name,
             name,
             type,
             placeholder,
@@ -266,6 +268,8 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
           }
           return {
             id: fid,
+            // include label for downstream editable field rendering
+            label: name,
             name,
             type,
             placeholder,
@@ -301,6 +305,8 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
     }
     const mappedFields = (group.fields || []).map(f => ({
       id: f.key || f.id || f._id || `fld-${Date.now().toString(36)}`,
+      // preserve label (used by documents) and name for editor compatibility
+      label: f.label || f.name || f.key,
       name: f.label || f.name || f.key,
       type: f.type || 'text',
       placeholder: f.placeholder || '',
@@ -331,33 +337,42 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
     }
 
     // Prevent duplicates by label (case-insensitive) for the current user.
+    let keyToUse = null;
+    let overwriteMessage = null;
     try {
       const nameNorm = (acc.name || '').trim().toLowerCase();
       const localExisting = (savedGroups || []).find((g) => ((g.label || g.key || '') + '').trim().toLowerCase() === nameNorm);
       if (localExisting) {
-        toast('You already have a saved section with this name.', { icon: 'ℹ️' });
+        // overwrite local existing: use its key
+        keyToUse = localExisting.key || localExisting.id;
+        // notify later (after server check) to avoid duplicate toasts
+        overwriteMessage = 'A saved section with this name exists — it will be overwritten.';
         setSelectedSavedGroup(localExisting);
-        return;
       }
 
-      // Server-side check: query user's groups with a search filter
+      // Server-side check: query user's groups with a search filter and prefer its key if found
       try {
         const params = { scope: 'user', owner: user._id || user.id, search: acc.name };
         const serverList = await listFieldGroupLibraryAPI(params);
         const serverExisting = (serverList || []).find((g) => ((g.label || g.key || '') + '').trim().toLowerCase() === nameNorm);
         if (serverExisting) {
-          toast('You already have a saved section with this name.', { icon: 'ℹ️' });
+          keyToUse = serverExisting.key || serverExisting.id || keyToUse;
+          // prefer server message to local message
+          overwriteMessage = 'A saved section on the server with this name exists — it will be overwritten.';
           setSelectedSavedGroup(serverExisting);
-          // ensure our local cache includes it
+          // ensure our local cache includes it (we'll still upsert to overwrite)
           setSavedGroups((prev) => {
             const filtered = (prev || []).filter((pg) => (pg.key || pg.id) !== (serverExisting.key || serverExisting.id));
             return [serverExisting, ...filtered];
           });
-          return;
         }
       } catch (e) {
         // If server check fails, proceed but the later upsert will handle duplicates server-side.
         console.warn('Failed to verify existing groups on server:', e);
+      }
+      // show a single overwrite toast if needed
+      if (overwriteMessage) {
+        toast(overwriteMessage, { icon: 'ℹ️' });
       }
     } catch (e) {
       // ignore equality check errors and proceed to save
@@ -378,12 +393,14 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '') + '-' + Date.now().toString(36).slice(-6);
 
+    const keyToSend = keyToUse || normalizedKey;
+
     const payload = {
-      key: normalizedKey,
+      key: keyToSend,
       label: acc.name,
       scope: 'user',
       owner: user._id || user.id,
-      fields: fieldsToSave
+      fields: fieldsToSave,
     };
 
     try {
