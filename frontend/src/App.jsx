@@ -439,13 +439,11 @@ function App() {
         <Route
           path="/archived-documents"
           element={
-            <ProtectedRoute allowedRoles={["Dean", "Department Head", "Secretary", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+            <ProtectedRoute allowedRoles={["Dean", "Department Head", "Secretary", "Faculty"]}>
               <ArchivedDocuments />
             </ProtectedRoute>
           }
         />
-
-
 
         {/* Error Pages */}
         <Route path="*" element={<NotFoundPage />} />
@@ -456,6 +454,5 @@ function App() {
 
   )
 }
-
 
 export default App;

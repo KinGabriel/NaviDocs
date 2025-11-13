@@ -82,6 +82,12 @@ export default function DeanTemplates() {
     r.includes("document control officer")
   );
 
+  const canViewArchived = !(
+    isLeadDocController ||
+    isUnitDocController ||
+    isDocControlOfficer
+  );
+
   let tabs = [];
   let tabToStatus = {};
   let allowedStatusSet = null;
@@ -265,43 +271,45 @@ export default function DeanTemplates() {
 
           {/* Controls */}
           <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-end">
-            {/* Archived Documents Button */}
-            <button
-              type="button"
-              onClick={() => navigate("/archived-documents")}
-              className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
-              aria-label="Archived documents"
-              title="Archived documents"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="w-5 h-5 text-[#0035DA]"
-                fill="none"
-                aria-hidden="true"
+            {/* Archived Documents Button – hidden for approver roles */}
+            {canViewArchived && (
+              <button
+                type="button"
+                onClick={() => navigate("/archived-documents")}
+                className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
+                aria-label="Archived documents"
+                title="Archived documents"
               >
-                <path
-                  d="M3.75 7.5h16.5M4.5 7.5l.62-2.32A2.25 2.25 0 0 1 7.25 3.75h9.5a2.25 2.25 0 0 1 2.13 1.43l.62 2.32"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M20.25 7.5l-.63 10.63a2.25 2.25 0 0 1-2.25 2.12H6.63a2.25 2.25 0 0 1-2.25-2.12L3.75 7.5"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M12 11.625v5.625m0 0l2.25-2.25M12 17.25l-2.25-2.25"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="w-5 h-5 text-[#0035DA]"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M3.75 7.5h16.5M4.5 7.5l.62-2.32A2.25 2.25 0 0 1 7.25 3.75h9.5a2.25 2.25 0 0 1 2.13 1.43l.62 2.32"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M20.25 7.5l-.63 10.63a2.25 2.25 0 0 1-2.25 2.12H6.63a2.25 2.25 0 0 1-2.25-2.12L3.75 7.5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M12 11.625v5.625m0 0l2.25-2.25M12 17.25l-2.25-2.25"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
 
             {/* Search */}
             <div className="flex justify-start lg:justify-end">
