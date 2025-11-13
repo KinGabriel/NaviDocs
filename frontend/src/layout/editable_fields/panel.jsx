@@ -38,6 +38,43 @@ export default function Panel({
     return { r, g, b };
   };
 
+  // Simple date helpers to format/parse common date formats without extra deps
+  const pad = (n) => (String(n).length === 1 ? `0${n}` : String(n));
+  const formatDate = (d, pattern) => {
+    if (!d) return '';
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    if (!pattern || pattern === 'YYYY-MM-DD') return `${yyyy}-${mm}-${dd}`;
+    if (pattern === 'DD/MM/YYYY') return `${dd}/${mm}/${yyyy}`;
+    if (pattern === 'MM/DD/YYYY') return `${mm}/${dd}/${yyyy}`;
+    // fallback to ISO date
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const parseFromStored = (val, pattern) => {
+    if (!val) return null;
+    // try ISO first
+    const iso = new Date(val);
+    if (!isNaN(iso.getTime())) return iso;
+    // try common patterns
+    const parts = String(val).split(/[-\/]/);
+    if (parts.length === 3) {
+      if (pattern === 'DD/MM/YYYY') {
+        const [d, m, y] = parts.map((p) => parseInt(p, 10));
+        return new Date(y, (m || 1) - 1, d || 1);
+      }
+      if (pattern === 'MM/DD/YYYY') {
+        const [m, d, y] = parts.map((p) => parseInt(p, 10));
+        return new Date(y, (m || 1) - 1, d || 1);
+      }
+      // assume YYYY-MM-DD
+      const [y, m, d] = parts.map((p) => parseInt(p, 10));
+      if (y && m && d) return new Date(y, (m || 1) - 1, d || 1);
+    }
+    return null;
+  };
+
   const rgba = (hex, a) => {
     const rgb = hexToRgb(hex);
     if (!rgb) return null;
@@ -206,6 +243,35 @@ export default function Panel({
                   className="w-full p-2 border border-gray-300 rounded h-24 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                   placeholder={field.placeholder}
                 />
+              ) : field.type === 'date' ? (
+                (() => {
+                  // determine native input value (YYYY-MM-DD) from stored value
+                  const stored = fieldValue;
+                  const pattern = field.dateFormat || 'YYYY-MM-DD';
+                  const parsed = parseFromStored(stored, pattern);
+                  const inputValue = parsed ? formatDate(parsed, 'YYYY-MM-DD') : '';
+
+                  return (
+                    <input
+                      type="date"
+                      value={inputValue}
+                      onChange={(e) => {
+                        const v = e.target.value; // YYYY-MM-DD
+                        if (!v) {
+                          onChange(field.name, '');
+                          return;
+                        }
+                        const d = parseFromStored(v, 'YYYY-MM-DD');
+                        // format to requested pattern for storage
+                        const out = formatDate(d, field.dateFormat || 'YYYY-MM-DD');
+                        onChange(field.name, out);
+                      }}
+                      onFocus={() => onFocusField && onFocusField(field.name)}
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      placeholder={field.placeholder}
+                    />
+                  );
+                })()
               ) : null}
 
            
