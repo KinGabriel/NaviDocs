@@ -37,11 +37,17 @@ export function getSubmissionBinStatus(bin) {
   const someReturned = items.some(sub => isReturned(sub));
   if (someReturned) return 'pending';
   
-  // Check if overdue (has deadline passed and not completed, and no returned submissions)
-  const deadline = bin.deadline ? new Date(bin.deadline) : null;
-  const now = new Date();
-  if (deadline && deadline < now && bin.status !== 'completed' && !someReturned) {
-    return 'overdue';
+  // Check if there are any unsubmitted items (no documents or no submitted_at)
+  // This includes newly added faculty after initial completion
+  const hasUnsubmitted = items.some(sub => !hasDocuments(sub) || !sub.submitted_at);
+  if (hasUnsubmitted) {
+    // Check if overdue
+    const deadline = bin.deadline ? new Date(bin.deadline) : null;
+    const now = new Date();
+    if (deadline && deadline < now) {
+      return 'overdue';
+    }
+    return 'pending';
   }
   
   // Check if all submitted (has documents AND submitted_at)
