@@ -234,34 +234,47 @@ export default function TemplatesView() {
    */
   const handleApprove = async (templateData, message) => {
     if (!templateData || !user) return;
+
+    // Figure out the current user's role
+  const roleKeys = normalizeRoleKeys(user?.role?.name || user?.role);
+  const isLeadDC = roleKeys.includes("lead_document_controller");
+  const isUnitDC = roleKeys.includes("unit_document_controller");
+  const isDocControlOfficer =
+    roleKeys.includes("document_controller_officer") ||
+    roleKeys.includes("document_control_officer");
+
     // Disallow overriding past actions (approve/endorse once only)
     const myEntry = getApprovalEntryForUser(templateData, user);
     if (alreadyActed(myEntry, templateData?.status)) {
       setError("You've already taken an action on this template and cannot change it.");
       return;
     }
+
+    const nextStatus = isLeadDC || isUnitDC ? "endorsed" : "approved";
     
     // Optimistic update: immediately update local state
     setTemplate(prev => {
       if (!prev) return prev;
       
-      const updated = { ...prev, status: "approved" };
+    const updated = { ...prev, status: nextStatus };
       
       // Update approvals array if it exists
       if (Array.isArray(updated.approvals)) {
-        updated.approvals = updated.approvals.map(approval => {
-          // Match by role or user ID
-          if (approval.role?.toLowerCase() === user?.role?.name?.toLowerCase() ||
-              approval.assigned_to === user?._id) {
+        updated.approvals = updated.approvals.map((approval) => {
+          const sameRole =
+            approval.role?.toLowerCase() === user?.role?.name?.toLowerCase();
+          const sameAssignee = approval.assigned_to === user?._id;
+
+          if (sameRole || sameAssignee) {
             return {
               ...approval,
-              status: "approved",
+              status: nextStatus,
               isApproved: true,
               isRejected: false,
               isReturned: false,
               approved_at: new Date().toISOString(),
               approved_by: user?._id,
-              approved_by_name: user?.name
+              approved_by_name: user?.name,
             };
           }
           return approval;
@@ -270,14 +283,16 @@ export default function TemplatesView() {
       
       // Update status_meta.approvals if it exists
       if (updated.status_meta?.approvals) {
-        const userRole = user?.role?.name?.toLowerCase();
-        if (updated.status_meta.approvals[userRole]) {
-          updated.status_meta.approvals[userRole] = {
-            ...updated.status_meta.approvals[userRole],
+        const userRoleKey = normalizeRoleKeys(
+          user?.role?.name || user?.role
+        )[0];
+        if (userRoleKey && updated.status_meta.approvals[userRoleKey]) {
+          updated.status_meta.approvals[userRoleKey] = {
+            ...updated.status_meta.approvals[userRoleKey],
             isApproved: true,
             isRejected: false,
             isReturned: false,
-            status: "approved"
+            status: nextStatus,
           };
         }
       }
@@ -288,8 +303,7 @@ export default function TemplatesView() {
     try {
       // Send approval to server
       const payload = { note: message || "" };
-      const res = await approveTemplateAPI(templateData._id, payload);
-      console.log("Approve response:", res);
+      await approveTemplateAPI(templateData._id, payload);
       
       // Refresh from server to get authoritative state
       await refreshTemplate(templateData._id);
@@ -313,6 +327,17 @@ export default function TemplatesView() {
    */
   const handleReject = async (templateData, message) => {
     if (!templateData || !user) return;
+
+    const roleKeys = normalizeRoleKeys(user?.role?.name || user?.role);
+    const isDocControlOfficer =
+      roleKeys.includes("document_controller_officer") ||
+      roleKeys.includes("document_control_officer");
+
+    if (!isDocControlOfficer) {
+      setError("Only the Document Control Officer can reject a template. Please use 'Return' instead.");
+      return;
+    }
+
     // Disallow overriding past actions
     const myEntry = getApprovalEntryForUser(templateData, user);
     if (alreadyActed(myEntry, templateData?.status)) {
@@ -334,9 +359,12 @@ export default function TemplatesView() {
       
       // Update approvals array
       if (Array.isArray(updated.approvals)) {
-        updated.approvals = updated.approvals.map(approval => {
-          if (approval.role?.toLowerCase() === user?.role?.name?.toLowerCase() ||
-              approval.assigned_to === user?._id) {
+        updated.approvals = updated.approvals.map((approval) => {
+          const sameRole =
+            approval.role?.toLowerCase() === user?.role?.name?.toLowerCase();
+          const sameAssignee = approval.assigned_to === user?._id;
+
+          if (sameRole || sameAssignee) {
             return {
               ...approval,
               status: "rejected",
@@ -346,7 +374,7 @@ export default function TemplatesView() {
               rejected_at: new Date().toISOString(),
               rejected_by: user?._id,
               rejected_by_name: user?.name,
-              rejection_reason: message
+              rejection_reason: message,
             };
           }
           return approval;
@@ -355,14 +383,16 @@ export default function TemplatesView() {
       
       // Update status_meta
       if (updated.status_meta?.approvals) {
-        const userRole = user?.role?.name?.toLowerCase();
-        if (updated.status_meta.approvals[userRole]) {
-          updated.status_meta.approvals[userRole] = {
-            ...updated.status_meta.approvals[userRole],
+        const userRoleKey = normalizeRoleKeys(
+          user?.role?.name || user?.role
+        )[0];
+        if (userRoleKey && updated.status_meta.approvals[userRoleKey]) {
+          updated.status_meta.approvals[userRoleKey] = {
+            ...updated.status_meta.approvals[userRoleKey],
             isApproved: false,
             isRejected: true,
             isReturned: false,
-            status: "rejected"
+            status: "rejected",
           };
         }
       }

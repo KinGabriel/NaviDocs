@@ -4,6 +4,9 @@ import useUser from "../../hooks/useUser";
 import AccordionList from "../../components/editable_fields/accordionList";
 import TagsManager from "../../components/editable_fields/tagsManager";
 import { listTagsAPI } from "../../api/tagsAPI";
+import { upsertFieldGroupToLibraryAPI, listFieldGroupLibraryAPI } from "../../api/fieldGroupLibraryAPI";
+import GroupBrowserModal2 from "../../components/modals/groupBrowserModal";
+import toast from 'react-hot-toast';
 
 /**
  * FieldsPanel — Enhanced panel with:
@@ -21,6 +24,11 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
   ]);
   const [tagsRegistry, setTagsRegistry] = useState([]);
   const [recentTags, setRecentTags] = useState([]);
+  const [isSavingGroup, setIsSavingGroup] = useState(false);
+  const [savedGroups, setSavedGroups] = useState([]);
+  const [loadingSavedGroups, setLoadingSavedGroups] = useState(false);
+  const [selectedSavedGroup, setSelectedSavedGroup] = useState(null);
+  const [groupBrowserOpen, setGroupBrowserOpen] = useState(false);
 
   // hydrate from persisted fields prop with loop-guard
   const lastHydratedRef = React.useRef("");
@@ -272,6 +280,155 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
     onChange(serialized);
   };
 
+
+  const insertSavedGroup = (group) => {
+    if (!group) return;
+    // Disallow inserting a group with the same name as an existing accordion in this template
+    try {
+      const name = (group.label || group.key || '').trim();
+      if (name) {
+        const exists = accordions.some(a => ((a.name || '') + '').trim().toLowerCase() === name.toLowerCase());
+        if (exists) {
+          toast('A section with this name already exists in this template.', { icon: 'ℹ️' });
+          // try to select the saved group in the preview list if present
+          const match = (savedGroups || []).find((g) => ((g.label || g.key || '') + '').trim().toLowerCase() === name.toLowerCase());
+          if (match) setSelectedSavedGroup(match);
+          return;
+        }
+      }
+    } catch (e) {
+      // ignore and proceed with insertion
+    }
+    const mappedFields = (group.fields || []).map(f => ({
+      id: f.key || f.id || f._id || `fld-${Date.now().toString(36)}`,
+      name: f.label || f.name || f.key,
+      type: f.type || 'text',
+      placeholder: f.placeholder || '',
+      tags: Array.isArray(f.tags) ? f.tags : [],
+      instructions: f.instructions || ''
+    }));
+
+    const newAccordion = {
+      id: `acc-${Date.now().toString(36)}`,
+      name: group.label || group.key || `Saved Section`,
+      fields: mappedFields
+    };
+
+    setAccordions(prev => [...prev, newAccordion]);
+    toast.success('Inserted saved section into template');
+  };
+
+
+  // Fast save directly from accordion - no modal
+  const handleFastSaveGroup = async (acc) => {
+    if (!user || !(user._id || user.id)) {
+      toast.error('You must be signed in to save a section.');
+      return;
+    }
+    if (!acc || !acc.name) {
+      toast.error('Group must have a name.');
+      return;
+    }
+
+    // Prevent duplicates by label (case-insensitive) for the current user.
+    try {
+      const nameNorm = (acc.name || '').trim().toLowerCase();
+      const localExisting = (savedGroups || []).find((g) => ((g.label || g.key || '') + '').trim().toLowerCase() === nameNorm);
+      if (localExisting) {
+        toast('You already have a saved section with this name.', { icon: 'ℹ️' });
+        setSelectedSavedGroup(localExisting);
+        return;
+      }
+
+      // Server-side check: query user's groups with a search filter
+      try {
+        const params = { scope: 'user', owner: user._id || user.id, search: acc.name };
+        const serverList = await listFieldGroupLibraryAPI(params);
+        const serverExisting = (serverList || []).find((g) => ((g.label || g.key || '') + '').trim().toLowerCase() === nameNorm);
+        if (serverExisting) {
+          toast('You already have a saved section with this name.', { icon: 'ℹ️' });
+          setSelectedSavedGroup(serverExisting);
+          // ensure our local cache includes it
+          setSavedGroups((prev) => {
+            const filtered = (prev || []).filter((pg) => (pg.key || pg.id) !== (serverExisting.key || serverExisting.id));
+            return [serverExisting, ...filtered];
+          });
+          return;
+        }
+      } catch (e) {
+        // If server check fails, proceed but the later upsert will handle duplicates server-side.
+        console.warn('Failed to verify existing groups on server:', e);
+      }
+    } catch (e) {
+      // ignore equality check errors and proceed to save
+    }
+
+    const fieldsToSave = (acc.fields || []).map(f => ({
+      id: f.id || f.key || f._id,
+      key: f.id || f.key || f._id,
+      label: f.name || f.label || f.key,
+      type: f.type || 'text',
+      placeholder: f.placeholder || '',
+      tags: Array.isArray(f.tags) ? f.tags : [],
+      instructions: f.instructions || ''
+    }));
+
+    const normalizedKey = (acc.name || 'section')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') + '-' + Date.now().toString(36).slice(-6);
+
+    const payload = {
+      key: normalizedKey,
+      label: acc.name,
+      scope: 'user',
+      owner: user._id || user.id,
+      fields: fieldsToSave
+    };
+
+    try {
+      setIsSavingGroup(true);
+      const returned = await upsertFieldGroupToLibraryAPI(payload);
+      // Update local savedGroups immediately for snappy UX
+      if (returned) {
+        setSavedGroups((prev) => {
+          const filtered = (prev || []).filter((g) => (g.key || g.id) !== (returned.key || returned.id));
+          return [returned, ...filtered];
+        });
+        setSelectedSavedGroup(returned);
+      }
+      toast.success('Section saved to your library.');
+    } catch (e) {
+      console.error('Fast save failed:', e);
+      toast.error('Failed to save section.');
+    } finally {
+      setIsSavingGroup(false);
+      // refresh in background in case server mutated the list
+      try { await loadSavedGroups(); } catch {}
+    }
+  };
+
+  // Load user's saved groups
+  const loadSavedGroups = async () => {
+    if (!user || !(user._id || user.id)) return;
+    setLoadingSavedGroups(true);
+    try {
+      const params = { scope: 'user', owner: user._id || user.id };
+      const groups = await listFieldGroupLibraryAPI(params);
+      setSavedGroups(Array.isArray(groups) ? groups : []);
+      // pick first as selected preview
+      setSelectedSavedGroup((g) => g || (Array.isArray(groups) && groups[0]) || null);
+    } catch (e) {
+      console.error('Failed to load saved groups:', e);
+    } finally {
+      setLoadingSavedGroups(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSavedGroups();
+  }, [user?._id, user?.id]);
+
   // --- Render ---------------------------------------------------------------
   return (
     <div className="space-y-3">
@@ -307,8 +464,52 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
             onInsertField={handleInsertField}
             onRemoveField={handleRemoveField}
             onUpdateField={handleUpdateField}
+            onSaveGroup={(acc) => handleFastSaveGroup(acc)}
+            isSignedIn={!!(user && (user._id || user.id))}
+            onBrowse={() => setGroupBrowserOpen(true)}
           />
 
+          <GroupBrowserModal2
+            open={groupBrowserOpen}
+            onClose={() => setGroupBrowserOpen(false)}
+            onInsert={(g) => { insertSavedGroup(g); setGroupBrowserOpen(false); }}
+          />
+
+          {/* My Saved Sections */}
+          <div className="mt-4 p-3 border rounded bg-gray-50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium">My Saved Sections</div>
+              <div className="text-xs text-slate-500">{loadingSavedGroups ? 'Loading…' : `${savedGroups.length} saved`}</div>
+            </div>
+            {savedGroups.length === 0 ? (
+              <div className="text-xs text-slate-500">You have no saved sections yet. Use "Save Section" to add one.</div>
+            ) : (
+              <div className="space-y-2">
+                {savedGroups.map((g, i) => (
+                  <div key={g.key || g.id || i} className="flex items-start justify-between gap-2 p-2 bg-white rounded border border-slate-100">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{g.label || g.key}</div>
+                      <div className="text-[11px] text-slate-500 truncate">{(g.fields || []).slice(0,3).map(f => f.label || f.key).join(', ')}{(g.fields||[]).length>3? ' …':''}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => insertSavedGroup(g)} className="text-xs rounded-md bg-indigo-600 text-white px-2 py-1">Insert</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {selectedSavedGroup && (
+              <div className="mt-3 p-2 border-t">
+                <div className="text-xs text-slate-500 mb-1">Preview: {selectedSavedGroup.label || selectedSavedGroup.key}</div>
+                <div className="space-y-1 text-[13px]">
+                  {(selectedSavedGroup.fields || []).map((f, idx) => (
+                    <div key={f.key || f.id || idx} className="text-slate-700">• {f.label || f.key} <span className="text-xs text-slate-400">({f.type || 'text'})</span></div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           <div className="flex justify-end">
             <button
               onClick={() => onChange(serialize())}

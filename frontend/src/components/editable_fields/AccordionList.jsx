@@ -20,6 +20,9 @@ export default function AccordionList({
   onInsertField = () => {},
   onRemoveField = () => {},
   onUpdateField = () => {},
+  onSaveGroup = () => {},
+  onBrowse = () => {},
+  isSignedIn = false,
 }) {
   const [expanded, setExpanded] = useState({});
   const [renaming, setRenaming] = useState({});
@@ -262,12 +265,20 @@ export default function AccordionList({
             }}
             className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
           />
-          <button
-            onClick={addAccordion}
-            className="rounded-md bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700"
-          >
-            + Add
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={addAccordion}
+              className="rounded-md bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700"
+            >
+              + Add
+            </button>
+            <button
+              onClick={() => onBrowse && onBrowse()}
+              className="rounded-md border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              Browse Sections
+            </button>
+          </div>
         </div>
         {groupNameError && (
           <p className="text-xs text-red-600 px-1">{groupNameError}</p>
@@ -331,7 +342,7 @@ export default function AccordionList({
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
               {!renaming[acc.id] && (
                 <button
                   onClick={(e) => {
@@ -344,6 +355,7 @@ export default function AccordionList({
                   Rename
                 </button>
               )}
+              {/* Save moved into expanded group content */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -359,6 +371,20 @@ export default function AccordionList({
 
           {expanded[acc.id] && (
             <div className="space-y-2 p-3">
+              <div className="flex justify-end">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!isSignedIn) return;
+                    onSaveGroup && onSaveGroup(acc);
+                  }}
+                  disabled={!isSignedIn}
+                  title={!isSignedIn ? 'Sign in to save this section' : 'Save section to your library'}
+                  className={`rounded-md border px-2 py-1 text-xs ${isSignedIn ? 'bg-indigo-600 text-white hover:bg-indigo-700 border-slate-300' : 'bg-slate-100 text-slate-400 border-slate-100 cursor-not-allowed'}`}
+                >
+                  Save Section
+                </button>
+              </div>
               {acc.fields.length === 0 && (
                 <div className="text-xs text-slate-500">No fields yet.</div>
               )}
@@ -407,6 +433,8 @@ export default function AccordionList({
                   />
                 </div>
               ))}
+
+              {/* (removed inline Save button per UX) */}
 
               <div className="mt-3 border-t border-slate-200 pt-3">
                 <div className="text-xs mb-1 text-slate-600 font-medium">Add New Field</div>
