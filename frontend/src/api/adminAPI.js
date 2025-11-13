@@ -141,11 +141,11 @@ export const fetchUserAccountByIdAPI = async (userId) => {
  * @returns {Promise<{success:boolean,data:Array,page:number,limit:number,total:number,pages:number}>}
  */
 export const fetchLoginActivityAPI = async (params = {}) => {
-  const { page = 1, limit = 10, role, status, date, search } = params;
+  const { page = 1, limit = 10, role, status, date, search, browser } = params;
   try {
     const res = await axios.get(`${API_URL}/api/auth/logs`, {
       withCredentials: true,
-      params: { page, limit, role, status, date, search }
+      params: { page, limit, role, status, date, search, browser }
     });
     return res.data;
   } catch (error) {

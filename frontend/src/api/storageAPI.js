@@ -41,18 +41,15 @@ export const createFolderAPI = async ({ folderName, user, parentFolder }) => {
  */
 export const getFoldersAPI = async ({ user, status }) => {
 	try {
-		// Extract userId 
+		// Extract userId if available (server will fallback to req.user when called with credentials)
 		const userId = user?._id || user?.userId || user?.id;
-		
-		if (!userId) {
-		throw new Error('User ID is required to fetch folders');
-		}
 
-		const params = { 
-		userId,
-		school: user?.role?.school || user?.school || null, 
-		department: user?.role?.department || user?.department || null 
-		};
+		const params = {};
+		if (userId) params.userId = userId;
+		const school = user?.role?.school || user?.school || null;
+		const department = user?.role?.department || user?.department || null;
+		if (school) params.school = school;
+		if (department) params.department = department;
 		
 		if (status) {
 		params.status = status;
@@ -215,7 +212,8 @@ export const deleteFolderByIDAPI = async (id) => {
  */
 export const getOrphanFilesAPI = async (userId, status) => {
 	try {
-		const params = { userId };
+		const params = {};
+		if (userId) params.userId = userId;
 		if (status) params.status = status;
 		const res = await axios.get(`${API_URL}/api/storage/files/get-orphan-files`, {
 			params,
