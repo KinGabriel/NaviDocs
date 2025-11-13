@@ -1,5 +1,6 @@
 // src/layout/create_template/headerfooterPanel.jsx
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { DEFAULT_FONT_CATEGORIES, SYSTEM_FALLBACKS } from "../../utils/textFonts";
 
 /**
  * Header & Footer Panel (Tabbed)
@@ -77,6 +78,28 @@ const DEFAULTS = {
       color: "#000000",
     },
   },
+};
+
+// build font options from DEFAULT_FONT_CATEGORIES + SYSTEM_FALLBACKS
+const FONT_OPTIONS = (() => {
+  const out = [];
+  const cats = DEFAULT_FONT_CATEGORIES || {};
+  Object.keys(cats).forEach((cat) => {
+    const list = Array.isArray(cats[cat]) ? cats[cat] : [];
+    list.forEach((name) => {
+      const stack = SYSTEM_FALLBACKS[name] || name;
+      out.push({ label: name, value: stack });
+    });
+  });
+  if (!out.length) {
+    out.push({ label: "Inter (default)", value: "Inter, system-ui, sans-serif" });
+  }
+  return out;
+})();
+
+const findFontLabel = (value) => {
+  const match = FONT_OPTIONS.find((o) => o.value === value);
+  return match ? match.label : value;
 };
 
 // px ⇄ pt helpers (96 dpi → 1pt ≈ 1.333px)
@@ -1085,36 +1108,131 @@ function HeaderLineStyleEditor({
   color,
   setColor,
 }) {
+  const [search, setSearch] = useState("");
+  const [recentFonts, setRecentFonts] = useState([]);
+
+  const filteredOptions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return FONT_OPTIONS;
+    return FONT_OPTIONS.filter((o) => o.label.toLowerCase().includes(q));
+  }, [search]);
+
+  useEffect(() => {
+    if (!fontFamily) return;
+    setRecentFonts((prev) => {
+      if (prev.includes(fontFamily)) return prev;
+      const next = [fontFamily, ...prev];
+      return next.slice(0, 4);   
+    });
+  }, [fontFamily]);
+
+  const handleSelectFont = (value) => {
+    setFontFamily(value);
+    setRecentFonts((prev) => {
+      const without = prev.filter((v) => v !== value);
+      const next = [value, ...without];
+      return next.slice(0, 4);   
+    });
+  };
+
+  const handleSizeChange = (val) => {
+    const n = Number(val);
+    if (Number.isNaN(n)) {
+      setFontSizePt("");
+    } else {
+      setFontSizePt(n);
+    }
+  };
+
   return (
     <div className="mt-2 mb-3 rounded-md border border-slate-200 bg-slate-50 p-3 space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <SelectField
-          label="Font family"
-          value={fontFamily}
-          onChange={setFontFamily}
-          options={[
-            { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
-            { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
-            { label: "Georgia", value: "Georgia, serif" },
-            { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-            { label: "Courier New", value: '"Courier New", Courier, monospace' },
-          ]}
-        />
-        <NumberField
-          label="Font size (pt)"
-          value={fontSizePt}
-          min={6}
-          max={48}
-          step={1}
-          onChange={setFontSizePt}
-        />
-        <div className="flex flex-col gap-2">
-          <CheckboxField label="Bold" checked={!!bold} onChange={setBold} />
-          <CheckboxField label="Italic" checked={!!italic} onChange={setItalic} />
+      {/* Font size */}
+      <NumberField
+        label="Font size"
+        value={fontSizePt}
+        min={6}
+        max={48}
+        step={1}
+        onChange={handleSizeChange}
+      />
+
+      {/* Bold / Italic buttons */}
+      <div className="flex items-center gap-2">
+        <Label>Style</Label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className={`w-9 h-9 rounded-md border flex items-center justify-center text-sm ${
+              bold
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-slate-800 border-slate-300"
+            }`}
+            onClick={() => setBold(!bold)}
+          >
+            <span className="font-bold">B</span>
+          </button>
+          <button
+            type="button"
+            className={`w-9 h-9 rounded-md border flex items-center justify-center text-sm ${
+              italic
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-slate-800 border-slate-300"
+            }`}
+            onClick={() => setItalic(!italic)}
+          >
+            <span className="italic">I</span>
+          </button>
         </div>
       </div>
 
-      <ColorField label="Text color" value={color} onChange={setColor} />
+      {/* Font family with search + recents */}
+      <div className="space-y-2">
+        <Label>Font family</Label>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder='Search fonts (e.g., "Inter", "Lora")'
+          className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+        />
+
+        {recentFonts.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-1">
+            {recentFonts.map((val) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => handleSelectFont(val)}
+                className={`px-2.5 py-1 rounded-full border text-xs ${
+                  fontFamily === val
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-700 border-slate-300"
+                }`}
+                style={{ fontFamily: val }}
+              >
+                {findFontLabel(val)}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-1">
+          <select
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+            value={fontFamily}
+            onChange={(e) => handleSelectFont(e.target.value)}
+          >
+            {filteredOptions.map((o) => (
+              <option key={o.value} value={o.value} style={{ fontFamily: o.value }}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Color picker (no hex field) */}
+      <SimpleColorField label="Text color" value={color} onChange={setColor} />
     </div>
   );
 }
@@ -1261,6 +1379,24 @@ function ColorField({ label, value, onChange, disabled }) {
           disabled={disabled}
         />
       </div>
+    </div>
+  );
+}
+
+// simple color picker (no hex text field) for header line style editor
+function SimpleColorField({ label, value, onChange, disabled }) {
+  const val =
+    typeof value === "string" && /^#([0-9a-fA-F]{6})$/.test(value) ? value : value || "#000000";
+  return (
+    <div className="min-w-0">
+      {label ? <Label>{label}</Label> : null}
+      <input
+        type="color"
+        className="h-9 w-10 cursor-pointer rounded border border-slate-300 disabled:bg-slate-100"
+        value={val}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+      />
     </div>
   );
 }
