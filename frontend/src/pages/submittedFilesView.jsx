@@ -23,7 +23,7 @@ import {
   ZoomOut,
   RotateCcw
 } from "lucide-react";
-import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI, getDocumentContentAPI } from "../api/assignmentDocumentsAPI";
+import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI, getDocumentContentAPI, addSubmissionCommentAPI } from "../api/assignmentDocumentsAPI";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -174,6 +174,9 @@ export default function SubmittedFilesView() {
   const [error, setError] = useState("");
   const [zoom, setZoom] = useState(1);
   const previewContainerRef = useRef(null);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
   // Fetch submission data
 useEffect(() => {
@@ -529,6 +532,62 @@ useEffect(() => {
   
   return () => { mounted = false; };
 }, [id, state]);
+
+const handleSubmitComment = async () => {
+  if (!commentText.trim()) {
+    alert('Please enter a comment');
+    return;
+  }
+  
+  setIsSubmittingComment(true);
+  
+  try {
+    const binId = currentBinId;
+    const submissionId = submission.id;
+    
+    if (!binId || !submissionId) {
+      throw new Error("Missing submission information");
+    }
+    
+    // Add the comment
+    await addSubmissionCommentAPI(binId, submissionId, {
+      message: commentText.trim(),
+      type: 'comment'
+    });
+    
+    // Refresh the submission data to show the new comment
+    const updatedBin = await getSubmissionBinAPI(binId);
+    const updatedItem = updatedBin.submissions?.find(s => String(s._id || s.id) === String(submissionId));
+    
+    if (updatedItem) {
+      // Map the notes properly
+      const mappedNotes = Array.isArray(updatedItem.notes) 
+        ? updatedItem.notes.map(note => ({
+            ...note,
+            id: note._id || note.id,
+            at: note.createdAt || note.created_at || note.at || note.timestamp,
+            by: note.by,
+            message: note.message || note.text || note.comment || note.reason || ''
+          }))
+        : [];
+      
+      setSubmission(prev => ({
+        ...prev,
+        notes: mappedNotes
+      }));
+    }
+    
+    setShowCommentModal(false);
+    setCommentText("");
+    alert('Comment added successfully!');
+    
+  } catch (err) {
+    console.error("Failed to add comment:", err);
+    alert(err?.responseData?.message || err?.message || 'Failed to add comment');
+  } finally {
+    setIsSubmittingComment(false);
+  }
+};
 
 const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
 const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
@@ -1251,12 +1310,13 @@ const handleZoomReset = () => setZoom(1);
                           {/* Department Head can Submit or Return */}
                           {canSubmitOrReturn && (
                             <>
+                              {/* Add Comment Button */}
                               <button
-                                onClick={() => handleActionClick('submit')}
-                                className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
+                                onClick={() => setShowCommentModal(true)}
+                                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
                               >
-                                <CheckCircle size={20} />
-                                Submit Document
+                                <MessageSquare size={20} />
+                                Add Comment
                               </button>
                               
                               <button
@@ -1267,11 +1327,20 @@ const handleZoomReset = () => setZoom(1);
                                 Return for Revision
                               </button>
                             </>
-                            
-                          )}
+                      )}
 
                           {/* Dean and Secretary can only Return */}
                           {canReturnOnly && (
+                          <>
+                            {/* Add Comment Button */}
+                            <button
+                              onClick={() => setShowCommentModal(true)}
+                              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
+                            >
+                              <MessageSquare size={20} />
+                              Add Comment
+                            </button>
+                            
                             <button
                               onClick={() => handleActionClick('return')}
                               className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
@@ -1279,10 +1348,10 @@ const handleZoomReset = () => setZoom(1);
                               <XCircle size={20} />
                               Return for Revision
                             </button>
-                          )}
-                        </div>
-                        
-                      )}
+                          </>
+                        )}
+                      </div>
+                  )}
 
                     {(submission?.status === 'pending' || submission?.status === 'returned') && (
                       <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
@@ -1545,6 +1614,65 @@ const handleZoomReset = () => setZoom(1);
                         Return Document
                       </>
                     )}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comment Modal */}
+      {showCommentModal && (
+        <div className="fixed inset-0 backdrop-blur-[2px] bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Add Comment
+            </h3>
+            
+            <p className="text-sm text-gray-600 mb-4">
+              Add a comment or feedback for the faculty member. This will be visible to them.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Your Comment
+              </label>
+              <textarea
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Enter your comment or feedback..."
+                rows="5"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowCommentModal(false);
+                  setCommentText("");
+                }}
+                disabled={isSubmittingComment}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitComment}
+                disabled={isSubmittingComment || !commentText.trim()}
+                className="px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmittingComment ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Posting...
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare size={18} />
+                    Post Comment
                   </>
                 )}
               </button>
