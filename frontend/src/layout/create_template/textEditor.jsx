@@ -836,6 +836,5 @@ function autoFitBand(editor, bandEl, kind, basePx) {
   const key = kind === "footer" ? "pageFooterHeight" : "pageHeaderHeight";
   if (ext.options[key] !== next) {
     ext.options[key] = next;
-    // PaginationPlus will repaint on its own tick
   }
 }

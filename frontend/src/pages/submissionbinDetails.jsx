@@ -24,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { getSubmissionBinAPI, updateSubmissionBinAPI, forwardSubmissionBinAPI, upsertSubmissionAPI } from "../api/assignmentDocumentsAPI";
-import { getFacultyByDepartmentAPI } from "../api/userAPI";
+import { getFacultyByDepartmentAPI, getUsersInfoByIdsAPI } from "../api/userAPI";
 import { getTemplateByIdAPI, fetchPublishedTemplatesAPI } from "../api/documentContollerAPI";
 import TextEditor from "../layout/create_template/textEditor";
 import Loader from "../components/loader";
@@ -56,6 +56,9 @@ export default function SubmissionDetails() {
   const [assignForm, setAssignForm] = useState({ template: '', facultyIds: [], instructions: '' });
   const [facultyList, setFacultyList] = useState([]);
   const [assigning, setAssigning] = useState(false);
+
+  // Faculty user details cache (for displaying names instead of IDs)
+  const [facultyUsers, setFacultyUsers] = useState({});
 
   const toInputDateTime = (d) => {
     if (!d) return '';
@@ -234,6 +237,42 @@ export default function SubmissionDetails() {
   
   loadFaculty();
 }, []); 
+
+  // Fetch faculty user details for submissions
+  useEffect(() => {
+    if (!bin || !Array.isArray(bin.submissions) || bin.submissions.length === 0) return;
+    
+    const facultyIds = bin.submissions
+      .map(sub => sub.faculty)
+      .filter(Boolean)
+      .map(String);
+    
+    if (facultyIds.length === 0) return;
+    
+    let cancelled = false;
+    (async () => {
+      try {
+        const users = await getUsersInfoByIdsAPI(facultyIds);
+        if (!cancelled) {
+          const usersMap = {};
+          users.forEach(u => {
+            const id = String(u.userId || u.id || u._id);
+            usersMap[id] = {
+              name: u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || u.email || id,
+              email: u.email,
+              firstname: u.firstname,
+              lastname: u.lastname
+            };
+          });
+          setFacultyUsers(usersMap);
+        }
+      } catch (err) {
+        console.error('Failed to fetch faculty users:', err);
+      }
+    })();
+    
+    return () => { cancelled = true; };
+  }, [bin?.submissions]); 
 
   useEffect(() => {
     const ids = Array.isArray(bin?.template_ids) ? [...new Set(bin.template_ids.map(String))] : [];
@@ -667,7 +706,23 @@ export default function SubmissionDetails() {
                         return (
                           <tr key={item._id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 text-sm text-gray-700">
-                              {item.faculty_name || item.faculty_user?.name || item.faculty_user?.fullname || `${item.faculty_user?.firstname || ''} ${item.faculty_user?.lastname || ''}`.trim() || String(item.faculty)}
+                              {(() => {
+                                const facultyId = String(item.faculty || '');
+                                // First try cached faculty user details
+                                if (facultyUsers[facultyId]) {
+                                  return facultyUsers[facultyId].name;
+                                }
+                                // Then try submission-provided name fields
+                                if (item.faculty_name) return item.faculty_name;
+                                if (item.faculty_user?.name) return item.faculty_user.name;
+                                if (item.faculty_user?.fullname) return item.faculty_user.fullname;
+                                const fullName = `${item.faculty_user?.firstname || ''} ${item.faculty_user?.lastname || ''}`.trim();
+                                if (fullName) return fullName;
+                                // Fallback to email if available
+                                if (item.faculty_user?.email) return item.faculty_user.email;
+                                // Last resort: show loading or unknown
+                                return 'Loading...';
+                              })()}
                             </td>
                             <td className="px-6 py-4"><StatusBadge type={actualStatus} /></td>
                             <td className="px-6 py-4 text-sm text-gray-600">{item.submitted_at && hasDocuments ? formatDateTime(item.submitted_at) : '-'}</td>

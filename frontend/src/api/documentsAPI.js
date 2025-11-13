@@ -376,6 +376,117 @@ export const getFacultyDashboardAPI = async () => {
 	};
 };
 
+export const getDeanSecDashboardAPI = async () => {
+	// First try the analytics GraphQL endpoint
+	const gqlQuery = `
+		query DeanSecDashboard {
+			deanSecDashboard {
+				school
+				totalForwardedCount
+				latestForwarded {
+					id
+					title
+					department
+					school
+					forwarded_at
+					created_by
+					deadline
+					submissionsCount
+					submittedCount
+					createdAt
+				}
+				forwardedByDepartment {
+					department
+					count
+				}
+				# Template-service fields
+				templateSubmittedCount
+				recentSubmittedTemplates {
+					id
+					title
+					code
+					rev
+					status
+					createdBy
+					createdAt
+				}
+				publishedRecentTemplates {
+					id
+					title
+					code
+					rev
+					status
+					createdBy
+					createdAt
+				}
+			}
+		}
+	`;
+
+	try {
+		const res = await axios.post(`${API_URL}/graphql`, { query: gqlQuery }, {
+			withCredentials: true,
+			headers: { 'Content-Type': 'application/json' },
+		});
+
+		if (res.data?.errors) {
+			const msg = res.data.errors.map(e => e.message).join('; ');
+			const err = new Error(msg || 'Analytics GraphQL error');
+			err.graphql = res.data.errors;
+			throw err;
+		}
+
+		const gql = res.data?.data?.deanSecDashboard ?? null;
+		if (!gql) throw new Error('No deanSecDashboard data returned from analytics');
+
+		// Map template lists if provided by analytics
+		const templates = (gql.recentSubmittedTemplates || []).map(t => ({
+			id: t.id || t._id || null,
+			title: t.title || '',
+			createdBy: t.createdBy || '',
+			status: t.status || ''
+		}));
+
+		const publishedTemplates = (gql.publishedRecentTemplates || []).map(t => ({
+			id: t.id || t._id || null,
+			code: t.code || '',
+			rev: t.rev || '',
+			date: t.createdAt || null,
+			title: t.title || '',
+			createdBy: t.createdBy || ''
+		}));
+
+		const latestForwarded = (gql.latestForwarded || []).map(b => ({
+			id: b.id || b._id || null,
+			title: b.title || '',
+			department: b.department || 'Unspecified',
+			school: b.school || null,
+			forwarded_at: b.forwarded_at || b.forwardedAt || null,
+			submissionsCount: b.submissionsCount || 0,
+			submittedCount: b.submittedCount || 0,
+			deadline: b.deadline || null,
+			createdAt: b.createdAt || null
+		}));
+
+		const forwardedByDepartment = (gql.forwardedByDepartment || []).map(d => ({ department: d.department || 'Unspecified', count: d.count || 0 }));
+
+		return {
+			school: gql.school || null,
+			totalForwardedCount: gql.totalForwardedCount || 0,
+			latestForwarded,
+			forwardedByDepartment,
+			// template fields
+			templateSubmittedCount: typeof gql.templateSubmittedCount !== 'undefined' ? gql.templateSubmittedCount : null,
+			templates,
+			publishedTemplates,
+			dataSource: 'analytics'
+		};
+	} catch (err) {
+		console.error('Analytics GraphQL request failed for deanSecDashboard:', err.response?.data || err.message || err);
+		throw err;
+	}
+};
+
 // Map upcoming/dueToday/overdue arrays to a simple frontend-friendly shape
 const mapDeadlineBins = (arr, priorityLabel) => (Array.isArray(arr) ? arr.map(b => ({
 	id: b.id || b._id || null,

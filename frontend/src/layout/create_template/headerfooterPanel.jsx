@@ -32,8 +32,8 @@ const DEFAULTS = {
   // Header
   header: {
     logos: {
-      slu: { enabled: true, sizePx: 72, xPercent: 6 },
-      cicm: { enabled: false, sizePx: 72, xPercent: 94 },
+      slu: { enabled: true, sizePx: 72 },
+      cicm: { enabled: false, sizePx: 72 },
     },
     centerText: {
       enabled: true,
@@ -179,7 +179,8 @@ function mergeDefaults(value) {
 
   // Document stamp (legacy mirrors)
   out.documentStamp.docCode = v.docCode ?? v.document_code ?? out.documentStamp.docCode ?? "";
-  out.documentStamp.revisionNo = v.revisionNo ?? v.revision_no ?? out.documentStamp.revisionNo ?? "";
+  out.documentStamp.revisionNo =
+    v.revisionNo ?? v.revision_no ?? out.documentStamp.revisionNo ?? "";
   out.documentStamp.effectivity = normalizeEffectivityLocal(
     v.effectivity ?? out.documentStamp.effectivity ?? ""
   );
@@ -208,13 +209,11 @@ export default function HeaderFooterPanel({ value, onChange }) {
   const [headerMarginIn, setHeaderMarginIn] = useState(initial.headerMarginIn);
   const [footerMarginIn, setFooterMarginIn] = useState(initial.footerMarginIn);
 
-  // Logos
+  // Logos (NO horizontal positioning anymore)
   const [sluEnabled, setSluEnabled] = useState(initial.header.logos.slu.enabled);
   const [sluSizePx, setSluSizePx] = useState(initial.header.logos.slu.sizePx);
-  const [sluXPercent, setSluXPercent] = useState(initial.header.logos.slu.xPercent);
   const [cicmEnabled, setCicmEnabled] = useState(initial.header.logos.cicm.enabled);
   const [cicmSizePx, setCicmSizePx] = useState(initial.header.logos.cicm.sizePx);
-  const [cicmXPercent, setCicmXPercent] = useState(initial.header.logos.cicm.xPercent);
 
   // Center text lines
   const [line1, setLine1] = useState(initial.header.centerText.line1);
@@ -317,11 +316,9 @@ export default function HeaderFooterPanel({ value, onChange }) {
 
     setSluEnabled(next.header.logos.slu.enabled);
     setSluSizePx(next.header.logos.slu.sizePx);
-    setSluXPercent(next.header.logos.slu.xPercent);
 
     setCicmEnabled(next.header.logos.cicm.enabled);
     setCicmSizePx(next.header.logos.cicm.sizePx);
-    setCicmXPercent(next.header.logos.cicm.xPercent);
 
     setLine1(next.header.centerText.line1);
     setLine2(next.header.centerText.line2);
@@ -446,12 +443,10 @@ export default function HeaderFooterPanel({ value, onChange }) {
           slu: {
             enabled: !!sluEnabled,
             sizePx: coerceNum(sluSizePx, DEFAULTS.header.logos.slu.sizePx),
-            xPercent: coerceNum(sluXPercent, DEFAULTS.header.logos.slu.xPercent),
           },
           cicm: {
             enabled: !!cicmEnabled,
             sizePx: coerceNum(cicmSizePx, DEFAULTS.header.logos.cicm.sizePx),
-            xPercent: coerceNum(cicmXPercent, DEFAULTS.header.logos.cicm.xPercent),
           },
         },
         centerText: {
@@ -531,10 +526,8 @@ export default function HeaderFooterPanel({ value, onChange }) {
     // header
     sluEnabled,
     sluSizePx,
-    sluXPercent,
     cicmEnabled,
     cicmSizePx,
-    cicmXPercent,
     centerEnabled,
     line1,
     line2,
@@ -631,16 +624,14 @@ export default function HeaderFooterPanel({ value, onChange }) {
           disabled={!headerEnabled}
           assets={assets}
           logos={{
-            slu: { enabled: sluEnabled, sizePx: sluSizePx, xPercent: sluXPercent },
-            cicm: { enabled: cicmEnabled, sizePx: cicmSizePx, xPercent: cicmXPercent },
+            slu: { enabled: sluEnabled, sizePx: sluSizePx },
+            cicm: { enabled: cicmEnabled, sizePx: cicmSizePx },
           }}
           setLogos={{
             setSluEnabled,
             setSluSizePx,
-            setSluXPercent,
             setCicmEnabled,
             setCicmSizePx,
-            setCicmXPercent,
           }}
           center={{
             enabled: centerEnabled,
@@ -787,7 +778,6 @@ function HeaderTab({
             value={logos.slu}
             onToggle={setLogos.setSluEnabled}
             onSize={setLogos.setSluSizePx}
-            onPos={setLogos.setSluXPercent}
             disabled={disabled}
           />
           <LogoBlock
@@ -796,7 +786,6 @@ function HeaderTab({
             value={logos.cicm}
             onToggle={setLogos.setCicmEnabled}
             onSize={setLogos.setCicmSizePx}
-            onPos={setLogos.setCicmXPercent}
             disabled={disabled}
           />
         </div>
@@ -956,11 +945,15 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             !pageNumber.enabled ? "opacity-60 pointer-events-none" : ""
           }`}
         >
-          <TextField
+          {/* Pattern dropdown: Page of Page / Page only */}
+          <SelectField
             label="Pattern"
             value={pageNumber.pattern}
             onChange={setPageNumber.setPattern}
-            placeholder="Use {page} and {total}, e.g., {page} of {total}"
+            options={[
+              { label: "Page of Page", value: "{page} of {total}" },
+              { label: "Page only", value: "{page}" },
+            ]}
           />
 
           <SelectField
@@ -974,17 +967,15 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             ]}
           />
 
+          {/* Font family from utils textFonts */}
           <SelectField
             label="Font Family"
             value={pageNumber.fontFamily}
             onChange={setPageNumber.setFontFamily}
-            options={[
-              { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
-              { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
-              { label: "Georgia", value: "Georgia, serif" },
-              { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-              { label: "Courier New", value: '"Courier New", Courier, monospace' },
-            ]}
+            options={FONT_OPTIONS.map(f => ({
+              ...f,
+              style: { fontFamily: f.value },
+            }))}
           />
 
           <NumberField
@@ -1013,10 +1004,6 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             value={pageNumber.color}
             onChange={setPageNumber.setColor}
           />
-
-          <Hint>
-            The renderer replaces tokens: {"{page}"} → current page, {"{total}"} → total pages.
-          </Hint>
         </div>
       </div>
 
@@ -1058,17 +1045,15 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             ]}
           />
 
+          {/* Font family from utils textFonts */}
           <SelectField
             label="Font Family"
             value={body.fontFamily}
             onChange={setBody.setFontFamily}
-            options={[
-              { label: "Inter (default)", value: "Inter, system-ui, sans-serif" },
-              { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
-              { label: "Georgia", value: "Georgia, serif" },
-              { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-              { label: "Courier New", value: '"Courier New", Courier, monospace' },
-            ]}
+            options={FONT_OPTIONS.map(f => ({
+              ...f,
+              style: { fontFamily: f.value },
+            }))}
           />
 
           <NumberField
@@ -1084,10 +1069,6 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
           <CheckboxField label="Italic" checked={!!body.italic} onChange={setBody.setItalic} />
 
           <ColorField label="Text Color" value={body.color} onChange={setBody.setColor} />
-
-          <Hint>
-            The footer text appears stacked under the page number when both are enabled.
-          </Hint>
         </div>
       </div>
     </div>
@@ -1121,8 +1102,9 @@ function HeaderLineStyleEditor({
     if (!fontFamily) return;
     setRecentFonts((prev) => {
       if (prev.includes(fontFamily)) return prev;
-      const next = [fontFamily, ...prev];
-      return next.slice(0, 4);   
+      const without = prev.filter((v) => v !== fontFamily);
+      const next = [fontFamily, ...without];
+      return next.slice(0, 4);
     });
   }, [fontFamily]);
 
@@ -1131,7 +1113,7 @@ function HeaderLineStyleEditor({
     setRecentFonts((prev) => {
       const without = prev.filter((v) => v !== value);
       const next = [value, ...without];
-      return next.slice(0, 4);   
+      return next.slice(0, 4);
     });
   };
 
@@ -1237,7 +1219,7 @@ function HeaderLineStyleEditor({
   );
 }
 
-function LogoBlock({ title, previewSrc, value, onToggle, onSize, onPos, disabled }) {
+function LogoBlock({ title, previewSrc, value, onToggle, onSize, disabled }) {
   return (
     <div className="rounded-lg border p-3">
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -1265,17 +1247,8 @@ function LogoBlock({ title, previewSrc, value, onToggle, onSize, onPos, disabled
           onChange={onSize}
           disabled={disabled || !value.enabled}
         />
-        <SliderField
-          label="Horizontal position (% from left)"
-          value={value.xPercent ?? 10}
-          min={0}
-          max={100}
-          step={1}
-          onChange={onPos}
-          disabled={disabled || !value.enabled}
-        />
       </div>
-      <Hint>Adjust size and nudge logos left/right independently.</Hint>
+      <Hint>Adjust logo visibility and size.</Hint>
     </div>
   );
 }
@@ -1327,31 +1300,6 @@ function NumberField({ label, value, onChange, min, max, step = 1, disabled }) {
         step={step}
         onChange={handle}
         disabled={disabled}
-      />
-    </div>
-  );
-}
-
-function SliderField({ label, value, onChange, min = 0, max = 100, step = 1, disabled }) {
-  const clamp = (n) => Math.max(min, Math.min(max, Number(n)));
-  return (
-    <div className="min-w-0">
-      <div className="flex items-center justify-between">
-        {label ? <Label>{label}</Label> : null}
-        <span className="text-xs tabular-nums text-slate-500">{value}%</span>
-      </div>
-      <input
-        type="range"
-        className="w-full"
-        min={min}
-        max={max}
-        step={step}
-        value={value ?? 0}
-        onChange={(e) => onChange(clamp(e.target.value))}
-        disabled={disabled}
-        aria-valuemin={min}
-        aria-valuemax={max}
-        aria-valuenow={Number(value ?? 0)}
       />
     </div>
   );
@@ -1450,7 +1398,11 @@ function SelectField({ label, value, onChange, options, disabled }) {
         disabled={disabled}
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value}>
+          <option
+            key={o.value}
+            value={o.value}
+            style={o.style}
+          >
             {o.label}
           </option>
         ))}
@@ -1458,6 +1410,8 @@ function SelectField({ label, value, onChange, options, disabled }) {
     </div>
   );
 }
+
+
 
 function Hint({ children }) {
   return <p className="mt-2 text-xs text-slate-500">{children}</p>;
