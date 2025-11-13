@@ -640,13 +640,17 @@ export const submitDocument = async (req, res) => {
 		const bin = await SubmissionBin.findById(id);
 		if (!bin) return res.status(404).json({ message: 'Bin not found' });
 
-		// Prevent submitting into a completed bin
-		if (String(bin.status || '').toLowerCase() === 'completed') {
-			return res.status(400).json({ message: 'This bin is already completed; submissions are closed.' });
-		}
-
 		const item = bin.submissions.id(submissionId);
 		if (!item) return res.status(404).json({ message: 'Submission item not found' });
+
+		// Allow resubmission if the item was returned, even if bin is completed
+		const isReturned = String(item.status || '').toLowerCase() === 'returned';
+		const binCompleted = String(bin.status || '').toLowerCase() === 'completed';
+
+		// Block submission only if bin is completed AND the item is NOT in 'returned' status
+		if (binCompleted && !isReturned) {
+			return res.status(400).json({ message: 'This bin is already completed; submissions are closed.' });
+		}
 
 		// Validate document exists and matches template constraints
 		const doc = await Document.findById(documentId);

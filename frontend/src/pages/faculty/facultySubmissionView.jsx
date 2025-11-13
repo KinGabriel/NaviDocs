@@ -899,7 +899,7 @@ export default function FacultySubmissionView() {
                   )}
                 </div>
               </div>
-            ) : (submission?.status?.toLowerCase() === 'pending' || submission?.status?.toLowerCase() === 'returned') ? (
+            ) : (submission?.status?.toLowerCase() !== 'submitted' && submission?.status?.toLowerCase() !== 'approved') ? (
               /* Upload Form */
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 {/* Add a notice when resubmitting */}
