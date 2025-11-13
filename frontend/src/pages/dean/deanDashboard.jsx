@@ -6,7 +6,7 @@ import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
 import { StatusBadge } from "../../utils/formatters";
 import Greeting from "../../components/greeting";
-import UpcomingDeadlines from "../../components/upcomingDeadlines";
+import { FolderOpen, FileText } from "lucide-react";
 import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
 import { Doughnut } from "react-chartjs-2";
 import {
@@ -65,9 +65,9 @@ export default function DeanDashboard() {
   const publishedTemplates = [
     { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
     { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
+    { id: 3, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
+    { id: 4, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
+    { id: 5, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
   ];
 
   const templateColumns = [
@@ -79,22 +79,22 @@ export default function DeanDashboard() {
       render: (row) => <StatusBadge type={row.status} />,
     },
     {
-    key: "action",
-    label: "Action",
-    render: (row) => (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          const id = row._id ?? row.id ?? row.templateId;
-          navigate(`/dean/document-workflow/${id}`, {
-            state: { doc: row, origin: "dean:recently-submitted" },
-          });
-        }}
-        className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
-      >
-        Review
-      </button>
-    ),
+      key: "action",
+      label: "Action",
+      render: (row) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id ?? row.templateId;
+            navigate(`/dean/document-workflow/${id}`, {
+              state: { doc: row, origin: "dean:recently-submitted" },
+            });
+          }}
+          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+        >
+          Review
+        </button>
+      ),
     },
   ];
 
@@ -105,22 +105,22 @@ export default function DeanDashboard() {
     { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
     { key: "createdBy", label: "Created By" },
     {
-    key: "action",
-    label: "Action",
-    render: (row) => (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          const id = row._id ?? row.id ?? row.templateId;
-          navigate(`/templates/published/${id}`, {
-            state: { doc: row, origin: "dean:recently-published" },
-          });
-        }}
-        className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
-      >
-        Review
-      </button>
-    ),
+      key: "action",
+      label: "Action",
+      render: (row) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id ?? row.templateId;
+            navigate(`/templates/published/${id}`, {
+              state: { doc: row, origin: "dean:recently-published" },
+            });
+          }}
+          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+        >
+          Review
+        </button>
+      ),
     },
   ];
 
@@ -131,11 +131,11 @@ export default function DeanDashboard() {
   ];
 
   const submissionBin = [
-    { id: 1, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: 10 },
-    { id: 2, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: 10 },
-    { id: 3, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: 10 },
-    { id: 4, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: 10 },
-    { id: 5, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: 10 },
+    { id: 1, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: "2025-01-21" },
+    { id: 2, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: "2025-01-21" },
+    { id: 3, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: "2025-01-21" },
+    { id: 4, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: "2025-01-21" },
+    { id: 5, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: "2025-01-21" },
   ];
 
   const submissionBinColumns = [
@@ -198,35 +198,23 @@ export default function DeanDashboard() {
 
           {/* Stat cards */}
           <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
-            {/* Upcoming Deadlines */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
-                <CalendarClock className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
-              </div>
-            </div>
-
-            {/* Due Today */}
+            {/* Templates */}
             <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
               <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                <CalendarCheck className="h-6 w-6 text-white" />
+                <FileText className="h-6 w-6 text-white" />
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Templates</div>
                 <div className="text-3xl font-bold text-gray-900">1</div>
               </div>
             </div>
-
-            {/* Overdue Deadlines */}
+            {/* Submission Bins */}
             <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
-                <CalendarX className="h-6 w-6 text-white" />
+              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+                <FolderOpen className="h-6 w-6 text-white" />
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Submission Bins</div>
                 <div className="text-3xl font-bold text-gray-900">1</div>
               </div>
             </div>
@@ -258,26 +246,11 @@ export default function DeanDashboard() {
                   <Table columns={templateColumns} data={templates} />
                 </div>
               </div>
-
-              <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
-                <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
-                  <div>
-                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                      RECENTLY SUBMITTED BIN
-                    </h2>
-                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <Table columns={submissionBinColumns} data={submissionBin} />
-                </div>
-              </div>
             </div>
 
             {/* Right side: deadlines + chart */}
             <div className="lg:col-span-1 space-y-6">
-              <UpcomingDeadlines deadlines={upcomingDeadlines} formatDate={formatDate} />
+
 
               {/* Deadlines Summary Doughnut Chart */}
               <div className="bg-white shadow-sm rounded-lg border border-gray-100">
@@ -289,7 +262,7 @@ export default function DeanDashboard() {
 
                 <div className="p-6">
                   {/* chart container gets fixed height for responsiveness */}
-                  <div className="relative h-40 mb-4">
+                  <div className="relative h-36 mb-4">
                     <Doughnut data={chartData} options={chartOptions} />
                   </div>
 
@@ -350,6 +323,7 @@ export default function DeanDashboard() {
               <Table columns={publishedTemplatesColumns} data={publishedTemplates} />
             </div>
           </div>
+
         </main>
       </div>
     </div>
