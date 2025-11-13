@@ -190,6 +190,16 @@ export default function DocumentControllerCreateTemplate() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Check if the current user is the creator and template is published
+  const isCreator = template?.created_by && user?.id && String(template.created_by) === String(user.id);
+  const isPublished = status === "published";
+  const userRole = user?.role?.name || user?.role || "";
+  const normalizedRole = String(userRole).toLowerCase().replace(/[_\s]+/g, " ").trim();
+  const isDocumentControlOfficer = normalizedRole === "document control officer" || normalizedRole === "document_controller_officer";
+  
+  // Creators cannot edit published templates unless they are Document Control Officers
+  const isReadOnly = isPublished && isCreator && !isDocumentControlOfficer;
+
   /* ------------------------------- load template ------------------------------ */
   const loadTemplate = async (id) => {
     try {
@@ -334,6 +344,9 @@ export default function DocumentControllerCreateTemplate() {
 
   // Autosave
   useEffect(() => {
+    // Skip autosave if template is read-only
+    if (isReadOnly) return;
+    
     if (!templateId && !templateTitle && !templateContent) return;
 
     const isDirty =
@@ -353,6 +366,7 @@ export default function DocumentControllerCreateTemplate() {
     }, 2000);
     return () => clearTimeout(timeout);
   }, [
+    isReadOnly,
     templateContent,
     templateTitle,
     pageSetup,
@@ -370,7 +384,8 @@ export default function DocumentControllerCreateTemplate() {
   // Save on unmount/navigation if dirty
   useEffect(() => {
     const beforeUnload = (e) => {
-      if (dirty) {
+      // Don't save if read-only
+      if (dirty && !isReadOnly) {
         handleSave();
         e.preventDefault();
         e.returnValue = "";
@@ -378,7 +393,7 @@ export default function DocumentControllerCreateTemplate() {
     };
     window.addEventListener("beforeunload", beforeUnload);
     return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [dirty]);
+  }, [dirty, isReadOnly]);
 
   /* ----------------------------- approval actions ---------------------------- */
   const handleApprove = async () => {
@@ -452,6 +467,18 @@ export default function DocumentControllerCreateTemplate() {
   const [selectedPanel, setSelectedPanel] = useState("font");
 
   const renderPanel = () => {
+    // If read-only, show a message instead of editable panels
+    if (isReadOnly) {
+      return (
+        <div className="flex h-full items-center justify-center p-6">
+          <div className="text-center text-gray-700">
+            <p className="mb-2 text-lg font-semibold">Template is Published</p>
+            <p className="text-sm text-gray-600">This template cannot be edited after being published by the Document Control Officer.</p>
+          </div>
+        </div>
+      );
+    }
+
     switch (selectedPanel) {
       case "font":
         return (
@@ -605,6 +632,7 @@ export default function DocumentControllerCreateTemplate() {
                   documentCode={documentCode}
                   revisionNo={revisionNo}
                   effectivity={effectivity}
+                  readOnly={isReadOnly}
                 />
               </main>
             </div>
