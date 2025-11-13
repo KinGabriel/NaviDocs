@@ -157,24 +157,25 @@ export default function DeanTemplates() {
     for (let p = start; p <= end; p++) pages.push(p);
     if (end < total - 1) pages.push("…");
     if (total > 1) pages.push(total);
-    return Array.from(new Set(pages)).filter(p => p >= 1 && p <= total || p === "…");
+    return Array.from(new Set(pages)).filter(p => (p >= 1 && p <= total) || p === "…");
   }
 
   return (
-    <div className="min-h-screen bg-gray-200 flex flex-col">
+    <div className="h-screen bg-gray-200 flex flex-col overflow-hidden">
       <Header user={user} />
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar user={user} active="Templates" />
-        <main className="flex-1 bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
+        <main className="flex-1 bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl flex flex-col overflow-hidden">
           {/* Header */}
           <div className="px-1 py-3">
-            <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-4">Templates</h1>
+            <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-4">
+              Templates
+            </h1>
             <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
           </div>
 
-          {/* Controls (search on top; dropdowns + small-screen button below) */}
+          {/* Controls */}
           <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-end">
-            
             {/* Archived Documents */}
             <button
               type="button"
@@ -183,7 +184,6 @@ export default function DeanTemplates() {
               aria-label="Archived documents"
               title="Archived documents"
             >
-              {/* archive icon */}
               <svg
                 viewBox="0 0 24 24"
                 className="w-5 h-5 text-[#0035DA]"
@@ -214,7 +214,7 @@ export default function DeanTemplates() {
               </svg>
             </button>
 
-            {/* Search first */}
+            {/* Search */}
             <div className="flex justify-start lg:justify-end">
               <div className="flex items-center gap-2">
                 <div className="w-64">
@@ -223,7 +223,7 @@ export default function DeanTemplates() {
               </div>
             </div>
 
-            {/* Dropdowns + small-screen Assign beside them */}
+            {/* Dropdowns */}
             <div className="flex flex-wrap items-center gap-2 justify-start lg:justify-end">
               <Dropdown
                 options={["All", ...Object.keys(schoolIdentifiers)]}
@@ -240,10 +240,8 @@ export default function DeanTemplates() {
             </div>
           </div>
 
-          {/* Tabs + original desktop Assign button */}
-          <div className="mb-6 border-b border-gray-200">
-            
-
+          {/* Tabs */}
+          <div className="mb-4 border-b border-gray-200">
             <div className="flex space-x-8">
               {tabs.map((tab) => (
                 <button
@@ -261,54 +259,58 @@ export default function DeanTemplates() {
             </div>
           </div>
 
-          {/* Body */}
-          {loading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader message='Loading templates...' />
-            </div>
-          ) : error ? (
-            <div className="flex justify-center items-center py-20 text-red-500">{error}</div>
-          ) : (
-            <div className="mb-6">
-              <Table columns={columns} data={templates} />
-            </div>
-          )}
-
-          {/* Pagination */}
-          <div className="flex justify-center items-center gap-2 mt-auto pt-4">
-            <button
-              onClick={pagination.handlePrev}
-              disabled={pagination.currentPage === 1}
-              className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-            >
-              Prev
-            </button>
-            {getEllipsedPages(pagination.currentPage, totalPages, 1).map((num, idx) =>
-              num === "…" ? (
-                <span key={`e-${idx}`} className="px-2 text-gray-400 select-none">…</span>
-              ) : (
-                <button
-                  key={num}
-                  onClick={() => pagination.handlePage(num)}
-                  className={`px-3 py-1 rounded border ${
-                    pagination.currentPage === num
-                      ? "bg-blue-600 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-100"
-                  }`}
-                  aria-current={pagination.currentPage === num ? "page" : undefined}
-                >
-                  {num}
-                </button>
-              )
+          {/* Table + Pagination area: fills remaining height */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {loading ? (
+              <div className="flex-1 flex justify-center items-center">
+                <Loader message="Loading templates..." />
+              </div>
+            ) : error ? (
+              <div className="flex-1 flex justify-center items-center text-red-500">
+                {error}
+              </div>
+            ) : (
+              <div className="flex-1 mb-4 overflow-hidden">
+                <Table columns={columns} data={templates} fillHeight />
+              </div>
             )}
 
-            <button
-              onClick={pagination.handleNext}
-              disabled={pagination.currentPage === totalPages}
-              className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-            >
-              Next
-            </button>
+            {/* Pagination */}
+            <div className="flex justify-center items-center gap-2 mt-auto pt-2">
+              <button
+                onClick={pagination.handlePrev}
+                disabled={pagination.currentPage === 1}
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              >
+                Prev
+              </button>
+              {getEllipsedPages(pagination.currentPage, totalPages, 1).map((num, idx) =>
+                num === "…" ? (
+                  <span key={`e-${idx}`} className="px-2 text-gray-400 select-none">…</span>
+                ) : (
+                  <button
+                    key={num}
+                    onClick={() => pagination.handlePage(num)}
+                    className={`px-3 py-1 rounded border ${
+                      pagination.currentPage === num
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-100"
+                    }`}
+                    aria-current={pagination.currentPage === num ? "page" : undefined}
+                  >
+                    {num}
+                  </button>
+                )
+              )}
+
+              <button
+                onClick={pagination.handleNext}
+                disabled={pagination.currentPage === totalPages}
+                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </main>
       </div>

@@ -1,8 +1,11 @@
-export default function Table({ columns, data, noDataMessage = "No template available" }) {
+export default function Table({ columns, data, noDataMessage = "No template available", fillHeight = false, }) {
   return (
-    <div className="bg-white rounded shadow overflow-hidden">
+    <div className={
+        "bg-white rounded-lg border overflow-hidden " +
+        (fillHeight ? "h-full flex flex-col" : "")
+      }>
       {/* Scrollable container */}
-      <div className="max-h-[290px] overflow-y-auto">
+      <div className={fillHeight ? "flex-1 overflow-y-auto" : ""}>
         <table className="min-w-full text-sm">
           <thead className="sticky top-0 bg-[#f5f5f5] z-10">
             <tr className="border-b border-gray-200">

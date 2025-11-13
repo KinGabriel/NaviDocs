@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { X, ChevronDown, ChevronUp, Search } from 'lucide-react';
-import { getFieldSuggestionsAPI, updateFieldSuggestionAPI, deleteFieldSuggestionAPI, listAllSuggestionFieldsAPI } from '../../api/documentsAPI';
+import { 
+  getFieldSuggestionsAPI, 
+  updateFieldSuggestionAPI, 
+  deleteFieldSuggestionAPI, 
+  listAllSuggestionFieldsAPI 
+} from '../../api/documentsAPI';
 import Loader from "../../components/loader";
+import PermanentlyDeleteDocumentModal from '../../components/modals/permanentlyDeleteDocumentModal';
 
 export default function ManageSuggestionsModal({ open, onClose, fields = [], user = null }) {
   const [loading, setLoading] = useState(false);
@@ -13,6 +19,11 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
   const [expandedFields, setExpandedFields] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [showAllFields, setShowAllFields] = useState(false);
+
+  // state for delete modal
+  const [deleteTarget, setDeleteTarget] = useState(null); 
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const isController = (() => {
     if (!user) return false;
@@ -117,7 +128,9 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
       setSuggestions((prev) => {
         const copy = { ...prev };
         if (Array.isArray(copy[fieldName])) {
-          copy[fieldName] = copy[fieldName].map(it => (String(it._id || it.id) === String(id) ? { ...it, value: val } : it));
+          copy[fieldName] = copy[fieldName].map(it => 
+            (String(it._id || it.id) === String(id) ? { ...it, value: val } : it)
+          );
         }
         return copy;
       });
@@ -129,19 +142,41 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
     }
   };
 
-  const onDelete = async (id, fieldName) => {
-    if (!confirm('Delete this saved value?')) return;
+  // open delete modal (instead of window.confirm)
+  const onRequestDelete = (id, fieldName, valueLabel) => {
+    setDeleteError('');
+    setDeleteTarget({
+      id,
+      fieldName,
+      itemTitle: valueLabel || '',
+    });
+  };
+
+  // confirm delete from modal
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    const { id, fieldName } = deleteTarget;
+
+    setDeleteSubmitting(true);
     setBusyIds((s) => new Set([...s, id]));
+
     try {
       await deleteFieldSuggestionAPI(id);
       setSuggestions((prev) => {
         const copy = { ...prev };
-        if (Array.isArray(copy[fieldName])) copy[fieldName] = copy[fieldName].filter(it => String(it._id || it.id) !== String(id));
+        if (Array.isArray(copy[fieldName])) {
+          copy[fieldName] = copy[fieldName].filter(
+            it => String(it._id || it.id) !== String(id)
+          );
+        }
         return copy;
       });
+      setDeleteTarget(null);
+      setDeleteError('');
     } catch (err) {
-      alert(err.message || 'Failed to delete suggestion');
+      setDeleteError(err.message || 'Failed to delete saved value.');
     } finally {
+      setDeleteSubmitting(false);
       setBusyIds((s) => { const c = new Set(s); c.delete(id); return c; });
     }
   };
@@ -240,148 +275,152 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
             <div className="space-y-4">
               {displayedFields && displayedFields.length > 0 ? (
                 <>
-                {displayedFields.map((f) => {
-                const allSuggestions = suggestions[f.name] || [];
-                const isExpanded = expandedFields[f.name];
-                const INITIAL_DISPLAY = 3;
-                const displayList = isExpanded ? allSuggestions : allSuggestions.slice(0, INITIAL_DISPLAY);
-                const hasMore = allSuggestions.length > INITIAL_DISPLAY;
+                  {displayedFields.map((f) => {
+                    const allSuggestions = suggestions[f.name] || [];
+                    const isExpanded = expandedFields[f.name];
+                    const INITIAL_DISPLAY = 3;
+                    const displayList = isExpanded ? allSuggestions : allSuggestions.slice(0, INITIAL_DISPLAY);
+                    const hasMore = allSuggestions.length > INITIAL_DISPLAY;
 
-                return (
-                  <div key={f.name} className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow duration-200">
-                    {/* Field Header */}
-                    <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg">
-                      <h4 className="text-sm font-semibold text-gray-900">{f.label || f.name}</h4>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {allSuggestions.length} {allSuggestions.length === 1 ? 'value' : 'values'}
-                      </span>
-                    </div>
-
-                    {/* Field Content */}
-                    <div className="p-4">
-                      {allSuggestions.length === 0 ? (
-                        <div className="text-center py-6 text-sm text-gray-400">
-                          No saved values for this field
+                    return (
+                      <div 
+                        key={f.name} 
+                        className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow duration-200"
+                      >
+                        {/* Field Header */}
+                        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg">
+                          <h4 className="text-sm font-semibold text-gray-900">{f.label || f.name}</h4>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {allSuggestions.length} {allSuggestions.length === 1 ? 'value' : 'values'}
+                          </span>
                         </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {displayList.map((s) => {
-                            const id = s._id || s.id;
-                            const isEditing = editing[id] !== undefined;
-                            const isBusy = busyIds.has(id);
 
-                            return (
-                              <div 
-                                key={id} 
-                                className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-150"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  {isEditing ? (
-                                    <input
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                      value={editing[id]}
-                                      onChange={(e) =>
-                                        setEditing((ev) => ({ ...ev, [id]: e.target.value }))
-                                      }
-                                      autoFocus
-                                    />
-                                  ) : (
-                                    <div className="text-sm text-gray-800 truncate">
-                                      {String(s.value ?? s)}
+                        {/* Field Content */}
+                        <div className="p-4">
+                          {allSuggestions.length === 0 ? (
+                            <div className="text-center py-6 text-sm text-gray-400">
+                              No saved values for this field
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {displayList.map((s) => {
+                                const id = s._id || s.id;
+                                const isEditing = editing[id] !== undefined;
+                                const isBusy = busyIds.has(id);
+                                const valueLabel = String(s.value ?? s);
+
+                                return (
+                                  <div 
+                                    key={id} 
+                                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-150"
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      {isEditing ? (
+                                        <input
+                                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                          value={editing[id]}
+                                          onChange={(e) =>
+                                            setEditing((ev) => ({ ...ev, [id]: e.target.value }))
+                                          }
+                                          autoFocus
+                                        />
+                                      ) : (
+                                        <div className="text-sm text-gray-800 truncate">
+                                          {valueLabel}
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                  {isEditing ? (
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      {isEditing ? (
+                                        <>
+                                          <button
+                                            disabled={isBusy}
+                                            onClick={() => onSaveEdit(id, f.name)}
+                                            className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+                                          >
+                                            Save
+                                          </button>
+                                          <button
+                                            disabled={isBusy}
+                                            onClick={() => onCancelEdit(id)}
+                                            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <button
+                                            onClick={() => onStartEdit(s)}
+                                            className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors duration-150"
+                                          >
+                                            Edit
+                                          </button>
+                                          <button
+                                            disabled={isBusy}
+                                            onClick={() => onRequestDelete(id, f.name, valueLabel)}
+                                            className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+                                          >
+                                            Delete
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+
+                              {/* Show More/Less Button */}
+                              {hasMore && (
+                                <button
+                                  onClick={() =>
+                                    setExpandedFields((prev) => ({
+                                      ...prev,
+                                      [f.name]: !isExpanded,
+                                    }))
+                                  }
+                                  className="w-full flex items-center justify-center gap-2 mt-3 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors duration-150"
+                                >
+                                  {isExpanded ? (
                                     <>
-                                      <button
-                                        disabled={isBusy}
-                                        onClick={() => onSaveEdit(id, f.name)}
-                                        className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
-                                      >
-                                        Save
-                                      </button>
-                                      <button
-                                        disabled={isBusy}
-                                        onClick={() => onCancelEdit(id)}
-                                        className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
-                                      >
-                                        Cancel
-                                      </button>
+                                      <ChevronUp className="w-4 h-4" />
+                                      Show less
                                     </>
                                   ) : (
                                     <>
-                                      <button
-                                        onClick={() => onStartEdit(s)}
-                                        className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors duration-150"
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        disabled={isBusy}
-                                        onClick={() => onDelete(id, f.name)}
-                                        className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
-                                      >
-                                        Delete
-                                      </button>
+                                      <ChevronDown className="w-4 h-4" />
+                                      Show {allSuggestions.length - INITIAL_DISPLAY} more
                                     </>
                                   )}
-                                </div>
-                              </div>
-                            );
-                          })}
-
-                          {/* Show More/Less Button */}
-                          {hasMore && (
-                            <button
-                              onClick={() =>
-                                setExpandedFields((prev) => ({
-                                  ...prev,
-                                  [f.name]: !isExpanded,
-                                }))
-                              }
-                              className="w-full flex items-center justify-center gap-2 mt-3 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors duration-150"
-                            >
-                              {isExpanded ? (
-                                <>
-                                  <ChevronUp className="w-4 h-4" />
-                                  Show less
-                                </>
-                              ) : (
-                                <>
-                                  <ChevronDown className="w-4 h-4" />
-                                  Show {allSuggestions.length - INITIAL_DISPLAY} more
-                                </>
+                                </button>
                               )}
-                            </button>
+                            </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                      </div>
+                    );
+                  })}
           
-              {/* Show More/Less Fields Button */}
-              {!searchQuery && hasMoreFields && (
-                <button
-                  onClick={() => setShowAllFields(!showAllFields)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-150 border-2 border-blue-200 border-dashed"
-                >
-                  {showAllFields ? (
-                    <>
-                      <ChevronUp className="w-4 h-4" />
-                      Show less fields
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="w-4 h-4" />
-                      Show {filteredFields.length - INITIAL_FIELDS_DISPLAY} more fields
-                    </>
+                  {/* Show More/Less Fields Button */}
+                  {!searchQuery && hasMoreFields && (
+                    <button
+                      onClick={() => setShowAllFields(!showAllFields)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-150 border-2 border-blue-200 border-dashed"
+                    >
+                      {showAllFields ? (
+                        <>
+                          <ChevronUp className="w-4 h-4" />
+                          Show less fields
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-4 h-4" />
+                          Show {filteredFields.length - INITIAL_FIELDS_DISPLAY} more fields
+                        </>
+                      )}
+                    </button>
                   )}
-                </button>
-              )}
-            </>
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12">
                   <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -396,6 +435,24 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
           )}
         </div>
       </div>
+
+      {/* Delete Field Modal (reusing PermanentlyDeleteDocumentModal) */}
+      <PermanentlyDeleteDocumentModal
+        open={!!deleteTarget}
+        onClose={() => {
+          if (!deleteSubmitting) {
+            setDeleteTarget(null);
+            setDeleteError('');
+          }
+        }}
+        itemTitle={deleteTarget?.itemTitle || ''}
+        onConfirm={handleConfirmDelete}
+        submitting={deleteSubmitting}
+        error={deleteError}
+        title="Delete saved value"
+        message="This will remove this saved value from your field suggestions. This action cannot be undone."
+        confirmLabel="Delete value"
+      />
     </div>
   );
 }

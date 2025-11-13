@@ -404,7 +404,7 @@ function App() {
         <Route
           path="/documents"
           element={
-            <ProtectedRoute allowedRoles={["Dean", "Department Head", "Faculty", "Secretary", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+            <ProtectedRoute allowedRoles={["Dean", "Department Head", "Faculty", "Secretary"]}>
               <Documents />
             </ProtectedRoute>
           }

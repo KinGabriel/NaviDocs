@@ -35,12 +35,6 @@ export default function DepartmentHeadDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-
-
-
-  // publishedTemplates controlled by state (see effect below)
-
-
   const templateColumns = [
     { key: "title", label: "Title" },
     { key: "createdBy", label: "Created By" },
@@ -69,7 +63,6 @@ export default function DepartmentHeadDashboard() {
     },
   ];
 
-
   const publishedTemplatesColumns = [
     { key: "code", label: "Document Code" },
     { key: "rev", label: "Revision No." },
@@ -96,7 +89,6 @@ export default function DepartmentHeadDashboard() {
     },
   ];
 
-
   // upcoming/dueToday/overdue will be loaded from API
   const [upcomingDeadlinesData, setUpcomingDeadlinesData] = useState([]);
   const [dueTodayData, setDueTodayData] = useState([]);
@@ -121,12 +113,12 @@ export default function DepartmentHeadDashboard() {
       try {
         const res = await getDeptHeadDashboardAPI();
         if (!mounted) return;
-  setTemplates(res.templates || []);
-  setPublishedTemplates(res.publishedTemplates || []);
-  setSubmissionOverviewData(res.bins || []);
-  setUpcomingDeadlinesData(res.upcoming || []);
-  setDueTodayData(res.dueToday || []);
-  setOverdueData(res.overdue || []);
+        setTemplates(res.templates || []);
+        setPublishedTemplates(res.publishedTemplates || []);
+        setSubmissionOverviewData(res.bins || []);
+        setUpcomingDeadlinesData(res.upcoming || []);
+        setDueTodayData(res.dueToday || []);
+        setOverdueData(res.overdue || []);
       } catch (e) {
         console.error('Failed to load dept head dashboard', e);
         if (mounted) setError(e.message || 'Failed to load dashboard');
@@ -145,10 +137,8 @@ export default function DepartmentHeadDashboard() {
       <div className="flex flex-1">
         <Sidebar user={user} active="Dashboard" />
 
-
         <main className="flex-1 flex flex-col bg-white lg:shadow pt-1 pb-4 px-4 sm:px-6 lg:px-8 mx-0 lg:mx-6 mt-4 lg:mt-8 rounded-none lg:rounded-xl w-full max-w-full">
           <Greeting name={user?.firstname || "Document Controller"} />
-
 
           {/* Stat cards */}
           <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
@@ -209,10 +199,10 @@ export default function DepartmentHeadDashboard() {
                   </button>
                 </div>
 
-
-                {/* table wrapper for horizontal scroll on mobile */}
-                <div className="overflow-x-auto">
-                  <Table columns={templateColumns} data={templates} />
+               <div className="mt-4 h-64 overflow-hidden">
+                  <div className="h-full overflow-x-auto">
+                    <Table columns={templateColumns} data={templates} fillHeight />
+                  </div>
                 </div>
               </div>
             </div>
@@ -244,6 +234,7 @@ export default function DepartmentHeadDashboard() {
               })()}
             </div>
 
+            {/* Submission Overview */}
             <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
               <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
                 <div>
@@ -254,15 +245,18 @@ export default function DepartmentHeadDashboard() {
                 </div>
               </div>
 
-
-              <div className="overflow-x-auto">
-                <Table
-                  columns={submissionOverviewColumns}
-                  data={submissionOverviewData}
-                />
+              <div className="mt-2 h-64 overflow-hidden">
+                <div className="h-full overflow-x-auto">
+                  <Table
+                    columns={submissionOverviewColumns}
+                    data={submissionOverviewData}
+                    fillHeight
+                  />
+                </div>
               </div>
             </div>
 
+            {/* Recently Published */}
             <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
               <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
                 <div>
@@ -280,15 +274,16 @@ export default function DepartmentHeadDashboard() {
                 </button>
               </div>
 
-
-              <div className="overflow-x-auto">
-                <Table
-                  columns={publishedTemplatesColumns}
-                  data={publishedTemplates}
-                />
+              <div className="mt-2 h-64 overflow-hidden">
+                <div className="h-full overflow-x-auto">
+                  <Table
+                    columns={publishedTemplatesColumns}
+                    data={publishedTemplates}
+                    fillHeight
+                  />
+                </div>
               </div>
             </div>
-
           </div>
         </main>
       </div>
