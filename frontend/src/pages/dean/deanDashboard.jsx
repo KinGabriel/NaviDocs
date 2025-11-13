@@ -36,11 +36,8 @@ export default function DeanDashboard() {
   // URL route used by react-router for navigation (keep this pointing to your route path)
   const SUBMISSION_BINS_ROUTE = "/submission-bins";
   const DOC_CONTROLLER_TEMPLATES_ROUTE = "/templates?status=Published";
-<<<<<<< HEAD
   const [isLoading, setIsLoading] = useState(false);
-=======
   const SUBMISSIONS_ROUTE = "/submissions"; // use the same path your router uses for the Submissions page
->>>>>>> 8ec12d0eee450c460bb99be2e7103f030c7b56be
 
   function formatDate(dateValue) {
     if (!dateValue) return "-";
