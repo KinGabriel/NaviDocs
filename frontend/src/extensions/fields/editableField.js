@@ -13,11 +13,13 @@ export const EditableField = Node.create({
 
   addAttributes() {
     return {
-      key: { default: null },                // unique ID
-      type: { default: "text" },             // "text" | "image" | "date"
-      placeholder: { default: "" },          // visible placeholder text or image
-      tags: { default: [] },                 // array of tag IDs
-      dateFormat: { default: null },         // only used when type === "date"
+      key: { default: null },            // unique ID
+      type: { default: "text" },         // "text" | "date"
+      placeholder: { default: "" },      // visible placeholder text
+      tags: { default: [] },             // array of tag IDs
+
+      // For date fields
+      dateFormat: { default: null },
     };
   },
 
@@ -39,7 +41,12 @@ export const EditableField = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const { key, type, placeholder, dateFormat } = HTMLAttributes;
+    const {
+      key,
+      type,
+      placeholder,
+      dateFormat,
+    } = HTMLAttributes;
 
     const baseAttrs = {
       "data-node": "editable-field",
@@ -59,21 +66,7 @@ export const EditableField = Node.create({
       baseAttrs["data-format"] = dateFormat;
     }
 
-    // Image field frame
-    if (type === "image") {
-      return [
-        "span",
-        baseAttrs,
-        [
-          "span",
-          {
-            class: "nd-image-field-frame",
-            "data-placeholder": placeholder || "Upload image",
-          },
-        ],
-      ];
-    }
-
+    // Text / Date fields share the same inner text span
     return [
       "span",
       baseAttrs,
@@ -90,23 +83,15 @@ export const EditableField = Node.create({
 
   addCommands() {
     return {
+      // Accept a generic attrs object so caller (FieldsPanel) controls type-specific props
       insertEditableField:
-        ({ key, type = "text", placeholder = "", tags = [], dateFormat = null }) =>
+        (attrs = {}) =>
         ({ chain }) => {
+          const key = attrs.key;
+          const placeholder = attrs.placeholder ?? "";
+
           if (!key || !placeholder) return false;
 
-          const attrs = {
-            key,
-            type,
-            placeholder,
-            tags,
-          };
-
-          if (type === "date" && dateFormat) {
-            attrs.dateFormat = dateFormat;
-          }
-
-          // Insert node + trailing space (caret placed after)
           return chain()
             .insertContent([
               {

@@ -12,6 +12,8 @@ export default function StatusBadge({ type }) {
     pending: "bg-yellow-50 text-yellow-700 border border-yellow-200",
     late: "bg-red-50 text-red-700 border border-red-200",
     returned: "bg-orange-50 text-red-700 border border-orange-200",
+    resubmitted: "bg-purple-50 text-purple-700 border border-purple-200",
+    submitted: "bg-green-50 text-green-700 border border-green-200",
     ongoing: "bg-gray-50 text-gray-700 border border-gray-200",
     published: "bg-blue-50 text-blue-700 border border-blue-200",
     

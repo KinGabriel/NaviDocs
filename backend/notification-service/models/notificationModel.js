@@ -51,7 +51,8 @@ const notificationSchema = new mongoose.Schema({
       'submission_item_submitted',
       'submission_item_unsubmitted',
       'submission_item_returned',
-      'submission_item_approved'
+      'submission_item_approved',
+      'submission_item_resubmitted'
     ],
     required: true,
   },

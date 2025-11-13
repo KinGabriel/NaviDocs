@@ -1,34 +1,36 @@
-// src/layout/templateSidebar.jsx
+// src/layout/sidebars/templateSidebar.jsx
 import React from "react";
 
 export default function TemplateSidebar({
   selectedPanel,
   onSelectPanel,
   panels = [
-    { id: "font",         label: "Text",               glyph: "T"  },
-    { id: "headerfooter", label: "Header & Footers",   glyph: "▭"  },
-    { id: "insert",       label: "Insert",             glyph: "+"  },
-    { id: "pagesetup",    label: "Page setup",         glyph: "▦"  },
-    { id: "fields",       label: "Set Editable Fields", glyph: "✎" },
+    { id: "font",         label: "Text",                 glyph: "T"  },
+    { id: "headerfooter", label: "Header & Footers",     glyph: "▭"  },
+    { id: "insert",       label: "Insert",               glyph: "+"  },
+    { id: "pagesetup",    label: "Page setup",           glyph: "▦"  },
+    { id: "fields",       label: "Set Editable Fields",  glyph: "✎"  },
   ],
   topOffsetPx = 70,
   bottomOffsetPx = 16,
   children,
 }) {
-  const railStyle = {
-    top: `${topOffsetPx}px`,
-    height: `calc(100vh - ${topOffsetPx + bottomOffsetPx}px)`,
-  };
-  const panelStyle = railStyle;
+  const maxHeight = `calc(100vh - ${topOffsetPx + bottomOffsetPx}px)`;
 
   return (
-    <div className="relative w-[380px] shrink-0">
+    // ⬅ z-20 so this whole sidebar stack is above the document when they overlap
+    <div className="relative z-20 flex shrink-0">
+      {/* LEFT TOOL RAIL */}
       <nav
         className="
-          fixed left-0 z-30 hidden md:block
+          hidden md:flex flex-col
           w-24 rounded-r-2xl border border-slate-200 bg-white py-2 shadow-sm
         "
-        style={railStyle}
+        style={{
+          position: "sticky",
+          top: topOffsetPx,
+          maxHeight,
+        }}
         aria-label="Editor tools"
       >
         <ul className="flex h-full flex-col items-stretch gap-2 px-1">
@@ -37,6 +39,7 @@ export default function TemplateSidebar({
             return (
               <li key={item.id}>
                 <button
+                  type="button"
                   onClick={() => onSelectPanel(item.id)}
                   className={`flex w-full flex-col items-center justify-center gap-1 rounded-xl py-3 transition
                     ${
@@ -46,22 +49,37 @@ export default function TemplateSidebar({
                     }`}
                   aria-current={active ? "page" : undefined}
                 >
-                  <span className="text-2xl leading-none text-center">{item.glyph}</span>
-                  <span className="text-[11px] leading-tight text-center">{item.label}</span>
+                  <span className="text-2xl leading-none text-center">
+                    {item.glyph}
+                  </span>
+                  <span className="text-[11px] leading-tight text-center">
+                    {item.label}
+                  </span>
                 </button>
               </li>
             );
           })}
         </ul>
       </nav>
+
+      {/* RIGHT CONTENT SIDEBAR – keep same size as you liked */}
       <aside
         className="
-          sticky w-[380px] overflow-auto rounded-xl
-          border border-slate-200 bg-white p-3 shadow-sm
+          ml-3
+          flex-[0_0_360px]
+          max-w-[380px]
+          rounded-3xl border border-slate-200 bg-white shadow-sm
+          overflow-hidden
         "
-        style={panelStyle}
+        style={{
+          position: "sticky",
+          top: topOffsetPx,
+          maxHeight,
+        }}
       >
-        {children}
+        <div className="h-full overflow-auto p-4 bg-white">
+          {children}
+        </div>
       </aside>
     </div>
   );
