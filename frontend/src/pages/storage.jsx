@@ -502,7 +502,7 @@ export default function Storage() {
         );
       await loadContent();
     } catch (err) {
-      alert(err.message || "Failed to move item");
+      toast.error(err.message || "Failed to move item");
     } finally {
       setShowMoveModal(false);
       setItemToMove(null);
