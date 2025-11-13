@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { adminDashboardType } from './schemas/adminDashboardSchema.js';
 import { docControllerDashboardType } from './schemas/docControllerDashboardSchema.js';
 import { deptHeadDashboardType } from './schemas/deptHeadDashboardSchema.js';
+import { facultyDashboardType } from './schemas/facultyDashboardSchema.js';
 import { resolvers } from './resolvers/aggregator.js';
 import { authenticateJWT } from "./middleware/authenticationMiddleware.js";
 import cookieParser from 'cookie-parser';
@@ -20,7 +21,7 @@ async function startServer() {
   app.use(express.json());
   app.use(cookieParser());
 
-  const server = new ApolloServer({ typeDefs: [adminDashboardType, docControllerDashboardType, deptHeadDashboardType], resolvers });
+  const server = new ApolloServer({ typeDefs: [adminDashboardType, docControllerDashboardType, deptHeadDashboardType, facultyDashboardType], resolvers });
   await server.start();
 
   app.use(

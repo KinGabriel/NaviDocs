@@ -206,6 +206,176 @@ export const getDeptHeadDashboardGraphQL = async () => {
 	}
 };
 
+export const getFacultyDashboardGraphQL = async () => {
+	const query = `
+		query FacultyDashboard {
+			facultyDashboard {
+				total
+				totalAssigned
+				submittedCount
+				onTimeCount
+				lateCount
+				pendingCount
+				submissions {
+					binId
+					binTitle
+					templateId
+					submissionId
+					status
+					submittedAt
+					deadline
+					department
+					school
+					documents { id title created_by createdAt }
+				}
+				assignedBins {
+					id
+					title
+					department
+					school
+					deadline
+					submissionsCount
+					submittedCount
+					onTimeCount
+					lateCount
+					pendingCount
+					completion
+					userSubmission {
+						submissionId
+						status
+						submittedAt
+						documents { id title }
+					}
+				}
+				upcomingAssigned {
+					id
+					title
+					department
+					school
+					deadline
+					submissionsCount
+					submittedCount
+					onTimeCount
+					lateCount
+					pendingCount
+					completion
+					userSubmission { submissionId status submittedAt documents { id title } }
+				}
+				dueTodayAssigned {
+					id
+					title
+					department
+					school
+					deadline
+					submissionsCount
+					submittedCount
+					onTimeCount
+					lateCount
+					pendingCount
+					completion
+					userSubmission { submissionId status submittedAt documents { id title } }
+				}
+				overdueAssigned {
+					id
+					title
+					department
+					school
+					deadline
+					submissionsCount
+					submittedCount
+					onTimeCount
+					lateCount
+					pendingCount
+					completion
+					userSubmission { submissionId status submittedAt documents { id title } }
+				}
+			}
+		}
+	`;
+
+	try {
+		const res = await axios.post(`${API_URL}/graphql`, { query }, {
+			withCredentials: true,
+			headers: { 'Content-Type': 'application/json' },
+		});
+
+		if (res.data?.errors) {
+			const msg = res.data.errors.map(e => e.message).join('; ');
+			const err = new Error(msg || 'GraphQL error');
+			err.graphql = res.data.errors;
+			throw err;
+		}
+		return res.data?.data?.facultyDashboard ?? null;
+	} catch (error) {
+		console.error('GraphQL request failed:', error.response?.data || error.message || error);
+		const graphqlErrors = error.response?.data?.errors;
+		const message = (graphqlErrors && Array.isArray(graphqlErrors)) ? graphqlErrors.map(e => e.message).join('; ') : (error.response?.data?.message || error.message || 'Failed to fetch faculty dashboard (graphql)');
+		const err = new Error(message);
+		err.status = error.response?.status;
+		err.responseData = error.response?.data;
+		throw err;
+	}
+};
+
+export const getFacultyDashboardAPI = async () => {
+	const gql = await getFacultyDashboardGraphQL();
+	if (!gql) return { total: 0, totalAssigned: 0, submittedCount: 0, submissions: [], assignedBins: [] };
+
+	const mapDoc = (d) => ({ id: d.id || d._id || null, title: d.title || '', created_by: d.created_by || null, createdAt: d.createdAt || null });
+
+	const submissions = (gql.submissions || []).map(s => ({
+		binId: s.binId || null,
+		binTitle: s.binTitle || '',
+		templateId: s.templateId || null,
+		submissionId: s.submissionId || null,
+		status: s.status || null,
+		submittedAt: s.submittedAt || null,
+		deadline: s.deadline || null,
+		department: s.department || null,
+		school: s.school || null,
+		documents: Array.isArray(s.documents) ? s.documents.map(mapDoc) : []
+	}));
+
+	const assignedBins = (gql.assignedBins || []).map(b => ({
+		id: b.id || b._id || null,
+		title: b.title || '',
+		department: b.department || null,
+		school: b.school || null,
+		deadline: b.deadline || null,
+		submissionsCount: b.submissionsCount || 0,
+		submittedCount: b.submittedCount || 0,
+		onTimeCount: b.onTimeCount || 0,
+		lateCount: b.lateCount || 0,
+		pendingCount: b.pendingCount || 0,
+		completion: b.completion || b.completionPercent || '—',
+		userSubmission: b.userSubmission ? {
+			submissionId: b.userSubmission.submissionId || b.userSubmission._id || null,
+			status: b.userSubmission.status || null,
+			submittedAt: b.userSubmission.submittedAt || b.userSubmission.submitted_at || null,
+			documents: Array.isArray(b.userSubmission.documents) ? b.userSubmission.documents.map(d => ({ id: d.id || d._id, title: d.title })) : []
+		} : null
+	}));
+
+	// Map server-provided deadline buckets (prefer GraphQL arrays)
+	const upcoming = mapDeadlineBins(gql.upcomingAssigned || gql.upcoming || [], 'Upcoming');
+	const dueToday = mapDeadlineBins(gql.dueTodayAssigned || gql.dueToday || [], 'Due Today');
+	const overdue = mapDeadlineBins(gql.overdueAssigned || gql.overdue || [], 'Overdue');
+
+	return {
+		total: gql.total || 0,
+		totalAssigned: gql.totalAssigned || 0,
+		submittedCount: gql.submittedCount || 0,
+		onTimeCount: gql.onTimeCount || 0,
+		lateCount: gql.lateCount || 0,
+		pendingCount: gql.pendingCount || 0,
+		submissions,
+		assignedBins,
+		upcoming,
+		dueToday,
+		overdue
+	};
+};
+
 // Map upcoming/dueToday/overdue arrays to a simple frontend-friendly shape
 const mapDeadlineBins = (arr, priorityLabel) => (Array.isArray(arr) ? arr.map(b => ({
 	id: b.id || b._id || null,

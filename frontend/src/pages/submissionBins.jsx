@@ -11,6 +11,7 @@ import { StatusBadge, formatDate } from "../utils/formatters";
 import { Plus, Calendar, Users, FileText, Clock, CheckCircle, AlertCircle, Eye, TrendingUp, Send, RotateCcw} from 'lucide-react';
 import { listSubmissionBinsAPI, forwardSubmissionBinAPI } from "../api/assignmentDocumentsAPI";
 import { getSubmissionBinStatus } from "../utils/submissionStatus";
+import toast from "react-hot-toast";
 
 const STATUS_OPTIONS = ["All Status", "Active", "Completed", "Pending", "Returned", "Overdue"];
 const SORT_OPTIONS = ["Recent", "Oldest", "Due Soon", "A–Z"];
@@ -185,7 +186,7 @@ export default function SubmissionBins() {
       const updated = await forwardSubmissionBinAPI(binId);
       setBins(prev => prev.map(b => (String(b._id || b.id) === String(binId) ? updated : b)));
     } catch (e) {
-      alert(e?.responseData?.message || e?.message || 'Failed to forward bin');
+      toast.error(e?.responseData?.message || e?.message || 'Failed to forward bin');
     } finally {
       setForwardingId(null);
     }

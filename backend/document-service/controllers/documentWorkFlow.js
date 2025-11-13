@@ -450,7 +450,15 @@ export const getBin = async (req, res) => {
 			try {
 				const obj = bin.toObject ? bin.toObject() : JSON.parse(JSON.stringify(bin));
 				const submissions = Array.isArray(obj.submissions) ? obj.submissions : [];
-				const uniqueIds = Array.from(new Set(submissions.map(s => String(s.faculty)).filter(Boolean)));
+				
+				// Collect all unique user IDs (faculty + note authors)
+				const facultyIds = submissions.map(s => String(s.faculty)).filter(Boolean);
+				const noteUserIds = submissions.flatMap(s => 
+					Array.isArray(s.notes) ? s.notes.map(n => n.by).filter(Boolean).map(String) : []
+				);
+				const uniqueIds = Array.from(new Set([...facultyIds, ...noteUserIds]));
+				
+				// Fetch user info for all unique IDs
 				const map = {};
 				await Promise.all(uniqueIds.map(async (uid) => {
 					try {
@@ -458,16 +466,24 @@ export const getBin = async (req, res) => {
 						const data = info?.data || info; // allow either shape
 						const name = data?.name || data?.fullname || [data?.firstname || data?.firstName, data?.lastname || data?.lastName].filter(Boolean).join(' ').trim();
 						map[uid] = {
+							_id: uid,
 							id: uid,
 							name: name || data?.email || uid,
 							email: data?.email || undefined,
+							role: data?.role || undefined,
 						};
-					} catch (_) { map[uid] = { id: uid, name: uid }; }
+					} catch (_) { map[uid] = { _id: uid, id: uid, name: uid }; }
 				}));
+				
+				// Enrich submissions with faculty_user and populate notes.by
 				obj.submissions = submissions.map((s) => ({
 					...s,
 					faculty_user: map[String(s.faculty)] || { id: String(s.faculty), name: String(s.faculty) },
 					faculty_name: (map[String(s.faculty)] && map[String(s.faculty)].name) || String(s.faculty),
+					notes: Array.isArray(s.notes) ? s.notes.map(note => ({
+						...note,
+						by: note.by ? (map[String(note.by)] || note.by) : null
+					})) : []
 				}));
 				return res.json(obj);
 			} catch (e) {
