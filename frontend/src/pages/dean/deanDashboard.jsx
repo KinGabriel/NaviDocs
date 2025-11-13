@@ -7,7 +7,6 @@ import Table from "../../components/table";
 import { StatusBadge } from "../../utils/formatters";
 import Greeting from "../../components/greeting";
 import { FolderOpen, FileText } from "lucide-react";
-import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
 import { Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -19,9 +18,6 @@ import {
   Legend,
   ArcElement,
 } from "chart.js";
-
-// Add the page import as requested (file path route)
-import SubmissionBins from "../../pages/submissionBins.jsx";
 
 ChartJS.register(
   CategoryScale,
@@ -124,25 +120,36 @@ export default function DeanDashboard() {
     },
   ];
 
-  const upcomingDeadlines = [
-    { id: 1, title: "Template Review for AY 2025", date: "2025-08-15", priority: "Overdue", department: "Quality Assurance" },
-    { id: 2, title: "Annual Document Audit", date: "2025-08-28", priority: "Due Today", department: "Administration" },
-    { id: 3, title: "Syllabus Submission Check", date: "2025-09-10", priority: "Upcoming", department: "Academics" },
+  const forwardedSubmissionBins = [
+    { id: 1, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
+    { id: 2, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
+    { id: 3, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
+    { id: 4, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
+    { id: 5, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
   ];
 
-  const submissionBin = [
-    { id: 1, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: "2025-01-21" },
-    { id: 2, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: "2025-01-21" },
-    { id: 3, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: "2025-01-21" },
-    { id: 4, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: "2025-01-21" },
-    { id: 5, name: "Syllabus AY 2025", totalDocs: 50, department: 35, date: "2025-01-21" },
-  ];
-
-  const submissionBinColumns = [
-    { key: "name", label: "Submission Bin Name" },
-    { key: "totalDocs", label: "Total Docs" },
+  const forwardedSubmissionBinsColumns = [
+    { key: "title", label: "Title" },
     { key: "department", label: "Department" },
-    { key: "date", label: "Date" },
+    { key: "submission", label: "No. of Submissions" },
+    {
+      key: "action",
+      label: "Action",
+      render: (row) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id ?? row.templateId;
+            navigate(`/templates/published/${id}`, {
+              state: { doc: row, origin: "dean:recently-published" },
+            });
+          }}
+          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+        >
+          Review
+        </button>
+      ),
+    },
   ];
 
   const chartData = {
@@ -299,6 +306,29 @@ export default function DeanDashboard() {
             {/* if you ever add more bottom-wide sections, use:
               <div className="lg:col-span-4 ..."> ... </div>
           */}
+          </div>
+
+          {/* Recently Published Table */}
+          <div className="bg-[#FBFBFB] shadow p-4 rounded w-full mt-6">
+            <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+              <div>
+                <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                  RECENTLY FORWARDED SUBMISSION BINS
+                </h2>
+                <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+              </div>
+
+              <button
+                onClick={() => navigate(DOC_CONTROLLER_TEMPLATES_ROUTE)}
+                className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+              >
+                View All
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <Table columns={forwardedSubmissionBinsColumns} data={forwardedSubmissionBins} />
+            </div>
           </div>
 
           {/* Recently Published Table */}
