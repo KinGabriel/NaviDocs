@@ -215,29 +215,6 @@ export default function DeanDashboard() {
             </div>
         ) : (
           <>
-          {/* Stat cards */}
-          <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
-            {/* Templates */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                <FileText className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Templates</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
-              </div>
-            </div>
-            {/* Submission Bins */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
-                <FolderOpen className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Submission Bins</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
-              </div>
-            </div>
-          </div>
 
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
