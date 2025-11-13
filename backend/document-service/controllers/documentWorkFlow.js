@@ -712,13 +712,18 @@ export const submitDocument = async (req, res) => {
 		if (!documentId) {
 			return res.status(400).json({ message: 'documentId is required to submit a document' });
 		}
-		const bin = await SubmissionBin.findById(id);
-		if (!bin) return res.status(404).json({ message: 'Bin not found' });
+	const bin = await SubmissionBin.findById(id);
+	if (!bin) return res.status(404).json({ message: 'Bin not found' });
+	
+	console.log('[submitDocument] Bin loaded:', {
+		binId: id,
+		is_forwarded: bin.is_forwarded,
+		status: bin.status,
+		school: bin.school
+	});
 
-		const item = bin.submissions.id(submissionId);
-		if (!item) return res.status(404).json({ message: 'Submission item not found' });
-
-		// Check if this is a newly added faculty (never submitted before) or a resubmission
+	const item = bin.submissions.id(submissionId);
+	if (!item) return res.status(404).json({ message: 'Submission item not found' });		// Check if this is a newly added faculty (never submitted before) or a resubmission
 		const isReturned = String(item.status || '').toLowerCase() === 'returned';
 		const hasNeverSubmitted = !item.submitted_at && (!Array.isArray(item.documents) || item.documents.length === 0);
 		const binCompleted = String(bin.status || '').toLowerCase() === 'completed';
@@ -798,36 +803,13 @@ export const submitDocument = async (req, res) => {
 		// Always notify Department Head
 		if (deptHeadId && String(deptHeadId) !== String(req.user?.id || req.user?._id)) {
 			notifyUserIds.push(deptHeadId);
+			console.log('[submitDocument] Added Department Head to notification list:', deptHeadId);
 		}
 		
-		// If this is a resubmission, notify the person who returned it
-		if (isResubmission && Array.isArray(item.notes)) {
-			// Find the most recent 'returned' note to get who returned it
-			for (let i = item.notes.length - 1; i >= 0; i--) {
-				const note = item.notes[i];
-				if (String(note.type || '').toLowerCase() === 'returned') {
-					// Extract the user ID who returned it
-					let returnedBy = null;
-					if (note.originalBy) {
-						returnedBy = typeof note.originalBy === 'string' ? note.originalBy : (note.originalBy._id || note.originalBy.id);
-					} else if (note.by) {
-						returnedBy = typeof note.by === 'string' ? note.by : (note.by._id || note.by.id);
-					}
-					
-					if (returnedBy) {
-						const returnedByStr = String(returnedBy);
-						// Don't notify if they are the one resubmitting (shouldn't happen but just in case)
-						if (returnedByStr !== String(req.user?.id || req.user?._id) && !notifyUserIds.includes(returnedByStr)) {
-							notifyUserIds.push(returnedByStr);
-						}
-					}
-					break; // Only notify the most recent returner
-				}
-			}
-		}
-		
-		// If bin is forwarded, also notify Dean and Secretary
+		// If bin is forwarded, ALWAYS notify Dean and Secretary (for both initial submissions and resubmissions)
+		// This ensures they are notified regardless of whether they appear in notes
 		if (bin.is_forwarded) {
+			console.log('[submitDocument] Bin is forwarded, fetching Dean and Secretary...');
 			// Fetch Dean and Secretary user IDs
 			try {
 				const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8001';
@@ -846,9 +828,14 @@ export const submitDocument = async (req, res) => {
 					params: { school: bin.school }
 				});
 				const deans = Array.isArray(deanResp?.data) ? deanResp.data : [];
+				console.log('[submitDocument] Found Deans:', deans.length);
 				deans.forEach(d => {
 					const dId = String(d._id || d.id);
-					if (!notifyUserIds.includes(dId)) notifyUserIds.push(dId);
+					const currentUserId = String(req.user?.id || req.user?._id);
+					if (dId !== currentUserId && !notifyUserIds.includes(dId)) {
+						notifyUserIds.push(dId);
+						console.log('[submitDocument] Added Dean to notification list:', dId, d.name || d.email);
+					}
 				});
 				
 				// Fetch Secretary users
@@ -858,14 +845,64 @@ export const submitDocument = async (req, res) => {
 					params: { school: bin.school }
 				});
 				const secretaries = Array.isArray(secResp?.data) ? secResp.data : [];
+				console.log('[submitDocument] Found Secretaries:', secretaries.length);
 				secretaries.forEach(s => {
 					const sId = String(s._id || s.id);
-					if (!notifyUserIds.includes(sId)) notifyUserIds.push(sId);
+					const currentUserId = String(req.user?.id || req.user?._id);
+					if (sId !== currentUserId && !notifyUserIds.includes(sId)) {
+						notifyUserIds.push(sId);
+						console.log('[submitDocument] Added Secretary to notification list:', sId, s.name || s.email);
+					}
 				});
 			} catch (err) {
-				console.warn('Failed to fetch Dean/Secretary for notification:', err?.message || err);
+				console.error('[submitDocument] Failed to fetch Dean/Secretary for notification:', err?.message || err);
+			}
+		} else {
+			console.log('[submitDocument] Bin is NOT forwarded, skipping Dean/Secretary notification');
+		}
+		
+		// Additionally, if this is a resubmission, notify ALL users who returned it from the notes
+		if (isResubmission && Array.isArray(item.notes)) {
+			console.log('[submitDocument] This is a resubmission, checking for additional returners in notes...');
+			// Find all 'returned' notes after the last 'resubmitted' note
+			let lastResubmitIdx = -1;
+			for (let i = item.notes.length - 1; i >= 0; i--) {
+				if (String(item.notes[i].type || '').toLowerCase() === 'resubmitted') {
+					lastResubmitIdx = i;
+					break;
+				}
+			}
+			
+			console.log('[submitDocument] Last resubmit index:', lastResubmitIdx);
+			
+			// Check all notes after the last resubmission (or all notes if no resubmission)
+			const startIdx = lastResubmitIdx >= 0 ? lastResubmitIdx + 1 : 0;
+			for (let i = startIdx; i < item.notes.length; i++) {
+				const note = item.notes[i];
+				if (String(note.type || '').toLowerCase() === 'returned') {
+					// Extract the user ID who returned it
+					let returnedBy = null;
+					if (note.originalBy) {
+						returnedBy = typeof note.originalBy === 'string' ? note.originalBy : (note.originalBy._id || note.originalBy.id);
+					} else if (note.by) {
+						returnedBy = typeof note.by === 'string' ? note.by : (note.by._id || note.by.id);
+					}
+					
+					console.log('[submitDocument] Found returned note by:', returnedBy);
+					
+					if (returnedBy) {
+						const returnedByStr = String(returnedBy);
+						// Don't notify if they are the one resubmitting (shouldn't happen but just in case)
+						if (returnedByStr !== String(req.user?.id || req.user?._id) && !notifyUserIds.includes(returnedByStr)) {
+							notifyUserIds.push(returnedByStr);
+							console.log('[submitDocument] Added returner from notes to notification list:', returnedByStr);
+						}
+					}
+				}
 			}
 		}
+		
+		console.log('[submitDocument] Final notification list:', notifyUserIds);
 		
 		if (notifyUserIds.length > 0) {
 			const templateId = item.template ? String(item.template) : '';
@@ -895,7 +932,6 @@ export const submitDocument = async (req, res) => {
 				message,
 				link: `/submission-details/${bin._id}?submission=${item._id}`,
 				targetedUserIds: notifyUserIds,
-				recipientUser: notifyUserIds[0], // Primary recipient
 			},
 			(err) => {
 				if (err) console.warn('submitDocument notification callback: failed');
