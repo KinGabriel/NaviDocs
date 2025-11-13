@@ -47,6 +47,7 @@ const DEFAULTS = {
       italic: false,
       color: "#000000",
       showHeaderLine: false,
+      headerLineOffsetPx: 4,
     },
   },
 
@@ -136,6 +137,7 @@ function mergeDefaults(value) {
     line4: v.line4 ?? v.header?.centerText?.line4 ?? "",
     showLine4: v.showLine4 ?? v.header?.centerText?.showLine4 ?? false,
     showHeaderLine: v.showHeaderLine ?? v.header?.centerText?.showHeaderLine ?? false,
+    headerLineOffsetPx: v.header?.centerText?.headerLineOffsetPx ?? DEFAULTS.header.centerText.headerLineOffsetPx,
   };
 
   // Document stamp (legacy mirrors)
