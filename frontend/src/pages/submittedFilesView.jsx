@@ -181,6 +181,7 @@ export default function SubmittedFilesView() {
   const [commentText, setCommentText] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [reviewerUsers, setReviewerUsers] = useState({}); 
+  const [showRawViews, setShowRawViews] = useState(false);
 
   // Fetch submission data
 useEffect(() => {
@@ -472,7 +473,11 @@ useEffect(() => {
             submittedAt: submissionItem.submitted_at,
             status: submissionItem.status || (submissionItem.submitted_at ? "submitted" : "pending"),
             files: submittedDocs && submittedDocs.length > 0 ? submittedDocs : [],
-            viewedBy: submissionItem.viewed_by || [],
+            // Normalize view events from multiple possible shapes (views, viewed_by, _rawViews)
+            // Keep raw events for debugging and fallback rendering
+            rawViews: submissionItem._rawViews || submissionItem.views || submissionItem.viewed_by || [],
+            // viewedBy will be populated from rawViews after dedupe (keep latest per user)
+            viewedBy: [],
             notes: Array.isArray(submissionItem.notes)
               ? submissionItem.notes.map(note => {
                   let userInfo = null;
@@ -522,6 +527,34 @@ useEffect(() => {
             };
       
       if (mounted) {
+        // Deduplicate and normalize view events into viewedBy (latest per user)
+        try {
+          const raw = Array.isArray(mappedSubmission.rawViews) ? mappedSubmission.rawViews : [];
+          const normalized = raw.map(rv => ({
+            userId: rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null,
+            at: rv.at || rv.timestamp || rv.viewedAt || null,
+            _id: rv._id || rv.id || null,
+            raw: rv
+          })).filter(r => r.userId);
+
+          // Keep latest per user (by at)
+          const byUser = {};
+          normalized.forEach(n => {
+            const prev = byUser[n.userId];
+            if (!prev) byUser[n.userId] = n;
+            else {
+              const prevT = prev.at ? new Date(prev.at).getTime() : 0;
+              const curT = n.at ? new Date(n.at).getTime() : 0;
+              if (curT >= prevT) byUser[n.userId] = n;
+            }
+          });
+
+          const deduped = Object.values(byUser).map(v => ({ id: v.userId, viewedAt: v.at, _id: v._id }));
+          mappedSubmission.viewedBy = deduped;
+        } catch (e) {
+          mappedSubmission.viewedBy = mappedSubmission.viewedBy || [];
+        }
+
         setSubmission(mappedSubmission);
         setError("");
       }
@@ -591,6 +624,47 @@ useEffect(() => {
   
   return () => { mounted = false; };
 }, [submission?.notes]);
+
+// Fetch user info for viewers (from views/rawViews) so we can show names/roles
+useEffect(() => {
+  if (!submission) return;
+
+  // Collect viewer ids from the deduped viewedBy if present, otherwise try rawViews
+  const ids = [];
+  if (Array.isArray(submission.viewedBy) && submission.viewedBy.length > 0) {
+    submission.viewedBy.forEach(v => { if (v && v.id) ids.push(v.id); });
+  } else if (Array.isArray(submission.rawViews) && submission.rawViews.length > 0) {
+    submission.rawViews.forEach(rv => {
+      const uid = rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id));
+      if (uid) ids.push(uid);
+    });
+  }
+
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return;
+
+  let mounted = true;
+  getUsersInfoByIdsAPI(unique)
+    .then(users => {
+      if (!mounted || !users) return;
+      const userMap = {};
+      users.forEach(u => {
+        const id = u.userId || u._id || u.id;
+        if (!id) return;
+        userMap[id] = {
+          name: u.name || u.fullname || `${u.firstname || ''} ${u.lastname || ''}`.trim() || u.email || 'Unknown User',
+          role: u.role?.name || u.role || 'Reviewer',
+          email: u.email
+        };
+      });
+
+      // Merge into reviewerUsers so existing note-rendering code can reuse it
+      setReviewerUsers(prev => ({ ...prev, ...userMap }));
+    })
+    .catch(err => console.error('Failed to fetch viewer user info:', err));
+
+  return () => { mounted = false; };
+}, [submission?.viewedBy, submission?.rawViews]);
 
 const handleSubmitComment = async () => {
   if (!commentText.trim()) {
@@ -1620,28 +1694,69 @@ const handleZoomReset = () => setZoom(1);
                         </div>
                       )}
                       {/* Viewed By */}
-                      {submission?.viewedBy && submission.viewedBy.length > 0 && (
+                      {submission && (
                         <div className="mb-4 pb-4 border-b">
                           <h4 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
                             <Eye size={16} />
-                            Viewed By ({submission.viewedBy.length})
+                            Viewed By ({(submission.viewedBy && submission.viewedBy.length) || (submission.rawViews && submission.rawViews.length) || 0})
                           </h4>
+                          <div className="flex items-center justify-between mb-3">
+                            <div />
+                            <div className="text-xs text-gray-500">
+                              <button onClick={() => setShowRawViews(s => !s)} className="text-blue-600 hover:underline">{showRawViews ? 'Hide raw' : 'Show raw'}</button>
+                            </div>
+                          </div>
+
                           <div className="space-y-2">
-                            {submission.viewedBy.map((viewer, idx) => (
-                              <div key={idx} className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
-                                <div className="p-1.5 bg-blue-100 rounded-full">
-                                  <Eye size={14} className="text-blue-600" />
+                            {submission.viewedBy && submission.viewedBy.length > 0 ? (
+                              submission.viewedBy.map((viewer, idx) => {
+                                const uid = viewer.id || viewer.userId || viewer._id || null;
+                                const fetchedUser = uid ? reviewerUsers[uid] : null;
+                                const displayName = fetchedUser?.name || viewer.name || uid || 'Unknown';
+                                const displayRole = fetchedUser?.role || viewer.role || '';
+                                return (
+                                <div key={uid || idx} className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
+                                  <div className="p-1.5 bg-blue-100 rounded-full">
+                                    <Eye size={14} className="text-blue-600" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                      {displayName}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {displayRole} {viewer.viewedAt ? '• ' + formatDateTime(viewer.viewedAt) : ''}
+                                    </p>
+                                  </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate">
-                                    {viewer.name}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    {viewer.role} • {formatDateTime(viewer.viewedAt)}
-                                  </p>
-                                </div>
+                              )})
+                            ) : submission.rawViews && submission.rawViews.length > 0 ? (
+                              submission.rawViews.map((rv, idx) => {
+                                const uid = rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null;
+                                const at = rv.at || rv.timestamp || rv.viewedAt || null;
+                                const fetchedUser = uid ? reviewerUsers[uid] : null;
+                                const displayName = fetchedUser?.name || uid || 'Unknown';
+                                const displayRole = fetchedUser?.role || '';
+                                return (
+                                  <div key={rv._id || idx} className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
+                                    <div className="p-1.5 bg-blue-100 rounded-full">
+                                      <Eye size={14} className="text-blue-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
+                                      <p className="text-xs text-gray-500">{displayRole} {at ? '• ' + formatDateTime(at) : ''}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm text-gray-600">No views recorded for this document.</div>
+                            )}
+
+                            {showRawViews && submission.rawViews && submission.rawViews.length > 0 && (
+                              <div className="mt-3 p-3 bg-gray-50 border border-gray-100 rounded text-xs text-gray-600">
+                                <pre className="font-mono text-[11px] leading-snug whitespace-pre-wrap">{JSON.stringify(submission.rawViews, null, 2)}</pre>
                               </div>
-                            ))}
+                            )}
                           </div>
                         </div>
                       )}

@@ -238,9 +238,18 @@ body { font-family: 'Poppins', sans-serif; }
   box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
 }
 
-.nd-editable-field--text { color: #334155; }
-.nd-editable-field--text:is(:empty)::before {
-  content: attr(data-ph);
+.nd-editable-field--text { 
+  color: #334155; 
+}
+
+.nd-editable-field__text:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.nd-editable-field--date .nd-editable-field__text:empty::before {
+  content: attr(data-placeholder);
   color: #94a3b8;
   font-style: italic;
 }

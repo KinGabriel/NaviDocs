@@ -22,6 +22,8 @@ const SubmissionItemSchema = new Schema({
   approved_at: { type: Date, default: null },
   approved_by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   notes: { type: [SubmissionNoteSchema], default: [] },
+  views: { type: [{ user: { type: Schema.Types.ObjectId, ref: 'User' }, document: { type: Schema.Types.ObjectId, ref: 'Document' }, at: { type: Date } }], default: [] },
+  viewReminderSent: { type: Boolean, default: false },
 }, { _id: true, timestamps: false });
 
 const SubmissionBinSchema = new Schema({
