@@ -13,6 +13,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import { PaginationPlus } from "tiptap-pagination-plus";
 import { Extension } from "@tiptap/core";
 import { PaginationTable } from "tiptap-table-plus";
+import { ImagePlus } from "tiptap-image-plus";
 
 import { EditableField, createLockOutsideFieldsPlugin } from "../../extensions/fields";
 import { formatDate } from "../../utils/formatters.jsx";
@@ -194,7 +195,7 @@ const getCfg = (cfg) => {
     showHeaderLine: !!(rawCenter.showHeaderLine ?? cfg?.showHeaderLine),
   };
 
-  // Per-line styles (safe even if not present) – this wires your HeaderLineStyleEditor
+  // Per-line styles (safe even if not present)
   center.line1Style = buildLineStyle(center, rawCenter.line1Style);
   center.line2Style = buildLineStyle(center, rawCenter.line2Style);
   center.line3Style = buildLineStyle(center, rawCenter.line3Style);
@@ -222,7 +223,6 @@ const getCfg = (cfg) => {
     stamp: {
       docCode:
         cfg?.documentStamp?.docCode ??
-
         cfg?.documentStamp?.document_code ??
         cfg?.documentStamp?.documentCode ??
         cfg?.document_code ??
@@ -328,10 +328,17 @@ export default function TextEditor({
       Color,
       FontFamily,
       Highlight.configure({ multicolor: true }),
-      TextAlign.configure({ types: ["heading", "paragraph", "tableCell", "tableHeader"] }),
+      TextAlign.configure({
+        // IMPORTANT: use "imagePlus" (node name from tiptap-image-plus)
+        types: ["heading", "paragraph", "tableCell", "tableHeader", "imagePlus"],
+      }),
       Underline,
       Superscript,
       Subscript,
+
+      ImagePlus.configure({
+        // add custom config here if needed (wrapperStyle, defaultWidth, etc.)
+      }),
 
       EditableField,
 
@@ -545,7 +552,7 @@ export default function TextEditor({
         trip.left.appendChild(sluImg);
       }
 
-      // CENTER: header text block with per-line styles (wired to line1Style...line4Style)
+      // CENTER: header text block with per-line styles
       const c = cfg.center;
 
       const lineHtml = (txt, st) => {
