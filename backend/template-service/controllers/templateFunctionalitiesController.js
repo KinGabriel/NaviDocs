@@ -121,6 +121,25 @@ export const updateTemplate = async (req, res) => {
       });
     }
 
+    // Prevent creators from editing published templates
+    if (template.status === 'published') {
+      const requesterId = req.user?.id ? String(req.user.id) : null;
+      const isCreator = template.created_by && String(template.created_by) === requesterId;
+      const userRole = req.user?.role?.name || req.user?.role || '';
+      const normalizedRole = String(userRole).toLowerCase().replace(/[_\s]+/g, ' ').trim();
+      
+      // Only Document Control Officer can edit published templates
+      const isDocumentControlOfficer = normalizedRole === 'document control officer' || 
+                                       normalizedRole === 'document_controller_officer';
+      
+      if (isCreator && !isDocumentControlOfficer) {
+        return res.status(403).json({ 
+          success: false,
+          message: 'Cannot edit template after it has been published by the Document Control Officer' 
+        });
+      }
+    }
+
     // Basic permission check using created_by field
     if (req.body.created_by && template.created_by.toString() !== req.body.created_by) {
       return res.status(403).json({ 
