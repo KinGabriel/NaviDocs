@@ -5,7 +5,7 @@ import TagSelectModal from "../modals/tagSelectModal";
 export default function TagPicker({
   availableTags = [],
   selectedTags = [],
-  onChange = () => {},
+  onChange = () => { },
 }) {
   const [open, setOpen] = useState(false);
 

@@ -1,4 +1,3 @@
-// src/components/editable_fields/accordionList.jsx
 import React, { useState, useMemo } from "react";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import TagPicker from "./tagPicker";
@@ -40,13 +39,13 @@ function resolveFontCSS(family) {
 
 export default function AccordionList({
   accordions = [],
-  setAccordions = () => {},
+  setAccordions = () => { },
   tagsRegistry = [],
-  onInsertField = () => {},
-  onRemoveField = () => {},
-  onUpdateField = () => {},
-  onSaveGroup = () => {},
-  onBrowse = () => {},
+  onInsertField = () => { },
+  onRemoveField = () => { },
+  onUpdateField = () => { },
+  onSaveGroup = () => { },
+  onBrowse = () => { },
   isSignedIn = false,
 }) {
   const [expanded, setExpanded] = useState({});
@@ -283,9 +282,9 @@ export default function AccordionList({
       prev.map((a) =>
         a.id === accordionId
           ? {
-              ...a,
-              fields: a.fields.map((f) => (f.id === fieldId ? { ...f, tags } : f)),
-            }
+            ...a,
+            fields: a.fields.map((f) => (f.id === fieldId ? { ...f, tags } : f)),
+          }
           : a
       )
     );
@@ -311,12 +310,12 @@ export default function AccordionList({
       prev.map((a) =>
         a.id === accordionId
           ? {
-              ...a,
-              style: {
-                ...normalizeGroupStyle(a.style || {}),
-                ...patch,
-              },
-            }
+            ...a,
+            style: {
+              ...normalizeGroupStyle(a.style || {}),
+              ...patch,
+            },
+          }
           : a
       )
     );
@@ -490,11 +489,10 @@ export default function AccordionList({
                         ? "Sign in to save this section"
                         : "Save section to your library"
                     }
-                    className={`rounded-md border px-2 py-1 text-xs ${
-                      isSignedIn
+                    className={`rounded-md border px-2 py-1 text-xs ${isSignedIn
                         ? "bg-indigo-600 text-white hover:bg-indigo-700 border-slate-300"
                         : "bg-slate-100 text-slate-400 border-slate-100 cursor-not-allowed"
-                    }`}
+                      }`}
                   >
                     Save Section
                   </button>
@@ -551,11 +549,10 @@ export default function AccordionList({
                     <button
                       type="button"
                       onClick={() => updateGroupStyle(acc.id, { bold: !groupStyle.bold })}
-                      className={`rounded-md border px-2 py-1 text-xs ${
-                        groupStyle.bold
+                      className={`rounded-md border px-2 py-1 text-xs ${groupStyle.bold
                           ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                           : "border-slate-300 bg-white text-slate-700"
-                      }`}
+                        }`}
                       style={{ fontWeight: "600" }}
                     >
                       B
@@ -566,11 +563,10 @@ export default function AccordionList({
                       onClick={() =>
                         updateGroupStyle(acc.id, { italic: !groupStyle.italic })
                       }
-                      className={`rounded-md border px-2 py-1 text-xs ${
-                        groupStyle.italic
+                      className={`rounded-md border px-2 py-1 text-xs ${groupStyle.italic
                           ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                           : "border-slate-300 bg-white text-slate-700"
-                      }`}
+                        }`}
                       style={{ fontStyle: "italic" }}
                     >
                       I
