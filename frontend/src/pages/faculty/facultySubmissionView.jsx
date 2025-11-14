@@ -166,6 +166,21 @@ export default function FacultySubmissionView() {
     return () => { mounted = false; };
   }, [assignedItem?.notes]);
   
+    const isTemplateRemovedForThisItem = useMemo(() => {
+    if (!bin || !assignedItem) return false;
+
+    const templateId = assignedItem.template ? String(assignedItem.template) : null;
+    if (!templateId) return false;
+
+    if (!Array.isArray(bin.template_ids)) return false;
+
+    const allowed = bin.template_ids.map(String);
+
+    // If the template used for this faculty submission is not in the allowed list,
+    // consider it "removed" and block submission.
+    return !allowed.includes(templateId);
+  }, [bin, assignedItem]);
+
 
     const submission = useMemo(() => {
         if (!bin || !assignedItem) return null;
@@ -322,6 +337,13 @@ export default function FacultySubmissionView() {
   };
 
   const handleSubmit = async () => {
+    if (isTemplateRemovedForThisItem) {
+      toast.error(
+        "You can no longer submit for this bin because the required template was removed by the Department Head."
+      );
+      return;
+    }
+
     if (selectedFiles.length === 0) {
       toast.error("Please select at least one document to submit");
       return;
@@ -330,35 +352,27 @@ export default function FacultySubmissionView() {
     setIsSubmitting(true);
 
     try {
-      // Extract all document IDs from selected files
       const documentIds = selectedFiles
         .map(file => file._id || file.id)
         .filter(Boolean);
-      
+
       if (documentIds.length === 0) {
         throw new Error('No valid document IDs found in selected files');
       }
-      
-      // Submit each document individually
+
       for (let i = 0; i < documentIds.length; i++) {
         const documentId = documentIds[i];
-        
-        const payload = {
-          documentId: documentId
-        };
-        
+        const payload = { documentId };
         await submitSubmissionDocumentAPI(bin?._id || id, assignedItem?._id, payload);
       }
-      
-      // Add comment/message separately if provided
+
       if (message.trim()) {
         await addSubmissionCommentAPI(bin?._id || id, assignedItem?._id, {
           message: message.trim(),
-          type: 'comment'
+          type: 'comment',
         });
       }
-      
-      // Show success message with count
+
       toast.success(`Successfully submitted ${documentIds.length} document${documentIds.length !== 1 ? 's' : ''}!`);
       navigate(-1);
     } catch (e) {
@@ -368,6 +382,7 @@ export default function FacultySubmissionView() {
       setIsSubmitting(false);
     }
   };
+
 
   const handleBack = () => navigate(-1);
 
@@ -910,7 +925,46 @@ export default function FacultySubmissionView() {
                   )}
                 </div>
               </div>
-            ) : (submission?.status?.toLowerCase() !== 'submitted' && submission?.status?.toLowerCase() !== 'approved') ? (
+         ) : (submission?.status?.toLowerCase() !== 'submitted' && submission?.status?.toLowerCase() !== 'approved') ? (
+                /* Check if template was removed before showing upload form */
+                isTemplateRemovedForThisItem ? (
+                  /* Template Removed - Cannot Submit */
+                  <div className="bg-white rounded-lg shadow-sm border border-red-200 p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-red-50 rounded-lg">
+                        <AlertCircle size={24} className="text-red-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Cannot Submit</h3>
+                        <p className="text-sm text-gray-600">Template no longer available</p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-red-50 rounded-lg border-l-4 border-red-400 mb-4">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle size={20} className="text-red-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-bold text-red-900 mb-2">
+                            Required Template Removed
+                          </h4>
+                          <p className="text-sm text-red-800 mb-2">
+                            The template required for this submission has been removed by the Department Head. 
+                            You can no longer submit documents for this assignment.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleBack}
+                        className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition"
+                      >
+                        Go Back
+                      </button>
+                    </div>
+                  </div>
+                ) : (
               /* Upload Form */
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 {/* Add a notice when resubmitting */}
@@ -1027,60 +1081,60 @@ export default function FacultySubmissionView() {
                 )}
 
                 {/* File Upload Section */}
-             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Documents <span className="text-red-500">*</span>
-              </label>
-              
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition">
-                <Plus size={48} className="text-gray-400 mb-3 mx-auto" />
-                <p className="text-sm text-gray-600 mb-4">
-                  Choose documents from your library to submit
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowDocumentModal(true)}
-                  className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
-                >
-                  <FileText size={18} />
-                  Browse Documents
-                </button>
-              </div>
-
-              {/* Selected Documents List */}
-              {selectedFiles.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">
-                      Selected Documents ({selectedFiles.length})
-                    </span>
-                  </div>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Documents <span className="text-red-500">*</span>
+                  </label>
                   
-                  {selectedFiles.map((file, index) => (
-                    <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200 flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <FileText size={20} className="text-blue-600 flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-gray-900 truncate">
-                            {file.title || file.name || 'Untitled Document'}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {file.school && `${file.school} • `}
-                            {file.status || 'Document'}
-                          </div>
-                        </div>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition">
+                    <Plus size={48} className="text-gray-400 mb-3 mx-auto" />
+                    <p className="text-sm text-gray-600 mb-4">
+                      Choose documents from your library to submit
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowDocumentModal(true)}
+                      className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+                    >
+                      <FileText size={18} />
+                      Browse Documents
+                    </button>
+                  </div>
+
+                  {/* Selected Documents List */}
+                  {selectedFiles.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          Selected Documents ({selectedFiles.length})
+                        </span>
                       </div>
-                      <button
-                        onClick={() => removeFile(index)}
-                        className="ml-3 text-gray-400 hover:text-red-600 flex-shrink-0 transition-colors"
-                      >
-                        <X size={20} />
-                      </button>
+                      
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200 flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <FileText size={20} className="text-blue-600 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium text-gray-900 truncate">
+                                {file.title || file.name || 'Untitled Document'}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {file.school && `${file.school} • `}
+                                {file.status || 'Document'}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeFile(index)}
+                            className="ml-3 text-gray-400 hover:text-red-600 flex-shrink-0 transition-colors"
+                          >
+                            <X size={20} />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
 
                 {/* Message */}
                 <div className="mb-6">
@@ -1130,8 +1184,9 @@ export default function FacultySubmissionView() {
                   </button>
                 </div>
               </div>
-            ): (
-               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
+              )
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
                 <AlertCircle size={48} className="mx-auto text-gray-400 mb-3" />
                 <p className="text-gray-600">Unable to load submission form</p>
                 <p className="text-sm text-gray-500 mt-1">Status: {submission?.status}</p>

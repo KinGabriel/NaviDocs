@@ -751,17 +751,40 @@ export const submitDocument = async (req, res) => {
 		const itemTemplateId = String(item.template);
 		let docTemplateId = null;
 		try {
-			docTemplateId = doc.template_id ? String(doc.template_id) : (doc.from_template && doc.from_template.id ? String(doc.from_template.id) : null);
-		} catch (_) { docTemplateId = null; }
-		if (!docTemplateId) return res.status(400).json({ message: 'Document is not associated with a template' });
+		docTemplateId = doc.template_id
+			? String(doc.template_id)
+			: (doc.from_template && doc.from_template.id
+				? String(doc.from_template.id)
+				: null);
+		} catch (_) {
+		docTemplateId = null;
+		}
+
+		if (!docTemplateId) {
+		return res.status(400).json({ message: 'Document is not associated with a template' });
+		}
+
 		console.log('submitDocument: docTemplateId=', docTemplateId, 'itemTemplateId=', itemTemplateId);
-		if (docTemplateId !== itemTemplateId) return res.status(400).json({ message: 'Document template does not match required template' });
+
+		if (docTemplateId !== itemTemplateId) {
+		return res.status(400).json({ message: 'Document template does not match required template' });
+		}
+
 		try {
-			const allowed = Array.isArray(bin.template_ids) ? bin.template_ids.map(t => String(t)) : [];
-			if (allowed.length && !allowed.includes(itemTemplateId)) {
-				return res.status(400).json({ message: 'This template is not allowed for this bin' });
+		if (Array.isArray(bin.template_ids)) {
+			const allowed = bin.template_ids.map(t => String(t));
+
+			// If the current submission's template is not in the bin's template_ids,
+			// treat it as "template removed = no more submissions"
+			if (!allowed.includes(itemTemplateId)) {
+			return res.status(400).json({
+				message: 'You can no longer submit for this bin because the required template was removed by the Department Head.',
+			});
 			}
-		} catch (_) { /* ignore */ }
+		}
+		} catch (_) {
+		}
+
 
 		// Ensure documents array exists
 		if (!Array.isArray(item.documents)) item.documents = [];
