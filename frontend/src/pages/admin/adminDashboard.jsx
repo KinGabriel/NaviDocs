@@ -104,8 +104,8 @@ export default function AdminDashboard() {
       <Header user={user} />
       <div className="flex flex-col lg:flex-row flex-1">
         <Sidebar user={user} active="Dashboard" />
-        <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          <main className="flex-1 flex flex-col bg-white lg:shadow pt-1 pb-4 px-4 sm:px-6 lg:px-8 mx-0 lg:mx-6 mt-4 lg:mt-8 rounded-none lg:rounded-xl w-full max-w-full">
+        <div className="flex-1 flex flex-col bg-white shadow px-4 sm:px-6 lg:px-8 py-6 mx-3 sm:mx-4 lg:mx-6 mt-4 lg:mt-8 rounded-xl">
+          <main className="w-full max-w-full">
             <Greeting name={user?.firstname || "Admin"} />
 
             {/* stats row */}

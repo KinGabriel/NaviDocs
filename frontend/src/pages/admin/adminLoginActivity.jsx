@@ -66,7 +66,6 @@ export default function AdminLoginActivity() {
             role: it.role,
             ip: it.ip,
             browserName: it.browserName,
-
             login_time: it.login_time,
             logout_time: it.logout_time,
           }));
@@ -114,7 +113,6 @@ export default function AdminLoginActivity() {
         return;
       }
       const resp = await exportLoginActivityCSV({ month: exportMonth });
-      // resp is an axios response with data blob
       const blob = resp.data;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -157,7 +155,6 @@ export default function AdminLoginActivity() {
       if (!confirm(`Delete all logs for ${exportMonth}? This cannot be undone.`)) return;
       const res = await deleteLoginActivityAPI({ month: exportMonth });
       if (res?.success) {
-        // Reload current page
         setCurrentPage(1);
         setTimeout(() => window.location.reload(), 200);
       } else {
@@ -223,7 +220,7 @@ export default function AdminLoginActivity() {
         <Sidebar user={user} active="Login Activity" />
 
         <main className="flex-1 w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
-          <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 md:p-10 min-h-[900px]">
+          <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 md:p-10">
 
             <h2 className="text-lg sm:text-2xl lg:text-3xl font-bold text-black tracking-widest uppercase mb-2">
               Login Activity
@@ -231,65 +228,66 @@ export default function AdminLoginActivity() {
             <div className="h-1 bg-yellow-500 mb-5 sm:mb-6 rounded w-20 sm:w-24"></div>
 
             {/* Filter Row */}
-            <div className="flex flex-col md:flex-row md:flex-wrap lg:flex-nowrap md:items-center gap-3 mb-4">
-              {/* Status */}
-              <div className="order-1 w-full md:w-auto">
-                <Dropdown
-                  value={statusFilter}
-                  onChange={(value) => {
-                    setStatusFilter(value);
-                    setCurrentPage(1);
-                  }}
-                  options={statusOptions}
-                  width="w-full md:w-52"
-                />
-              </div>
+            <div className="flex flex-col gap-4 mb-6">
+              {/* First Row: Filters */}
+              <div className="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap items-stretch sm:items-center gap-3">
+                {/* Status */}
+                <div className="w-full sm:w-auto sm:flex-shrink-0">
+                  <Dropdown
+                    value={statusFilter}
+                    onChange={(value) => {
+                      setStatusFilter(value);
+                      setCurrentPage(1);
+                    }}
+                    options={statusOptions}
+                    width="w-full sm:w-44"
+                  />
+                </div>
 
-              {/* Browser filter */}
-              <div className="order-4 w-full md:w-auto">
-                <input
-                  type="text"
-                  placeholder="Browser (Chrome, Firefox...)"
-                  className="h-10 w-full md:w-56 border border-gray-300 rounded-lg px-3 text-sm
-                             focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={browserFilter}
-                  onChange={(e) => {
-                    setBrowserFilter(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                />
-              </div>
+                {/* Role */}
+                <div className="w-full sm:w-auto sm:flex-shrink-0">
+                  <Dropdown
+                    value={roleFilter}
+                    onChange={(value) => {
+                      setRoleFilter(value);
+                      setCurrentPage(1);
+                    }}
+                    options={roleOptions}
+                    width="w-full sm:w-56"
+                  />
+                </div>
 
-              {/* Role */}
-              <div className="order-2 w-full md:w-auto">
-                <Dropdown
-                  value={roleFilter}
-                  onChange={(value) => {
-                    setRoleFilter(value);
-                    setCurrentPage(1);
-                  }}
-                  options={roleOptions}
-                  width="w-full md:w-64"
-                />
-              </div>
+                {/* Date */}
+                <div className="w-full sm:w-auto sm:flex-shrink-0">
+                  <input
+                    type="date"
+                    className="h-10 w-full sm:w-40 border border-gray-300 rounded-lg px-3 text-sm
+                               focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={selectedDate}
+                    onChange={(e) => {
+                      setSelectedDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
 
-              {/* Date */}
-              <div className="order-3 w-full md:w-auto">
-                <input
-                  type="date"
-                  className="h-10 w-full md:w-40 border border-gray-300 rounded-lg px-3 text-sm
-                             focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                />
-              </div>
+                {/* Browser filter */}
+                <div className="w-full sm:w-auto sm:flex-shrink-0">
+                  <input
+                    type="text"
+                    placeholder="Search Browser..."
+                    className="h-10 w-full sm:w-40 border border-gray-300 rounded-lg px-3 text-sm
+                               focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={browserFilter}
+                    onChange={(e) => {
+                      setBrowserFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
 
-              {/* Search */}
-              <div className="order-4 lg:hidden">
-                <div className="w-64">
+                {/* Search - pushes to end on desktop */}
+                <div className="w-full sm:w-auto lg:ml-auto">
                   <SearchBar
                     value={search}
                     onChange={(e) => {
@@ -300,30 +298,47 @@ export default function AdminLoginActivity() {
                 </div>
               </div>
 
-              {/* Desktop/Large: Search */}
-              <div className="order-5 hidden lg:flex lg:flex-1 lg:justify-end">
-                <div className="w-64">
-                  <SearchBar
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value);
-                      setCurrentPage(1);
-                    }}
+              {/* Second Row: Export/Delete Actions */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2 border-t border-gray-200">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-600 px-1">
+                    Export/Delete Month
+                  </label>
+                  <input
+                    type="month"
+                    className="h-10 w-full sm:w-40 border border-gray-300 rounded-lg px-3 text-sm
+                               focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={exportMonth}
+                    onChange={(e) => setExportMonth(e.target.value)}
+                    placeholder="YYYY-MM"
                   />
                 </div>
-              </div>
-
-              {/* Export / Delete controls */}
-              <div className="order-6 w-full md:w-auto flex items-center gap-2">
-                <input
-                  type="month"
-                  className="h-10 w-40 border border-gray-300 rounded-lg px-3 text-sm"
-                  value={exportMonth}
-                  onChange={(e) => setExportMonth(e.target.value)}
-                />
-                <button onClick={handleExport} className="px-3 py-2 bg-blue-600 text-white rounded">Export CSV</button>
-                <button onClick={handleDeleteByMonth} className="px-3 py-2 bg-red-600 text-white rounded">Delete By Month</button>
-                <button onClick={handleDeleteSelected} className="px-3 py-2 bg-red-400 text-white rounded">Delete Selected</button>
+                
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <button 
+                    onClick={handleExport} 
+                    className="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg
+                               transition-colors duration-200 shadow-sm hover:shadow whitespace-nowrap"
+                  >
+                    Export CSV
+                  </button>
+                  <button 
+                    onClick={handleDeleteByMonth} 
+                    className="h-10 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg
+                               transition-colors duration-200 shadow-sm hover:shadow whitespace-nowrap"
+                  >
+                    Delete By Month
+                  </button>
+                  <button 
+                    onClick={handleDeleteSelected} 
+                    className="h-10 px-4 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg
+                               transition-colors duration-200 shadow-sm hover:shadow whitespace-nowrap
+                               disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={selectedIds.length === 0}
+                  >
+                    Delete Selected ({selectedIds.length})
+                  </button>
+                </div>
               </div>
             </div>
 
