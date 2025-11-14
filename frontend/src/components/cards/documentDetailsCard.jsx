@@ -34,12 +34,12 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   const handleStartEdit = () => {
     setDocumentCode(template?.document_code || '');
     // support both revision_number and revision_no fields
-  // normalize revision to two-digit string
-  const rawRev = template?.revision_number ?? template?.revision_no ?? 0;
-  const revStr = String(rawRev ?? '').padStart(2, '0');
-  setRevisionNumber(revStr);
+    // normalize revision to two-digit string
+    const rawRev = template?.revision_number ?? template?.revision_no ?? 0;
+    const revStr = String(rawRev ?? '').padStart(2, '0');
+    setRevisionNumber(revStr);
     // effectivity may be ISO string, Date, or { $date: '...' }; normalize to YYYY-MM-DD
-  setEffectivityDate(toISODate(template?.effectivity ?? template?.effectivity_date));
+    setEffectivityDate(toISODate(template?.effectivity ?? template?.effectivity_date));
     // Parse document_code into <PREFIX>-<IDENTIFIER>-<SERIAL>
     const existing = template?.document_code || '';
     const match = typeof existing === 'string' ? existing.match(/^([A-Z]{2,})-([A-Z]{2,})-?(\d*)$/i) : null;
@@ -88,9 +88,9 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   // Effectivity must be present and not earlier than today (local)
   const todayStr = (() => {
     const now = new Date();
-    now.setHours(0,0,0,0);
-    const adj = new Date(now.getTime() - now.getTimezoneOffset()*60000);
-    return adj.toISOString().slice(0,10);
+    now.setHours(0, 0, 0, 0);
+    const adj = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return adj.toISOString().slice(0, 10);
   })();
   const hasEffectivity = Boolean(effectivityDate && String(effectivityDate).trim().length > 0);
   const notPast = hasEffectivity ? String(effectivityDate) >= todayStr : false;
@@ -129,15 +129,15 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
         } catch (apiErr) {
           const resp = apiErr?.response;
           if (resp && resp.status === 409) {
-          const existingCode = resp.data?.existing?.document_code || payload.document_code;
-          const existingRev = resp.data?.existing?.revision_no ?? payload.revision_no;
+            const existingCode = resp.data?.existing?.document_code || payload.document_code;
+            const existingRev = resp.data?.existing?.revision_no ?? payload.revision_no;
 
-          setConflictError({
-            message: `A document with code "${existingCode}" and revision number "${String(existingRev).padStart(2, '0')}" already exists. Please use a different revision number or code.`,
-          });
-          setIsSaving(false);
-          return; // stop save
-        }
+            setConflictError({
+              message: `A document with code "${existingCode}" and revision number "${String(existingRev).padStart(2, '0')}" already exists. Please use a different revision number or code.`,
+            });
+            setIsSaving(false);
+            return; // stop save
+          }
           throw apiErr;
         }
       }
@@ -181,7 +181,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
     setDocumentCode(template?.document_code || '');
     const rawRevCancel = template?.revision_number ?? template?.revision_no ?? 0;
     setRevisionNumber(String(rawRevCancel ?? '').padStart(2, '0'));
-  setEffectivityDate(toISODate(template?.effectivity ?? template?.effectivity_date));
+    setEffectivityDate(toISODate(template?.effectivity ?? template?.effectivity_date));
     // reset document code parts
     setDocPrefix(DOCUMENT_PREFIX_OPTIONS?.[0] || 'FM');
     setDocumentIdentifier('VAA');
@@ -198,13 +198,13 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
 
   // timer for conflict message
   useEffect(() => {
-  if (conflictError) {
-    const timer = setTimeout(() => {
-      setConflictError(null);
-    }, 5000); // disappears after 5 seconds
-    return () => clearTimeout(timer);
-  }
-}, [conflictError]);
+    if (conflictError) {
+      const timer = setTimeout(() => {
+        setConflictError(null);
+      }, 5000); // disappears after 5 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [conflictError]);
 
 
   return (
@@ -228,55 +228,105 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
           </div>
           <div className="w-16 h-0.5 bg-yellow-400 mb-4 rounded" />
 
-        {/* Document Code Section */}
-        <div className="mb-4 overflow-visible">
-          <div className="flex items-start gap-2">
-            <FileText className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                Document Code
+          {/* Document Code Section */}
+          <div className="mb-4 overflow-visible">
+            <div className="flex items-start gap-2">
+              <FileText className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  Document Code
+                </div>
+                <div className="text-base text-gray-900">
+                  {isEditing ? (
+                    <>
+                      <div className="flex gap-2 relative z-50 overflow-visible">
+                        {/* Changeable prefix as select so all options show even when a value is present */}
+                        <select
+                          value={docPrefix}
+                          onChange={(e) => { setDocPrefix(e.target.value); setConflictError(null); }}
+                          className={`px-3 py-2 border border-gray-300 text-sm rounded-l-md focus:outline-none focus:ring-2 bg-white ${!prefixValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                        >
+                          {DOCUMENT_PREFIX_OPTIONS.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+
+                        {/* Identifier dropdown */}
+                        <select
+                          value={documentIdentifier}
+                          onChange={(e) => {
+                            setDocumentIdentifier(e.target.value);
+                            setConflictError(null);
+                          }}
+                          className={`px-3 py-2 border border-gray-300 text-sm rounded-none focus:outline-none focus:ring-2 bg-white ${!identifierValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                        >
+                          {identifierOptions.map(code => (
+                            <option key={code} value={code}>{code}</option>
+                          ))}
+                        </select>
+
+                        {/* Serial number dropdown but typeable */}
+                        <select
+                          value={documentSerial}
+                          onChange={(e) => {
+                            setDocumentSerial(e.target.value);
+                            setConflictError(null);
+                          }}
+                          className={`w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 rounded-r-md bg-white ${!serialValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                        >
+                          <option value="" disabled>--</option>
+                          {Array.from({ length: 999 }, (_, i) => i + 1).map((n) => {
+                            const code = String(n).padStart(3, '0');
+                            return (
+                              <option key={code} value={code}>
+                                {code}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                      {/* Inline validation messages */}
+                      {!prefixValid && (
+                        <p className="mt-1 text-xs text-red-600">Prefix is required and must match allowed options.</p>
+                      )}
+                      {!identifierValid && (
+                        <p className="mt-1 text-xs text-red-600">Identifier is required and must match allowed options.</p>
+                      )}
+                      {!serialValid && (
+                        <p className="mt-1 text-xs text-red-600">Serial is required and must be 1-3 digits (will be padded to 3).</p>
+                      )}
+                    </>
+                  ) : (
+                    template?.document_code || (
+                      <span className="text-gray-400 text-md italic">Not set</span>
+                    )
+                  )}
+                </div>
               </div>
-              <div className="text-base text-gray-900">
+            </div>
+          </div>
+
+          {/* Revision Number Section */}
+          <div className="mb-4 overflow-visible">
+            <div className="flex items-start gap-2">
+              <FileText className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  Revision Number
+                </div>
                 {isEditing ? (
                   <>
-                  <div className="flex gap-2 relative z-50 overflow-visible">
-                    {/* Changeable prefix as select so all options show even when a value is present */}
                     <select
-                      value={docPrefix}
-                      onChange={(e) => { setDocPrefix(e.target.value); setConflictError(null); }}
-                      className={`px-3 py-2 border border-gray-300 text-sm rounded-l-md focus:outline-none focus:ring-2 bg-white ${!prefixValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
-                    >
-                      {DOCUMENT_PREFIX_OPTIONS.map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
-
-                    {/* Identifier dropdown */}
-                    <select
-                      value={documentIdentifier}
+                      value={revisionNumber}
                       onChange={(e) => {
-                        setDocumentIdentifier(e.target.value);
+                        setRevisionNumber(e.target.value);
                         setConflictError(null);
                       }}
-                      className={`px-3 py-2 border border-gray-300 text-sm rounded-none focus:outline-none focus:ring-2 bg-white ${!identifierValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 bg-white ${!revisionValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
                     >
-                      {identifierOptions.map(code => (
-                        <option key={code} value={code}>{code}</option>
-                      ))}
-                    </select>
-
-                    {/* Serial number dropdown but typeable */}
-                    <select
-                      value={documentSerial}
-                      onChange={(e) => {
-                        setDocumentSerial(e.target.value);
-                        setConflictError(null);
-                      }}
-                      className={`w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 rounded-r-md bg-white ${!serialValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
-                    >
-                      <option value="" disabled>--</option>
-                      {Array.from({ length: 999 }, (_, i) => i + 1).map((n) => {
-                        const code = String(n).padStart(3, '0');
+                      <option value="" disabled>00</option>
+                      {Array.from({ length: 100 }, (_, i) => i).map((n) => {
+                        const code = String(n).padStart(2, '0');
                         return (
                           <option key={code} value={code}>
                             {code}
@@ -284,78 +334,26 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                         );
                       })}
                     </select>
-                  </div>
-                  {/* Inline validation messages */}
-                  {!prefixValid && (
-                    <p className="mt-1 text-xs text-red-600">Prefix is required and must match allowed options.</p>
-                  )}
-                  {!identifierValid && (
-                    <p className="mt-1 text-xs text-red-600">Identifier is required and must match allowed options.</p>
-                  )}
-                  {!serialValid && (
-                    <p className="mt-1 text-xs text-red-600">Serial is required and must be 1-3 digits (will be padded to 3).</p>
-                  )}
                   </>
                 ) : (
-                  template?.document_code || (
-                    <span className="text-gray-400 text-md italic">Not set</span>
-                  )
+                  <div className="text-base text-gray-900">
+                    {revisionNumber || template?.revision_number || (
+                      <span className="text-gray-400 text-md italic">Not set</span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Revision Number Section */}
-        <div className="mb-4 overflow-visible">
-          <div className="flex items-start gap-2">
-            <FileText className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                Revision Number
-              </div>
-              {isEditing ? (
-                <>
-                  <select
-                    value={revisionNumber}
-                    onChange={(e) => {
-                      setRevisionNumber(e.target.value);
-                      setConflictError(null);
-                    }}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 bg-white ${!revisionValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
-                  >
-                    <option value="" disabled>00</option>
-                    {Array.from({ length: 100 }, (_, i) => i).map((n) => {
-                      const code = String(n).padStart(2, '0');
-                      return (
-                        <option key={code} value={code}>
-                          {code}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </>
-              ) : (
-                <div className="text-base text-gray-900">
-                  {revisionNumber || template?.revision_number || (
-                    <span className="text-gray-400 text-md italic">Not set</span>
-                  )}
-                </div>
-              )}
+          {/* Inline conflict message for duplicate document_code+revision */}
+          {conflictError && (
+            <div
+              className="text-sm text-red-600 mt-2 mb-5 bg-red-50 border border-red-200 p-2 rounded-md transition-opacity duration-500 ease-in-out"
+            >
+              <strong>Conflict:</strong> {conflictError.message}
             </div>
-          </div>
-        </div>
-
-        {/* Inline conflict message for duplicate document_code+revision */}
-        {conflictError && (
-        <div
-          className="text-sm text-red-600 mt-2 mb-5 bg-red-50 border border-red-200 p-2 rounded-md transition-opacity duration-500 ease-in-out"
-        >
-          <strong>Conflict:</strong> {conflictError.message}
-        </div>
-      )}
-
-
+          )}
 
           {/* Effectivity Date Section */}
           <div className="mb-4">

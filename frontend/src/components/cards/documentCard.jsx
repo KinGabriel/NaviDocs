@@ -5,7 +5,7 @@ import DuplicateModal from '../modals/duplicateModal';
 import DeleteModal from '../modals/deleteModal';
 import { toast } from 'react-hot-toast';
 import { assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
-import { renameDocumentAPI, deleteDocumentAPI,duplicateDocumentAPI, shareDocumentAPI } from "../../api/documentsAPI";
+import { renameDocumentAPI, deleteDocumentAPI, duplicateDocumentAPI, shareDocumentAPI } from "../../api/documentsAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -13,15 +13,15 @@ const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
-export default function DocumentCard({ 
-  document, 
-  onSelect, 
-  user, 
-  onRename, 
+export default function DocumentCard({
+  document,
+  onSelect,
+  user,
+  onRename,
   onDelete,
   onAssign,
 }) {
-  
+
   // Helper to safely read DB-backed fields with common fallbacks
   const getTitle = (doc) => doc?.title || doc?.from_template?.title || 'Untitled Document';
 
@@ -39,15 +39,15 @@ export default function DocumentCard({
     }
   };
 
-  {/* Get creator/Owner name */}
-    const getCreatorName = () => {
-      if (!user) return "Unknown";
-      if (user.firstname && user.lastname) {
-        return `${user.firstname} ${user.lastname}`;
-      }
-      // Try name or username as fallback
-      return user.name || user.username || "Unknown";
-    };
+  {/* Get creator/Owner name */ }
+  const getCreatorName = () => {
+    if (!user) return "Unknown";
+    if (user.firstname && user.lastname) {
+      return `${user.firstname} ${user.lastname}`;
+    }
+    // Try name or username as fallback
+    return user.name || user.username || "Unknown";
+  };
 
   const getStatus = (doc) => {
     if (!doc) return 'draft';
@@ -77,7 +77,7 @@ export default function DocumentCard({
   const school = document?.school || document?.from_template?.school || '';
   const title = getTitle(document);
 
-  // ---------- menu & modals state ----------
+  // menu & modals state
   const [showMenu, setShowMenu] = useState(false);
 
   // Rename
@@ -124,7 +124,7 @@ export default function DocumentCard({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  // ---------- menu actions ----------
+  // menu actions
   const handleMenuAction = (action, e) => {
     e.stopPropagation();
     setShowMenu(false);
@@ -147,7 +147,7 @@ export default function DocumentCard({
     }
   };
 
-  // ---------- API handlers ----------
+  // API handlers
   const handleRename = async (newTitle) => {
     try {
       setRenaming(true);
@@ -186,7 +186,7 @@ export default function DocumentCard({
       } else {
         toast.error(resp?.message || 'Failed to assign members');
       }
-      } catch (err) {
+    } catch (err) {
       console.error('Assign error:', err);
       toast.error(err?.response?.data?.message || 'Error assigning members');
     } finally {
@@ -221,10 +221,9 @@ export default function DocumentCard({
     try {
       setDuplicating(true);
       const newTitle = newDoc?.title || `${title} (Copy)`;
-  const resp = await duplicateDocumentAPI(document._id, newTitle);
+      const resp = await duplicateDocumentAPI(document._id, newTitle);
       if (resp && resp.success) {
         toast.success('Document duplicated');
-        // optional: navigate/open
         setDuplicateOpen(false);
         if (typeof onSelect === 'function') {
           onSelect(resp.document || resp.data || document);
@@ -246,7 +245,7 @@ export default function DocumentCard({
     try {
       setDeleting(true);
       setDeleteError("");
-  const resp = await deleteDocumentAPI(document._id);
+      const resp = await deleteDocumentAPI(document._id);
       if (resp && resp.success) {
         toast.success('Document deleted');
         if (typeof onDelete === 'function') onDelete({ _id: document._id || document.id });
@@ -262,22 +261,22 @@ export default function DocumentCard({
   };
 
   function getStatusStyle(status) {
-  const normalized = String(status).toLowerCase().replace(/\s+/g, "_");
-  const styles = {
-    approved: "bg-green-50 text-green-700 border border-green-200",
-    submitted: "bg-green-50 text-green-700 border border-green-200",
-    pending: "bg-yellow-50 text-yellow-700 border border-yellow-200",
-    late: "bg-red-50 text-red-700 border border-red-200",
-    rejected: "bg-red-50 text-red-700 border border-red-200",
-    returned: "bg-orange-50 text-orange-700 border border-orange-200",
-    draft: "bg-gray-50 text-gray-700 border border-gray-200",
-    published: "bg-blue-50 text-blue-700 border border-blue-200",
-    pending_review: "bg-purple-50 text-purple-700 border border-purple-200",
-  };
+    const normalized = String(status).toLowerCase().replace(/\s+/g, "_");
+    const styles = {
+      approved: "bg-green-50 text-green-700 border border-green-200",
+      submitted: "bg-green-50 text-green-700 border border-green-200",
+      pending: "bg-yellow-50 text-yellow-700 border border-yellow-200",
+      late: "bg-red-50 text-red-700 border border-red-200",
+      rejected: "bg-red-50 text-red-700 border border-red-200",
+      returned: "bg-orange-50 text-orange-700 border border-orange-200",
+      draft: "bg-gray-50 text-gray-700 border border-gray-200",
+      published: "bg-blue-50 text-blue-700 border border-blue-200",
+      pending_review: "bg-purple-50 text-purple-700 border border-purple-200",
+    };
 
-  return styles[normalized] || "bg-gray-50 text-gray-700 border border-gray-200";
-}
-  
+    return styles[normalized] || "bg-gray-50 text-gray-700 border border-gray-200";
+  }
+
   return (
     <div className="m-2">
       <div className="relative w-[280px] bg-white rounded-lg shadow-md border border-gray-300 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer overflow-visible">
@@ -287,7 +286,7 @@ export default function DocumentCard({
           </div>
         </div>
         {/* Preview */}
-        <div 
+        <div
           className="w-full h-[310px] bg-gray-50 flex items-center justify-center border-b border-gray-300 hover:bg-gray-100 transition-colors rounded-t-lg"
           onClick={onSelect}
         >
@@ -305,17 +304,17 @@ export default function DocumentCard({
             />
           ) : (
             <div className="text-center">
-              <svg 
-                className="mx-auto h-16 w-16 text-gray-300 mb-3" 
-                fill="none" 
-                viewBox="0 0 24 24" 
+              <svg
+                className="mx-auto h-16 w-16 text-gray-300 mb-3"
+                fill="none"
+                viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={1} 
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
               <span className="text-gray-400 text-sm">Document Preview</span>
@@ -334,10 +333,10 @@ export default function DocumentCard({
             {/* Created date */}
             <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                <line x1="16" y1="2" x2="16" y2="6"/>
-                <line x1="8" y1="2" x2="8" y2="6"/>
-                <line x1="3" y1="10" x2="21" y2="10"/>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
               </svg>
               <span>Created {formatDate(document.createdAt || document.created_at)}</span>
             </div>
@@ -354,8 +353,8 @@ export default function DocumentCard({
             {school && (
               <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l9-5-9-5-9 5 9 5z"/>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l9-5-9-5-9 5 9 5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
                 </svg>
                 <span>{school}</span>
               </div>
@@ -398,7 +397,7 @@ export default function DocumentCard({
                     onClick={(e) => handleMenuAction('rename', e)}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>
+                      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" />
                     </svg>
                     Rename
                   </button>
@@ -420,7 +419,7 @@ export default function DocumentCard({
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    Archive  
+                    Archive
                   </button>
                 </div>
               </>
@@ -450,7 +449,7 @@ export default function DocumentCard({
         submitting={false}
       />
 
-      {/* Duplicate Modal */} 
+      {/* Duplicate Modal */}
       <DuplicateModal
         open={duplicateOpen}
         onClose={() => setDuplicateOpen(false)}
