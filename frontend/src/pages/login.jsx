@@ -14,7 +14,6 @@ export default function Login() {
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = useState("");
 
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -58,10 +57,10 @@ export default function Login() {
       }
     } catch (err) {
       if (err.response?.status === 404 || err.message.includes("not found")) {
-      toast.error("The email you entered isn’t connected to an account.");
-    } else {
-      toast.error(err.message || "Login failed");
-    }
+        toast.error("The email you entered isn’t connected to an account.");
+      } else {
+        toast.error(err.message || "Login failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -103,17 +102,17 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          
+
           <div className="text-right mb-4">
-           <button
-            type="button"
-            onClick={() => navigate("/forgot-password")}
-            className="text-base text-gray-400 hover:underline"
-           >
-           Forgot Password?
-           </button>
+            <button
+              type="button"
+              onClick={() => navigate("/forgot-password")}
+              className="text-base text-gray-400 hover:underline"
+            >
+              Forgot Password?
+            </button>
           </div>
-          
+
           <button
             type="submit"
             className="w-full py-3 sm:py-3 md:py-4 mt-8 md:mt-10 rounded-lg bg-gradient-to-r from-blue-700 to-blue-400 text-white font-bold text-base md:text-lg lg:text-xl mb-3 shadow-lg transition-all duration-200 ease-in-out active:scale-95 active:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
@@ -122,9 +121,9 @@ export default function Login() {
             {isLoading ? (
               <div className="flex justify-center items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="18" cy="12" r="0" fill="#fff">
-                  <animate attributeName="r" begin=".67" calcMode="spline" dur="1.5s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
-                  <circle cx="12" cy="12" r="0" fill="#fff"><animate attributeName="r" begin=".33" calcMode="spline" dur="1.5s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
-                  <circle cx="6" cy="12" r="0" fill="#fff"><animate attributeName="r" begin="0" calcMode="spline" dur="1.5s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
+                  <animate attributeName="r" begin=".67" calcMode="spline" dur="1.5s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0" /></circle>
+                  <circle cx="12" cy="12" r="0" fill="#fff"><animate attributeName="r" begin=".33" calcMode="spline" dur="1.5s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0" /></circle>
+                  <circle cx="6" cy="12" r="0" fill="#fff"><animate attributeName="r" begin="0" calcMode="spline" dur="1.5s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0" /></circle>
                 </svg>
                 Logging in...
               </div>

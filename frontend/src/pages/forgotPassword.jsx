@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
-import sluLogo from "../assets/images/slulogo.png"; 
+import sluLogo from "../assets/images/slulogo.png";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -45,7 +45,6 @@ export default function ForgotPassword() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      // 200 even for unknown emails (no enumeration)
       if (resp.status === 429) {
         const data = await resp.json().catch(() => ({}));
         const retry = data?.retryAfter ?? RESEND_SECONDS;
@@ -134,7 +133,7 @@ export default function ForgotPassword() {
           </p>
         </div>
 
-        {/* Step 1: Ask email and send OTP */}
+        {/* Ask email and send OTP */}
         {step === 1 && (
           <form onSubmit={requestOTP} className="space-y-4">
             <div>
@@ -171,7 +170,7 @@ export default function ForgotPassword() {
           </form>
         )}
 
-        {/* Step 2: Confirm OTP + new password */}
+        {/* Confirm OTP + new password */}
         {step === 2 && (
           <form onSubmit={submitNewPassword} className="space-y-4">
             {/* Email (locked for clarity) */}
