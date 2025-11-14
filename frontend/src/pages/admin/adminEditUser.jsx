@@ -22,7 +22,7 @@ export default function AdminEditUser() {
   const navigate = useNavigate();
   const [errors, setErrors] = useState({ firstname: '', lastname: '', email: '' });
 
-  // --- form state ---
+  // form state
   const [photoPreview, setPhotoPreview] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [form, setForm] = useState({
@@ -41,8 +41,7 @@ export default function AdminEditUser() {
   const [errorUser, setErrorUser] = useState(null);
 
   // Alert state for feedback
-  const [alertMessage, setAlertMessage] = useState("");
-  const [alertType, setAlertType] = useState("error");
+  const [setAlertMessage] = useState("");
 
   // Fetch user details by id from URL
   useEffect(() => {

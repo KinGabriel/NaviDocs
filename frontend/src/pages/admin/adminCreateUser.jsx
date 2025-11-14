@@ -33,7 +33,7 @@ export default function CreateUser() {
   const [errors, setErrors] = useState({ firstname: '', lastname: '', email: '' });
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [photoFile, setPhotoFile] = useState(null);
+  const [setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
 
   const handleChange = (e) => {
