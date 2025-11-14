@@ -257,14 +257,11 @@ export default function SecretaryDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
-      {/* Global header always on top */}
       <Header user={user} />
-
-      {/* Layout: stack on mobile, row on large screens */}
       <div className="flex flex-col lg:flex-row flex-1">
         <Sidebar user={user} active="Dashboard" />
 
-        {/* Main content panel with responsive padding/card treatment */}
+        {/* Main content panel */}
         <main
           className="
           flex-1 flex flex-col bg-white
@@ -277,7 +274,7 @@ export default function SecretaryDashboard() {
           w-full max-w-full
         "
         >
-       
+
           <Greeting name={user?.firstname || "Secretary"} />
           {loading ? (
             <div className="flex-1 flex justify-center items-center min-h-[60vh]">
@@ -292,58 +289,156 @@ export default function SecretaryDashboard() {
             </div>
           ) : (
             <>
-          {/* Stat cards */}
-          <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
-            {/* Upcoming Deadlines */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
-                <CalendarClock className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
-              </div>
-            </div>
+              {/* Stat cards */}
+              <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
+                {/* Upcoming Deadlines */}
+                <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+                  <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+                    <CalendarClock className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
+                    <div className="text-3xl font-bold text-gray-900">1</div>
+                  </div>
+                </div>
 
-            {/* Due Today */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                <CalendarCheck className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
-              </div>
-            </div>
+                {/* Due Today */}
+                <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                    <CalendarCheck className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
+                    <div className="text-3xl font-bold text-gray-900">1</div>
+                  </div>
+                </div>
 
-            {/* Overdue Deadlines */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
-                <CalendarX className="h-6 w-6 text-white" />
+                {/* Overdue Deadlines */}
+                <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+                  <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                    <CalendarX className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
+                    <div className="text-3xl font-bold text-gray-900">1</div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">1</div>
-              </div>
-            </div>
-          </div>
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
-            {/* Left side: tables */}
-            <div className="lg:col-span-3 space-y-6">
-              {/* Templates Table */}
-              <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
+              {/* Main Content Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
+                {/* Left side: tables */}
+                <div className="lg:col-span-3 space-y-6">
+                  {/* Templates Table */}
+                  <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
+                    <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+                      <div>
+                        <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                          RECENTLY SUBMITTED TEMPLATES
+                        </h2>
+                        <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
+                      </div>
+
+                      <button
+                        onClick={() => navigate(SUBMISSION_BINS_ROUTE)}
+                        className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+                      >
+                        View All
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <Table columns={templateColumns} data={templates} />
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
+                    <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+                      <div>
+                        <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                          RECENTLY SUBMITTED BIN
+                        </h2>
+                        <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <Table
+                        columns={submissionBinColumns}
+                        data={submissionBin}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right side: deadlines + chart */}
+                <div className="lg:col-span-1 space-y-6">
+                  <UpcomingDeadlines
+                    deadlines={upcomingDeadlines}
+                    formatDate={formatDate}
+                  />
+
+                  {/* Deadlines Summary Doughnut Chart */}
+                  <div className="bg-white shadow-sm rounded-lg border border-gray-100">
+                    <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
+                      <h3 className="font-semibold text-sm text-gray-800">
+                        SUBMISSION OVERVIEW
+                      </h3>
+                    </div>
+
+                    <div className="p-6">
+                      {/* chart container */}
+                      <div className="relative h-40 mb-4">
+                        <Doughnut data={chartData} options={chartOptions} />
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                            <span className="text-gray-600">Department of Computing and Information Studies</span>
+                          </div>
+                          <span className="font-medium text-gray-800">56</span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span className="text-gray-600">
+                              Department of Management
+                            </span>
+                          </div>
+                          <span className="font-medium text-gray-800">36</span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                            <span className="text-gray-600">
+                              Department of Accountancy
+                            </span>
+                          </div>
+                          <span className="font-medium text-gray-800">7</span>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recently Published Table */}
+              <div className="bg-[#FBFBFB] shadow p-4 rounded w-full mt-6">
                 <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
                   <div>
                     <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                      RECENTLY SUBMITTED TEMPLATES
+                      RECENTLY PUBLISHED TEMPLATES
                     </h2>
-                    <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
+                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
                   </div>
 
                   <button
-                    onClick={() => navigate(SUBMISSION_BINS_ROUTE)}
+                    onClick={() => navigate("/templates", { state: { status: "Published" } })}
                     className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
                   >
                     View All
@@ -351,113 +446,11 @@ export default function SecretaryDashboard() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <Table columns={templateColumns} data={templates} />
+                  <Table columns={publishedTemplatesColumns} data={publishedTemplates} />
                 </div>
               </div>
-
-              <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
-                <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
-                  <div>
-                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                      RECENTLY SUBMITTED BIN
-                    </h2>
-                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <Table
-                    columns={submissionBinColumns}
-                    data={submissionBin}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Right side: deadlines + chart */}
-            <div className="lg:col-span-1 space-y-6">
-              <UpcomingDeadlines
-                deadlines={upcomingDeadlines}
-                formatDate={formatDate}
-              />
-
-              {/* Deadlines Summary Doughnut Chart */}
-              <div className="bg-white shadow-sm rounded-lg border border-gray-100">
-                <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
-                  <h3 className="font-semibold text-sm text-gray-800">
-                    SUBMISSION OVERVIEW
-                  </h3>
-                </div>
-
-                <div className="p-6">
-                  {/* chart container gets fixed height for responsiveness */}
-                  <div className="relative h-40 mb-4">
-                    <Doughnut data={chartData} options={chartOptions} />
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                        <span className="text-gray-600">Department of Computing and Information Studies</span>
-                      </div>
-                      <span className="font-medium text-gray-800">56</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                        <span className="text-gray-600">
-                          Department of Management
-                        </span>
-                      </div>
-                      <span className="font-medium text-gray-800">36</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                        <span className="text-gray-600">
-                          Department of Accountancy
-                        </span>
-                      </div>
-                      <span className="font-medium text-gray-800">7</span>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* if you ever add more bottom-wide sections, use:
-              <div className="lg:col-span-4 ..."> ... </div>
-          */}
-          </div>
-
-          {/* Recently Published Table */}
-          <div className="bg-[#FBFBFB] shadow p-4 rounded w-full mt-6">
-            <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
-              <div>
-                <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                  RECENTLY PUBLISHED TEMPLATES
-                </h2>
-                <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
-              </div>
-
-              <button
-                onClick={() => navigate("/templates", { state: { status: "Published" } })}
-                className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
-              >
-                View All
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <Table columns={publishedTemplatesColumns} data={publishedTemplates} />
-              </div>
-          </div>
-        </>
-      )}
+            </>
+          )}
         </main>
       </div>
     </div>

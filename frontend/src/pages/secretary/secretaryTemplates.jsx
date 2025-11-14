@@ -9,9 +9,8 @@ import SearchBar from "../../components/searchbar";
 import { fetchTemplatesAPI } from '../../api/documentContollerAPI';
 import { StatusBadge, formatDateTime } from '../../utils/formatters';
 import Loader from '../../components/loader';
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom";
 import TaskAssignmentModal from '../../components/modals/taskAssignmentModal.jsx';
-import { FileText } from "lucide-react";
 
 export default function SecretaryTemplates() {
   const user = useUser();
@@ -25,10 +24,10 @@ export default function SecretaryTemplates() {
   const [sortOrder, setSortOrder] = useState("Recent");
   const PAGE_SIZE = 10;
   const pagination = usePagination(totalPages, 1);
-  const tabs = ["All","Published", "Pending Approvals", "Approved", "On Going", "Late"];
+  const tabs = ["All", "Published", "Pending Approvals", "Approved", "On Going", "Late"];
   const navigate = useNavigate();
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
+  const [selectedTemplateId] = useState(null);
 
   const tabToStatus = {
     "Pending Approvals": "Pending Approval",
@@ -92,15 +91,16 @@ export default function SecretaryTemplates() {
 
   useEffect(() => {
     fetchTemplates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
   const columns = [
     { key: "title", label: "Template Name" },
-    { key: "createdByName", label: "Assigned To", render: row =>
-      Array.isArray(row.assignedNames) && row.assignedNames.length > 0
-        ? row.assignedNames.filter(Boolean).join(", ")
-        : row.createdByName || row.created_by_name || "-" },
+    {
+      key: "createdByName", label: "Assigned To", render: row =>
+        Array.isArray(row.assignedNames) && row.assignedNames.length > 0
+          ? row.assignedNames.filter(Boolean).join(", ")
+          : row.createdByName || row.created_by_name || "-"
+    },
     { key: "deadline", label: "Deadline", render: row => row.deadline ? formatDateTime(row.deadline) : "No Deadline set" },
     {
       key: "status",
@@ -126,10 +126,10 @@ export default function SecretaryTemplates() {
           }
         } else if (row.status === "published") {
           type = "Published";
-        } 
+        }
         else if (row.status === "rejected") {
           type = "Rejected";
-        } 
+        }
         else if (row.status === "returned") {
           type = "Returned";
         }
@@ -169,7 +169,6 @@ export default function SecretaryTemplates() {
       <div className="flex flex-1">
         <Sidebar user={user} active="Templates" />
         <main className="flex-1 bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
-          {/* Header */}
           <div className="px-1 py-3">
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-4">Templates</h1>
             <div className="w-30 h-1 bg-yellow-400 mt-1 rounded" />
@@ -178,14 +177,13 @@ export default function SecretaryTemplates() {
           {/* Controls Section */}
           <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-end">
             {/* Archived Documents */}
-              <button
+            <button
               type="button"
               onClick={() => navigate("/archived-documents")}
               className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white hover:bg-gray-50 w-10 h-10"
               aria-label="Archived documents"
               title="Archived documents"
             >
-              {/* archive icon */}
               <svg
                 viewBox="0 0 24 24"
                 className="w-5 h-5 text-[#0035DA]"
@@ -215,7 +213,7 @@ export default function SecretaryTemplates() {
                 />
               </svg>
             </button>
-        
+
             {/* Top (Search) */}
             <div className="flex justify-start lg:justify-end">
               <div className="w-64">
@@ -226,7 +224,7 @@ export default function SecretaryTemplates() {
               </div>
             </div>
 
-            {/* Dropdowns and button (side by side only when minimized) */}
+            {/* Dropdowns and button */}
             <div className="flex flex-wrap items-center gap-2 justify-start lg:justify-end">
               <Dropdown
                 options={["All", ...Object.keys(schoolIdentifiers)]}
@@ -240,22 +238,21 @@ export default function SecretaryTemplates() {
                 onChange={setSortOrder}
                 width="w-36"
               />
-              
+
             </div>
           </div>
 
-          {/* Tabs + original button (desktop) */}
+          {/* Tabs + original button */}
           <div className="mb-6 border-b border-gray-200">
             <div className="flex space-x-8">
               {tabs.map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setSelectedStatus(tab)}
-                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                    selectedStatus === tab
+                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${selectedStatus === tab
                       ? "border-[#003DA5] text-[#003DA5]"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
+                    }`}
                 >
                   {tab}
                 </button>
@@ -291,11 +288,10 @@ export default function SecretaryTemplates() {
                 <button
                   key={num}
                   onClick={() => pagination.handlePage(num)}
-                  className={`px-3 py-1 rounded border ${
-                    pagination.currentPage === num
+                  className={`px-3 py-1 rounded border ${pagination.currentPage === num
                       ? "bg-blue-600 text-white"
                       : "bg-white text-gray-700 hover:bg-gray-100"
-                  }`}
+                    }`}
                 >
                   {num}
                 </button>
