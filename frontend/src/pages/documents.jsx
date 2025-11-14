@@ -16,7 +16,11 @@ import { toast } from "react-hot-toast";
 import RenameModal from "../components/modals/renameModal";
 import DuplicateModal from "../components/modals/duplicateModal";
 import DeleteModal from "../components/modals/deleteModal";
-import { renameDocumentAPI, duplicateDocumentAPI, deleteDocumentAPI } from "../api/documentsAPI";
+import {
+  renameDocumentAPI,
+  duplicateDocumentAPI,
+  deleteDocumentAPI,
+} from "../api/documentsAPI";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -55,8 +59,9 @@ function ViewToggle({ mode = "grid", onChange }) {
       <button
         type="button"
         onClick={() => onChange("table")}
-        className={`px-2.5 py-2 sm:px-3 sm:py-2 flex items-center ${isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
-          }`}
+        className={`px-2.5 py-2 sm:px-3 sm:py-2 flex items-center ${
+          isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
+        }`}
         aria-label="List view"
         title="List view"
       >
@@ -72,8 +77,9 @@ function ViewToggle({ mode = "grid", onChange }) {
       <button
         type="button"
         onClick={() => onChange("grid")}
-        className={`px-2.5 py-2 sm:px-3 sm:py-2 flex items-center ${!isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
-          }`}
+        className={`px-2.5 py-2 sm:px-3 sm:py-2 flex items-center ${
+          !isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
+        }`}
         aria-label="Grid view"
         title="Grid view"
       >
@@ -123,7 +129,13 @@ function RowKebabMenu({ row, onView, onRename, onMakeCopy, onDelete }) {
         title="More actions"
       >
         {/* 3-dot icon */}
-        <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" className="text-gray-700">
+        <svg
+          width="20"
+          height="20"
+          fill="currentColor"
+          viewBox="0 0 20 20"
+          className="text-gray-700"
+        >
           <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 5.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 16.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
         </svg>
       </button>
@@ -137,10 +149,24 @@ function RowKebabMenu({ row, onView, onRename, onMakeCopy, onDelete }) {
           <button
             role="menuitem"
             className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700"
-            onClick={() => { setOpen(false); onRename?.(row); }}
+            onClick={() => {
+              setOpen(false);
+              onRename?.(row);
+            }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+              <path d="m15 5 4 4" />
             </svg>
             Rename
           </button>
@@ -149,10 +175,23 @@ function RowKebabMenu({ row, onView, onRename, onMakeCopy, onDelete }) {
           <button
             role="menuitem"
             className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700"
-            onClick={() => { setOpen(false); onMakeCopy?.(row); }}
+            onClick={() => {
+              setOpen(false);
+              onMakeCopy?.(row);
+            }}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+              />
             </svg>
             Make a Copy
           </button>
@@ -163,16 +202,28 @@ function RowKebabMenu({ row, onView, onRename, onMakeCopy, onDelete }) {
           <button
             role="menuitem"
             className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-            onClick={() => { setOpen(false); onArchive?.(row); }}
+            onClick={() => {
+              setOpen(false);
+              onDelete?.(row);
+            }}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
             </svg>
             Archive
           </button>
         </div>
       )}
-
     </div>
   );
 }
@@ -195,7 +246,9 @@ function getEllipsedPages(current, total, siblings = 1) {
   if (total > 1) pages.push(total);
 
   // de-dup when total is small
-  return Array.from(new Set(pages)).filter(p => p >= 1 && p <= total || p === "…");
+  return Array.from(new Set(pages)).filter(
+    (p) => (p >= 1 && p <= total) || p === "…"
+  );
 }
 
 export default function GlobalTemplates() {
@@ -289,7 +342,11 @@ export default function GlobalTemplates() {
         if (result.pagination && result.pagination.total_pages)
           setTotalPages(result.pagination.total_pages);
         else setTotalPages(1);
-      } else if (result && result.success && Array.isArray(result.data?.templates)) {
+      } else if (
+        result &&
+        result.success &&
+        Array.isArray(result.data?.templates)
+      ) {
         templatesArray = result.data.templates;
         setTotalPages(result.data.pagination?.total_pages || 1);
       } else if (Array.isArray(result)) {
@@ -298,9 +355,12 @@ export default function GlobalTemplates() {
       }
 
       const lastActivity = (t) => new Date(t.updatedAt || 0).getTime();
-      if (sortOrder === "A-Z") templatesArray.sort((a, b) => a.title.localeCompare(b.title));
-      if (sortOrder === "Z-A") templatesArray.sort((a, b) => b.title.localeCompare(a.title));
-      if (sortOrder === "Recent") templatesArray.sort((a, b) => lastActivity(b) - lastActivity(a));
+      if (sortOrder === "A-Z")
+        templatesArray.sort((a, b) => a.title.localeCompare(b.title));
+      if (sortOrder === "Z-A")
+        templatesArray.sort((a, b) => b.title.localeCompare(a.title));
+      if (sortOrder === "Recent")
+        templatesArray.sort((a, b) => lastActivity(b) - lastActivity(a));
 
       setTemplates(templatesArray);
     } catch {
@@ -327,7 +387,9 @@ export default function GlobalTemplates() {
   const handleCardDelete = (deleted) => {
     const id = deleted?._id || deleted?.id;
     if (!id) return;
-    setTemplates((prev) => prev.filter((t) => (t._id || t.id) !== id));
+    setTemplates((prev) =>
+      prev.filter((t) => (t._id || t.id) !== id)
+    );
   };
 
   /* ROW action handlers (table view) */
@@ -347,7 +409,9 @@ export default function GlobalTemplates() {
         toast.success("Document renamed");
         const updated = resp.document || { ...activeRow, title: newTitle };
         setTemplates((prev) =>
-          prev.map((t) => ((t._id || t.id) === (id) ? { ...t, ...updated } : t))
+          prev.map((t) =>
+            (t._id || t.id) === id ? { ...t, ...updated } : t
+          )
         );
         setRenameOpen(false);
       } else {
@@ -356,7 +420,8 @@ export default function GlobalTemplates() {
         toast.error(msg);
       }
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || "Error renaming";
+      const msg =
+        err?.response?.data?.message || err?.message || "Error renaming";
       setRenameError(msg);
       toast.error(msg);
     } finally {
@@ -378,7 +443,6 @@ export default function GlobalTemplates() {
       const resp = await duplicateDocumentAPI(id, title);
       if (resp && resp.success) {
         toast.success("Document duplicated");
-        // If API returns the new document, you can optionally prepend it
         const newItem = resp.document || resp.data;
         if (newItem) {
           setTemplates((prev) => [newItem, ...prev]);
@@ -388,7 +452,9 @@ export default function GlobalTemplates() {
         toast.error(resp?.message || "Failed to duplicate document");
       }
     } catch (err) {
-      toast.error(err?.response?.data?.message || err?.message || "Error duplicating");
+      toast.error(
+        err?.response?.data?.message || err?.message || "Error duplicating"
+      );
     } finally {
       setDuplicating(false);
     }
@@ -408,7 +474,9 @@ export default function GlobalTemplates() {
       const resp = await deleteDocumentAPI(id);
       if (resp && resp.success) {
         toast.success("Document archived");
-        setTemplates((prev) => prev.filter((t) => (t._id || t.id) !== id));
+        setTemplates((prev) =>
+          prev.filter((t) => (t._id || t.id) !== id)
+        );
         setDeleteOpen(false);
       } else {
         const msg = resp?.message || "Failed to archive";
@@ -416,7 +484,8 @@ export default function GlobalTemplates() {
         toast.error(msg);
       }
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || "Error archiving";
+      const msg =
+        err?.response?.data?.message || err?.message || "Error archiving";
       setDeleteError(msg);
       toast.error(msg);
     } finally {
@@ -426,7 +495,8 @@ export default function GlobalTemplates() {
 
   const extractFieldsFromDoc = (doc) => {
     if (!doc) return [];
-    const fromFields = doc?.from_template?.fields || doc?.fields || doc?.template?.fields;
+    const fromFields =
+      doc?.from_template?.fields || doc?.fields || doc?.template?.fields;
     if (Array.isArray(fromFields) && fromFields.length > 0) {
       return fromFields
         .map((f) => {
@@ -463,7 +533,7 @@ export default function GlobalTemplates() {
         };
         pages.forEach((p) => walk(p));
       }
-    } catch (e) { }
+    } catch (e) {}
 
     return out;
   };
@@ -483,16 +553,6 @@ export default function GlobalTemplates() {
     });
   });
   const fields = Array.from(map.values());
-
-  const StatusPill = ({ value }) => {
-    const val = (value || "").toString();
-    return (
-      <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-50 text-yellow-700 border border-yellow-200">
-        <span className="h-2 w-2 rounded-full bg-yellow-500" />
-        {val || "-"}
-      </span>
-    );
-  };
 
   const handleView = async (tpl) => {
     const id = tpl?._id || tpl?.id;
@@ -515,6 +575,7 @@ export default function GlobalTemplates() {
     }
   };
 
+  // 🔹 STATUS COLUMN REMOVED FOR FACULTY MODULE
   const columns = [
     { key: "title", label: "Template Name", render: (row) => row.title || "Untitled" },
     {
@@ -522,7 +583,8 @@ export default function GlobalTemplates() {
       label: "Assigned To",
       render: (row) => {
         const list = row.assignedNames || row.assigned || [];
-        if (Array.isArray(list) && list.length) return list.filter(Boolean).join(", ");
+        if (Array.isArray(list) && list.length)
+          return list.filter(Boolean).join(", ");
         return row.createdByName || row.created_by_name || "-";
       },
     },
@@ -530,10 +592,10 @@ export default function GlobalTemplates() {
       key: "deadline",
       label: "Deadline",
       render: (row) =>
-        row.deadline ? new Date(row.deadline).toLocaleString() : "No Deadline set",
+        row.deadline
+          ? new Date(row.deadline).toLocaleString()
+          : "No Deadline set",
     },
-    { key: "status", label: "Status", render: (row) => <StatusPill value={row.status} /> },
-
     {
       key: "actions",
       label: "Actions",
@@ -557,7 +619,6 @@ export default function GlobalTemplates() {
       ),
     },
   ];
-
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -615,14 +676,20 @@ export default function GlobalTemplates() {
 
                       if (pubRes?.success && pubRes.data?.templates)
                         setPublishedTemplatesCache(pubRes.data.templates);
-                      else if (pubRes?.templates) setPublishedTemplatesCache(pubRes.templates);
-                      else if (Array.isArray(pubRes)) setPublishedTemplatesCache(pubRes);
+                      else if (pubRes?.templates)
+                        setPublishedTemplatesCache(pubRes.templates);
+                      else if (Array.isArray(pubRes))
+                        setPublishedTemplatesCache(pubRes);
 
                       if (docsRes && Array.isArray(docsRes.documents))
                         setDocumentsCache(docsRes.documents);
-                      else if (docsRes?.success && Array.isArray(docsRes.data?.documents))
+                      else if (
+                        docsRes?.success &&
+                        Array.isArray(docsRes.data?.documents)
+                      )
                         setDocumentsCache(docsRes.data.documents);
-                      else if (Array.isArray(docsRes)) setDocumentsCache(docsRes);
+                      else if (Array.isArray(docsRes))
+                        setDocumentsCache(docsRes);
                     } catch (err) {
                       console.error(
                         "Failed to prefetch published templates or documents:",
@@ -802,10 +869,11 @@ export default function GlobalTemplates() {
                         setSelectedStatus(opt);
                         pagination.handlePage(1);
                       }}
-                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${selectedStatus === opt
+                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
+                        selectedStatus === opt
                           ? "border-blue-600 text-blue-600"
                           : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        }`}
+                      }`}
                     >
                       {opt}
                     </button>
@@ -856,6 +924,8 @@ export default function GlobalTemplates() {
                           onSelect={() => handleView(template)}
                           onRename={(updated) => handleCardRename(updated)}
                           onDelete={(deleted) => handleCardDelete(deleted)}
+                          // 🔹 Hide status pill for Faculty module
+                          hideStatusPill
                         />
                       </div>
                     );
@@ -874,18 +944,30 @@ export default function GlobalTemplates() {
                 Prev
               </button>
 
-              {getEllipsedPages(pagination.currentPage, totalPages, 1).map((num, idx) =>
+              {getEllipsedPages(
+                pagination.currentPage,
+                totalPages,
+                1
+              ).map((num, idx) =>
                 num === "…" ? (
-                  <span key={`e-${idx}`} className="px-2 text-gray-400 select-none">…</span>
+                  <span
+                    key={`e-${idx}`}
+                    className="px-2 text-gray-400 select-none"
+                  >
+                    …
+                  </span>
                 ) : (
                   <button
                     key={num}
                     onClick={() => pagination.handlePage(num)}
-                    className={`px-3 py-1 rounded border ${pagination.currentPage === num
+                    className={`px-3 py-1 rounded border ${
+                      pagination.currentPage === num
                         ? "bg-blue-600 text-white"
                         : "bg-white text-gray-700 hover:bg-gray-100"
-                      }`}
-                    aria-current={pagination.currentPage === num ? "page" : undefined}
+                    }`}
+                    aria-current={
+                      pagination.currentPage === num ? "page" : undefined
+                    }
                   >
                     {num}
                   </button>
@@ -939,7 +1021,6 @@ export default function GlobalTemplates() {
         submitting={deleting}
         error={deleteError}
       />
-
     </div>
   );
 }

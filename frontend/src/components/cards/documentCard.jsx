@@ -20,6 +20,7 @@ export default function DocumentCard({
   onRename,
   onDelete,
   onAssign,
+  hideStatusPill = false,   // 🔹 NEW: allow parent to hide status pill
 }) {
 
   // Helper to safely read DB-backed fields with common fallbacks
@@ -280,11 +281,15 @@ export default function DocumentCard({
   return (
     <div className="m-2">
       <div className="relative w-[280px] bg-white rounded-lg shadow-md border border-gray-300 flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer overflow-visible">
-        <div className="absolute top-2 right-2 z-10">
-          <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusStyle(status)}`}>
-            {status.charAt(0).toUpperCase() + status.slice(1)}
+        {/* 🔹 Status pill now optional */}
+        {!hideStatusPill && status && (
+          <div className="absolute top-2 right-2 z-10">
+            <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusStyle(status)}`}>
+              {status.charAt(0).toUpperCase() + status.slice(1)}
+            </div>
           </div>
-        </div>
+        )}
+
         {/* Preview */}
         <div
           className="w-full h-[310px] bg-gray-50 flex items-center justify-center border-b border-gray-300 hover:bg-gray-100 transition-colors rounded-t-lg"
@@ -413,7 +418,7 @@ export default function DocumentCard({
                   </button>
 
                   <button
-                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex itemscenter gap-2"
                     onClick={(e) => handleMenuAction('delete', e)}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
