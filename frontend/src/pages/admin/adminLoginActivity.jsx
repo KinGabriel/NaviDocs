@@ -43,7 +43,7 @@ export default function AdminLoginActivity() {
     const params = { page: currentPage, limit: itemsPerPage };
     if (search && search.trim()) params.search = search.trim();
     if (selectedDate) params.date = selectedDate;
-  if (browserFilter && browserFilter.trim()) params.browserName = browserFilter.trim();
+    if (browserFilter && browserFilter.trim()) params.browserName = browserFilter.trim();
     if (statusFilter === "Active") params.status = "active";
     else if (statusFilter === "Logged Out") params.status = "inactive";
     if (roleFilter && roleFilter !== "All Roles") params.role = roleFilter;
@@ -66,7 +66,7 @@ export default function AdminLoginActivity() {
             role: it.role,
             ip: it.ip,
             browserName: it.browserName,
-            
+
             login_time: it.login_time,
             logout_time: it.logout_time,
           }));
@@ -159,7 +159,7 @@ export default function AdminLoginActivity() {
       if (res?.success) {
         // Reload current page
         setCurrentPage(1);
-        setTimeout(() => window.location.reload(), 200); // simple refresh to reflect changes
+        setTimeout(() => window.location.reload(), 200);
       } else {
         alert('Delete failed');
       }
@@ -232,7 +232,7 @@ export default function AdminLoginActivity() {
 
             {/* Filter Row */}
             <div className="flex flex-col md:flex-row md:flex-wrap lg:flex-nowrap md:items-center gap-3 mb-4">
-              {/* 1) Status */}
+              {/* Status */}
               <div className="order-1 w-full md:w-auto">
                 <Dropdown
                   value={statusFilter}
@@ -245,7 +245,7 @@ export default function AdminLoginActivity() {
                 />
               </div>
 
-              {/* 4) Browser filter */}
+              {/* Browser filter */}
               <div className="order-4 w-full md:w-auto">
                 <input
                   type="text"
@@ -260,7 +260,7 @@ export default function AdminLoginActivity() {
                 />
               </div>
 
-              {/* 2) Role */}
+              {/* Role */}
               <div className="order-2 w-full md:w-auto">
                 <Dropdown
                   value={roleFilter}
@@ -273,7 +273,7 @@ export default function AdminLoginActivity() {
                 />
               </div>
 
-              {/* 3) Date */}
+              {/* Date */}
               <div className="order-3 w-full md:w-auto">
                 <input
                   type="date"
@@ -287,7 +287,7 @@ export default function AdminLoginActivity() {
                 />
               </div>
 
-              {/* 4) Search BELOW all dropdowns on < lg, same width as desktop */}
+              {/* Search */}
               <div className="order-4 lg:hidden">
                 <div className="w-64">
                   <SearchBar
@@ -300,7 +300,7 @@ export default function AdminLoginActivity() {
                 </div>
               </div>
 
-              {/* 5) Desktop/Large: Search on the right (>= lg) */}
+              {/* Desktop/Large: Search */}
               <div className="order-5 hidden lg:flex lg:flex-1 lg:justify-end">
                 <div className="w-64">
                   <SearchBar
@@ -313,7 +313,7 @@ export default function AdminLoginActivity() {
                 </div>
               </div>
 
-              {/* Export / Delete controls (desktop) */}
+              {/* Export / Delete controls */}
               <div className="order-6 w-full md:w-auto flex items-center gap-2">
                 <input
                   type="month"
@@ -335,7 +335,7 @@ export default function AdminLoginActivity() {
               <div className="text-sm text-red-600">{error}</div>
             ) : (
               <>
-                {/* Mobile: Card list (shows on < md) */}
+                {/* Mobile: Card list */}
                 <div className="grid grid-cols-1 gap-3 md:hidden">
                   {currentLogs.length > 0 ? (
                     currentLogs.map((log) => {
@@ -346,23 +346,22 @@ export default function AdminLoginActivity() {
                           className="rounded-lg border border-gray-200 p-4 bg-white"
                         >
                           <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <input type="checkbox" checked={selectedIds.includes(log.id || log._id)} onChange={() => toggleSelect(log.id || log._id)} />
-                                    <p className="text-sm font-semibold text-gray-900 break-all">
-                                      {log.email}
-                                    </p>
-                                  </div>
-                                  <p className="text-xs text-gray-600 mt-0.5">
-                                    {log.role || "—"} • {log.browserName || "—"}
-                                  </p>
-                                </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <input type="checkbox" checked={selectedIds.includes(log.id || log._id)} onChange={() => toggleSelect(log.id || log._id)} />
+                                <p className="text-sm font-semibold text-gray-900 break-all">
+                                  {log.email}
+                                </p>
+                              </div>
+                              <p className="text-xs text-gray-600 mt-0.5">
+                                {log.role || "—"} • {log.browserName || "—"}
+                              </p>
+                            </div>
                             <span
-                              className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${
-                                !log.logout_time
-                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                  : "bg-gray-50 text-gray-700 border border-gray-200"
-                              }`}
+                              className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${!log.logout_time
+                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                : "bg-gray-50 text-gray-700 border border-gray-200"
+                                }`}
                             >
                               {!log.logout_time ? "Active" : "Logged Out"}
                             </span>
@@ -400,7 +399,7 @@ export default function AdminLoginActivity() {
                   )}
                 </div>
 
-                {/* Desktop: Table (md+) */}
+                {/* Desktop: Table */}
                 <div className="hidden md:block overflow-x-auto border border-gray-200 rounded-lg">
                   <table className="w-full min-w-[760px]">
                     <thead className="bg-gray-50 border-b border-gray-200">
@@ -493,11 +492,10 @@ export default function AdminLoginActivity() {
                       <button
                         key={num}
                         onClick={() => setCurrentPage(num)}
-                        className={`px-3 py-1.5 rounded border ${
-                          currentPage === num
-                            ? "bg-blue-600 text-white"
-                            : "bg-white text-gray-700 hover:bg-gray-100"
-                        }`}
+                        className={`px-3 py-1.5 rounded border ${currentPage === num
+                          ? "bg-blue-600 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-100"
+                          }`}
                       >
                         {num}
                       </button>

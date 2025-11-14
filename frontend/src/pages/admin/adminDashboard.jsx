@@ -117,7 +117,7 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {/* table header with responsive button placement */}
+            {/* table header */}
             <div className="mt-10 bg-[#f7faff] rounded-t-xl p-4 sm:p-6">
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="min-w-0">
@@ -127,8 +127,6 @@ export default function AdminDashboard() {
                   <div className="w-24 sm:w-30 h-0.5 bg-yellow-400 mt-1 rounded" />
                 </div>
 
-                {/* On small screens, this stays to the right of the title.
-                    ml-auto pushes it to the far right of the row. */}
                 <button
                   onClick={() => navigate("/admin/accounts")}
                   className="ml-auto bg-[#003DA5] text-white text-xs sm:text-sm px-4 py-2 h-9 rounded-md hover:bg-[#002B7F] text-center"

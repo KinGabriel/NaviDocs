@@ -7,7 +7,7 @@ import useUser from '../../hooks/useUser';
 import Dropdown2 from "../../components/dropdowns/dropdown2";
 import defaultProfile from '../../assets/images/profile_picture.png';
 import Loader from '../../components/loader';
-import { createUserAccountAPI } from '../../api/adminAPI'; 
+import { createUserAccountAPI } from '../../api/adminAPI';
 import { ROLE_OPTIONS, SCHOOL_OPTIONS, DEPARTMENT_OPTIONS } from "../../utils/options";
 
 export default function CreateUser() {

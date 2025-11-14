@@ -68,11 +68,11 @@ export default function AdminAccounts() {
   // search
   const searchedUsers = search
     ? filteredUsers.filter(u =>
-      (`${u.firstname} ${u.lastname}`.toLowerCase().includes(search.toLowerCase()) ||
-        u.email?.toLowerCase().includes(search.toLowerCase()) ||
-        u.role?.school?.toLowerCase().includes(search.toLowerCase()) ||
-        u.role?.department?.toLowerCase().includes(search.toLowerCase()) ||
-        u.role?.name?.toLowerCase().includes(search.toLowerCase()))
+    (`${u.firstname} ${u.lastname}`.toLowerCase().includes(search.toLowerCase()) ||
+      u.email?.toLowerCase().includes(search.toLowerCase()) ||
+      u.role?.school?.toLowerCase().includes(search.toLowerCase()) ||
+      u.role?.department?.toLowerCase().includes(search.toLowerCase()) ||
+      u.role?.name?.toLowerCase().includes(search.toLowerCase()))
     )
     : filteredUsers;
 
@@ -231,7 +231,7 @@ export default function AdminAccounts() {
     );
   }
 
-  // error-ish: if no users array at all
+  // if no users array at all
   if (!users) {
     return (
       <div className="min-h-screen bg-gray-200 flex flex-col overflow-x-hidden">
@@ -258,18 +258,13 @@ export default function AdminAccounts() {
   // main view
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col overflow-x-hidden">
-      {/* HEADER */}
       <Header user={user} />
 
-      {/* BODY WRAPPER: add symmetric page padding for visible left/right endings */}
       <div className="flex flex-1 flex-col md:flex-row w-full px-3 sm:px-6 lg:px-8">
-        {/* SIDEBAR */}
         <Sidebar user={user} active="User Accounts" />
 
-        {/* MAIN CARD AREA (centered, capped width) */}
         <div className="flex-1 flex flex-col bg-white shadow rounded-xl my-4 md:mt-8 w-full max-w-[1400px] mx-auto">
           <div className="flex-1 w-full max-w-full p-4 md:p-10">
-            {/* TITLE */}
             <h2 className="text-2xl md:text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">
               NAVIDOCS USERS
             </h2>
@@ -277,7 +272,7 @@ export default function AdminAccounts() {
 
             {/* CONTROLS */}
             <div className="flex items-center gap-3 flex-wrap mb-4">
-              {/* Filter by Role (fixed width) */}
+              {/* Filter by Role */}
               <div className="shrink-0">
                 <Dropdown
                   value={roleFilter}
@@ -287,7 +282,7 @@ export default function AdminAccounts() {
                 />
               </div>
 
-              {/* Sort (fixed width) */}
+              {/* Sort */}
               <div className="shrink-0">
                 <Dropdown
                   value={sortBy}
@@ -297,7 +292,7 @@ export default function AdminAccounts() {
                 />
               </div>
 
-              {/* Search: fixed width; on xl+ push right */}
+              {/* Search */}
               <div className="basis-full xl:basis-auto xl:ml-auto">
                 <div className="w-64">
                   <SearchBar
@@ -337,11 +332,10 @@ export default function AdminAccounts() {
                   <button
                     key={num}
                     onClick={() => setCurrentPage(num)}
-                    className={`px-3 py-1 rounded border text-sm ${
-                      currentPage === num
-                        ? "bg-blue-600 text-white"
-                        : "bg-white text-gray-700 hover:bg-gray-100"
-                    }`}
+                    className={`px-3 py-1 rounded border text-sm ${currentPage === num
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100"
+                      }`}
                   >
                     {num}
                   </button>
@@ -365,7 +359,6 @@ export default function AdminAccounts() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={closeArchiveModal} />
           <div className="relative w-[520px] max-w-[92vw] rounded-2xl bg-white p-6 shadow-2xl">
-            {/* Close (X) */}
             <button
               onClick={closeArchiveModal}
               className="absolute right-3 top-3 rounded-full p-1 text-gray-500 hover:bg-gray-100"
@@ -376,7 +369,6 @@ export default function AdminAccounts() {
               </svg>
             </button>
 
-            {/* Icon */}
             <div className="mx-auto mb-4 mt-2 flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-red-500">
                 <path d="M9 3h6m-9 4h12m-1 0-.7 11.2a2 2 0 0 1-2 1.8H8.7a2 2 0 0 1-2-1.8L6 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
@@ -384,7 +376,6 @@ export default function AdminAccounts() {
               </svg>
             </div>
 
-            {/* Message */}
             <p className="text-center text-base md:text-lg font-semibold text-gray-800">
               Are you sure you want to archive
               <br />
@@ -394,7 +385,6 @@ export default function AdminAccounts() {
               ?
             </p>
 
-            {/* Actions */}
             <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={closeArchiveModal}
@@ -414,14 +404,12 @@ export default function AdminAccounts() {
           </div>
         </div>
       )}
-      {/* END ARCHIVE MODAL */}
 
       {/* UNARCHIVE CONFIRMATION MODAL */}
       {unarchiveOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={closeUnarchiveModal} />
           <div className="relative w-[520px] max-w-[92vw] rounded-2xl bg-white p-6 shadow-2xl">
-            {/* Close (X) */}
             <button
               onClick={closeUnarchiveModal}
               className="absolute right-3 top-3 rounded-full p-1 text-gray-500 hover:bg-gray-100"
@@ -432,14 +420,12 @@ export default function AdminAccounts() {
               </svg>
             </button>
 
-            {/* Icon */}
             <div className="mx-auto mb-4 mt-2 flex h-12 w-12 items-center justify-center rounded-xl bg-green-100">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-green-600">
                 <path d="M12 3v18m9-9H3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
               </svg>
             </div>
 
-            {/* Message */}
             <p className="text-center text-base md:text-lg font-semibold text-gray-800">
               Are you sure you want to unarchive
               <br />
@@ -449,7 +435,6 @@ export default function AdminAccounts() {
               ?
             </p>
 
-            {/* Actions */}
             <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={closeUnarchiveModal}
@@ -469,7 +454,6 @@ export default function AdminAccounts() {
           </div>
         </div>
       )}
-      {/* END UNARCHIVE MODAL */}
     </div>
   );
 }
