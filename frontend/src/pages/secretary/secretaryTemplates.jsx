@@ -250,8 +250,8 @@ export default function SecretaryTemplates() {
                   key={tab}
                   onClick={() => setSelectedStatus(tab)}
                   className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${selectedStatus === tab
-                      ? "border-[#003DA5] text-[#003DA5]"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-[#003DA5] text-[#003DA5]"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                     }`}
                 >
                   {tab}
@@ -289,8 +289,8 @@ export default function SecretaryTemplates() {
                   key={num}
                   onClick={() => pagination.handlePage(num)}
                   className={`px-3 py-1 rounded border ${pagination.currentPage === num
-                      ? "bg-blue-600 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-100"
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-100"
                     }`}
                 >
                   {num}

@@ -125,7 +125,7 @@ export default function DeanStatistics() {
     datasets: [
       {
         data: [currentDept.onTime, currentDept.late],
-        backgroundColor: ['#3B82F6', '#E53737'], 
+        backgroundColor: ['#3B82F6', '#E53737'],
         borderWidth: 0,
       },
     ],
@@ -156,7 +156,7 @@ export default function DeanStatistics() {
         },
       },
     },
-    cutout: '50%', 
+    cutout: '50%',
   };
 
   return (
