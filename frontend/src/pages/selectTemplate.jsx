@@ -6,7 +6,7 @@ import SearchBar from "../components/searchbar";
 import Dropdown from "../components/dropdowns/dropdown";
 import usePagination from "../hooks/usePagination";
 import { fetchPublishedTemplatesAPI, unpublishTemplateAPI, renameTemplateAPI, duplicateTemplateAPI } from "../api/documentContollerAPI";
-import { History,FileText, RotateCcw, SlidersHorizontal, FileDigit, FileCode, X, } from "lucide-react";
+import { History, FileText, RotateCcw, SlidersHorizontal, FileDigit, FileCode, X, } from "lucide-react";
 import Loader from "../components/loader";
 import PublishedCard from "../components/cards/publishedCard";
 import UnpublishModal from "../components/modals/unpublishModal";
@@ -41,18 +41,18 @@ export default function SelectTemplate() {
     STELA: "STL",
   };
 
-  // --- Rename modal state ---
+  // Rename modal state 
   const [renameOpen, setRenameOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameError, setRenameError] = useState("");
   const [renameTarget, setRenameTarget] = useState(null);
 
-  // --- Duplicate modal state ---
+  // Duplicate modal state
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const [duplicateTarget, setDuplicateTarget] = useState(null);
 
-  // --- Unpublish modal state (parent-driven) ---
+  // Unpublish modal state (parent-driven) 
   const [unpublishOpen, setUnpublishOpen] = useState(false);
   const [unpublishSubmitting, setUnpublishSubmitting] = useState(false);
   const [unpublishError, setUnpublishError] = useState("");
@@ -114,23 +114,23 @@ export default function SelectTemplate() {
   };
 
   const confirmUnpublish = async () => {
-  if (!targetTemplate?._id && !targetTemplate?.id) return;
-  try {
-    setUnpublishSubmitting(true);
-    setUnpublishError("");
-    await unpublishTemplateAPI(targetTemplate._id || targetTemplate.id);
-    setRefreshTrigger((prev) => prev + 1);       // refresh list
-    toast.success("Template unpublished");
-    setUnpublishOpen(false);
-    setTargetTemplate(null);
-  } catch (err) {
-    const msg = err?.response?.data?.message || err?.message || "Failed to unpublish";
-    setUnpublishError(msg);
-    toast.error(msg);
-  } finally {
-    setUnpublishSubmitting(false);
-  }
-};
+    if (!targetTemplate?._id && !targetTemplate?.id) return;
+    try {
+      setUnpublishSubmitting(true);
+      setUnpublishError("");
+      await unpublishTemplateAPI(targetTemplate._id || targetTemplate.id);
+      setRefreshTrigger((prev) => prev + 1);       // refresh list
+      toast.success("Template unpublished");
+      setUnpublishOpen(false);
+      setTargetTemplate(null);
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to unpublish";
+      setUnpublishError(msg);
+      toast.error(msg);
+    } finally {
+      setUnpublishSubmitting(false);
+    }
+  };
 
   // Extract unique codes & revisions whenever templates change
   useEffect(() => {
@@ -292,11 +292,6 @@ export default function SelectTemplate() {
       {/* Page Subheader */}
       <div className="bg-white border-b shadow-sm mt-2 md:mt-2">
         <div className="px-4 md:px-8 py-6">
-          {/* Top area:
-             - left section: back + title
-             - right section: search + dropdowns + filter buttons
-             - responsive: stack on mobile similar to Documents UI
-          */}
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 flex-wrap">
             {/* Left: Back + Title */}
             <div className="flex items-start gap-4">
@@ -338,13 +333,8 @@ export default function SelectTemplate() {
             </div>
 
             {/* Right controls */}
-            {/* we mirror the Documents layout:
-               - outer wrapper becomes flex-col on mobile, row on lg
-               - first row: search bar full width
-               - second row: dropdowns + buttons wrap
-            */}
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-end gap-3 w-full lg:w-auto">
-              {/* Row 1: Search (full width on small, fixed on lg) */}
+              {/* Search */}
               <div className="w-full sm:w-[300px] lg:w-[300px]">
                 <SearchBar
                   value={search}
@@ -353,7 +343,7 @@ export default function SelectTemplate() {
                 />
               </div>
 
-              {/* Row 2: dropdowns + filter buttons */}
+              {/* dropdowns + filter buttons */}
               <div className="flex flex-wrap items-center gap-3">
                 <Dropdown
                   options={["All", ...Object.keys(schoolIdentifiers)]}
@@ -371,11 +361,10 @@ export default function SelectTemplate() {
 
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all font-medium ${
-                    showFilters
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all font-medium ${showFilters
                       ? "bg-blue-50 border-blue-300 text-blue-700"
                       : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   <SlidersHorizontal className="w-4 h-4" />
                   <span className="whitespace-nowrap">Version Filters</span>
@@ -625,11 +614,10 @@ export default function SelectTemplate() {
               <button
                 key={num}
                 onClick={() => pagination.handlePage(num)}
-                className={`px-3 py-1 rounded border ${
-                  pagination.currentPage === num
+                className={`px-3 py-1 rounded border ${pagination.currentPage === num
                     ? "bg-blue-600 text-white"
                     : "bg-white text-gray-700 hover:bg-gray-100"
-                }`}
+                  }`}
                 aria-current={pagination.currentPage === num ? "page" : undefined}
               >
                 {num}
@@ -646,7 +634,7 @@ export default function SelectTemplate() {
           </button>
         </div>
       </div>
-      
+
       <RenameModal
         open={renameOpen}
         onClose={() => setRenameOpen(false)}

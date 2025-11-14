@@ -8,7 +8,6 @@ import { exportDocumentPdfAPI } from "../api/assignmentDocumentsAPI";
 import CreateDocumentModal from "../components/modals/createDocumentModal";
 import TextEditor from "../layout/create_template/textEditor";
 import DownloadingModal from "../components/modals/downloadingModal";
-import axios from "axios";
 import StoragePickerModal from "../components/modals/storagePickerModal";
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import Loader from "../components/loader";
@@ -38,9 +37,7 @@ async function exportTemplateViaDocument({ templateDoc, store = false, folderId,
       store: !!store,
       folderId,
       filename,
-      // If the caller provides raw HTML, forward it so backend renders exactly what the user sees
       ...(html ? { html, pageSetup: templateDoc.pageSetup } : {}),
-      // Let backend build HTML from the document pages_json; no html/pageSetup override needed here
     });
 
     if (resp && resp.filePath) {
@@ -65,7 +62,7 @@ async function exportTemplateViaDocument({ templateDoc, store = false, folderId,
           a.remove();
           URL.revokeObjectURL(blobUrl);
         }
-      } catch {}
+      } catch { }
       return;
     }
 
@@ -111,7 +108,7 @@ export default function PublishedTemplateView() {
   const { state } = useLocation();
   const [fetchedDoc, setFetchedDoc] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(false); 
+  const [isLoading, setIsLoading] = useState(false);
   const tpl = state?.doc || {};
   const [template, setTemplate] = useState(tpl);
   const [downloading, setDownloading] = useState(false);
@@ -171,7 +168,7 @@ export default function PublishedTemplateView() {
       console.error("Download failed:", err);
       setDownloadError(
         err?.response?.data?.message ||
-          "We couldn't generate the PDF right now. Please try again."
+        "We couldn't generate the PDF right now. Please try again."
       );
     }
   };
@@ -320,7 +317,7 @@ export default function PublishedTemplateView() {
   const createWithTitle = async (title, autoFill = false) => {
     setIsLoading(true);
     setCreateError(null);
-    
+
     try {
       const payload = {
         title: title || d.title || "Untitled Document",
@@ -333,20 +330,20 @@ export default function PublishedTemplateView() {
       const res = await createDocumentAPI(payload);
       const created = res?.document || res;
       const createdId = created._id || created.id || created.document?._id;
-      
+
       if (!createdId) {
         throw new Error("Invalid response from server. Please try again.");
       }
- 
-         // Close modal then navigate; include flag and scope in state so editableFields can perform autofill
+
+      // Close modal then navigate; include flag and scope in state so editableFields can perform autofill
       setTitleModalOpen(false);
       const autofillFlag = !!autoFill;
       const autoFillScope =
         autofillFlag && typeof autoFill === "string"
           ? autoFill
           : autofillFlag
-          ? "user"
-          : false;
+            ? "user"
+            : false;
 
       navigate(`/documents/editable-fields/${createdId}`, {
         state: {
@@ -374,15 +371,15 @@ export default function PublishedTemplateView() {
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
   const handleZoomFit = () => {
-  if (previewContainerRef.current) {
-    const containerWidth = previewContainerRef.current.offsetWidth - 64;
-    const isLandscape = d?.pageSetup?.orientation === 'landscape';
-    const estimatedPageWidth = isLandscape ? 1400 : 900;
-    const autoZoom = Math.min((containerWidth / estimatedPageWidth), 1);
-    setZoom(autoZoom);
-  }
-};
-const handleZoomReset = () => setZoom(1);
+    if (previewContainerRef.current) {
+      const containerWidth = previewContainerRef.current.offsetWidth - 64;
+      const isLandscape = d?.pageSetup?.orientation === 'landscape';
+      const estimatedPageWidth = isLandscape ? 1400 : 900;
+      const autoZoom = Math.min((containerWidth / estimatedPageWidth), 1);
+      setZoom(autoZoom);
+    }
+  };
+  const handleZoomReset = () => setZoom(1);
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -424,7 +421,7 @@ const handleZoomReset = () => setZoom(1);
       <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
         <main className="p-8 flex-1 overflow-y-auto">
           <div className="grid grid-cols-12 gap-6">
-          <section className="col-span-12 lg:col-span-8">
+            <section className="col-span-12 lg:col-span-8">
               {/* Zoom Controls*/}
               <div className="sticky top-20 z-20 mb-3 px-4 py-3 bg-white border border-gray-200 rounded-lg shadow-sm">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -469,10 +466,10 @@ const handleZoomReset = () => setZoom(1);
 
               {/* Preview Temmplate */}
               {d && (
-                <div 
+                <div
                   ref={previewContainerRef}
                   className="w-full bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg shadow-sm overflow-auto"
-                  style={{ 
+                  style={{
                     padding: '2rem',
                     minHeight: '600px'
                   }}
@@ -498,27 +495,27 @@ const handleZoomReset = () => setZoom(1);
                         }}
                         className="transition-transform duration-200"
                       >
-                  <div ref={previewRef} id="template-preview-capture">
-                  <TextEditor
-                    content={contentForEditor}
-                    pageSetup={d?.pageSetup}
-                    className="pointer-events-none opacity-100 w-full"
-                    onEditorReady={(editor) =>
-                      editor && editor.setEditable(false)
-                    }
-                    mode="template"
-                    headerConfig={normalizedHeaderConfig}
-                    templateStatus={d?.status || "published"}
-                    documentCode={
-                      d?.document_code || d?.docCode || d?.documentCode
-                    }
-                    revisionNo={d?.revision_no ?? d?.revisionNo}
-                    effectivity={
-                      d?.effectivity ||
-                      d?.effectivity_date ||
-                      d?.effectivity_date_iso
-                    }
-                  />
+                        <div ref={previewRef} id="template-preview-capture">
+                          <TextEditor
+                            content={contentForEditor}
+                            pageSetup={d?.pageSetup}
+                            className="pointer-events-none opacity-100 w-full"
+                            onEditorReady={(editor) =>
+                              editor && editor.setEditable(false)
+                            }
+                            mode="template"
+                            headerConfig={normalizedHeaderConfig}
+                            templateStatus={d?.status || "published"}
+                            documentCode={
+                              d?.document_code || d?.docCode || d?.documentCode
+                            }
+                            revisionNo={d?.revision_no ?? d?.revisionNo}
+                            effectivity={
+                              d?.effectivity ||
+                              d?.effectivity_date ||
+                              d?.effectivity_date_iso
+                            }
+                          />
                         </div>
                       </div>
                     </div>
@@ -567,26 +564,26 @@ const handleZoomReset = () => setZoom(1);
                     >
                       {isLoading ? (
                         <>
-                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                           <path fill="#fff" d="M12 2A10 10 0 1 0 22 12A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8A8 8 0 0 1 12 20Z" opacity="0.5"/>
-                           <path fill="#fff" d="M20 12h2A10 10 0 0 0 12 2V4A8 8 0 0 1 20 12Z"><animateTransform attributeName="transform" dur="1s" from="0 12 12" repeatCount="indefinite" to="360 12 12" type="rotate"/>
-                           </path></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                            <path fill="#fff" d="M12 2A10 10 0 1 0 22 12A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8A8 8 0 0 1 12 20Z" opacity="0.5" />
+                            <path fill="#fff" d="M20 12h2A10 10 0 0 0 12 2V4A8 8 0 0 1 20 12Z"><animateTransform attributeName="transform" dur="1s" from="0 12 12" repeatCount="indefinite" to="360 12 12" type="rotate" />
+                            </path></svg>
                           Creating...
                         </>
                       ) : (
                         <>
                           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="12" y1="18" x2="12" y2="12"/>
-                            <line x1="9" y1="15" x2="15" y2="15"/>
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="12" y1="18" x2="12" y2="12" />
+                            <line x1="9" y1="15" x2="15" y2="15" />
                           </svg>
                           Use Template
                         </>
                       )}
                     </button>
 
-                     {/* Error Message
+                    {/* Error Message
                     {createError && (
                       <div className="mt-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4 shadow-sm animate-in slide-in-from-top-2 duration-300">
                         <div className="flex items-start">
@@ -610,7 +607,7 @@ const handleZoomReset = () => setZoom(1);
           </div>
         </main>
       </div>
-      {/* Create Document Modal */  }
+      {/* Create Document Modal */}
       <CreateDocumentModal
         open={titleModalOpen}
         onClose={() => setTitleModalOpen(false)}
@@ -618,10 +615,10 @@ const handleZoomReset = () => setZoom(1);
         onCreate={createWithTitle}
         user={user}
         submitting={isLoading}
-       
+
       />
- 
-      {/* Downloading Modal */  }
+
+      {/* Downloading Modal */}
       <DownloadingModal
         open={downloading || !!downloadError}
         onClose={() => {
@@ -630,9 +627,8 @@ const handleZoomReset = () => setZoom(1);
         }}
         isError={!!downloadError}
         title="Downloading PDF…"
-        message={`"${
-          template.title || "Template"
-        }" is being prepared as a PDF. This may take a few seconds.`}
+        message={`"${template.title || "Template"
+          }" is being prepared as a PDF. This may take a few seconds.`}
         errorText={downloadError}
       />
     </div>
