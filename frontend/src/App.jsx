@@ -243,7 +243,6 @@ function App() {
           }
         />
 
-
         {/* Dean Module */}
         <Route
           path="/dean/dashboard"
@@ -265,23 +264,23 @@ function App() {
           element={<DeanDocumentWorkflowView />}
         />
 
-        <Route 
-          path="/" 
-          element={<DeanDashboard />} 
+        <Route
+          path="/"
+          element={<DeanDashboard />}
         />
 
-        <Route 
-          path="/submission-bins" 
-          element={<SubmissionBins />} 
+        <Route
+          path="/submission-bins"
+          element={<SubmissionBins />}
         />
 
-         <Route 
-          path="/submission-bins" 
+        <Route
+          path="/submission-bins"
           element={
             <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head"]}>
               <SubmissionBins />
             </ProtectedRoute>
-          } 
+          }
         />
 
         <Route

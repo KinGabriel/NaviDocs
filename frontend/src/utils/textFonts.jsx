@@ -1,10 +1,7 @@
 
 import React, { useMemo, useState, useCallback } from "react";
 
-/* -------------------------------------------------------------------------- */
-/*  TextFonts — Full Font Library                                             */
-/* -------------------------------------------------------------------------- */
-
+/*  TextFonts — Full Font Library */
 export const DEFAULT_FONT_CATEGORIES = {
   Serif: [
     "Adamina",
@@ -103,10 +100,7 @@ export const DEFAULT_FONT_CATEGORIES = {
   ],
 };
 
-/* -------------------------------------------------------------------------- */
-/*  SYSTEM_FALLBACKS: ensures preview shows even if font not loaded           */
-/* -------------------------------------------------------------------------- */
-
+/*  SYSTEM_FALLBACKS: ensures preview shows even if font not loaded */
 export const SYSTEM_FALLBACKS = {
   // Serif
   Adamina: '"Adamina", Georgia, "Times New Roman", serif',
@@ -200,10 +194,7 @@ export const SYSTEM_FALLBACKS = {
   Sacramento: '"Sacramento", cursive',
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Component                                                                 */
-/* -------------------------------------------------------------------------- */
-
+/*  Component */
 export default function TextFonts({
   editor,
   categories = DEFAULT_FONT_CATEGORIES,
@@ -237,7 +228,7 @@ export default function TextFonts({
       if (!onSelect && editor?.chain) {
         try {
           editor.chain().focus().setFontFamily(family).run();
-        } catch {}
+        } catch { }
       }
       if (typeof onRecentsChange === "function") {
         const next = [family, ...recentFonts.filter((f) => f !== family)].slice(
@@ -254,9 +245,8 @@ export default function TextFonts({
     <button
       key={name}
       onClick={() => setActiveCategory(name)}
-      className={`w-20 h-20 border rounded-lg flex flex-col items-center justify-center ${
-        activeCategory === name ? "ring-2 ring-blue-500" : ""
-      }`}
+      className={`w-20 h-20 border rounded-lg flex flex-col items-center justify-center ${activeCategory === name ? "ring-2 ring-blue-500" : ""
+        }`}
     >
       <div className="text-2xl">Aa</div>
       <div className="text-xs">{name}</div>
@@ -270,15 +260,13 @@ export default function TextFonts({
     return (
       <div
         onClick={() => applyFamily(name)}
-        className={`flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 cursor-pointer ${
-          highlight ? "bg-blue-50" : ""
-        }`}
+        className={`flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 cursor-pointer ${highlight ? "bg-blue-50" : ""
+          }`}
         style={style}
       >
         <span
-          className={`inline-block w-3 h-3 rounded-full border ${
-            highlight ? "bg-blue-600 border-blue-600" : "border-gray-400"
-          }`}
+          className={`inline-block w-3 h-3 rounded-full border ${highlight ? "bg-blue-600 border-blue-600" : "border-gray-400"
+            }`}
         />
         <span className="flex-1">{name}</span>
       </div>

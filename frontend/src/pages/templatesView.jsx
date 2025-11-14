@@ -1,28 +1,19 @@
-/**
- * TemplatesView Component
- * 
- * Displays detailed view of a template with approval workflow management.
- * Allows approvers (Unit/Lead Document Controller, Document Control Officer) to approve, reject, or return templates.
- * Document controllers can assign members and set deadlines.
- * 
- * @component
- */
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import HeaderTemplateView from "../layout/headers/headerTemplateView";
 import useUser from "../hooks/useUser";
-import { 
+import {
   getTemplateByIdAPI,
-  approveTemplateAPI, 
-  rejectTemplateAPI, 
-  returnTemplateAPI, 
+  approveTemplateAPI,
+  rejectTemplateAPI,
+  returnTemplateAPI,
   assignControllersToTemplateAPI,
 } from "../api/documentContollerAPI";
 import { formatDateTime } from "../utils/formatters";
 import AssignMembersModal from "../components/modals/assignMembersModal";
-import TextEditor from "../layout/create_template/textEditor"; 
+import TextEditor from "../layout/create_template/textEditor";
 import DocumentDetailsCard from "../components/cards/documentDetailsCard";
-import Loader from "../components/loader";  
+import Loader from "../components/loader";
 import fetchAndNormalizeTemplate from "../utils/templateLoader";
 import { publishTemplateAPI, unpublishTemplateAPI } from "../api/documentContollerAPI";
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
@@ -32,7 +23,7 @@ export default function TemplatesView() {
   const user = useUser(); // Current logged-in user
   const navigate = useNavigate();
   const { id } = useParams(); // Template ID from URL
-  
+
   // Template state
   const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -64,18 +55,18 @@ export default function TemplatesView() {
   // Determine if current page is landscape based on pageSetup
   const isLandscape = useMemo(() => {
     if (!template?.pageSetup) return false;
-    
+
     const pageSetup = template.pageSetup;
-    
+
     // Check if orientation is explicitly set
     if (pageSetup.orientation) {
       return pageSetup.orientation.toLowerCase() === 'landscape';
     }
-    
+
     // Otherwise, determine by comparing dimensions
     const width = parseFloat(pageSetup.width) || 0;
     const height = parseFloat(pageSetup.height) || 0;
-    
+
     return width > height;
   }, [template?.pageSetup]);
 
@@ -124,7 +115,7 @@ export default function TemplatesView() {
    */
   const refreshTemplate = async (templateId = id) => {
     if (!templateId) return;
-    
+
     try {
       const normalized = await fetchAndNormalizeTemplate(templateId);
       console.log("Refreshed template (normalized):", normalized);
@@ -149,13 +140,13 @@ export default function TemplatesView() {
    */
   useEffect(() => {
     if (!id) return;
-    
+
     const loadTemplate = async () => {
       setLoading(true);
       await refreshTemplate(id);
       setLoading(false);
     };
-    
+
     loadTemplate();
   }, [id]);
 
@@ -165,7 +156,7 @@ export default function TemplatesView() {
    */
   const handleAssign = async () => {
     if (!template) return;
-    
+
     // Preselect currently assigned member IDs
     const assigned = Array.isArray(template.assigned) ? template.assigned : [];
     setSelectedIds(assigned);
@@ -176,13 +167,13 @@ export default function TemplatesView() {
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
   const handleZoomFit = () => {
-  if (previewContainerRef.current) {
-    const containerWidth = previewContainerRef.current.offsetWidth - 64;
-    const estimatedPageWidth = isLandscape ? 1400 : 900;
-    const autoZoom = Math.min((containerWidth / estimatedPageWidth), 1);
-    setZoom(autoZoom);
-  }
-};
+    if (previewContainerRef.current) {
+      const containerWidth = previewContainerRef.current.offsetWidth - 64;
+      const estimatedPageWidth = isLandscape ? 1400 : 900;
+      const autoZoom = Math.min((containerWidth / estimatedPageWidth), 1);
+      setZoom(autoZoom);
+    }
+  };
   const handleZoomReset = () => setZoom(1);
 
   // Helpers to prevent overriding actions once taken
@@ -236,12 +227,12 @@ export default function TemplatesView() {
     if (!templateData || !user) return;
 
     // Figure out the current user's role
-  const roleKeys = normalizeRoleKeys(user?.role?.name || user?.role);
-  const isLeadDC = roleKeys.includes("lead_document_controller");
-  const isUnitDC = roleKeys.includes("unit_document_controller");
-  const isDocControlOfficer =
-    roleKeys.includes("document_controller_officer") ||
-    roleKeys.includes("document_control_officer");
+    const roleKeys = normalizeRoleKeys(user?.role?.name || user?.role);
+    const isLeadDC = roleKeys.includes("lead_document_controller");
+    const isUnitDC = roleKeys.includes("unit_document_controller");
+    const isDocControlOfficer =
+      roleKeys.includes("document_controller_officer") ||
+      roleKeys.includes("document_control_officer");
 
     // Disallow overriding past actions (approve/endorse once only)
     const myEntry = getApprovalEntryForUser(templateData, user);
@@ -251,13 +242,13 @@ export default function TemplatesView() {
     }
 
     const nextStatus = isLeadDC || isUnitDC ? "endorsed" : "approved";
-    
+
     // Optimistic update: immediately update local state
     setTemplate(prev => {
       if (!prev) return prev;
-      
-    const updated = { ...prev, status: nextStatus };
-      
+
+      const updated = { ...prev, status: nextStatus };
+
       // Update approvals array if it exists
       if (Array.isArray(updated.approvals)) {
         updated.approvals = updated.approvals.map((approval) => {
@@ -280,7 +271,7 @@ export default function TemplatesView() {
           return approval;
         });
       }
-      
+
       // Update status_meta.approvals if it exists
       if (updated.status_meta?.approvals) {
         const userRoleKey = normalizeRoleKeys(
@@ -296,15 +287,15 @@ export default function TemplatesView() {
           };
         }
       }
-      
+
       return updated;
     });
-    
+
     try {
       // Send approval to server
       const payload = { note: message || "" };
       await approveTemplateAPI(templateData._id, payload);
-      
+
       // Refresh from server to get authoritative state
       await refreshTemplate(templateData._id);
       setError(null);
@@ -344,19 +335,19 @@ export default function TemplatesView() {
       setError("You've already taken an action on this template and cannot change it.");
       return;
     }
-    
+
     // Validate rejection reason
     if (!message || !message.trim()) {
       setError("Please provide a reason for rejection.");
       throw new Error("Please provide a reason for rejection.");
     }
-    
+
     // Optimistic update
     setTemplate(prev => {
       if (!prev) return prev;
-      
+
       const updated = { ...prev, status: "rejected" };
-      
+
       // Update approvals array
       if (Array.isArray(updated.approvals)) {
         updated.approvals = updated.approvals.map((approval) => {
@@ -380,7 +371,7 @@ export default function TemplatesView() {
           return approval;
         });
       }
-      
+
       // Update status_meta
       if (updated.status_meta?.approvals) {
         const userRoleKey = normalizeRoleKeys(
@@ -396,19 +387,19 @@ export default function TemplatesView() {
           };
         }
       }
-      
+
       return updated;
     });
-    
+
     try {
       const res = await rejectTemplateAPI(templateData._id, message);
       console.log("Reject response:", res);
-      
+
       await refreshTemplate(templateData._id);
       setError(null);
     } catch (err) {
       console.error("Reject error:", err);
-        setError(err?.response?.data?.message || err?.message || "Failed to reject template");
+      setError(err?.response?.data?.message || err?.message || "Failed to reject template");
       await refreshTemplate(templateData._id);
       throw err;
     }
@@ -430,24 +421,24 @@ export default function TemplatesView() {
       setError("You've already taken an action on this template and cannot change it.");
       return;
     }
-    
+
     // Validate return reason
     if (!message || !message.trim()) {
       setError("Please provide a reason for returning the template.");
       throw new Error("Please provide a reason for returning the template.");
     }
-    
+
     // Optimistic update
     setTemplate(prev => {
       if (!prev) return prev;
-      
+
       const updated = { ...prev, status: "returned" };
-      
+
       // Update approvals array
       if (Array.isArray(updated.approvals)) {
         updated.approvals = updated.approvals.map(approval => {
           if (approval.role?.toLowerCase() === user?.role?.name?.toLowerCase() ||
-              approval.assigned_to === user?._id) {
+            approval.assigned_to === user?._id) {
             return {
               ...approval,
               status: "returned",
@@ -463,7 +454,7 @@ export default function TemplatesView() {
           return approval;
         });
       }
-      
+
       // Update status_meta
       if (updated.status_meta?.approvals) {
         const userRole = user?.role?.name?.toLowerCase();
@@ -477,19 +468,19 @@ export default function TemplatesView() {
           };
         }
       }
-      
+
       return updated;
     });
-    
+
     try {
       const res = await returnTemplateAPI(templateData._id, message);
       console.log("Return response:", res);
-      
+
       await refreshTemplate(templateData._id);
       setError(null);
     } catch (err) {
       console.error("Return error:", err);
-        setError(err?.response?.data?.message || err?.message || "Failed to return template");
+      setError(err?.response?.data?.message || err?.message || "Failed to return template");
       await refreshTemplate(templateData._id);
       throw err;
     }
@@ -498,55 +489,52 @@ export default function TemplatesView() {
   /**
  * Updates document code and effectivity date
  */
-const handleUpdateDocumentDetails = async ({ document_code, effectivity_date }) => {
-  if (!template?._id) return;
-  
-  try {
-    // TODO: Add API call
-    // await updateDocumentDetailsAPI(template._id, { document_code, effectivity_date });
-    
-    // For demo, update local state
-    setTemplate(prev => ({
-      ...prev,
-      document_code,
-      effectivity_date
-    }));
-    
-    // Refresh from server when API is ready
-    // await refreshTemplate(template._id);
-    setError(null);
-  } catch (err) {
-    console.error("Failed to update document details:", err);
-    setError("Failed to update document details");
-    throw err;
-  }
-};
+  const handleUpdateDocumentDetails = async ({ document_code, effectivity_date }) => {
+    if (!template?._id) return;
 
-/**
- * Updates ISO code
- */
-const handleUpdateISOCode = async ({ iso_code }) => {
-  if (!template?._id) return;
-  
-  try {
-    // TODO: Add API call
-    // await updateISOCodeAPI(template._id, { iso_code });
-    
-    // For demo, update local state
-    setTemplate(prev => ({
-      ...prev,
-      iso_code
-    }));
-    
-    // Refresh from server when API is ready
-    // await refreshTemplate(template._id);
-    setError(null);
-  } catch (err) {
-    console.error("Failed to update ISO code:", err);
-    setError("Failed to update ISO code");
-    throw err;
-  }
-};
+    try {
+      // TODO: Add API call
+      // await updateDocumentDetailsAPI(template._id, { document_code, effectivity_date });
+
+      // For demo, update local state
+      setTemplate(prev => ({
+        ...prev,
+        document_code,
+        effectivity_date
+      }));
+
+      // Refresh from server when API is ready
+      // await refreshTemplate(template._id);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to update document details:", err);
+      setError("Failed to update document details");
+      throw err;
+    }
+  };
+
+  /**
+   * Updates ISO code
+   */
+  const handleUpdateISOCode = async ({ iso_code }) => {
+    if (!template?._id) return;
+
+    try {
+      // For demo, update local state
+      setTemplate(prev => ({
+        ...prev,
+        iso_code
+      }));
+
+      // Refresh from server when API is ready
+      // await refreshTemplate(template._id);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to update ISO code:", err);
+      setError("Failed to update ISO code");
+      throw err;
+    }
+  };
 
   /**
    * Refreshes template data after deadline update
@@ -600,14 +588,14 @@ const handleUpdateISOCode = async ({ iso_code }) => {
    */
   const handleAssignMembers = async ({ assignees }) => {
     if (!template?._id) return;
-    
+
     setAssignSubmitting(true);
     try {
       await assignControllersToTemplateAPI(template._id, assignees);
-      
+
       // Refresh template to get updated assigned members
       await refreshTemplate(template._id);
-      
+
       // Close modal and reset state
       setAssignOpen(false);
       setSelectedIds([]);
@@ -629,10 +617,10 @@ const handleUpdateISOCode = async ({ iso_code }) => {
   const assignedDisplay = Array.from(
     new Set([ownerName, ...assignedNames].filter(Boolean))
   );
-  
+
   // Format deadline for display
   const deadline = t.deadline ? formatDateTime(t.deadline) : null;
-  
+
   // Extract notes array
   const notes = Array.isArray(t.notes) ? t.notes : [];
 
@@ -657,7 +645,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
         return raw || 'Approver';
     }
   };
-  
+
   if (t.approvals && typeof t.approvals === 'object' && !Array.isArray(t.approvals)) {
     const tplStatus = String(t.status || '').toLowerCase();
     approvalsArr = Object.entries(t.approvals).map(([role, appr]) => ({
@@ -689,7 +677,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
     console.log("Template status:", t.status);
     console.log("Notes array:", notes);
     console.log("Initial approvals:", approvalsArr);
-    
+
     let actionNote;
     // Helper to normalize role-like values to a stable key
     const roleKey = (r) => String((r?.name || r) || '')
@@ -712,7 +700,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
         return approver;
       });
     };
-    
+
     // Find the most recent rejection or return note
     if (t.status === 'rejected') {
       actionNote = notes
@@ -749,19 +737,18 @@ const handleUpdateISOCode = async ({ iso_code }) => {
           markUDCReturned();
         }
       } catch (_) {
-        // noop - best-effort enrichment only
       }
     }
-    
+
     console.log("Found action note:", actionNote);
-    
+
     if (actionNote) {
       // Update the approver who performed the action
       const actorName = actionNote.added_by_name || actionNote.added_by;
       const actorRole = actionNote.role_snapshot || actionNote.role || '';
       console.log("Actor name from note:", actorName);
       console.log("Current user:", user?.name);
-      
+
       approvalsArr = approvalsArr.map(approver => {
         console.log("Checking approver:", approver.name, "vs actor:", actorName);
         const approverRoleName = (approver.role?.name || approver.role || '').toString();
@@ -803,7 +790,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
         markUDCReturned();
       }
     }
-    
+
     console.log("Final approvals after processing:", approvalsArr);
   }
 
@@ -817,8 +804,8 @@ const handleUpdateISOCode = async ({ iso_code }) => {
   }
 
   // debugging after getting the template
-    console.log("Raw approvals data:", t.approvals);
-    console.log("Page setup data:", template?.pageSetup);
+  console.log("Raw approvals data:", t.approvals);
+  console.log("Page setup data:", template?.pageSetup);
 
   // Main render
   return (
@@ -837,7 +824,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
         onUpdateDeadline={handleUpdateDeadline}
         onAddInstructions={handleAddInstructions}
       />
-      
+
       <div className={`mx-auto w-full px-4 py-6 md:pl-2 ${isLandscape ? 'max-w-full' : 'max-w-7xl'} min-h-screen`}>
         <div className="p-8 min-h-screen">
           {/* Error message banner */}
@@ -866,17 +853,16 @@ const handleUpdateISOCode = async ({ iso_code }) => {
               </div>
             </div>
           )}
-          
+
           {/* preview and details - Dynamic layout based on orientation */}
           <div className={`flex ${isLandscape ? 'flex-row gap-6' : 'flex-col lg:flex-row'} gap-6 items-start`}>
-           {/* Template preview */}
-              <section className={`${
-                  isLandscape 
-                    ? 'flex-1 min-w-0' 
-                    : 'w-full lg:w-8/12'
-                }`}>
-                {/* Zoom Controls */}
-               <div className="sticky top-20 z-20 mb-3 px-4 py-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+            {/* Template preview */}
+            <section className={`${isLandscape
+                ? 'flex-1 min-w-0'
+                : 'w-full lg:w-8/12'
+              }`}>
+              {/* Zoom Controls */}
+              <div className="sticky top-20 z-20 mb-3 px-4 py-3 bg-white border border-gray-200 rounded-lg shadow-sm">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
                     <button
@@ -917,71 +903,70 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                 </div>
               </div>
 
-                {/* Page content with zoom */}
-                <div 
-                  ref={previewContainerRef}
-                  className={`w-full bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg shadow-sm overflow-auto ${isLandscape ? '' : ''}`}
-                  style={{ 
-                    padding: '2rem',
-                    minHeight: '600px'
+              {/* Page content with zoom */}
+              <div
+                ref={previewContainerRef}
+                className={`w-full bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg shadow-sm overflow-auto ${isLandscape ? '' : ''}`}
+                style={{
+                  padding: '2rem',
+                  minHeight: '600px'
+                }}
+              >
+                <div
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    paddingBottom: '2rem',
                   }}
                 >
                   <div
                     style={{
-                      width: '100%',
-                      display: 'flex',
-                      justifyContent: 'center',
-                      paddingBottom: '2rem',
+                      width: isLandscape ? '1200px' : '900px',
+                      maxWidth: 'none',
                     }}
                   >
                     <div
                       style={{
-                        width: isLandscape ? '1200px' : '900px',
-                        maxWidth: 'none',
+                        transform: `scale(${zoom})`,
+                        transformOrigin: 'top center',
                       }}
+                      className="transition-transform duration-200"
                     >
-                      <div
-                        style={{
-                          transform: `scale(${zoom})`,
-                          transformOrigin: 'top center',
-                        }}
-                        className="transition-transform duration-200"
-                      >
-                        {contentForEditor && (
-                          <TextEditor
-                            key={`${template?._id || template?.id || 'tpl'}-${currentPage}`}
-                            content={contentForEditor}
-                            pageSetup={template?.pageSetup}
-                            headerConfig={{
-                              ...(template?.headerConfig || template?.logoConfig || {}),
-                              documentStamp: {
-                                docCode: template?.document_code || template?.documentCode || "",
-                                revisionNo: template?.revision_number || template?.revision_no || template?.revisionNo || "",
-                                effectivity: template?.effectivity || template?.effectivity_date || "",
-                              },
-                            }}
-                            templateStatus={template?.status}
-                            documentCode={template?.document_code || template?.documentCode}
-                            revisionNo={template?.revision_number || template?.revision_no || template?.revisionNo}
-                            effectivity={template?.effectivity || template?.effectivity_date}
-                            className="pointer-events-none opacity-100 w-full"
-                            onEditorReady={editor => {
-                              try { editor.setEditable(false); } catch {}
-                            }}
-                          />
-                        )}
-                      </div>
+                      {contentForEditor && (
+                        <TextEditor
+                          key={`${template?._id || template?.id || 'tpl'}-${currentPage}`}
+                          content={contentForEditor}
+                          pageSetup={template?.pageSetup}
+                          headerConfig={{
+                            ...(template?.headerConfig || template?.logoConfig || {}),
+                            documentStamp: {
+                              docCode: template?.document_code || template?.documentCode || "",
+                              revisionNo: template?.revision_number || template?.revision_no || template?.revisionNo || "",
+                              effectivity: template?.effectivity || template?.effectivity_date || "",
+                            },
+                          }}
+                          templateStatus={template?.status}
+                          documentCode={template?.document_code || template?.documentCode}
+                          revisionNo={template?.revision_number || template?.revision_no || template?.revisionNo}
+                          effectivity={template?.effectivity || template?.effectivity_date}
+                          className="pointer-events-none opacity-100 w-full"
+                          onEditorReady={editor => {
+                            try { editor.setEditable(false); } catch { }
+                          }}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
-              </section>
+              </div>
+            </section>
 
             {/* Template details and metadata */}
-            <aside className={`${
-              isLandscape 
-                ? 'w-80 flex-shrink-0' 
+            <aside className={`${isLandscape
+                ? 'w-80 flex-shrink-0'
                 : 'w-full lg:w-4/12'
-            } self-start sticky top-20`}>
+              } self-start sticky top-20`}>
               <div className="space-y-4">
                 {/* Template Status Panel */}
                 <div className="bg-white border rounded-md shadow-sm">
@@ -1025,19 +1010,19 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                             return (
                               <>Template has been approved by the Lead Document Controller and is awaiting Document Control  Officer approval.</>
                             );
-                          }else if (!udcApproved && (t.status === 'endorsed' || t.status === 'assigned') && !isFinal)   {
+                          } else if (!udcApproved && (t.status === 'endorsed' || t.status === 'assigned') && !isFinal) {
                             return (
                               <>Template is awaiting for approval from the School Officials.</>
                             );
                           }
-                          else if (!ldcApproved && (t.status === 'endorsed' && !isFinal))   {
+                          else if (!ldcApproved && (t.status === 'endorsed' && !isFinal)) {
                             return (
                               <>Template has been endorsed and is awaiting for approvals.</>
                             );
                           }
                           return null;
                         })()}
-                
+
                       </div>
                     </div>
                   </div>
@@ -1045,14 +1030,14 @@ const handleUpdateISOCode = async ({ iso_code }) => {
 
                 {/* DocumentDetailsCard - show only when status is approved or published; hide edit pencil for now */}
                 {template && (template.status === 'approved' || template.status === 'published') && (
-                  <DocumentDetailsCard 
+                  <DocumentDetailsCard
                     template={template}
                     onUpdateDocumentDetails={handleUpdateDocumentDetails}
                     onUpdateISOCode={handleUpdateISOCode}
                     canEdit={false}
                   />
                 )}
-                
+
                 {/* Details Panel */}
                 <div className="bg-white border rounded-md shadow-sm">
                   <div className="p-5">
@@ -1064,12 +1049,12 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                       <div className="text-base text-gray-900">{deadline || "No deadline set"}</div>
                     </div>
                     */}
-                    
+
                     {/* Assigned Members Section (Owner + Assigned) */}
                     <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
-                      Submitted By: 
+                      Submitted By:
                     </h3>
-                    
+
                     <ul className="mb-6">
                       {assignedDisplay.length > 0 ? (
                         assignedDisplay.map((name, idx) => (
@@ -1082,12 +1067,12 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                         <li className="text-sm text-gray-400">No members assigned.</li>
                       )}
                     </ul>
-                    
+
                     {/* Approvers Section */}
                     <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
                       To be approved by
                     </h3>
-                    
+
                     <ul className="mb-6">
                       {approvalsArr.length > 0 ? (
                         (() => {
@@ -1111,57 +1096,57 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                           const hideUDC = !shouldShowUDC;
 
                           return approvalsArr.map((approver, idx) => {
-                          let statusBadge;
-                          const approverRoleName = (approver.role?.name || approver.role || '').toString();
-                          const approverRoleKey = normKey(approver.role);
-                          const isUDC = approverRoleKey === 'unit_document_controller';
+                            let statusBadge;
+                            const approverRoleName = (approver.role?.name || approver.role || '').toString();
+                            const approverRoleKey = normKey(approver.role);
+                            const isUDC = approverRoleKey === 'unit_document_controller';
 
-                          // Hide UDC in the list when both UDC and LDC are pending (per request)
-                          if (hideUDC && isUDC ) return null;
-                          if (approver.isRejected) {
-                            statusBadge = (
-                              <span className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-medium">
-                                Rejected
-                              </span>
-                            );
-                          } else if (approver.isReturned) {
-                            statusBadge = (
-                              <span className="ml-2 px-2 py-0.5 rounded bg-orange-100 text-orange-700 text-xs font-medium">
-                                {isUDC ? 'Returned by UDC' : 'Returned'}
-                              </span>
-                            );
-                          } else if (approver.isApproved) {
-                            statusBadge = (
-                              <span className="ml-2 px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">
-                                {isUDC ? 'Endorsed' : 'Approved'}
-                              </span>
-                            );
-                          } else {
-                            statusBadge = (
-                              <span className="ml-2 px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs font-medium">
-                                {isUDC ? 'Pending Endorsement' : 'Pending'}
-                              </span>
-                            );
-                          }
-
-                          return (
-                            <li key={idx} className="flex mb-2 text-sm">
-                              <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0" aria-hidden="true"></span>
-                              <div className="flex flex-col">
-                                <span className="font-medium text-gray-800 flex items-center flex-wrap">
-                                  {(approver.name && String(approver.name).trim()) ? approver.name : 'To Be Reviewed'} ({roleKeyToDisplay(approver.role)})
-                                  {statusBadge}
+                            // Hide UDC in the list when both UDC and LDC are pending (per request)
+                            if (hideUDC && isUDC) return null;
+                            if (approver.isRejected) {
+                              statusBadge = (
+                                <span className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-medium">
+                                  Rejected
                                 </span>
-                              </div>
-                            </li>
-                          );
+                              );
+                            } else if (approver.isReturned) {
+                              statusBadge = (
+                                <span className="ml-2 px-2 py-0.5 rounded bg-orange-100 text-orange-700 text-xs font-medium">
+                                  {isUDC ? 'Returned by UDC' : 'Returned'}
+                                </span>
+                              );
+                            } else if (approver.isApproved) {
+                              statusBadge = (
+                                <span className="ml-2 px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">
+                                  {isUDC ? 'Endorsed' : 'Approved'}
+                                </span>
+                              );
+                            } else {
+                              statusBadge = (
+                                <span className="ml-2 px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs font-medium">
+                                  {isUDC ? 'Pending Endorsement' : 'Pending'}
+                                </span>
+                              );
+                            }
+
+                            return (
+                              <li key={idx} className="flex mb-2 text-sm">
+                                <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2 mt-2 flex-shrink-0" aria-hidden="true"></span>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-gray-800 flex items-center flex-wrap">
+                                    {(approver.name && String(approver.name).trim()) ? approver.name : 'To Be Reviewed'} ({roleKeyToDisplay(approver.role)})
+                                    {statusBadge}
+                                  </span>
+                                </div>
+                              </li>
+                            );
                           });
                         })()
                       ) : (
                         <li className="text-sm text-gray-400">No approvers assigned.</li>
                       )}
                     </ul>
-                    
+
                     {/* Notes Section */}
                     <h3 className="text-base font-bold tracking-widest text-gray-900 uppercase font-sans">
                       Notes
@@ -1189,21 +1174,21 @@ const handleUpdateISOCode = async ({ iso_code }) => {
                           <li className="text-base text-gray-400 font-sans">No notes available.</li>
                         )}
                       </ul>
-                    </div>  
-                  </div>  
+                    </div>
+                  </div>
                 </div>
               </div>
             </aside>
           </div>
         </div>
       </div>
-      
+
       {/* Assign Members Modal */}
       <AssignMembersModal
         open={assignOpen}
-        onClose={() => { 
-          setAssignOpen(false); 
-          setSelectedIds([]);  
+        onClose={() => {
+          setAssignOpen(false);
+          setSelectedIds([]);
         }}
         template={t}
         faculty={faculty}
@@ -1213,7 +1198,7 @@ const handleUpdateISOCode = async ({ iso_code }) => {
         submitting={assignSubmitting}
         onAssign={async ({ assignees }) => {
           if (!template?._id) return;
-          
+
           setAssignSubmitting(true);
           try {
             await assignControllersToTemplateAPI(template._id, assignees);

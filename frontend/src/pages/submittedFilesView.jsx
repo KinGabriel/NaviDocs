@@ -12,11 +12,11 @@ import { StatusBadge } from "../utils/formatters";
 import Loader from "../components/loader";
 import toast from "react-hot-toast";
 
-import { 
-  CheckCircle, 
-  XCircle, 
-  Eye, 
-  MessageSquare, 
+import {
+  CheckCircle,
+  XCircle,
+  Eye,
+  MessageSquare,
   Clock,
   User,
   AlertCircle,
@@ -27,14 +27,14 @@ import {
 } from "lucide-react";
 import { getSubmissionBinAPI, updateSubmissionBinAPI, returnSubmissionAPI, listSubmissionBinsByDocumentAPI, getDocumentContentAPI, addSubmissionCommentAPI } from "../api/assignmentDocumentsAPI";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
-import { getUsersInfoByIdsAPI } from "../api/userAPI"; 
+import { getUsersInfoByIdsAPI } from "../api/userAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
 const API_URL =
   API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
-  
+
 // Helper: create a temporary document from the template, export via the document exporter, then cleanup
 async function exportTemplateViaDocument({ templateDoc, store = false, folderId, filename, html }) {
   const payload = {
@@ -77,7 +77,7 @@ async function exportTemplateViaDocument({ templateDoc, store = false, folderId,
           a.remove();
           URL.revokeObjectURL(blobUrl);
         }
-      } catch {}
+      } catch { }
       return;
     }
 
@@ -165,7 +165,7 @@ export default function SubmittedFilesView() {
   const [actionNote, setActionNote] = useState("");
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
   const [showActionModal, setShowActionModal] = useState(false);
-  const [selectedAction, setSelectedAction] = useState(null); // 'submit', 'return'
+  const [selectedAction, setSelectedAction] = useState(null);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0); // For multi-file navigation
   const [previewDocument, setPreviewDocument] = useState(null);
   const [currentBinId, setCurrentBinId] = useState(null);
@@ -182,228 +182,180 @@ export default function SubmittedFilesView() {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [reviewerUsers, setReviewerUsers] = useState({}); 
+  const [reviewerUsers, setReviewerUsers] = useState({});
   const [showRawViews, setShowRawViews] = useState(false);
   const [expandedViewerId, setExpandedViewerId] = useState(null);
 
 
   // Fetch submission data
-useEffect(() => {
-  if (!id) {
-    setError("No document ID provided");
-    setLoading(false);
-    return;
-  }
-  
-  let mounted = true;
-  
-  const fetchSubmissionData = async () => {
-    try {
-      setLoading(true);
-      console.log('Fetching document with ID:', id);
+  useEffect(() => {
+    if (!id) {
+      setError("No document ID provided");
+      setLoading(false);
+      return;
+    }
 
-      // If a bin id was supplied via the route or navigation state (preferred), use it directly and skip listing bins
-      let bins = null;
-      const preferredBinId = routeBinId || navBinId || null;
-      if (preferredBinId) {
-        console.debug && console.debug('Using binId from route params or navigation state:', preferredBinId);
-      } else {
-        // First: fetch submission bins for this document so we have the bin context
-        bins = await listSubmissionBinsByDocumentAPI(id);
-        console.log('Bins response:', bins);
-      }
+    let mounted = true;
 
-      // If we didn't fetch bins and a preferredBinId exists, try to load that bin; otherwise handle no-bins case
-      if ((!bins || bins.length === 0) && preferredBinId) {
-        // Load the specific bin provided via route/state
-        try {
-          const binData = await getSubmissionBinAPI(preferredBinId);
-          if (!binData) throw new Error('Bin not found');
-          setCurrentBinId(preferredBinId);
-          // proceed using binData below by assigning bins to [binData]
-          bins = [binData];
-        } catch (e) {
-          console.warn('Preferred binId provided but failed to load bin', preferredBinId, e?.message || e);
-          // fall through to existing no-bins behavior
-        }
-      }
+    const fetchSubmissionData = async () => {
+      try {
+        setLoading(true);
+        console.log('Fetching document with ID:', id);
 
-      if (!bins || bins.length === 0) {
-        console.warn('No bins found for document', id);
-        // No submission bin context: do not attempt direct GET if we lack explicit bin info
-        // Show a friendly error to the user instead of trying to GET protected document
-        throw new Error('No submission bin found for this document');
-      }
-
-      // Determine binId: prefer routeBinId -> chosen bin from bins -> fallback first bin
-      const normalizeId = (b) => b?._id || b?.id || b;
-      let chosenBin = null;
-      let binId = routeBinId || null;
-
-      if (!binId) {
-        if (!bins || bins.length === 0) {
-          // handled above (no bins case)
+        // If a bin id was supplied via the route or navigation state (preferred), use it directly and skip listing bins
+        let bins = null;
+        const preferredBinId = routeBinId || navBinId || null;
+        if (preferredBinId) {
+          console.debug && console.debug('Using binId from route params or navigation state:', preferredBinId);
         } else {
-          // Prefer a bin that explicitly contains a submission entry for this document
-          for (const b of bins) {
-            const subs = Array.isArray(b.submissions) ? b.submissions : [];
-            const found = subs.find(s => {
-              if (Array.isArray(s.documents) && s.documents.some(dd => String(dd?._id || dd?.id || dd) === String(id))) return true;
-              if (s.document && String(s.document?._id || s.document?.id || s.document) === String(id)) return true;
-              return false;
-            });
-            if (found) { chosenBin = b; break; }
-          }
+          // Fetch submission bins for this document so we have the bin context
+          bins = await listSubmissionBinsByDocumentAPI(id);
+          console.log('Bins response:', bins);
+        }
 
-          // If still not chosen and user is faculty, prefer bin assigned to them
-          if (!chosenBin) {
-            try {
-              const uid = user?._id || user?.id || null;
-              if (uid) {
-                for (const b of bins) {
-                  const subs = Array.isArray(b.submissions) ? b.submissions : [];
-                  if (subs.some(s => String(s.faculty) === String(uid))) { chosenBin = b; break; }
-                }
-              }
-            } catch (_) {}
+        if ((!bins || bins.length === 0) && preferredBinId) {
+          // Load the specific bin provided via route/state
+          try {
+            const binData = await getSubmissionBinAPI(preferredBinId);
+            if (!binData) throw new Error('Bin not found');
+            setCurrentBinId(preferredBinId);
+            // proceed using binData below by assigning bins to [binData]
+            bins = [binData];
+          } catch (e) {
+            console.warn('Preferred binId provided but failed to load bin', preferredBinId, e?.message || e);
+            // fall through to existing no-bins behavior
           }
+        }
 
-          // If still not chosen, prefer bin created by current user
-          if (!chosenBin) {
-            const uid = user?._id || user?.id || null;
+        if (!bins || bins.length === 0) {
+          console.warn('No bins found for document', id);
+          // No submission bin context: do not attempt direct GET if we lack explicit bin info
+          throw new Error('No submission bin found for this document');
+        }
+
+        // Determine binId: prefer routeBinId -> chosen bin from bins -> fallback first bin
+        const normalizeId = (b) => b?._id || b?.id || b;
+        let chosenBin = null;
+        let binId = routeBinId || null;
+
+        if (!binId) {
+          if (!bins || bins.length === 0) {
+            // handled above (no bins case)
+          } else {
+            // Prefer a bin that explicitly contains a submission entry for this document
             for (const b of bins) {
-              if (uid && String(b.created_by || b.createdBy || '') === String(uid)) { chosenBin = b; break; }
+              const subs = Array.isArray(b.submissions) ? b.submissions : [];
+              const found = subs.find(s => {
+                if (Array.isArray(s.documents) && s.documents.some(dd => String(dd?._id || dd?.id || dd) === String(id))) return true;
+                if (s.document && String(s.document?._id || s.document?.id || s.document) === String(id)) return true;
+                return false;
+              });
+              if (found) { chosenBin = b; break; }
             }
+
+            // If still not chosen and user is faculty, prefer bin assigned to them
+            if (!chosenBin) {
+              try {
+                const uid = user?._id || user?.id || null;
+                if (uid) {
+                  for (const b of bins) {
+                    const subs = Array.isArray(b.submissions) ? b.submissions : [];
+                    if (subs.some(s => String(s.faculty) === String(uid))) { chosenBin = b; break; }
+                  }
+                }
+              } catch (_) { }
+            }
+
+            // If still not chosen, prefer bin created by current user
+            if (!chosenBin) {
+              const uid = user?._id || user?.id || null;
+              for (const b of bins) {
+                if (uid && String(b.created_by || b.createdBy || '') === String(uid)) { chosenBin = b; break; }
+              }
+            }
+
+            // fallback to any forwarded bin or the first bin
+            if (!chosenBin) chosenBin = bins.find(b => b.is_forwarded) || bins[0];
           }
 
-          // fallback to any forwarded bin or the first bin
-          if (!chosenBin) chosenBin = bins.find(b => b.is_forwarded) || bins[0];
+          binId = normalizeId(chosenBin);
+          if (binId) setCurrentBinId(binId);
+        } else {
+          // routeBinId present
+          setCurrentBinId(binId);
         }
 
-        binId = normalizeId(chosenBin);
-        if (binId) setCurrentBinId(binId);
-      } else {
-        // routeBinId present
-        setCurrentBinId(binId);
-      }
+        const binData = await getSubmissionBinAPI(binId);
+        console.log('Bin data:', binData);
 
-      const binData = await getSubmissionBinAPI(binId);
-      console.log('Bin data:', binData);
-      
-      // Store bin data in state to access is_forwarded flag
-      if (mounted) setCurrentBin(binData);
+        // Store bin data in state to access is_forwarded flag
+        if (mounted) setCurrentBin(binData);
 
-      // Enforce frontend restriction: if current user is Dean/Secretary and bin not forwarded, show friendly error
-      try {
-        const roleNameLocal = (user?.role?.name || user?.role || '').toString().toLowerCase();
-        const isDeanLocal = roleNameLocal === 'dean';
-        const isSecretaryLocal = roleNameLocal === 'secretary';
-        if ((isDeanLocal || isSecretaryLocal) && !binData.is_forwarded) {
-          if (mounted) {
-            setError('This submission has not been forwarded to your office.');
-            setLoading(false);
-          }
-          return;
-        }
-      } catch (e) {
-        // ignore role parse errors and proceed
-      }
-
-      // submission-aware content endpoint using the bin context
-      let actualDocument = null;
-      try {
-        const documentRes = await getDocumentContentAPI(id, binId);
-        actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
-        if (mounted) setFetchedDoc(actualDocument);
-      } catch (docErr) {
-        console.warn('Could not fetch document via submission API, falling back to document API:', docErr?.message || docErr);
+        // Enforce frontend restriction: if current user is Dean/Secretary and bin not forwarded, show friendly error
         try {
-          const documentRes = await getDocumentByIdAPI(id);
+          const roleNameLocal = (user?.role?.name || user?.role || '').toString().toLowerCase();
+          const isDeanLocal = roleNameLocal === 'dean';
+          const isSecretaryLocal = roleNameLocal === 'secretary';
+          if ((isDeanLocal || isSecretaryLocal) && !binData.is_forwarded) {
+            if (mounted) {
+              setError('This submission has not been forwarded to your office.');
+              setLoading(false);
+            }
+            return;
+          }
+        } catch (e) {
+          // ignore role parse errors and proceed
+        }
+
+        // submission-aware content endpoint using the bin context
+        let actualDocument = null;
+        try {
+          const documentRes = await getDocumentContentAPI(id, binId);
           actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
           if (mounted) setFetchedDoc(actualDocument);
-        } catch (fallbackErr) {
-          console.warn('Fallback direct document fetch failed:', fallbackErr?.message || fallbackErr);
-        }
-      }
-
-      // Find the submission item that contains this document
-      const submissionItem = binData.submissions?.find(sub => {
-        const hasInDocuments = Array.isArray(sub.documents) && sub.documents.some(doc => 
-          String(doc._id || doc.id || doc) === String(id)
-        );
-        const hasInDocument = String(sub.document?._id || sub.document?.id || sub.document) === String(id);
-        return hasInDocuments || hasInDocument;
-      });
-      
-      if (!submissionItem) {
-        console.warn('Submission item not found for document', id);
-        throw new Error('Submission item not found for this document');
-      }
-      
-      console.log('Submission item:', submissionItem);
-      
-      // Get all submitted documents with full details
-      const submittedDocs = [];
-      
-      // Handle single document
-      if (submissionItem.document) { 
-        const docId = submissionItem.document._id || submissionItem.document.id || submissionItem.document;
-        try {
-          // Prefer submission-aware content endpoint to avoid protected direct GETs
-          let docFromApi = null;
+        } catch (docErr) {
+          console.warn('Could not fetch document via submission API, falling back to document API:', docErr?.message || docErr);
           try {
-            const resp = await getDocumentContentAPI(docId, binId);
-            docFromApi = resp?.document || resp?.data?.document || resp?.data || resp;
-          } catch (e) {
-            // Fallback to existing loader
-            docFromApi = null;
+            const documentRes = await getDocumentByIdAPI(id);
+            actualDocument = documentRes?.document || documentRes?.data?.document || documentRes?.data || documentRes;
+            if (mounted) setFetchedDoc(actualDocument);
+          } catch (fallbackErr) {
+            console.warn('Fallback direct document fetch failed:', fallbackErr?.message || fallbackErr);
           }
-
-          if (docFromApi) {
-            const normalizedDoc = normalizeRawDocument(docFromApi);
-            submittedDocs.push({
-              id: docId,
-              name: normalizedDoc.title,
-              url: normalizedDoc.document?.filePath || "",
-              size: normalizedDoc.document?.size || 0,
-              uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
-              _fullData: normalizedDoc
-            });
-          } else {
-            const normalizedDoc = await fetchAndNormalizeDocument(docId);
-            submittedDocs.push({
-              id: docId,
-              name: normalizedDoc.title,
-              url: normalizedDoc.document.filePath || "",
-              size: normalizedDoc.document.size || 0,
-              uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
-              _fullData: normalizedDoc
-            });
-          }
-        } catch (err) {
-          console.error(`Failed to fetch document ${docId}:`, err);
-          // Use placeholder if can't fetch the document
-          submittedDocs.push({
-            id: docId,
-            name: `Document ${docId}`,
-            url: "",
-            size: 0,
-            uploadedAt: submissionItem.submitted_at,
-            _fullData: null
-          });
         }
-      } 
 
-      // Handle multiple documents
-      if (Array.isArray(submissionItem.documents) && submissionItem.documents.length > 0) {  
-        for (const doc of submissionItem.documents) {
-          const docId = doc._id || doc.id || doc;
+        // Find the submission item that contains this document
+        const submissionItem = binData.submissions?.find(sub => {
+          const hasInDocuments = Array.isArray(sub.documents) && sub.documents.some(doc =>
+            String(doc._id || doc.id || doc) === String(id)
+          );
+          const hasInDocument = String(sub.document?._id || sub.document?.id || sub.document) === String(id);
+          return hasInDocuments || hasInDocument;
+        });
+
+        if (!submissionItem) {
+          console.warn('Submission item not found for document', id);
+          throw new Error('Submission item not found for this document');
+        }
+
+        console.log('Submission item:', submissionItem);
+
+        // Get all submitted documents with full details
+        const submittedDocs = [];
+
+        // Handle single document
+        if (submissionItem.document) {
+          const docId = submissionItem.document._id || submissionItem.document.id || submissionItem.document;
           try {
+            // Prefer submission-aware content endpoint to avoid protected direct GETs
             let docFromApi = null;
             try {
               const resp = await getDocumentContentAPI(docId, binId);
               docFromApi = resp?.document || resp?.data?.document || resp?.data || resp;
-            } catch (_) { docFromApi = null; }
+            } catch (e) {
+              // Fallback to existing loader
+              docFromApi = null;
+            }
 
             if (docFromApi) {
               const normalizedDoc = normalizeRawDocument(docFromApi);
@@ -439,8 +391,54 @@ useEffect(() => {
             });
           }
         }
-      }
-        
+
+        // Handle multiple documents
+        if (Array.isArray(submissionItem.documents) && submissionItem.documents.length > 0) {
+          for (const doc of submissionItem.documents) {
+            const docId = doc._id || doc.id || doc;
+            try {
+              let docFromApi = null;
+              try {
+                const resp = await getDocumentContentAPI(docId, binId);
+                docFromApi = resp?.document || resp?.data?.document || resp?.data || resp;
+              } catch (_) { docFromApi = null; }
+
+              if (docFromApi) {
+                const normalizedDoc = normalizeRawDocument(docFromApi);
+                submittedDocs.push({
+                  id: docId,
+                  name: normalizedDoc.title,
+                  url: normalizedDoc.document?.filePath || "",
+                  size: normalizedDoc.document?.size || 0,
+                  uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
+                  _fullData: normalizedDoc
+                });
+              } else {
+                const normalizedDoc = await fetchAndNormalizeDocument(docId);
+                submittedDocs.push({
+                  id: docId,
+                  name: normalizedDoc.title,
+                  url: normalizedDoc.document.filePath || "",
+                  size: normalizedDoc.document.size || 0,
+                  uploadedAt: normalizedDoc.createdAt || submissionItem.submitted_at,
+                  _fullData: normalizedDoc
+                });
+              }
+            } catch (err) {
+              console.error(`Failed to fetch document ${docId}:`, err);
+              // Use placeholder if can't fetch the document
+              submittedDocs.push({
+                id: docId,
+                name: `Document ${docId}`,
+                url: "",
+                size: 0,
+                uploadedAt: submissionItem.submitted_at,
+                _fullData: null
+              });
+            }
+          }
+        }
+
         // Ensure we have at least the current document in the list
         if (submittedDocs.length === 0 && actualDocument) {
           submittedDocs.push({
@@ -452,390 +450,390 @@ useEffect(() => {
             _fullData: actualDocument
           });
         }
-      
-      // Prefer the MOST RECENT document for initial preview (last in the array)
-      if (submittedDocs.length > 0) {
-        const lastIndex = submittedDocs.length - 1;
-        const latestDoc = submittedDocs[lastIndex]._fullData;
+
+        // Prefer the MOST RECENT document for initial preview (last in the array)
+        if (submittedDocs.length > 0) {
+          const lastIndex = submittedDocs.length - 1;
+          const latestDoc = submittedDocs[lastIndex]._fullData;
+          if (mounted) {
+            setFetchedDoc(latestDoc);
+            setPreviewDocument(latestDoc);
+            setSelectedFileIndex(lastIndex);
+          }
+        }
+
+        // Map the real submission data
+        const mappedSubmission = {
+          id: submissionItem._id || submissionItem.id,
+          title: binData.title,
+          submittedBy: {
+            name: submissionItem.faculty_name ||
+              submissionItem.faculty_user?.name ||
+              submissionItem.faculty_user?.fullname ||
+              `${submissionItem.faculty_user?.firstname || ''} ${submissionItem.faculty_user?.lastname || ''}`.trim() ||
+              "Unknown User",
+            role: submissionItem.faculty_user?.role?.name || "Faculty",
+            email: submissionItem.faculty_user?.email || ""
+          },
+          submittedAt: submissionItem.submitted_at,
+          status: submissionItem.status || (submissionItem.submitted_at ? "submitted" : "pending"),
+          files: submittedDocs && submittedDocs.length > 0 ? submittedDocs : [],
+          // Normalize view events from multiple possible shapes (views, viewed_by, _rawViews)
+          // Keep raw events for debugging and fallback rendering
+          rawViews: submissionItem._rawViews || submissionItem.views || submissionItem.viewed_by || [],
+          // viewedBy will be populated from rawViews after dedupe (keep latest per user)
+          viewedBy: [],
+          notes: Array.isArray(submissionItem.notes)
+            ? submissionItem.notes.map(note => {
+              let userInfo = null;
+              let originalBy = note.by;
+
+              // Preserve original identifier (string or object) for later logic (e.g. hasAlreadyReturned)
+              // Attempt enrichment ONLY if we can positively identify the user
+              if (note.by && typeof note.by === 'object') {
+                userInfo = note.by; // already populated by backend enrichment
+              } else if (typeof note.by === 'string') {
+                const noteById = String(note.by);
+                // Match submitting faculty
+                if (
+                  submissionItem.faculty_user &&
+                  String(submissionItem.faculty_user._id || submissionItem.faculty_user.id) === noteById
+                ) {
+                  userInfo = {
+                    ...submissionItem.faculty_user,
+                    role: { name: 'Faculty' },
+                  };
+                }
+                // Match current viewer
+                else if (user && String(user._id || user.id) === noteById) {
+                  userInfo = user;
+                }
+                // Match bin creator (dept head)
+                else if (
+                  binData.created_by &&
+                  typeof binData.created_by === 'object' &&
+                  String(binData.created_by._id || binData.created_by.id) === noteById
+                ) {
+                  userInfo = binData.created_by;
+                }
+              }
+
+              return {
+                ...note,
+                id: note._id || note.id,
+                at: note.createdAt || note.created_at || note.at || note.timestamp,
+                by: userInfo || originalBy, // fall back to original value when enrichment failed
+                originalBy, // keep an explicit copy for reliability
+                message: note.message || note.text || note.comment || note.reason || '',
+              };
+            })
+            : [],
+          deadline: binData.deadline
+        };
+
         if (mounted) {
-          setFetchedDoc(latestDoc);
-          setPreviewDocument(latestDoc);
-          setSelectedFileIndex(lastIndex);
+          // Deduplicate and normalize view events into viewedBy (latest per user)
+          try {
+            const raw = Array.isArray(mappedSubmission.rawViews) ? mappedSubmission.rawViews : [];
+            const normalized = raw.map(rv => ({
+              userId: rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null,
+              at: rv.at || rv.timestamp || rv.viewedAt || null,
+              _id: rv._id || rv.id || null,
+              raw: rv
+            })).filter(r => r.userId);
+
+            // Keep latest per user (by at)
+            const byUser = {};
+            normalized.forEach(n => {
+              const prev = byUser[n.userId];
+              if (!prev) byUser[n.userId] = n;
+              else {
+                const prevT = prev.at ? new Date(prev.at).getTime() : 0;
+                const curT = n.at ? new Date(n.at).getTime() : 0;
+                if (curT >= prevT) byUser[n.userId] = n;
+              }
+            });
+
+            // Sort by most recent first
+            const deduped = Object.values(byUser)
+              .map(v => ({ id: v.userId, viewedAt: v.at, _id: v._id }))
+              .sort((a, b) => {
+                const timeA = a.viewedAt ? new Date(a.viewedAt).getTime() : 0;
+                const timeB = b.viewedAt ? new Date(b.viewedAt).getTime() : 0;
+                return timeB - timeA;
+              });
+
+            mappedSubmission.viewedBy = deduped;
+          } catch (e) {
+            mappedSubmission.viewedBy = mappedSubmission.viewedBy || [];
+          }
+
+          setSubmission(mappedSubmission);
+          setError("");
+        }
+
+      } catch (err) {
+        console.error("Error fetching submission:", err);
+        if (mounted) {
+          setError(err.message || "Failed to load submission");
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
         }
       }
-          
-          // Map the real submission data
-          const mappedSubmission = {
-            id: submissionItem._id || submissionItem.id,
-            title: binData.title,
-            submittedBy: {
-              name: submissionItem.faculty_name || 
-                    submissionItem.faculty_user?.name || 
-                    submissionItem.faculty_user?.fullname ||
-                    `${submissionItem.faculty_user?.firstname || ''} ${submissionItem.faculty_user?.lastname || ''}`.trim() ||
-                    "Unknown User",
-              role: submissionItem.faculty_user?.role?.name || "Faculty",
-              email: submissionItem.faculty_user?.email || ""
-            },
-            submittedAt: submissionItem.submitted_at,
-            status: submissionItem.status || (submissionItem.submitted_at ? "submitted" : "pending"),
-            files: submittedDocs && submittedDocs.length > 0 ? submittedDocs : [],
-            // Normalize view events from multiple possible shapes (views, viewed_by, _rawViews)
-            // Keep raw events for debugging and fallback rendering
-            rawViews: submissionItem._rawViews || submissionItem.views || submissionItem.viewed_by || [],
-            // viewedBy will be populated from rawViews after dedupe (keep latest per user)
-            viewedBy: [],
-            notes: Array.isArray(submissionItem.notes)
-              ? submissionItem.notes.map(note => {
-                  let userInfo = null;
-                  let originalBy = note.by;
+    };
 
-                  // Preserve original identifier (string or object) for later logic (e.g. hasAlreadyReturned)
-                  // Attempt enrichment ONLY if we can positively identify the user
-                  if (note.by && typeof note.by === 'object') {
-                    userInfo = note.by; // already populated by backend enrichment
-                  } else if (typeof note.by === 'string') {
-                    const noteById = String(note.by);
-                    // Match submitting faculty
-                    if (
-                      submissionItem.faculty_user &&
-                      String(submissionItem.faculty_user._id || submissionItem.faculty_user.id) === noteById
-                    ) {
-                      userInfo = {
-                        ...submissionItem.faculty_user,
-                        role: { name: 'Faculty' },
-                      };
-                    }
-                    // Match current viewer
-                    else if (user && String(user._id || user.id) === noteById) {
-                      userInfo = user;
-                    }
-                    // Match bin creator (dept head)
-                    else if (
-                      binData.created_by &&
-                      typeof binData.created_by === 'object' &&
-                      String(binData.created_by._id || binData.created_by.id) === noteById
-                    ) {
-                      userInfo = binData.created_by;
-                    }
-                  }
+    fetchSubmissionData();
 
-                  return {
-                    ...note,
-                    id: note._id || note.id,
-                    at: note.createdAt || note.created_at || note.at || note.timestamp,
-                    by: userInfo || originalBy, // fall back to original value when enrichment failed
-                    originalBy, // keep an explicit copy for reliability
-                    message: note.message || note.text || note.comment || note.reason || '',
-                  };
-                })
-              : [],
-              deadline: binData.deadline
+    return () => { mounted = false; };
+  }, [id, state]);
+
+  // Fetch reviewer user information from notes
+  useEffect(() => {
+    if (!submission?.notes || !Array.isArray(submission.notes)) return;
+
+    const userIds = submission.notes
+      .map(note => {
+        if (typeof note.by === 'string') return note.by;
+        if (note.by && typeof note.by === 'object') return note.by._id || note.by.id;
+        return null;
+      })
+      .filter(Boolean);
+
+    if (userIds.length === 0) return;
+
+    // Remove duplicates
+    const uniqueIds = [...new Set(userIds)];
+
+    let mounted = true;
+
+    getUsersInfoByIdsAPI(uniqueIds)
+      .then(users => {
+        if (!mounted || !users) return;
+
+        // Create a map of userId -> user object
+        const userMap = {};
+        users.forEach(user => {
+          const id = user.userId || user._id || user.id;
+          if (id) {
+            userMap[id] = {
+              name: user.name ||
+                user.fullname ||
+                `${user.firstname || ''} ${user.lastname || ''}`.trim() ||
+                user.email ||
+                'Unknown User',
+              role: user.role?.name || user.role || 'Reviewer',
+              email: user.email
             };
-      
-      if (mounted) {
-      // Deduplicate and normalize view events into viewedBy (latest per user)
-      try {
-        const raw = Array.isArray(mappedSubmission.rawViews) ? mappedSubmission.rawViews : [];
-        const normalized = raw.map(rv => ({
-          userId: rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null,
-          at: rv.at || rv.timestamp || rv.viewedAt || null,
-          _id: rv._id || rv.id || null,
-          raw: rv
-        })).filter(r => r.userId);
-
-        // Keep latest per user (by at)
-        const byUser = {};
-        normalized.forEach(n => {
-          const prev = byUser[n.userId];
-          if (!prev) byUser[n.userId] = n;
-          else {
-            const prevT = prev.at ? new Date(prev.at).getTime() : 0;
-            const curT = n.at ? new Date(n.at).getTime() : 0;
-            if (curT >= prevT) byUser[n.userId] = n;
           }
         });
 
-        // Sort by most recent first
-        const deduped = Object.values(byUser)
-          .map(v => ({ id: v.userId, viewedAt: v.at, _id: v._id }))
-          .sort((a, b) => {
-            const timeA = a.viewedAt ? new Date(a.viewedAt).getTime() : 0;
-            const timeB = b.viewedAt ? new Date(b.viewedAt).getTime() : 0;
-            return timeB - timeA; // Most recent first
-          });
-          
-        mappedSubmission.viewedBy = deduped;
-      } catch (e) {
-        mappedSubmission.viewedBy = mappedSubmission.viewedBy || [];
-      }
+        setReviewerUsers(userMap);
+      })
+      .catch(err => {
+        console.error('Failed to fetch reviewer info:', err);
+      });
 
-      setSubmission(mappedSubmission);
-      setError("");
-    }
-      
-    } catch (err) {
-      console.error("Error fetching submission:", err);
-      if (mounted) {
-        setError(err.message || "Failed to load submission");
-      }
-    } finally {
-      if (mounted) {
-        setLoading(false);
-      }
-    }
-  };
-  
-  fetchSubmissionData();
-  
-  return () => { mounted = false; };
-}, [id, state]);
+    return () => { mounted = false; };
+  }, [submission?.notes]);
 
-// Fetch reviewer user information from notes
-useEffect(() => {
-  if (!submission?.notes || !Array.isArray(submission.notes)) return;
-  
-  const userIds = submission.notes
-    .map(note => {
-      if (typeof note.by === 'string') return note.by;
-      if (note.by && typeof note.by === 'object') return note.by._id || note.by.id;
-      return null;
-    })
-    .filter(Boolean);
-  
-  if (userIds.length === 0) return;
-  
-  // Remove duplicates
-  const uniqueIds = [...new Set(userIds)];
-  
-  let mounted = true;
-  
-  getUsersInfoByIdsAPI(uniqueIds)
-    .then(users => {
-      if (!mounted || !users) return;
-      
-      // Create a map of userId -> user object
-      const userMap = {};
-      users.forEach(user => {
-        const id = user.userId || user._id || user.id;
-        if (id) {
+  // Fetch user info for viewers (from views/rawViews) so we can show names/roles
+  useEffect(() => {
+    if (!submission) return;
+
+    // Collect viewer ids from the deduped viewedBy if present, otherwise try rawViews
+    const ids = [];
+    if (Array.isArray(submission.viewedBy) && submission.viewedBy.length > 0) {
+      submission.viewedBy.forEach(v => { if (v && v.id) ids.push(v.id); });
+    } else if (Array.isArray(submission.rawViews) && submission.rawViews.length > 0) {
+      submission.rawViews.forEach(rv => {
+        const uid = rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id));
+        if (uid) ids.push(uid);
+      });
+    }
+
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (unique.length === 0) return;
+
+    let mounted = true;
+    getUsersInfoByIdsAPI(unique)
+      .then(users => {
+        if (!mounted || !users) return;
+        const userMap = {};
+        users.forEach(u => {
+          const id = u.userId || u._id || u.id;
+          if (!id) return;
           userMap[id] = {
-            name: user.name || 
-                  user.fullname || 
-                  `${user.firstname || ''} ${user.lastname || ''}`.trim() || 
-                  user.email || 
-                  'Unknown User',
-            role: user.role?.name || user.role || 'Reviewer',
-            email: user.email
+            name: u.name || u.fullname || `${u.firstname || ''} ${u.lastname || ''}`.trim() || u.email || 'Unknown User',
+            role: u.role?.name || u.role || 'Reviewer',
+            email: u.email
           };
-        }
-      });
-      
-      setReviewerUsers(userMap);
-    })
-    .catch(err => {
-      console.error('Failed to fetch reviewer info:', err);
-    });
-  
-  return () => { mounted = false; };
-}, [submission?.notes]);
+        });
 
-// Fetch user info for viewers (from views/rawViews) so we can show names/roles
-useEffect(() => {
-  if (!submission) return;
+        // Merge into reviewerUsers so existing note-rendering code can reuse it
+        setReviewerUsers(prev => ({ ...prev, ...userMap }));
+      })
+      .catch(err => console.error('Failed to fetch viewer user info:', err));
 
-  // Collect viewer ids from the deduped viewedBy if present, otherwise try rawViews
-  const ids = [];
-  if (Array.isArray(submission.viewedBy) && submission.viewedBy.length > 0) {
-    submission.viewedBy.forEach(v => { if (v && v.id) ids.push(v.id); });
-  } else if (Array.isArray(submission.rawViews) && submission.rawViews.length > 0) {
-    submission.rawViews.forEach(rv => {
-      const uid = rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id));
-      if (uid) ids.push(uid);
-    });
-  }
+    return () => { mounted = false; };
+  }, [submission?.viewedBy, submission?.rawViews]);
 
-  const unique = [...new Set(ids.filter(Boolean))];
-  if (unique.length === 0) return;
-
-  let mounted = true;
-  getUsersInfoByIdsAPI(unique)
-    .then(users => {
-      if (!mounted || !users) return;
-      const userMap = {};
-      users.forEach(u => {
-        const id = u.userId || u._id || u.id;
-        if (!id) return;
-        userMap[id] = {
-          name: u.name || u.fullname || `${u.firstname || ''} ${u.lastname || ''}`.trim() || u.email || 'Unknown User',
-          role: u.role?.name || u.role || 'Reviewer',
-          email: u.email
-        };
-      });
-
-      // Merge into reviewerUsers so existing note-rendering code can reuse it
-      setReviewerUsers(prev => ({ ...prev, ...userMap }));
-    })
-    .catch(err => console.error('Failed to fetch viewer user info:', err));
-
-  return () => { mounted = false; };
-}, [submission?.viewedBy, submission?.rawViews]);
-
-const handleSubmitComment = async () => {
-  if (!commentText.trim()) {
-    toast.error('Please enter a comment');
-    return;
-  }
-  
-  setIsSubmittingComment(true);
-  
-  try {
-    const binId = currentBinId;
-    const submissionId = submission.id;
-    
-    if (!binId || !submissionId) {
-      throw new Error("Missing submission information");
+  const handleSubmitComment = async () => {
+    if (!commentText.trim()) {
+      toast.error('Please enter a comment');
+      return;
     }
-    
-    // Add the comment
-    await addSubmissionCommentAPI(binId, submissionId, {
-      message: commentText.trim(),
-      type: 'comment'
-    });
-    
-    // Refresh the submission data to show the new comment
-    const updatedBin = await getSubmissionBinAPI(binId);
-    const updatedItem = updatedBin.submissions?.find(s => String(s._id || s.id) === String(submissionId));
-    
-    if (updatedItem) {
-      // Map the notes properly - keep the 'by' field as is so useEffect can fetch user data
-      const mappedNotes = Array.isArray(updatedItem.notes) 
-        ? updatedItem.notes.map(note => ({
+
+    setIsSubmittingComment(true);
+
+    try {
+      const binId = currentBinId;
+      const submissionId = submission.id;
+
+      if (!binId || !submissionId) {
+        throw new Error("Missing submission information");
+      }
+
+      // Add the comment
+      await addSubmissionCommentAPI(binId, submissionId, {
+        message: commentText.trim(),
+        type: 'comment'
+      });
+
+      // Refresh the submission data to show the new comment
+      const updatedBin = await getSubmissionBinAPI(binId);
+      const updatedItem = updatedBin.submissions?.find(s => String(s._id || s.id) === String(submissionId));
+
+      if (updatedItem) {
+        // Map the notes properly - keep the 'by' field as is so useEffect can fetch user data
+        const mappedNotes = Array.isArray(updatedItem.notes)
+          ? updatedItem.notes.map(note => ({
             ...note,
             id: note._id || note.id,
             at: note.createdAt || note.created_at || note.at || note.timestamp,
             by: note.by, // Keep the by field as-is (could be ID string or object)
             message: note.message || note.text || note.comment || note.reason || ''
           }))
-        : [];
-      
-      setSubmission(prev => ({
-        ...prev,
-        notes: mappedNotes
-      }));
-      
-      // Fetch user info for new notes
-      const userIds = mappedNotes
-        .map(note => {
-          if (typeof note.by === 'string') return note.by;
-          if (note.by && typeof note.by === 'object') return note.by._id || note.by.id;
-          return null;
-        })
-        .filter(Boolean);
-      
-      if (userIds.length > 0) {
-        const uniqueIds = [...new Set(userIds)];
-        try {
-          const users = await getUsersInfoByIdsAPI(uniqueIds);
-          if (users) {
-            const userMap = {};
-            users.forEach(user => {
-              const id = user.userId || user._id || user.id;
-              if (id) {
-                userMap[id] = {
-                  name: user.name || 
-                        user.fullname || 
-                        `${user.firstname || ''} ${user.lastname || ''}`.trim() || 
-                        user.email || 
-                        'Unknown User',
-                  role: user.role?.name || user.role || 'Reviewer',
-                  email: user.email
-                };
-              }
-            });
-            setReviewerUsers(prev => ({ ...prev, ...userMap }));
+          : [];
+
+        setSubmission(prev => ({
+          ...prev,
+          notes: mappedNotes
+        }));
+
+        // Fetch user info for new notes
+        const userIds = mappedNotes
+          .map(note => {
+            if (typeof note.by === 'string') return note.by;
+            if (note.by && typeof note.by === 'object') return note.by._id || note.by.id;
+            return null;
+          })
+          .filter(Boolean);
+
+        if (userIds.length > 0) {
+          const uniqueIds = [...new Set(userIds)];
+          try {
+            const users = await getUsersInfoByIdsAPI(uniqueIds);
+            if (users) {
+              const userMap = {};
+              users.forEach(user => {
+                const id = user.userId || user._id || user.id;
+                if (id) {
+                  userMap[id] = {
+                    name: user.name ||
+                      user.fullname ||
+                      `${user.firstname || ''} ${user.lastname || ''}`.trim() ||
+                      user.email ||
+                      'Unknown User',
+                    role: user.role?.name || user.role || 'Reviewer',
+                    email: user.email
+                  };
+                }
+              });
+              setReviewerUsers(prev => ({ ...prev, ...userMap }));
+            }
+          } catch (err) {
+            console.error('Failed to fetch user info for new comments:', err);
           }
-        } catch (err) {
-          console.error('Failed to fetch user info for new comments:', err);
         }
       }
-    }
-    
-    setShowCommentModal(false);
-    setCommentText("");
-    toast.success('Comment added successfully!');
-    
-  } catch (err) {
-    console.error("Failed to add comment:", err);
-    toast.error(err?.responseData?.message || err?.message || 'Failed to add comment');
-  } finally {
-    setIsSubmittingComment(false);
-  }
-};
 
-const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
-const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
-const handleZoomFit = () => {
-  if (previewContainerRef.current) {
-    const containerWidth = previewContainerRef.current.offsetWidth - 64;
-    const estimatedPageWidth = isLandscape ? 1400 : 900;
-    const autoZoom = Math.min((containerWidth / estimatedPageWidth), 1);
-    setZoom(autoZoom);
-  }
-};
-const handleZoomReset = () => setZoom(1);
+      setShowCommentModal(false);
+      setCommentText("");
+      toast.success('Comment added successfully!');
+
+    } catch (err) {
+      console.error("Failed to add comment:", err);
+      toast.error(err?.responseData?.message || err?.message || 'Failed to add comment');
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
+  const handleZoomFit = () => {
+    if (previewContainerRef.current) {
+      const containerWidth = previewContainerRef.current.offsetWidth - 64;
+      const estimatedPageWidth = isLandscape ? 1400 : 900;
+      const autoZoom = Math.min((containerWidth / estimatedPageWidth), 1);
+      setZoom(autoZoom);
+    }
+  };
+  const handleZoomReset = () => setZoom(1);
 
   // To update the preview when file selection changes
-    useEffect(() => {
-      if (submission?.files && submission.files.length > 0) {
-        const selectedFile = submission.files[selectedFileIndex];
-        if (selectedFile?._fullData) {
-          setPreviewDocument(selectedFile._fullData);
-        } else if (selectedFile?.id) {
-          // Fetch the document if not already loaded
-          console.log('Fetching preview for document:', selectedFile.id);
-          // Prefer the submission-aware content API to avoid protected direct GETs
-          (currentBinId ? getDocumentContentAPI(selectedFile.id, currentBinId) : Promise.reject(new Error('no binId')))
-            .then(res => {
-              const docData = res?.document || res?.data?.document || res?.data || res;
-              let pagesJson = docData.pages_json;
-              if (!pagesJson && docData.from_template?.pages_json) {
-                pagesJson = docData.from_template.pages_json;
-              }
-              const normalizedData = {
-                ...docData,
-                pages_json: pagesJson || docData.pages_json,
-                pageSetup: docData.pageSetup || docData.from_template?.pageSetup,
-                headerConfig: docData.headerConfig || docData.from_template?.headerConfig,
-                logoConfig: docData.logoConfig || docData.from_template?.logoConfig,
-              };
-              console.log('Fetched document (content API):', normalizedData);
-              setPreviewDocument(normalizedData);
-            })
-            .catch(() => {
-              // Fallback to legacy GET when content API isn't available for this document/user
-              getDocumentByIdAPI(selectedFile.id)
-                .then(res => {
-                  const docData = res?.document || res?.data?.document || res?.data || res;
-                  let pagesJson = docData.pages_json;
-                  if (!pagesJson && docData.from_template?.pages_json) {
-                    pagesJson = docData.from_template.pages_json;
-                  }
-                  const normalizedData = {
-                    ...docData,
-                    pages_json: pagesJson || docData.pages_json,
-                    pageSetup: docData.pageSetup || docData.from_template?.pageSetup,
-                    headerConfig: docData.headerConfig || docData.from_template?.headerConfig,
-                    logoConfig: docData.logoConfig || docData.from_template?.logoConfig,
-                  };
-                  console.log('Fetched document (fallback):', normalizedData);
-                  setPreviewDocument(normalizedData);
-                })
-                .catch(err => console.error("Failed to fetch preview (both content API and fallback):", err));
-            });
-        }
+  useEffect(() => {
+    if (submission?.files && submission.files.length > 0) {
+      const selectedFile = submission.files[selectedFileIndex];
+      if (selectedFile?._fullData) {
+        setPreviewDocument(selectedFile._fullData);
+      } else if (selectedFile?.id) {
+        // Fetch the document if not already loaded
+        console.log('Fetching preview for document:', selectedFile.id);
+        // Prefer the submission-aware content API to avoid protected direct GETs
+        (currentBinId ? getDocumentContentAPI(selectedFile.id, currentBinId) : Promise.reject(new Error('no binId')))
+          .then(res => {
+            const docData = res?.document || res?.data?.document || res?.data || res;
+            let pagesJson = docData.pages_json;
+            if (!pagesJson && docData.from_template?.pages_json) {
+              pagesJson = docData.from_template.pages_json;
+            }
+            const normalizedData = {
+              ...docData,
+              pages_json: pagesJson || docData.pages_json,
+              pageSetup: docData.pageSetup || docData.from_template?.pageSetup,
+              headerConfig: docData.headerConfig || docData.from_template?.headerConfig,
+              logoConfig: docData.logoConfig || docData.from_template?.logoConfig,
+            };
+            console.log('Fetched document (content API):', normalizedData);
+            setPreviewDocument(normalizedData);
+          })
+          .catch(() => {
+            // Fallback to legacy GET when content API isn't available for this document/user
+            getDocumentByIdAPI(selectedFile.id)
+              .then(res => {
+                const docData = res?.document || res?.data?.document || res?.data || res;
+                let pagesJson = docData.pages_json;
+                if (!pagesJson && docData.from_template?.pages_json) {
+                  pagesJson = docData.from_template.pages_json;
+                }
+                const normalizedData = {
+                  ...docData,
+                  pages_json: pagesJson || docData.pages_json,
+                  pageSetup: docData.pageSetup || docData.from_template?.pageSetup,
+                  headerConfig: docData.headerConfig || docData.from_template?.headerConfig,
+                  logoConfig: docData.logoConfig || docData.from_template?.logoConfig,
+                };
+                console.log('Fetched document (fallback):', normalizedData);
+                setPreviewDocument(normalizedData);
+              })
+              .catch(err => console.error("Failed to fetch preview (both content API and fallback):", err));
+          });
       }
-    }, [selectedFileIndex, submission?.files]);
+    }
+  }, [selectedFileIndex, submission?.files]);
 
   const d = state?.doc || fetchedDoc || {};
   const doc = {
@@ -849,20 +847,20 @@ const handleZoomReset = () => setZoom(1);
   };
 
   const isLandscape = useMemo(() => {
-  const activeDoc = previewDocument || fetchedDoc || d;
-  if (!activeDoc?.pageSetup) return false;
-  
-  const pageSetup = activeDoc.pageSetup;
-  
-  if (pageSetup.orientation) {
-    return pageSetup.orientation.toLowerCase() === 'landscape';
-  }
-  
-  const width = parseFloat(pageSetup.width) || 0;
-  const height = parseFloat(pageSetup.height) || 0;
-  
-  return width > height;
-}, [previewDocument, fetchedDoc, d]);
+    const activeDoc = previewDocument || fetchedDoc || d;
+    if (!activeDoc?.pageSetup) return false;
+
+    const pageSetup = activeDoc.pageSetup;
+
+    if (pageSetup.orientation) {
+      return pageSetup.orientation.toLowerCase() === 'landscape';
+    }
+
+    const width = parseFloat(pageSetup.width) || 0;
+    const height = parseFloat(pageSetup.height) || 0;
+
+    return width > height;
+  }, [previewDocument, fetchedDoc, d]);
 
   // Check user role permissions
   const roleName = user?.role?.name || user?.role || "";
@@ -875,7 +873,7 @@ const handleZoomReset = () => setZoom(1);
     userRole === "department head" ||
     userRole === "department_head" ||
     userRole === "dept-head" ||
-    userRole === "department head"; // in case backend sends this exact string
+    userRole === "department head";
   const isFaculty = userRole === "faculty";
 
   // Role-based action permissions
@@ -928,132 +926,132 @@ const handleZoomReset = () => setZoom(1);
   }, [submission?.rawViews, reviewerUsers]);
 
 
-    // Check if current user has already returned since last resubmission
-    const hasAlreadyReturned = useMemo(() => {
-      if (!submission?.notes || !Array.isArray(submission.notes)) return false;
-      if (!user?._id && !user?.id) return false;
-      
-      const currentUserId = String(user._id || user.id);
-      
-      console.log('[hasAlreadyReturned] checking', {
-        currentUserId,
-        currentUserRole: userRole,
-        totalNotes: submission.notes.length,
-        notes: submission.notes.map(n => ({
-          type: n.type,
-          by: n.by,
-          originalBy: n.originalBy
-        }))
-      });
-      
-      // Find the index of the most recent 'resubmitted' note
-      let lastResubmitIndex = -1;
-      for (let i = submission.notes.length - 1; i >= 0; i--) {
-        if (submission.notes[i].type === 'resubmitted') {
-          lastResubmitIndex = i;
-          break;
+  // Check if current user has already returned since last resubmission
+  const hasAlreadyReturned = useMemo(() => {
+    if (!submission?.notes || !Array.isArray(submission.notes)) return false;
+    if (!user?._id && !user?.id) return false;
+
+    const currentUserId = String(user._id || user.id);
+
+    console.log('[hasAlreadyReturned] checking', {
+      currentUserId,
+      currentUserRole: userRole,
+      totalNotes: submission.notes.length,
+      notes: submission.notes.map(n => ({
+        type: n.type,
+        by: n.by,
+        originalBy: n.originalBy
+      }))
+    });
+
+    // Find the index of the most recent 'resubmitted' note
+    let lastResubmitIndex = -1;
+    for (let i = submission.notes.length - 1; i >= 0; i--) {
+      if (submission.notes[i].type === 'resubmitted') {
+        lastResubmitIndex = i;
+        break;
+      }
+    }
+
+    // Check notes after the last resubmission (or all notes if no resubmission)
+    const notesToCheck = lastResubmitIndex >= 0
+      ? submission.notes.slice(lastResubmitIndex + 1)
+      : submission.notes;
+
+    console.log('[hasAlreadyReturned] after resubmit filter', {
+      lastResubmitIndex,
+      notesToCheckCount: notesToCheck.length
+    });
+
+    // Check if THIS SPECIFIC USER has already returned
+    const result = notesToCheck.some(note => {
+      if (note.type !== 'returned') return false;
+
+      // Get the user ID from the note - try multiple sources
+      let noteUserId = null;
+
+      // First try originalBy (which we preserved)
+      if (note.originalBy) {
+        if (typeof note.originalBy === 'string') {
+          noteUserId = note.originalBy;
+        } else if (typeof note.originalBy === 'object') {
+          noteUserId = note.originalBy._id || note.originalBy.id;
         }
       }
-      
-      // Check notes after the last resubmission (or all notes if no resubmission)
-      const notesToCheck = lastResubmitIndex >= 0 
-        ? submission.notes.slice(lastResubmitIndex + 1) 
-        : submission.notes;
-      
-      console.log('[hasAlreadyReturned] after resubmit filter', {
-        lastResubmitIndex,
-        notesToCheckCount: notesToCheck.length
-      });
-      
-      // Check if THIS SPECIFIC USER has already returned
-      const result = notesToCheck.some(note => {
-        if (note.type !== 'returned') return false;
-        
-        // Get the user ID from the note - try multiple sources
-        let noteUserId = null;
-        
-        // First try originalBy (which we preserved)
-        if (note.originalBy) {
-          if (typeof note.originalBy === 'string') {
-            noteUserId = note.originalBy;
-          } else if (typeof note.originalBy === 'object') {
-            noteUserId = note.originalBy._id || note.originalBy.id;
-          }
-        }
-        
-        // Fallback to note.by
-        if (!noteUserId && note.by) {
-          if (typeof note.by === 'string') {
-            noteUserId = note.by;
-          } else if (typeof note.by === 'object') {
-            noteUserId = note.by._id || note.by.id;
-          }
-        }
-        
-        const match = noteUserId && String(noteUserId) === currentUserId;
-        
-        console.log('[hasAlreadyReturned] note check', {
-          noteType: note.type,
-          noteUserId,
-          currentUserId,
-          match
-        });
-        
-        return match;
-      });
-      
-      console.log('[hasAlreadyReturned] final result:', result);
-      return result;
-    }, [submission?.notes, user, userRole]);
 
-    const handleActionClick = (action) => {
-      setSelectedAction(action);
-      setShowActionModal(true);
-    };
+      // Fallback to note.by
+      if (!noteUserId && note.by) {
+        if (typeof note.by === 'string') {
+          noteUserId = note.by;
+        } else if (typeof note.by === 'object') {
+          noteUserId = note.by._id || note.by.id;
+        }
+      }
+
+      const match = noteUserId && String(noteUserId) === currentUserId;
+
+      console.log('[hasAlreadyReturned] note check', {
+        noteType: note.type,
+        noteUserId,
+        currentUserId,
+        match
+      });
+
+      return match;
+    });
+
+    console.log('[hasAlreadyReturned] final result:', result);
+    return result;
+  }, [submission?.notes, user, userRole]);
+
+  const handleActionClick = (action) => {
+    setSelectedAction(action);
+    setShowActionModal(true);
+  };
 
   const handleSubmitAction = async () => {
     if (!selectedAction) return;
-      
+
     setIsSubmittingAction(true);
-      
+
     try {
       // Fetch bins for this document
       const bins = await listSubmissionBinsByDocumentAPI(id);
       if (!bins || bins.length === 0) throw new Error("Bin not found");
-      
+
       const binId = bins[0]._id || bins[0].id;
       const submissionId = submission.id;
-      
+
       if (selectedAction === 'return') {
         // Return the submission with reason
-        await returnSubmissionAPI(binId, submissionId, { 
-          reason: actionNote || 'Document returned for revision' 
+        await returnSubmissionAPI(binId, submissionId, {
+          reason: actionNote || 'Document returned for revision'
         });
       } else if (selectedAction === 'submit') {
         // Update submission status or forward bin
-        await updateSubmissionBinAPI(binId, { 
+        await updateSubmissionBinAPI(binId, {
           status: 'completed'
         });
       }
-      
+
       // Refresh the data
       const updatedBin = await getSubmissionBinAPI(binId);
       const updatedItem = updatedBin.submissions?.find(s => String(s._id || s.id) === String(submissionId));
-      
-        if (updatedItem) {
+
+      if (updatedItem) {
         setSubmission(prev => ({
           ...prev,
           status: updatedItem.status,
           notes: updatedItem.notes || prev.notes
         }));
       }
-      
+
       setShowActionModal(false);
       setActionNote("");
       setSelectedAction(null);
-      
+
       toast.success(`Successfully ${selectedAction === 'submit' ? 'submitted' : 'returned'} the document!`);
-      
+
     } catch (err) {
       console.error("Action error:", err);
       toast.error(err?.responseData?.message || err?.message || `Failed to ${selectedAction} document`);
@@ -1090,93 +1088,93 @@ const handleZoomReset = () => setZoom(1);
       console.error("Download failed:", err);
       setDownloadError(
         err?.response?.data?.message ||
-          "We couldn't generate the PDF right now. Please try again."
+        "We couldn't generate the PDF right now. Please try again."
       );
     }
   };
 
-    const [currentPage, setCurrentPage] = useState(0);
-    const pageNodes = useMemo(() => {
-      const activeDoc = previewDocument || fetchedDoc || d;
-      if (!activeDoc || !activeDoc.pages_json) return [];
-      
-      const baseDoc = activeDoc.pages_json[0] || { type: "doc", content: [] };
-      const pages = (baseDoc.content || []).filter((n) => n.type === "page");
-      return pages.length > 0 ? pages : [];
-    }, [previewDocument, fetchedDoc, d]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const pageNodes = useMemo(() => {
+    const activeDoc = previewDocument || fetchedDoc || d;
+    if (!activeDoc || !activeDoc.pages_json) return [];
 
-    const contentForEditor = useMemo(() => {
-      const activeDoc = previewDocument || fetchedDoc || d;
-      if (!activeDoc || !activeDoc.pages_json) return { type: "doc", content: [] };
-      
-      const baseDoc = activeDoc.pages_json[0] || { type: "doc", content: [] };
-      const fieldValues = activeDoc?.field_values || {};
-      
-      // Build ID-to-Label mapping from template fields
-      const idToLabel = {};
-      const fieldsList = activeDoc?.fields || activeDoc?.from_template?.fields || [];
-      
-      fieldsList.forEach(group => {
-        if (group.fields && Array.isArray(group.fields)) {
-          group.fields.forEach(field => {
-            const fieldId = field.key || field.id || field._id;
-            const fieldLabel = field.name || field.label;
-            if (fieldId && fieldLabel) {
-              idToLabel[fieldId] = fieldLabel; // maps field_values key to label ("fld-hvruhlnj0q" to "Civil status")
-            }
-          });
-        } else if (group.key || group.id || group._id) {
-          const fieldId = group.key || group.id || group._id;
-          const fieldLabel = group.name || group.label;
+    const baseDoc = activeDoc.pages_json[0] || { type: "doc", content: [] };
+    const pages = (baseDoc.content || []).filter((n) => n.type === "page");
+    return pages.length > 0 ? pages : [];
+  }, [previewDocument, fetchedDoc, d]);
+
+  const contentForEditor = useMemo(() => {
+    const activeDoc = previewDocument || fetchedDoc || d;
+    if (!activeDoc || !activeDoc.pages_json) return { type: "doc", content: [] };
+
+    const baseDoc = activeDoc.pages_json[0] || { type: "doc", content: [] };
+    const fieldValues = activeDoc?.field_values || {};
+
+    // Build ID-to-Label mapping from template fields
+    const idToLabel = {};
+    const fieldsList = activeDoc?.fields || activeDoc?.from_template?.fields || [];
+
+    fieldsList.forEach(group => {
+      if (group.fields && Array.isArray(group.fields)) {
+        group.fields.forEach(field => {
+          const fieldId = field.key || field.id || field._id;
+          const fieldLabel = field.name || field.label;
           if (fieldId && fieldLabel) {
-            idToLabel[fieldId] = fieldLabel;
+            idToLabel[fieldId] = fieldLabel; // maps field_values key to label ("fld-hvruhlnj0q" to "Civil status")
           }
-        }
-      });
-      
-      const cloned = JSON.parse(JSON.stringify(baseDoc));
-      
-      // Apply field values to editableField nodes
-      const walk = (node) => {
-        if (!node) return;
-        if (node.type === 'editableField') {
-          // Get the field ID from the node
-          const fieldId = node.attrs?.key || node.attrs?.name;
-          
-          // Map ID to label
-          const fieldLabel = idToLabel[fieldId] || fieldId;
-          
-          // Get value using the label
-          const value = fieldValues[fieldLabel];
-          
-          if (value !== undefined && value !== null && String(value) !== '') {
-            // Inject the value into the node's content
-            node.content = [{ type: 'text', text: String(value) }];
-          } else {
-            // Keep existing content or empty
-            node.content = node.content || [];
-          }
-        }
-        if (Array.isArray(node.content)) node.content.forEach(walk);
-      };
-      
-      if (Array.isArray(cloned.content)) {
-        cloned.content.forEach(walk);
-      }
-      
-      if (pageNodes.length > 0) {
-        const pageNode = pageNodes[currentPage];
-        if (pageNode) {
-          const withPage = JSON.parse(JSON.stringify({ ...cloned, content: [pageNode] }));
-          if (Array.isArray(withPage.content)) {
-            withPage.content.forEach(walk);
-          }
-          return withPage;
+        });
+      } else if (group.key || group.id || group._id) {
+        const fieldId = group.key || group.id || group._id;
+        const fieldLabel = group.name || group.label;
+        if (fieldId && fieldLabel) {
+          idToLabel[fieldId] = fieldLabel;
         }
       }
-      
-      return cloned;
-    }, [previewDocument, fetchedDoc, d, pageNodes, currentPage]);
+    });
+
+    const cloned = JSON.parse(JSON.stringify(baseDoc));
+
+    // Apply field values to editableField nodes
+    const walk = (node) => {
+      if (!node) return;
+      if (node.type === 'editableField') {
+        // Get the field ID from the node
+        const fieldId = node.attrs?.key || node.attrs?.name;
+
+        // Map ID to label
+        const fieldLabel = idToLabel[fieldId] || fieldId;
+
+        // Get value using the label
+        const value = fieldValues[fieldLabel];
+
+        if (value !== undefined && value !== null && String(value) !== '') {
+          // Inject the value into the node's content
+          node.content = [{ type: 'text', text: String(value) }];
+        } else {
+          // Keep existing content or empty
+          node.content = node.content || [];
+        }
+      }
+      if (Array.isArray(node.content)) node.content.forEach(walk);
+    };
+
+    if (Array.isArray(cloned.content)) {
+      cloned.content.forEach(walk);
+    }
+
+    if (pageNodes.length > 0) {
+      const pageNode = pageNodes[currentPage];
+      if (pageNode) {
+        const withPage = JSON.parse(JSON.stringify({ ...cloned, content: [pageNode] }));
+        if (Array.isArray(withPage.content)) {
+          withPage.content.forEach(walk);
+        }
+        return withPage;
+      }
+    }
+
+    return cloned;
+  }, [previewDocument, fetchedDoc, d, pageNodes, currentPage]);
 
   const buildExportHtmlFromPreview = () => {
     try {
@@ -1247,42 +1245,42 @@ const handleZoomReset = () => setZoom(1);
     }
   };
 
-    const normalizedHeaderConfig = useMemo(() => {
-      const activeDoc = previewDocument || fetchedDoc || d;
-      if (!activeDoc) return {};
-      
-      // For documents, get template metadata from template_id reference
-      const templateMeta = activeDoc?.template_id || activeDoc?.template || {};
-      
-      const src = activeDoc?.headerConfig || 
-                  templateMeta?.headerConfig || 
-                  activeDoc?.logoConfig || 
-                  templateMeta?.logoConfig || 
-                  activeDoc?.headerFooter || 
-                  templateMeta?.headerFooter || 
-                  {};
-                  
-      const docCode = activeDoc?.document_code || 
-                      templateMeta?.document_code || 
-                      activeDoc?.docCode || 
-                      templateMeta?.docCode || 
-                      src?.documentStamp?.docCode || 
-                      "";
-                      
-      const revisionNo = activeDoc?.revision_no ?? 
-                        templateMeta?.revision_no ?? 
-                        activeDoc?.revisionNo ?? 
-                        templateMeta?.revisionNo ?? 
-                        src?.documentStamp?.revisionNo ?? 
-                        0;
-                        
-      const effectivity = activeDoc?.effectivity || 
-                          templateMeta?.effectivity || 
-                          activeDoc?.effectivity_date || 
-                          templateMeta?.effectivity_date || 
-                          src?.documentStamp?.effectivity || 
-                          "";
-                          
+  const normalizedHeaderConfig = useMemo(() => {
+    const activeDoc = previewDocument || fetchedDoc || d;
+    if (!activeDoc) return {};
+
+    // For documents, get template metadata from template_id reference
+    const templateMeta = activeDoc?.template_id || activeDoc?.template || {};
+
+    const src = activeDoc?.headerConfig ||
+      templateMeta?.headerConfig ||
+      activeDoc?.logoConfig ||
+      templateMeta?.logoConfig ||
+      activeDoc?.headerFooter ||
+      templateMeta?.headerFooter ||
+      {};
+
+    const docCode = activeDoc?.document_code ||
+      templateMeta?.document_code ||
+      activeDoc?.docCode ||
+      templateMeta?.docCode ||
+      src?.documentStamp?.docCode ||
+      "";
+
+    const revisionNo = activeDoc?.revision_no ??
+      templateMeta?.revision_no ??
+      activeDoc?.revisionNo ??
+      templateMeta?.revisionNo ??
+      src?.documentStamp?.revisionNo ??
+      0;
+
+    const effectivity = activeDoc?.effectivity ||
+      templateMeta?.effectivity ||
+      activeDoc?.effectivity_date ||
+      templateMeta?.effectivity_date ||
+      src?.documentStamp?.effectivity ||
+      "";
+
     return {
       ...src,
       showSLULogo: src.showSLULogo ?? src.showSLU ?? !!src.assets?.slu,
@@ -1342,8 +1340,8 @@ const handleZoomReset = () => setZoom(1);
       <div className="mx-auto w-full max-w-7xl px-4 py-6 md:pl-2">
         <main className="p-8 flex-1 overflow-y-auto">
           <div className="grid grid-cols-12 gap-6">
-          {/* Document Preview Section */}
-          <section className="col-span-12 lg:col-span-8">
+            {/* Document Preview Section */}
+            <section className="col-span-12 lg:col-span-8">
               {/* Zoom Controls */}
               <div className="sticky top-0 z-10 mb-3 px-4 py-3 bg-white border border-gray-200 rounded-lg shadow-sm">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1538,8 +1536,8 @@ const handleZoomReset = () => setZoom(1);
                         </div>
                       )}
 
-                  {/* Submitted Files */}
-                  {submission?.files && submission.files.length > 0 && (
+                      {/* Submitted Files */}
+                      {submission?.files && submission.files.length > 0 && (
                         <div className="mb-4 pb-4 border-b">
                           <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
                             <FileText size={16} />
@@ -1551,11 +1549,10 @@ const handleZoomReset = () => setZoom(1);
                               <button
                                 key={file.id}
                                 onClick={() => setSelectedFileIndex(index)}
-                                className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
-                                  index === selectedFileIndex
+                                className={`w-full p-3 rounded-lg border-2 transition-all text-left ${index === selectedFileIndex
                                     ? "bg-blue-50 border-blue-400 shadow-sm"
                                     : "bg-gray-50 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
-                                }`}
+                                  }`}
                               >
                                 <div className="flex items-center gap-2 mb-1">
                                   <FileText
@@ -1567,11 +1564,10 @@ const handleZoomReset = () => setZoom(1);
                                     }
                                   />
                                   <span
-                                    className={`text-sm font-medium truncate ${
-                                      index === selectedFileIndex
+                                    className={`text-sm font-medium truncate ${index === selectedFileIndex
                                         ? "text-blue-900"
                                         : "text-gray-900"
-                                    }`}
+                                      }`}
                                   >
                                     {file.name}
                                   </span>
@@ -1685,7 +1681,7 @@ const handleZoomReset = () => setZoom(1);
                           </div>
                         </div>
                       )}
-                    {/* Viewed By (Reviewer view – Dean / Dept Head / Secretary) */}
+                      {/* Viewed By (Reviewer view – Dean / Dept Head / Secretary) */}
                       {submission && (
                         <div className="mb-4 pb-4 border-b">
                           <h4 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -1699,102 +1695,102 @@ const handleZoomReset = () => setZoom(1);
 
                           <div className="space-y-2">
                             {nonFacultyViewedBy && nonFacultyViewedBy.length > 0 ? (
-                            nonFacultyViewedBy.map((viewer, idx) => {
-                              const uid = viewer.id || viewer.userId || viewer._id || viewer.user || null;
-                              const fetchedUser = uid ? reviewerUsers[uid] : null;
-                              const displayName = fetchedUser?.name || viewer.name || uid || "Unknown";
-                              const displayRole = fetchedUser?.role || viewer.role || "";
-                              
-                              // Get all views for this user from rawViews
-                              const userViews = (submission.rawViews || [])
-                                .filter(rv => {
-                                  const rvUid = rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null;
-                                  return String(rvUid) === String(uid);
-                                })
-                                .map(rv => ({
-                                  at: rv.at || rv.timestamp || rv.viewedAt || null,
-                                  _id: rv._id || rv.id
-                                }))
-                                .filter(v => v.at)
-                                .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-                              
-                              const isExpanded = expandedViewerId === uid;
-                              
-                              return (
-                                <div key={uid || idx} className="bg-gray-50 rounded-lg overflow-hidden">
-                                  <button
-                                    onClick={() => setExpandedViewerId(isExpanded ? null : uid)}
-                                    className="w-full flex items-start gap-3 p-2 hover:bg-gray-100 transition-colors"
-                                  >
-                                    <div className="p-1.5 bg-blue-100 rounded-full">
-                                      <Eye size={14} className="text-blue-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0 text-left">
-                                      <p className="text-sm font-medium text-gray-900 truncate">
-                                        {displayName}
-                                      </p>
-                                      <p className="text-xs text-gray-500">
-                                        {displayRole} • {viewer.viewedAt ? formatDateTime(viewer.viewedAt) : ""}
-                                        {userViews.length > 1 && (
-                                          <span className="ml-1 text-blue-600">({userViews.length} views)</span>
-                                        )}
-                                      </p>
-                                    </div>
-                                  </button>
-                                  
-                                  {isExpanded && userViews.length > 1 && (
-                                    <div className="px-2 pb-2 space-y-1">
-                                      <div className="ml-9 pt-1 border-t border-gray-200">
-                                        <p className="text-xs font-semibold text-gray-600 mb-1">View History:</p>
-                                        {userViews.map((view, vIdx) => (
-                                          <div key={view._id || vIdx} className="text-xs text-gray-500 py-0.5">
-                                            • {formatDateTime(view.at)}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })
-                          ) : 
-                             nonFacultyRawViews && nonFacultyRawViews.length > 0 ? (
-                              nonFacultyRawViews.map((rv, idx) => {
-                                const uid =
-                                  rv.user ||
-                                  rv.userId ||
-                                  (rv.by && (rv.by._id || rv.by.id)) ||
-                                  null;
-                                const at =
-                                  rv.at || rv.timestamp || rv.viewedAt || null;
+                              nonFacultyViewedBy.map((viewer, idx) => {
+                                const uid = viewer.id || viewer.userId || viewer._id || viewer.user || null;
                                 const fetchedUser = uid ? reviewerUsers[uid] : null;
-                                const displayName =
-                                  fetchedUser?.name || uid || "Unknown";
-                                const displayRole = fetchedUser?.role || "";
+                                const displayName = fetchedUser?.name || viewer.name || uid || "Unknown";
+                                const displayRole = fetchedUser?.role || viewer.role || "";
+
+                                // Get all views for this user from rawViews
+                                const userViews = (submission.rawViews || [])
+                                  .filter(rv => {
+                                    const rvUid = rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null;
+                                    return String(rvUid) === String(uid);
+                                  })
+                                  .map(rv => ({
+                                    at: rv.at || rv.timestamp || rv.viewedAt || null,
+                                    _id: rv._id || rv.id
+                                  }))
+                                  .filter(v => v.at)
+                                  .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+
+                                const isExpanded = expandedViewerId === uid;
+
                                 return (
-                                  <div
-                                    key={rv._id || idx}
-                                    className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg"
-                                  >
-                                    <div className="p-1.5 bg-blue-100 rounded-full">
-                                      <Eye size={14} className="text-blue-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium text-gray-900 truncate">
-                                        {displayName}
-                                      </p>
-                                      <p className="text-xs text-gray-500">
-                                        {displayRole} {at ? "• " + formatDateTime(at) : ""}
-                                      </p>
-                                    </div>
+                                  <div key={uid || idx} className="bg-gray-50 rounded-lg overflow-hidden">
+                                    <button
+                                      onClick={() => setExpandedViewerId(isExpanded ? null : uid)}
+                                      className="w-full flex items-start gap-3 p-2 hover:bg-gray-100 transition-colors"
+                                    >
+                                      <div className="p-1.5 bg-blue-100 rounded-full">
+                                        <Eye size={14} className="text-blue-600" />
+                                      </div>
+                                      <div className="flex-1 min-w-0 text-left">
+                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                          {displayName}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                          {displayRole} • {viewer.viewedAt ? formatDateTime(viewer.viewedAt) : ""}
+                                          {userViews.length > 1 && (
+                                            <span className="ml-1 text-blue-600">({userViews.length} views)</span>
+                                          )}
+                                        </p>
+                                      </div>
+                                    </button>
+
+                                    {isExpanded && userViews.length > 1 && (
+                                      <div className="px-2 pb-2 space-y-1">
+                                        <div className="ml-9 pt-1 border-t border-gray-200">
+                                          <p className="text-xs font-semibold text-gray-600 mb-1">View History:</p>
+                                          {userViews.map((view, vIdx) => (
+                                            <div key={view._id || vIdx} className="text-xs text-gray-500 py-0.5">
+                                              • {formatDateTime(view.at)}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 );
-                              }) 
-                            ) : (
-                              <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm text-gray-600">
-                                No views recorded for this document.
-                              </div>
-                            )}
+                              })
+                            ) :
+                              nonFacultyRawViews && nonFacultyRawViews.length > 0 ? (
+                                nonFacultyRawViews.map((rv, idx) => {
+                                  const uid =
+                                    rv.user ||
+                                    rv.userId ||
+                                    (rv.by && (rv.by._id || rv.by.id)) ||
+                                    null;
+                                  const at =
+                                    rv.at || rv.timestamp || rv.viewedAt || null;
+                                  const fetchedUser = uid ? reviewerUsers[uid] : null;
+                                  const displayName =
+                                    fetchedUser?.name || uid || "Unknown";
+                                  const displayRole = fetchedUser?.role || "";
+                                  return (
+                                    <div
+                                      key={rv._id || idx}
+                                      className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg"
+                                    >
+                                      <div className="p-1.5 bg-blue-100 rounded-full">
+                                        <Eye size={14} className="text-blue-600" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                          {displayName}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                          {displayRole} {at ? "• " + formatDateTime(at) : ""}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm text-gray-600">
+                                  No views recorded for this document.
+                                </div>
+                              )}
                           </div>
                         </div>
                       )}
@@ -1814,17 +1810,16 @@ const handleZoomReset = () => setZoom(1);
                               <button
                                 onClick={() => handleActionClick('return')}
                                 disabled={hasAlreadyReturned || (isDeptHead && currentBin?.is_forwarded)}
-                                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all shadow-sm ${
-                                  hasAlreadyReturned || (isDeptHead && currentBin?.is_forwarded)
+                                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all shadow-sm ${hasAlreadyReturned || (isDeptHead && currentBin?.is_forwarded)
                                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                     : 'bg-orange-600 hover:bg-orange-700 text-white'
-                                }`}
+                                  }`}
                                 title={
-                                  hasAlreadyReturned 
-                                    ? 'You have already returned this document' 
-                                    : (isDeptHead && currentBin?.is_forwarded) 
-                                    ? 'Cannot return after bin is forwarded' 
-                                    : ''
+                                  hasAlreadyReturned
+                                    ? 'You have already returned this document'
+                                    : (isDeptHead && currentBin?.is_forwarded)
+                                      ? 'Cannot return after bin is forwarded'
+                                      : ''
                                 }
                               >
                                 <XCircle size={20} />
@@ -1834,57 +1829,56 @@ const handleZoomReset = () => setZoom(1);
                           )}
 
                           {canReturnOnly && (
-                          <>
-                            {/* Add Comment Button */}
-                            <button
-                              onClick={() => setShowCommentModal(true)}
-                              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
-                            >
-                              <MessageSquare size={20} />
-                              Add Comment
-                            </button>
-                            
-                            <button
-                              onClick={() => handleActionClick('return')}
-                              disabled={hasAlreadyReturned}
-                              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all shadow-sm ${
-                                hasAlreadyReturned
-                                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                  : 'bg-orange-600 hover:bg-orange-700 text-white'
-                              }`}
-                              title={
-                                hasAlreadyReturned
-                                  ? 'You have already returned this document'
-                                  : ''
-                              }
-                            >
-                              <XCircle size={20} />
-                              {hasAlreadyReturned ? 'Already Returned' : 'Return for Revision'}
-                            </button>
-                          </>
-                        )}
-                      </div>
-                  )}
+                            <>
+                              {/* Add Comment Button */}
+                              <button
+                                onClick={() => setShowCommentModal(true)}
+                                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-sm"
+                              >
+                                <MessageSquare size={20} />
+                                Add Comment
+                              </button>
 
-                      {(submission?.status === "pending" ||
-                        submission?.status === "returned") && (
-                        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-center mt-4">
-                          <div className="flex justify-center mb-3">
-                            <StatusBadge type={submission?.status} />
-                          </div>
-                          {submission?.status === "pending" && (
-                            <p className="text-xs text-gray-600">
-                              This document has been submitted by Department
-                              Head.
-                            </p>
-                          )}
-                          {submission?.status === "returned" && (
-                            <p className="text-xs text-gray-600">
-                              Returned for revision.
-                            </p>
+                              <button
+                                onClick={() => handleActionClick('return')}
+                                disabled={hasAlreadyReturned}
+                                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all shadow-sm ${hasAlreadyReturned
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-orange-600 hover:bg-orange-700 text-white'
+                                  }`}
+                                title={
+                                  hasAlreadyReturned
+                                    ? 'You have already returned this document'
+                                    : ''
+                                }
+                              >
+                                <XCircle size={20} />
+                                {hasAlreadyReturned ? 'Already Returned' : 'Return for Revision'}
+                              </button>
+                            </>
                           )}
                         </div>
                       )}
+
+                      {(submission?.status === "pending" ||
+                        submission?.status === "returned") && (
+                          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-center mt-4">
+                            <div className="flex justify-center mb-3">
+                              <StatusBadge type={submission?.status} />
+                            </div>
+                            {submission?.status === "pending" && (
+                              <p className="text-xs text-gray-600">
+                                This document has been submitted by Department
+                                Head.
+                              </p>
+                            )}
+                            {submission?.status === "returned" && (
+                              <p className="text-xs text-gray-600">
+                                Returned for revision.
+                              </p>
+                            )}
+                          </div>
+                        )}
                     </>
                   ) : canViewStatus ? (
                     <>
@@ -1924,11 +1918,10 @@ const handleZoomReset = () => setZoom(1);
                               <button
                                 key={file.id}
                                 onClick={() => setSelectedFileIndex(index)}
-                                className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
-                                  index === selectedFileIndex
+                                className={`w-full p-3 rounded-lg border-2 transition-all text-left ${index === selectedFileIndex
                                     ? "bg-blue-50 border-blue-400 shadow-sm"
                                     : "bg-gray-50 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
-                                }`}
+                                  }`}
                               >
                                 <div className="flex items-center gap-2 mb-1">
                                   <FileText
@@ -1940,11 +1933,10 @@ const handleZoomReset = () => setZoom(1);
                                     }
                                   />
                                   <span
-                                    className={`text-sm font-medium truncate ${
-                                      index === selectedFileIndex
+                                    className={`text-sm font-medium truncate ${index === selectedFileIndex
                                         ? "text-blue-900"
                                         : "text-gray-900"
-                                    }`}
+                                      }`}
                                   >
                                     {file.name}
                                   </span>
@@ -1971,69 +1963,69 @@ const handleZoomReset = () => setZoom(1);
                               0}
                             )
                           </h4>
-                         
+
 
                           <div className="space-y-2">
-                           {submission.viewedBy && submission.viewedBy.length > 0 ? (
-                            submission.viewedBy.map((viewer, idx) => {
-                              const uid = viewer.id || viewer.userId || viewer._id || null;
-                              const fetchedUser = uid ? reviewerUsers[uid] : null;
-                              const displayName = fetchedUser?.name || viewer.name || uid || "Unknown";
-                              const displayRole = fetchedUser?.role || viewer.role || "";
-                              
-                              // Get all views for this user from rawViews
-                              const userViews = (submission.rawViews || [])
-                                .filter(rv => {
-                                  const rvUid = rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null;
-                                  return String(rvUid) === String(uid);
-                                })
-                                .map(rv => ({
-                                  at: rv.at || rv.timestamp || rv.viewedAt || null,
-                                  _id: rv._id || rv.id
-                                }))
-                                .filter(v => v.at)
-                                .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-                              
-                              const isExpanded = expandedViewerId === uid;
-                              
-                              return (
-                                <div key={uid || idx} className="bg-gray-50 rounded-lg overflow-hidden">
-                                  <button
-                                    onClick={() => setExpandedViewerId(isExpanded ? null : uid)}
-                                    className="w-full flex items-start gap-3 p-2 hover:bg-gray-100 transition-colors"
-                                  >
-                                    <div className="p-1.5 bg-blue-100 rounded-full">
-                                      <Eye size={14} className="text-blue-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0 text-left">
-                                      <p className="text-sm font-medium text-gray-900 truncate">
-                                        {displayName}
-                                      </p>
-                                      <p className="text-xs text-gray-500">
-                                        {displayRole} • {viewer.viewedAt ? formatDateTime(viewer.viewedAt) : ""}
-                                        {userViews.length > 1 && (
-                                          <span className="ml-1 text-blue-600">({userViews.length} views)</span>
-                                        )}
-                                      </p>
-                                    </div>
-                                  </button>
-                                  
-                                  {isExpanded && userViews.length > 1 && (
-                                    <div className="px-2 pb-2 space-y-1">
-                                      <div className="ml-9 pt-1 border-t border-gray-200">
-                                        <p className="text-xs font-semibold text-gray-600 mb-1">View History:</p>
-                                        {userViews.map((view, vIdx) => (
-                                          <div key={view._id || vIdx} className="text-xs text-gray-500 py-0.5">
-                                            • {formatDateTime(view.at)}
-                                          </div>
-                                        ))}
+                            {submission.viewedBy && submission.viewedBy.length > 0 ? (
+                              submission.viewedBy.map((viewer, idx) => {
+                                const uid = viewer.id || viewer.userId || viewer._id || null;
+                                const fetchedUser = uid ? reviewerUsers[uid] : null;
+                                const displayName = fetchedUser?.name || viewer.name || uid || "Unknown";
+                                const displayRole = fetchedUser?.role || viewer.role || "";
+
+                                // Get all views for this user from rawViews
+                                const userViews = (submission.rawViews || [])
+                                  .filter(rv => {
+                                    const rvUid = rv.user || rv.userId || (rv.by && (rv.by._id || rv.by.id)) || null;
+                                    return String(rvUid) === String(uid);
+                                  })
+                                  .map(rv => ({
+                                    at: rv.at || rv.timestamp || rv.viewedAt || null,
+                                    _id: rv._id || rv.id
+                                  }))
+                                  .filter(v => v.at)
+                                  .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+
+                                const isExpanded = expandedViewerId === uid;
+
+                                return (
+                                  <div key={uid || idx} className="bg-gray-50 rounded-lg overflow-hidden">
+                                    <button
+                                      onClick={() => setExpandedViewerId(isExpanded ? null : uid)}
+                                      className="w-full flex items-start gap-3 p-2 hover:bg-gray-100 transition-colors"
+                                    >
+                                      <div className="p-1.5 bg-blue-100 rounded-full">
+                                        <Eye size={14} className="text-blue-600" />
                                       </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })
-                          ) : submission.rawViews &&
+                                      <div className="flex-1 min-w-0 text-left">
+                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                          {displayName}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                          {displayRole} • {viewer.viewedAt ? formatDateTime(viewer.viewedAt) : ""}
+                                          {userViews.length > 1 && (
+                                            <span className="ml-1 text-blue-600">({userViews.length} views)</span>
+                                          )}
+                                        </p>
+                                      </div>
+                                    </button>
+
+                                    {isExpanded && userViews.length > 1 && (
+                                      <div className="px-2 pb-2 space-y-1">
+                                        <div className="ml-9 pt-1 border-t border-gray-200">
+                                          <p className="text-xs font-semibold text-gray-600 mb-1">View History:</p>
+                                          {userViews.map((view, vIdx) => (
+                                            <div key={view._id || vIdx} className="text-xs text-gray-500 py-0.5">
+                                              • {formatDateTime(view.at)}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })
+                            ) : submission.rawViews &&
                               submission.rawViews.length > 0 ? (
                               submission.rawViews.map((rv, idx) => {
                                 const uid =
@@ -2295,11 +2287,10 @@ const handleZoomReset = () => setZoom(1);
                   isSubmittingAction ||
                   (selectedAction === "return" && !actionNote.trim())
                 }
-                className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${
-                  selectedAction === "submit"
+                className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${selectedAction === "submit"
                     ? "bg-green-600 hover:bg-green-700 text-white"
                     : "bg-orange-600 hover:bg-orange-700 text-white"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {isSubmittingAction ? (
                   <>
@@ -2392,9 +2383,8 @@ const handleZoomReset = () => setZoom(1);
         }}
         isError={!!downloadError}
         title="Downloading PDF…"
-        message={`"${
-          template.title || "Template"
-        }" is being prepared as a PDF. This may take a few seconds.`}
+        message={`"${template.title || "Template"
+          }" is being prepared as a PDF. This may take a few seconds.`}
         errorText={downloadError}
       />
     </div>

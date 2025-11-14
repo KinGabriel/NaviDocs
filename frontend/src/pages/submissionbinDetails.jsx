@@ -4,15 +4,14 @@ import Header from "../layout/headers/header";
 import Sidebar from "../layout/sidebars/sidebar";
 import useUser from "../hooks/useUser";
 import { StatusBadge, formatDate, formatDateTime } from "../utils/formatters";
-import { 
-  ArrowLeft, 
-  Calendar, 
-  Clock, 
-  Users, 
-  FileText, 
-  CheckCircle, 
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  Users,
+  FileText,
+  CheckCircle,
   AlertCircle,
-  MoreVertical,
   Pencil,
   Send,
   Plus,
@@ -20,7 +19,6 @@ import {
   Eye,
   Trash2,
   Search,
-  Check,
   X,
 } from "lucide-react";
 import { getSubmissionBinAPI, updateSubmissionBinAPI, forwardSubmissionBinAPI, upsertSubmissionAPI } from "../api/assignmentDocumentsAPI";
@@ -82,7 +80,7 @@ export default function SubmissionDetails() {
 
   const toInputDateTime = (d) => {
     if (!d) return '';
-    try { return new Date(d).toISOString().slice(0,16); } catch { return ''; }
+    try { return new Date(d).toISOString().slice(0, 16); } catch { return ''; }
   };
 
   const handleViewSubmission = (submissionItem) => {
@@ -102,7 +100,7 @@ export default function SubmissionDetails() {
     navigate(`/submissions/${id}/${documentId}`);
   };
 
-  // Helper: is a submission currently returned (since last resubmission)?
+  // Helper: is a submission currently returned 
   const isCurrentlyReturned = (sub) => {
     if (!sub) return false;
     if (String(sub.status || '').toLowerCase() === 'returned') return true;
@@ -126,8 +124,8 @@ export default function SubmissionDetails() {
     if (hasReturnedSubmissions) return false;
 
     const allSubmitted = items.every(sub => {
-      const hasDocuments = (Array.isArray(sub.documents) && sub.documents.length > 0) || 
-                            (sub.document && sub.document !== null);
+      const hasDocuments = (Array.isArray(sub.documents) && sub.documents.length > 0) ||
+        (sub.document && sub.document !== null);
       const isSubmitted = sub.submitted_at && hasDocuments;
       return isSubmitted;
     });
@@ -202,15 +200,15 @@ export default function SubmissionDetails() {
     const submitted = items.filter((u) => {
       const isReturned = isCurrentlyReturned(u);
       const isResubmitted = hasResubmitted(u);
-      const hasDocuments = (Array.isArray(u.documents) && u.documents.length > 0) || 
-                            (u.document && u.document !== null);
+      const hasDocuments = (Array.isArray(u.documents) && u.documents.length > 0) ||
+        (u.document && u.document !== null);
       return hasDocuments && u.submitted_at && !isReturned && !isResubmitted;
     }).length;
 
     const pending = items.filter((u) => {
       const isReturned = isCurrentlyReturned(u);
-      const hasDocuments = (Array.isArray(u.documents) && u.documents.length > 0) || 
-                            (u.document && u.document !== null);
+      const hasDocuments = (Array.isArray(u.documents) && u.documents.length > 0) ||
+        (u.document && u.document !== null);
       return (!hasDocuments || !u.submitted_at) && !isReturned;
     }).length;
 
@@ -240,7 +238,7 @@ export default function SubmissionDetails() {
       }
     };
     loadFaculty();
-  }, []); 
+  }, []);
 
   useEffect(() => {
     if (!bin || !Array.isArray(bin.submissions) || bin.submissions.length === 0) return;
@@ -272,7 +270,7 @@ export default function SubmissionDetails() {
       }
     })();
     return () => { cancelled = true; };
-  }, [bin?.submissions]); 
+  }, [bin?.submissions]);
 
   useEffect(() => {
     const ids = Array.isArray(bin?.template_ids) ? [...new Set(bin.template_ids.map(String))] : [];
@@ -327,7 +325,7 @@ export default function SubmissionDetails() {
   const addTplRevisions = useMemo(() => (
     [...new Set(addTplTemplates.map(t => {
       const rev = t.revision_number ?? t.revision_no;
-      return rev !== undefined && rev !== null ? String(rev).padStart(2,'0') : null;
+      return rev !== undefined && rev !== null ? String(rev).padStart(2, '0') : null;
     }).filter(Boolean))].sort()
   ), [addTplTemplates]);
 
@@ -339,7 +337,7 @@ export default function SubmissionDetails() {
         t.document_code?.toLowerCase().includes(searchLower)
       );
       const matchesCode = selectedDocCode === 'All' || t.document_code === selectedDocCode;
-      const matchesRevision = selectedRevision === 'All' || String(t.revision_number ?? t.revision_no).padStart(2,'0') === selectedRevision;
+      const matchesRevision = selectedRevision === 'All' || String(t.revision_number ?? t.revision_no).padStart(2, '0') === selectedRevision;
       return matchesSearch && matchesCode && matchesRevision;
     });
   }, [addTplTemplates, templateSearch, selectedDocCode, selectedRevision]);
@@ -438,16 +436,16 @@ export default function SubmissionDetails() {
 
                   <div className="flex items-center gap-3">
                     <StatusBadge type={binDisplayStatus} />
-                    {(isDeptHead || String(bin.created_by||'')===String(userId||'')) && (
+                    {(isDeptHead || String(bin.created_by || '') === String(userId || '')) && (
                       <>
                         {!bin.is_forwarded && (
                           <button
                             onClick={async () => {
-                              const hasReturned = bin.submissions?.some(sub => 
-                                sub.status === 'returned' || 
+                              const hasReturned = bin.submissions?.some(sub =>
+                                sub.status === 'returned' ||
                                 (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
                               );
-                              
+
                               if (String(bin.status).toLowerCase() !== 'completed' || hasReturned) return;
                               try {
                                 setForwarding(true);
@@ -461,26 +459,25 @@ export default function SubmissionDetails() {
                               }
                             }}
                             disabled={forwarding || String(bin.status).toLowerCase() !== 'completed' || (() => {
-                              const hasReturned = bin.submissions?.some(sub => 
-                                sub.status === 'returned' || 
+                              const hasReturned = bin.submissions?.some(sub =>
+                                sub.status === 'returned' ||
                                 (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
                               );
                               return hasReturned;
                             })()}
-                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                              forwarding || String(bin.status).toLowerCase() !== 'completed' || (() => {
-                                const hasReturned = bin.submissions?.some(sub => 
-                                  sub.status === 'returned' || 
+                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${forwarding || String(bin.status).toLowerCase() !== 'completed' || (() => {
+                                const hasReturned = bin.submissions?.some(sub =>
+                                  sub.status === 'returned' ||
                                   (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
                                 );
                                 return hasReturned;
                               })()
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200' 
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
                                 : 'bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow-md'
-                            }`}
+                              }`}
                             title={(() => {
-                              const hasReturned = bin.submissions?.some(sub => 
-                                sub.status === 'returned' || 
+                              const hasReturned = bin.submissions?.some(sub =>
+                                sub.status === 'returned' ||
                                 (Array.isArray(sub.notes) && sub.notes.some(n => String(n.type).toLowerCase() === 'returned'))
                               );
                               if (hasReturned) return 'Cannot forward: Some submissions have been returned';
@@ -517,13 +514,12 @@ export default function SubmissionDetails() {
                   )}
 
                   <div
-                    className={`p-4 rounded-lg flex items-center gap-3 ${
-                      isOverdue
+                    className={`p-4 rounded-lg flex items-center gap-3 ${isOverdue
                         ? "bg-red-50 border border-red-200"
                         : daysUntilDue <= 3
-                        ? "bg-orange-50 border border-orange-200"
-                        : "bg-blue-50 border border-blue-200"
-                    }`}
+                          ? "bg-orange-50 border border-orange-200"
+                          : "bg-blue-50 border border-blue-200"
+                      }`}
                   >
                     <Calendar
                       size={20}
@@ -531,37 +527,35 @@ export default function SubmissionDetails() {
                         isOverdue
                           ? "text-red-600"
                           : daysUntilDue <= 3
-                          ? "text-orange-600"
-                          : "text-blue-600"
+                            ? "text-orange-600"
+                            : "text-blue-600"
                       }
                     />
                     <div className="flex-1">
                       <p
-                        className={`font-semibold ${
-                          isOverdue
+                        className={`font-semibold ${isOverdue
                             ? "text-red-900"
                             : daysUntilDue <= 3
-                            ? "text-orange-900"
-                            : "text-blue-900"
-                        }`}
+                              ? "text-orange-900"
+                              : "text-blue-900"
+                          }`}
                       >
                         Due {formatDateTime(bin.deadline)}
                       </p>
                       <p
-                        className={`text-sm ${
-                          isOverdue
+                        className={`text-sm ${isOverdue
                             ? "text-red-700"
                             : daysUntilDue <= 3
-                            ? "text-orange-700"
-                            : "text-blue-700"
-                        }`}
+                              ? "text-orange-700"
+                              : "text-blue-700"
+                          }`}
                       >
                       </p>
                     </div>
                   </div>
                 </div>
 
-            <div className="mt-6 p-5 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 shadow-sm">
+                <div className="mt-6 p-5 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 shadow-sm">
                   <div className="mb-4">
                     <div className="flex items-center gap-2 justify-between">
                       <div className="flex items-center gap-2">
@@ -706,8 +700,8 @@ export default function SubmissionDetails() {
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {bin.submissions.map((item) => {
-                          const hasDocuments = (Array.isArray(item.documents) && item.documents.length > 0) || 
-                                      (item.document && item.document !== null);
+                          const hasDocuments = (Array.isArray(item.documents) && item.documents.length > 0) ||
+                            (item.document && item.document !== null);
 
                           const hasResubmitted = Array.isArray(item.notes) && (() => {
                             let foundReturn = false;
@@ -723,7 +717,7 @@ export default function SubmissionDetails() {
                             return false;
                           })();
 
-                          const isReturned = item.status === 'returned' || 
+                          const isReturned = item.status === 'returned' ||
                             (Array.isArray(item.notes) && item.notes.some(n => String(n.type).toLowerCase() === 'returned'));
 
                           let actualStatus;
@@ -748,7 +742,7 @@ export default function SubmissionDetails() {
                             document: item.document,
                             submitted_at: item.submitted_at
                           });
-                        
+
                           return (
                             <tr key={item._id} className="hover:bg-gray-50">
                               <td className="px-6 py-4 text-sm text-gray-700">
@@ -803,8 +797,8 @@ export default function SubmissionDetails() {
                 <h3 className="font-semibold text-xl text-gray-900">Edit Bin Settings</h3>
                 <p className="text-sm text-gray-500 mt-0.5">Update your submission bin details</p>
               </div>
-              <button 
-                onClick={() => setShowEdit(false)} 
+              <button
+                onClick={() => setShowEdit(false)}
                 className="text-gray-400 hover:text-gray-600 hover:bg-white rounded-full p-2 transition-all"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -894,21 +888,20 @@ export default function SubmissionDetails() {
               </div>
 
               <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end bg-gray-50 rounded-b-2xl">
-                <button 
-                  type="button" 
-                  onClick={() => setShowEdit(false)} 
+                <button
+                  type="button"
+                  onClick={() => setShowEdit(false)}
                   className="px-5 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all"
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={saving}
-                  className={`px-6 py-2.5 rounded-lg font-medium text-white transition-all ${
-                    saving 
-                      ? 'bg-gray-400 cursor-not-allowed' 
+                  className={`px-6 py-2.5 rounded-lg font-medium text-white transition-all ${saving
+                      ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-sm hover:shadow-md'
-                  }`}
+                    }`}
                 >
                   {saving ? (
                     <span className="flex items-center gap-2">
@@ -955,11 +948,11 @@ export default function SubmissionDetails() {
                   />
                 </div>
                 <div className="flex gap-2">
-                  <select className="border border-gray-300 rounded-lg px-3 py-2.5 bg-white hover:bg-gray-50 transition-colors" value={selectedDocCode} onChange={(e)=>setSelectedDocCode(e.target.value)}>
+                  <select className="border border-gray-300 rounded-lg px-3 py-2.5 bg-white hover:bg-gray-50 transition-colors" value={selectedDocCode} onChange={(e) => setSelectedDocCode(e.target.value)}>
                     <option value="All">All Codes</option>
                     {addTplDocCodes.map(code => <option key={code} value={code}>{code}</option>)}
                   </select>
-                  <select className="border border-gray-300 rounded-lg px-3 py-2.5 bg-white hover:bg-gray-50 transition-colors" value={selectedRevision} onChange={(e)=>setSelectedRevision(e.target.value)}>
+                  <select className="border border-gray-300 rounded-lg px-3 py-2.5 bg-white hover:bg-gray-50 transition-colors" value={selectedRevision} onChange={(e) => setSelectedRevision(e.target.value)}>
                     <option value="All">All Revisions</option>
                     {addTplRevisions.map(rev => <option key={rev} value={rev}>Rev. {rev}</option>)}
                   </select>
@@ -993,7 +986,7 @@ export default function SubmissionDetails() {
                             <p className="text-sm font-semibold text-gray-900 truncate mb-2" title={t.title}>{t.title}</p>
                             <div className="flex flex-wrap gap-2">
                               {docCode && <span className="text-xs px-2.5 py-1 bg-purple-100 text-purple-700 rounded-md font-medium">{docCode}</span>}
-                              {(rev !== undefined && rev !== null) && <span className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-medium">Rev. {String(rev).padStart(2,'0')}</span>}
+                              {(rev !== undefined && rev !== null) && <span className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-medium">Rev. {String(rev).padStart(2, '0')}</span>}
                               {school && <span className="text-xs px-2.5 py-1 bg-blue-100 text-blue-700 rounded-md font-medium">{school}</span>}
                             </div>
                           </div>
@@ -1009,11 +1002,10 @@ export default function SubmissionDetails() {
                               <span className="text-xs text-gray-500 bg-gray-100 px-3 py-2 rounded-lg font-medium">Already added</span>
                             ) : (
                               <button
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                  isSelected 
-                                    ? 'px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2' 
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${isSelected
+                                    ? 'px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2'
                                     : 'border bg-white text-gray-700 hover:bg-gray-50'
-                                }`}
+                                  }`}
                                 onClick={() => {
                                   setSelectedTemplateIds(prev => prev.includes(String(id)) ? prev.filter(x => x !== String(id)) : [...prev, String(id)]);
                                 }}
@@ -1035,33 +1027,32 @@ export default function SubmissionDetails() {
               </div>
             </div>
             <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
-              <button 
-                onClick={() => { setShowAddTemplate(false); setSelectedTemplateIds([]); }} 
+              <button
+                onClick={() => { setShowAddTemplate(false); setSelectedTemplateIds([]); }}
                 className="px-5 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-colors"
               >
                 Cancel
               </button>
               <button
-                className={`px-5 py-2.5 rounded-lg font-medium transition-all ${
-                  addingTpl || selectedTemplateIds.length === 0 
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                className={`px-5 py-2.5 rounded-lg font-medium transition-all ${addingTpl || selectedTemplateIds.length === 0
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow-md'
-                }`}
+                  }`}
                 disabled={addingTpl || selectedTemplateIds.length === 0}
                 onClick={async () => {
                   try {
                     setAddingTpl(true);
                     const currentTemplateIds = Array.isArray(bin.template_ids) ? bin.template_ids : [];
                     const next = Array.from(new Set([
-                      ...currentTemplateIds.map(String), 
+                      ...currentTemplateIds.map(String),
                       ...selectedTemplateIds
                     ]));
-                    const updated = await updateSubmissionBinAPI(bin._id || bin.id, { 
-                      template_ids: next.length > 0 ? next : [] 
+                    const updated = await updateSubmissionBinAPI(bin._id || bin.id, {
+                      template_ids: next.length > 0 ? next : []
                     });
                     setBin(updated);
                     setTemplatesInfo(prev => {
-                      const byId = new Map(prev.map(x => [String(x._id||x.id), x]));
+                      const byId = new Map(prev.map(x => [String(x._id || x.id), x]));
                       filteredAddTemplates.forEach(t => {
                         const id = String(t._id || t.id);
                         if (selectedTemplateIds.includes(id) && !byId.has(id)) byId.set(id, t);
@@ -1160,7 +1151,7 @@ export default function SubmissionDetails() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Select Faculty Members</label>
-                  <div 
+                  <div
                     className="w-full border border-gray-300 rounded-lg overflow-hidden transition-all" >
                     <div className="max-h-60 overflow-y-auto bg-gray-50">
                       {facultyList.length === 0 ? (
@@ -1175,9 +1166,8 @@ export default function SubmissionDetails() {
                             return (
                               <label
                                 key={id}
-                                className={`flex items-center px-4 py-3 cursor-pointer transition-colors hover:bg-green-50 ${
-                                  isSelected ? 'bg-green-100' : 'bg-white'
-                                }`}
+                                className={`flex items-center px-4 py-3 cursor-pointer transition-colors hover:bg-green-50 ${isSelected ? 'bg-green-100' : 'bg-white'
+                                  }`}
                               >
                                 <input
                                   type="checkbox"
@@ -1218,21 +1208,20 @@ export default function SubmissionDetails() {
                 </div>
               </div>
               <div className="px-6 py-4 border-t bg-gray-50 flex gap-3 justify-end">
-                <button 
-                  type="button" 
-                  onClick={() => setShowAssign(false)} 
+                <button
+                  type="button"
+                  onClick={() => setShowAssign(false)}
                   className="px-5 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
-                  disabled={assigning || !Array.isArray(bin.template_ids) || bin.template_ids.length === 0} 
-                  className={`px-5 py-2.5 rounded-lg font-medium transition-all ${
-                    (assigning || !Array.isArray(bin.template_ids) || bin.template_ids.length === 0) 
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                <button
+                  type="submit"
+                  disabled={assigning || !Array.isArray(bin.template_ids) || bin.template_ids.length === 0}
+                  className={`px-5 py-2.5 rounded-lg font-medium transition-all ${(assigning || !Array.isArray(bin.template_ids) || bin.template_ids.length === 0)
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow-md'
-                  }`}
+                    }`}
                   title={!Array.isArray(bin.template_ids) || bin.template_ids.length === 0 ? 'Add templates to this bin first' : ''}
                 >
                   {assigning ? 'Assigning...' : 'Assign Faculty'}
@@ -1258,7 +1247,7 @@ export default function SubmissionDetails() {
                       <span className="text-xs px-2.5 py-1 bg-purple-100 text-purple-700 rounded-md font-medium">{tplToPreview.document_code}</span>
                     )}
                     {(tplToPreview.revision_number !== undefined || tplToPreview.revision_no !== undefined) && (
-                      <span className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-medium">Rev. {String(tplToPreview.revision_number ?? tplToPreview.revision_no).padStart(2,'0')}</span>
+                      <span className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-medium">Rev. {String(tplToPreview.revision_number ?? tplToPreview.revision_no).padStart(2, '0')}</span>
                     )}
                     {(tplToPreview.effectivity || tplToPreview.effectivity_date) && (
                       <span className="text-xs px-2.5 py-1 bg-blue-100 text-blue-700 rounded-md font-medium">
@@ -1304,20 +1293,20 @@ export default function SubmissionDetails() {
                 return tplToPreview?.pages_json?.length ? (
                   <div className="bg-white rounded-xl p-5 shadow-lg">
                     <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-200">
-                      <span className="text-sm font-medium text-gray-600">Page {Math.min(tplCurrentPage+1, totalPages || 1)} of {totalPages || 1}</span>
+                      <span className="text-sm font-medium text-gray-600">Page {Math.min(tplCurrentPage + 1, totalPages || 1)} of {totalPages || 1}</span>
                       {totalPages > 1 && (
                         <div className="flex gap-2">
-                          <button 
-                            className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
-                            disabled={tplCurrentPage<=0} 
-                            onClick={() => setTplCurrentPage(p=>Math.max(0,p-1))}
+                          <button
+                            className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            disabled={tplCurrentPage <= 0}
+                            onClick={() => setTplCurrentPage(p => Math.max(0, p - 1))}
                           >
                             Prev
                           </button>
-                          <button 
-                            className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
-                            disabled={tplCurrentPage>=totalPages-1} 
-                            onClick={() => setTplCurrentPage(p=>Math.min(totalPages-1,p+1))}
+                          <button
+                            className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            disabled={tplCurrentPage >= totalPages - 1}
+                            onClick={() => setTplCurrentPage(p => Math.min(totalPages - 1, p + 1))}
                           >
                             Next
                           </button>
@@ -1339,16 +1328,16 @@ export default function SubmissionDetails() {
                   </div>
                 ) : null;
               })() || (
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center bg-white">
-                  <FileText size={56} className="mx-auto text-gray-300 mb-4" />
-                  <p className="text-gray-600 font-semibold mb-1">No preview available</p>
-                  <p className="text-sm text-gray-500">This template has no stored page content.</p>
-                </div>
-              )}
+                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center bg-white">
+                    <FileText size={56} className="mx-auto text-gray-300 mb-4" />
+                    <p className="text-gray-600 font-semibold mb-1">No preview available</p>
+                    <p className="text-sm text-gray-500">This template has no stored page content.</p>
+                  </div>
+                )}
             </div>
             <div className="px-6 py-4 border-t bg-gray-50 flex justify-end">
-              <button 
-                onClick={() => setShowTplPreview(false)} 
+              <button
+                onClick={() => setShowTplPreview(false)}
                 className="px-5 py-2.5 rounded-lg bg-gray-600 text-white hover:bg-gray-700 font-medium transition-all shadow-sm hover:shadow-md"
               >
                 Close Preview
@@ -1432,11 +1421,10 @@ export default function SubmissionDetails() {
                     setRemovingTpl(false);
                   }
                 }}
-                className={`px-5 py-2.5 rounded-lg font-medium text-white transition-all ${
-                  removingTpl
+                className={`px-5 py-2.5 rounded-lg font-medium text-white transition-all ${removingTpl
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-red-600 hover:bg-red-700 shadow-sm hover:shadow-md'
-                }`}
+                  }`}
               >
                 {removingTpl ? 'Removing...' : 'Remove Template'}
               </button>
