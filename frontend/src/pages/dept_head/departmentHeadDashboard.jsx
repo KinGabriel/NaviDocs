@@ -15,7 +15,6 @@ export default function DepartmentHeadDashboard() {
   const user = useUser();
   const navigate = useNavigate();
 
-
   function formatDate(dateValue) {
     if (!dateValue) return "-";
     const date = new Date(dateValue);
@@ -26,7 +25,6 @@ export default function DepartmentHeadDashboard() {
       day: "numeric",
     });
   }
-
 
   // Data loaded from API
   const [templates, setTemplates] = useState([]);
@@ -138,172 +136,165 @@ export default function DepartmentHeadDashboard() {
         <Sidebar user={user} active="Dashboard" />
 
         <main className="flex-1 flex flex-col bg-white lg:shadow pt-1 pb-4 px-4 sm:px-6 lg:px-8 mx-0 lg:mx-6 mt-4 lg:mt-8 rounded-none lg:rounded-xl w-full max-w-full">
-        <Greeting name={user?.firstname || "Document Controller"} />
-       {loading ? (
-          <div className="flex-1 flex justify-center items-center min-h-[60vh]">
-            <Loader message="Loading dashboard..." />
-          </div>
-        ) : error ? (
-          <div className="flex-1 flex justify-center items-center min-h-[60vh] text-red-500">
-            <div className="text-center">
-              <p className="text-lg font-semibold mb-2">Error loading dashboard</p>
-              <p className="text-sm">{error}</p>
+          <Greeting name={user?.firstname || "Document Controller"} />
+          {loading ? (
+            <div className="flex-1 flex justify-center items-center min-h-[60vh]">
+              <Loader message="Loading dashboard..." />
             </div>
-          </div>
-        ) : (
-          <>
-          {/* Stat cards */}
-          <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
-            {/* Upcoming Deadlines */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
-                <CalendarClock className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">{upcomingDeadlinesData.length}</div>
+          ) : error ? (
+            <div className="flex-1 flex justify-center items-center min-h-[60vh] text-red-500">
+              <div className="text-center">
+                <p className="text-lg font-semibold mb-2">Error loading dashboard</p>
+                <p className="text-sm">{error}</p>
               </div>
             </div>
-
-
-            {/* Due Today */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                <CalendarCheck className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
-                <div className="text-3xl font-bold text-gray-900">{dueTodayData.length}</div>
-              </div>
-            </div>
-
-
-            {/* Overdue Deadlines */}
-            <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
-                <CalendarX className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">{overdueData.length}</div>
-              </div>
-            </div>
-          </div>
-
-
-          {/* Tables and Upcoming Deadlines */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
-            <div className="lg:col-span-3 space-y-6">
-              <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
-                <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+          ) : (
+            <>
+              {/* Stat cards */}
+              <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
+                {/* Upcoming Deadlines */}
+                <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+                  <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+                    <CalendarClock className="h-6 w-6 text-white" />
+                  </div>
                   <div>
-                    <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                      RECENTLY SUBMITTED TEMPLATES
-                    </h2>
-                    <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
-                  </div>
-
-                  <button
-                    onClick={() => navigate("/document-workflow")}
-                    className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
-                  >
-                    View All
-                  </button>
-                </div>
-
-               <div className="mt-4 h-64 overflow-hidden">
-                  <div className="h-full overflow-x-auto">
-                    <Table columns={templateColumns} data={templates} fillHeight />
+                    <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
+                    <div className="text-3xl font-bold text-gray-900">{upcomingDeadlinesData.length}</div>
                   </div>
                 </div>
-              </div>
-            </div>
 
+                {/* Due Today */}
+                <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                    <CalendarCheck className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
+                    <div className="text-3xl font-bold text-gray-900">{dueTodayData.length}</div>
+                  </div>
+                </div>
 
-            <div className="lg:col-span-1 space-y-6">
-              {/* combine all categories into a single list the component can filter by priority */}
-              {(() => {
-                const allDeadlines = [
-                  ...(upcomingDeadlinesData || []),
-                  ...(dueTodayData || []),
-                  ...(overdueData || []),
-                ];
-                // ensure each item has a priority field and a date field the component expects
-                const normalized = allDeadlines.map(d => ({
-                  id: d.id || d._id || null,
-                  title: d.title || d.title,
-                  date: d.date || d.deadline || d.createdAt || null,
-                  priority: d.priority || (d.completion ? 'Upcoming' : 'Upcoming'),
-                  department: d.department || ''
-                }));
-
-                return (
-                  <UpcomingDeadlines
-                    deadlines={normalized}
-                    formatDate={formatDate}
-                  />
-                );
-              })()}
-            </div>
-
-            {/* Submission Overview */}
-            <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
-              <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
-                <div>
-                  <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                    SUBMISSION OVERVIEW
-                  </h2>
-                  <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                {/* Overdue Deadlines */}
+                <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
+                  <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                    <CalendarX className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
+                    <div className="text-3xl font-bold text-gray-900">{overdueData.length}</div>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-2 h-64 overflow-hidden">
-                <div className="h-full overflow-x-auto">
-                  <Table
-                    columns={submissionOverviewColumns}
-                    data={submissionOverviewData}
-                    fillHeight
-                  />
+              {/* Tables and Upcoming Deadlines */}
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
+                <div className="lg:col-span-3 space-y-6">
+                  <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
+                    <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+                      <div>
+                        <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                          RECENTLY SUBMITTED TEMPLATES
+                        </h2>
+                        <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
+                      </div>
+
+                      <button
+                        onClick={() => navigate("/document-workflow")}
+                        className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+                      >
+                        View All
+                      </button>
+                    </div>
+
+                    <div className="mt-4 h-64 overflow-hidden">
+                      <div className="h-full overflow-x-auto">
+                        <Table columns={templateColumns} data={templates} fillHeight />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-1 space-y-6">
+                  {/* combine all categories into a single list the component can filter by priority */}
+                  {(() => {
+                    const allDeadlines = [
+                      ...(upcomingDeadlinesData || []),
+                      ...(dueTodayData || []),
+                      ...(overdueData || []),
+                    ];
+                    // ensure each item has a priority field and a date field the component expects
+                    const normalized = allDeadlines.map(d => ({
+                      id: d.id || d._id || null,
+                      title: d.title || d.title,
+                      date: d.date || d.deadline || d.createdAt || null,
+                      priority: d.priority || (d.completion ? 'Upcoming' : 'Upcoming'),
+                      department: d.department || ''
+                    }));
+
+                    return (
+                      <UpcomingDeadlines
+                        deadlines={normalized}
+                        formatDate={formatDate}
+                      />
+                    );
+                  })()}
+                </div>
+
+                {/* Submission Overview */}
+                <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
+                  <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+                    <div>
+                      <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                        SUBMISSION OVERVIEW
+                      </h2>
+                      <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                    </div>
+                  </div>
+
+                  <div className="mt-2 h-64 overflow-hidden">
+                    <div className="h-full overflow-x-auto">
+                      <Table
+                        columns={submissionOverviewColumns}
+                        data={submissionOverviewData}
+                        fillHeight
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recently Published */}
+                <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
+                  <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+                    <div>
+                      <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                        RECENTLY PUBLISHED TEMPLATES
+                      </h2>
+                      <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                    </div>
+
+                    <button
+                      onClick={() => navigate("/templates", { state: { status: "Published" } })}
+                      className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+                    >
+                      View All
+                    </button>
+                  </div>
+
+                  <div className="mt-2 h-64 overflow-hidden">
+                    <div className="h-full overflow-x-auto">
+                      <Table
+                        columns={publishedTemplatesColumns}
+                        data={publishedTemplates}
+                        fillHeight
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {/* Recently Published */}
-            <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
-              <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
-                <div>
-                  <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                    RECENTLY PUBLISHED TEMPLATES
-                  </h2>
-                  <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
-                </div>
-
-                <button
-                  onClick={() => navigate("/templates", { state: { status: "Published" } })}
-                  className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
-                >
-                  View All
-                </button>
-              </div>
-
-              <div className="mt-2 h-64 overflow-hidden">
-                <div className="h-full overflow-x-auto">
-                  <Table
-                    columns={publishedTemplatesColumns}
-                    data={publishedTemplates}
-                    fillHeight
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-           </>
+            </>
           )}
         </main>
       </div>
     </div>
   );
 }
-
-
-

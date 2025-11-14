@@ -42,19 +42,18 @@ export default function DepartmentHeadDocumentView() {
               <div className="w-28 h-1 bg-yellow-400 mb-6 rounded" />
             </div>
 
-            {/* Back button (primary style) */}
+            {/* Back button */}
             <div className="mb-3">
               <button
                 onClick={() => navigate(-1)}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#0035DA] hover:bg-[#043485] text-white text-sm transition shadow-sm"
                 title="Back"
               >
-                {/* Arrow-left icon */}
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                     fill="none" stroke="currentColor" strokeWidth="1.5"
-                     className="h-4 w-4">
+                  fill="none" stroke="currentColor" strokeWidth="1.5"
+                  className="h-4 w-4">
                   <path strokeLinecap="round" strokeLinejoin="round"
-                        d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                    d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                 </svg>
                 <span>Back</span>
               </button>
@@ -70,34 +69,34 @@ export default function DepartmentHeadDocumentView() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Download as PDF (primary) */}
+                {/* Download as PDF */}
                 <button
                   onClick={() => window.alert("Downloading PDF… (placeholder)")}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#0035DA] hover:bg-[#043485] text-white text-sm transition shadow-sm"
                   title="Download as PDF"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                       fill="none" stroke="currentColor" strokeWidth="1.5"
-                       className="h-4 w-4">
+                    fill="none" stroke="currentColor" strokeWidth="1.5"
+                    className="h-4 w-4">
                     <path strokeLinecap="round" strokeLinejoin="round"
-                          d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 12l4.5 4.5L16.5 12M12 16.5V3" />
+                      d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 12l4.5 4.5L16.5 12M12 16.5V3" />
                   </svg>
                   <span>Download as PDF</span>
                 </button>
 
-                {/* Edit (same primary style/color) */}
+                {/* Edit */}
                 <button
                   onClick={() => window.alert("Edit UI will be wired later")}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#0035DA] hover:bg-[#043485] text-white text-sm transition shadow-sm"
                   title="Edit"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                       fill="none" stroke="currentColor" strokeWidth="1.5"
-                       className="h-4 w-4">
+                    fill="none" stroke="currentColor" strokeWidth="1.5"
+                    className="h-4 w-4">
                     <path strokeLinecap="round" strokeLinejoin="round"
-                          d="M16.862 4.487a2.25 2.25 0 013.182 3.182L10.06 17.653a6 6 0 01-2.4 1.5l-2.518.72.72-2.518a6 6 0 011.5-2.4l9.5-9.468z" />
+                      d="M16.862 4.487a2.25 2.25 0 013.182 3.182L10.06 17.653a6 6 0 01-2.4 1.5l-2.518.72.72-2.518a6 6 0 011.5-2.4l9.5-9.468z" />
                     <path strokeLinecap="round" strokeLinejoin="round"
-                          d="M18 13.5V18A2.5 2.5 0 0 1 15.5 20.5H6" />
+                      d="M18 13.5V18A2.5 2.5 0 0 1 15.5 20.5H6" />
                   </svg>
                   <span>Edit</span>
                 </button>

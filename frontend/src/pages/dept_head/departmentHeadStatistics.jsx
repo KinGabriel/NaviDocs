@@ -3,7 +3,7 @@ import Header from '../../layout/headers/header';
 import Sidebar from '../../layout/sidebars/sidebar';
 import Dropdown from '../../components/dropdowns/dropdown';
 import Table from '../../components/table';
-import SearchBar from '../../components/searchbar'; 
+import SearchBar from '../../components/searchbar';
 import { Bar, Doughnut } from "react-chartjs-2";
 import StatCardModal from '../../components/modals/statCardsModal';
 import StatusBadge from '../../components/statusBadge';
@@ -29,7 +29,7 @@ export default function DepartmentHeadStatistics() {
   // School identifiers
   const schoolIdentifiers = {
     'University Wide': 'VAA',
-    'SAMCIS': 'SMI', 
+    'SAMCIS': 'SMI',
     'STELA': 'STL',
   };
 
@@ -62,7 +62,7 @@ export default function DepartmentHeadStatistics() {
     row.faculty.toLowerCase().includes(search.toLowerCase())
   );
 
-  // --- BAR CHART LOGIC (same as document controller/dean) ---
+  // BAR CHART LOGIC
   const baseDepartments = [
     { name: "IT", submission: 80 },
     { name: "CS", submission: 65 },
@@ -92,79 +92,79 @@ export default function DepartmentHeadStatistics() {
     ],
   };
 
-const barOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { 
-    legend: { display: false },
-    tooltip: {
-      callbacks: {
-        label: (context) => `${context.raw}% Submitted`
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (context) => `${context.raw}% Submitted`
+        }
       }
-    }
-  },
-  scales: { 
-    y: { 
-      beginAtZero: true, 
-      max: 100, 
-      ticks: { stepSize: 20 } 
-    } 
-  },
-};
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 100,
+        ticks: { stepSize: 20 }
+      }
+    },
+  };
 
   const departmentData = [
-  { 
-    name: "1ST YEAR", 
-    data: [56, 36, 5, 7, 5] // Submission Rate, Approved, Assigned, Pending, Returned
-  },
-  { 
-    name: "2ND YEAR", 
-    data: [40, 30, 10, 12, 8] 
-  },
-  { 
-    name: "3RD YEAR", 
-    data: [70, 20, 15, 5, 10] 
-  },
-  { 
-    name: "4TH YEAR", 
-    data: [50, 25, 20, 10, 15] 
-  },
-];
-
-const [currentDeptIndex, setCurrentDeptIndex] = useState(0);
-const currentDept = departmentData[currentDeptIndex];
-
-const nextDepartment = () => 
-  setCurrentDeptIndex((prev) => (prev + 1) % departmentData.length);
-
-const prevDepartment = () => 
-  setCurrentDeptIndex((prev) => (prev - 1 + departmentData.length) % departmentData.length);
-
-const chartData = {
-  labels: [
-    "Submission Rate", 
-    "Approved Documents", 
-    "Assigned Documents", 
-    "Pending Documents", 
-    "Returned Documents"
-  ],
-  datasets: [
     {
-      data: currentDept.data, 
-      backgroundColor: ["#3B82F6","#10B981","#6B7280","#F59E0B","#F97316"],
-      borderWidth: 0,
+      name: "1ST YEAR",
+      data: [56, 36, 5, 7, 5]
     },
-  ],
-};
+    {
+      name: "2ND YEAR",
+      data: [40, 30, 10, 12, 8]
+    },
+    {
+      name: "3RD YEAR",
+      data: [70, 20, 15, 5, 10]
+    },
+    {
+      name: "4TH YEAR",
+      data: [50, 25, 20, 10, 15]
+    },
+  ];
 
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
-};
+  const [currentDeptIndex, setCurrentDeptIndex] = useState(0);
+  const currentDept = departmentData[currentDeptIndex];
 
-// Modal data and handlers - static data for demonstration
- const facultyData = [
+  const nextDepartment = () =>
+    setCurrentDeptIndex((prev) => (prev + 1) % departmentData.length);
+
+  const prevDepartment = () =>
+    setCurrentDeptIndex((prev) => (prev - 1 + departmentData.length) % departmentData.length);
+
+  const chartData = {
+    labels: [
+      "Submission Rate",
+      "Approved Documents",
+      "Assigned Documents",
+      "Pending Documents",
+      "Returned Documents"
+    ],
+    datasets: [
+      {
+        data: currentDept.data,
+        backgroundColor: ["#3B82F6", "#10B981", "#6B7280", "#F59E0B", "#F97316"],
+        borderWidth: 0,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+  };
+
+  // Modal data and handlers - static data for demonstration
+  const facultyData = [
     { name: "Prof. Mark Santos", email: "mark@slu.edu.ph" },
     { name: "Prof. Anna Rivera", email: "anna@slu.edu.ph" },
     { name: "Prof. Daniel Cruz", email: "daniel@slu.edu.ph" },
@@ -179,11 +179,11 @@ const chartOptions = {
     { title: "Syllabus CS101", faculty: "Prof. Mark Santos", status: "Approved", dateSubmitted: "2025-08-10" },
     { title: "Course Outline IT201", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
     { title: "Examination CS101", faculty: "Prof. Mark Santos", status: "Approved", dateSubmitted: "2025-08-10" },
-    { title: "Seating Plan IT201", faculty: "Prof. Anna Rivera",  status: "Pending", dateSubmitted: "2025-08-12" },
+    { title: "Seating Plan IT201", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
     { title: "Field Trip", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
-    { title: "Seating Plan IT201", faculty: "Prof. Anna Rivera",  status: "Returned", dateSubmitted: "2025-08-12" },
+    { title: "Seating Plan IT201", faculty: "Prof. Anna Rivera", status: "Returned", dateSubmitted: "2025-08-12" },
     { title: "Field Trip", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
-    { title: "Seating Plan IT201", faculty: "Prof. Anna Rivera",  status: "Pending", dateSubmitted: "2025-08-12" },
+    { title: "Seating Plan IT201", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
     { title: "Field Trip", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
     { title: "Field Trip", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
     { title: "Course Outline IT201", faculty: "Prof. Anna Rivera", status: "Pending", dateSubmitted: "2025-08-12" },
@@ -192,106 +192,104 @@ const chartOptions = {
   const lateSubmissionsData = [
     { faculty: "Prof. Daniel Cruz", document: "Final Exam CS301", dueDate: "2025-08-15", daysOverdue: 20, },
     { faculty: "Prof. Lea Gonzales", document: "Assignment IT102", dueDate: "2025-08-14", daysOverdue: 11, },
-    { faculty: "Prof. Lea Gonzales", document: "Assignment IT102", dueDate: "2025-08-14", daysOverdue: 7,  },
+    { faculty: "Prof. Lea Gonzales", document: "Assignment IT102", dueDate: "2025-08-14", daysOverdue: 7, },
   ];
 
-const openFacultyModal = () => {
-  setModalTitle("Faculty Members");
-  setModalContent(<FacultyContent data={facultyData} />);
-  setModalData(facultyData); 
-  setIsModalOpen(true);
-};
+  const openFacultyModal = () => {
+    setModalTitle("Faculty Members");
+    setModalContent(<FacultyContent data={facultyData} />);
+    setModalData(facultyData);
+    setIsModalOpen(true);
+  };
 
-const openDocumentsModal = () => {
-  setModalTitle("Documents Overview");
- setModalContent(<DocumentsContent data={documentsData} />);
-  setModalData(documentsData); 
-  setIsModalOpen(true);
-};
+  const openDocumentsModal = () => {
+    setModalTitle("Documents Overview");
+    setModalContent(<DocumentsContent data={documentsData} />);
+    setModalData(documentsData);
+    setIsModalOpen(true);
+  };
 
-const openLateSubmissionsModal = () => {
-  setModalTitle("Late Submissions");
-   setModalContent(<LateSubmissionsContent data={lateSubmissionsData} />);
-  setModalData(lateSubmissionsData);
-  setIsModalOpen(true);
-};
+  const openLateSubmissionsModal = () => {
+    setModalTitle("Late Submissions");
+    setModalContent(<LateSubmissionsContent data={lateSubmissionsData} />);
+    setModalData(lateSubmissionsData);
+    setIsModalOpen(true);
+  };
 
-const FacultyContent = ({ data }) => {
-  const facultyColumns = [
-    { key: "name", label: "Name" },
-    { key: "email", label: "Email" },
-  ];
-  return (
-    <div className="m-4">
-      <Table columns={facultyColumns} data={data} />
-      <div className="mt-3">
+  const FacultyContent = ({ data }) => {
+    const facultyColumns = [
+      { key: "name", label: "Name" },
+      { key: "email", label: "Email" },
+    ];
+    return (
+      <div className="m-4">
+        <Table columns={facultyColumns} data={data} />
+        <div className="mt-3">
+          <p className="text-gray-600 text-sm">
+            Total Faculty Members:{" "}
+            <span className="font-semibold text-gray-800">
+              {facultyData.length}
+            </span>
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  const DocumentsContent = ({ data }) => {
+    const documentColumns = [
+      { key: "title", label: "Document Title" },
+      { key: "faculty", label: "Faculty" },
+      {
+        key: "status",
+        label: "Status",
+        render: (row) => <StatusBadge type={row.status} />
+      },
+      { key: "dateSubmitted", label: "Date Submitted" }
+    ];
+    return (
+      <div className="m-4">
+        <Table columns={documentColumns} data={data} />
+        <div className="mt-3" />
         <p className="text-gray-600 text-sm">
-          Total Faculty Members:{" "}
-          <span className="font-semibold text-gray-800">
-            {facultyData.length} 
-          </span>
+          Total Documents: <span className="font-semibold text-gray-800">{data.length}</span>
         </p>
       </div>
-    </div>
-  );
-};
-
-const DocumentsContent = ({ data }) => {
-  const documentColumns = [
-    { key: "title", label: "Document Title" },
-    { key: "faculty", label: "Faculty" },
-    { 
-      key: "status", 
-      label: "Status",
-      render: (row) => <StatusBadge type={row.status} />
-    },
-    { key: "dateSubmitted", label: "Date Submitted" }
-  ];
-  return (
-    <div className="m-4">
-      <Table columns={documentColumns} data={data} />
-      <div className="mt-3" />
-      <p className="text-gray-600 text-sm">
-        Total Documents: <span className="font-semibold text-gray-800">{data.length}</span>
-      </p>
-    </div>
-  );
-};
-
-const LateSubmissionsContent = ({ data }) => {
-  const getPriorityLabel = (daysOverdue) => {
-    if (daysOverdue >= 15) return "Severe Delay";
-    if (daysOverdue >= 8) return "Significant Delay";
-    if (daysOverdue >= 4) return "Moderate Delay";
-    return "Minor Delay"; 
+    );
   };
-  const lateColumns = [
-    { key: "faculty", label: "Faculty" },
-    { key: "document", label: "Document" },
-    { key: "dueDate", label: "Due Date" },
-    { 
-      key: "daysOverdue", 
-      label: "Days Overdue",
-      render: (row) =>  <StatusBadge type={getPriorityLabel(row.daysOverdue)} />
-    },
-  ];
-  return (
-    <div className="m-4">
-      <Table columns={lateColumns} data={data} />
-      <div className="mt-3" />
-      <p className="text-gray-600 text-sm">
-        Total Late Submissions: <span className="font-semibold text-gray-800">{data.length}</span>
-      </p>
-    </div>
-  );
-};
 
+  const LateSubmissionsContent = ({ data }) => {
+    const getPriorityLabel = (daysOverdue) => {
+      if (daysOverdue >= 15) return "Severe Delay";
+      if (daysOverdue >= 8) return "Significant Delay";
+      if (daysOverdue >= 4) return "Moderate Delay";
+      return "Minor Delay";
+    };
+    const lateColumns = [
+      { key: "faculty", label: "Faculty" },
+      { key: "document", label: "Document" },
+      { key: "dueDate", label: "Due Date" },
+      {
+        key: "daysOverdue",
+        label: "Days Overdue",
+        render: (row) => <StatusBadge type={getPriorityLabel(row.daysOverdue)} />
+      },
+    ];
+    return (
+      <div className="m-4">
+        <Table columns={lateColumns} data={data} />
+        <div className="mt-3" />
+        <p className="text-gray-600 text-sm">
+          Total Late Submissions: <span className="font-semibold text-gray-800">{data.length}</span>
+        </p>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-200">
       <Header user={user} />
       <div className="flex">
-        {/* Sidebar */}
         <Sidebar user={user} />
         {/* Main content */}
         <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
@@ -316,9 +314,9 @@ const LateSubmissionsContent = ({ data }) => {
               {/* Documents */}
               <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48  hover:bg-gray-100 cursor-pointer"
                 onClick={openDocumentsModal}
-                >
+              >
                 <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 256 256"><path fill="#fff" d="m213.66 66.34l-40-40A8 8 0 0 0 168 24H88a16 16 0 0 0-16 16v16H56a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h112a16 16 0 0 0 16-16v-16h16a16 16 0 0 0 16-16V72a8 8 0 0 0-2.34-5.66M136 192H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m0-32H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m64 24h-16v-80a8 8 0 0 0-2.34-5.66l-40-40A8 8 0 0 0 136 56H88V40h76.69L200 75.31Z"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 256 256"><path fill="#fff" d="m213.66 66.34l-40-40A8 8 0 0 0 168 24H88a16 16 0 0 0-16 16v16H56a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h112a16 16 0 0 0 16-16v-16h16a16 16 0 0 0 16-16V72a8 8 0 0 0-2.34-5.66M136 192H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m0-32H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m64 24h-16v-80a8 8 0 0 0-2.34-5.66l-40-40A8 8 0 0 0 136 56H88V40h76.69L200 75.31Z" /></svg>
                 </div>
                 <div>
                   <div className="text-black-600 text-base font-bold">Documents</div>
@@ -329,7 +327,7 @@ const LateSubmissionsContent = ({ data }) => {
               {/* Late Submissions */}
               <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-48  hover:bg-gray-100 cursor-pointer"
                 onClick={openLateSubmissionsModal}
-                > 
+              >
                 <div className="w-12 h-12 bg-[#E53737] rounded-full flex items-center justify-center">
                   <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
@@ -341,15 +339,15 @@ const LateSubmissionsContent = ({ data }) => {
                 </div>
               </div>
 
-              <StatCardModal 
-              isOpen={isModalOpen} 
-              onClose={closeModal} 
-              title={modalTitle}
-              data={modalData}
-              itemsPerPage={10}
-            >
-              {modalContent}
-            </StatCardModal>
+              <StatCardModal
+                isOpen={isModalOpen}
+                onClose={closeModal}
+                title={modalTitle}
+                data={modalData}
+                itemsPerPage={10}
+              >
+                {modalContent}
+              </StatCardModal>
             </div>
 
             <div className="flex gap-2">
@@ -386,8 +384,8 @@ const LateSubmissionsContent = ({ data }) => {
           <div className="space-y-6">
             {/* Bar chart */}
             <div className="bg-[#FBFBFB] p-4 rounded shadow">
-              <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase mb-2"> 
-               Faculty Submission Performance
+              <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase mb-2">
+                Faculty Submission Performance
               </h2>
               <div className="w-30 h-0.5 bg-yellow-400 mb-4 rounded" />
               <div className="h-80">
@@ -400,7 +398,7 @@ const LateSubmissionsContent = ({ data }) => {
               {/* Table */}
               <div className="bg-[#FBFBFB] shadow p-4 rounded max-w-5xl w-full ">
                 <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase mb-2">
-                 Faculty Performance Overview
+                  Faculty Performance Overview
                 </h2>
                 <div className="w-30 h-0.5 bg-yellow-400 mb-4 rounded" />
                 <Table columns={tableColumns} data={filteredTableData} />
@@ -411,7 +409,7 @@ const LateSubmissionsContent = ({ data }) => {
                 <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase mb-8">
                   YEAR LEVEL DOCUMENT SUMMARY
                 </h2>
-                
+
                 {/* Department navigations */}
                 <div className="flex items-center justify-between mb-4">
                   <button onClick={prevDepartment} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -434,21 +432,21 @@ const LateSubmissionsContent = ({ data }) => {
                 </div>
 
                 {/* Legend values */}
-            <div className="space-y-3">
-              {chartData.labels.map((label, index) => (
-                <div key={index} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: chartData.datasets[0].backgroundColor[index] }}
-                    ></div>
-                    <span className="text-gray-600">{label}</span>
-                  </div>
-                  <span className="font-medium text-gray-800">
-                    {chartData.datasets[0].data[index]}
-                  </span>
-                </div>
-              ))}
+                <div className="space-y-3">
+                  {chartData.labels.map((label, index) => (
+                    <div key={index} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: chartData.datasets[0].backgroundColor[index] }}
+                        ></div>
+                        <span className="text-gray-600">{label}</span>
+                      </div>
+                      <span className="font-medium text-gray-800">
+                        {chartData.datasets[0].data[index]}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

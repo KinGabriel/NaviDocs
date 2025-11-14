@@ -16,11 +16,10 @@ const FALLBACK_TEMPLATE = {
 
 export default function DepartmentHeadTemplateView() {
   const user = useUser();
-  const { id } = useParams(); // available if you need to fetch the template by id
+  const { id } = useParams();
   const navigate = useNavigate();
   const { state } = useLocation();
 
-  // keep left nav on Templates for DH context
   const sidebarActive = state?.sidebarActive || "Templates";
 
   const t = state?.doc || {};
@@ -49,7 +48,7 @@ export default function DepartmentHeadTemplateView() {
 
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           <main className="p-8 flex-1 overflow-y-auto">
-            {/* Back + actions */}
+            {/* Back & actions */}
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={handleBack}

@@ -30,8 +30,8 @@ export default function DepartmentHeadTemplates() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignLoading, setAssignLoading] = useState(false);
   const [facultyLoading, setFacultyLoading] = useState(false);
-  const [faculty, setFaculty] = useState([]);              // list to choose from
-  const [selectedFacultyIds, setSelectedFacultyIds] = useState([]); // chosen assignees
+  const [faculty, setFaculty] = useState([]);
+  const [selectedFacultyIds, setSelectedFacultyIds] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   // School identifiers for filtering
@@ -53,7 +53,7 @@ export default function DepartmentHeadTemplates() {
     'All';
 
   const [selectedSchool, setSelectedSchool] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState(initialStatus); // ⬅ use derived default
+  const [selectedStatus, setSelectedStatus] = useState(initialStatus);
   const [sortOrder, setSortOrder] = useState('Recent');
 
   // Fetch templates
@@ -107,7 +107,6 @@ export default function DepartmentHeadTemplates() {
   // Load data on filters / pagination change
   useEffect(() => {
     fetchTemplates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
   // Keep selectedStatus in sync with navigation state or query string
@@ -119,7 +118,6 @@ export default function DepartmentHeadTemplates() {
     } else if (statusOptions.includes(fromQuery) && fromQuery !== selectedStatus) {
       setSelectedStatus(fromQuery);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state, searchParams]);
 
   const openPreview = (template, i) => {
@@ -140,19 +138,18 @@ export default function DepartmentHeadTemplates() {
     await loadFaculty();
   };
 
-  // Fetch faculty (same department as Dept Head)
+  // Fetch faculty 
   const loadFaculty = async () => {
     if (!user) return;
     setFacultyLoading(true);
     try {
-      // You can adjust how you derive departmentId from user
       const departmentId = user?.department?._id || user?.department || null;
       const res = await fetchFacultyAPI({ departmentId });
       const list = res?.data?.faculty || res?.faculty || [];
       setFaculty(list);
     } catch (e) {
       console.error('Failed to load faculty list:', e);
-      setFaculty([]); // fallback
+      setFaculty([]);
     } finally {
       setFacultyLoading(false);
     }
@@ -200,7 +197,6 @@ export default function DepartmentHeadTemplates() {
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Templates" />
-        {/* prevent horizontal overflow + responsive margins/padding */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
           <div className="flex-1 px-1 py-5">
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">
@@ -260,7 +256,7 @@ export default function DepartmentHeadTemplates() {
                 width="w-50"
               />
 
-              {/* NEW: Status filter (shows current tab/status) */}
+              {/* Status filter */}
               <Dropdown
                 options={statusOptions}
                 value={selectedStatus}
@@ -292,7 +288,6 @@ export default function DepartmentHeadTemplates() {
               ) : (
                 templates.map((template, i) => (
                   <div key={template._id || i} className="flex flex-col min-w-0">
-                    {/* Click the card => open preview */}
                     <div
                       className="cursor-pointer"
                       onClick={() => openPreview(template, i)}
@@ -305,7 +300,7 @@ export default function DepartmentHeadTemplates() {
                       <TemplateCard
                         template={template}
                         user={user}
-                        onSelect={() => {}}
+                        onSelect={() => { }}
                         onAssign={(updatedTemplate) => {
                           setTemplates((prev) =>
                             prev.map((t) =>
@@ -359,11 +354,10 @@ export default function DepartmentHeadTemplates() {
                   <button
                     key={num}
                     onClick={() => pagination.handlePage(num)}
-                    className={`px-3 py-1 rounded border ${
-                      pagination.currentPage === num
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-100'
-                    }`}
+                    className={`px-3 py-1 rounded border ${pagination.currentPage === num
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100'
+                      }`}
                   >
                     {num}
                   </button>
