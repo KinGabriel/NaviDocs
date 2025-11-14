@@ -1,4 +1,3 @@
-// src/pages/document-controller/DocumentWorkflowView.jsx
 import React, { useMemo } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Header from "../../layout/headers/header";

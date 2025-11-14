@@ -28,7 +28,6 @@ export default function DocumentControllerStatistics() {
 
   // Filtering and sorting states
   const [selectedSchool, setSelectedSchool] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
   const [sortOrder, setSortOrder] = useState('Sort by');
   const [search, setSearch] = useState('');
 
