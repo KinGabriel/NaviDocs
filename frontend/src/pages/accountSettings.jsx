@@ -9,12 +9,8 @@ import PasswordInput from "../components/passwordinput.jsx";
 import defaultProfile from '../assets/images/profile_picture.png';
 import { updateAccountSettingsAPI, updateUserPasswordAPI } from "../api/userAPI";
 
-const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const API_URLS = rawUrls.split(",");
 
-const API_URL =
-  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
-const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|mil|biz|info|io|co|ph)$/i;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function AdminAccountSettings() {
   const user = useUser();
