@@ -1,7 +1,7 @@
 // src/components/editable_fields/accordionList.jsx
 import React, { useState, useMemo } from "react";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
-import TagPicker from "./TagPicker";
+import TagPicker from "./tagPicker";
 import { makeId } from "../../utils/ids";
 import PermanentlyDeleteDocumentModal from "../modals/permanentlyDeleteDocumentModal";
 import DeleteFieldModal from "../modals/deleteFieldModal";
