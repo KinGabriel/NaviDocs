@@ -1,7 +1,7 @@
 // src/layout/create_template/fieldsPanel.jsx
 import React, { useState, useMemo, useEffect } from "react";
 import useUser from "../../hooks/useUser";
-import AccordionList from "../../components/editable_fields/accordionList";
+import AccordionList from "../../components/editable_fields/AccordionList";
 import TagsManager from "../../components/editable_fields/tagsManager";
 import { listTagsAPI } from "../../api/tagsAPI";
 import {

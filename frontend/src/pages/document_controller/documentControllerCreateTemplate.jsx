@@ -162,7 +162,7 @@ export default function DocumentControllerCreateTemplate() {
   // Dirty tracking
   const [lastSavedContent, setLastSavedContent] = useState(null);
   const [lastSavedTitle, setLastSavedTitle] = useState("");
-  const [setLastSavedId] = useState(null);
+  const [lastSavedId, setLastSavedId] = useState(null);
   const [lastSavedHeaderConfig, setLastSavedHeaderConfig] = useState(DEFAULT_HEADER_CONFIG);
   const [lastSavedPageSetup, setLastSavedPageSetup] = useState(DEFAULT_PAGE_SETUP);
   const [lastSavedDocumentCode, setLastSavedDocumentCode] = useState("");

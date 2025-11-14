@@ -132,7 +132,6 @@ export function StatusBadge({ type }) {
     minor_delay: "bg-blue-50 text-blue-700 border border-blue-200",
 
     // Deadline statuses
-    overdue: "bg-red-50 text-red-700 border border-red-200",
     due_today: "bg-orange-50 text-orange-700 border border-orange-200",
     due_this_week: "bg-yellow-50 text-yellow-700 border border-yellow-200",
     upcoming: "bg-blue-50 text-blue-700 border border-blue-200",
@@ -164,7 +163,6 @@ export function StatusBadge({ type }) {
     minor_delay: "bg-blue-500",
 
     // Deadline statuses
-    overdue: "bg-red-500",
     due_today: "bg-orange-500",
     due_this_week: "bg-yellow-500",
     upcoming: "bg-blue-500",

@@ -41,7 +41,7 @@ export default function AdminEditUser() {
   const [errorUser, setErrorUser] = useState(null);
 
   // Alert state for feedback
-  const [setAlertMessage] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
 
   // Fetch user details by id from URL
   useEffect(() => {

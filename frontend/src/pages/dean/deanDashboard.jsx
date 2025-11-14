@@ -49,20 +49,20 @@ export default function DeanDashboard() {
 
   // placeholder data (used until API returns)
   const templatesPlaceholder = [
-    { id: 1, title: "Research Proposal Template", createdBy: "Admin User", status: "Approved" },
-    { id: 2, title: "Thesis Format Guide", createdBy: "Admin User", status: "Rejected" },
-    { id: 3, title: "Internship Report Template", createdBy: "Admin User", status: "Returned" },
-    { id: 4, title: "Course Syllabus Template", createdBy: "Admin User", status: "Approved" },
-    { id: 5, title: "Capstone Project Template", createdBy: "Admin User", status: "Pending" },
-    { id: 6, title: "Department Memo Format", createdBy: "Admin User", status: "Endorsed" },
+    { id: "tpl-1", title: "Research Proposal Template", createdBy: "Admin User", status: "Approved" },
+    { id: "tpl-2", title: "Thesis Format Guide", createdBy: "Admin User", status: "Rejected" },
+    { id: "tpl-3", title: "Internship Report Template", createdBy: "Admin User", status: "Returned" },
+    { id: "tpl-4", title: "Course Syllabus Template", createdBy: "Admin User", status: "Approved" },
+    { id: "tpl-5", title: "Capstone Project Template", createdBy: "Admin User", status: "Pending" },
+    { id: "tpl-6", title: "Department Memo Format", createdBy: "Admin User", status: "Endorsed" },
   ];
 
   const publishedTemplatesPlaceholder = [
-    { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
-    { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
-    { id: 3, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
-    { id: 4, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
-    { id: 5, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
+    { id: "pub-1", code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
+    { id: "pub-2", code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
+    { id: "pub-3", code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
+    { id: "pub-4", code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
+    { id: "pub-5", code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
   ];
 
   // live template data from API
@@ -127,8 +127,8 @@ export default function DeanDashboard() {
   const [latestForwarded, setLatestForwarded] = useState([]);
   const [forwardedByDepartment, setForwardedByDepartment] = useState([]);
   const [totalForwardedCount, setTotalForwardedCount] = useState(0);
-  const [setLoadingDean] = useState(true);
-  const [setErrorDean] = useState(null);
+  const [loadingDean, setLoadingDean] = useState(true);
+  const [errorDean, setErrorDean] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -159,11 +159,11 @@ export default function DeanDashboard() {
   }, []);
 
   const forwardedSubmissionBinsPlaceholder = [
-    { id: 1, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
-    { id: 2, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
-    { id: 3, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
-    { id: 4, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
-    { id: 5, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
+    { id: "fsb-1", title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
+    { id: "fsb-2", title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
+    { id: "fsb-3", title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
+    { id: "fsb-4", title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
+    { id: "fsb-5", title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
   ];
 
   const forwardedSubmissionBinsData =

@@ -31,7 +31,7 @@ export default function FacultySubmissions() {
   const user = useUser();
   const navigate = useNavigate();
   const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [setIsUploading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [sortBy, setSortBy] = useState("Recent");
