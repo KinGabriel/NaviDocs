@@ -12,7 +12,7 @@ const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
 const API_URL =
-  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];  
+  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 import {
   FileText,
   MoreVertical,
@@ -115,7 +115,6 @@ export default function FileComponent({
       }
       setEmails(people);
     }
-    // eslint-disable-next-line
   }, [isShareOpen, file, user]);
 
   const [visibility, setVisibility] = useState(file?.visibility || "private");
@@ -169,12 +168,12 @@ export default function FileComponent({
   // Function to determine submenu positioning
   const getSubmenuPosition = (ref) => {
     if (!ref?.current) return { right: false };
-    
+
     const rect = ref.current.getBoundingClientRect();
     const submenuWidth = 160;
     const viewportWidth = window.innerWidth;
     const spaceOnRight = viewportWidth - rect.right;
-    
+
     // If not enough space on the right, position submenu to the left
     return { right: spaceOnRight < submenuWidth };
   };
@@ -235,7 +234,7 @@ export default function FileComponent({
 
   // Debounced handler
   if (!debounceRef.current) {
-    debounceRef.current = (function(fn, delay) {
+    debounceRef.current = (function (fn, delay) {
       let timer;
       return (...args) => {
         if (timer) clearTimeout(timer);
@@ -327,7 +326,7 @@ export default function FileComponent({
                     Organize
                   </div>
                   <span className="text-gray-500 text-xs">▶</span>
-                   {isOrganizeOpen && (() => {
+                  {isOrganizeOpen && (() => {
                     const position = getSubmenuPosition(organizeRef);
                     return (
                       <ul className={`absolute top-0 ${position.right ? 'right-full mr-1' : 'left-full ml-1'} w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50`}>
@@ -367,7 +366,7 @@ export default function FileComponent({
                   {isShareMenuOpen && (() => {
                     const position = getSubmenuPosition(shareRef);
                     return (
-                      <ul 
+                      <ul
                         className={`absolute top-0 ${position.right ? 'right-full mr-1' : 'left-full ml-1'} w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50`}
                         onMouseEnter={() => {
                           if (shareTimeout) clearTimeout(shareTimeout);
@@ -419,29 +418,29 @@ export default function FileComponent({
         </div>
 
         {/* Preview tile */}
-          <div className="h-40 flex items-center justify-center bg-gray-50 rounded-t-xl overflow-hidden">
-            {fileUrl ? (
-              (file?.mimetype?.toLowerCase().includes("pdf") ||
-                fileName?.toLowerCase().endsWith(".pdf")) ? (
-                <PdfThumbnail url={fileUrl} />
-              ) : file?.mimetype?.toLowerCase().includes("word") ||
-                fileName?.toLowerCase().endsWith(".docx") ? (
-                <DocxThumbnail />
-              ) : (
-                <FileText className="w-12 h-12 text-gray-300" />
-              )
+        <div className="h-40 flex items-center justify-center bg-gray-50 rounded-t-xl overflow-hidden">
+          {fileUrl ? (
+            (file?.mimetype?.toLowerCase().includes("pdf") ||
+              fileName?.toLowerCase().endsWith(".pdf")) ? (
+              <PdfThumbnail url={fileUrl} />
+            ) : file?.mimetype?.toLowerCase().includes("word") ||
+              fileName?.toLowerCase().endsWith(".docx") ? (
+              <DocxThumbnail />
             ) : (
               <FileText className="w-12 h-12 text-gray-300" />
-            )}
-          </div>
-          
+            )
+          ) : (
+            <FileText className="w-12 h-12 text-gray-300" />
+          )}
+        </div>
+
         {/* Info */}
         <div className="border-t px-3 py-3 rounded-b-xl min-w-0">
           <p className="font-semibold text-sm text-gray-900 truncate" title={fileName}>
             {fileName}
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
-      
+
             {(() => {
 
               const type = file?.mimetype || '';
@@ -468,8 +467,8 @@ export default function FileComponent({
                   • Size: {file.size >= 1024 * 1024
                     ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
                     : file.size >= 1024
-                    ? (file.size / 1024).toFixed(1) + ' KB'
-                    : file.size + ' B'}
+                      ? (file.size / 1024).toFixed(1) + ' KB'
+                      : file.size + ' B'}
                 </span>
               )}
             </div>
@@ -481,9 +480,8 @@ export default function FileComponent({
       {open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div
-            className={`bg-white rounded-lg shadow-lg relative flex flex-col ${
-              expanded ? "w-[95vw] h-[95vh]" : "w-[800px] max-w-[95vw] h-[90vh]"
-            }`}
+            className={`bg-white rounded-lg shadow-lg relative flex flex-col ${expanded ? "w-[95vw] h-[95vh]" : "w-[800px] max-w-[95vw] h-[90vh]"
+              }`}
           >
             {/* Close */}
             <button
@@ -569,7 +567,6 @@ export default function FileComponent({
               </button>
             </h2>
 
-
             {/* Visibility */}
             <div className="mb-3">
               <Dropdown3
@@ -583,7 +580,6 @@ export default function FileComponent({
                 placeholder="Select visibility..."
               />
             </div>
-
 
             {/* Add people */}
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -634,7 +630,6 @@ export default function FileComponent({
               </ul>
             )}
 
-
             <h3 className="text-sm font-medium text-gray-700 mb-2">People with access</h3>
             <div className="space-y-2 mb-4">
               {emails.map((person, idx) => (
@@ -676,32 +671,32 @@ export default function FileComponent({
               <button
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                 onClick={async () => {
-  const allowedUsers = emails
-    .filter(e => !e.isOwner)
-    .map(e => ({
-      userId: e.userId,
-      role: e.role,
-      email: e.email,
-      grantedBy: user?.firstname + ' ' + user?.lastname,
-      emailOfGrantedBy: user?.email
-    }));
-  const loadingToast = toast.loading("Sharing file...");
-  try {
-    await addAccessToFileAPI({
-      fileId: file._id,
-      folderId: parentFolderId,
-      allowedUsers,
-      visibility
-    });
+                  const allowedUsers = emails
+                    .filter(e => !e.isOwner)
+                    .map(e => ({
+                      userId: e.userId,
+                      role: e.role,
+                      email: e.email,
+                      grantedBy: user?.firstname + ' ' + user?.lastname,
+                      emailOfGrantedBy: user?.email
+                    }));
+                  const loadingToast = toast.loading("Sharing file...");
+                  try {
+                    await addAccessToFileAPI({
+                      fileId: file._id,
+                      folderId: parentFolderId,
+                      allowedUsers,
+                      visibility
+                    });
 
-    toast.dismiss(loadingToast);
-    toast.success("File shared successfully!");
-    setIsShareOpen(false);
-  } catch (err) {
-    toast.dismiss(loadingToast);
-    toast.error(err?.message || "You are not authorized to share this file.");
-  }
-}}
+                    toast.dismiss(loadingToast);
+                    toast.success("File shared successfully!");
+                    setIsShareOpen(false);
+                  } catch (err) {
+                    toast.dismiss(loadingToast);
+                    toast.error(err?.message || "You are not authorized to share this file.");
+                  }
+                }}
               >
                 Share
               </button>
@@ -711,54 +706,54 @@ export default function FileComponent({
       )}
 
       <RenameModal
-  open={isRenameOpen}
-  onClose={() => setIsRenameOpen(false)}
-  currentTitle={file.originalName}
-  onSubmit={async (newTitle) => {
-    try {
-      if (parentFolderId) {
-        await renameFileAPI(file._id, newTitle, parentFolderId);
-      } else {
-        await renameFileAPI(file._id, newTitle);
-      }
-      setIsRenameOpen(false);
-      if (onDelete) onDelete(file); 
-    } catch (err) {
-      toast.error(err?.message || "Failed to rename file");
-    }
-  }}
-/>
+        open={isRenameOpen}
+        onClose={() => setIsRenameOpen(false)}
+        currentTitle={file.originalName}
+        onSubmit={async (newTitle) => {
+          try {
+            if (parentFolderId) {
+              await renameFileAPI(file._id, newTitle, parentFolderId);
+            } else {
+              await renameFileAPI(file._id, newTitle);
+            }
+            setIsRenameOpen(false);
+            if (onDelete) onDelete(file);
+          } catch (err) {
+            toast.error(err?.message || "Failed to rename file");
+          }
+        }}
+      />
 
-<RemoveModal
-  open={isRemoveOpen}
-  onClose={() => setIsRemoveOpen(false)}
-  itemType="file"
-  itemTitle={fileName}
-  submitting={removing}
-  error={removeError}
-  onConfirm={async () => {
-    try {
-      setRemoving(true);
-      setRemoveError("");
+      <RemoveModal
+        open={isRemoveOpen}
+        onClose={() => setIsRemoveOpen(false)}
+        itemType="file"
+        itemTitle={fileName}
+        submitting={removing}
+        error={removeError}
+        onConfirm={async () => {
+          try {
+            setRemoving(true);
+            setRemoveError("");
 
-      if (parentFolderId) {
-        await deleteFileFromFolderAPI(parentFolderId, file._id);
-      } else {
-        await deleteFileAPI(file._id);
-      }
+            if (parentFolderId) {
+              await deleteFileFromFolderAPI(parentFolderId, file._id);
+            } else {
+              await deleteFileAPI(file._id);
+            }
 
-      setIsRemoveOpen(false);
-      if (onDelete) onDelete(file._id);
-    } catch (err) {
-      console.error("Remove error:", err);
-      setRemoveError("Failed to remove the file. Please try again.");
-      toast.error("Failed to remove the file. Please try again.");
-    } finally {
-      setRemoving(false);
-    }
-  }}
-/>
-<Toaster position="top-center" reverseOrder={false} />
+            setIsRemoveOpen(false);
+            if (onDelete) onDelete(file._id);
+          } catch (err) {
+            console.error("Remove error:", err);
+            setRemoveError("Failed to remove the file. Please try again.");
+            toast.error("Failed to remove the file. Please try again.");
+          } finally {
+            setRemoving(false);
+          }
+        }}
+      />
+      <Toaster position="top-center" reverseOrder={false} />
 
     </>
   );
