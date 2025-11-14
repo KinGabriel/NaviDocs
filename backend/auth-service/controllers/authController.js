@@ -3,7 +3,7 @@ import Log from "../models/logsModel.js";
 import PasswordResetToken from "../models/passwordResetToken.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import UAParser from 'ua-parser-js';
+// lightweight UA parsing (avoid external dependency during docker production builds)
 
 
 /**
@@ -43,15 +43,64 @@ export const loginUser = async (req, res) => {
     const userAgent = String(req.headers['user-agent'] || "").trim();
     // legacy short 'browser' field removed; we rely on structured parsed fields (browserName/browserVersion)
 
-    // Parse UA into structured pieces using ua-parser-js (best-effort)
+    // Parse UA into structured pieces (best-effort, simple fallback without external deps)
     let browserName = null, browserVersion = null, osName = null, osVersion = null, deviceType = null;
     try {
-      const parsed = new UAParser(userAgent).getResult();
-      browserName = parsed.browser?.name || null;
-      browserVersion = parsed.browser?.version || null;
-      osName = parsed.os?.name || null;
-      osVersion = parsed.os?.version || null;
-      deviceType = parsed.device?.type || (parsed.device?.model ? 'mobile' : 'desktop') || null;
+      const ua = userAgent || '';
+      const uaLower = ua.toLowerCase();
+
+      // Browser detection (common browsers)
+      if (uaLower.includes('firefox')) {
+        browserName = 'Firefox';
+        const m = ua.match(/Firefox\/([0-9\.]+)/);
+        browserVersion = m?.[1] || null;
+      } else if (uaLower.includes('edg/')) {
+        browserName = 'Edge';
+        const m = ua.match(/Edg\/([0-9\.]+)/);
+        browserVersion = m?.[1] || null;
+      } else if (uaLower.includes('chrome') && !uaLower.includes('edg') && !uaLower.includes('opr')) {
+        browserName = 'Chrome';
+        const m = ua.match(/Chrome\/([0-9\.]+)/) || ua.match(/CriOS\/([0-9\.]+)/);
+        browserVersion = m?.[1] || null;
+      } else if (uaLower.includes('safari') && !uaLower.includes('chrome')) {
+        browserName = 'Safari';
+        const m = ua.match(/Version\/([0-9\.]+)/);
+        browserVersion = m?.[1] || null;
+      } else if (uaLower.includes('opr') || uaLower.includes('opera')) {
+        browserName = 'Opera';
+        const m = ua.match(/OPR\/([0-9\.]+)/) || ua.match(/Opera\/([0-9\.]+)/);
+        browserVersion = m?.[1] || null;
+      }
+
+      // OS detection
+      if (uaLower.includes('windows nt')) {
+        osName = 'Windows';
+        const m = ua.match(/Windows NT ([0-9\.]+)/);
+        osVersion = m?.[1] || null;
+      } else if (uaLower.includes('android')) {
+        osName = 'Android';
+        const m = ua.match(/Android ([0-9\.]+)/);
+        osVersion = m?.[1] || null;
+      } else if (uaLower.includes('iphone') || uaLower.includes('ipad') || uaLower.includes('ipod')) {
+        osName = 'iOS';
+        const m = ua.match(/OS ([0-9_]+)/);
+        osVersion = m ? m[1].replace(/_/g, '.') : null;
+      } else if (uaLower.includes('mac os x') || uaLower.includes('macintosh')) {
+        osName = 'macOS';
+        const m = ua.match(/Mac OS X ([0-9_\.]+)/);
+        osVersion = m ? m[1].replace(/_/g, '.') : null;
+      } else if (uaLower.includes('linux')) {
+        osName = 'Linux';
+      }
+
+      // device type
+      if (uaLower.includes('mobile') || uaLower.includes('android') || uaLower.includes('iphone')) {
+        deviceType = 'mobile';
+      } else if (uaLower.includes('tablet') || uaLower.includes('ipad')) {
+        deviceType = 'tablet';
+      } else {
+        deviceType = 'desktop';
+      }
     } catch (e) {
       // ignore parse errors
     }
