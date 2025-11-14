@@ -1,4 +1,3 @@
-// src/layout/create_template/headerfooterPanel.jsx
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { DEFAULT_FONT_CATEGORIES, SYSTEM_FALLBACKS } from "../../utils/textFonts";
 
@@ -102,7 +101,6 @@ const findFontLabel = (value) => {
   return match ? match.label : value;
 };
 
-// px ⇄ pt helpers (96 dpi → 1pt ≈ 1.333px)
 const pxToPt = (px) => {
   const n = Number(px);
   if (!Number.isFinite(n) || n <= 0) return 12;
@@ -146,7 +144,7 @@ function mergeDefaults(value) {
     documentStamp: { ...DEFAULTS.documentStamp, ...(v.documentStamp || {}) },
   };
 
-  // Legacy -> New mapping (read)
+  // Legacy (read)
   const legacyShowSLU = v.showSLULogo ?? v.header?.logos?.slu?.enabled;
   const legacyShowCICM = v.showCICMLogo ?? v.header?.logos?.cicm?.enabled;
 
@@ -599,11 +597,10 @@ export default function HeaderFooterPanel({ value, onChange }) {
         ].map((t) => (
           <button
             key={t.id}
-            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 ${
-              tab === t.id
+            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 ${tab === t.id
                 ? "border-blue-600 text-blue-700"
                 : "border-transparent text-slate-600 hover:text-slate-800"
-            }`}
+              }`}
             onClick={() => setTab(t.id)}
           >
             {t.label}
@@ -753,7 +750,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
   );
 }
 
-/* ------------------------ Tabs ------------------------ */
+/* Tabs */
 
 function HeaderTab({
   disabled,
@@ -917,9 +914,6 @@ function HeaderTab({
           </div>
         </div>
       </div>
-
-      {/* Document Stamp UI intentionally hidden */}
-      {/* Values still exist in state & payload for compatibility */}
     </div>
   );
 }
@@ -927,7 +921,7 @@ function HeaderTab({
 function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
   return (
     <div className={`space-y-6 ${disabled ? "opacity-60 pointer-events-none" : ""}`}>
-      {/* ---------------- PAGE NUMBER ---------------- */}
+      {/* PAGE NUMBER */}
       <div className="rounded-xl border p-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold text-slate-700">Page Number</div>
@@ -941,9 +935,8 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
         </div>
 
         <div
-          className={`flex flex-col gap-3 ${
-            !pageNumber.enabled ? "opacity-60 pointer-events-none" : ""
-          }`}
+          className={`flex flex-col gap-3 ${!pageNumber.enabled ? "opacity-60 pointer-events-none" : ""
+            }`}
         >
           {/* Pattern dropdown: Page of Page / Page only */}
           <SelectField
@@ -1007,7 +1000,7 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
         </div>
       </div>
 
-      {/* ---------------- FOOTER TEXT ---------------- */}
+      {/* FOOTER TEXT */}
       <div className="rounded-xl border p-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold text-slate-700">Footer Text</div>
@@ -1021,9 +1014,8 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
         </div>
 
         <div
-          className={`flex flex-col gap-3 ${
-            !body.enabled ? "opacity-60 pointer-events-none" : ""
-          }`}
+          className={`flex flex-col gap-3 ${!body.enabled ? "opacity-60 pointer-events-none" : ""
+            }`}
         >
           <Label>Text</Label>
           <textarea
@@ -1075,7 +1067,7 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
   );
 }
 
-/* --------------------- UI Blocks & Inputs --------------------- */
+/* UI Blocks & Inputs */
 
 function HeaderLineStyleEditor({
   fontFamily,
@@ -1144,22 +1136,20 @@ function HeaderLineStyleEditor({
         <div className="flex gap-2">
           <button
             type="button"
-            className={`w-9 h-9 rounded-md border flex items-center justify-center text-sm ${
-              bold
+            className={`w-9 h-9 rounded-md border flex items-center justify-center text-sm ${bold
                 ? "bg-blue-600 text-white border-blue-600"
                 : "bg-white text-slate-800 border-slate-300"
-            }`}
+              }`}
             onClick={() => setBold(!bold)}
           >
             <span className="font-bold">B</span>
           </button>
           <button
             type="button"
-            className={`w-9 h-9 rounded-md border flex items-center justify-center text-sm ${
-              italic
+            className={`w-9 h-9 rounded-md border flex items-center justify-center text-sm ${italic
                 ? "bg-blue-600 text-white border-blue-600"
                 : "bg-white text-slate-800 border-slate-300"
-            }`}
+              }`}
             onClick={() => setItalic(!italic)}
           >
             <span className="italic">I</span>
@@ -1185,11 +1175,10 @@ function HeaderLineStyleEditor({
                 key={val}
                 type="button"
                 onClick={() => handleSelectFont(val)}
-                className={`px-2.5 py-1 rounded-full border text-xs ${
-                  fontFamily === val
+                className={`px-2.5 py-1 rounded-full border text-xs ${fontFamily === val
                     ? "bg-blue-600 text-white border-blue-600"
                     : "bg-white text-slate-700 border-slate-300"
-                }`}
+                  }`}
                 style={{ fontFamily: val }}
               >
                 {findFontLabel(val)}
@@ -1262,7 +1251,7 @@ function LabeledRow({ label, children }) {
   );
 }
 
-/* —————— Small form controls —————— */
+/* Small form controls */
 function Label({ children }) {
   return <div className="text-xs font-medium text-slate-600 mb-1">{children}</div>;
 }
@@ -1352,9 +1341,8 @@ function SimpleColorField({ label, value, onChange, disabled }) {
 function Toggle({ label, checked, onChange, compact = false, disabled = false }) {
   return (
     <label
-      className={`flex items-center gap-3 ${compact ? "text-xs" : "text-sm"} ${
-        disabled ? "opacity-60 pointer-events-none" : ""
-      }`}
+      className={`flex items-center gap-3 ${compact ? "text-xs" : "text-sm"} ${disabled ? "opacity-60 pointer-events-none" : ""
+        }`}
     >
       <input
         type="checkbox"
@@ -1371,9 +1359,8 @@ function Toggle({ label, checked, onChange, compact = false, disabled = false })
 function CheckboxField({ label, checked, onChange, disabled }) {
   return (
     <label
-      className={`flex items-center gap-2 text-sm ${
-        disabled ? "opacity-60 pointer-events-none" : ""
-      }`}
+      className={`flex items-center gap-2 text-sm ${disabled ? "opacity-60 pointer-events-none" : ""
+        }`}
     >
       <input
         type="checkbox"

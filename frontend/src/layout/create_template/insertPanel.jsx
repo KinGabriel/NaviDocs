@@ -25,9 +25,7 @@ export default function InsertPanel({ editor }) {
     return Math.max(100, Math.round(rectW - padL - padR));
   };
 
-  /* ------------------------------------------------------------- */
   /* IMAGE UPLOAD */
-  /* ------------------------------------------------------------- */
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file || !editor) return;
@@ -63,9 +61,7 @@ export default function InsertPanel({ editor }) {
     e.target.value = "";
   };
 
-  /* ------------------------------------------------------------- */
   /* PURE TIPTAP V2 TABLE COMMANDS */
-  /* ------------------------------------------------------------- */
   const insertTable = () => {
     if (!editor) return;
     editor
@@ -100,9 +96,7 @@ export default function InsertPanel({ editor }) {
   return (
     <div className="w-full p-4 space-y-8">
 
-      {/* --------------------------------------------------------- */}
       {/* IMAGE INSERT */}
-      {/* --------------------------------------------------------- */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Insert Image</h2>
 
@@ -117,9 +111,7 @@ export default function InsertPanel({ editor }) {
         </label>
       </div>
 
-      {/* --------------------------------------------------------- */}
       {/* TABLE INSERTION */}
-      {/* --------------------------------------------------------- */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Insert Table</h2>
 
@@ -155,9 +147,7 @@ export default function InsertPanel({ editor }) {
         </button>
       </div>
 
-      {/* --------------------------------------------------------- */}
       {/* TABLE TOOLS (ONLY IF CURSOR IS INSIDE A TABLE) */}
-      {/* --------------------------------------------------------- */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Table Tools</h2>
 

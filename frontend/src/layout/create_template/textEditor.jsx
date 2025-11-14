@@ -1,4 +1,3 @@
-// src/layout/create_template/textEditor.jsx
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -26,7 +25,7 @@ import {
 } from "../../extensions/fields";
 import { formatDate } from "../../utils/formatters.jsx";
 
-/* ---------------------------- TextStyle extra attrs ---------------------------- */
+/* TextStyle extra attrs */
 const TextStyleAttrs = Extension.create({
   name: "textStyleAttrs",
   addGlobalAttributes() {
@@ -52,12 +51,12 @@ const TextStyleAttrs = Extension.create({
   },
 });
 
-/* ----------------------------------- utils ----------------------------------- */
+/* utils */
 const inchToPx = (inches) => Math.round(Number(inches || 0) * 96);
 const px = (n) => `${Math.max(0, Number(n) || 0)}px`;
 const ptToPx = (pt) => Math.round(Number(pt || 0) * (96 / 72));
 
-/* ------------------------ Env-aware API base & assets ------------------------ */
+/* Env-aware API base & assets */
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 const API_URL =
@@ -111,7 +110,7 @@ function computeDims(pageSetup) {
 const DEFAULT_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 const normalizeInitialContent = (content) => (content ? content : DEFAULT_DOC);
 
-/* ----------------------- normalize header/footer config ----------------------- */
+/* normalize header/footer config */
 const normDate = (val) => {
   try {
     if (val == null || val === "") return "";
@@ -120,7 +119,7 @@ const normDate = (val) => {
     try {
       const d = new Date(val);
       if (!isNaN(d)) return formatDate(d.toISOString());
-    } catch {}
+    } catch { }
     return String(val ?? "");
   }
 };
@@ -219,19 +218,19 @@ const getCfg = (cfg) => {
         "",
       revisionNo: normRevision(
         cfg?.documentStamp?.revisionNo ??
-          cfg?.documentStamp?.revision_no ??
-          cfg?.documentStamp?.revisionNumber ??
-          cfg?.documentStamp?.revision_number ??
-          cfg?.revision_no ??
-          cfg?.revisionNumber ??
-          cfg?.revision_number ??
-          ""
+        cfg?.documentStamp?.revision_no ??
+        cfg?.documentStamp?.revisionNumber ??
+        cfg?.documentStamp?.revision_number ??
+        cfg?.revision_no ??
+        cfg?.revisionNumber ??
+        cfg?.revision_number ??
+        ""
       ),
       effectivity: normDate(
         cfg?.documentStamp?.effectivity ??
-          cfg?.documentStamp?.effectivity_date ??
-          cfg?.effectivity ??
-          ""
+        cfg?.documentStamp?.effectivity_date ??
+        cfg?.effectivity ??
+        ""
       ),
     },
     footer: {
@@ -272,7 +271,7 @@ const stripDefaultPageNumber = (scopeEl) => {
   scopeEl.querySelectorAll(".rm-page-number").forEach((n) => n.remove());
 };
 
-/* ---------------------------- dynamic header/footer --------------------------- */
+/* dynamic header/footer */
 const MIN_HEADER_FOOTER_PX = 120;
 const getHeaderBasePx = (cfg) =>
   cfg.headerEnabled
@@ -283,7 +282,7 @@ const getFooterBasePx = (cfg) =>
     ? Math.max(MIN_HEADER_FOOTER_PX, inchToPx(cfg.footerMarginIn ?? 0))
     : 0;
 
-/* ------------------------------ perf helpers -------------------------------- */
+/* perf helpers */
 const makeRafBatcher = (fn) => {
   let id = 0;
   return (...args) => {
@@ -295,7 +294,7 @@ const makeRafBatcher = (fn) => {
   };
 };
 
-/* --------------------------------- component --------------------------------- */
+/* component */
 export default function TextEditor({
   content,
   pageSetup = DEFAULT_SETUP,
@@ -372,12 +371,12 @@ export default function TextEditor({
     },
   });
 
-  /* ------------------------------ lifecycle hooks ----------------------------- */
+  /* lifecycle hooks */
   useEffect(() => {
     if (!editor) return;
     try {
       editor.setEditable(!readOnly);
-    } catch {}
+    } catch { }
   }, [editor, readOnly]);
 
   useEffect(() => {
@@ -425,7 +424,7 @@ export default function TextEditor({
 
   useEffect(() => () => editor?.destroy(), [editor]);
 
-  /* ----------------------- react to headerConfig changes ---------------------- */
+  /* react to headerConfig changes */
   useEffect(() => {
     if (!editor) return;
     const c = getCfg(headerConfig);
@@ -443,7 +442,7 @@ export default function TextEditor({
     requestAnimationFrame(() => applyHeaderFooterBands());
   }, [editor, headerConfig]);
 
-  /* --------------------------- header/footer renderer ------------------------- */
+  /* header/footer renderer */
   const ensureFlexBand = useCallback((bandEl, kind /* 'header' | 'footer' */) => {
     if (!bandEl) return null;
     const isFooter =
@@ -692,8 +691,8 @@ export default function TextEditor({
           align === "left"
             ? "flex-start"
             : align === "right"
-            ? "flex-end"
-            : "center";
+              ? "flex-end"
+              : "center";
         host.style.justifyContent = "center";
         host.style.gap = "2px";
         return host;
@@ -761,7 +760,7 @@ export default function TextEditor({
     [editor]
   );
 
-  /* ----------------------------- main apply pass ------------------------------ */
+  /* main apply pass */
   const applyHeaderFooterBands = useMemo(
     () =>
       makeRafBatcher(() => {
@@ -799,7 +798,7 @@ export default function TextEditor({
     [headerConfig, ensureFlexBand, renderHeaderContent, renderFooterContent]
   );
 
-  /* ---------------------------- observe pagination ---------------------------- */
+  /* observe pagination */
   useEffect(() => {
     applyHeaderFooterBands();
 
@@ -821,7 +820,7 @@ export default function TextEditor({
     return () => observerRef.current?.disconnect();
   }, [editor, headerConfig, applyHeaderFooterBands]);
 
-  /* ----------------------------------- ui ------------------------------------ */
+  /* ui */
   return (
     <div className={`flex justify-center my-6 ${className}`}>
       <div style={{ width: "816px" }}>
@@ -835,7 +834,7 @@ export default function TextEditor({
   );
 }
 
-/* ------------------------- helpers that need editor ref ------------------------ */
+/* helpers that need editor ref */
 function autoFitBand(editor, bandEl, kind, basePx) {
   if (!editor || !bandEl) return;
   const needed = Math.ceil(bandEl.scrollHeight);
