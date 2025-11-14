@@ -1,4 +1,3 @@
-// src/pages/documentControllerCreateTemplate.jsx
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -13,21 +12,14 @@ import fetchAndNormalizeTemplate from "../../utils/templateLoader";
 import useUser from "../../hooks/useUser";
 import Header2 from "../../layout/headers/header2";
 import VersionHistory from "../version_history/templateVersionHistory";
-
-// Panels
 import FontPanel from "../../layout/create_template/fontPanel";
 import PageSetupPanel from "../../layout/create_template/pageSetupPanel";
 import InsertPanel from "../../layout/create_template/insertPanel";
 import FieldsPanel from "../../layout/create_template/fieldsPanel";
 import HeaderFooterPanel from "../../layout/create_template/headerfooterPanel";
-
-// Sidebar
 import TemplateSidebar from "../../layout/sidebars/templateSidebar";
-
-// Text editor
 import TextEditor from "../../layout/create_template/textEditor";
 
-/* ---------------------------------- consts ---------------------------------- */
 const DEFAULT_CONTENT = null;
 
 const DEFAULT_PAGE_SETUP = {
@@ -54,7 +46,7 @@ function useHeaderHeight() {
   return h;
 }
 
-// Deep merge utility (keeps nested structure like footer.pageNumber/body)
+// Deep merge utility 
 function deepMerge(base, over) {
   if (!over || typeof over !== "object") return base;
   const out = Array.isArray(base) ? [...base] : { ...base };
@@ -69,7 +61,7 @@ function deepMerge(base, over) {
   return out;
 }
 
-// Sensible defaults for header/footer so something shows on first render
+// Sensible defaults for header/footer 
 const DEFAULT_HEADER_CONFIG = {
   headerEnabled: true,
   footerEnabled: true,
@@ -124,7 +116,7 @@ const DEFAULT_HEADER_CONFIG = {
   },
 };
 
-// Ensure any loaded config has the full structure (esp. footer block)
+// Ensure any loaded config has the full structure 
 function withHeaderDefaults(cfg) {
   const merged = deepMerge(DEFAULT_HEADER_CONFIG, cfg || {});
   if (!merged.footer) merged.footer = DEFAULT_HEADER_CONFIG.footer;
@@ -133,7 +125,7 @@ function withHeaderDefaults(cfg) {
   return merged;
 }
 
-/* --------------------------------- component -------------------------------- */
+/* component */
 export default function DocumentControllerCreateTemplate() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -170,7 +162,7 @@ export default function DocumentControllerCreateTemplate() {
   // Dirty tracking
   const [lastSavedContent, setLastSavedContent] = useState(null);
   const [lastSavedTitle, setLastSavedTitle] = useState("");
-  const [lastSavedId, setLastSavedId] = useState(null);
+  const [setLastSavedId] = useState(null);
   const [lastSavedHeaderConfig, setLastSavedHeaderConfig] = useState(DEFAULT_HEADER_CONFIG);
   const [lastSavedPageSetup, setLastSavedPageSetup] = useState(DEFAULT_PAGE_SETUP);
   const [lastSavedDocumentCode, setLastSavedDocumentCode] = useState("");
@@ -200,7 +192,7 @@ export default function DocumentControllerCreateTemplate() {
   // Creators cannot edit published templates unless they are Document Control Officers
   const isReadOnly = isPublished && isCreator && !isDocumentControlOfficer;
 
-  /* ------------------------------- load template ------------------------------ */
+  /* load template */
   const loadTemplate = async (id) => {
     try {
       setLoading(true);
@@ -262,7 +254,7 @@ export default function DocumentControllerCreateTemplate() {
     loadTemplate(id);
   }, [templateIdFromQuery]);
 
-  /* --------------------------------- editor ---------------------------------- */
+  /* editor */
   const handleEditorReady = (editor) => {
     editorRef.current = editor;
     setEditorInstance(editor);
@@ -282,7 +274,7 @@ export default function DocumentControllerCreateTemplate() {
     };
   };
 
-  /* ----------------------------------- save ---------------------------------- */
+  /* save */
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -396,7 +388,7 @@ export default function DocumentControllerCreateTemplate() {
     return () => window.removeEventListener("beforeunload", beforeUnload);
   }, [dirty, isReadOnly]);
 
-  /* ----------------------------- approval actions ---------------------------- */
+  /* approval actions */
   const handleApprove = async () => {
     if (!templateId) return;
     try {
@@ -464,7 +456,7 @@ export default function DocumentControllerCreateTemplate() {
     if (templateId) loadTemplate(templateId);
   };
 
-  /* ---------------------------------- panels --------------------------------- */
+  /* panels */
   const [selectedPanel, setSelectedPanel] = useState("font");
 
   const renderPanel = () => {
@@ -567,9 +559,8 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
-  /* ----------------------------------- ui ------------------------------------ */
-  // max height for the editor column so it scrolls under the sticky header
-  const editorMaxHeight = `calc(100vh - ${headerH + 24}px)`; // header height + small gap
+  /* ui */
+  const editorMaxHeight = `calc(100vh - ${headerH + 24}px)`;
 
   return (
     <div>
@@ -609,7 +600,7 @@ export default function DocumentControllerCreateTemplate() {
 
           {/* MAIN LAYOUT UNDER HEADER */}
           <div className="flex flex-1">
-            {/* Sidebar flush to the very left */}
+            {/* Sidebar */}
             <TemplateSidebar
               selectedPanel={selectedPanel}
               onSelectPanel={setSelectedPanel}
@@ -619,7 +610,6 @@ export default function DocumentControllerCreateTemplate() {
               {renderPanel()}
             </TemplateSidebar>
 
-            {/* Centered editor/document area */}
             <div className="flex-1 mx-auto w-full max-w-7xl px-4 py-6 md:pl-6">
               <main
                 className="flex-1 overflow-auto"

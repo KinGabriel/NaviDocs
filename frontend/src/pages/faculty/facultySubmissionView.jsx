@@ -499,10 +499,10 @@ export default function FacultySubmissionView() {
                 {/* Deadline Banner */}
                 <div
                   className={`p-4 rounded-lg flex items-center gap-3 ${isOverdue
-                      ? "bg-red-50 border border-red-200"
-                      : daysUntilDue <= 3
-                        ? "bg-orange-50 border border-orange-200"
-                        : "bg-blue-50 border border-blue-200"
+                    ? "bg-red-50 border border-red-200"
+                    : daysUntilDue <= 3
+                      ? "bg-orange-50 border border-orange-200"
+                      : "bg-blue-50 border border-blue-200"
                     }`}
                 >
                   <Calendar
@@ -518,20 +518,20 @@ export default function FacultySubmissionView() {
                   <div className="flex-1">
                     <p
                       className={`font-semibold ${isOverdue
-                          ? "text-red-900"
-                          : daysUntilDue <= 5
-                            ? "text-orange-900"
-                            : "text-blue-900"
+                        ? "text-red-900"
+                        : daysUntilDue <= 5
+                          ? "text-orange-900"
+                          : "text-blue-900"
                         }`}
                     >
                       Due {formatDateTime(submission.deadline)}
                     </p>
                     <p
                       className={`text-sm ${isOverdue
-                          ? "text-red-700"
-                          : daysUntilDue <= 5
-                            ? "text-orange-700"
-                            : "text-blue-700"
+                        ? "text-red-700"
+                        : daysUntilDue <= 5
+                          ? "text-orange-700"
+                          : "text-blue-700"
                         }`}
                     >
                     </p>
@@ -1161,8 +1161,8 @@ export default function FacultySubmissionView() {
                       onClick={handleSubmit}
                       disabled={isSubmitting || selectedFiles.length === 0}
                       className={`px-6 py-3 rounded-lg font-medium transition flex items-center justify-center gap-2 ${isSubmitting || selectedFiles.length === 0
-                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                          : "bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30"
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30"
                         }`}
                     >
                       {isSubmitting ? (
