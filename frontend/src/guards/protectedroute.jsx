@@ -23,9 +23,9 @@ export default function ProtectedRoute({ children, allowedRoles }) {
     );
   }
 
- // If not log in
+  // If not log in
   if (!user) {
-    console.log("User not found, redirecting to login");  
+    console.log("User not found, redirecting to login");
     return <Navigate to="/" />;
   }
 
