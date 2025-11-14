@@ -6,7 +6,6 @@ import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
 import { StatusBadge } from "../../utils/formatters";
 import Greeting from "../../components/greeting";
-import { FolderOpen, FileText } from "lucide-react";
 import { Doughnut } from "react-chartjs-2";
 import { getDeanSecDashboardAPI } from "../../api/documentsAPI";
 import {
@@ -34,7 +33,6 @@ export default function DeanDashboard() {
   const user = useUser();
   const navigate = useNavigate();
 
-  // URL route used by react-router for navigation (keep this pointing to your route path)
   const SUBMISSION_BINS_ROUTE = "/submission-bins";
   const DOC_CONTROLLER_TEMPLATES_ROUTE = "/templates?status=Published";
 
@@ -129,8 +127,8 @@ export default function DeanDashboard() {
   const [latestForwarded, setLatestForwarded] = useState([]);
   const [forwardedByDepartment, setForwardedByDepartment] = useState([]);
   const [totalForwardedCount, setTotalForwardedCount] = useState(0);
-  const [loadingDean, setLoadingDean] = useState(true);
-  const [errorDean, setErrorDean] = useState(null);
+  const [setLoadingDean] = useState(true);
+  const [setErrorDean] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -171,11 +169,11 @@ export default function DeanDashboard() {
   const forwardedSubmissionBinsData =
     latestForwarded && latestForwarded.length
       ? latestForwarded.map((b) => ({
-          id: b.id,
-          title: b.title,
-          department: b.department,
-          submission: b.submissionsCount,
-        }))
+        id: b.id,
+        title: b.title,
+        department: b.department,
+        submission: b.submissionsCount,
+      }))
       : forwardedSubmissionBinsPlaceholder;
 
   const forwardedSubmissionBinsColumns = [
@@ -242,14 +240,12 @@ export default function DeanDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
-      {/* Global header always on top */}
       <Header user={user} />
 
-      {/* Layout: stack on mobile, row on large screens */}
       <div className="flex flex-col lg:flex-row flex-1">
         <Sidebar user={user} active="Dashboard" />
 
-        {/* Main content panel with responsive padding/card treatment */}
+        {/* Main content panel */}
         <main
           className="
           flex-1 flex flex-col bg-white
@@ -281,7 +277,7 @@ export default function DeanDashboard() {
                     <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
                   </div>
 
-                  {/* SWAPPED: this now goes to DOC_CONTROLLER_TEMPLATES_ROUTE */}
+                  {/* Goes to DOC_CONTROLLER_TEMPLATES_ROUTE */}
                   <button
                     onClick={() => navigate("/templates")}
                     className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
@@ -307,7 +303,7 @@ export default function DeanDashboard() {
                 </div>
 
                 <div className="p-6">
-                  {/* chart container gets fixed height for responsiveness */}
+                  {/* chart container */}
                   <div className="relative h-36 mb-4">
                     <Doughnut data={chartData} options={chartOptions} />
                   </div>
@@ -359,10 +355,6 @@ export default function DeanDashboard() {
                 </div>
               </div>
             </div>
-
-            {/* if you ever add more bottom-wide sections, use:
-              <div className="lg:col-span-4 ..."> ... </div>
-          */}
           </div>
 
           {/* Recently Forwarded Submission Bins */}
@@ -375,7 +367,7 @@ export default function DeanDashboard() {
                 <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
               </div>
 
-              {/* SWAPPED: this now goes to SUBMISSION_BINS_ROUTE */}
+              {/* Goes to SUBMISSION_BINS_ROUTE */}
               <button
                 onClick={() => navigate(SUBMISSION_BINS_ROUTE)}
                 className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"

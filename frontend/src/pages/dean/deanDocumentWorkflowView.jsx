@@ -42,14 +42,13 @@ export default function DepartmentHeadDocumentView() {
               <div className="w-28 h-1 bg-yellow-400 mb-6 rounded" />
             </div>
 
-            {/* Back button (primary style) */}
+            {/* Back button */}
             <div className="mb-3">
               <button
                 onClick={() => navigate(-1)}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#0035DA] hover:bg-[#043485] text-white text-sm transition shadow-sm"
                 title="Back"
               >
-                {/* Arrow-left icon */}
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                      fill="none" stroke="currentColor" strokeWidth="1.5"
                      className="h-4 w-4">
@@ -70,7 +69,7 @@ export default function DepartmentHeadDocumentView() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Download as PDF (primary) */}
+                {/* Download as PDF */}
                 <button
                   onClick={() => window.alert("Downloading PDF… (placeholder)")}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#0035DA] hover:bg-[#043485] text-white text-sm transition shadow-sm"
@@ -85,7 +84,7 @@ export default function DepartmentHeadDocumentView() {
                   <span>Download as PDF</span>
                 </button>
 
-                {/* Edit (same primary style/color) */}
+                {/* Edit */}
                 <button
                   onClick={() => window.alert("Edit UI will be wired later")}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#0035DA] hover:bg-[#043485] text-white text-sm transition shadow-sm"
