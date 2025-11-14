@@ -1,4 +1,3 @@
-// src/layout/create_template/fontPanel.jsx
 import React, {
   useCallback,
   useEffect,
@@ -13,14 +12,14 @@ import {
   SYSTEM_FALLBACKS,
 } from "../../utils/textFonts";
 
-/* ------------------------------- Utilities -------------------------------- */
+/* Utilities */
 const PRESET_SIZES_PT = [8, 9, 10, 11, 12, 14, 18, 24, 30, 36, 48, 60, 72, 96];
 const PT_TO_PX = 96 / 72;
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 const pxToPt = (px) => Math.round(Number(px) / PT_TO_PX);
 const ptToPx = (pt) => Math.round(Number(pt) * PT_TO_PX);
 
-/* ---------------------------- Small UI Helpers ---------------------------- */
+/* Small UI Helpers */
 const Icon = {
   Bold: () => <span className="font-bold">B</span>,
   Italic: () => <span className="italic">I</span>,
@@ -38,7 +37,7 @@ const Icon = {
   ),
 };
 
-/* ------------------------- Font Size Combobox UI -------------------------- */
+/* Font Size Combobox UI */
 function FontSizePicker({
   value,
   onChange,
@@ -82,7 +81,7 @@ function FontSizePicker({
       const num = clamp(Number(draft), min, max);
       const nearest = presets.reduce((a, b) =>
         Math.abs(b - num) < Math.abs(a - num) ? b : a
-      , presets[0]);
+        , presets[0]);
       onChange?.(nearest);
       setDraft(String(nearest));
     } else {
@@ -168,9 +167,8 @@ function FontSizePicker({
                     setOpen(false);
                     inputRef.current?.focus();
                   }}
-                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 ${
-                    active ? "bg-gray-50 font-medium" : ""
-                  }`}
+                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 ${active ? "bg-gray-50 font-medium" : ""
+                    }`}
                 >
                   {p}
                 </div>
@@ -192,18 +190,18 @@ function FontSizePicker({
   );
 }
 
-/* --------------------------------- Panel --------------------------------- */
+/* Panel */
 export default function FontPanel({ editor }) {
   const isReady = !!editor;
 
-  /* ------------------------------ Size state ------------------------------- */
+  /* Size state */
   const [fontSizePt, setFontSizePt] = useState(12);
 
-  /* ------------------------------ Style preset ----------------------------- */
+  /* Style preset */
   const [styleMenuOpen, setStyleMenuOpen] = useState(false);
   const [activeStyle, setActiveStyle] = useState("Body");
 
-  /* --------------------------------- Fonts -------------------------------- */
+  /* Fonts */
   const CATEGORY_NAMES = useMemo(() => Object.keys(FONT_CATEGORIES), []);
   const FIRST_FONT_OF = useMemo(() => {
     const map = {};
@@ -219,11 +217,11 @@ export default function FontPanel({ editor }) {
   const [activeFamily, setActiveFamily] = useState("Adamina");
   const [typeOpen, setTypeOpen] = useState(false);
 
-  /* --------------------------------- Colors ------------------------------- */
+  /* Colors */
   const [currentTextColor, setCurrentTextColor] = useState("#000000");
   const [currentHighlightColor, setCurrentHighlightColor] = useState("#fff59d");
 
-  /* -------------------------------- Toggles ------------------------------- */
+  /* Toggles */
   const [toggles, setToggles] = useState({
     bold: false,
     italic: false,
@@ -233,16 +231,16 @@ export default function FontPanel({ editor }) {
   const [align, setAlign] = useState("left");
   const [lineHeight, setLineHeight] = useState(1);
 
-  /* --------------------------- Highlight constants ------------------------- */
+  /* Highlight constants */
   const supportsHighlight = !!editor?.commands?.toggleHighlight;
 
-  /* ------------------------------ Refs & menus ----------------------------- */
+  /* Refs & menus */
   const styleBtnRef = useRef(null);
   const styleMenuRef = useRef(null);
   const typeBtnRef = useRef(null);
   const typeMenuRef = useRef(null);
 
-  /* ------------------------------ Derived lists ---------------------------- */
+  /* Derived lists */
   const categoryFonts = FONT_CATEGORIES[activeCategory] || [];
   const filteredFonts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -250,7 +248,7 @@ export default function FontPanel({ editor }) {
     return categoryFonts.filter((f) => f.toLowerCase().includes(q));
   }, [categoryFonts, search]);
 
-  /* -------------------------- Selection-based readers ---------------------- */
+  /* Selection-based readers */
   const pxStringToInt = useCallback((v) => {
     if (!v) return null;
     const n = parseInt(String(v).replace("px", "").trim(), 10);
@@ -286,7 +284,7 @@ export default function FontPanel({ editor }) {
     return mixed ? "__MIXED__" : first ?? null;
   }, [editor, readFSFromMarks]);
 
-  /* ---------------------------- Preset definitions ------------------------ */
+  /* Preset definitions */
   const [stylePresets] = useState({
     Body: { type: "paragraph", sizePt: 12, bold: false, italic: false },
     Title: { type: "paragraph", sizePt: 32, bold: true, italic: false },
@@ -328,21 +326,21 @@ export default function FontPanel({ editor }) {
       editor.isActive({ textAlign: "center" })
         ? "center"
         : editor.isActive({ textAlign: "right" })
-        ? "right"
-        : editor.isActive({ textAlign: "justify" })
-        ? "justify"
-        : "left"
+          ? "right"
+          : editor.isActive({ textAlign: "justify" })
+            ? "justify"
+            : "left"
     );
     setActiveStyle(detectBlockStyle());
 
     try {
       const color = editor.getAttributes("textStyle")?.color || "#000000";
       if (typeof color === "string") setCurrentTextColor(color.toLowerCase());
-    } catch {}
+    } catch { }
     try {
       const hl = editor.getAttributes("highlight")?.color || currentHighlightColor;
       if (typeof hl === "string") setCurrentHighlightColor(hl.toLowerCase());
-    } catch {}
+    } catch { }
   }, [editor, detectBlockStyle, getActiveFontSizePx, pxStringToInt, currentHighlightColor]);
 
   useEffect(() => {
@@ -358,7 +356,7 @@ export default function FontPanel({ editor }) {
     };
   }, [editor, updateUIFromSelection]);
 
-  /* ---------------------------- Outside click hide ------------------------- */
+  /* Outside click hide */
   useEffect(() => {
     const onDocClick = (e) => {
       if (
@@ -379,18 +377,18 @@ export default function FontPanel({ editor }) {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  /* ------------------------------- Command safes --------------------------- */
+  /* Command safes */
   const focus = useCallback(() => editor?.chain().focus(), [editor]);
   const safeRun = useCallback(
     (fn) => {
       try {
         if (isReady) fn();
-      } catch {}
+      } catch { }
     },
     [isReady]
   );
 
-  /* --------------------------------- Actions ------------------------------- */
+  /* Actions */
   const applySizePt = useCallback(
     (pt) => {
       if (!Number.isFinite(pt)) return;
@@ -495,7 +493,7 @@ export default function FontPanel({ editor }) {
     [focus, safeRun]
   );
 
-  /* ----------------------------- Highlight actions ------------------------- */
+  /* Highlight actions */
   const commitHighlight = useCallback(
     (hex) => {
       const c = String(hex || "").toLowerCase();
@@ -507,7 +505,7 @@ export default function FontPanel({ editor }) {
     [editor, focus]
   );
 
-  /* --------------------------------- Render -------------------------------- */
+  /* Render */
   if (!isReady) return null;
 
   return (
@@ -603,9 +601,8 @@ export default function FontPanel({ editor }) {
         </button>
         {supportsHighlight && (
           <button
-            className={`h-9 px-2 border rounded ${
-              editor.isActive("highlight") ? "bg-yellow-200" : ""
-            }`}
+            className={`h-9 px-2 border rounded ${editor.isActive("highlight") ? "bg-yellow-200" : ""
+              }`}
             onClick={() => focus().toggleHighlight().run()}
             title="Toggle highlight"
           >
@@ -634,9 +631,8 @@ export default function FontPanel({ editor }) {
               <button
                 key={dir}
                 onClick={() => applyAlign(dir)}
-                className={`px-2 py-1 border rounded ${
-                  align === dir ? "bg-gray-200" : ""
-                }`}
+                className={`px-2 py-1 border rounded ${align === dir ? "bg-gray-200" : ""
+                  }`}
                 title={`Align ${dir}`}
               >
                 {dir[0].toUpperCase() + dir.slice(1)}
@@ -700,9 +696,8 @@ export default function FontPanel({ editor }) {
                   setActiveCategory(cat);
                   setTypeOpen(false);
                 }}
-                className={`px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-3 ${
-                  activeCategory === cat ? "bg-blue-50" : ""
-                }`}
+                className={`px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-3 ${activeCategory === cat ? "bg-blue-50" : ""
+                  }`}
                 title={`Category: ${cat}`}
               >
                 <span
@@ -749,16 +744,14 @@ export default function FontPanel({ editor }) {
             <div
               key={f}
               onClick={() => applyFamily(f)}
-              className={`flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 cursor-pointer ${
-                activeFamily === f ? "bg-blue-50" : ""
-              }`}
+              className={`flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 cursor-pointer ${activeFamily === f ? "bg-blue-50" : ""
+                }`}
               style={{ fontFamily: SYSTEM_FALLBACKS[f] || f }}
               title={`Use ${f}`}
             >
               <span
-                className={`inline-block w-3 h-3 rounded-full border ${
-                  activeFamily === f ? "bg-blue-600 border-blue-600" : "border-gray-400"
-                }`}
+                className={`inline-block w-3 h-3 rounded-full border ${activeFamily === f ? "bg-blue-600 border-blue-600" : "border-gray-400"
+                  }`}
               />
               <span className="flex-1">{f}</span>
             </div>

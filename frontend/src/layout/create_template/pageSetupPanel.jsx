@@ -1,4 +1,3 @@
-// src/layout/create_template/PageSetupPanel.jsx
 import { useState, useEffect, useMemo } from "react";
 import Dropdown from "../../components/dropdowns/dropdown2";
 
@@ -174,7 +173,7 @@ export default function PageSetupPanel({
         </div>
       </div>
 
-  
+
 
       {/* Actions */}
       <div className="flex justify-end items-center gap-6 mt-20">

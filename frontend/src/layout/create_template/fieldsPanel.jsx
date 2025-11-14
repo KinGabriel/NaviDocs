@@ -1,4 +1,3 @@
-// src/layout/create_template/fieldsPanel.jsx
 import React, { useState, useMemo, useEffect } from "react";
 import useUser from "../../hooks/useUser";
 import AccordionList from "../../components/editable_fields/AccordionList";
@@ -20,7 +19,7 @@ import toast from "react-hot-toast";
  * - Full sync with the text editor for insert/remove actions
  */
 
-export default function FieldsPanel({ editor, fields = [], onChange = () => {} }) {
+export default function FieldsPanel({ editor, fields = [], onChange = () => { } }) {
   const user = useUser();
   const [activeTab, setActiveTab] = useState("fields"); // "fields" | "tags"
   const [accordions, setAccordions] = useState(() => [
@@ -57,12 +56,12 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
         fields[0] && fields[0].fields
           ? fields // already grouped: [{ id, name, fields, style? }]
           : [
-              {
-                id: `acc-${Date.now()}`,
-                name: "Section 1",
-                fields,
-              },
-            ];
+            {
+              id: `acc-${Date.now()}`,
+              name: "Section 1",
+              fields,
+            },
+          ];
 
       const incomingStr = stableStringify(incoming);
       if (incomingStr === lastHydratedRef.current) return; // no change
@@ -70,7 +69,6 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
       setAccordions(incoming);
       lastHydratedRef.current = incomingStr;
     } catch {
-      /* ignore */
     }
   }, [fields]);
 
@@ -103,7 +101,7 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
     })();
   }, []);
 
-  // --- Derived values --------------------------------------------------------
+  // Derived values 
   const allFields = useMemo(
     () => accordions.flatMap((a) => a.fields || []),
     [accordions]
@@ -178,11 +176,10 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
         .slice(0, 12);
       if (merged.length) setRecentTags(merged);
     } catch {
-      /* ignore */
     }
   }, [accordions, tagsRegistry]);
 
-  // --- Field sync with editor ------------------------------------------------
+  // Field sync with editor 
   const handleInsertField = (field) => {
     if (!editor || !field) return;
 
@@ -283,7 +280,7 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
     );
   };
 
-  // --- Persistence -----------------------------------------------------------
+  // Persistence 
   const persistAll = () => {
     const colorById = new Map(
       (tagsRegistry || []).map((t) => [t.id, t.color || "#7e57c2"])
@@ -354,7 +351,6 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
         }
       }
     } catch {
-      /* ignore and proceed with insertion */
     }
 
     const mappedFields = (group.fields || []).map((f) => ({
@@ -442,7 +438,6 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
         toast(overwriteMessage, { icon: "ℹ️" });
       }
     } catch {
-      /* ignore equality check errors and proceed to save */
     }
 
     const fieldsToSave = (acc.fields || []).map((f) => ({
@@ -471,7 +466,6 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
       scope: "user",
       owner: user._id || user.id,
       fields: fieldsToSave,
-      // NOTE: library payload does not yet store group font style; can be extended later if needed
     };
 
     try {
@@ -495,7 +489,6 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
       try {
         await loadSavedGroups();
       } catch {
-        /* ignore */
       }
     }
   };
@@ -522,27 +515,25 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => {} }
     loadSavedGroups();
   }, [user?._id, user?.id]);
 
-  // --- Render ---------------------------------------------------------------
+  // Render 
   return (
     <div className="space-y-3">
       <div className="flex items-center border-b border-slate-200">
         <button
           onClick={() => setActiveTab("fields")}
-          className={`flex-1 px-3 py-2 text-sm font-medium ${
-            activeTab === "fields"
-              ? "border-b-2 border-indigo-600 text-indigo-700"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
+          className={`flex-1 px-3 py-2 text-sm font-medium ${activeTab === "fields"
+            ? "border-b-2 border-indigo-600 text-indigo-700"
+            : "text-slate-500 hover:text-slate-700"
+            }`}
         >
           Editable Fields
         </button>
         <button
           onClick={() => setActiveTab("tags")}
-          className={`flex-1 px-3 py-2 text-sm font-medium ${
-            activeTab === "tags"
-              ? "border-b-2 border-indigo-600 text-indigo-700"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
+          className={`flex-1 px-3 py-2 text-sm font-medium ${activeTab === "tags"
+            ? "border-b-2 border-indigo-600 text-indigo-700"
+            : "text-slate-500 hover:text-slate-700"
+            }`}
         >
           Tags
         </button>
