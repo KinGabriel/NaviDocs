@@ -142,20 +142,22 @@ export default function DeanDashboard() {
         setLatestForwarded(res.latestForwarded || []);
         setForwardedByDepartment(res.forwardedByDepartment || []);
         setTotalForwardedCount(res.totalForwardedCount || 0);
-          // set templates data if analytics returned them (keep placeholders otherwise)
-          setTemplatesData(res.templates || templatesPlaceholder);
-          setPublishedTemplatesData(res.publishedTemplates || publishedTemplatesPlaceholder);
+        // set templates data if analytics returned them (keep placeholders otherwise)
+        setTemplatesData(res.templates || templatesPlaceholder);
+        setPublishedTemplatesData(res.publishedTemplates || publishedTemplatesPlaceholder);
         setErrorDean(null);
       } catch (e) {
-        console.error('Failed to load dean/sec dashboard', e);
+        console.error("Failed to load dean/sec dashboard", e);
         if (!mounted) return;
-        setErrorDean(e.message || 'Failed to load dean dashboard');
+        setErrorDean(e.message || "Failed to load dean dashboard");
       } finally {
         if (mounted) setLoadingDean(false);
       }
     };
     load();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const forwardedSubmissionBinsPlaceholder = [
@@ -166,9 +168,15 @@ export default function DeanDashboard() {
     { id: 5, title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
   ];
 
-  const forwardedSubmissionBinsData = (latestForwarded && latestForwarded.length)
-    ? latestForwarded.map(b => ({ id: b.id, title: b.title, department: b.department, submission: b.submissionsCount }))
-    : forwardedSubmissionBinsPlaceholder;
+  const forwardedSubmissionBinsData =
+    latestForwarded && latestForwarded.length
+      ? latestForwarded.map((b) => ({
+          id: b.id,
+          title: b.title,
+          department: b.department,
+          submission: b.submissionsCount,
+        }))
+      : forwardedSubmissionBinsPlaceholder;
 
   const forwardedSubmissionBinsColumns = [
     { key: "title", label: "Title" },
@@ -197,11 +205,20 @@ export default function DeanDashboard() {
 
   const defaultColors = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4"];
   const chartData = {
-    labels: (forwardedByDepartment && forwardedByDepartment.length) ? forwardedByDepartment.map(d => d.department) : ["Computing and Information Studies", "Management", "Accountancy"],
+    labels:
+      forwardedByDepartment && forwardedByDepartment.length
+        ? forwardedByDepartment.map((d) => d.department)
+        : ["Computing and Information Studies", "Management", "Accountancy"],
     datasets: [
       {
-        data: (forwardedByDepartment && forwardedByDepartment.length) ? forwardedByDepartment.map(d => d.count) : [56, 36, 5],
-        backgroundColor: (forwardedByDepartment && forwardedByDepartment.length) ? forwardedByDepartment.map((_, i) => defaultColors[i % defaultColors.length]) : ["#3B82F6", "#10B981", "#F59E0B"],
+        data:
+          forwardedByDepartment && forwardedByDepartment.length
+            ? forwardedByDepartment.map((d) => d.count)
+            : [56, 36, 5],
+        backgroundColor:
+          forwardedByDepartment && forwardedByDepartment.length
+            ? forwardedByDepartment.map((_, i) => defaultColors[i % defaultColors.length])
+            : ["#3B82F6", "#10B981", "#F59E0B"],
         borderWidth: 0,
         cutout: "60%",
       },
@@ -248,8 +265,7 @@ export default function DeanDashboard() {
           <Greeting name={user?.firstname || "Department Head"} />
 
           {/* Stat cards */}
-           <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
-           </div>
+          <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4"></div>
 
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
@@ -265,8 +281,9 @@ export default function DeanDashboard() {
                     <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
                   </div>
 
+                  {/* SWAPPED: this now goes to DOC_CONTROLLER_TEMPLATES_ROUTE */}
                   <button
-                    onClick={() => navigate(SUBMISSION_BINS_ROUTE)}
+                    onClick={() => navigate("/templates")}
                     className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
                   >
                     View All
@@ -281,8 +298,6 @@ export default function DeanDashboard() {
 
             {/* Right side: deadlines + chart */}
             <div className="lg:col-span-1 space-y-6">
-
-
               {/* Deadlines Summary Doughnut Chart */}
               <div className="bg-white shadow-sm rounded-lg border border-gray-100">
                 <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
@@ -302,7 +317,10 @@ export default function DeanDashboard() {
                       forwardedByDepartment.map((d, i) => (
                         <div key={d.department || i} className="flex items-center justify-between text-sm">
                           <div className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full`} style={{ backgroundColor: defaultColors[i % defaultColors.length] }}></div>
+                            <div
+                              className={`w-3 h-3 rounded-full`}
+                              style={{ backgroundColor: defaultColors[i % defaultColors.length] }}
+                            ></div>
                             <span className="text-gray-600">{d.department}</span>
                           </div>
                           <span className="font-medium text-gray-800">{d.count}</span>
@@ -313,7 +331,9 @@ export default function DeanDashboard() {
                         <div className="flex items-center justify-between text-sm">
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                            <span className="text-gray-600">Department of Computing and Information Studies</span>
+                            <span className="text-gray-600">
+                              Department of Computing and Information Studies
+                            </span>
                           </div>
                           <span className="font-medium text-gray-800">56</span>
                         </div>
@@ -335,7 +355,6 @@ export default function DeanDashboard() {
                         </div>
                       </>
                     )}
-
                   </div>
                 </div>
               </div>
@@ -346,7 +365,7 @@ export default function DeanDashboard() {
           */}
           </div>
 
-          {/* Recently Published Table */}
+          {/* Recently Forwarded Submission Bins */}
           <div className="bg-[#FBFBFB] shadow p-4 rounded w-full mt-6">
             <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
               <div>
@@ -356,8 +375,9 @@ export default function DeanDashboard() {
                 <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
               </div>
 
+              {/* SWAPPED: this now goes to SUBMISSION_BINS_ROUTE */}
               <button
-                onClick={() => navigate(DOC_CONTROLLER_TEMPLATES_ROUTE)}
+                onClick={() => navigate(SUBMISSION_BINS_ROUTE)}
                 className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
               >
                 View All
@@ -391,7 +411,6 @@ export default function DeanDashboard() {
               <Table columns={publishedTemplatesColumns} data={publishedTemplatesData} />
             </div>
           </div>
-
         </main>
       </div>
     </div>
