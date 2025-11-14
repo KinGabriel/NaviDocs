@@ -8,13 +8,13 @@ import Dropdown from "../../components/dropdowns/dropdown";
 import SearchBar from "../../components/searchbar";
 import { StatusBadge, formatDate } from "../../utils/formatters";
 import Loader from "../../components/loader";
-import { listSubmissionBinsAPI} from "../../api/assignmentDocumentsAPI";
-import { 
-  Calendar, 
-  Clock, 
-  FileText, 
-  AlertCircle, 
-  CheckCircle, 
+import { listSubmissionBinsAPI } from "../../api/assignmentDocumentsAPI";
+import {
+  Calendar,
+  Clock,
+  FileText,
+  AlertCircle,
+  CheckCircle,
   Eye,
   Upload,
   User,
@@ -31,62 +31,62 @@ export default function FacultySubmissions() {
   const user = useUser();
   const navigate = useNavigate();
   const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [isUploading, setIsUploading] = useState(false);  
+  const [setIsUploading] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [sortBy, setSortBy] = useState("Recent");
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   useEffect(() => {
     const fetchSubmissions = async () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Fetch ALL bins and filter on frontend
         const response = await listSubmissionBinsAPI();
-        
+
         const bins = Array.isArray(response) ? response : (response.data || []);
-        
+
         // Filter out archived bins
         const activeBins = bins.filter(bin => {
           const binStatus = String(bin.status || '').toLowerCase();
           return binStatus !== 'archived';
         });
-        
+
         // Transform bins into submission items for the current user
         const transformedSubmissions = activeBins.flatMap(bin => {
-                 
+
           // Find submissions in this bin that belong to current user
           const userSubmissions = (bin.submissions || []).filter(sub => {
             const facultyId = sub.faculty?._id || sub.faculty?.id || sub.faculty;
             const userId = user?._id || user?.id;
-            
+
             return facultyId === userId;
           });
-          
+
           return userSubmissions.map(sub => {
-          // Determine status - validate that submission actually has documents 
+            // Determine status - validate that submission actually has documents 
             let status = getSubmissionBinStatus(sub, bin.deadline);
 
-          // Handle submittedFiles - supports both documents array and single document
-          let submittedFiles = [];
-          if (Array.isArray(sub.documents) && sub.documents.length > 0) {
-            submittedFiles = sub.documents.map(doc => ({
-              id: doc._id || doc.id || doc,
-              name: doc.title || doc.name || 'Document',
-              uploadedAt: sub.submitted_at
-            }));
-          } else if (sub.document && sub.document !== null) {
-            submittedFiles = [{ 
-              id: sub.document,
-              name: 'Document.pdf', 
-              uploadedAt: sub.submitted_at 
-            }];
-          }
-          
+            // Handle submittedFiles - supports both documents array and single document
+            let submittedFiles = [];
+            if (Array.isArray(sub.documents) && sub.documents.length > 0) {
+              submittedFiles = sub.documents.map(doc => ({
+                id: doc._id || doc.id || doc,
+                name: doc.title || doc.name || 'Document',
+                uploadedAt: sub.submitted_at
+              }));
+            } else if (sub.document && sub.document !== null) {
+              submittedFiles = [{
+                id: sub.document,
+                name: 'Document.pdf',
+                uploadedAt: sub.submitted_at
+              }];
+            }
+
             return {
               id: sub._id || sub.id,
               binId: bin._id || bin.id,
@@ -103,7 +103,7 @@ export default function FacultySubmissions() {
             };
           });
         });
-        
+
         setSubmissions(transformedSubmissions);
       } catch (err) {
         console.error('Failed to fetch submissions:', err);
@@ -121,11 +121,11 @@ export default function FacultySubmissions() {
   // Filter and sort
   const filtered = useMemo(() => {
     let rows = [...submissions];
-    
+
     if (statusFilter !== "All Status") {
       rows = rows.filter(r => r.status.toLowerCase() === statusFilter.toLowerCase());
     }
-    
+
     if (query.trim()) {
       const q = query.toLowerCase();
       rows = rows.filter(r =>
@@ -133,7 +133,7 @@ export default function FacultySubmissions() {
         r.assignedBy.toLowerCase().includes(q)
       );
     }
-    
+
     if (sortBy === "Recent") {
       rows.sort((a, b) => new Date(b.assignedAt) - new Date(a.assignedAt));
     } else if (sortBy === "Oldest") {
@@ -143,19 +143,19 @@ export default function FacultySubmissions() {
     } else if (sortBy === "A–Z") {
       rows.sort((a, b) => a.title.localeCompare(b.title));
     }
-    
+
     return rows;
   }, [query, statusFilter, sortBy, submissions]);
 
   // Stats
   const stats = useMemo(() => {
-  const pending = submissions.filter(s => s.status === "pending").length; 
-  const submitted = submissions.filter(s => s.status === "submitted").length;
-  const returned = submissions.filter(s => s.status === "returned").length;
-  const overdue = submissions.filter(s => s.status === "overdue").length;
-  
-  return { total: submissions.length, pending, returned, submitted, overdue };
-  }, [submissions]); 
+    const pending = submissions.filter(s => s.status === "pending").length;
+    const submitted = submissions.filter(s => s.status === "submitted").length;
+    const returned = submissions.filter(s => s.status === "returned").length;
+    const overdue = submissions.filter(s => s.status === "overdue").length;
+
+    return { total: submissions.length, pending, returned, submitted, overdue };
+  }, [submissions]);
 
   // Pagination
   const pageSize = 8;
@@ -191,78 +191,78 @@ export default function FacultySubmissions() {
     );
   }
 
-    if (error) {
+  if (error) {
 
-      const getErrorDetails = (errorMsg) => {
-        const msg = String(errorMsg || '').toLowerCase();
-        
-        // Network/connection issues
-        if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch')) {
-          return {
-            title: 'Connection Problem',
-            message: 'Unable to load your submission bins. Please check your internet connection and try again.',
-            suggestion: 'Make sure you\'re connected to the internet'
-          };
-        }
-        
-        // Permission/access issues
-        if (msg.includes('unauthorized') || msg.includes('403') || msg.includes('permission')) {
-          return {
-            title: 'Access Denied',
-            message: 'You don\'t have permission to view these submissions.',
-            suggestion: 'Contact your department head if you believe this is an error'
-          };
-        }
-        
-        // Server issues
-        if (msg.includes('500') || msg.includes('server')) {
-          return {
-            title: 'Server Error',
-            message: 'Our servers are having trouble right now. Please try again in a few moments.',
-            suggestion: ''
-          };
-        }
-        
-        // Default message
+    const getErrorDetails = (errorMsg) => {
+      const msg = String(errorMsg || '').toLowerCase();
+
+      // Network/connection issues
+      if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch')) {
         return {
-          title: 'Unable to Load Submissions',
-          message: 'We couldn\'t load your submission bins at this time.',
-          suggestion: 'Try refreshing the page or check back later'
+          title: 'Connection Problem',
+          message: 'Unable to load your submission bins. Please check your internet connection and try again.',
+          suggestion: 'Make sure you\'re connected to the internet'
         };
+      }
+
+      // Permission/access issues
+      if (msg.includes('unauthorized') || msg.includes('403') || msg.includes('permission')) {
+        return {
+          title: 'Access Denied',
+          message: 'You don\'t have permission to view these submissions.',
+          suggestion: 'Contact your department head if you believe this is an error'
+        };
+      }
+
+      // Server issues
+      if (msg.includes('500') || msg.includes('server')) {
+        return {
+          title: 'Server Error',
+          message: 'Our servers are having trouble right now. Please try again in a few moments.',
+          suggestion: ''
+        };
+      }
+
+      // Default message
+      return {
+        title: 'Unable to Load Submissions',
+        message: 'We couldn\'t load your submission bins at this time.',
+        suggestion: 'Try refreshing the page or check back later'
       };
-      
-      const errorDetails = getErrorDetails(error);
-      
-      return (
-       <div className="min-h-screen bg-gray-200 flex flex-col">
-          <Header user={user} />
-          <div className="flex flex-1">
-            <Sidebar user={user} />
-            <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
-              <div className="flex-1 flex items-center justify-center px-1 py-5">
-                <div className="max-w-lg w-full">
+    };
+
+    const errorDetails = getErrorDetails(error);
+
+    return (
+      <div className="min-h-screen bg-gray-200 flex flex-col">
+        <Header user={user} />
+        <div className="flex flex-1">
+          <Sidebar user={user} />
+          <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
+            <div className="flex-1 flex items-center justify-center px-1 py-5">
+              <div className="max-w-lg w-full">
                 {/* Icon */}
                 <div className="flex justify-center mb-4">
                   <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
                     <AlertCircle size={32} className="text-red-600" />
                   </div>
                 </div>
-                
+
                 {/* Title */}
                 <h3 className="text-xl font-bold text-gray-900 text-center mb-3">
                   {errorDetails.title}
                 </h3>
-                
+
                 {/* Main Message */}
                 <p className="text-gray-700 text-center mb-2">
                   {errorDetails.message}
                 </p>
-                
+
                 {/* Suggestion */}
                 <p className="text-sm text-gray-600 text-center mb-6">
                   {errorDetails.suggestion}
                 </p>
-                
+
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
@@ -274,7 +274,7 @@ export default function FacultySubmissions() {
                     </svg>
                     Try Again
                   </button>
-                  
+
                   <button
                     onClick={() => navigate('/')}
                     className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
@@ -287,14 +287,14 @@ export default function FacultySubmissions() {
           </div>
         </div>
       </div>
-      );
-    }
+    );
+  }
 
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
 
     if (files.length === 0) return;
-    
+
     // Add files directly 
     setUploadedFiles(prev => [
       ...prev,
@@ -315,9 +315,9 @@ export default function FacultySubmissions() {
 
   const handleSubmitFiles = async () => {
     if (uploadedFiles.length === 0) return;
-    
+
     setIsUploading(true);
-    
+
     try {
       // Create FormData for file upload
       const formData = new FormData();
@@ -325,12 +325,10 @@ export default function FacultySubmissions() {
         formData.append('files', fileObj.file);
       });
       formData.append('submissionId', id);
-      
-      // TODO: Replace with actual API call
-      
+
       // Simulate API call for demo
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       // Update submission state
       setSubmission(prev => ({
         ...prev,
@@ -341,20 +339,20 @@ export default function FacultySubmissions() {
           name: f.name,
           size: f.size,
           uploadedAt: f.uploadedAt,
-          url: `/uploaded/${f.name}` 
+          url: `/uploaded/${f.name}`
         }))
       }));
-      
+
       setUploadedFiles([]);
       toast.success('Files submitted successfully!');
-      
+
     } catch (error) {
       console.error('Upload failed:', error);
       toast.error('Failed to upload files. Please try again.');
     } finally {
       setIsUploading(false);
     }
-};
+  };
 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
@@ -363,7 +361,7 @@ export default function FacultySubmissions() {
         <Sidebar user={user} />
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
           <div className="flex-1 px-1 py-5">
-            
+
             {/* Header Section */}
             <div className="mb-6">
               <div className="mb-4">
@@ -481,11 +479,10 @@ export default function FacultySubmissions() {
                     <button
                       key={num}
                       onClick={() => pagination.handlePage(num)}
-                      className={`px-3 py-1 rounded border ${
-                        pagination.currentPage === num
-                          ? "bg-blue-600 text-white"
-                          : "bg-white text-gray-700 hover:bg-gray-100"
-                      }`}
+                      className={`px-3 py-1 rounded border ${pagination.currentPage === num
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-100"
+                        }`}
                     >
                       {num}
                     </button>
@@ -592,13 +589,12 @@ function SubmissionCard({ submission, onView }) {
           </div>
           <button
             onClick={onView}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${
-              isSubmitted
-                ? "bg-gray-600 text-white hover:bg-gray-700"
-                : isReturned
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${isSubmitted
+              ? "bg-gray-600 text-white hover:bg-gray-700"
+              : isReturned
                 ? "bg-orange-600 text-white hover:bg-orange-700"
                 : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
+              }`}
           >
             {isSubmitted ? (
               <>

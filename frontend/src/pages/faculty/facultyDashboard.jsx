@@ -48,13 +48,13 @@ export default function FacultyDashboard() {
         setLoading(true);
         const res = await getFacultyDashboardAPI();
         if (!mounted) return;
-  setRecentSubmissions(res.submissions || []);
-  setAssignedBins(res.assignedBins || []);
-  // use server-provided deadline buckets when available
-  const dueToday = Array.isArray(res.dueToday) ? res.dueToday : [];
-  const upcoming = Array.isArray(res.upcoming) ? res.upcoming : [];
-  const overdue = Array.isArray(res.overdue) ? res.overdue : [];
-  setUpcomingDeadlines([...dueToday, ...upcoming, ...overdue]);
+        setRecentSubmissions(res.submissions || []);
+        setAssignedBins(res.assignedBins || []);
+        // use server-provided deadline buckets when available
+        const dueToday = Array.isArray(res.dueToday) ? res.dueToday : [];
+        const upcoming = Array.isArray(res.upcoming) ? res.upcoming : [];
+        const overdue = Array.isArray(res.overdue) ? res.overdue : [];
+        setUpcomingDeadlines([...dueToday, ...upcoming, ...overdue]);
         setError(null);
       } catch (err) {
         console.error('Failed to load faculty dashboard', err);
@@ -128,7 +128,7 @@ export default function FacultyDashboard() {
       label: "Action",
       render: (row) => (
         <button
-            onClick={(e) => {
+          onClick={(e) => {
             e.stopPropagation();
             const id = row.documents?.[0]?.id || row._id || row.id || row.templateId;
             navigate(`/templates/published/${id}`, {
@@ -144,7 +144,6 @@ export default function FacultyDashboard() {
   ];
 
   // upcomingDeadlines is provided by server (dueToday, upcoming, overdue merged)
-
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
@@ -152,8 +151,8 @@ export default function FacultyDashboard() {
       <div className="flex flex-1 flex-col md:flex-row">
         <Sidebar user={user} active="Dashboard" />
 
-      <main className="flex-1 flex flex-col bg-white shadow rounded-xl mx-4 my-4 md:mx-6 md:mt-8 p-4 md:p-10">
-        <Greeting name={user?.firstname || "Faculty"} />
+        <main className="flex-1 flex flex-col bg-white shadow rounded-xl mx-4 my-4 md:mx-6 md:mt-8 p-4 md:p-10">
+          <Greeting name={user?.firstname || "Faculty"} />
           {/* Stat cards */}
           <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
             {/* Upcoming Deadlines */}
