@@ -173,14 +173,12 @@ export function StatusBadge({ type }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${
-        styles[status] || "bg-gray-50 text-gray-700 border border-gray-200"
-      }`}
+      className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${styles[status] || "bg-gray-50 text-gray-700 border border-gray-200"
+        }`}
     >
       <span
-        className={`h-2 w-2 rounded-full ${
-          dotColors[status] || "bg-gray-500"
-        }`}
+        className={`h-2 w-2 rounded-full ${dotColors[status] || "bg-gray-500"
+          }`}
       />
       {toPascalCase(status)}
     </span>

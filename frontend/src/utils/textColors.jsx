@@ -1,9 +1,6 @@
-// src/components/font_layout/textColors.jsx
 import React, { useMemo, useState, useCallback } from "react";
 
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
+/* Helpers */
 const normalizeHex = (hex) => {
   if (!hex) return "#000000";
   let h = String(hex).trim().toLowerCase();
@@ -18,9 +15,7 @@ const updateRecent = (prev, picked, max = 8) => {
   return next.slice(0, max);
 };
 
-/* -------------------------------------------------------------------------- */
-/* Palettes                                                                   */
-/* -------------------------------------------------------------------------- */
+/* Palettes */
 const DEFAULT_TEXT_PALETTE = Object.freeze([
   "#000000", "#333333", "#666666", "#808080", "#999999", "#b3b3b3",
   "#cccccc", "#e6e6e6", "#f2f2f2", "#ffffff", "#990000", "#ff0000",
@@ -29,21 +24,14 @@ const DEFAULT_TEXT_PALETTE = Object.freeze([
 ]);
 
 const DEFAULT_HIGHLIGHT_PALETTE = Object.freeze([
-  // Yellows / Ambers
   "#fff59d", "#ffff00", "#fde68a", "#fef08a", "#ffe082", "#ffd27f", "#ffb74d",
-  // Blues / Cyans
   "#bbdefb", "#90caf9", "#80deea", "#b3e5fc", "#a5f3fc",
-  // Greens
   "#c8e6c9", "#a5d6a7", "#86efac", "#b9fbc0",
-  // Pinks / Reds
   "#ffcdd2", "#ffd1dc", "#fda4af",
-  // Neutrals / Extras
   "#e5e7eb", "#f3f4f6", "#e9d5ff", "#fde2e4", "#fff1c1", "#d1fae5", "#cffafe",
 ]);
 
-/* -------------------------------------------------------------------------- */
-/* Swatch Button                                                              */
-/* -------------------------------------------------------------------------- */
+/* Swatch Button */
 const SwatchButton = React.memo(function SwatchButton({ color, onClick, title, rounded = "full" }) {
   return (
     <button
@@ -57,9 +45,7 @@ const SwatchButton = React.memo(function SwatchButton({ color, onClick, title, r
   );
 });
 
-/* -------------------------------------------------------------------------- */
-/* TextColors Component                                                        */
-/* -------------------------------------------------------------------------- */
+/* TextColors Component */
 /**
  * Props:
  *  - editor: TipTap editor instance (required)
@@ -112,7 +98,7 @@ export default function TextColors({
       if (isReady) {
         try {
           editor.chain().focus().setColor(color).run();
-        } catch {}
+        } catch { }
       }
       setCurrentTextColor(color);
       if (maxRecents > 0) {
@@ -132,7 +118,7 @@ export default function TextColors({
           const ch = editor.chain().focus();
           if (editor?.commands?.setHighlight) ch.setHighlight({ color }).run();
           else ch.toggleHighlight({ color }).run();
-        } catch {}
+        } catch { }
       }
       setCurrentHighlight(color);
       if (typeof onHighlightChange === "function") onHighlightChange(color);
@@ -144,7 +130,7 @@ export default function TextColors({
 
   return (
     <div className="mb-4">
-      {/* ============================== TEXT COLOR ============================== */}
+      {/* TEXT COLOR */}
       <div className="flex items-center justify-between">
         <div className="font-semibold text-gray-800">Text color</div>
         <label
@@ -180,7 +166,7 @@ export default function TextColors({
         </>
       )}
 
-      {/* ============================ HIGHLIGHT COLOR =========================== */}
+      {/* HIGHLIGHT COLOR */}
       {enableHighlight && (
         <div className="mt-5">
           <div className="flex items-center justify-between">
@@ -201,7 +187,7 @@ export default function TextColors({
             </label>
           </div>
 
-        
+
           <div className="flex flex-wrap mt-2">
             {HL_PALETTE.map((c) => (
               <SwatchButton
@@ -209,7 +195,7 @@ export default function TextColors({
                 color={c}
                 onClick={applyHighlight}
                 title={c}
-                rounded="md" 
+                rounded="md"
               />
             ))}
           </div>
