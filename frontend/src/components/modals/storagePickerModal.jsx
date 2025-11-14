@@ -19,10 +19,10 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
 
   useEffect(() => {
     if (!open) return;
-    
+
     // Extract userId
     const userId = user?._id || user?.userId || user?.id;
-    
+
     if (!userId) {
       setError('User information not available. Please refresh the page.');
       setLoading(false);
@@ -49,16 +49,15 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
   }, [open, user]);
 
   const subfolders = useMemo(() => {
-    // List only real subfolders of the current location and filter out any phantom/placeholder entries like "..."
     const list = folders.filter(f => {
       const pid = f.parentFolder || null;
       return (pid || null) === (currentFolderId || null);
     })
-    .filter(f => {
-      const name = (f.folderName ?? '').trim();
-      return name.length > 0 && name !== '...';
-    })
-    .sort((a, b) => (a.folderName || '').localeCompare(b.folderName || ''));
+      .filter(f => {
+        const name = (f.folderName ?? '').trim();
+        return name.length > 0 && name !== '...';
+      })
+      .sort((a, b) => (a.folderName || '').localeCompare(b.folderName || ''));
     return list;
   }, [folders, currentFolderId]);
 
@@ -142,12 +141,12 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-200">
           <div className="flex items-start justify-between">
-          <div>
+            <div>
               <h2 className="text-xl font-semibold text-gray-900">Export to Storage</h2>
               <p className="text-sm text-gray-500 mt-1">Choose a destination folder for your PDF, then it will download</p>
             </div>
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
               aria-label="Close"
             >
@@ -159,40 +158,40 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
         </div>
 
         {/* Breadcrumb Navigation */}
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <div className="flex items-center flex-wrap gap-2 text-sm overflow-x-auto">
-              {/* Label */}
-              <div className="flex items-center text-gray-600 font-medium whitespace-nowrap">
-                <span>Current location:</span>
-              </div>
-
-              {/* Root */}
-              <button
-                onClick={() => handleBreadcrumbClick(-1)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-white transition-colors whitespace-nowrap text-gray-700 hover:text-blue-600 font-medium"
-              >
-                <span>My Storage</span>
-              </button>
-
-              {path.length > 3 && (
-                <>
-                  <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span className="text-gray-400 select-none">...</span>
-                </>
-              )}
-
-              {path.slice(-3).map((p, i) => (
-                <React.Fragment key={p._id}>
-                  <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <button
-                    onClick={() => handleBreadcrumbClick(path.length - 3 + i)}
-                    className="px-2.5 py-1.5 rounded-lg hover:bg-white transition-colors whitespace-nowrap text-gray-700 hover:text-blue-600 font-medium"
-                  >
-                    {p.name}
-                  </button>
-                </React.Fragment>
-              ))}
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <div className="flex items-center flex-wrap gap-2 text-sm overflow-x-auto">
+            {/* Label */}
+            <div className="flex items-center text-gray-600 font-medium whitespace-nowrap">
+              <span>Current location:</span>
             </div>
+
+            {/* Root */}
+            <button
+              onClick={() => handleBreadcrumbClick(-1)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-white transition-colors whitespace-nowrap text-gray-700 hover:text-blue-600 font-medium"
+            >
+              <span>My Storage</span>
+            </button>
+
+            {path.length > 3 && (
+              <>
+                <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <span className="text-gray-400 select-none">...</span>
+              </>
+            )}
+
+            {path.slice(-3).map((p, i) => (
+              <React.Fragment key={p._id}>
+                <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <button
+                  onClick={() => handleBreadcrumbClick(path.length - 3 + i)}
+                  className="px-2.5 py-1.5 rounded-lg hover:bg-white transition-colors whitespace-nowrap text-gray-700 hover:text-blue-600 font-medium"
+                >
+                  {p.name}
+                </button>
+              </React.Fragment>
+            ))}
+          </div>
         </div>
 
         {/* Content Area */}
@@ -206,7 +205,7 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
             </div>
           )}
 
-         {/* Folders List */}
+          {/* Folders List */}
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
               <Folder className="w-4 h-4 text-blue-600" />
@@ -214,11 +213,11 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
             </h3>
 
             <div className="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
-            {loading ? (
-              <div className="p-8 text-center">
+              {loading ? (
+                <div className="p-8 text-center">
                   <Loader message='Loading folders...' />
                 </div>
-                
+
               ) : subfolders.length === 0 ? (
                 <div className="p-8 text-center">
                   <Folder className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -235,27 +234,24 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
                     return (
                       <div
                         key={folder._id}
-                        className={`flex items-center justify-between p-4 transition-all duration-150 group ${
-                          isCurrentLocation
+                        className={`flex items-center justify-between p-4 transition-all duration-150 group ${isCurrentLocation
                             ? 'bg-blue-50 border-l-4 border-blue-600'
                             : 'hover:bg-blue-50'
-                        }`}
+                          }`}
                       >
                         <button
                           className="flex items-center gap-3 flex-1 text-left"
                           onClick={() => handleEnterFolder(folder)}
                         >
                           <div
-                            className={`p-2 rounded-lg transition-colors ${
-                              isCurrentLocation
+                            className={`p-2 rounded-lg transition-colors ${isCurrentLocation
                                 ? 'bg-blue-200'
                                 : 'bg-blue-100 group-hover:bg-blue-200'
-                            }`}
+                              }`}
                           >
                             <Folder
-                              className={`w-5 h-5 ${
-                                isCurrentLocation ? 'text-blue-700' : 'text-blue-600'
-                              }`}
+                              className={`w-5 h-5 ${isCurrentLocation ? 'text-blue-700' : 'text-blue-600'
+                                }`}
                             />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -264,21 +260,21 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
                             </p>
                           </div>
                           <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
-                       </button>
-                    <button
-                      className="ml-3 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-md"
-                      disabled={submitting}
-                      onClick={() => handleConfirm(folder._id)}
-                    >
+                        </button>
+                        <button
+                          className="ml-3 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-md"
+                          disabled={submitting}
+                          onClick={() => handleConfirm(folder._id)}
+                        >
                           {submitting ? 'Moving...' : 'Move Here'}
-                    </button>
-                  </div>
-                );
-              })}
-              </div>
-            )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
           {/* Create New Folder */}
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
@@ -297,11 +293,10 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
               <button
                 onClick={handleCreate}
                 disabled={creating || !newFolderName.trim()}
-                className={`px-5 py-2.5 rounded-lg text-white text-sm font-medium flex items-center gap-2 transition-all ${
-                  creating || !newFolderName.trim() 
-                    ? 'bg-gray-300 cursor-not-allowed' 
+                className={`px-5 py-2.5 rounded-lg text-white text-sm font-medium flex items-center gap-2 transition-all ${creating || !newFolderName.trim()
+                    ? 'bg-gray-300 cursor-not-allowed'
                     : 'bg-blue-600 hover:bg-blue-700 hover:shadow-md'
-                }`}
+                  }`}
               >
                 <FolderPlus className="w-4 h-4" />
                 {creating ? 'Creating...' : 'Create'}
@@ -321,8 +316,8 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
             Back
           </button>
           <div className="flex items-center gap-3">
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="px-5 py-2.5 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium transition-colors"
             >
               Cancel
@@ -330,11 +325,10 @@ export default function StoragePickerModal({ open, onClose, user, onConfirm }) {
             <button
               onClick={() => handleConfirm()}
               disabled={submitting}
-              className={`px-6 py-2.5 rounded-lg text-white text-sm font-medium transition-all ${
-                submitting 
-                  ? 'bg-gray-400 cursor-not-allowed' 
+              className={`px-6 py-2.5 rounded-lg text-white text-sm font-medium transition-all ${submitting
+                  ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg'
-              }`}
+                }`}
             >
               {submitting ? (
                 <span className="flex items-center gap-2">

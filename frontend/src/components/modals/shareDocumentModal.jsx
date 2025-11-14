@@ -27,19 +27,19 @@ export default function ShareDocumentModal({
 
   const addMember = async (val) => {
     if (!val) return;
-    
+
     const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     const key = String(val);
-    
+
     // Check if already selected
     if (selectedIds.includes(key)) {
       toast.error('User already added');
       return;
     }
-    
+
     let userId = key;
     let userInfo = knownUsers[key];
-    
+
     // If it's an email and we don't have the user info, fetch it
     if (emailRegex.test(key) && !userInfo) {
       try {
@@ -48,7 +48,7 @@ export default function ShareDocumentModal({
           toast.error('No user found with this email.');
           return;
         }
-        
+
         // Fetch full user info
         try {
           const userInfoArray = await getUsersInfoByIdsAPI([userId]);
@@ -57,7 +57,7 @@ export default function ShareDocumentModal({
             const id = String(u.userId || u.id || u._id);
             const email = u.email || key;
             const name = u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || email;
-            const role = u.role || u.user_role || u.position || "User"; 
+            const role = u.role || u.user_role || u.position || "User";
 
             userInfo = { id, email, name, role };
             setKnownUsers((prev) => ({
@@ -75,7 +75,7 @@ export default function ShareDocumentModal({
         return;
       }
     }
-    
+
     const useId = String(userId);
     setSelectedIds((prev) => prev.includes(useId) ? prev : [...prev, useId]);
     setSelectedAccess((prev) => ({ ...prev, [useId]: prev[useId] || 'viewer' }));
@@ -83,48 +83,48 @@ export default function ShareDocumentModal({
     setSuggestions([]);
   };
 
-// Debounced email suggestion fetcher
-const fetchEmailSuggestions = async (query) => {
-  if (!query || query.length < 2) {
-    setSuggestions([]);
-    return;
-  }
-  setLoadingSuggestions(true);
-  try {
-    const users = await searchUsersByEmailAPI(query);
-    const list = Array.isArray(users)
-    ? users.map(u => {
-      const id = u.userId || u.id || u._id || u.email;
-      const email = u.email || '';
-      const name = u.name || u.fullname || (`${u.firstname || ''} ${u.lastname || ''}`).trim() || email;
-      const role = u.role || u.user_role || u.position || "User";
-      return { id, email, name, role };
-    }) : [];
-    
-    // Update knownUsers map
-    setKnownUsers((prev) => {
-      const copy = { ...prev };
-      users.forEach((u) => {
-        const id = String(u.userId || u.id || u._id);
-        const email = u.email || '';
-        const name = u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || email || id;
-        const role = u.role || 'User'; 
-        const obj = { id, email, name, role }; 
-        copy[id] = obj;
-        if (email) copy[String(email)] = obj;
-        if (name) copy[String(name).toLowerCase()] = obj;
+  // Debounced email suggestion fetcher
+  const fetchEmailSuggestions = async (query) => {
+    if (!query || query.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    setLoadingSuggestions(true);
+    try {
+      const users = await searchUsersByEmailAPI(query);
+      const list = Array.isArray(users)
+        ? users.map(u => {
+          const id = u.userId || u.id || u._id || u.email;
+          const email = u.email || '';
+          const name = u.name || u.fullname || (`${u.firstname || ''} ${u.lastname || ''}`).trim() || email;
+          const role = u.role || u.user_role || u.position || "User";
+          return { id, email, name, role };
+        }) : [];
+
+      // Update knownUsers map
+      setKnownUsers((prev) => {
+        const copy = { ...prev };
+        users.forEach((u) => {
+          const id = String(u.userId || u.id || u._id);
+          const email = u.email || '';
+          const name = u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || email || id;
+          const role = u.role || 'User';
+          const obj = { id, email, name, role };
+          copy[id] = obj;
+          if (email) copy[String(email)] = obj;
+          if (name) copy[String(name).toLowerCase()] = obj;
+        });
+        return copy;
       });
-      return copy;
-    });
-    
-    setSuggestions(list);
-  } catch (err) {
-    console.error('Search error:', err);
-    setSuggestions([]);
-  } finally {
-    setLoadingSuggestions(false);
-  }
-};
+
+      setSuggestions(list);
+    } catch (err) {
+      console.error('Search error:', err);
+      setSuggestions([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
 
   // Initialize debounce function 
   useEffect(() => {
@@ -144,27 +144,27 @@ const fetchEmailSuggestions = async (query) => {
     try {
       const res = await searchUsersByEmailAPI("");
       const list = Array.isArray(res) ? res.map(u => {
-      const id = u.userId || u.id || u._id || u.email;
-      const email = u.email || '';
-      const name = u.name || u.fullname || u.fullName || (`${u.firstname || ''} ${u.lastname || ''}`).trim() || email;
-      const role = u.role || 'User'; 
-      return { id, email, name, role }; 
-    }) : [];
-      
-      setKnownUsers((prev) => {
-      const copy = { ...prev };
-      users.forEach((u) => {
-        const id = String(u.userId || u.id || u._id);
+        const id = u.userId || u.id || u._id || u.email;
         const email = u.email || '';
-        const name = u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || email || id;
-        const role = u.role || 'User'; 
-        const obj = { id, email, name, role }; 
-        copy[id] = obj;
-        if (email) copy[String(email)] = obj;
-        if (name) copy[String(name).toLowerCase()] = obj;
+        const name = u.name || u.fullname || u.fullName || (`${u.firstname || ''} ${u.lastname || ''}`).trim() || email;
+        const role = u.role || 'User';
+        return { id, email, name, role };
+      }) : [];
+
+      setKnownUsers((prev) => {
+        const copy = { ...prev };
+        users.forEach((u) => {
+          const id = String(u.userId || u.id || u._id);
+          const email = u.email || '';
+          const name = u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || email || id;
+          const role = u.role || 'User';
+          const obj = { id, email, name, role };
+          copy[id] = obj;
+          if (email) copy[String(email)] = obj;
+          if (name) copy[String(name).toLowerCase()] = obj;
+        });
+        return copy;
       });
-      return copy;
-    });
       setSuggestions(list);
     } catch (err) {
       toast.error('Failed to load users');
@@ -175,29 +175,29 @@ const fetchEmailSuggestions = async (query) => {
   };
 
   // Build list of selected members by matching id to name from members (API)
- const selectedMembers = useMemo(() => {
-  return selectedIds.map((sid) => {
-    const sidStr = String(sid);
-    // prefer knownUsers map
-    if (knownUsers[sidStr]) { return { id: sidStr, name: knownUsers[sidStr].name, email: knownUsers[sidStr].email, role: knownUsers[sidStr].role };}
-    // try to find in members fetched earlier
-    const found = members.find((c) => String(c.id) === sidStr);
-    if (found) {
-      return { 
-        id: sidStr, 
-        name: found.name || found.fullName || found.displayName || sidStr, 
-        email: found.email || '',
-        role: found.role || ''
-      };
-    }
-    if (Array.isArray(template?.assigned) && Array.isArray(template?.assignedNames)) {
-      const idx = template.assigned.indexOf(sid);
-      if (idx !== -1) return { id: sidStr, name: template.assignedNames[idx] || sidStr, email: '', role: '' }; 
-    }
-    // fallback to raw id/email
-    return { id: sidStr, name: sidStr, email: '', role: '' }; 
-  });
-}, [selectedIds, members, knownUsers, template]);
+  const selectedMembers = useMemo(() => {
+    return selectedIds.map((sid) => {
+      const sidStr = String(sid);
+      // prefer knownUsers map
+      if (knownUsers[sidStr]) { return { id: sidStr, name: knownUsers[sidStr].name, email: knownUsers[sidStr].email, role: knownUsers[sidStr].role }; }
+      // try to find in members fetched earlier
+      const found = members.find((c) => String(c.id) === sidStr);
+      if (found) {
+        return {
+          id: sidStr,
+          name: found.name || found.fullName || found.displayName || sidStr,
+          email: found.email || '',
+          role: found.role || ''
+        };
+      }
+      if (Array.isArray(template?.assigned) && Array.isArray(template?.assignedNames)) {
+        const idx = template.assigned.indexOf(sid);
+        if (idx !== -1) return { id: sidStr, name: template.assignedNames[idx] || sidStr, email: '', role: '' };
+      }
+      // fallback to raw id/email
+      return { id: sidStr, name: sidStr, email: '', role: '' };
+    });
+  }, [selectedIds, members, knownUsers, template]);
 
   // Resolve names and emails for all selectedIds in one batch request (fetch on modal open / when selectedIds change)
   useEffect(() => {
@@ -225,8 +225,8 @@ const fetchEmailSuggestions = async (query) => {
             const id = String(u.userId || u.id || u._id);
             const email = u.email || '';
             const name = u.name || `${u.firstname || ''} ${u.lastname || ''}`.trim() || email || id;
-            const role = u.role || 'User'; 
-            const obj = { id, email, name, role }; 
+            const role = u.role || 'User';
+            const obj = { id, email, name, role };
             copy[id] = obj;
             if (email) copy[String(email)] = obj;
             if (name) copy[String(name).toLowerCase()] = obj;
@@ -267,18 +267,18 @@ const fetchEmailSuggestions = async (query) => {
     const id = String(template.created_by);
     let name = template.createdByName || "";
     let email = '';
-    let role = ''; 
+    let role = '';
     if (!name && knownUsers[id]) {
       name = knownUsers[id].name || '';
       email = knownUsers[id].email || '';
-      role = knownUsers[id].role || ''; 
+      role = knownUsers[id].role || '';
     }
     if (!name && Array.isArray(members) && members.length) {
       const found = members.find((m) => String(m.id) === String(id));
       if (found) {
         name = found.name || found.fullName || found.displayName || '';
         email = found.email || '';
-        role = found.role || ''; 
+        role = found.role || '';
       }
     }
     if (!name && Array.isArray(template.assigned) && Array.isArray(template.assignedNames)) {
@@ -286,7 +286,7 @@ const fetchEmailSuggestions = async (query) => {
       if (idx !== -1) name = template.assignedNames[idx];
     }
     if (!name) name = id;
-    return { id, name, email, role }; 
+    return { id, name, email, role };
   }, [template, members, knownUsers]);
 
   // Submit
@@ -294,9 +294,9 @@ const fetchEmailSuggestions = async (query) => {
 
   const handleDone = async () => {
     // Build normalized assignees: [{ userId, access }]
-    const assigneesPayload = (Array.isArray(selectedIds) ? selectedIds : []).map((sid) => ({ 
-      userId: String(sid), 
-      access: (selectedAccess[sid] === 'editor' ? 'editor' : 'viewer') 
+    const assigneesPayload = (Array.isArray(selectedIds) ? selectedIds : []).map((sid) => ({
+      userId: String(sid),
+      access: (selectedAccess[sid] === 'editor' ? 'editor' : 'viewer')
     }));
 
     // Prefer parent-provided handler
@@ -333,7 +333,7 @@ const fetchEmailSuggestions = async (query) => {
   const isSharing = submitting || localLoading;
 
   // Filter out already selected members from suggestions
-  const filteredSuggestions = suggestions.filter(s => 
+  const filteredSuggestions = suggestions.filter(s =>
     !selectedIds.includes(s.id) && (!owner || s.id !== owner.id)
   );
 
@@ -348,8 +348,8 @@ const fetchEmailSuggestions = async (query) => {
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4" role="dialog" aria-modal="true">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 backdrop-blur-[2px] transition-opacity" 
+      <div
+        className="absolute inset-0 backdrop-blur-[2px] transition-opacity"
         onClick={() => {
           setSuggestions([]);
           onClose();
@@ -369,7 +369,7 @@ const fetchEmailSuggestions = async (query) => {
                 "{template?.title || "Untitled Document"}"
               </p>
             </div>
-            <button 
+            <button
               onClick={() => {
                 setSuggestions([]);
                 onClose();
@@ -396,16 +396,16 @@ const fetchEmailSuggestions = async (query) => {
                 <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
                   {owner.name.charAt(0).toUpperCase()}
                 </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-gray-900 truncate">{owner.name}</div>
-                {owner.email && <div className="text-xs text-gray-600 truncate mt-1">{owner.email}</div>}
-                {owner.role && (
-                  <div className="text-xs text-blue-700">
-                    {owner.role}
-                  </div>
-                )}
-                <div className="inline-block px-2 py-0.5 text-xs text-blue-700 bg-blue-100 rounded-md mt-0.5">Full access</div>
-              </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-gray-900 truncate">{owner.name}</div>
+                  {owner.email && <div className="text-xs text-gray-600 truncate mt-1">{owner.email}</div>}
+                  {owner.role && (
+                    <div className="text-xs text-blue-700">
+                      {owner.role}
+                    </div>
+                  )}
+                  <div className="inline-block px-2 py-0.5 text-xs text-blue-700 bg-blue-100 rounded-md mt-0.5">Full access</div>
+                </div>
                 <div className="flex-shrink-0">
                   <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -517,7 +517,7 @@ const fetchEmailSuggestions = async (query) => {
                 </span>
               )}
             </div>
-            
+
             <div className="rounded-xl border-2 border-gray-200 overflow-hidden bg-white">
               {!hasSelectedMembers ? (
                 <div className="p-12 text-center">
@@ -538,20 +538,20 @@ const fetchEmailSuggestions = async (query) => {
                           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold shadow-md">
                             {c.name.charAt(0).toUpperCase()}
                           </div>
-                       <div className="min-w-0 flex-1">
-                          <div className="font-medium text-gray-900 truncate">{c.name}</div>
-                          {c.email && <div className="text-xs text-gray-500 truncate mt-0.5">{c.email}</div>}
-                          {(c.role || knownUsers[c.id]?.role) && (
-                            <div className="text-xs text-blue-700 ">
-                              {c.role || knownUsers[c.id]?.role}
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-gray-900 truncate">{c.name}</div>
+                            {c.email && <div className="text-xs text-gray-500 truncate mt-0.5">{c.email}</div>}
+                            {(c.role || knownUsers[c.id]?.role) && (
+                              <div className="text-xs text-blue-700 ">
+                                {c.role || knownUsers[c.id]?.role}
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-500 mt-1">
+                              {selectedAccess[c.id] === 'viewer' ? 'Can view only' : 'Can view and edit'}
                             </div>
-                          )}
-                          <div className="text-xs text-gray-500 mt-1">
-                            {selectedAccess[c.id] === 'viewer' ? 'Can view only' : 'Can view and edit'}
                           </div>
                         </div>
-                        </div>
-                        
+
                         <div className="flex items-center gap-2">
                           <div className="relative">
                             <select
@@ -568,7 +568,7 @@ const fetchEmailSuggestions = async (query) => {
                               </svg>
                             </div>
                           </div>
-                          
+
                           <button
                             onClick={() => {
                               setSelectedIds((prev) => prev.filter((x) => x !== c.id));
@@ -601,8 +601,8 @@ const fetchEmailSuggestions = async (query) => {
               <span className="font-medium">Restricted access</span>
             </div>
             <div className="flex items-center gap-3">
-              <button 
-                className="px-5 py-2.5 rounded-lg border-2 border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors" 
+              <button
+                className="px-5 py-2.5 rounded-lg border-2 border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
                 onClick={onClose}
                 disabled={isSharing}
               >

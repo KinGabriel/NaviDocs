@@ -1,7 +1,7 @@
 import React from "react";
 import usePagination from "../../hooks/usePagination";
 
-export default function StatCardModal({ isOpen, onClose, title, children, data = [], itemsPerPage = 10,}) {
+export default function StatCardModal({ isOpen, onClose, title, children, data = [], itemsPerPage = 10, }) {
   const totalPages = Math.ceil(data.length / itemsPerPage);
   const pagination = usePagination(totalPages);
 
@@ -43,9 +43,9 @@ export default function StatCardModal({ isOpen, onClose, title, children, data =
         )}
 
         {/* Content */}
-       <div className="text-gray-700 flex-1">
-        {children && React.cloneElement(children, { data: currentPageData })}
-       </div>
+        <div className="text-gray-700 flex-1">
+          {children && React.cloneElement(children, { data: currentPageData })}
+        </div>
 
         {/* Pagination Controls */}
         {totalPages > 1 && (
@@ -64,11 +64,10 @@ export default function StatCardModal({ isOpen, onClose, title, children, data =
                 <button
                   key={num}
                   onClick={() => pagination.handlePage(num)}
-                  className={`px-3 py-1 rounded border ${
-                    pagination.currentPage === num
+                  className={`px-3 py-1 rounded border ${pagination.currentPage === num
                       ? "bg-blue-600 text-white"
                       : "bg-white text-gray-700 hover:bg-gray-100"
-                  }`}
+                    }`}
                 >
                   {num}
                 </button>

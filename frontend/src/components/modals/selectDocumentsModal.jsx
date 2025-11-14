@@ -3,11 +3,11 @@ import { X, Search, CheckCircle, FileText } from 'lucide-react';
 import { listDocumentsAPI } from '../../api/documentsAPI';
 import Loader from "../../components/loader";
 
-export default function SelectDocumentsModal({ 
-  isOpen, 
-  onClose, 
+export default function SelectDocumentsModal({
+  isOpen,
+  onClose,
   onSelectDocuments,
-  userId 
+  userId
 }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -28,14 +28,14 @@ export default function SelectDocumentsModal({
       const params = { limit: 100, page: 1 };
       // Add filter for current user's documents if needed
       const result = await listDocumentsAPI(params);
-      
+
       let docList = [];
       if (result && Array.isArray(result.documents)) {
         docList = result.documents;
       } else if (result?.success && Array.isArray(result.data?.documents)) {
         docList = result.data.documents;
       }
-      
+
       setDocuments(docList);
     } catch (error) {
       console.error('Error fetching documents:', error);
@@ -52,15 +52,15 @@ export default function SelectDocumentsModal({
   });
 
   const toggleDocSelection = (docId) => {
-    setSelectedDocIds(prev => 
-      prev.includes(docId) 
+    setSelectedDocIds(prev =>
+      prev.includes(docId)
         ? prev.filter(id => id !== docId)
         : [...prev, docId]
     );
   };
 
   const handleConfirm = () => {
-    const selectedDocs = documents.filter(doc => 
+    const selectedDocs = documents.filter(doc =>
       selectedDocIds.includes(doc._id || doc.id)
     );
     onSelectDocuments(selectedDocs);
@@ -136,23 +136,21 @@ export default function SelectDocumentsModal({
               {filteredDocuments.map((doc) => {
                 const docId = doc._id || doc.id;
                 const isSelected = selectedDocIds.includes(docId);
-                
+
                 return (
                   <div
                     key={docId}
-                    className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                      isSelected
+                    className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${isSelected
                         ? 'border-blue-500 bg-blue-50 shadow-md'
                         : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                    }`}
+                      }`}
                     onClick={() => toggleDocSelection(docId)}
                   >
                     <div className="flex items-start gap-4">
                       {/* Checkbox */}
                       <div className="mt-1">
-                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                          isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
-                        }`}>
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                          }`}>
                           {isSelected && <CheckCircle size={16} className="text-white" />}
                         </div>
                       </div>
@@ -162,7 +160,7 @@ export default function SelectDocumentsModal({
                         <h4 className="font-semibold text-gray-900 truncate mb-1">
                           {doc.title || 'Untitled Document'}
                         </h4>
-                        
+
                         <div className="flex flex-wrap gap-2 mt-2">
                           {doc.status && (
                             <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
@@ -200,11 +198,10 @@ export default function SelectDocumentsModal({
           <button
             onClick={handleConfirm}
             disabled={selectedDocIds.length === 0}
-            className={`px-8 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-              selectedDocIds.length === 0
+            className={`px-8 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${selectedDocIds.length === 0
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
+              }`}
           >
             <CheckCircle size={18} />
             Select {selectedDocIds.length > 0 ? `(${selectedDocIds.length})` : ''}

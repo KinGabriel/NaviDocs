@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { X, ChevronDown, ChevronUp, Search } from 'lucide-react';
-import { 
-  getFieldSuggestionsAPI, 
-  updateFieldSuggestionAPI, 
-  deleteFieldSuggestionAPI, 
-  listAllSuggestionFieldsAPI 
+import {
+  getFieldSuggestionsAPI,
+  updateFieldSuggestionAPI,
+  deleteFieldSuggestionAPI,
+  listAllSuggestionFieldsAPI
 } from '../../api/documentsAPI';
 import Loader from "../../components/loader";
 import PermanentlyDeleteDocumentModal from '../../components/modals/permanentlyDeleteDocumentModal';
@@ -14,7 +14,7 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
   const [suggestions, setSuggestions] = useState({});
   const [localFields, setLocalFields] = useState([]);
   const [activeScope, setActiveScope] = useState('user');
-  const [editing, setEditing] = useState({}); 
+  const [editing, setEditing] = useState({});
   const [busyIds, setBusyIds] = useState(new Set());
   const [expandedFields, setExpandedFields] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -22,7 +22,7 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
   const [matchMode, setMatchMode] = useState('label-tags'); // label / label + tags mode 
 
   // state for delete modal
-  const [deleteTarget, setDeleteTarget] = useState(null); 
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
@@ -129,7 +129,7 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
       setSuggestions((prev) => {
         const copy = { ...prev };
         if (Array.isArray(copy[fieldName])) {
-          copy[fieldName] = copy[fieldName].map(it => 
+          copy[fieldName] = copy[fieldName].map(it =>
             (String(it._id || it.id) === String(id) ? { ...it, value: val } : it)
           );
         }
@@ -203,8 +203,8 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
             <h3 className="text-xl font-semibold text-gray-900">Manage Saved Values</h3>
             <p className="text-sm text-gray-600 mt-0.5">Edit or delete your saved field values</p>
           </div>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="p-2 rounded-lg hover:bg-white hover:shadow-sm transition-all duration-200"
             aria-label="Close modal"
           >
@@ -215,29 +215,27 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
         {/* Scope and Search */}
         <div className="px-6 py-4 border-b border-gray-200 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-4 flex-wrap">
-            {/* Scope selector (same as before) */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Scope:</span>
-              <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setActiveScope('user')}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                    activeScope === 'user' 
-                      ? 'bg-white text-blue-700 shadow-sm' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
+            <div className="flex items-center gap-4 flex-wrap">
+              {/* Scope selector (same as before) */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700">Scope:</span>
+                <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setActiveScope('user')}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${activeScope === 'user'
+                        ? 'bg-white text-blue-700 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                  >
                     User
                   </button>
                   {isController && (
                     <button
                       onClick={() => setActiveScope('school')}
-                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                        activeScope === 'school' 
-                          ? 'bg-white text-blue-700 shadow-sm' 
+                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${activeScope === 'school'
+                          ? 'bg-white text-blue-700 shadow-sm'
                           : 'text-gray-600 hover:text-gray-900'
-                      }`}
+                        }`}
                     >
                       School
                     </button>
@@ -250,22 +248,20 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
                 <span className="text-sm font-medium text-gray-700">Match by:</span>
                 <div className="flex items-center bg-gray-100 rounded-lg p-1">
                   <button
-                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                      matchMode === 'label' 
-                        ? 'bg-white text-blue-700 shadow-sm' 
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${matchMode === 'label'
+                        ? 'bg-white text-blue-700 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
-                    }`}
+                      }`}
                     type="button"
                     onClick={() => setMatchMode('label')}
                   >
                     Label only
                   </button>
                   <button
-                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                      matchMode === 'label-tags' 
-                        ? 'bg-white text-blue-700 shadow-sm' 
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${matchMode === 'label-tags'
+                        ? 'bg-white text-blue-700 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
-                    }`}
+                      }`}
                     type="button"
                     onClick={() => setMatchMode('label-tags')}
                   >
@@ -328,8 +324,8 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
                     const hasMore = filteredSuggestions.length > INITIAL_DISPLAY;
 
                     return (
-                      <div 
-                        key={f.name} 
+                      <div
+                        key={f.name}
                         className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow duration-200"
                       >
                         {/* Field Header */}
@@ -378,8 +374,8 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
                                 const extraCount = tags.length - visibleTags.length;
 
                                 return (
-                                  <div 
-                                    key={id} 
+                                  <div
+                                    key={id}
                                     className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-150"
                                   >
                                     <div className="flex-1 min-w-0">
@@ -495,7 +491,7 @@ export default function ManageSuggestionsModal({ open, onClose, fields = [], use
                       </div>
                     );
                   })}
-          
+
                   {/* Show More/Less Fields Button */}
                   {!searchQuery && hasMoreFields && (
                     <button

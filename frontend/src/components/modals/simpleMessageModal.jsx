@@ -1,4 +1,3 @@
-// src/components/modals/simpleMessageModal.jsx
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import { X, Info } from "lucide-react";
@@ -29,17 +28,15 @@ function SimpleMessageModalContent({
     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4" role="dialog" aria-modal="true">
       {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-black transition-opacity duration-300 ${
-          isVisible ? "opacity-50" : "opacity-0"
-        }`}
+        className={`absolute inset-0 bg-black transition-opacity duration-300 ${isVisible ? "opacity-50" : "opacity-0"
+          }`}
         onClick={onClose}
       />
 
       {/* Modal box */}
       <div
-        className={`relative w-full max-w-sm bg-white rounded-2xl shadow-2xl transform transition-all duration-300 ${
-          isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"
-        }`}
+        className={`relative w-full max-w-sm bg-white rounded-2xl shadow-2xl transform transition-all duration-300 ${isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"
+          }`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">

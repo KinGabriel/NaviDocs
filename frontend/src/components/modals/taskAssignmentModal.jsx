@@ -37,19 +37,17 @@ const ProgressSteps = ({ currentStep }) => {
           <React.Fragment key={step.id}>
             <div className="flex items-center">
               <div
-                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center ${
-                  step.id <= currentStep
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center ${step.id <= currentStep
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-200 text-gray-500'
-                }`}
+                  }`}
               >
                 <step.icon size={18} className="sm:w-5 sm:h-5" />
               </div>
               <div className="ml-2 sm:ml-3">
                 <p
-                  className={`text-xs sm:text-sm font-medium ${
-                    step.id <= currentStep ? 'text-blue-600' : 'text-gray-500'
-                  }`}
+                  className={`text-xs sm:text-sm font-medium ${step.id <= currentStep ? 'text-blue-600' : 'text-gray-500'
+                    }`}
                 >
                   {step.name}
                 </p>
@@ -57,9 +55,8 @@ const ProgressSteps = ({ currentStep }) => {
             </div>
             {index < steps.length - 1 && (
               <div
-                className={`flex-1 h-0.5 mx-2 sm:mx-4 ${
-                  step.id < currentStep ? 'bg-blue-500' : 'bg-gray-200'
-                }`}
+                className={`flex-1 h-0.5 mx-2 sm:mx-4 ${step.id < currentStep ? 'bg-blue-500' : 'bg-gray-200'
+                  }`}
               />
             )}
           </React.Fragment>
@@ -421,15 +418,14 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
       // Normalize to objects with id/_id + name/email
       const normalized = Array.isArray(result)
         ? result.map((u) => ({
-            _id: u._id || u.id,
-            id: u.id || u._id,
-            name:
-              u.name ||
-              `${u.firstname || u.firstName || ''} ${
-                u.lastname || u.lastName || ''
+          _id: u._id || u.id,
+          id: u.id || u._id,
+          name:
+            u.name ||
+            `${u.firstname || u.firstName || ''} ${u.lastname || u.lastName || ''
               }`.trim(),
-            email: u.email || ''
-          }))
+          email: u.email || ''
+        }))
         : [];
       setFaculty(normalized);
     } catch (error) {
@@ -567,8 +563,8 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
       } catch (e) {
         alert(
           e?.responseData?.message ||
-            e?.message ||
-            'Failed to create submission bin'
+          e?.message ||
+          'Failed to create submission bin'
         );
       } finally {
         setSubmitting(false);
@@ -660,11 +656,10 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                   </label>
                   <input
                     type="text"
-                    className={`w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                      errors.title
+                    className={`w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${errors.title
                         ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
                         : 'border-gray-300 focus:border-blue-500'
-                    }`}
+                      }`}
                     placeholder="Enter assignment title"
                     value={title}
                     onChange={(e) => {
@@ -705,11 +700,10 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                     <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
                       <input
                         type="date"
-                        className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-700 placeholder-gray-400 ${
-                          errors.deadline
+                        className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-700 placeholder-gray-400 ${errors.deadline
                             ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
                             : 'border-gray-300 focus:border-blue-500'
-                        }`}
+                          }`}
                         value={deadline}
                         onChange={(e) => {
                           setDeadline(e.target.value);
@@ -721,11 +715,10 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                       <span className="hidden sm:inline text-gray-400">at</span>
                       <input
                         type="time"
-                        className={`w-full sm:w-40 px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-700 placeholder-gray-400 ${
-                          errors.deadline
+                        className={`w-full sm:w-40 px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-700 placeholder-gray-400 ${errors.deadline
                             ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
                             : 'border-gray-300 focus:border-blue-500'
-                        }`}
+                          }`}
                         value={deadlineTime}
                         onChange={(e) => {
                           setDeadlineTime(e.target.value);
@@ -770,11 +763,10 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                   </div>
                   <button
                     onClick={() => setShowTemplateFilters(!showTemplateFilters)}
-                    className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg border transition-all text-sm ${
-                      showTemplateFilters
+                    className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg border transition-all text-sm ${showTemplateFilters
                         ? 'bg-blue-50 border-blue-300 text-blue-700'
                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     <Filter size={16} />
                     Filters
@@ -851,16 +843,15 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                         const isSelected =
                           selectedTemplate &&
                           (selectedTemplate._id || selectedTemplate.id) ===
-                            templateId;
+                          templateId;
 
                         return (
                           <div
                             key={templateId}
-                            className={`p-4 rounded-lg border-2 transition-all ${
-                              isSelected
+                            className={`p-4 rounded-lg border-2 transition-all ${isSelected
                                 ? 'border-blue-500 bg-blue-50 shadow-md'
                                 : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                            }`}
+                              }`}
                           >
                             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                               <div className="flex-1 min-w-0">
@@ -884,14 +875,14 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                                   )}
                                   {(template.revision_number ||
                                     template.revision_no) && (
-                                    <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded font-medium">
-                                      Rev.{' '}
-                                      {String(
-                                        template.revision_number ||
+                                      <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded font-medium">
+                                        Rev.{' '}
+                                        {String(
+                                          template.revision_number ||
                                           template.revision_no
-                                      ).padStart(2, '0')}
-                                    </span>
-                                  )}
+                                        ).padStart(2, '0')}
+                                      </span>
+                                    )}
                                   {template.school && (
                                     <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
                                       {template.school}
@@ -1143,8 +1134,8 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                       <p className="text-gray-900">
                         {deadline && deadlineTime
                           ? new Date(
-                              `${deadline}T${deadlineTime}`
-                            ).toLocaleString()
+                            `${deadline}T${deadlineTime}`
+                          ).toLocaleString()
                           : 'Not set'}
                       </p>
                     </div>
@@ -1178,14 +1169,14 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
                           )}
                           {(selectedTemplate.revision_number ||
                             selectedTemplate.revision_no) && (
-                            <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
-                              Rev.{' '}
-                              {String(
-                                selectedTemplate.revision_number ||
+                              <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
+                                Rev.{' '}
+                                {String(
+                                  selectedTemplate.revision_number ||
                                   selectedTemplate.revision_no
-                              ).padStart(2, '0')}
-                            </span>
-                          )}
+                                ).padStart(2, '0')}
+                              </span>
+                            )}
                         </div>
                       </div>
                     </div>
@@ -1253,11 +1244,10 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
               <button
                 onClick={handleAssign}
                 disabled={submitting}
-                className={`w-full sm:w-auto px-8 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors flex items-center justify-center gap-2 ${
-                  submitting
+                className={`w-full sm:w-auto px-8 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors flex items-center justify-center gap-2 ${submitting
                     ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
                     : 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'
-                }`}
+                  }`}
               >
                 <CheckCircle size={18} />
                 {submitting ? 'Creating…' : 'Create Assignment'}
