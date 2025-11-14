@@ -69,7 +69,11 @@ export default function ApprovalModal({
     ? 'Your endorsement has been recorded and the status is now Endorsed.'
     : 'Your approval has been recorded and the status is now Approved.';
 
-  // If this role has already approved, prevent duplicate approves (avoids 400s)
+  const approveQuestion = (isUDC || isLDC)
+    ? 'Are you sure you want to endorse this template?'
+    : 'Are you sure you want to approve this template?';
+  
+    // If this role has already approved, prevent duplicate approves (avoids 400s)
   const approvals = template?.status_meta?.approvals || {};
   const mySlot = isUDC
     ? approvals?.unit_document_controller
@@ -307,7 +311,7 @@ export default function ApprovalModal({
                 <div className="px-5 py-4">
                   {!approvedDone ? (
                     <p className="text-sm text-gray-700">
-                      Are you sure you want to approve this template?
+                      {approveQuestion}
                     </p>
                   ) : (
                     <div className="flex items-start gap-3">
