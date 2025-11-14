@@ -9,10 +9,7 @@ import ApprovalModal from "../../components/modals/approvalModal";
 import PublishModal from "../../components/modals/publishModal"; 
 import AddInstructionsModal from "../../components/modals/addInstructionsModal";
 
-const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const API_URLS = rawUrls.split(",");
-const API_URL =
-  API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function HeaderTemplateView({ 
   template, 

@@ -1,8 +1,5 @@
-import axios from 'axios';
-
-const rawUrls = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const API_URLS = rawUrls.split(',');
-const API_URL = API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
+import axios from "axios";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 /**
  * List field groups from the library with optional filters.
  * @param {Object} [params]

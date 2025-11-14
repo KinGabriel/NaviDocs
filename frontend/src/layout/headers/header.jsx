@@ -9,10 +9,8 @@ import { logoutAPI } from '../../api/authAPI.js';
 import defaultProfile from '../../assets/images/profile_picture.png';
 import { useDataPolling } from '../../hooks/useDataPolling.jsx';
 
-const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const API_URLS = rawUrls.split(",");
-const API_URL =
-  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const fetchNotificationsAPI = async () => {
   try {

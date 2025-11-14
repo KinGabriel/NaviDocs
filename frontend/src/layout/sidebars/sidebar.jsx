@@ -2,10 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from 'react-router-dom';
 import defaultProfile from '../../assets/images/profile_picture.png';
 
-const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const API_URLS = rawUrls.split(",");
-const API_URL =
-  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];  
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function Sidebar({ user }) {
   // breakpoint helper (lg = 1024)

@@ -11,7 +11,7 @@ import StoragePickerModal from "../../components/modals/storagePickerModal";
 import DuplicateModal from "../../components/modals/duplicateModal";
 import toast from "react-hot-toast";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function EditableFieldsHeader({ 
   title = "Course Syllabus FTS", 
