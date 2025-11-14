@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { addTemplateNoteAPI } from '../../api/documentContollerAPI';
 import { FileText, X, Plus, AlertCircle, MessageSquare } from 'lucide-react';
 
-export default function AddInstructionsModal ({ 
+export default function AddInstructionsModal({
   isOpen,
-  onClose, 
-  currentInstructions, 
-  onUpdate, 
-  templateTitle, 
+  onClose,
+  currentInstructions,
+  onUpdate,
+  templateTitle,
   templateId
- }){
+}) {
   const [instructions, setInstructions] = useState('');
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,7 +24,7 @@ export default function AddInstructionsModal ({
 
   const validateInstructions = () => {
     const newErrors = {};
-    
+
     if (!instructions.trim()) {
       newErrors.instructions = 'Instructions cannot be empty';
     } else if (instructions.trim().length < 10) {
@@ -32,7 +32,7 @@ export default function AddInstructionsModal ({
     } else if (instructions.length > 2000) {
       newErrors.instructions = 'Instructions must be less than 2000 characters';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -68,7 +68,7 @@ export default function AddInstructionsModal ({
     const value = e.target.value;
     setInstructions(value);
     setCharacterCount(value.length);
-    
+
     // Clear errors as user types
     if (errors.instructions) {
       setErrors(prev => ({ ...prev, instructions: '' }));
@@ -114,7 +114,6 @@ export default function AddInstructionsModal ({
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Current Instructions Display - PLEASE UPDATE THIS, call the instructions variable or which variable is used*/}
           {currentInstructions && (
             <div className="bg-gradient-to-br from-blue-50/70 to-indigo-50/50 border border-blue-200/60 rounded-xl p-4 shadow-sm">
               <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
@@ -137,14 +136,13 @@ export default function AddInstructionsModal ({
                 {characterCount}/2000
               </span>
             </div>
-            
+
             <div className="relative">
               <textarea
-                className={`w-full px-4 py-3.5 bg-gradient-to-br from-slate-50/50 to-neutral-50/30 border-2 rounded-xl shadow-sm focus:outline-none focus:bg-white/90 focus:ring-2 focus:ring-indigo-300/20 focus:border-indigo-300 transition-all duration-200 resize-vertical min-h-[120px] backdrop-blur-sm ${
-                  errors.instructions 
-                    ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/50' 
+                className={`w-full px-4 py-3.5 bg-gradient-to-br from-slate-50/50 to-neutral-50/30 border-2 rounded-xl shadow-sm focus:outline-none focus:bg-white/90 focus:ring-2 focus:ring-indigo-300/20 focus:border-indigo-300 transition-all duration-200 resize-vertical min-h-[120px] backdrop-blur-sm ${errors.instructions
+                    ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/50'
                     : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/70'
-                }`}
+                  }`}
                 placeholder="Enter detailed instructions, expectations, or additional context for this template..."
                 value={instructions}
                 onChange={handleInstructionsChange}
@@ -182,7 +180,7 @@ export default function AddInstructionsModal ({
           </div>
         </div>
 
-         <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+        <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
           <button
             onClick={handleClose}
             className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"

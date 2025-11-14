@@ -72,16 +72,16 @@ export default function ApprovalModal({
   const approveQuestion = (isUDC || isLDC)
     ? 'Are you sure you want to endorse this template?'
     : 'Are you sure you want to approve this template?';
-  
-    // If this role has already approved, prevent duplicate approves (avoids 400s)
+
+  // If this role has already approved, prevent duplicate approves (avoids 400s)
   const approvals = template?.status_meta?.approvals || {};
   const mySlot = isUDC
     ? approvals?.unit_document_controller
     : isLDC
-    ? approvals?.lead_document_controller
-    : isDCO
-    ? approvals?.document_controller_officer
-    : {};
+      ? approvals?.lead_document_controller
+      : isDCO
+        ? approvals?.document_controller_officer
+        : {};
   const alreadyApproved = !!(mySlot?.isApproved === true || mySlot?.approved_at);
 
   const handleApprove = async () => {
@@ -320,11 +320,11 @@ export default function ApprovalModal({
                       </svg>
                       <div>
                         <p className="text-base font-medium text-gray-900">
-                              {approvedDoneTitle}
-                            </p>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {approvedDoneBody}
-                            </p>
+                          {approvedDoneTitle}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {approvedDoneBody}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -340,7 +340,6 @@ export default function ApprovalModal({
                 <div className="px-5 py-4 border-t flex items-center justify-between">
                   {!approvedDone ? (
                     <>
-                      {/* No (left) */}
                       <button
                         type="button"
                         onClick={() => {
@@ -353,7 +352,6 @@ export default function ApprovalModal({
                         No
                       </button>
 
-                      {/* Yes (right) */}
                       <button
                         type="button"
                         onClick={async () => {
@@ -382,7 +380,7 @@ export default function ApprovalModal({
                       onClick={() => {
                         setConfirmOpen(false);
                         setApprovedDone(false);
-                        onClose(); // close the parent modal after acknowledging success
+                        onClose();
                       }}
                       className="ml-auto px-4 py-2 rounded-md border text-gray-700 bg-white hover:bg-gray-50"
                     >
@@ -455,7 +453,6 @@ export default function ApprovalModal({
                 <div className="px-5 py-4 border-t flex items-center justify-between">
                   {!rejectDone ? (
                     <>
-                      {/* No (left) */}
                       <button
                         type="button"
                         onClick={() => {
@@ -469,7 +466,6 @@ export default function ApprovalModal({
                         No
                       </button>
 
-                      {/* Yes (right) */}
                       <button
                         type="button"
                         onClick={async () => {
@@ -544,7 +540,7 @@ export default function ApprovalModal({
                       <p className="text-sm text-gray-700">
                         Are you sure you want to return this template for changes?
                       </p>
-                       <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-gray-500 mt-2">
                         {!message?.trim() && (
                           <span className="text-red-500 font-medium italic">
                             A reason is required.
@@ -582,7 +578,6 @@ export default function ApprovalModal({
                 <div className="px-5 py-4 border-t flex items-center justify-between">
                   {!returnDone ? (
                     <>
-                      {/* No (left) */}
                       <button
                         type="button"
                         onClick={() => {
@@ -596,7 +591,6 @@ export default function ApprovalModal({
                         No
                       </button>
 
-                      {/* Yes (right) */}
                       <button
                         type="button"
                         onClick={async () => {

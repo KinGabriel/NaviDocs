@@ -25,9 +25,8 @@ export default function Table2({ columns, data, noDataMessage = "No template ava
               visibleData.map((row, idx) => (
                 <tr
                   key={row.id || row.email || idx}
-                  className={`border-b border-gray-200 ${
-                    idx % 2 === 0 ? "bg-white" : "bg-[#fafbfc]"
-                  } hover:bg-gray-50`}
+                  className={`border-b border-gray-200 ${idx % 2 === 0 ? "bg-white" : "bg-[#fafbfc]"
+                    } hover:bg-gray-50`}
                 >
                   {columns.map((col) => (
                     <td key={col.key} className="py-4 px-4">

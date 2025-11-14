@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 
-export default function CreateTemplateModal({ 
-  showModal, 
-  onClose, 
-  onSubmit, 
+export default function CreateTemplateModal({
+  showModal,
+  onClose,
+  onSubmit,
   loading = false
 }) {
   // Form state
@@ -24,7 +24,7 @@ export default function CreateTemplateModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!templateForm.title.trim()) {
       alert('Title is required');
       return;
@@ -36,17 +36,17 @@ export default function CreateTemplateModal({
     const submissionData = {
       ...templateForm,
       pageSetup: {
-        paperSize: 
+        paperSize:
           templateForm.document_size?.toLowerCase() === 'letter'
             ? 'Letter'
             : templateForm.document_size?.toLowerCase() === 'legal'
-            ? 'Legal'
-            : 'A4',
+              ? 'Legal'
+              : 'A4',
         orientation: 'Portrait',
         margins: { top: 1, bottom: 1, left: 1, right: 1 },
       },
     };
-    
+
     await onSubmit(submissionData);
 
     // Reset form after submission
@@ -70,7 +70,7 @@ export default function CreateTemplateModal({
     <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg shadow-md max-w-lg w-full mx-4">
         <h3 className="text-xl font-semibold mb-4">Create New Template</h3>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
           <div>
@@ -123,11 +123,10 @@ export default function CreateTemplateModal({
             <button
               type="submit"
               disabled={loading}
-              className={`flex-1 px-4 py-2 rounded-md text-white transition-colors ${
-                loading
+              className={`flex-1 px-4 py-2 rounded-md text-white transition-colors ${loading
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700'
-              }`}
+                }`}
             >
               {loading ? (
                 <div className="flex items-center justify-center gap-2">

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Search, Check } from 'lucide-react';
 
-export default function TagSelectModal({ open, onClose, tags = [], selected = [], onApply = () => {} }) {
+export default function TagSelectModal({ open, onClose, tags = [], selected = [], onApply = () => { } }) {
   const [query, setQuery] = useState('');
   const [local, setLocal] = useState(() => new Set(selected));
 

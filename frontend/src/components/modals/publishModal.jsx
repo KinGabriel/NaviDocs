@@ -41,7 +41,7 @@ export default function PublishModal({ isOpen, onClose, template, onPublish }) {
       );
       // Expecting yyyy-mm-dd for input type=date
       const eff = template?.effectivity ? new Date(template.effectivity) : null;
-      setEffectivity(eff ? new Date(eff.getTime() - eff.getTimezoneOffset()*60000).toISOString().slice(0,10) : "");
+      setEffectivity(eff ? new Date(eff.getTime() - eff.getTimezoneOffset() * 60000).toISOString().slice(0, 10) : "");
       setError("");
       setLoading(false);
     }
@@ -59,9 +59,9 @@ export default function PublishModal({ isOpen, onClose, template, onPublish }) {
   // Effectivity must be present and not earlier than today (local)
   const todayStr = (() => {
     const now = new Date();
-    now.setHours(0,0,0,0);
-    const adj = new Date(now.getTime() - now.getTimezoneOffset()*60000);
-    return adj.toISOString().slice(0,10);
+    now.setHours(0, 0, 0, 0);
+    const adj = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return adj.toISOString().slice(0, 10);
   })();
   const hasEffectivity = Boolean(effectivity && String(effectivity).trim().length > 0);
   const notPast = hasEffectivity ? String(effectivity) >= todayStr : false;

@@ -40,7 +40,7 @@ export default function GroupBrowserModal2({ open, onClose, onInsert }) {
         if (Array.isArray(f.tags)) for (const t of f.tags) s.add(String(t));
       }
     }
-    return Array.from(s).sort((a,b)=>a.localeCompare(b));
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [groups]);
 
   const filteredGroups = useMemo(() => {
@@ -96,7 +96,7 @@ export default function GroupBrowserModal2({ open, onClose, onInsert }) {
             <input
               placeholder="Search by name or field…"
               value={q}
-              onChange={(e)=>setQ(e.target.value)}
+              onChange={(e) => setQ(e.target.value)}
               className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
             />
           </div>
@@ -125,20 +125,20 @@ export default function GroupBrowserModal2({ open, onClose, onInsert }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="border border-slate-200 rounded-md overflow-hidden">
-              <div className="p-2 text-xs text-slate-500 border-b">{loading? 'Loading…' : `${filteredGroups.length} result(s)`}</div>
+              <div className="p-2 text-xs text-slate-500 border-b">{loading ? 'Loading…' : `${filteredGroups.length} result(s)`}</div>
               <div className="max-h-[48vh] overflow-auto">
                 {!loading && filteredGroups.map((g) => (
                   <button
                     key={g.key}
                     onClick={() => setSelectedGroupKey(g.key)}
-                    className={`w-full text-left p-2 border-b last:border-b-0 hover:bg-slate-50 ${selectedGroupKey===g.key? 'bg-indigo-50' : ''}`}
+                    className={`w-full text-left p-2 border-b last:border-b-0 hover:bg-slate-50 ${selectedGroupKey === g.key ? 'bg-indigo-50' : ''}`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="font-medium text-slate-800">{g.label || g.key}</div>
                       <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 capitalize">{g.scope}</span>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {Array.from(new Set((g.fields||[]).flatMap((f)=>f.tags||[]).map(String))).slice(0,8).map((t)=>(
+                      {Array.from(new Set((g.fields || []).flatMap((f) => f.tags || []).map(String))).slice(0, 8).map((t) => (
                         <span key={t} className="text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-700">{t}</span>
                       ))}
                     </div>
@@ -156,14 +156,14 @@ export default function GroupBrowserModal2({ open, onClose, onInsert }) {
                 {selectedGroup && (
                   <div className="space-y-2">
                     <div className="font-medium text-slate-800">{selectedGroup.label || selectedGroup.key}</div>
-                    {(selectedGroup.fields||[]).map((f)=> (
+                    {(selectedGroup.fields || []).map((f) => (
                       <div key={f.key} className="rounded border border-slate-200 p-2">
                         <div className="text-sm font-medium text-slate-800">{f.label || f.key} <span className="text-xs text-slate-500">({f.type || 'text'})</span></div>
                         {f.placeholder && <div className="text-xs text-slate-500">Placeholder: <em>{f.placeholder}</em></div>}
                         {f.instructions && <div className="text-[11px] text-slate-500 mt-0.5">Instructions: <em>{f.instructions}</em></div>}
-                        {!!(f.tags||[]).length && (
+                        {!!(f.tags || []).length && (
                           <div className="mt-1 flex flex-wrap gap-1">
-                            {(f.tags||[]).map((t)=>(<span key={t} className="text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-700">{String(t)}</span>))}
+                            {(f.tags || []).map((t) => (<span key={t} className="text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-700">{String(t)}</span>))}
                           </div>
                         )}
                       </div>
@@ -180,7 +180,7 @@ export default function GroupBrowserModal2({ open, onClose, onInsert }) {
           <button
             onClick={insertSelected}
             disabled={!selectedGroup}
-            className={`rounded-md px-3 py-1.5 text-sm text-white ${selectedGroup? 'bg-indigo-600 hover:bg-indigo-700':'bg-slate-300 cursor-not-allowed'}`}
+            className={`rounded-md px-3 py-1.5 text-sm text-white ${selectedGroup ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-300 cursor-not-allowed'}`}
           >
             Insert Section
           </button>

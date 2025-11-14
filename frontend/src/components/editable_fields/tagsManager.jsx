@@ -1,12 +1,10 @@
-// src/components/editable_fields/tagsManager.jsx
 import React, { useEffect, useState } from "react";
 import { Trash2, Plus } from "lucide-react";
-import { makeId } from "../../utils/ids";
 import { listTagsAPI, upsertTagAPI, deleteTagAPI } from "../../api/tagsAPI";
 
 export default function TagsManager({
   tags = [],
-  setTags = () => {},
+  setTags = () => { },
   getUsageCount = () => 0,
 }) {
   const [newTagName, setNewTagName] = useState("");
@@ -28,7 +26,6 @@ export default function TagsManager({
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const addTag = async () => {

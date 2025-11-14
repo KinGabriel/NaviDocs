@@ -1,7 +1,7 @@
 import { SCHOOL_OPTIONS, DEPARTMENT_OPTIONS } from "../utils/options";
-import { deleteFolderByIDAPI,addAccessToFoldersAPI } from "../api/storageAPI";
-import { searchUsersByEmailAPI,getUserIdByEmailAPI } from "../api/userAPI";
-import React, { useState, Fragment,useEffect, useRef } from "react";
+import { deleteFolderByIDAPI, addAccessToFoldersAPI } from "../api/storageAPI";
+import { searchUsersByEmailAPI, getUserIdByEmailAPI } from "../api/userAPI";
+import React, { useState, useEffect, useRef } from "react";
 import MultiSelectDropdown from './dropdowns/multiSelectDropdown';
 import Dropdown3 from './dropdowns/dropdown3';
 import useUser from '../hooks/useUser';
@@ -105,11 +105,11 @@ export default function FolderComponent({
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const debounceRef = useRef();
-    // Initialize state from backend folder  if available
+  // Initialize state from backend folder  if available
   const [visibility, setVisibility] = useState(folder.data.visibility || 'private');
   const [selectedSchools, setSelectedSchools] = useState(folder.data.allowedSchools || []);
   const [selectedDepartments, setSelectedDepartments] = useState(folder.data.allowedDepartments || []);
-  
+
   // Compute available departments based on selected schools
   const availableDepartments = selectedSchools
     .flatMap((school) => DEPARTMENT_OPTIONS[school] || [])
@@ -124,12 +124,12 @@ export default function FolderComponent({
   // Function to determine submenu positioning
   const getSubmenuPosition = (ref) => {
     if (!ref?.current) return { right: false };
-    
+
     const rect = ref.current.getBoundingClientRect();
     const submenuWidth = 160;
     const viewportWidth = window.innerWidth;
     const spaceOnRight = viewportWidth - rect.right;
-    
+
     // If not enough space on the right, position submenu to the left
     return { right: spaceOnRight < submenuWidth };
   };
@@ -159,7 +159,7 @@ export default function FolderComponent({
     setInputEmail("");
     setInputRole("Viewer");
   };
-  
+
   // Email validation 
   const isValidEmail = (email) => {
     return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
@@ -169,7 +169,7 @@ export default function FolderComponent({
   const handleEmailInputChange = (e) => {
     const value = e.target.value;
     setInputEmail(value);
-  
+
     // Debounced search for suggestions
     debounceRef.current(value);
   };
@@ -193,7 +193,7 @@ export default function FolderComponent({
   };
 
   const handleCopyLink = () => {
-      console.log(folder)
+    console.log(folder)
     navigator.clipboard.writeText(
       `https://mydrive.com/folder/${folder.name.replace(/\s+/g, "-")}`
     );
@@ -340,7 +340,7 @@ export default function FolderComponent({
                   {isShareMenuOpen && (() => {
                     const position = getSubmenuPosition(shareRef);
                     return (
-                      <ul 
+                      <ul
                         className={`absolute top-0 ${position.right ? 'right-full mr-1' : 'left-full ml-1'} w-40 bg-white border rounded-lg shadow-md overflow-hidden z-50`}
                         onMouseEnter={() => {
                           if (shareTimeout) clearTimeout(shareTimeout);
@@ -392,7 +392,7 @@ export default function FolderComponent({
       {/* Share Modal */}
       {isShareOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-         <div className="bg-white w-[500px] max-w-[95vw] rounded-xl shadow-lg p-6 relative">
+          <div className="bg-white w-[500px] max-w-[95vw] rounded-xl shadow-lg p-6 relative">
             <button
               className="absolute top-3 right-3 text-gray-500 hover:text-black"
               onClick={() => setIsShareOpen(false)}
@@ -412,7 +412,7 @@ export default function FolderComponent({
                 <Copy size={18} />
               </button>
             </h2>
-        
+
             {/* Visibility Field */}
             <div className="mb-4">
               <Dropdown3
@@ -481,32 +481,32 @@ export default function FolderComponent({
                   </select>
                 </div>
 
-            {/* Suggestions Dropdown */}
-            {suggestions.length > 0 && (
-              <ul className="left-0 top-full bg-white border rounded-xl shadow  z-10 w-full max-h-60 overflow-y-auto">
-                {suggestions.map((user) => (
-                  <li
-                    key={user.userId}
-                    className="px-3 py-2 cursor-pointer hover:bg-blue-100"
-                    onClick={() => {
-                      setInputEmail(user.email);
-                      setSuggestions([]);
-                    }}
-                  >
-                    {user.email}
-                  </li>
-                ))}
-              </ul>
-            )}
+                {/* Suggestions Dropdown */}
+                {suggestions.length > 0 && (
+                  <ul className="left-0 top-full bg-white border rounded-xl shadow  z-10 w-full max-h-60 overflow-y-auto">
+                    {suggestions.map((user) => (
+                      <li
+                        key={user.userId}
+                        className="px-3 py-2 cursor-pointer hover:bg-blue-100"
+                        onClick={() => {
+                          setInputEmail(user.email);
+                          setSuggestions([]);
+                        }}
+                      >
+                        {user.email}
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
-              {/* Tool tip */}
+                {/* Tool tip */}
                 <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded-lg">
                   <strong>Tool tip:</strong> Press Enter to add the person.
                 </div>
               </div>
             </div>
 
-          
+
             {/* People with access */}
             <h3 className="text-sm font-medium text-gray-700 mb-2">People with access ({emails.length})</h3>
             <div className="space-y-2 mb-4">
@@ -535,7 +535,7 @@ export default function FolderComponent({
                           <option value="Editor">Editor</option>
                         </select>
                         <button onClick={() => handleRemoveEmail(person.email)}
-                        className="text-gray-500 hover:text-red-600 p-1 rounded hover:bg-red-50"
+                          className="text-gray-500 hover:text-red-600 p-1 rounded hover:bg-red-50"
                         >
                           <X size={14} />
                         </button>
@@ -557,41 +557,41 @@ export default function FolderComponent({
               <button
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                 onClick={async () => {
-  const allowedUsers = emails
-    .filter(e => !e.isOwner)
-    .map(e => ({
-      userId: e.userId,
-      role: e.role,
-      email: e.email,
-      grantedBy: user?.firstname + " " + user?.lastname,
-      emailOfGrantedBy: user?.email,
-    }));
-  if (
-    allowedUsers.length === 0 &&
-    selectedSchools.length === 0 &&
-    selectedDepartments.length === 0
-  ) {
-    toast.error("Please add at least one user, school, or department to share.");
-    return;
-  }
+                  const allowedUsers = emails
+                    .filter(e => !e.isOwner)
+                    .map(e => ({
+                      userId: e.userId,
+                      role: e.role,
+                      email: e.email,
+                      grantedBy: user?.firstname + " " + user?.lastname,
+                      emailOfGrantedBy: user?.email,
+                    }));
+                  if (
+                    allowedUsers.length === 0 &&
+                    selectedSchools.length === 0 &&
+                    selectedDepartments.length === 0
+                  ) {
+                    toast.error("Please add at least one user, school, or department to share.");
+                    return;
+                  }
 
-  try {
-    const loadingToast = toast.loading("Sharing folder...");
-    await addAccessToFoldersAPI({
-      folderId: folder._id,
-      allowedUsers,
-      allowedSchools: selectedSchools,
-      allowedDepartments: selectedDepartments,
-      visibility: visibility,
-    });
-    toast.dismiss(loadingToast);
-    toast.success("Folder shared successfully!");
-    setIsShareOpen(false);
-  } catch (err) {
-    toast.dismiss();
-    toast.error("You are not authorized to share this folder.");
-  }
-}}
+                  try {
+                    const loadingToast = toast.loading("Sharing folder...");
+                    await addAccessToFoldersAPI({
+                      folderId: folder._id,
+                      allowedUsers,
+                      allowedSchools: selectedSchools,
+                      allowedDepartments: selectedDepartments,
+                      visibility: visibility,
+                    });
+                    toast.dismiss(loadingToast);
+                    toast.success("Folder shared successfully!");
+                    setIsShareOpen(false);
+                  } catch (err) {
+                    toast.dismiss();
+                    toast.error("You are not authorized to share this folder.");
+                  }
+                }}
 
               >
                 Share
@@ -602,38 +602,38 @@ export default function FolderComponent({
       )}
 
       <RenameFolderModal
-  open={isRenameOpen}
-  onClose={() => setIsRenameOpen(false)}
-  currentTitle={folder.name}
-  onSubmit={async (newTitle) => {
-    try {
-      const { renameFolderAPI } = await import("../api/storageAPI");
-      await renameFolderAPI(folder._id, newTitle);
-      setIsRenameOpen(false);
-      if (onDelete) onDelete(folder); 
-    } catch (err) {
-      toast.error(err?.message || "Failed to rename folder");
-    }
-  }}
-/>
+        open={isRenameOpen}
+        onClose={() => setIsRenameOpen(false)}
+        currentTitle={folder.name}
+        onSubmit={async (newTitle) => {
+          try {
+            const { renameFolderAPI } = await import("../api/storageAPI");
+            await renameFolderAPI(folder._id, newTitle);
+            setIsRenameOpen(false);
+            if (onDelete) onDelete(folder);
+          } catch (err) {
+            toast.error(err?.message || "Failed to rename folder");
+          }
+        }}
+      />
 
 
       <RemoveModal
-  open={isRemoveOpen}
-  onClose={() => setIsRemoveOpen(false)}
-  itemType="folder"
-  itemTitle={folder.name}
-  onConfirm={async () => {
-    try {
-      await deleteFolderByIDAPI(folder._id);
-      setIsRemoveOpen(false);
-      if (onDelete) onDelete();
-    } catch (err) {
-      toast.error(err.message || "Failed to remove folder");
-    }
-  }}
-/>
-<Toaster position="top-center" reverseOrder={false} />
+        open={isRemoveOpen}
+        onClose={() => setIsRemoveOpen(false)}
+        itemType="folder"
+        itemTitle={folder.name}
+        onConfirm={async () => {
+          try {
+            await deleteFolderByIDAPI(folder._id);
+            setIsRemoveOpen(false);
+            if (onDelete) onDelete();
+          } catch (err) {
+            toast.error(err.message || "Failed to remove folder");
+          }
+        }}
+      />
+      <Toaster position="top-center" reverseOrder={false} />
 
     </>
   );

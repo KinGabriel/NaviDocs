@@ -60,17 +60,15 @@ export default function RenameFolderModal({
       aria-labelledby="rename-folder-modal-title"
     >
       <div
-        className={`absolute inset-0 bg-black transition-opacity duration-300 ${
-          isVisible ? "opacity-50" : "opacity-0"
-        }`}
+        className={`absolute inset-0 bg-black transition-opacity duration-300 ${isVisible ? "opacity-50" : "opacity-0"
+          }`}
         onClick={submitting ? undefined : onClose}
       />
 
       {/* Modal */}
       <div
-        className={`relative w-full max-w-md bg-white rounded-2xl shadow-2xl transform transition-all duration-300 ${
-          isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"
-        }`}
+        className={`relative w-full max-w-md bg-white rounded-2xl shadow-2xl transform transition-all duration-300 ${isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"
+          }`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">

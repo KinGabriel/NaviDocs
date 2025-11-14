@@ -20,7 +20,7 @@ export default function AssignMembersModal({
   const [controllers, setControllers] = useState([]);
   const [controllersLoading, setControllersLoading] = useState(true);
   const [isSharing, setIsSharing] = useState(false);
-  
+
   // Access levels for each selected controller: { controllerId: 'viewer' | 'editor' }
   const [accessLevels, setAccessLevels] = useState({});
 
@@ -56,7 +56,7 @@ export default function AssignMembersModal({
   const idOf = (u) => u?.id;
   const nameOf = (u) => u?.name;
   const isSelected = (u) => selectedIds.includes(idOf(u));
-  
+
   const addController = (val) => {
     if (!val) return;
     if (setTheDocController) setTheDocController(val);
@@ -70,8 +70,8 @@ export default function AssignMembersModal({
   const selectedControllers = useMemo(() => {
     return selectedIds.map((sid) => {
       const found = controllers.find((c) => c.id === sid);
-      return { 
-        id: sid, 
+      return {
+        id: sid,
         name: found ? found.name : sid,
         accessLevel: accessLevels[sid] || 'editor'
       };
@@ -103,7 +103,7 @@ export default function AssignMembersModal({
       setIsSharing(true);
       try {
         // Include access levels in the assignment
-        await onAssign({ 
+        await onAssign({
           assignees: selectedIds,
           accessLevels: accessLevels
         });
@@ -118,8 +118,8 @@ export default function AssignMembersModal({
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4" role="dialog" aria-modal="true">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 backdrop-blur-[2px] transition-opacity" 
+      <div
+        className="absolute inset-0 backdrop-blur-[2px] transition-opacity"
         onClick={onClose}
       />
 
@@ -136,8 +136,8 @@ export default function AssignMembersModal({
                 "{template?.title || "Untitled Document"}"
               </p>
             </div>
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="p-2 rounded-lg hover:bg-white/20 transition-colors text-white"
               aria-label="Close"
             >
@@ -219,7 +219,7 @@ export default function AssignMembersModal({
                 </span>
               )}
             </div>
-            
+
             <div className="rounded-xl border-2 border-gray-200 overflow-hidden bg-white">
               {!hasSelectedControllers ? (
                 <div className="p-12 text-center">
@@ -249,7 +249,7 @@ export default function AssignMembersModal({
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-2">
                           {/* Access Level Dropdown */}
                           <div className="relative">
@@ -267,7 +267,7 @@ export default function AssignMembersModal({
                               </svg>
                             </div>
                           </div>
-                          
+
                           {/* Remove Button */}
                           <button
                             onClick={() => {
@@ -305,8 +305,8 @@ export default function AssignMembersModal({
               <span className="font-medium">Restricted access</span>
             </div>
             <div className="flex items-center gap-3">
-              <button 
-                className="px-5 py-2.5 rounded-md border-1 border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors" 
+              <button
+                className="px-5 py-2.5 rounded-md border-1 border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
                 onClick={onClose}
                 disabled={isSharing}
               >
@@ -319,7 +319,7 @@ export default function AssignMembersModal({
               >
                 {isSharing ? (
                   <>
-                  <button disabled className="flex items-center gap-2"> 
+                    <button disabled className="flex items-center gap-2">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className="w-5 h-5"
@@ -347,7 +347,7 @@ export default function AssignMembersModal({
                         </path>
                       </svg>
                       <span>Sharing...</span>
-                  </button>
+                    </button>
                   </>
                 ) : (
                   <>

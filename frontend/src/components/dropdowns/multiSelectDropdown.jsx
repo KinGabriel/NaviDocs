@@ -30,9 +30,9 @@ export default function MultiSelectDropdown({
             <span className="block truncate">
               {value.length > 0
                 ? options
-                    .filter((opt) => value.includes(opt.value))
-                    .map((opt) => opt.label)
-                    .join(", ")
+                  .filter((opt) => value.includes(opt.value))
+                  .map((opt) => opt.label)
+                  .join(", ")
                 : placeholder}
             </span>
           </Listbox.Button>
@@ -51,8 +51,7 @@ export default function MultiSelectDropdown({
                     key={option.value}
                     value={option.value}
                     className={({ active }) =>
-                      `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
-                        active ? "bg-blue-100 text-blue-900" : "text-gray-900"
+                      `relative cursor-pointer select-none py-2 pl-10 pr-4 ${active ? "bg-blue-100 text-blue-900" : "text-gray-900"
                       }`
                     }
                   >

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { 
-  X, CheckCircle2, Clock, Send, 
-  MessageCircle, AlertCircle 
+import {
+  X, CheckCircle2, Clock, Send,
+  MessageCircle, AlertCircle
 } from "lucide-react";
 import { submitTemplateAPI, addTemplateNoteAPI } from '../../api/documentContollerAPI';
 
@@ -9,7 +9,6 @@ export default function SubmitApprovalModal({
   isOpen,
   onClose,
   status, // "draft"/"assigned"/"submitted"/"publish"
-  instructionsFromAssignee,
   approvalProgress = [],
   onSubmit,
   onPublish,
@@ -34,8 +33,6 @@ export default function SubmitApprovalModal({
     }
     setIsSubmitting(false);
   }, [isOpen, status]);
-
-
 
   if (!isOpen) return null;
 
@@ -84,14 +81,14 @@ export default function SubmitApprovalModal({
 
       if (status === "draft") {
         const submitRes = await submitTemplateAPI(templateId);
-        
+
         // add note if instructions are provided
         if (instructions.trim()) {
-        try {
-          await addTemplateNoteAPI(templateId, instructions.trim());
-        } catch (noteErr) {
-          console.error("Add note (instructions) failed:", noteErr);
-        }
+          try {
+            await addTemplateNoteAPI(templateId, instructions.trim());
+          } catch (noteErr) {
+            console.error("Add note (instructions) failed:", noteErr);
+          }
         }
 
         if (typeof onSubmit === "function") {
@@ -112,13 +109,13 @@ export default function SubmitApprovalModal({
 
       if (status === "assigned" || status === "returned") {
         const submitRes = await submitTemplateAPI(templateId);
-        
+
         // add note if instructions are provided
         if (instructions.trim()) {
-        try {
-          await addTemplateNoteAPI(templateId, instructions.trim());
-        } catch (noteErr) {
-          console.error("Add note (instructions) failed:", noteErr);
+          try {
+            await addTemplateNoteAPI(templateId, instructions.trim());
+          } catch (noteErr) {
+            console.error("Add note (instructions) failed:", noteErr);
           }
         }
 
@@ -140,8 +137,8 @@ export default function SubmitApprovalModal({
     } catch (error) {
       console.error("Submit error:", error);
       alert(
-        error?.response?.data?.message || 
-        error?.message || 
+        error?.response?.data?.message ||
+        error?.message ||
         'Failed to submit template. Please try again.'
       );
     } finally {
@@ -174,15 +171,15 @@ export default function SubmitApprovalModal({
   // Get approval date for display
   const getApprovalDate = (approverId) => {
     const progress = approvalProgress.find(p => p.approverId === approverId);
-    return progress && progress.approvedAt 
-      ? new Date(progress.approvedAt).toLocaleDateString() 
+    return progress && progress.approvedAt
+      ? new Date(progress.approvedAt).toLocaleDateString()
       : null;
   };
 
   // Build approvers for progress display
   const approvers = approversProp || [];
 
-  const allApproved = approvers.every(approver => 
+  const allApproved = approvers.every(approver =>
     getApprovalStatus(approver.id) === 'approved'
   );
 
@@ -229,23 +226,23 @@ export default function SubmitApprovalModal({
 
   const getApprovalStatusFromData = (approver) => {
     const approverId = approver._id || approver.id;
-  const roleName = (approver?.role?.name || approver?.role || '').toLowerCase();
-  const key = roleName === 'lead document controller'
-    ? 'lead_document_controller'
-    : roleName === 'document control officer'
-      ? 'document_controller_officer'
-      : roleName === 'unit document controller'
-        ? 'unit_document_controller'
-        : roleName;
-    
+    const roleName = (approver?.role?.name || approver?.role || '').toLowerCase();
+    const key = roleName === 'lead document controller'
+      ? 'lead_document_controller'
+      : roleName === 'document control officer'
+        ? 'document_controller_officer'
+        : roleName === 'unit document controller'
+          ? 'unit_document_controller'
+          : roleName;
+
     // Check template's status_meta first
     if (template?.status_meta?.approvals) {
-  const statusApprovals = template.status_meta.approvals;
-      
-  // Check by role
-  if (statusApprovals[key]?.isApproved === true) return 'approved';
-  if (statusApprovals[key]?.isRejected === true) return 'rejected';
-      
+      const statusApprovals = template.status_meta.approvals;
+
+      // Check by role
+      if (statusApprovals[key]?.isApproved === true) return 'approved';
+      if (statusApprovals[key]?.isRejected === true) return 'rejected';
+
       // Check by approver ID
       if (statusApprovals[approverId]?.isApproved === true) return 'approved';
       if (statusApprovals[approverId]?.isRejected === true) return 'rejected';
@@ -256,7 +253,7 @@ export default function SubmitApprovalModal({
       if (approvals[key]?.approved_at || approvals[key]?.isApproved) return 'approved';
       if (approvals[approverId]?.approved_at || approvals[approverId]?.isApproved) return 'approved';
     }
-    
+
     // Check approvalMeta
     if (approvalMeta) {
       if (
@@ -267,21 +264,21 @@ export default function SubmitApprovalModal({
         return 'approved';
       }
     }
-    
+
     return 'pending';
   };
 
   const getApprovalTimestamp = (approver) => {
     const approverId = approver._id || approver.id;
-  const roleName = (approver?.role?.name || approver?.role || '').toLowerCase();
-  const key = roleName === 'lead document controller'
-    ? 'lead_document_controller'
-    : (roleName === 'document control officer')
-      ? 'document_controller_officer'
-      : roleName === 'unit document controller'
-        ? 'unit_document_controller'
-        : roleName;
-    
+    const roleName = (approver?.role?.name || approver?.role || '').toLowerCase();
+    const key = roleName === 'lead document controller'
+      ? 'lead_document_controller'
+      : (roleName === 'document control officer')
+        ? 'document_controller_officer'
+        : roleName === 'unit document controller'
+          ? 'unit_document_controller'
+          : roleName;
+
     // Check template status_meta first
     if (template?.status_meta?.approvals) {
       const statusApprovals = template.status_meta.approvals;
@@ -292,16 +289,15 @@ export default function SubmitApprovalModal({
         return new Date(statusApprovals[approverId].approved_at);
       }
     }
-    
+
     // Check approvals prop
     if (approvals && roleName && approvals[key]?.approved_at) {
       return new Date(approvals[key].approved_at);
     }
-    
+
     return null;
   };
 
-  
   return (
     <div className="fixed inset-0 flex items-center justify-center g-opacity-50 backdrop-blur-[2px] z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
@@ -336,50 +332,48 @@ export default function SubmitApprovalModal({
                 <Clock className="h-5 w-5 text-slate-500" />
                 Approval Status
               </h3>
-            <div className="space-y-3">
-              {approversProp.map((approver) => {
-                const approvalStatus = getApprovalStatusFromData(approver);
-                const approvedAt = getApprovalTimestamp(approver);
-                const timeStr = approvedAt ? approvedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
-                
-                return (
-                  <div
-                    key={approver._id}
-                    className={`flex items-center gap-4 p-4 rounded-lg border ${
-                      approvalStatus === 'approved'
+              <div className="space-y-3">
+                {approversProp.map((approver) => {
+                  const approvalStatus = getApprovalStatusFromData(approver);
+                  const approvedAt = getApprovalTimestamp(approver);
+                  const timeStr = approvedAt ? approvedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+
+                  return (
+                    <div
+                      key={approver._id}
+                      className={`flex items-center gap-4 p-4 rounded-lg border ${approvalStatus === 'approved'
                         ? 'bg-green-50 border-green-200'
                         : 'bg-yellow-50 border-yellow-200'
-                    }`}
-                  >
-                    {approvalStatus === 'approved' ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                    ) : (
-                      <Clock className="h-5 w-5 text-yellow-600 flex-shrink-0" />
-                    )}
-                    <div className="flex-1">
-                     <div className="font-medium text-slate-900">
-                      {approver.firstname && approver.lastname
-                        ? `${approver.firstname} ${approver.lastname}`
-                        : approver.name || approver.email || "Unknown Approver"}
-                    </div>
-                    <div className="text-sm text-slate-500">
-                      {approver.role?.name || approver.role || "Approver"}
-                    </div>
-                    </div>
-                    <div className={`px-3 py-1 text-xs font-medium rounded-full ${
-                      approvalStatus === 'approved'
+                        }`}
+                    >
+                      {approvalStatus === 'approved' ? (
+                        <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                      ) : (
+                        <Clock className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-medium text-slate-900">
+                          {approver.firstname && approver.lastname
+                            ? `${approver.firstname} ${approver.lastname}`
+                            : approver.name || approver.email || "Unknown Approver"}
+                        </div>
+                        <div className="text-sm text-slate-500">
+                          {approver.role?.name || approver.role || "Approver"}
+                        </div>
+                      </div>
+                      <div className={`px-3 py-1 text-xs font-medium rounded-full ${approvalStatus === 'approved'
                         ? 'bg-green-100 text-green-800'
                         : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {approvalStatus === 'approved'
-                        ? `${(approver.role?.name || approver.role || '').toString() === 'Unit Document Controller' ? 'Endorsed' : 'Approved'}${timeStr ? ` ${timeStr}` : ''}`
-                        : `${(approver.role?.name || approver.role || '').toString() === 'Unit Document Controller' ? 'Pending Endorsement' : 'Pending Approval'}`
-                      }
+                        }`}>
+                        {approvalStatus === 'approved'
+                          ? `${(approver.role?.name || approver.role || '').toString() === 'Unit Document Controller' ? 'Endorsed' : 'Approved'}${timeStr ? ` ${timeStr}` : ''}`
+                          : `${(approver.role?.name || approver.role || '').toString() === 'Unit Document Controller' ? 'Pending Endorsement' : 'Pending Approval'}`
+                        }
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
 
               {/* Progress summary */}
               <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
@@ -390,10 +384,10 @@ export default function SubmitApprovalModal({
                   </span>
                 </div>
                 <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
-                    style={{ 
-                      width: `${(approversProp.filter(a => getApprovalStatusFromData(a) === 'approved').length / approversProp.length) * 100}%` 
+                    style={{
+                      width: `${(approversProp.filter(a => getApprovalStatusFromData(a) === 'approved').length / approversProp.length) * 100}%`
                     }}
                   ></div>
                 </div>
@@ -422,18 +416,16 @@ export default function SubmitApprovalModal({
                         handleInstructionsChange(e);
                       }
                     }}
-                    className={`w-full border rounded-lg p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all duration-200 pr-14 ${
-                      error
-                        ? "border-red-300 bg-red-50 focus:ring-red-500"
-                        : "border-slate-200"
-                    }`}
+                    className={`w-full border rounded-lg p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all duration-200 pr-14 ${error
+                      ? "border-red-300 bg-red-50 focus:ring-red-500"
+                      : "border-slate-200"
+                      }`}
                     rows={4}
                     placeholder="Add notes or specific instructions for the approvers..."
                   />
                   <span
-                    className={`absolute bottom-2 right-3 text-xs ${
-                      instructions.length > 300 ? "text-red-500" : "text-slate-400"
-                    }`}
+                    className={`absolute bottom-2 right-3 text-xs ${instructions.length > 300 ? "text-red-500" : "text-slate-400"
+                      }`}
                   >
                     {instructions.length} / 300
                   </span>
@@ -482,11 +474,10 @@ export default function SubmitApprovalModal({
                 <textarea
                   value={instructions}
                   onChange={handleInstructionsChange}
-                  className={`w-full border rounded-lg p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow ${
-                    error ? 'border-red-300 bg-red-50' : 'border-slate-200'
-                  }`}
+                  className={`w-full border rounded-lg p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow ${error ? 'border-red-300 bg-red-50' : 'border-slate-200'
+                    }`}
                   rows={3}
-                  placeholder={status === 'returned' 
+                  placeholder={status === 'returned'
                     ? 'Briefly describe what you changed and any context for the reviewer...'
                     : 'Add notes or specific instructions for the approvers...'}
                 />
@@ -511,17 +502,16 @@ export default function SubmitApprovalModal({
                 {approvers.map((approver) => {
                   const approvalStatus = getApprovalStatus(approver.id);
                   const approvalDate = getApprovalDate(approver.id);
-                  
+
                   return (
                     <div
                       key={approver.id}
-                      className={`flex items-center gap-4 p-4 rounded-lg border ${
-                        approvalStatus === 'approved'
-                          ? 'bg-green-50 border-green-200'
-                          : approvalStatus === 'rejected'
+                      className={`flex items-center gap-4 p-4 rounded-lg border ${approvalStatus === 'approved'
+                        ? 'bg-green-50 border-green-200'
+                        : approvalStatus === 'rejected'
                           ? 'bg-red-50 border-red-200'
                           : 'bg-yellow-50 border-yellow-200'
-                      }`}
+                        }`}
                     >
                       {approvalStatus === 'approved' ? (
                         <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
@@ -532,33 +522,31 @@ export default function SubmitApprovalModal({
                       )}
                       <div className="flex-1">
                         <div className="font-medium text-slate-900">{approver.name}</div>
-                        <div className={`text-sm ${
-                          approvalStatus === 'approved'
-                            ? 'text-green-700'
-                            : approvalStatus === 'rejected'
+                        <div className={`text-sm ${approvalStatus === 'approved'
+                          ? 'text-green-700'
+                          : approvalStatus === 'rejected'
                             ? 'text-red-700'
                             : 'text-yellow-700'
-                        }`}>
+                          }`}>
                           {approvalStatus === 'approved'
                             ? `Approved${approvalDate ? ` on ${approvalDate}` : ''}`
                             : approvalStatus === 'rejected'
-                            ? `Rejected${approvalDate ? ` on ${approvalDate}` : ''}`
-                            : 'Awaiting review'
+                              ? `Rejected${approvalDate ? ` on ${approvalDate}` : ''}`
+                              : 'Awaiting review'
                           }
                         </div>
                       </div>
-                      <div className={`px-3 py-1 text-xs font-medium rounded-full ${
-                        approvalStatus === 'approved'
-                          ? 'bg-green-100 text-green-800'
-                          : approvalStatus === 'rejected'
+                      <div className={`px-3 py-1 text-xs font-medium rounded-full ${approvalStatus === 'approved'
+                        ? 'bg-green-100 text-green-800'
+                        : approvalStatus === 'rejected'
                           ? 'bg-red-100 text-red-800'
                           : 'bg-yellow-100 text-yellow-800'
-                      }`}>
+                        }`}>
                         {approvalStatus === 'approved'
                           ? 'Approved'
                           : approvalStatus === 'rejected'
-                          ? 'Rejected'
-                          : 'Pending'
+                            ? 'Rejected'
+                            : 'Pending'
                         }
                       </div>
                     </div>
@@ -575,10 +563,10 @@ export default function SubmitApprovalModal({
                   </span>
                 </div>
                 <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
-                    style={{ 
-                      width: `${(approvalProgress.filter(p => p.status === 'approved').length / approvers.length) * 100}%` 
+                    style={{
+                      width: `${(approvalProgress.filter(p => p.status === 'approved').length / approvers.length) * 100}%`
                     }}
                   ></div>
                 </div>
@@ -598,7 +586,7 @@ export default function SubmitApprovalModal({
                 </h3>
                 <p className="text-slate-600 leading-relaxed text-sm">
                   All required approvers have reviewed and approved your template. <br></br>
-                  You can now publish it to make it available for use. 
+                  You can now publish it to make it available for use.
                 </p>
               </div>
 
@@ -614,11 +602,10 @@ export default function SubmitApprovalModal({
                     return (
                       <div
                         key={approver.id || approver._id}
-                        className={`flex items-center gap-4 p-4 rounded-lg border ${
-                          approvalStatus === 'approved'
-                            ? 'bg-green-50 border-green-200'
-                            : 'bg-yellow-50 border-yellow-200'
-                        }`}
+                        className={`flex items-center gap-4 p-4 rounded-lg border ${approvalStatus === 'approved'
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-yellow-50 border-yellow-200'
+                          }`}
                       >
                         {approvalStatus === 'approved' ? (
                           <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
@@ -635,11 +622,10 @@ export default function SubmitApprovalModal({
                             {approver.role?.name || approver.role || "Approver"}
                           </div>
                         </div>
-                        <div className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          approvalStatus === 'approved'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
+                        <div className={`px-3 py-1 text-xs font-medium rounded-full ${approvalStatus === 'approved'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                          }`}>
                           {approvalStatus === 'approved'
                             ? `Approved${timeStr ? ` ${timeStr}` : ''}`
                             : 'Pending Approval'}
@@ -662,7 +648,7 @@ export default function SubmitApprovalModal({
               `${approversProp.filter(a => getApprovalStatusFromData(a) === 'approved').length}/${approversProp.length} approvals complete`
             )}
           </div>
-          
+
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
@@ -672,7 +658,7 @@ export default function SubmitApprovalModal({
               {status === "publish" ? "Close" : "Cancel"}
             </button>
 
-             {/* Show Submit button
+            {/* Show Submit button
                 - Draft/Assigned: only when no approvals yet
                 - Returned: always allow resubmission (even if prior approvals exist) */}
             {(status === "returned" || ((status === "draft" || status === "assigned") && !hasExistingApprovals())) && (

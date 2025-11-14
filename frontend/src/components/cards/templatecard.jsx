@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import AssignMembersModal from "../modals/assignMembersModal";
 import DuplicateModal from "../modals/duplicateModal";
 import RenameModal from '../modals/renameModal';
 import DeleteModal from '../modals/deleteModal';
-import { deleteTemplateAPI, assignControllersToTemplateAPI, renameTemplateAPI, duplicateTemplateAPI } from "../../api/documentContollerAPI";
+import { deleteTemplateAPI, renameTemplateAPI, duplicateTemplateAPI } from "../../api/documentContollerAPI";
 
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
@@ -22,7 +21,7 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
- 
+
   const [duplicating, setDuplicating] = useState(false);
   const [renaming, setRenaming] = useState(false);
 
@@ -42,13 +41,13 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
       return [];
     }
   });
-  
+
   // Keep selectedIds in sync if template prop updates (e.g., parent updated assigned list)
   useEffect(() => {
     setSelectedIds(Array.isArray(template?.assigned) ? [...template.assigned] : (Array.isArray(template?.assignees) ? [...template.assignees] : []));
   }, [template?.assigned, template?.assignees]);
 
- // Helper function to get template status
+  // Helper function to get template status
   const getTemplateStatus = (template) => {
     if (typeof template.status === 'string') {
       // Treat fully approved "pending" as approved for clearer UX in grid
@@ -97,15 +96,15 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
     return 'Unknown';
   };
 
-    {/* Get creator/Owner name */}
-    const getCreatorName = () => {
-      if (!user) return "Unknown";
-      if (user.firstname && user.lastname) {
-        return `${user.firstname} ${user.lastname}`;
-      }
-      // Try name or username as fallback
-      return user.name || user.username || "Unknown";
-    };
+  {/* Get creator/Owner name */ }
+  const getCreatorName = () => {
+    if (!user) return "Unknown";
+    if (user.firstname && user.lastname) {
+      return `${user.firstname} ${user.lastname}`;
+    }
+    // Try name or username as fallback
+    return user.name || user.username || "Unknown";
+  };
 
 
   //  Format date helper
@@ -127,13 +126,13 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
   const handleMenuAction = (action, e) => {
     e.stopPropagation(); // Prevent card click
     setShowMenu(false);
-    
+
     switch (action) {
-     case 'rename':
-      setRenameOpen(true);
-      break;
+      case 'rename':
+        setRenameOpen(true);
+        break;
       case 'duplicate':
-      setDuplicateOpen(true);
+        setDuplicateOpen(true);
         break;
       case 'assign':
         // Open assign modal
@@ -146,8 +145,8 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
         setDeleteOpen(true);
         break;
       default: break;
-      }
-    };
+    }
+  };
 
   const status = getTemplateStatus(template);
   const approvalMeta = template.approvalMeta || {};
@@ -216,7 +215,7 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
         </div>
 
         {/*  Document Preview or Thumbnail */}
-        <div 
+        <div
           className="w-full h-[310px] bg-gray-50 flex items-center justify-center border-b border-gray-300 hover:bg-gray-100 transition-colors rounded-t-lg"
           onMouseDown={guardMouseDown}
           onClick={guardClick}
@@ -235,17 +234,17 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
             />
           ) : (
             <div className="text-center">
-              <svg 
-                className="mx-auto h-16 w-16 text-gray-300 mb-3" 
-                fill="none" 
-                viewBox="0 0 24 24" 
+              <svg
+                className="mx-auto h-16 w-16 text-gray-300 mb-3"
+                fill="none"
+                viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={1} 
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
               <span className="text-gray-400 text-sm">Document Preview</span>
@@ -261,12 +260,12 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
             <p className="text-sm font-medium text-gray-900 leading-tight truncate" title={template.title}>
               {template.title || 'Untitled Template'}
             </p>
-            
+
             {/* Document Code */}
             <p className="text-xs text-blue-600 font-mono mt-1">
               {template.document_code || 'No Code'}
             </p>
-            
+
             {/* Creator/Owner */}
             <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -274,8 +273,8 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
               </svg>
               <span>By {getCreatorName()}</span>
             </div>
-            
-             {/* School
+
+            {/* School
             <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4z"/>
@@ -283,14 +282,14 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
               </svg>
               <span>{extractSchoolFromCode(template.document_code)}</span>
             </div> */}
-            
+
             {/*  Created Date Info */}
             <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                <line x1="16" y1="2" x2="16" y2="6"/>
-                <line x1="8" y1="2" x2="8" y2="6"/>
-                <line x1="3" y1="10" x2="21" y2="10"/>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
               </svg>
               <span>Created {formatDate(template.createdAt || template.created_at)}</span>
             </div>
@@ -314,24 +313,24 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
             {showMenu && (
               <>
                 {/* Backdrop */}
-                <div 
-                  className="fixed inset-0 z-[40]" 
+                <div
+                  className="fixed inset-0 z-[40]"
                   onClick={() => setShowMenu(false)}
                 />
-                
+
                 {/* Menu */}
                 <div className="absolute right-0 top-8 z-[9999] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
                   <button
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                     onClick={(e) => handleMenuAction('rename', e)}
                   >
-                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></svg>
                     Rename
                   </button>
-                  
+
                   <button
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                     onClick={(e) => handleMenuAction('duplicate', e)}
+                    onClick={(e) => handleMenuAction('duplicate', e)}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -346,7 +345,7 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    Archive  
+                    Archive
                   </button>
 
                 </div>
@@ -355,7 +354,7 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
           </div>
         </div>
       </div>
-      
+
       <DuplicateModal
         open={duplicateOpen}
         onClose={() => { setDuplicateOpen(false); justClosedModal(); }}
@@ -441,4 +440,5 @@ export default function TemplateCard({ template, onSelect, user, onPublish, onRe
         error={deleteError}
       />
     </>
-  )};
+  )
+};

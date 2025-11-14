@@ -1,4 +1,3 @@
-// src/components/modals/deleteFieldModal.jsx
 import React from "react";
 import PermanentlyDeleteDocumentModal from "./permanentlyDeleteDocumentModal";
 

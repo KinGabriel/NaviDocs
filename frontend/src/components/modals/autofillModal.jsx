@@ -2,16 +2,16 @@ import { useEffect, useState } from 'react';
 import { X, Search, ChevronDown, ChevronUp, Check, Info } from 'lucide-react';
 import { getFieldSuggestionsAPI } from '../../api/documentsAPI';
 
-export default function AutofillModal({ 
-  open, 
-  onClose, 
-  fields = [], 
-  fetchPreview, 
-  onApply, 
-  applying = false, 
-  user, 
-  matchMode = 'label-tags', 
-  onChangeMatchMode 
+export default function AutofillModal({
+  open,
+  onClose,
+  fields = [],
+  fetchPreview,
+  onApply,
+  applying = false,
+  user,
+  matchMode = 'label-tags',
+  onChangeMatchMode
 }) {
   const [selected, setSelected] = useState({});
   const [previews, setPreviews] = useState({});
@@ -55,7 +55,7 @@ export default function AutofillModal({
         const scopes = {};
         const newChoices = {};
         const newChoiceIdx = {};
-        
+
         for (const f of fields) {
           setLoadingFields(prev => new Set([...prev, f.name]));
           try {
@@ -119,10 +119,10 @@ export default function AutofillModal({
   const handleScopeChange = async (fieldName, newScope) => {
     const f = fields.find(field => field.name === fieldName);
     if (!f) return;
-    
+
     setLoadingFields(prev => new Set([...prev, fieldName]));
     setFieldScopes(s => ({ ...s, [fieldName]: newScope }));
-    
+
     try {
       if (matchMode === 'label-tags' && (!Array.isArray(f.tags) || f.tags.length === 0)) {
         setPreviews(prev => ({ ...prev, [fieldName]: undefined }));
@@ -152,9 +152,9 @@ export default function AutofillModal({
   const filteredFields = fields.filter(f => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
-    return (f.label || f.name).toLowerCase().includes(query) || 
-           f.name.toLowerCase().includes(query) ||
-           (Array.isArray(f.tags) && f.tags.some(t => t.toLowerCase().includes(query)));
+    return (f.label || f.name).toLowerCase().includes(query) ||
+      f.name.toLowerCase().includes(query) ||
+      (Array.isArray(f.tags) && f.tags.some(t => t.toLowerCase().includes(query)));
   });
 
   const INITIAL_FIELDS_DISPLAY = 5;
@@ -167,7 +167,7 @@ export default function AutofillModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-[2px]" role="dialog" aria-modal="true">
       <div className="absolute inset-0" onClick={onClose} />
-      
+
       <div className="relative w-full max-w-4xl mx-4 bg-white rounded-xl shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in duration-200">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -179,9 +179,9 @@ export default function AutofillModal({
               </p>
             </div>
           </div>
-          <button 
-            onClick={onClose} 
-            aria-label="Close" 
+          <button
+            onClick={onClose}
+            aria-label="Close"
             className="p-2 rounded-lg hover:bg-white hover:shadow-sm transition-all duration-200"
           >
             <X className="w-5 h-5 text-gray-500" />
@@ -196,22 +196,20 @@ export default function AutofillModal({
               <span className="text-sm font-medium text-gray-700">Match by:</span>
               <div className="flex items-center bg-gray-100 rounded-lg p-1">
                 <button
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                    matchMode === 'label' 
-                      ? 'bg-white text-blue-700 shadow-sm' 
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${matchMode === 'label'
+                      ? 'bg-white text-blue-700 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                    }`}
                   onClick={() => onChangeMatchMode && onChangeMatchMode('label')}
                   type="button"
                 >
                   Label only
                 </button>
                 <button
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
-                    matchMode === 'label-tags' 
-                      ? 'bg-white text-blue-700 shadow-sm' 
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${matchMode === 'label-tags'
+                      ? 'bg-white text-blue-700 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                    }`}
                   onClick={() => onChangeMatchMode && onChangeMatchMode('label-tags')}
                   type="button"
                 >
@@ -267,20 +265,19 @@ export default function AutofillModal({
                   const currentChoiceIdx = choiceIndex[f.name] ?? 0;
 
                   return (
-                    <div 
-                      key={f.name} 
-                      className={`border rounded-lg bg-white shadow-sm transition-all duration-200 ${
-                        selected[f.name] ? 'border-blue-300 ring-2 ring-blue-50' : 'border-gray-200 hover:border-gray-300'
-                      } ${isDisabled ? 'opacity-60' : ''}`}
+                    <div
+                      key={f.name}
+                      className={`border rounded-lg bg-white shadow-sm transition-all duration-200 ${selected[f.name] ? 'border-blue-300 ring-2 ring-blue-50' : 'border-gray-200 hover:border-gray-300'
+                        } ${isDisabled ? 'opacity-60' : ''}`}
                     >
                       <div className="p-4">
                         <div className="flex items-start gap-3">
                           {/* Checkbox */}
                           <div className="pt-0.5">
-                            <input 
-                              type="checkbox" 
-                              checked={!!selected[f.name]} 
-                              onChange={() => !isDisabled && toggle(f.name)} 
+                            <input
+                              type="checkbox"
+                              checked={!!selected[f.name]}
+                              onChange={() => !isDisabled && toggle(f.name)}
                               disabled={isDisabled || isLoading}
                               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed"
                             />
@@ -302,13 +299,13 @@ export default function AutofillModal({
                                     </span>
                                   )}
                                 </div>
-                                
+
                                 {/* Tags */}
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   {Array.isArray(f.tags) && f.tags.length > 0 ? (
                                     f.tags.map((t, i) => (
-                                      <span 
-                                        key={`${f.name}-tag-${i}`} 
+                                      <span
+                                        key={`${f.name}-tag-${i}`}
                                         className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-xs border border-gray-200 font-medium"
                                       >
                                         {t}
@@ -383,8 +380,8 @@ export default function AutofillModal({
                                   className="w-full text-sm border border-blue-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                                 >
                                   {availableChoices.map((opt, idx) => {
-                                    const optTags = Array.isArray(opt?.tags) && opt.tags.length 
-                                      ? opt.tags.join(', ') 
+                                    const optTags = Array.isArray(opt?.tags) && opt.tags.length
+                                      ? opt.tags.join(', ')
                                       : 'no tags';
                                     const optValue = String(opt?.value ?? opt).slice(0, 50);
                                     return (
@@ -446,8 +443,8 @@ export default function AutofillModal({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-white hover:shadow-sm transition-all duration-200"
             >
               Cancel
@@ -456,10 +453,10 @@ export default function AutofillModal({
               onClick={() => {
                 const selectedItems = Object.keys(selected)
                   .filter(k => selected[k])
-                  .map(k => ({ 
-                    key: k, 
-                    value: previews[k], 
-                    scope: fieldScopes[k] || 'user' 
+                  .map(k => ({
+                    key: k,
+                    value: previews[k],
+                    scope: fieldScopes[k] || 'user'
                   }));
                 onApply(selectedItems);
               }}

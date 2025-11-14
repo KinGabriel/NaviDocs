@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { adjustTemplateDeadlineAPI } from '../../api/documentContollerAPI';
 import { Calendar, Clock, X, Save, AlertCircle } from 'lucide-react';
 
-export default function UpdateDeadlineModal (
-{ isOpen,
-  onClose,
-  currentDeadline,
-  onUpdate,
-  templateTitle,
-  templateId
-}) {
+export default function UpdateDeadlineModal(
+  { isOpen,
+    onClose,
+    currentDeadline,
+    onUpdate,
+    templateTitle,
+    templateId
+  }) {
   const [deadline, setDeadline] = useState('');
   const [deadlineTime, setDeadlineTime] = useState('');
   const [errors, setErrors] = useState({});
@@ -33,14 +33,14 @@ export default function UpdateDeadlineModal (
 
   const validateDeadline = () => {
     const newErrors = {};
-    
+
     if (!deadline) {
       newErrors.deadline = 'Date is required';
     }
     if (!deadlineTime) {
       newErrors.deadlineTime = 'Time is required';
     }
-    
+
     // Check if deadline is in the past
     if (deadline && deadlineTime) {
       const now = new Date();
@@ -49,7 +49,7 @@ export default function UpdateDeadlineModal (
         newErrors.deadline = 'Deadline cannot be in the past';
       }
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -103,7 +103,7 @@ export default function UpdateDeadlineModal (
 
         {/* Content */}
         <div className="p-6 space-y-6">
-         {/* Current Deadline Display */}
+          {/* Current Deadline Display */}
           {currentDeadline && (
             <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg p-4">
               <h4 className="text-sm font-semibold text-yellow-800 mb-2 flex items-center gap-2">
@@ -133,7 +133,7 @@ export default function UpdateDeadlineModal (
           {/* New Deadline Form */}
           <div className="space-y-4">
             <h4 className="text-sm font-semibold text-gray-800">New Deadline</h4>
-            
+
             {/* Date Input */}
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -145,11 +145,10 @@ export default function UpdateDeadlineModal (
                 </div>
                 <input
                   type="date"
-                  className={`w-full pl-11 pr-4 py-3.5 bg-gray-50 border-2 rounded-xl shadow-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 transition-all duration-200 ${
-                    errors.deadline 
-                      ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50' 
+                  className={`w-full pl-11 pr-4 py-3.5 bg-gray-50 border-2 rounded-xl shadow-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 transition-all duration-200 ${errors.deadline
+                      ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50'
                       : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                    }`}
                   value={deadline}
                   onChange={e => {
                     setDeadline(e.target.value);
@@ -173,11 +172,10 @@ export default function UpdateDeadlineModal (
                 </div>
                 <input
                   type="time"
-                  className={`w-full pl-11 pr-4 py-3.5 bg-gray-50 border-2 rounded-xl shadow-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 transition-all duration-200 ${
-                    errors.deadlineTime 
-                      ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50' 
+                  className={`w-full pl-11 pr-4 py-3.5 bg-gray-50 border-2 rounded-xl shadow-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 transition-all duration-200 ${errors.deadlineTime
+                      ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50'
                       : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                    }`}
                   value={deadlineTime}
                   onChange={e => {
                     setDeadlineTime(e.target.value);
