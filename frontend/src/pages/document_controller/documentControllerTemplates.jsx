@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'; 
-import Header from '../../layout/headers/header'; 
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import Header from '../../layout/headers/header';
 import Sidebar from '../../layout/sidebars/sidebar';
-import useUser from '../../hooks/useUser'; 
+import useUser from '../../hooks/useUser';
 import SearchBar from '../../components/searchbar';
 import Dropdown from '../../components/dropdowns/dropdown';
 import TemplateCard from '../../components/cards/templatecard';
@@ -24,17 +24,17 @@ export default function DocumentControllerTemplates() {
   const [loading, setLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const pagination = usePagination(totalPages, 1);
-  
+
   // Status options for filtering
   const statusOptions = [
     'All',
     'Draft',
-    'Pending Approval', 
+    'Pending Approval',
     'Approved',
     'Published'
   ];
 
-  // ⬇ derive initial selectedStatus from navigation state or ?status=
+  // derive initial selectedStatus from navigation state or ?status=
   const initialStatus =
     (statusOptions.includes(location.state?.status) && location.state.status) ||
     (statusOptions.includes(searchParams.get('status')) && searchParams.get('status')) || 'All';
@@ -52,13 +52,12 @@ export default function DocumentControllerTemplates() {
     } else if (statusOptions.includes(fromQuery) && fromQuery !== selectedStatus) {
       setSelectedStatus(fromQuery);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state, searchParams]);
 
   // School identifiers for filtering, sorting, and modal
   const schoolIdentifiers = {
     'University Wide': 'VAA',
-    'SAMCIS': 'SMI', 
+    'SAMCIS': 'SMI',
     'STELA': 'STL',
   };
 
@@ -69,12 +68,10 @@ export default function DocumentControllerTemplates() {
   const handleModalSubmit = async (templateFormData) => {
     setLoading(true);
     try {
-      // document size selector into a proper pageSetup object
       const sizeKey = String(templateFormData.document_size || 'A4').toLowerCase();
       const paperSize = sizeKey === 'letter' ? 'Letter' : sizeKey === 'legal' ? 'Legal' : 'A4';
       const templateData = {
         title: templateFormData.title.trim(),
-        // Keep the original field for backward compatibility, but also provide structured pageSetup
         document_size: templateFormData.document_size,
         pageSetup: {
           paperSize,
@@ -118,7 +115,7 @@ export default function DocumentControllerTemplates() {
       let templatesArray = [];
       if (result.success && result.data?.templates) {
         templatesArray = result.data.templates;
-        setTotalPages(result.data.pagination.total_pages || 1); 
+        setTotalPages(result.data.pagination.total_pages || 1);
       } else if (result.templates) {
         templatesArray = result.templates;
         setTotalPages(1);
@@ -152,7 +149,7 @@ export default function DocumentControllerTemplates() {
   const handleInlineApprove = async (template) => {
     if (!user) return;
     const role = (user.role || '').toLowerCase();
-    if (!['secretary','dean'].includes(role)) return;
+    if (!['secretary', 'dean'].includes(role)) return;
     try {
       const res = await approveTemplateAPI(template._id, role);
       setTemplates(prev => prev.map(t => t._id === template._id ? { ...t, ...res.template, approvalMeta: res.approvalMeta || res.template?.approvalMeta } : t));
@@ -201,26 +198,25 @@ export default function DocumentControllerTemplates() {
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Templates" />
-        {/* prevent horizontal overflow + comfy responsive padding/margins */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
           <div className="flex-1 px-1 py-5">
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">TEMPLATES</h1>
             <div className="w-30 h-1 bg-yellow-400 mb-6 rounded" />
 
-            {/* Controls row: stacks on small screens */}
+            {/* Controls row */}
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
-              
-              
-              {/* Create button (keeps full size; stacks above filters on small screens) */}
+
+
+              {/* Create button */}
               <div className="flex flex-col sm:flex-row gap-3">
-                
+
                 <button
                   onClick={handleCreateTemplate}
                   className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   Create Template
                 </button>
@@ -228,7 +224,7 @@ export default function DocumentControllerTemplates() {
 
               {/* Filters + Search */}
               <div className="flex items-center gap-2">
-              {/* Archived Documents */}
+                {/* Archived Documents */}
                 <button
                   type="button"
                   onClick={() => navigate("/archived-documents")}
@@ -275,7 +271,7 @@ export default function DocumentControllerTemplates() {
                     placeholder="Search templates..."
                   />
                 </div>
-                
+
                 {/* School Filter */}
                 <Dropdown
                   options={["All", ...Object.keys(schoolIdentifiers)]}
@@ -292,7 +288,7 @@ export default function DocumentControllerTemplates() {
                   width="w-36"
                 />
 
-                
+
               </div>
             </div>
 

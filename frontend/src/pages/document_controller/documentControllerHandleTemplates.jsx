@@ -10,11 +10,7 @@ import usePagination from "../../hooks/usePagination";
 import { StatusBadge } from '../../utils/formatters';
 import Loader from '../../components/loader';
 import { fetchTemplatesAPI as fetchDeanTemplatesAPI } from "../../api/documentContollerAPI";
-import TaskAssignmentModal from '../../components/modals/taskAssignmentModal';
 
-/**
- * Helper to collect all role names from user object in lowercase.
- */
 function getAllRoleNames(user) {
   const names = [];
 
@@ -71,7 +67,7 @@ function hasLdcApproved(row) {
     }
   }
 
-  // Check status_meta.approvals (keys usually like "lead_document_controller")
+  // Check status_meta.approvals 
   if (!approved && metaApprovals && typeof metaApprovals === "object") {
     for (const key of Object.keys(metaApprovals)) {
       if (key.toLowerCase().includes("lead_document_controller")) {
@@ -114,7 +110,7 @@ function mapStatusForRole(row, {
     if (status === "rejected" || status === "disapproved") return "Rejected";
     if (status === "published") return "Published";
 
-    // Fallbacks (just in case)
+    // Fallbacks 
     if (status === "pending" || status === "pending approval") return "Pending";
     return "Pending";
   }
@@ -174,9 +170,6 @@ export default function DeanTemplates() {
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [sortOrder, setSortOrder] = useState("Recent");
 
-  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
-
   const PAGE_SIZE = 10;
   const pagination = usePagination(totalPages, 1);
 
@@ -186,7 +179,7 @@ export default function DeanTemplates() {
     STELA: "STL",
   };
 
-  // ---------- ROLE DETECTION ----------
+  // ROLE DETECTION 
   const roleNames = getAllRoleNames(user);
 
   const isLeadDocController = roleNames.some((r) =>
@@ -208,7 +201,7 @@ export default function DeanTemplates() {
 
   const isApproverRole = isLeadDocController || isUnitDocController || isDocControlOfficer;
 
-  // ---------- ROLE-BASED TABS & FILTERING ----------
+  // ROLE-BASED TABS & FILTERING 
 
   let tabs = [];
   let tabToStatus = {};
@@ -224,7 +217,7 @@ export default function DeanTemplates() {
       Published: "Published",
     };
     allowedStatusSet = new Set([
-      "endorsed",       // mapped to Pending in UI
+      "endorsed",
       "approved",
       "rejected",
       "disapproved",
@@ -262,7 +255,6 @@ export default function DeanTemplates() {
     setError(null);
     try {
       // For approver roles (LDC, Unit DC, DCO), don't filter by status in API.
-      // We'll do all status filtering on the frontend using mapStatusForRole.
       const apiStatus =
         isApproverRole || selectedStatus === "All"
           ? undefined
@@ -336,10 +328,9 @@ export default function DeanTemplates() {
 
   useEffect(() => {
     fetchTemplates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
-  // ---------- TABLE COLUMNS ----------
+  // TABLE COLUMNS
 
   const columns = [
     { key: "title", label: "Template Name" },
@@ -382,7 +373,7 @@ export default function DeanTemplates() {
     },
   ];
 
-  // ---------- PAGINATION WITH ELLIPSIS ----------
+  // PAGINATION WITH ELLIPSIS
 
   function getEllipsedPages(current, total, siblings = 1) {
     const pages = [];
@@ -491,13 +482,12 @@ export default function DeanTemplates() {
                   key={tab}
                   onClick={() => {
                     setSelectedStatus(tab);
-                    pagination.handlePage(1); // reset to page 1 when switching tabs
+                    pagination.handlePage(1);
                   }}
-                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                    selectedStatus === tab
+                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${selectedStatus === tab
                       ? "border-[#003DA5] text-[#003DA5]"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
+                    }`}
                 >
                   {tab}
                 </button>
@@ -543,11 +533,10 @@ export default function DeanTemplates() {
                     <button
                       key={num}
                       onClick={() => pagination.handlePage(num)}
-                      className={`px-3 py-1 rounded border ${
-                        pagination.currentPage === num
+                      className={`px-3 py-1 rounded border ${pagination.currentPage === num
                           ? "bg-blue-600 text-white"
                           : "bg-white text-gray-700 hover:bg-gray-100"
-                      }`}
+                        }`}
                       aria-current={
                         pagination.currentPage === num ? "page" : undefined
                       }

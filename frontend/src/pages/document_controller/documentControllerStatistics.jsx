@@ -3,7 +3,7 @@ import Header from '../../layout/headers/header';
 import Sidebar from '../../layout/sidebars/sidebar';
 import Dropdown from '../../components/dropdowns/dropdown';
 import Table from '../../components/table';
-import SearchBar from '../../components/searchbar'; 
+import SearchBar from '../../components/searchbar';
 import { Bar, Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
 
@@ -22,7 +22,7 @@ export default function DocumentControllerStatistics() {
   // School identifiers
   const schoolIdentifiers = {
     'University Wide': 'VAA',
-    'SAMCIS': 'SMI', 
+    'SAMCIS': 'SMI',
     'STELA': 'STL',
   };
 
@@ -87,16 +87,16 @@ export default function DocumentControllerStatistics() {
   const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { 
-      legend: { display: false }, 
-      tooltip: { enabled: true } 
+    plugins: {
+      legend: { display: false },
+      tooltip: { enabled: true }
     },
-    scales: { 
-      y: { 
-        beginAtZero: true, 
-        max: 100, 
-        ticks: { stepSize: 20 } 
-      } 
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 100,
+        ticks: { stepSize: 20 }
+      }
     },
   };
 
@@ -125,7 +125,7 @@ export default function DocumentControllerStatistics() {
     datasets: [
       {
         data: [currentDept.onTime, currentDept.late],
-        backgroundColor: ['#3B82F6', '#E53737'], // Blue for on time, red for late
+        backgroundColor: ['#3B82F6', '#E53737'], 
         borderWidth: 0,
       },
     ],
@@ -148,7 +148,7 @@ export default function DocumentControllerStatistics() {
       },
       tooltip: {
         callbacks: {
-          label: function(context) {
+          label: function (context) {
             const label = context.label || '';
             const value = context.parsed;
             return `${label}: ${value}`;
@@ -156,24 +156,23 @@ export default function DocumentControllerStatistics() {
         },
       },
     },
-    cutout: '50%', // Creates the doughnut effect
+    cutout: '50%', 
   };
 
   return (
     <div className="min-h-screen bg-gray-200">
       <Header user={user} />
       <div className="flex">
-        {/* Sidebar */}
         <Sidebar user={user} />
         {/* Main content */}
         <main className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           {/* Stat cards */}
           <div className="flex flex-wrap justify-between items-center mt-6 mb-8">
             <div className="flex gap-4 flex-wrap">
-               {/* Schools */}
+              {/* Schools */}
               <div className="bg-white p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-45">
                 <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
-               <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 512 512"><path fill="#fff" d="M256 368a16 16 0 0 1-7.94-2.11L108 285.84a8 8 0 0 0-12 6.94V368a16 16 0 0 0 8.23 14l144 80a16 16 0 0 0 15.54 0l144-80a16 16 0 0 0 8.23-14v-75.22a8 8 0 0 0-12-6.94l-140.06 80.05A16 16 0 0 1 256 368" stroke-width="13" stroke="#fff"/><path fill="#fff" d="M495.92 190.5v-.11a16 16 0 0 0-8-12.28l-224-128a16 16 0 0 0-15.88 0l-224 128a16 16 0 0 0 0 27.78l224 128a16 16 0 0 0 15.88 0L461 221.28a2 2 0 0 1 3 1.74v144.53c0 8.61 6.62 16 15.23 16.43A16 16 0 0 0 496 368V192a15 15 0 0 0-.08-1.5" stroke-width="13" stroke="#fff"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 512 512"><path fill="#fff" d="M256 368a16 16 0 0 1-7.94-2.11L108 285.84a8 8 0 0 0-12 6.94V368a16 16 0 0 0 8.23 14l144 80a16 16 0 0 0 15.54 0l144-80a16 16 0 0 0 8.23-14v-75.22a8 8 0 0 0-12-6.94l-140.06 80.05A16 16 0 0 1 256 368" stroke-width="13" stroke="#fff" /><path fill="#fff" d="M495.92 190.5v-.11a16 16 0 0 0-8-12.28l-224-128a16 16 0 0 0-15.88 0l-224 128a16 16 0 0 0 0 27.78l224 128a16 16 0 0 0 15.88 0L461 221.28a2 2 0 0 1 3 1.74v144.53c0 8.61 6.62 16 15.23 16.43A16 16 0 0 0 496 368V192a15 15 0 0 0-.08-1.5" stroke-width="13" stroke="#fff" /></svg>
                 </div>
                 <div>
                   <div className="text-black-600 text-base font-bold">Schools</div>
@@ -185,7 +184,7 @@ export default function DocumentControllerStatistics() {
               {/* Departments */}
               <div className="bg-[#FBFBFB]  p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-45">
                 <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 24 24"><g fill="none"><path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="M12 3a3 3 0 0 0-1 5.83V11H8a3 3 0 0 0-3 3v1.17a3.001 3.001 0 1 0 2 0V14a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1.17a3.001 3.001 0 1 0 2 0V14a3 3 0 0 0-3-3h-3V8.83A3.001 3.001 0 0 0 12 3"/></g></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 24 24"><g fill="none"><path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z" /><path fill="#fff" d="M12 3a3 3 0 0 0-1 5.83V11H8a3 3 0 0 0-3 3v1.17a3.001 3.001 0 1 0 2 0V14a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1.17a3.001 3.001 0 1 0 2 0V14a3 3 0 0 0-3-3h-3V8.83A3.001 3.001 0 0 0 12 3" /></g></svg>
                 </div>
                 <div>
                   <div className="text-black-600 text-base font-bold">Departments</div>
@@ -209,7 +208,7 @@ export default function DocumentControllerStatistics() {
               {/* Documents */}
               <div className="bg-[#FBFBFB]  p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-43">
                 <div className="w-12 h-12 bg-[#003DA5] rounded-full flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 256 256"><path fill="#fff" d="m213.66 66.34l-40-40A8 8 0 0 0 168 24H88a16 16 0 0 0-16 16v16H56a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h112a16 16 0 0 0 16-16v-16h16a16 16 0 0 0 16-16V72a8 8 0 0 0-2.34-5.66M136 192H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m0-32H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m64 24h-16v-80a8 8 0 0 0-2.34-5.66l-40-40A8 8 0 0 0 136 56H88V40h76.69L200 75.31Z"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="1.8em" height="1.8em" viewBox="0 0 256 256"><path fill="#fff" d="m213.66 66.34l-40-40A8 8 0 0 0 168 24H88a16 16 0 0 0-16 16v16H56a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h112a16 16 0 0 0 16-16v-16h16a16 16 0 0 0 16-16V72a8 8 0 0 0-2.34-5.66M136 192H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m0-32H88a8 8 0 0 1 0-16h48a8 8 0 0 1 0 16m64 24h-16v-80a8 8 0 0 0-2.34-5.66l-40-40A8 8 0 0 0 136 56H88V40h76.69L200 75.31Z" /></svg>
                 </div>
                 <div>
                   <div className="text-black-600 text-base font-bold">Documents</div>
@@ -252,7 +251,7 @@ export default function DocumentControllerStatistics() {
           <div className="space-y-6">
             {/* Bar chart */}
             <div className="bg-[#FBFBFB]  p-4 rounded shadow">
-              <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase mb-2"> 
+              <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase mb-2">
                 Department Comparison Chart
               </h2>
               <div className="w-30 h-0.5 bg-yellow-400 mb-4 rounded" />
@@ -277,10 +276,10 @@ export default function DocumentControllerStatistics() {
                 <h2 className="text-sm font-semibold tracking-widest text-gray-800 uppercase mb-8">
                   Submission Timelines
                 </h2>
-                
+
                 {/* Department navigations */}
                 <div className="flex items-center justify-between mb-4">
-                  <button 
+                  <button
                     onClick={prevDepartment}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
                   >
@@ -288,12 +287,12 @@ export default function DocumentControllerStatistics() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
-                  
+
                   <div className="text-center">
                     <div className="text-sm font-semibold text-gray-800">{currentDept.name}</div>
                   </div>
-                  
-                  <button 
+
+                  <button
                     onClick={nextDepartment}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
                   >

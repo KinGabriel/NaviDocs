@@ -34,7 +34,7 @@ export default function DocumentWorkflowView() {
       <div className="flex flex-1">
         <Sidebar user={user} />
 
-        {/* Main content wrapper (responsive paddings & margins) */}
+        {/* Main content wrapper */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-6 px-3 md:px-6 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl">
           <main className="p-4 md:p-5 flex-1 overflow-y-auto">
             {/* Page heading */}
@@ -70,7 +70,7 @@ export default function DocumentWorkflowView() {
               </button>
             </div>
 
-            {/* Doc header bar (stacks on small screens) */}
+            {/* Doc header bar */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-100 rounded-lg px-4 py-3 mb-4">
               <div className="min-w-0">
                 <div className="font-semibold truncate">{doc.title}</div>
@@ -129,12 +129,11 @@ export default function DocumentWorkflowView() {
               </div>
             </div>
 
-            {/* Content grid (1 col on mobile, 9/3 split on lg) */}
+            {/* Content grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6">
               {/* Preview */}
               <section className="lg:col-span-9">
                 <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                  {/* Allow horizontal scroll on very narrow screens */}
                   <div className="max-w-full overflow-x-auto">
                     <div className="aspect-[8.5/11] bg-gray-50 flex items-center justify-center min-w-[280px]">
                       <div className="text-center px-3">
@@ -174,7 +173,6 @@ export default function DocumentWorkflowView() {
         </div>
       </div>
 
-      {/* ultra-small tweaks */}
       <style>{`
         /* Tailwind covers most breakpoints; add a tiny helper for sub-360px phones */
         @media (max-width: 360px) {
