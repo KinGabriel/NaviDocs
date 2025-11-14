@@ -8,7 +8,7 @@ import Dropdown from "../components/dropdowns/dropdown";
 import SearchBar from "../components/searchbar";
 import TaskAssignmentModal from "../components/modals/taskAssignmentModal";
 import { StatusBadge, formatDate } from "../utils/formatters";
-import { Plus, Calendar, Users, FileText, Clock, CheckCircle, AlertCircle, Eye, TrendingUp, Send, RotateCcw} from 'lucide-react';
+import { Plus, Calendar, Users, FileText, Clock, CheckCircle, AlertCircle, Eye, TrendingUp, Send, RotateCcw } from 'lucide-react';
 import { listSubmissionBinsAPI, forwardSubmissionBinAPI } from "../api/assignmentDocumentsAPI";
 import { getSubmissionBinStatus } from "../utils/submissionStatus";
 import toast from "react-hot-toast";
@@ -32,7 +32,7 @@ export default function SubmissionBins() {
   // Role helpers
   const roleName = (user?.role?.name || user?.role || '').toString();
   const userRole = roleName.toLowerCase();
-  const isDeptHead = ['department head','department_head','dept-head','dept head','department-head'].includes(userRole);
+  const isDeptHead = ['department head', 'department_head', 'dept-head', 'dept head', 'department-head'].includes(userRole);
   const isDean = userRole === 'dean';
   const isSecretary = userRole === 'secretary';
   const isDeanOrSecretary = isDean || isSecretary;
@@ -62,7 +62,7 @@ export default function SubmissionBins() {
   // Filter and sort submissions
   const filtered = useMemo(() => {
     let rows = [...bins];
-    
+
     // Status filter
     if (statusFilter !== "All Status") {
       const target = statusFilter.toLowerCase();
@@ -71,7 +71,7 @@ export default function SubmissionBins() {
         return actualStatus.toLowerCase() === target;
       });
     }
-    
+
     // Search filter
     if (query.trim()) {
       const q = query.toLowerCase();
@@ -79,7 +79,7 @@ export default function SubmissionBins() {
         (r.title || '').toLowerCase().includes(q)
       );
     }
-    
+
     // Sort
     if (sortBy === "Recent") {
       rows.sort((a, b) => new Date(b.createdAt || b.created_at || 0) - new Date(a.createdAt || a.created_at || 0));
@@ -94,7 +94,7 @@ export default function SubmissionBins() {
     } else if (sortBy === "A–Z") {
       rows.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
     }
-    
+
     return rows;
   }, [query, statusFilter, sortBy, bins]);
 
@@ -117,7 +117,7 @@ export default function SubmissionBins() {
     };
 
     // Helper to check if bin has ANY currently returned submissions
-    const hasReturnedSubmissions = (bin) => 
+    const hasReturnedSubmissions = (bin) =>
       Array.isArray(bin.submissions) &&
       bin.submissions.some(isCurrentlyReturned);
 
@@ -130,7 +130,7 @@ export default function SubmissionBins() {
 
     // Returned count = bins where ALL submissions are returned
     const returned = bins.filter(s => allSubmissionsReturned(s)).length;
-    
+
     // Pending count = bins where SOME (but NOT all) submissions are returned
     const pending = bins.filter(s => {
       const hasReturned = hasReturnedSubmissions(s);
@@ -218,14 +218,14 @@ export default function SubmissionBins() {
     return Array.from(new Set(pages)).filter(p => p >= 1 && p <= total || p === "…");
   }
 
-    return (
+  return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} />
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
           <div className="flex-1 px-1 py-5">
-            
+
             {/* Header Section */}
             <div className="mb-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
@@ -236,13 +236,13 @@ export default function SubmissionBins() {
                   <p className="text-gray-600 mt-1">Manage and track all document submissions</p>
                 </div>
                 {!isDeanOrSecretary && (
-                <button
-                  onClick={() => setShowAssignModal(true)}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                >
-                  <Plus size={20} />
-                  Assign a Submission
-                </button>
+                  <button
+                    onClick={() => setShowAssignModal(true)}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  >
+                    <Plus size={20} />
+                    Assign a Submission
+                  </button>
                 )}
               </div>
 
@@ -371,42 +371,41 @@ export default function SubmissionBins() {
 
             {/* Pagination */}
             {pageRows.length > 0 && (
-            <div className="flex justify-center items-center mt-6 gap-2">
-              <button
-                onClick={pagination.handlePrev}
-                disabled={pagination.currentPage === 1}
-                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-              >
-                Prev
-              </button>
-              
-              {getEllipsedPages(pagination.currentPage, totalPages, 1).map((num, idx) =>
-                num === "…" ? (
-                  <span key={`e-${idx}`} className="px-2 text-gray-400 select-none">…</span>
-                ) : (
-                  <button
-                    key={num}
-                    onClick={() => pagination.handlePage(num)}
-                    className={`px-3 py-1 rounded border ${
-                      pagination.currentPage === num
-                        ? "bg-blue-600 text-white"
-                        : "bg-white text-gray-700 hover:bg-gray-100"
-                    }`}
-                    aria-current={pagination.currentPage === num ? "page" : undefined}
-                  >
-                    {num}
-                  </button>
-                )
-              )}
+              <div className="flex justify-center items-center mt-6 gap-2">
+                <button
+                  onClick={pagination.handlePrev}
+                  disabled={pagination.currentPage === 1}
+                  className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                >
+                  Prev
+                </button>
 
-              <button
-                onClick={pagination.handleNext}
-                disabled={pagination.currentPage === totalPages}
-                className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
+                {getEllipsedPages(pagination.currentPage, totalPages, 1).map((num, idx) =>
+                  num === "…" ? (
+                    <span key={`e-${idx}`} className="px-2 text-gray-400 select-none">…</span>
+                  ) : (
+                    <button
+                      key={num}
+                      onClick={() => pagination.handlePage(num)}
+                      className={`px-3 py-1 rounded border ${pagination.currentPage === num
+                          ? "bg-blue-600 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-100"
+                        }`}
+                      aria-current={pagination.currentPage === num ? "page" : undefined}
+                    >
+                      {num}
+                    </button>
+                  )
+                )}
+
+                <button
+                  onClick={pagination.handleNext}
+                  disabled={pagination.currentPage === totalPages}
+                  className="px-3 py-1 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -457,7 +456,7 @@ function StatCard({ icon: Icon, label, value, color }) {
 function SubmissionCard({ submission, onView, onForward, canForward, forwarding, canView = true }) {
   const daysUntilDue = Math.ceil((new Date(submission.deadline) - new Date()) / (1000 * 60 * 60 * 24));
   const items = Array.isArray(submission.submissions) ? submission.submissions : (submission.submission || []);
-  
+
   const displayStatus = getSubmissionBinStatus(submission);
 
   // Helper: is currently returned
@@ -476,14 +475,11 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding,
 
   // Check for currently returned submissions
   const hasReturnedSubmissions = items.some(isCurrentlyReturned);
-  
+
   // Count how many submissions are returned
   const returnedCount = items.filter(isCurrentlyReturned).length;
-  
+
   // Determine display status
-  // If ALL submissions are returned, show "returned"
-  // If SOME submissions are returned, show "pending" (awaiting resubmission)
-  // Otherwise show the bin's actual status
   const allReturned = items.length > 0 && items.every(isCurrentlyReturned);
 
   // const displayStatus = allReturned 
@@ -494,21 +490,21 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding,
   const submittedCount = items.filter(s => {
     // Don't count if currently returned (awaiting resubmission)
     if (isCurrentlyReturned(s)) return false;
-    
+
     // Check if submission has documents
-    const hasDocuments = (Array.isArray(s.documents) && s.documents.length > 0) || 
-                        (s.document && s.document !== null);
+    const hasDocuments = (Array.isArray(s.documents) && s.documents.length > 0) ||
+      (s.document && s.document !== null);
     // Must have both documents AND submitted_at timestamp
     return hasDocuments && s.submitted_at;
   }).length;
-  
+
   // Total number of documents across all submissions
   const totalDocuments = items.reduce((count, s) => {
     if (Array.isArray(s.documents)) return count + s.documents.length;
     if (s.document) return count + 1;
     return count;
   }, 0);
-  
+
   const totalAssigned = items.length;
 
   return (
@@ -583,7 +579,7 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding,
             <Users size={16} className="text-gray-400" />
             <span>{totalAssigned} assigned</span>
           </div>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             {submission.is_forwarded && (
               <span className="text-xs px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200">Forwarded</span>
             )}
