@@ -17,7 +17,7 @@ export default function ServerErrorPage() {
         <div className="absolute bottom-20 left-20 w-48 h-48 bg-orange-200/20 rounded-full blur-2xl"></div>
         <div className="absolute top-1/3 right-1/3 w-24 h-24 bg-red-200/20 rounded-full blur-lg"></div>
       </div>
-      
+
       <div className="relative z-10 text-center max-w-2xl">
         {/* Main content */}
         <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-10">
@@ -50,14 +50,14 @@ export default function ServerErrorPage() {
 
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button 
+            <button
               onClick={handleRefresh}
               className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-medium py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
             >
               <RefreshCw className="h-4 w-4" />
               Try Again
             </button>
-            <button 
+            <button
               onClick={() => navigate(-1)}
               className="border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-medium py-3 px-6 rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
             >

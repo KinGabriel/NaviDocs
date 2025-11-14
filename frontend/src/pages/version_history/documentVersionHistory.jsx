@@ -12,8 +12,8 @@ import {
 } from '../../api/documentsAPI';
 import { toast } from 'react-hot-toast';
 
-export default function DocumentVersionHistory({ 
-  onClose, 
+export default function DocumentVersionHistory({
+  onClose,
   documentId,
   currentFields = {},
   currentContent = null,
@@ -44,15 +44,13 @@ export default function DocumentVersionHistory({
   const [bookmarkTarget, setBookmarkTarget] = useState(null);
   const [bookmarkName, setBookmarkName] = useState('');
 
-  // 🔹 NEW: responsive panel states
   const [isMobile, setIsMobile] = useState(false);
   const [showFields, setShowFields] = useState(true);
   const [showHistory, setShowHistory] = useState(true);
 
-  // Detect screen width and toggle panels
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth <= 1024; // breakpoint
+      const mobile = window.innerWidth <= 1024;
       setIsMobile(mobile);
 
       if (mobile) {
@@ -235,7 +233,7 @@ export default function DocumentVersionHistory({
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     return undefined;
   };
@@ -243,7 +241,7 @@ export default function DocumentVersionHistory({
   // Load the actual document data
   useEffect(() => {
     if (!documentId) return;
-    
+
     let ignore = false;
     const load = async () => {
       setLoadingDoc(true);
@@ -254,7 +252,7 @@ export default function DocumentVersionHistory({
         if ((!normalized.pages_json || normalized.pages_json.length === 0) && normalized.document && normalized.document.pages_json) {
           normalized.pages_json = Array.isArray(normalized.document.pages_json) ? normalized.document.pages_json : [normalized.document.pages_json];
         }
-        
+
         if ((!normalized.pages_json || normalized.pages_json.length === 0) && (normalized.document?.pages_html || normalized.document?.html || normalized.pages_html)) {
           const html = normalized.document?.pages_html || normalized.document?.html || normalized.pages_html;
           normalized.pages_json = Array.isArray(html) ? html : [html];
@@ -264,7 +262,7 @@ export default function DocumentVersionHistory({
           const html = normalized.from_template?.pages_html || normalized.from_template?.html || normalized.from_template?.body;
           normalized.pages_json = Array.isArray(html) ? html : [html];
         }
-        
+
         if (!ignore) {
           setDocData(normalized);
         }
@@ -360,14 +358,14 @@ export default function DocumentVersionHistory({
   const groupVersionsByDate = (versionList) => {
     const grouped = {};
     const now = new Date();
-    
+
     versionList.forEach(version => {
       const dateKey = getRelativeDate(version.timestamp, now);
-      
+
       if (!grouped[dateKey]) {
         grouped[dateKey] = [];
       }
-      
+
       grouped[dateKey].push({
         ...version,
         time: formatDateTime(version.timestamp)
@@ -398,20 +396,20 @@ export default function DocumentVersionHistory({
   const getRelativeDate = (date, now) => {
     const diffTime = now - date;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
     if (diffDays <= 7) return 'This Week';
     if (diffDays <= 14) return 'Last Week';
     if (diffDays <= 30) return 'This Month';
     if (diffDays <= 60) return 'Last Month';
-    
+
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
   const formatDateTime = (date) => {
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
       day: 'numeric',
       year: 'numeric',
       hour: 'numeric',
@@ -427,7 +425,7 @@ export default function DocumentVersionHistory({
   const handleVersionSelect = (version) => {
     setSelectedVersion(version.id);
     setVersionContent(version.fields);
-    
+
     if (editorRef.current && version.fields) {
       try {
         isApplyingRef.current = true;
@@ -464,7 +462,7 @@ export default function DocumentVersionHistory({
                 changed = true;
               }
             }
-          } catch (e) {}
+          } catch (e) { }
         });
 
         if (changed) {
@@ -571,7 +569,7 @@ export default function DocumentVersionHistory({
 
   const filteredVersions = versions.map(group => ({
     ...group,
-    items: group.items.filter(item => 
+    items: group.items.filter(item =>
       filterType === 'all' || (filterType === 'named' && item.versionName)
     )
   })).filter(group => group.items.length > 0);
@@ -629,9 +627,9 @@ export default function DocumentVersionHistory({
 
   const contentForEditor = useMemo(() => {
     if (!docData || !versionContent) return null;
-    
+
     const base = docData?.pages_json?.[0];
-    
+
     if (typeof base === 'string') {
       let html = String(base).replace(/\{\{\s*([^\}]+?)\s*\}\}/g, (_, key) => {
         const v = findValueForEditableKey(key, versionContent || {}, docData);
@@ -641,7 +639,7 @@ export default function DocumentVersionHistory({
       html = replacePlaceholdersInText(html, versionContent || {}, docData);
       return html;
     }
-    
+
     const pageNode = pageNodes[docPage] || (base && (base.content || []).find(n => n.type === 'page'));
 
     if (base && typeof base === 'object' && base.type === 'doc') {
@@ -694,7 +692,7 @@ export default function DocumentVersionHistory({
       if (Array.isArray(node.content)) node.content.forEach(walk);
     };
     walk(cloned);
-    
+
     return { type: 'doc', content: [cloned] };
   }, [docData, pageNodes, docPage, versionContent]);
 
@@ -755,7 +753,7 @@ export default function DocumentVersionHistory({
               )}
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             {/* 🔹 Mobile buttons to toggle side panels */}
             {isMobile && (
@@ -778,7 +776,7 @@ export default function DocumentVersionHistory({
             <div className="text-sm text-gray-600 flex items-center gap-2">
               <span>Total: {totalVersions} {totalVersions === 1 ? 'version' : 'versions'}</span>
             </div>
-            
+
             <button
               disabled={!selectedVersion}
               onClick={() => setShowRestoreModal(true)}
@@ -794,7 +792,7 @@ export default function DocumentVersionHistory({
           </div>
         </div>
 
-        {/* Editable Fields Preview - Scrollable Main Body */}
+        {/* Editable Fields Preview */}
         <div className="flex flex-1 pt-[57px] overflow-hidden">
           {/* Left Panel */}
           <div
@@ -809,10 +807,10 @@ export default function DocumentVersionHistory({
                 </div>
               ) : currentVersionDetails ? (
                 <div className="space-y-6 pb-20">
-                  {/* Field Values - Dynamic based on version data */}
+                  {/* Field Values */}
                   <div className="space-y-4 mb-6">
                     <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Field Values</h3>
-                    
+
                     <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
                       {detectedFieldsForCurrentVersion.length > 0 ? (
                         detectedFieldsForCurrentVersion.map(({ key, label, value, changeType }) => {
@@ -820,10 +818,10 @@ export default function DocumentVersionHistory({
                           const badgeClass = badgeType === 'added'
                             ? 'text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded'
                             : badgeType === 'modified'
-                            ? 'text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded'
-                            : badgeType === 'deleted'
-                            ? 'text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded'
-                            : '';
+                              ? 'text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded'
+                              : badgeType === 'deleted'
+                                ? 'text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded'
+                                : '';
                           const isModified = badgeType === 'modified';
 
                           return (
@@ -838,8 +836,8 @@ export default function DocumentVersionHistory({
                                     {badgeType === 'added'
                                       ? 'Added'
                                       : badgeType === 'modified'
-                                      ? 'Modified'
-                                      : 'Deleted'}
+                                        ? 'Modified'
+                                        : 'Deleted'}
                                   </span>
                                 )}
                               </div>
@@ -854,10 +852,10 @@ export default function DocumentVersionHistory({
                           const badgeClass = badgeType === 'added'
                             ? 'text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded'
                             : badgeType === 'modified'
-                            ? 'text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded'
-                            : badgeType === 'deleted'
-                            ? 'text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded'
-                            : '';
+                              ? 'text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded'
+                              : badgeType === 'deleted'
+                                ? 'text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded'
+                                : '';
                           const isModified = badgeType === 'modified';
 
                           return (
@@ -872,8 +870,8 @@ export default function DocumentVersionHistory({
                                     {badgeType === 'added'
                                       ? 'Added'
                                       : badgeType === 'modified'
-                                      ? 'Modified'
-                                      : 'Deleted'}
+                                        ? 'Modified'
+                                        : 'Deleted'}
                                   </span>
                                 )}
                               </div>
@@ -896,19 +894,18 @@ export default function DocumentVersionHistory({
                             <div className="flex items-start justify-between mb-3">
                               <span className="font-medium text-gray-900">{change.field}</span>
                               <span
-                                className={`text-xs font-medium px-2 py-1 rounded ${
-                                  change.type === 'added'
+                                className={`text-xs font-medium px-2 py-1 rounded ${change.type === 'added'
                                     ? 'bg-green-100 text-green-700'
                                     : change.type === 'modified'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-red-100 text-red-700'
-                                }`}
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-red-100 text-red-700'
+                                  }`}
                               >
                                 {change.type === 'added'
                                   ? 'Added'
                                   : change.type === 'modified'
-                                  ? 'Modified'
-                                  : 'Deleted'}
+                                    ? 'Modified'
+                                    : 'Deleted'}
                               </span>
                             </div>
                           </div>
@@ -969,7 +966,7 @@ export default function DocumentVersionHistory({
                     },
                   }}
                   onEditorReady={(editor) => (editorRef.current = editor)}
-                  onContentChange={() => {}}
+                  onContentChange={() => { }}
                 />
               ) : (
                 <div className="text-center py-12 text-gray-400 italic">
@@ -986,7 +983,7 @@ export default function DocumentVersionHistory({
             {/* Sidebar Header */}
             <div className="p-4 border-b border-gray-200 space-y-3">
               <h2 className="font-semibold text-gray-900">Version history</h2>
-              <select 
+              <select
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
@@ -1029,18 +1026,16 @@ export default function DocumentVersionHistory({
                           <div
                             key={version.id}
                             onClick={() => handleVersionSelect(version)}
-                            className={`relative px-4 py-3 cursor-pointer transition-colors ${
-                              selectedVersion === version.id 
-                                ? 'bg-blue-50 border-l-2 border-blue-500 -ml-0.5' 
+                            className={`relative px-4 py-3 cursor-pointer transition-colors ${selectedVersion === version.id
+                                ? 'bg-blue-50 border-l-2 border-blue-500 -ml-0.5'
                                 : 'hover:bg-gray-50'
-                            }`}
+                              }`}
                           >
 
                             {/* Timeline dot */}
                             <div
-                              className={`absolute left-3 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
-                                version.is_current ? 'bg-teal-500' : 'bg-blue-500'
-                              }`}
+                              className={`absolute left-3 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${version.is_current ? 'bg-teal-500' : 'bg-blue-500'
+                                }`}
                             />
 
                             <div className="flex items-start justify-between ml-2">
@@ -1059,17 +1054,17 @@ export default function DocumentVersionHistory({
                                     Current version
                                   </span>
                                 )}
-                                
+
                                 <div className="mt-2 flex items-center gap-2">
                                   {/* Creator Avatar (initials) */}
                                   <div className="w-6 h-6 flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-bold rounded-full shadow-sm ring-2 ring-white">
                                     {version.author
                                       ? version.author
-                                          .split(' ')
-                                          .map(word => word[0])
-                                          .join('')
-                                          .slice(0, 2)
-                                          .toUpperCase()
+                                        .split(' ')
+                                        .map(word => word[0])
+                                        .join('')
+                                        .slice(0, 2)
+                                        .toUpperCase()
                                       : 'U'}
                                   </div>
 
@@ -1085,7 +1080,7 @@ export default function DocumentVersionHistory({
                                   </div>
                                 )}
                               </div>
-                              
+
                               {/* Bookmark star + 3-dot button */}
                               <div className="relative flex items-start gap-2 flex-shrink-0 pt-1" ref={menuOpen === version.id ? menuRef : null}>
                                 <button
@@ -1134,7 +1129,7 @@ export default function DocumentVersionHistory({
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleBookmarkVersion(version); 
+                                        handleBookmarkVersion(version);
                                       }}
                                       className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-lg transition-all"
                                     >
@@ -1184,16 +1179,16 @@ export default function DocumentVersionHistory({
           {/* Bookmark Modal */}
           <BookmarkModal
             show={showBookmarkModal}
-            onClose={() => { 
-              setShowBookmarkModal(false); 
-              setBookmarkTarget(null); 
+            onClose={() => {
+              setShowBookmarkModal(false);
+              setBookmarkTarget(null);
               setBookmarkName('');
             }}
             bookmarkName={bookmarkName}
             setBookmarkName={setBookmarkName}
             onConfirm={confirmBookmark}
           />
-              
+
           {/* Restore Confirmation Modal */}
           {showRestoreModal && (
             <div className="fixed inset-0 backdrop-blur-[2px] bg-black/40 flex items-center justify-center z-50 p-4">
@@ -1249,10 +1244,9 @@ export default function DocumentVersionHistory({
                     disabled={!selectedVersion || currentVersionDetails?.is_current || isRestoring}
                     onClick={handleRestoreVersion}
                     className={`flex-1 px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium rounded-lg shadow-sm transition-all
-                      ${
-                        !selectedVersion
-                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : currentVersionDetails?.is_current
+                      ${!selectedVersion
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : currentVersionDetails?.is_current
                           ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                           : "text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] active:scale-95"
                       }`}
@@ -1262,8 +1256,8 @@ export default function DocumentVersionHistory({
                       !selectedVersion
                         ? 'Select a version to restore'
                         : currentVersionDetails?.is_current
-                        ? 'Current Version'
-                        : 'Restore'
+                          ? 'Current Version'
+                          : 'Restore'
                     )}
                   </button>
                 </div>

@@ -12,13 +12,12 @@ export default function BookmarkModal({ show, onClose, bookmarkName, setBookmark
   };
 
   return (
-    // Transparent overlay: keep page visible, close when clicking outside modal
-    <div 
-      onClick={onClose} 
+    <div
+      onClick={onClose}
       className="fixed inset-0 backdrop-blur-[2px] bg-black/40 flex items-center justify-center z-50 px-4"
     >
-      <div 
-        onClick={(e) => e.stopPropagation()} 
+      <div
+        onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-xl shadow-2xl w-full max-w-md p-4 sm:p-6 animate-in fade-in zoom-in duration-200"
       >
         {/* Header */}
@@ -41,7 +40,7 @@ export default function BookmarkModal({ show, onClose, bookmarkName, setBookmark
           <p className="text-sm sm:text-md text-gray-700">
             Add a name to help you identify this version later.
           </p>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Bookmark Name <span className="text-gray-500 font-normal">(Optional)</span>

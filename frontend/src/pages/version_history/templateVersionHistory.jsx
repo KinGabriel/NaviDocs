@@ -31,7 +31,7 @@ export default function TemplateVersionHistory({
   pageSetup,
   previousName,
 }) {
-  const id = templateId || documentId; // use whichever is provided
+  const id = templateId || documentId;
   const [versions, setVersions] = useState([]);
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [highlightChanges, setHighlightChanges] = useState(true);
@@ -40,7 +40,7 @@ export default function TemplateVersionHistory({
   const [versionContent, setVersionContent] = useState(null);
   const [versionHeaderConfig, setVersionHeaderConfig] = useState(null);
   const [versionPageSetup, setVersionPageSetup] = useState(null);
-  const [filterType, setFilterType] = useState('all'); // 'all' or 'named'
+  const [filterType, setFilterType] = useState('all');
   const [menuOpen, setMenuOpen] = useState(null);
   const menuRef = useRef(null);
   const [rawResponse, setRawResponse] = useState(null);
@@ -55,19 +55,16 @@ export default function TemplateVersionHistory({
   const [duplicateItem, setDuplicateItem] = useState(null);
   const [duplicating, setDuplicating] = useState(false);
 
-  // 🔹 Responsive state for minimized screen
   const [isMobile, setIsMobile] = useState(false);
-  const [showHistory, setShowHistory] = useState(false); // on minimized screen, start hidden
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth <= 1024;
       setIsMobile(mobile);
       if (mobile) {
-        // when minimized, keep history hidden by default
         setShowHistory(false);
       } else {
-        // on normal / wide screen, history sidebar is always visible
         setShowHistory(true);
       }
     };
@@ -86,14 +83,13 @@ export default function TemplateVersionHistory({
         // primary: template-service
         data = await listTemplateVersionsAPI(id);
 
-        // Support multiple shapes: array, { versions: [...] }, or nested
         let rawVersions = Array.isArray(data)
           ? data
           : Array.isArray(data.versions)
-          ? data.versions
-          : Array.isArray(data.data && data.data.versions)
-          ? data.data.versions
-          : [];
+            ? data.versions
+            : Array.isArray(data.data && data.data.versions)
+              ? data.data.versions
+              : [];
 
         if (rawVersions && rawVersions.length > 0) {
           const normalized = rawVersions.map((v, index) => {
@@ -137,7 +133,7 @@ export default function TemplateVersionHistory({
                 lastActivity = v.lastActivityAt.$date;
             }
 
-            // parse created_by / author: prefer backend-normalized fields first
+            // parse created_by / author
             let author = 'Unknown';
             if (v?.author) {
               author = v.author;
@@ -175,7 +171,7 @@ export default function TemplateVersionHistory({
             // prefer the first page from pages_json (TextEditor expects a single doc/page)
             const firstPage =
               Array.isArray(v.snapshot?.pages_json) &&
-              v.snapshot.pages_json.length > 0
+                v.snapshot.pages_json.length > 0
                 ? v.snapshot.pages_json[0]
                 : null;
 
@@ -244,21 +240,21 @@ export default function TemplateVersionHistory({
           const baseCfg = latestFromGroup.headerConfig || null;
           const injectedCfg = baseCfg
             ? {
-                ...baseCfg,
-                headerEnabled: true,
-                documentStamp: {
-                  ...(baseCfg.documentStamp || {}),
-                  docCode: latestFromGroup.stampDocCode || '-',
-                  revisionNo:
-                    latestFromGroup.stampRevisionNo || '',
-                  effectivity:
-                    latestFromGroup.stampEffectivity || '',
-                },
-              }
+              ...baseCfg,
+              headerEnabled: true,
+              documentStamp: {
+                ...(baseCfg.documentStamp || {}),
+                docCode: latestFromGroup.stampDocCode || '-',
+                revisionNo:
+                  latestFromGroup.stampRevisionNo || '',
+                effectivity:
+                  latestFromGroup.stampEffectivity || '',
+              },
+            }
             : latestFromGroup.stampDocCode ||
               latestFromGroup.stampRevisionNo ||
               latestFromGroup.stampEffectivity
-            ? {
+              ? {
                 headerEnabled: true,
                 documentStamp: {
                   docCode: latestFromGroup.stampDocCode || '-',
@@ -268,7 +264,7 @@ export default function TemplateVersionHistory({
                     latestFromGroup.stampEffectivity || '',
                 },
               }
-            : null;
+              : null;
           setVersionHeaderConfig(injectedCfg);
           setVersionPageSetup(latestFromGroup.pageSetup || null);
 
@@ -287,7 +283,7 @@ export default function TemplateVersionHistory({
       console.error('Failed to fetch versions', error);
     }
 
-    // No versions returned or API failed — set to empty (UI shows 'No versions found')
+    // No versions returned or API failed — set to empty 
     setRawResponse(data || null);
     setVersions([]);
     setSelectedVersion(null);
@@ -304,7 +300,6 @@ export default function TemplateVersionHistory({
   useEffect(() => {
     console.debug('VersionHistory - versions state updated:', versions);
   }, [versions]);
-  // ---------------------------------------------------------------------
 
   // Group versions by relative date
   const groupVersionsByDate = (versionList) => {
@@ -314,10 +309,10 @@ export default function TemplateVersionHistory({
     versionList.forEach((version) => {
       const versionDate = new Date(
         version.last_activity_at ||
-          version.updated_at ||
-          version.created_at ||
-          version.createdAt ||
-          Date.now()
+        version.updated_at ||
+        version.created_at ||
+        version.createdAt ||
+        Date.now()
       );
       const dateKey = getRelativeDate(versionDate, now);
 
@@ -333,7 +328,7 @@ export default function TemplateVersionHistory({
         author:
           version.created_by?.name ||
           (version.created_by?.first_name &&
-          version.created_by?.last_name
+            version.created_by?.last_name
             ? `${version.created_by.first_name} ${version.created_by.last_name}`.trim()
             : version.created_by?.email?.split('@')[0]) ||
           version.author ||
@@ -437,21 +432,21 @@ export default function TemplateVersionHistory({
       const baseCfg = version.headerConfig || null;
       const injectedCfg = baseCfg
         ? {
-            ...baseCfg,
-            headerEnabled: true,
-            documentStamp: {
-              ...(baseCfg.documentStamp || {}),
-              docCode: version.stampDocCode || '-',
-              revisionNo:
-                version.stampRevisionNo || '',
-              effectivity:
-                version.stampEffectivity || '',
-            },
-          }
+          ...baseCfg,
+          headerEnabled: true,
+          documentStamp: {
+            ...(baseCfg.documentStamp || {}),
+            docCode: version.stampDocCode || '-',
+            revisionNo:
+              version.stampRevisionNo || '',
+            effectivity:
+              version.stampEffectivity || '',
+          },
+        }
         : version.stampDocCode ||
           version.stampRevisionNo ||
           version.stampEffectivity
-        ? {
+          ? {
             headerEnabled: true,
             documentStamp: {
               docCode: version.stampDocCode || '-',
@@ -461,7 +456,7 @@ export default function TemplateVersionHistory({
                 version.stampEffectivity || '',
             },
           }
-        : null;
+          : null;
       setVersionHeaderConfig(injectedCfg);
       setVersionPageSetup(version.pageSetup || null);
     } else {
@@ -504,19 +499,19 @@ export default function TemplateVersionHistory({
         );
         const injectedCfg = fetchedHeaderCfg
           ? {
-              ...fetchedHeaderCfg,
-              headerEnabled: true,
-              documentStamp: {
-                ...(fetchedHeaderCfg.documentStamp || {}),
-                docCode: stampDocCode || '-',
-                revisionNo: stampRevisionNo || '',
-                effectivity: stampEffectivity || '',
-              },
-            }
+            ...fetchedHeaderCfg,
+            headerEnabled: true,
+            documentStamp: {
+              ...(fetchedHeaderCfg.documentStamp || {}),
+              docCode: stampDocCode || '-',
+              revisionNo: stampRevisionNo || '',
+              effectivity: stampEffectivity || '',
+            },
+          }
           : stampDocCode ||
             stampRevisionNo ||
             stampEffectivity
-          ? {
+            ? {
               headerEnabled: true,
               documentStamp: {
                 docCode: stampDocCode || '-',
@@ -524,7 +519,7 @@ export default function TemplateVersionHistory({
                 effectivity: stampEffectivity || '',
               },
             }
-          : null;
+            : null;
         setVersionHeaderConfig(injectedCfg);
         setVersionPageSetup(fetchedPageSetup || null);
       } catch (error) {
@@ -584,7 +579,6 @@ export default function TemplateVersionHistory({
       );
   }, []);
 
-  // ------------------------------------------------------------------------------------------------
   // Handle restore version
   const handleRestoreVersion = async () => {
     if (!selectedVersion) return;
@@ -622,7 +616,7 @@ export default function TemplateVersionHistory({
   };
 
   const handleCopyVersion = (version) => {
-    // Open duplicate modal; use previousName from parent when available as a friendly initial title
+    // Open duplicate modal; use previousName from parent when available
     setMenuOpen(null);
     const baseName =
       previousName || version.versionName || 'Template';
@@ -695,13 +689,13 @@ export default function TemplateVersionHistory({
         const items = group.items.map((item) =>
           item.id === versionId
             ? {
-                ...item,
-                isBookmarked: !!isBookmarked,
-                versionName:
-                  typeof note !== 'undefined'
-                    ? note
-                    : item.versionName,
-              }
+              ...item,
+              isBookmarked: !!isBookmarked,
+              versionName:
+                typeof note !== 'undefined'
+                  ? note
+                  : item.versionName,
+            }
             : item
         );
 
@@ -781,11 +775,11 @@ export default function TemplateVersionHistory({
             items: group.items.map((item) =>
               item.id === versionId
                 ? {
-                    ...item,
-                    versionName:
-                      resp.version.note ||
-                      editingNoteValue,
-                  }
+                  ...item,
+                  versionName:
+                    resp.version.note ||
+                    editingNoteValue,
+                }
                 : item
             ),
           }))
@@ -857,19 +851,17 @@ export default function TemplateVersionHistory({
                       onClick={() =>
                         handleVersionSelect(version)
                       }
-                      className={`relative px-4 py-3 cursor-pointer transition-colors ${
-                        selectedVersion === version.id
+                      className={`relative px-4 py-3 cursor-pointer transition-colors ${selectedVersion === version.id
                           ? 'bg-blue-50 border-l-2 border-blue-500 -ml-0.5'
                           : 'hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
-                      {/* Timeline dot - TEAL for current version, BLUE for others */}
+                      {/* Timeline dot */}
                       <div
-                        className={`absolute left-3 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
-                          version.isCurrent
+                        className={`absolute left-3 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${version.isCurrent
                             ? 'bg-teal-500'
                             : 'bg-blue-500'
-                        }`}
+                          }`}
                       />
 
                       <div className="flex items-start justify-between ml-2">
@@ -897,11 +889,11 @@ export default function TemplateVersionHistory({
                             <div className="w-6 h-6 flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-bold rounded-full shadow-sm ring-2 ring-white">
                               {version.author
                                 ? version.author
-                                    .split(' ')
-                                    .map((word) => word[0])
-                                    .join('')
-                                    .slice(0, 2)
-                                    .toUpperCase()
+                                  .split(' ')
+                                  .map((word) => word[0])
+                                  .join('')
+                                  .slice(0, 2)
+                                  .toUpperCase()
                                 : 'U'}
                             </div>
 
@@ -1100,7 +1092,6 @@ export default function TemplateVersionHistory({
               </span>
             </div>
 
-            {/* 🔹 Mobile toggle for Version History panel (only when minimized) */}
             {isMobile && (
               <button
                 type="button"
@@ -1120,11 +1111,10 @@ export default function TemplateVersionHistory({
               onClick={() =>
                 setShowRestoreModal(true)
               }
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg shadow-sm transition-all ${
-                selectedVersion
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg shadow-sm transition-all ${selectedVersion
                   ? 'text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] active:scale-95'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              } ${isMobile ? 'w-full justify-center' : ''}`}
+                } ${isMobile ? 'w-full justify-center' : ''}`}
             >
               <RotateCcw className="w-4 h-4" />
               {selectedVersion
@@ -1151,7 +1141,7 @@ export default function TemplateVersionHistory({
               pageSetup={versionPageSetup || pageSetup}
               readOnly={true}
               headerConfig={versionHeaderConfig || null}
-              onContentChange={() => {}}
+              onContentChange={() => { }}
             />
           ) : (
             <div className="p-12">
@@ -1167,14 +1157,12 @@ export default function TemplateVersionHistory({
         </div>
       </div>
 
-      {/* Desktop Version History Sidebar (always visible on wide screens) */}
       {!isMobile && (
         <div className="bg-white border-l border-gray-200 w-80 flex flex-col">
           <VersionSidebar />
         </div>
       )}
 
-      {/* Mobile slide-in Version History (overlay) */}
       {isMobile && showHistory && (
         <div className="fixed top-[56px] md:top-[64px] bottom-0 right-0 w-80 max-w-[85%] bg-white border-l border-gray-200 shadow-2xl z-40 flex flex-col">
           <VersionSidebar />
@@ -1231,7 +1219,7 @@ export default function TemplateVersionHistory({
             } else {
               toast.error(
                 resp?.message ||
-                  'Failed to duplicate template'
+                'Failed to duplicate template'
               );
             }
           } catch (err) {
@@ -1318,19 +1306,18 @@ export default function TemplateVersionHistory({
                   currentVersionDetails?.isCurrent
                 }
                 onClick={handleRestoreVersion}
-                className={`flex-1 px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium rounded-lg shadow-sm transition-all ${
-                  !selectedVersion ||
-                  currentVersionDetails?.isCurrent
+                className={`flex-1 px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium rounded-lg shadow-sm transition-all ${!selectedVersion ||
+                    currentVersionDetails?.isCurrent
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'text-white bg-gradient-to-r from-[#0035DA] to-[#043485] hover:from-[#043485] hover:to-[#0035DA] active:scale-95'
-                }`}
+                  }`}
               >
                 <RotateCcw className="w-4 h-4" />
                 {currentVersionDetails?.isCurrent
                   ? 'Current version'
                   : selectedVersion
-                  ? 'Restore'
-                  : 'Select a version to restore'}
+                    ? 'Restore'
+                    : 'Select a version to restore'}
               </button>
             </div>
           </div>
