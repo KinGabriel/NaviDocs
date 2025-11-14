@@ -35,8 +35,8 @@ export default function SecretaryDashboard() {
   const user = useUser();
   const navigate = useNavigate();
   const SUBMISSION_BINS_ROUTE = "/submission-bins";
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [loading] = useState(false);
+  const [error] = useState(null);
 
   function formatDate(dateValue) {
     if (!dateValue) return "-";
