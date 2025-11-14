@@ -20,7 +20,7 @@ import { renameDocumentAPI, duplicateDocumentAPI, deleteDocumentAPI } from "../a
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-/* ---------- Button Tag Pills (for GRID view) ---------- */
+/* Button Tag Pills (for GRID view) */
 function StatusFilterPills({ options, value, onChange }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -47,7 +47,7 @@ function StatusFilterPills({ options, value, onChange }) {
   );
 }
 
-/* ---------- Inline helper: Toggle pill ---------- */
+/* Inline helper: Toggle pill */
 function ViewToggle({ mode = "grid", onChange }) {
   const isTable = mode === "table";
   return (
@@ -55,9 +55,8 @@ function ViewToggle({ mode = "grid", onChange }) {
       <button
         type="button"
         onClick={() => onChange("table")}
-        className={`px-2.5 py-2 sm:px-3 sm:py-2 flex items-center ${
-          isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
-        }`}
+        className={`px-2.5 py-2 sm:px-3 sm:py-2 flex items-center ${isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
+          }`}
         aria-label="List view"
         title="List view"
       >
@@ -73,9 +72,8 @@ function ViewToggle({ mode = "grid", onChange }) {
       <button
         type="button"
         onClick={() => onChange("grid")}
-        className={`px-2.5 py-2 sm:px-3 sm:py-2 flex items-center ${
-          !isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
-        }`}
+        className={`px-2.5 py-2 sm:px-3 sm:py-2 flex items-center ${!isTable ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"
+          }`}
         aria-label="Grid view"
         title="Grid view"
       >
@@ -126,7 +124,7 @@ function RowKebabMenu({ row, onView, onRename, onMakeCopy, onDelete }) {
       >
         {/* 3-dot icon */}
         <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" className="text-gray-700">
-          <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 5.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 16.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z"/>
+          <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 5.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 16.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
         </svg>
       </button>
 
@@ -142,7 +140,7 @@ function RowKebabMenu({ row, onView, onRename, onMakeCopy, onDelete }) {
             onClick={() => { setOpen(false); onRename?.(row); }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>
+              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" />
             </svg>
             Rename
           </button>
@@ -230,7 +228,6 @@ export default function GlobalTemplates() {
     const next = deriveInitialStatus();
     setSelectedStatus(next);
     pagination.handlePage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state, searchParams]);
 
   const [selectOpen, setSelectOpen] = useState(false);
@@ -240,7 +237,7 @@ export default function GlobalTemplates() {
   const [documentsCache, setDocumentsCache] = useState([]);
   const [documentsCacheLoading, setDocumentsCacheLoading] = useState(false);
 
-  /* === Kebab + modals state for TABLE view === */
+  /* Kebab + modals state for TABLE view */
   const [activeRow, setActiveRow] = useState(null);
 
   const [renameOpen, setRenameOpen] = useState(false);
@@ -316,7 +313,6 @@ export default function GlobalTemplates() {
 
   useEffect(() => {
     fetchTemplates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
 
   const handleCardRename = (updated) => {
@@ -334,7 +330,7 @@ export default function GlobalTemplates() {
     setTemplates((prev) => prev.filter((t) => (t._id || t.id) !== id));
   };
 
-  /* === ROW action handlers (table view) === */
+  /* ROW action handlers (table view) */
   const openRowRename = (row) => {
     setActiveRow(row);
     setRenameError("");
@@ -467,7 +463,7 @@ export default function GlobalTemplates() {
         };
         pages.forEach((p) => walk(p));
       }
-    } catch (e) {}
+    } catch (e) { }
 
     return out;
   };
@@ -538,7 +534,6 @@ export default function GlobalTemplates() {
     },
     { key: "status", label: "Status", render: (row) => <StatusPill value={row.status} /> },
 
-    /* === REPLACED actions column (View + 3-dot menu) === */
     {
       key: "actions",
       label: "Actions",
@@ -570,7 +565,6 @@ export default function GlobalTemplates() {
       <div className="flex flex-1">
         <Sidebar user={user} active="Documents" />
 
-        {/* Prevent horizontal overflow inside the white panel */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-4 md:px-8 mx-3 md:mx-6 mt-4 md:mt-8 rounded-xl overflow-x-hidden">
           <div className="flex-1 px-1 py-5">
             <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-3">
@@ -580,7 +574,6 @@ export default function GlobalTemplates() {
 
             {/* Controls Row */}
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4 w-full">
-              {/* Buttons stack on small screens */}
               <div className="flex flex-col sm:flex-row gap-3 justify-start ml-1">
                 <button
                   onClick={() => navigate("/select-template")}
@@ -647,7 +640,6 @@ export default function GlobalTemplates() {
                 </button>
               </div>
 
-              {/* ===== MOBILE/TABLET LAYOUT (< lg) ===== */}
               <div className="lg:hidden w-full">
                 {/* Row: All + Recent + Archived (beside Recent) */}
                 <div className="flex items-center gap-2 flex-wrap">
@@ -727,7 +719,6 @@ export default function GlobalTemplates() {
                 </div>
               </div>
 
-              {/* ===== DESKTOP LAYOUT (≥ lg) — positions/sizes unchanged except toggle beside search ===== */}
               <div className="hidden lg:flex lg:items-center lg:justify-end gap-3 w-full">
                 <button
                   type="button"
@@ -811,11 +802,10 @@ export default function GlobalTemplates() {
                         setSelectedStatus(opt);
                         pagination.handlePage(1);
                       }}
-                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                        selectedStatus === opt
+                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${selectedStatus === opt
                           ? "border-blue-600 text-blue-600"
                           : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                      }`}
+                        }`}
                     >
                       {opt}
                     </button>
@@ -891,11 +881,10 @@ export default function GlobalTemplates() {
                   <button
                     key={num}
                     onClick={() => pagination.handlePage(num)}
-                    className={`px-3 py-1 rounded border ${
-                      pagination.currentPage === num
+                    className={`px-3 py-1 rounded border ${pagination.currentPage === num
                         ? "bg-blue-600 text-white"
                         : "bg-white text-gray-700 hover:bg-gray-100"
-                    }`}
+                      }`}
                     aria-current={pagination.currentPage === num ? "page" : undefined}
                   >
                     {num}
@@ -922,7 +911,7 @@ export default function GlobalTemplates() {
         user={user}
       />
 
-      {/* === Row modals (table view) === */}
+      {/* Row modals (table view) */}
       <RenameModal
         open={renameOpen}
         onClose={() => setRenameOpen(false)}

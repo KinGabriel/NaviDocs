@@ -145,8 +145,8 @@ export default function ArchivedDocuments() {
               onClick={() => handleUnarchiveClick(row)}
               disabled={busy}
               className={`px-3 py-1 rounded text-xs font-semibold border ${busy
-                  ? "bg-green-100 text-green-500 opacity-60 cursor-not-allowed"
-                  : "bg-green-100 text-green-700 hover:bg-green-200"
+                ? "bg-green-100 text-green-500 opacity-60 cursor-not-allowed"
+                : "bg-green-100 text-green-700 hover:bg-green-200"
                 }`}
               title="Unarchive"
             >
@@ -157,8 +157,8 @@ export default function ArchivedDocuments() {
               onClick={() => handlePermanentDeleteClick(row)}
               disabled={busy}
               className={`px-3 py-1 rounded text-xs font-semibold border ${busy
-                  ? "bg-red-100 text-red-500 opacity-60 cursor-not-allowed"
-                  : "bg-red-100 text-red-700 hover:bg-red-200"
+                ? "bg-red-100 text-red-500 opacity-60 cursor-not-allowed"
+                : "bg-red-100 text-red-700 hover:bg-red-200"
                 }`}
               title="Permanently delete"
             >
@@ -333,8 +333,8 @@ export default function ArchivedDocuments() {
                     key={num}
                     onClick={() => pagination.handlePage(num)}
                     className={`px-3 py-1 rounded border ${pagination.currentPage === num
-                        ? "bg-blue-600 text-white"
-                        : "bg-white text-gray-700 hover:bg-gray-100"
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100"
                       }`}
                     aria-current={
                       pagination.currentPage === num ? "page" : undefined

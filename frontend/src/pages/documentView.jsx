@@ -1,4 +1,3 @@
-/** FUTURE USE : DUPLICATED VERSION OF publishedTemplateView.jsx */
 import React from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import HeaderDocumentView from "../layout/headers/headerPublishedTemplateView";
@@ -7,7 +6,6 @@ import { getTemplateByIdAPI } from "../api/documentContollerAPI";
 import { useState, useEffect } from "react";
 import DownloadingModal from "../components/modals/downloadingModal";
 
-/** Fallback placeholders (used if you navigate directly or state.doc is absent) */
 const FALLBACK_DOC = {
   title: "Department Head Form",
   updatedAgo: "about 2 hours ago",
@@ -23,12 +21,6 @@ const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
 
-/**
- * Try various ways to download a template as PDF:
- * 1) If the template has a direct pdfUrl, use that.
- * 2) Otherwise, try a conventional REST route: /api/templates/:id/pdf
- * 3) Fallback to a blob the backend returns under another field (if any).
- */
 async function downloadTemplatePDF({ id, title, pdfUrl }) {
   // Prefer explicit URL if provided on the template
   if (pdfUrl && /^https?:\/\//i.test(pdfUrl)) {
@@ -61,13 +53,6 @@ async function downloadTemplatePDF({ id, title, pdfUrl }) {
   URL.revokeObjectURL(url);
 }
 
-/**
- * Global document view (reusable for ALL modules)
- * - Accepts `state.doc` as the document payload
- * - Accepts `state.sidebarActive` to highlight the correct nav item
- *   (e.g. "Documents", "Document Workflow", "Templates")
- * - If nothing is passed, uses FALLBACK_DOC + defaults.
- */
 export default function DocumentView() {
   const user = useUser();
   const { id } = useParams();
@@ -134,7 +119,7 @@ export default function DocumentView() {
       console.error("Download failed:", err);
       setDownloadError(
         err?.response?.data?.message ||
-          "We couldn’t generate the PDF right now. Please try again."
+        "We couldn’t generate the PDF right now. Please try again."
       );
       // Keep modal open but switch to error state; user can close it.
     }
@@ -168,7 +153,6 @@ export default function DocumentView() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm shadow"
               title="Download this template as a PDF"
             >
-              {/* download icon */}
               <svg
                 className="w-4 h-4"
                 viewBox="0 0 24 24"
@@ -183,7 +167,6 @@ export default function DocumentView() {
               Download as PDF
             </button>
 
-            {/* (Optional) Other actions retained for future use */}
             <button
               onClick={handleEdit}
               className="px-3 py-2 rounded border text-sm hover:bg-gray-50"

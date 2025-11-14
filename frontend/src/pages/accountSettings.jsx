@@ -314,8 +314,8 @@ export default function AdminAccountSettings() {
                         type="submit"
                         disabled={!canSaveInfo || savingInfo}
                         className={`px-5 py-2 rounded text-white font-semibold transition ${canSaveInfo && !savingInfo
-                            ? "bg-[#0035DA] hover:bg-[#043485]"
-                            : "bg-gray-400 cursor-not-allowed"
+                          ? "bg-[#0035DA] hover:bg-[#043485]"
+                          : "bg-gray-400 cursor-not-allowed"
                           }`}
                       >
                         {savingInfo ? "Saving…" : "Save Changes"}
@@ -376,8 +376,8 @@ export default function AdminAccountSettings() {
                         type="submit"
                         disabled={!canChangePw || changingPw}
                         className={`px-5 py-2 rounded text-white font-semibold transition ${canChangePw && !changingPw
-                            ? "bg-[#0035DA] hover:bg-[#043485]"
-                            : "bg-gray-400 cursor-not-allowed"
+                          ? "bg-[#0035DA] hover:bg-[#043485]"
+                          : "bg-gray-400 cursor-not-allowed"
                           }`}
                       >
                         {changingPw ? "Updating…" : "Update Password"}
