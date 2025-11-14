@@ -49,8 +49,7 @@ export default function ArchivedDocuments() {
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const [modalError, setModalError] = useState("");
 
-  // === ACTION HANDLERS ===
-
+  // ACTION HANDLERS
   const handleUnarchiveClick = (doc) => {
     setSelectedDoc(doc);
     setModalError("");
@@ -107,8 +106,7 @@ export default function ArchivedDocuments() {
     }
   };
 
-  // === TABLE COLUMNS ===
-
+  // TABLE COLUMNS
   const archivedColumns = [
     {
       key: "title",
@@ -132,8 +130,8 @@ export default function ArchivedDocuments() {
         row.deletedAt
           ? new Date(row.deletedAt).toLocaleString()
           : row.updatedAt
-          ? new Date(row.updatedAt).toLocaleString()
-          : "-",
+            ? new Date(row.updatedAt).toLocaleString()
+            : "-",
     },
     {
       key: "action",
@@ -146,11 +144,10 @@ export default function ArchivedDocuments() {
               type="button"
               onClick={() => handleUnarchiveClick(row)}
               disabled={busy}
-              className={`px-3 py-1 rounded text-xs font-semibold border ${
-                busy
+              className={`px-3 py-1 rounded text-xs font-semibold border ${busy
                   ? "bg-green-100 text-green-500 opacity-60 cursor-not-allowed"
                   : "bg-green-100 text-green-700 hover:bg-green-200"
-              }`}
+                }`}
               title="Unarchive"
             >
               Unarchive
@@ -159,11 +156,10 @@ export default function ArchivedDocuments() {
               type="button"
               onClick={() => handlePermanentDeleteClick(row)}
               disabled={busy}
-              className={`px-3 py-1 rounded text-xs font-semibold border ${
-                busy
+              className={`px-3 py-1 rounded text-xs font-semibold border ${busy
                   ? "bg-red-100 text-red-500 opacity-60 cursor-not-allowed"
                   : "bg-red-100 text-red-700 hover:bg-red-200"
-              }`}
+                }`}
               title="Permanently delete"
             >
               Delete
@@ -174,8 +170,7 @@ export default function ArchivedDocuments() {
     },
   ];
 
-  // === FETCH DATA ===
-
+  // FETCH DATA
   const fetchArchived = async () => {
     if (!user) return;
     setArchivedLoading(true);
@@ -183,7 +178,7 @@ export default function ArchivedDocuments() {
       const params = {
         limit: PAGE_SIZE,
         page: pagination.currentPage,
-        deleted: true, // soft-deleted = archived
+        deleted: true,
         search: search?.trim() || undefined,
       };
       const result = await listDocumentsAPI(params);
@@ -218,14 +213,12 @@ export default function ArchivedDocuments() {
 
   useEffect(() => {
     fetchArchived();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, search, pagination.currentPage]);
 
   // Map _id → id so your Table has a stable key
   const rows = archivedDocs.map((d) => ({ id: d._id || d.id, ...d }));
 
-  // === RENDER ===
-
+  // RENDER 
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
@@ -339,11 +332,10 @@ export default function ArchivedDocuments() {
                   <button
                     key={num}
                     onClick={() => pagination.handlePage(num)}
-                    className={`px-3 py-1 rounded border ${
-                      pagination.currentPage === num
+                    className={`px-3 py-1 rounded border ${pagination.currentPage === num
                         ? "bg-blue-600 text-white"
                         : "bg-white text-gray-700 hover:bg-gray-100"
-                    }`}
+                      }`}
                     aria-current={
                       pagination.currentPage === num ? "page" : undefined
                     }

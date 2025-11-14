@@ -5,7 +5,7 @@ import Header from "../layout/headers/header.jsx";
 import Sidebar from "../layout/sidebars/sidebar.jsx";
 import useUser from "../hooks/useUser";
 import Loader from "../components/loader";
-import PasswordInput from "../components/passwordinput.jsx"; 
+import PasswordInput from "../components/passwordinput.jsx";
 import defaultProfile from '../assets/images/profile_picture.png';
 import { updateAccountSettingsAPI, updateUserPasswordAPI } from "../api/userAPI";
 
@@ -13,30 +13,30 @@ const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
 const API_URL =
-  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];  
+  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|net|org|edu|gov|mil|biz|info|io|co|ph)$/i;
 
 export default function AdminAccountSettings() {
   const user = useUser();
-  const isLoading = !user; 
+  const isLoading = !user;
 
-  // -------- Profile / personal info state --------
+  // Profile / personal info state
   const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName]   = useState("");
-  const [email, setEmail]         = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
 
-  // -------- Password state --------
+  // Password state 
   const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword]         = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // -------- UI state --------
-  const [savingInfo, setSavingInfo]       = useState(false);
-  const [changingPw, setChangingPw]       = useState(false);
-  const [infoMessage, setInfoMessage]     = useState(null);
-  const [infoSuccess, setInfoSuccess]     = useState(false);
+  // UI state 
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [changingPw, setChangingPw] = useState(false);
+  const [infoMessage, setInfoMessage] = useState(null);
+  const [infoSuccess, setInfoSuccess] = useState(false);
   const [pwMessage, setPwMessage] = useState("");
   const [pwSuccess, setPwSuccess] = useState(false);
 
@@ -94,7 +94,7 @@ export default function AdminAccountSettings() {
   }, [currentPassword, newPassword, confirmPassword, pwRules]);
 
 
-  // -------- Handlers --------
+  // Handlers
   const handleSaveInfo = async (e) => {
     e.preventDefault();
     if (!canSaveInfo) return;
@@ -180,14 +180,13 @@ export default function AdminAccountSettings() {
     }
   };
 
-  // ---------- Loading ----------
+  // Loading 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-200 flex flex-col">
         <Header user={user} />
         <div className="flex flex-1">
           <Sidebar user={user} />
-          {/* dashboard-style wrapper */}
           <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
             <div className="flex-1 flex items-center justify-center">
               <Loader message="Loading account…" />
@@ -198,78 +197,76 @@ export default function AdminAccountSettings() {
     );
   }
 
-  // ---------- Page ----------
+  // Page
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
       <div className="flex flex-1">
         <Sidebar user={user} active="Account Settings" />
-        {/* dashboard-style wrapper */}
         <div className="flex-1 flex flex-col bg-white shadow pt-1 pb-4 px-8 mx-6 mt-8 rounded-xl">
           <main className="p-1 flex-1 overflow-y-auto">
-            {/* Title (semibold for consistency with other tabs) */}
-           <div className="flex-1 px-1 py-5">
+            {/* Title */}
+            <div className="flex-1 px-1 py-5">
               <h1 className="text-3xl font-bold text-black-800 tracking-widest uppercase mt-2">ACCOUNT SETTINGS</h1>
               <div className="w-28 h-1 bg-yellow-400 mb-6 rounded" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
               {/* Left: avatar + name/role */}
-             <section className="flex flex-col items-center">
-              <div className="w-44 h-44 rounded-full overflow-hidden bg-gray-100 border flex items-center justify-center">
-                {photoPreview || user?.profile_picture ? (
-                  <img
-                    src={
-                      photoPreview
-                        ? photoPreview
-                        : `${API_URL}${user.profile_picture}`
-                    }
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = defaultProfile;
-                    }}
-                  />
-                ) : (
-                  <img
-                    src={defaultProfile}
-                    alt="Default Profile"
-                    className="w-36 h-36 object-contain opacity-90"
-                  />
-                )}
-              </div>
-
-              <label className="mt-3 text-sm text-blue-700 hover:underline cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
-                  className="hidden"
-                />
-                Upload Photo
-              </label>
-
-              <div className="mt-6 text-center">
-                <div className="text-2xl font-semibold">
-                  {normalizeName(
-                    `${firstName || user?.firstname || ""} ${
-                      lastName || user?.lastname || ""
-                    }`
+              <section className="flex flex-col items-center">
+                <div className="w-44 h-44 rounded-full overflow-hidden bg-gray-100 border flex items-center justify-center">
+                  {photoPreview || user?.profile_picture ? (
+                    <img
+                      src={
+                        photoPreview
+                          ? photoPreview
+                          : `${API_URL}${user.profile_picture}`
+                      }
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = defaultProfile;
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={defaultProfile}
+                      alt="Default Profile"
+                      className="w-36 h-36 object-contain opacity-90"
+                    />
                   )}
                 </div>
-                <div className="text-md text-gray-500">
-                  {user?.role?.name || "Admin"}
+
+                <label className="mt-3 text-sm text-blue-700 hover:underline cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                  Upload Photo
+                </label>
+
+                <div className="mt-6 text-center">
+                  <div className="text-2xl font-semibold">
+                    {normalizeName(
+                      `${firstName || user?.firstname || ""} ${lastName || user?.lastname || ""
+                      }`
+                    )}
+                  </div>
+                  <div className="text-md text-gray-500">
+                    {user?.role?.name || "Admin"}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
               {/* Right: forms */}
               <section className="lg:col-span-2 space-y-10">
                 {/* Personal Information */}
                 <div>
                   <h2 className="text-2xl font-semibold text-[#0035DA] mb-4">Personal Information: </h2>
-            
+
                   {!canSaveInfo && (
                     <div className="mb-4 rounded border px-3 py-2 text-sm bg-red-50 text-red-700 border-red-200">
                       Fill all required fields before saving.
@@ -316,14 +313,13 @@ export default function AdminAccountSettings() {
                       <button
                         type="submit"
                         disabled={!canSaveInfo || savingInfo}
-                        className={`px-5 py-2 rounded text-white font-semibold transition ${
-                          canSaveInfo && !savingInfo
-                          ? "bg-[#0035DA] hover:bg-[#043485]" // unified blue
-                          : "bg-gray-400 cursor-not-allowed"
-                      }`}
-                    >
-                      {savingInfo ? "Saving…" : "Save Changes"}
-                    </button>
+                        className={`px-5 py-2 rounded text-white font-semibold transition ${canSaveInfo && !savingInfo
+                            ? "bg-[#0035DA] hover:bg-[#043485]"
+                            : "bg-gray-400 cursor-not-allowed"
+                          }`}
+                      >
+                        {savingInfo ? "Saving…" : "Save Changes"}
+                      </button>
 
                     </div>
                   </form>
@@ -377,13 +373,12 @@ export default function AdminAccountSettings() {
 
                     <div className="flex justify-end">
                       <button
-                          type="submit"
-                          disabled={!canChangePw || changingPw}
-                          className={`px-5 py-2 rounded text-white font-semibold transition ${
-                            canChangePw && !changingPw
-                              ? "bg-[#0035DA] hover:bg-[#043485]" // unified blue
-                              : "bg-gray-400 cursor-not-allowed"
-                        }`}
+                        type="submit"
+                        disabled={!canChangePw || changingPw}
+                        className={`px-5 py-2 rounded text-white font-semibold transition ${canChangePw && !changingPw
+                            ? "bg-[#0035DA] hover:bg-[#043485]"
+                            : "bg-gray-400 cursor-not-allowed"
+                          }`}
                       >
                         {changingPw ? "Updating…" : "Update Password"}
                       </button>
