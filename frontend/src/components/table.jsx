@@ -1,9 +1,9 @@
 export default function Table({ columns, data, noDataMessage = "No template available", fillHeight = false, }) {
   return (
     <div className={
-        "bg-white rounded-lg border overflow-hidden " +
-        (fillHeight ? "h-full flex flex-col" : "")
-      }>
+      "bg-white rounded-lg border overflow-hidden " +
+      (fillHeight ? "h-full flex flex-col" : "")
+    }>
       {/* Scrollable container */}
       <div className={fillHeight ? "flex-1 overflow-y-auto" : ""}>
         <table className="min-w-full text-sm">
@@ -25,9 +25,8 @@ export default function Table({ columns, data, noDataMessage = "No template avai
               data.map((row, idx) => (
                 <tr
                   key={row.id || row.email || idx}
-                  className={`border-b border-gray-200 ${
-                    idx % 2 === 0 ? "bg-white" : "bg-[#fafbfc]"
-                  } hover:bg-gray-50`}
+                  className={`border-b border-gray-200 ${idx % 2 === 0 ? "bg-white" : "bg-[#fafbfc]"
+                    } hover:bg-gray-50`}
                 >
                   {columns.map((col) => (
                     <td key={col.key} className="py-4 px-4">
