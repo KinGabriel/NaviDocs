@@ -113,7 +113,6 @@ export default function CreateUser() {
 
   const showSchool = ["Faculty", "Dean", "Secretary", "Department Head"].includes(formData.role.name);
   const showDepartment = ["Faculty", "Department Head"].includes(formData.role.name);
-
   // const togglePermission = (key) => {
   //   setFormData(prev => ({
   //     ...prev,
@@ -124,17 +123,19 @@ export default function CreateUser() {
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
-      <div className="flex flex-1 flex-col lg:flex-row">
-        <Sidebar user={user} />
-        <main className="flex-1 p-4 sm:p-6 lg:p-10">
-          <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 md:p-10 min-h-[900px]">
-            <h2 className="text-2xl sm:text-3xl font-bold text-black-800 tracking-widest uppercase mb-2 text-center sm:text-left">
+      <div className="flex flex-col lg:flex-row flex-1">
+        <Sidebar user={user} active="User Accounts" />
+        <div className="flex-1 flex flex-col bg-white shadow px-4 sm:px-6 lg:px-8 py-6 mx-3 sm:mx-4 lg:mx-6 mt-4 lg:mt-8 rounded-xl">
+          <main className="w-full max-w-full">
+            <h2 className="text-2xl sm:text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">
               Create New User
             </h2>
-            <div className="w-20 sm:w-25 h-1 bg-yellow-500 mb-6 sm:mb-8 mx-auto sm:mx-0"></div>
+            <div className="w-20 sm:w-25 h-1 bg-yellow-400 mb-6 sm:mb-8 rounded"></div>
 
             {loading ? (
-              <Loader message="Submitting..." />
+              <div className="flex-1 flex items-center justify-center py-10">
+                <Loader message="Submitting..." />
+              </div>
             ) : (
               <div className="flex flex-col lg:flex-row items-start gap-8">
                 {/* LEFT: Photo */}
@@ -155,6 +156,7 @@ export default function CreateUser() {
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           setPhotoFile(file || null);
+                          setImage(file || null);
                           if (file) {
                             const reader = new FileReader();
                             reader.onloadend = () => setPhotoPreview(reader.result);
@@ -269,7 +271,7 @@ export default function CreateUser() {
                       )}
                     </div>
                   </div>
-
+                  
                   {/* Permissions */}
                   {/* 
                   <div>
@@ -318,8 +320,8 @@ export default function CreateUser() {
                 </form>
               </div>
             )}
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
     </div>
   );

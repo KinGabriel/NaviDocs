@@ -10,6 +10,7 @@ import Dropdown2 from "../../components/dropdowns/dropdown2";
 import defaultProfile from "../../assets/images/profile_picture.png";
 import { useNavigate } from "react-router-dom";
 import { ROLE_OPTIONS, SCHOOL_OPTIONS, DEPARTMENT_OPTIONS, YEAR_OPTIONS } from "../../utils/options";
+import { RotateCcwKey } from "lucide-react";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
@@ -406,8 +407,9 @@ const handleConfirmResetPassword = async () => {
                   <button
                     type="button"
                     onClick={openResetModal}
-                    className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                    className="px-6 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 flex items-center gap-2"
                   >
+                    <RotateCcwKey size={24} />
                     Reset Password
                   </button>
 
