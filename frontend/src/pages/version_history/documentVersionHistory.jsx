@@ -330,8 +330,12 @@ export default function DocumentVersionHistory({
           timestamp,
           author,
           versionName,
-          is_current: false,
-          isBookmarked: !!v.isBookmarked,
+          is_current: idx === 0, 
+          isBookmarked:
+            v.isBookmarked === true ||
+            v.is_bookmarked === true ||
+            v.bookmarked === true ||
+            false,
           changes,
           fields: currentSnapshot || v.field_values || {}
         };
@@ -506,17 +510,22 @@ export default function DocumentVersionHistory({
     if (version.isBookmarked) {
       (async () => {
         try {
-          const resp = await patchVersionBookmarkAPI(version.id, { isBookmarked: false });
+          const resp = await patchVersionBookmarkAPI(
+            version.id,
+            { isBookmarked: false }
+          );
+          
           if (resp?.success) {
-            const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? '';
+            const returnedNote = resp?.versionData?.note ?? resp?.data?.versionData?.note ?? resp?.note ?? '';
             updateLocalBookmark(version.id, false, returnedNote);
             toast.success('Version unbookmarked');
           } else {
             toast.error(resp?.message || 'Unbookmark failed');
           }
         } catch (e) {
-          console.error('Failed to unbookmark', e);
-          toast.error('Failed to unbookmark version');
+          console.error('Failed to unbookmark:', e);
+          console.error('Error details:', e.response?.data);
+          toast.error(e.response?.data?.message || e.message || 'Failed to unbookmark version');
         } finally {
           setMenuOpen(null);
         }
@@ -530,14 +539,23 @@ export default function DocumentVersionHistory({
     setMenuOpen(null);
   };
 
-  const updateLocalBookmark = (versionId, isBookmarked, note) => {
+    const updateLocalBookmark = (versionId, isBookmarked, note) => {
     setVersions(prev => prev.map(group => {
+
       if (!group.items.some(item => item.id === versionId)) return group;
-      const items = group.items.map(item => item.id === versionId
-        ? { ...item, isBookmarked: !!isBookmarked, versionName: (typeof note !== 'undefined' ? note : item.versionName) }
-        : item
+      
+      // Update the specific version
+      const items = group.items.map(item => 
+        item.id === versionId
+          ? { 
+              ...item, 
+              isBookmarked: !!isBookmarked, 
+              versionName: typeof note !== 'undefined' ? note : item.versionName 
+            }
+          : item
       );
 
+      // bookmarked items first, then by timestamp
       items.sort((a, b) => {
         if ((a.isBookmarked ? 1 : 0) !== (b.isBookmarked ? 1 : 0)) {
           return (b.isBookmarked ? 1 : 0) - (a.isBookmarked ? 1 : 0);
@@ -551,21 +569,34 @@ export default function DocumentVersionHistory({
 
   const confirmBookmark = async () => {
     if (!bookmarkTarget) return;
+    
+    console.log('Bookmarking version:', bookmarkTarget.id, 'with name:', bookmarkName);
+    
     try {
-      const resp = await patchVersionBookmarkAPI(bookmarkTarget.id, { isBookmarked: true, note: bookmarkName });
+      const resp = await patchVersionBookmarkAPI(
+        bookmarkTarget.id,
+        { isBookmarked: true, note: bookmarkName }
+      );
+      
       if (resp?.success) {
-        const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? bookmarkName;
+        const returnedNote = 
+          resp?.versionData?.note ?? 
+          resp?.data?.versionData?.note ?? 
+          resp?.note ?? 
+          bookmarkName;
+        
         updateLocalBookmark(bookmarkTarget.id, true, returnedNote);
         setShowBookmarkModal(false);
         setBookmarkTarget(null);
         setBookmarkName('');
-        toast.success('Version bookmarked');
+        toast.success('Version bookmarked successfully');
       } else {
         toast.error(resp?.message || 'Bookmark failed');
       }
     } catch (e) {
-      console.error('Bookmark confirm failed', e);
-      toast.error('Failed to bookmark version');
+      console.error('Bookmark confirm failed:', e);
+      console.error('Error response:', e.response?.data);
+      toast.error(e.response?.data?.message || e.message || 'Failed to bookmark version');
     }
   };
 
@@ -927,7 +958,11 @@ export default function DocumentVersionHistory({
                         })
                       ) : (
                         Object.entries(currentVersionDetails.fields).map(([fieldKey, fieldValue]) => {
-                          const fieldLabel = fieldKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                          const fieldLabel = fieldIdToLabelMap[fieldKey] || formatFieldLabel(fieldKey);
+                          const looksLikeId = /^Fld-[a-z0-9]{8,}$/i.test(fieldKey);
+                            if (looksLikeId && !fieldIdToLabelMap[fieldKey]) {
+                              return null;
+                            }
                           const changeEntry = (currentVersionDetails?.changes || []).find(c => normalizeKey(c.key || c.field || '') === normalizeKey(fieldKey));
                           const badgeType = changeEntry?.type;
                           const badgeClass = badgeType === 'added'
@@ -958,42 +993,58 @@ export default function DocumentVersionHistory({
                               </div>
                             </div>
                           );
-                        })
+                        }).filter(Boolean)
                       )}
                     </div>
                   </div>
 
                   {/* Changes */}
-                  {currentVersionDetails.changes.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
-                        Changes Made
-                      </h3>
-                      <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
-                        {currentVersionDetails.changes.map((change, idx) => (
-                          <div key={idx} className="p-5">
-                            <div className="flex items-start justify-between mb-3">
-                              <span className="font-medium text-gray-900">{change.field}</span>
-                              <span
-                                className={`text-xs font-medium px-2 py-1 rounded ${change.type === 'added'
-                                    ? 'bg-green-100 text-green-700'
-                                    : change.type === 'modified'
-                                      ? 'bg-blue-100 text-blue-700'
-                                      : 'bg-red-100 text-red-700'
-                                  }`}
-                              >
-                                {change.type === 'added'
-                                  ? 'Added'
-                                  : change.type === 'modified'
-                                    ? 'Modified'
-                                    : 'Deleted'}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                  {(() => {
+                    const filteredChanges = currentVersionDetails.changes.filter(change => {
+                      const fieldKey = change.key || change.field || '';
+                      const looksLikeId = /^Fld-[a-z0-9]{8,}$/i.test(fieldKey);
+                      
+                      return !looksLikeId || fieldIdToLabelMap[fieldKey];
+                    });
+
+                    return filteredChanges.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
+                          Changes Made
+                        </h3>
+                        <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
+                          {filteredChanges.map((change, idx) => {
+                            //  Use template label if available
+                            const fieldKey = change.key || change.field || '';
+                            const displayLabel = fieldIdToLabelMap[fieldKey] || change.field;
+                            
+                            return (
+                              <div key={idx} className="p-5">
+                                <div className="flex items-start justify-between mb-3">
+                                  <span className="font-medium text-gray-900">{displayLabel}</span>
+                                  <span
+                                    className={`text-xs font-medium px-2 py-1 rounded ${
+                                      change.type === 'added'
+                                        ? 'bg-green-100 text-green-700'
+                                        : change.type === 'modified'
+                                          ? 'bg-blue-100 text-blue-700'
+                                          : 'bg-red-100 text-red-700'
+                                    }`}
+                                  >
+                                    {change.type === 'added'
+                                      ? 'Added'
+                                      : change.type === 'modified'
+                                        ? 'Modified'
+                                        : 'Deleted'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-full">
