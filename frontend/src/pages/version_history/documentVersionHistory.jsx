@@ -313,8 +313,8 @@ export default function DocumentVersionHistory({
         const prevRaw = rawItems[idx + 1];
         const prevSnapshot = prevRaw ? ((prevRaw.snapshot && typeof prevRaw.snapshot === 'object') ? prevRaw.snapshot : (prevRaw.field_values && typeof prevRaw.field_values === 'object' ? prevRaw.field_values : {})) : {};
 
-        const delta = v.field_values && typeof v.field_values === 'object' ? v.field_values : {};
-        const changeKeys = Object.keys(delta);
+        const allFieldKeys = Object.keys(currentSnapshot);
+        const changeKeys = allFieldKeys;
         const changes = changeKeys.map(key => {
           const newValue = currentSnapshot && Object.prototype.hasOwnProperty.call(currentSnapshot, key) ? currentSnapshot[key] : undefined;
           const oldValue = prevSnapshot && Object.prototype.hasOwnProperty.call(prevSnapshot, key) ? prevSnapshot[key] : undefined;
@@ -333,7 +333,7 @@ export default function DocumentVersionHistory({
           is_current: false,
           isBookmarked: !!v.isBookmarked,
           changes,
-          fields: currentSnapshot || {}
+          fields: currentSnapshot || v.field_values || {}
         };
       });
 
@@ -342,7 +342,9 @@ export default function DocumentVersionHistory({
       const grouped = groupVersionsByDate(mapped);
       setVersions(grouped);
       const latest = grouped[0]?.items?.[0];
-      if (latest) setSelectedVersion(latest.id);
+      if (latest) 
+        setSelectedVersion(latest.id);
+        setVersionContent(latest.fields);
       const expanded = {};
       grouped.forEach(group => { expanded[group.date] = true; });
       setExpandedDates(expanded);
@@ -602,10 +604,26 @@ export default function DocumentVersionHistory({
     const walk = (node) => {
       if (!node) return;
       if (isEditableFieldNode(node)) {
-        const orig = node.attrs?.key || node.attrs?.name;
-        if (orig && !seen.has(orig)) {
-          seen.add(orig);
-          keys.push(orig);
+        const origKey = node.attrs?.key || node.attrs?.name;
+        let val = versionContent?.[origKey];
+        
+        // If not found, try formatted label lookup
+        if (val === undefined || val === null || val === '') {
+          const formattedKey = formatFieldLabel(origKey);
+          val = versionContent?.[formattedKey];
+        }
+        
+        if (val !== undefined && val !== null && String(val) !== '') {
+          node.content = [{ type: 'text', text: String(val) }];
+        } else {
+          node.content = node.content || [];
+        }
+      }
+
+      if (node.type === 'text' && typeof node.text === 'string') {
+        const newText = replacePlaceholdersInText(node.text, versionContent || {}, docData);
+        if (newText !== node.text) {
+          node.text = String(newText);
         }
       }
       if (Array.isArray(node.content)) node.content.forEach(walk);
@@ -625,8 +643,34 @@ export default function DocumentVersionHistory({
     });
   }, [docData, pageNodes, docPage, currentVersionDetails]);
 
+    //  mapping from field IDs to their labels from the template
+    const fieldIdToLabelMap = useMemo(() => {
+      const map = {};
+      try {
+        const tpl = docData?.from_template;
+        if (!tpl || !Array.isArray(tpl.fields)) return map;
+        
+        const flatten = (arr) => arr.flatMap((s) => (Array.isArray(s?.fields) ? s.fields : [s]));
+        const flat = tpl.fields[0] && Array.isArray(tpl.fields[0]?.fields) ? flatten(tpl.fields) : tpl.fields;
+        
+        flat.forEach((f) => {
+          if (!f) return;
+          const id = f.key || f.id || f.name || f._id;
+          const label = f.label || f.title || f.display || f.name || id;
+          if (id) {
+            map[id] = label;
+          }
+        });
+      } catch (e) {
+        console.error('Error creating field ID to label map:', e);
+      }
+      return map;
+    }, [docData]);
+
   const contentForEditor = useMemo(() => {
-    if (!docData || !versionContent) return null;
+    if (!docData || !versionContent) {
+      return null;
+    }
 
     const base = docData?.pages_json?.[0];
 
@@ -644,11 +688,28 @@ export default function DocumentVersionHistory({
 
     if (base && typeof base === 'object' && base.type === 'doc') {
       const clonedDoc = JSON.parse(JSON.stringify(base));
+        
       const walkDoc = (node) => {
         if (!node) return;
         if (isEditableFieldNode(node)) {
           const origKey = node.attrs?.key || node.attrs?.name;
-          const val = findValueForEditableKey(origKey, versionContent || {}, docData);
+          // Try direct lookup first
+          let val = versionContent?.[origKey];
+          
+          // If not found, try using the field ID to label mapping
+          if (val === undefined || val === null || val === '') {
+            const label = fieldIdToLabelMap[origKey];
+            if (label) {
+              val = versionContent?.[label];
+            }
+          }
+          
+          // If still not found, try formatted label lookup
+          if (val === undefined || val === null || val === '') {
+            const formattedKey = formatFieldLabel(origKey);
+            val = versionContent?.[formattedKey];
+          }
+          
           if (val !== undefined && val !== null && String(val) !== '') {
             node.content = [{ type: 'text', text: String(val) }];
           } else {
@@ -671,11 +732,30 @@ export default function DocumentVersionHistory({
     if (!pageNode) return base || { type: 'doc', content: [] };
 
     const cloned = JSON.parse(JSON.stringify(pageNode));
+      
     const walk = (node) => {
       if (!node) return;
       if (isEditableFieldNode(node)) {
         const origKey = node.attrs?.key || node.attrs?.name;
-        const val = findValueForEditableKey(origKey, versionContent || {}, docData);
+        // Try direct lookup first
+        let val = versionContent?.[origKey];
+        
+        // If not found, use the field ID to label mapping
+        if (val === undefined || val === null || val === '') {
+          const label = fieldIdToLabelMap[origKey];
+          if (label) {
+            val = versionContent?.[label];
+            console.log(`  "${origKey}" -> mapped to label "${label}", found:`, val);
+          }
+        }
+        
+        // If still not found, use formatted label lookup
+        if (val === undefined || val === null || val === '') {
+          const formattedKey = formatFieldLabel(origKey);
+          val = versionContent?.[formattedKey];
+          console.log(`  "${origKey}" -> formatted as "${formattedKey}", found:`, val);
+        }
+        
         if (val !== undefined && val !== null && String(val) !== '') {
           node.content = [{ type: 'text', text: String(val) }];
         } else {
@@ -691,6 +771,7 @@ export default function DocumentVersionHistory({
       }
       if (Array.isArray(node.content)) node.content.forEach(walk);
     };
+      
     walk(cloned);
 
     return { type: 'doc', content: [cloned] };
@@ -937,7 +1018,9 @@ export default function DocumentVersionHistory({
               ) : docError ? (
                 <div className="text-center py-12 text-red-600 font-medium">{docError}</div>
               ) : docData && contentForEditor ? (
+                <>
                 <TextEditor
+                  key={`version-${selectedVersion}-${docPage}`}
                   content={contentForEditor}
                   pageSetup={docData?.pageSetup}
                   mode="document"
@@ -968,6 +1051,7 @@ export default function DocumentVersionHistory({
                   onEditorReady={(editor) => (editorRef.current = editor)}
                   onContentChange={() => { }}
                 />
+                 </>
               ) : (
                 <div className="text-center py-12 text-gray-400 italic">
                   No document preview available.
