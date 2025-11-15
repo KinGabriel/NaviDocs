@@ -10,7 +10,7 @@ import { generatePassword } from "../utils/passwordGenerator.js";
  * @desc Get all users
  * @route GET /api/admin/get-users
  * @access Private (Admin only)
- */ 
+ */
 export const getUsers = async (req, res) => {
   try {
     const users = await User.find().select("-password");
@@ -29,13 +29,13 @@ export const getUsers = async (req, res) => {
 export const createUser = async (req, res) => {
   try {
     let { email, firstname, lastname, role, school, department } = req.body;
-console.log("Received data:", { email, firstname, lastname, role, school, department });
+    console.log("Received data:", { email, firstname, lastname, role, school, department });
     // Parse role if it's a JSON string
     if (typeof role === "string") {
       try {
         role = JSON.parse(role);
       } catch {
-        role = { 
+        role = {
           name: role,
           school: school || null,
           department: department || null
@@ -59,7 +59,7 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
     if (req.file) {
       try {
         console.log("Uploading profile picture to File Service...");
-        
+
         // Create FormData for File Service
         const formData = new FormData();
         formData.append('profile_picture', req.file.buffer, {
@@ -67,7 +67,7 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
           contentType: req.file.mimetype
         });
         formData.append('userId', email.split('@')[0]); // Use email prefix as user ID
-        
+
         // Upload to File Service
         const fileResponse = await axios.post(
           `${process.env.FILE_SERVICE_URL}/api/files/upload/profile`,
@@ -82,7 +82,7 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
 
         profile_picture = fileResponse.data.filePath;
         console.log("Profile picture uploaded:", profile_picture);
-        
+
       } catch (fileError) {
         console.error("File upload failed:", fileError.message);
         console.log("Continuing user creation without profile picture");
@@ -92,7 +92,7 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
     // Create user object
     const user = new User({
       email,
-      password: hashedPassword, 
+      password: hashedPassword,
       firstname,
       lastname,
       profile_picture,
@@ -119,10 +119,10 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
           department: role.department || null
         }
       });
-      
 
-      
-      res.status(201).json({ 
+
+
+      res.status(201).json({
         message: "User created successfully and welcome email sent",
         user: {
           id: user._id,
@@ -140,8 +140,8 @@ console.log("Received data:", { email, firstname, lastname, role, school, depart
 
     } catch (emailError) {
       console.error('User created but email failed:', emailError.message);
-      
-      res.status(201).json({ 
+
+      res.status(201).json({
         message: "User created successfully, but welcome email failed",
         warning: "Please manually provide login credentials to the user",
         user: {
@@ -169,9 +169,9 @@ export const getDashboardInfo = async (req, res) => {
   try {
     const total = await User.countDocuments();
     const dean = await User.countDocuments({ "role.name": "Dean" });
-    const deptHead = await User.countDocuments({ "role.name": "Department Head"});
+    const deptHead = await User.countDocuments({ "role.name": "Department Head" });
     const faculty = await User.countDocuments({ "role.name": "Faculty" });
-console.log('Backend sees cookies:', req.headers.cookie);
+    console.log('Backend sees cookies:', req.headers.cookie);
     // Get 5 most recently created users
     const recentUsers = await User.find({})
       .sort({ createdAt: -1 })
@@ -202,10 +202,10 @@ export const archiveUser = async (req, res) => {
     const { id } = req.params;
 
     // Find user by ID and update isDeleted flag
-      const user = await User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
       id,
       { is_deleted: true },
-      { new: true } 
+      { new: true }
     );
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -258,15 +258,15 @@ export const getUserById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-  /**
- * @desc Edit a user with optional profile picture update
- * @route PATCH /api/admin/edit-user/:id
- * @access Private (Admin only)
-   */
-  export const editUser = async (req, res) => {
+/**
+* @desc Edit a user with optional profile picture update
+* @route PATCH /api/admin/edit-user/:id
+* @access Private (Admin only)
+ */
+export const editUser = async (req, res) => {
   try {
     const userId = req.params.id;
-    
+
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -335,5 +335,77 @@ export const getUserById = async (req, res) => {
   } catch (error) {
     console.error("Error editing user:", error);
     res.status(500).json({ message: "Server error", error });
+  }
+};
+
+/**
+ * @desc Reset a user's password and send them a new one via Email Service
+ * @route PATCH /api/admin/reset-user-password/:id
+ * @access Private (Admin only)
+ */
+export const resetUserPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const generatedPassword = generatePassword(12, true); 
+    const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+
+    user.password = hashedPassword;
+    await user.save();
+
+    try {
+      await axios.post(
+        `${process.env.EMAIL_SERVICE_URL}/api/email/send-welcome`,
+        {
+          email: user.email,
+          firstname: user.firstname,
+          lastname: user.lastname,
+          password: generatedPassword,
+          role: user.role,
+        }
+      );
+
+      return res.status(200).json({
+        message: "Password reset successfully and email sent",
+        user: {
+          id: user._id,
+          email: user.email,
+          firstname: user.firstname,
+          lastname: user.lastname,
+          profile_picture: user.profile_picture,
+          role: user.role,
+        },
+      });
+    } catch (emailError) {
+      console.error(
+        "Password reset but email failed:",
+        emailError.message
+      );
+
+      return res.status(200).json({
+        message: "Password reset successfully, but email sending failed",
+        warning:
+          "Please manually provide the new password to the user.",
+        user: {
+          id: user._id,
+          email: user.email,
+          firstname: user.firstname,
+          lastname: user.lastname,
+          profile_picture: user.profile_picture,
+          role: user.role,
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Error resetting user password:", error);
+    return res.status(500).json({
+      message: "Server error while resetting password.",
+      error: error.message,
+    });
   }
 };

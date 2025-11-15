@@ -12,8 +12,6 @@ router.get('/health', (req, res) => {
 
 router.post('/assignments', sendAssignmentEmails);
 router.post('/password-reset', sendPasswordResetEmail);
-// Alias path to mirror existing convention and gateway allowances
 router.post('/send-password-reset', sendPasswordResetEmail);
-
 
 export default router;
