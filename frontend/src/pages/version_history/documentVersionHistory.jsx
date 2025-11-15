@@ -512,12 +512,12 @@ export default function DocumentVersionHistory({
         try {
           const resp = await patchVersionBookmarkAPI(
             version.id,
-            { isBookmarked: false }
+            { isBookmarked: false, note: '' }  // clear the note when unbookmarking
           );
           
           if (resp?.success) {
-            const returnedNote = resp?.versionData?.note ?? resp?.data?.versionData?.note ?? resp?.note ?? '';
-            updateLocalBookmark(version.id, false, returnedNote);
+            // empty string to clear the version name
+            updateLocalBookmark(version.id, false, '');
             toast.success('Version unbookmarked');
           } else {
             toast.error(resp?.message || 'Unbookmark failed');
