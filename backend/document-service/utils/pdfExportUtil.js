@@ -117,22 +117,27 @@ export const buildDocumentHtml = (doc = {}, bodyHtml = '', logoUrl = null) => {
 export const generatePdfBuffer = async (html, pageSetup = {}) => {
   const debugPrefix = 'generatePdfBuffer:';
   console.debug && console.debug(debugPrefix, 'starting puppeteer launch');
+
   const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
-  // Additional flags often useful on linux/windows/docker hosts
   if (!launchArgs.includes('--disable-gpu')) launchArgs.push('--disable-gpu');
 
   const launchOptions = {
     args: launchArgs,
     headless: true,
   };
+
   // Prefer explicit executable path when provided via env (set in Dockerfiles)
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
 
   const browser = await puppeteer.launch(launchOptions);
+
   try {
     const page = await browser.newPage();
+
     try {
-      // Inject print cleanup CSS to remove preview frames/borders and ensure content occupies the page
+      // 1) Pre-sanitize HTML (watermarks, backgrounds)
       try {
         if (typeof html === 'string' && html.length > 0) {
           html = hideWatermarksInHtml(html);
@@ -141,13 +146,90 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
         console.warn(debugPrefix, 'pre-sanitize html failed:', preErr?.message || preErr);
       }
 
-      // Inject print cleanup CSS to remove preview frames/borders and ensure content occupies the page
+      // 2) Inject cleanup CSS (same as your version)
       try {
         const paper = String(pageSetup.paperSize || 'A4');
         const orient = String(pageSetup.orientation || 'Portrait').toLowerCase();
-  const cleanupCss = `\n<style>\n/* Export-only PaginationPlus variable overrides */\n:root, .rm-with-pagination {\n  --pageGap: 0px !important;\n  --pageGapBorderSize: 0px !important;\n  --pageBreakBackground: #ffffff !important;\n}\n/* Always hide common watermark nodes (not gated by @media to work with screen emulation) */\n.rm-watermark, .nd-watermark, .rm-editor-watermark, .rm-page-watermark, [data-watermark], .watermark, [class*=\"watermark\"], [id*=\"watermark\"], [data-role*=\"watermark\"] {\n  display: none !important;\n  visibility: hidden !important;\n}\n/* Disable common watermark pseudo-elements */\n.rm-watermark::before, .rm-watermark::after,\n.nd-watermark::before, .nd-watermark::after,\n.rm-editor-watermark::before, .rm-editor-watermark::after,\n.rm-page-watermark::before, .rm-page-watermark::after,\n[data-watermark]::before, [data-watermark]::after,\n.watermark::before, .watermark::after,\n[class*=\"watermark\"]::before, [class*=\"watermark\"]::after,\n[id*=\"watermark\"]::before, [id*=\"watermark\"]::after,\n[data-role*=\"watermark\"]::before, [data-role*=\"watermark\"]::after {\n  content: none !important;\n  background: none !important;\n}\n/* Ensure page containers have no background image applied */\n.rm-with-pagination, .rm-page, .rm-page-break, .ProseMirror, body {\n  background-image: none !important;\n  background: #ffffff !important;\n}\n/* Ensure headers can anchor absolute children like the header rule */\n.rm-first-page-header, .rm-page-header {\n  position: relative !important;\n}\n/* Visible horizontal rules in content and header */\nhr, .horizontal-rule, .tiptap hr {\n  border: 0 !important;\n  border-top: 1px solid #000 !important;\n  height: 0 !important;\n  margin: 6px 0 !important;\n  break-inside: avoid !important;\n  page-break-inside: avoid !important;\n}
-/* Header bottom line injected by the editor */\n.nv-header-line {\n  position: absolute !important;\n  left: 0 !important;\n  right: 0 !important;\n  bottom: 0 !important;\n  height: 1px !important;\n  background: #000 !important;\n}
-/* Remove editor chrome around editable fields in export */\n.nd-editable-field, .editable-field, [data-node=\"editable-field\"] {\n  background: transparent !important;\n  border: none !important;\n  outline: none !important;\n  box-shadow: none !important;\n  padding: 0 !important;\n  filter: none !important;\n}\n@page { size: ${paper} ${orient}; margin: 0; }\n@media print {\n  html, body { margin:0; padding:0; width:100%; height:100%; box-sizing:border-box; }\n  /* Remove preview frames and scaling */\n  .rm-with-pagination, .rm-page, .rm-page-break, .ProseMirror, .nd-editor-canvas {\n    transform: none !important;\n    zoom: 1 !important;\n    width: 100% !important;\n    max-width: none !important;\n    margin: 0 !important;\n    padding: 0 !important;\n    background: transparent !important;\n    box-shadow: none !important;\n    border: none !important;\n    outline: none !important;\n  }\n  img { max-width: 100% !important; height: auto !important; }\n  /* Hide preview-only separators/overlays */\n  .rm-page-separator, .rm-preview-separator, .preview-only, [data-preview], [data-rm-preview] {\n    display: none !important;\n  }\n}\n</style>`;
+
+        const cleanupCss = `\n<style>
+:root, .rm-with-pagination {
+  --pageGap: 0px !important;
+  --pageGapBorderSize: 0px !important;
+  --pageBreakBackground: #ffffff !important;
+}
+.rm-watermark, .nd-watermark, .rm-editor-watermark, .rm-page-watermark,
+[data-watermark], .watermark, [class*="watermark"], [id*="watermark"], [data-role*="watermark"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+.rm-watermark::before, .rm-watermark::after,
+.nd-watermark::before, .nd-watermark::after,
+.rm-editor-watermark::before, .rm-editor-watermark::after,
+.rm-page-watermark::before, .rm-page-watermark::after,
+[data-watermark]::before, [data-watermark]::after,
+.watermark::before, .watermark::after,
+[class*="watermark"]::before, [class*="watermark"]::after,
+[id*="watermark"]::before, [id*="watermark"]::after,
+[data-role*="watermark"]::before, [data-role*="watermark"]::after {
+  content: none !important;
+  background: none !important;
+}
+.rm-with-pagination, .rm-page, .rm-page-break, .ProseMirror, body {
+  background-image: none !important;
+  background: #ffffff !important;
+}
+.rm-first-page-header, .rm-page-header {
+  position: relative !important;
+}
+hr, .horizontal-rule, .tiptap hr {
+  border: 0 !important;
+  border-top: 1px solid #000 !important;
+  height: 0 !important;
+  margin: 6px 0 !important;
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+.nv-header-line {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  height: 1px !important;
+  background: #000 !important;
+}
+.nd-editable-field, .editable-field, [data-node="editable-field"] {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  filter: none !important;
+}
+@page { size: ${paper} ${orient}; margin: 0; }
+@media print {
+  html, body {
+    margin:0; padding:0; width:100%; height:100%; box-sizing:border-box;
+  }
+  .rm-with-pagination, .rm-page, .rm-page-break, .ProseMirror, .nd-editor-canvas {
+    transform: none !important;
+    zoom: 1 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    outline: none !important;
+  }
+  img { max-width: 100% !important; height: auto !important; }
+  .rm-page-separator, .rm-preview-separator, .preview-only,
+  [data-preview], [data-rm-preview] {
+    display: none !important;
+  }
+}
+</style>`;
+
         if (typeof html === 'string' && html.length > 0) {
           if (html.includes('<head')) {
             html = html.replace(/<head([^>]*)>/i, (m) => `${m}${cleanupCss}`);
@@ -161,51 +243,79 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
         console.warn(debugPrefix, 'failed to inject cleanup CSS', injectErr?.message || injectErr);
       }
 
-      // set a reasonable viewport
+      // 3) Viewport + disable nav timeouts
       await page.setViewport({ width: 1024, height: 768 });
-      // increase navigation timeouts for slow resource loads
-      try { page.setDefaultNavigationTimeout(60000); } catch (_) {}
-      try { page.setDefaultTimeout(60000); } catch (_) {}
+      try { page.setDefaultNavigationTimeout(0); } catch (_) {}
+      try { page.setDefaultTimeout(0); } catch (_) {}
 
-      console.debug && console.debug(debugPrefix, 'setting page content (length)', html ? html.length : 0);
-      // Prefer networkidle0, but fall back to load, then domcontentloaded as last resort.
-      let setContentError = null;
+      console.debug && console.debug(
+        debugPrefix,
+        'setting page content (length)',
+        html ? html.length : 0
+      );
+
+      // 4) NEW: no networkidle0 — relaxed chain, and never rethrow
       try {
-        await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
-      } catch (setErr) {
-        setContentError = setErr;
-        console.warn(debugPrefix, 'setContent networkidle0 timed out, retrying with load', setErr?.message || setErr);
+        // First: DOMContentLoaded
+        await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      } catch (e1) {
+        console.warn(
+          debugPrefix,
+          'setContent domcontentloaded timeout, retrying with load',
+          e1?.message || e1
+        );
         try {
-          await page.setContent(html, { waitUntil: 'load', timeout: 60000 });
-          setContentError = null;
-        } catch (loadErr) {
-          setContentError = loadErr;
-          console.warn(debugPrefix, 'setContent load timed out, retrying with domcontentloaded', loadErr?.message || loadErr);
+          // Second: load
+          await page.setContent(html, { waitUntil: 'load', timeout: 20000 });
+        } catch (e2) {
+          console.warn(
+            debugPrefix,
+            'setContent load timeout, final setContent without waitUntil',
+            e2?.message || e2
+          );
           try {
-            await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 15000 });
-            setContentError = null;
-          } catch (domErr) {
-            // Last resort: proceed (log error) — images/fonts may be missing but we still produce a PDF
-            console.error(debugPrefix, 'setContent domcontentloaded timed out; proceeding to PDF generation', domErr?.message || domErr);
+            // Last resort: no waitUntil, no timeout
+            await page.setContent(html, { timeout: 0 });
+          } catch (e3) {
+            console.error(
+              debugPrefix,
+              'final setContent failed; proceeding anyway to PDF',
+              e3?.message || e3
+            );
           }
         }
       }
 
-      // Ensure screen styles are applied and assets are ready (fonts/images)
+      // 5) Assets: fonts + images (best effort)
       try { await page.emulateMediaType('screen'); } catch (_) {}
+
       try {
-        // Wait for document.fonts.ready when available
         try {
           await Promise.race([
-            page.evaluate(() => (document && document.fonts) ? document.fonts.ready : Promise.resolve()),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('fonts wait timeout')), 10000))
+            page.evaluate(() =>
+              document && document.fonts ? document.fonts.ready : Promise.resolve()
+            ),
+            new Promise((_, rej) =>
+              setTimeout(() => rej(new Error('fonts wait timeout')), 10000)
+            ),
           ]);
         } catch (e) {
           console.warn(debugPrefix, 'fonts wait warning:', e?.message || e);
         }
-        // Wait for images to be complete
+
         try {
-          await page.evaluate(() => Promise.all(Array.from(document.images || []).map(img => img.complete ? Promise.resolve() : new Promise(res => { img.onload = res; img.onerror = res; }))));
+          await page.evaluate(() =>
+            Promise.all(
+              Array.from(document.images || []).map((img) =>
+                img.complete
+                  ? Promise.resolve()
+                  : new Promise((res) => {
+                      img.onload = res;
+                      img.onerror = res;
+                    })
+              )
+            )
+          );
         } catch (e) {
           console.warn(debugPrefix, 'images wait warning:', e?.message || e);
         }
@@ -213,7 +323,7 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
         console.warn(debugPrefix, 'asset wait failed:', assetErr?.message || assetErr);
       }
 
-      // Inject additional hardening CSS to neutralize editable-field pseudo-elements
+      // 6) Extra CSS for editable-field pseudo-elements
       try {
         await page.addStyleTag({
           content: `
@@ -226,19 +336,20 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
               outline: none !important;
               box-shadow: none !important;
             }
-          `
+          `,
         });
       } catch (_) {}
 
-      // Conditionally enable a fallback header rule only when the document intends to show it
+      // 7) Header rule opt-in (same as your logic)
       try {
         const wantHeaderRule = await page.evaluate(() => {
           try {
-            // If any nv-header-line exists, the header rule is intended
             if (document.querySelector('.nv-header-line')) return true;
-            // Or if a global opt-in flag is present on body or documentElement
-            const bodyFlag = (document.body && document.body.getAttribute('data-header-line')) === 'true';
-            const rootFlag = (document.documentElement && document.documentElement.getAttribute('data-header-line')) === 'true';
+            const bodyFlag =
+              (document.body && document.body.getAttribute('data-header-line')) === 'true';
+            const rootFlag =
+              (document.documentElement &&
+                document.documentElement.getAttribute('data-header-line')) === 'true';
             return bodyFlag || rootFlag;
           } catch (_) {
             return false;
@@ -248,14 +359,25 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
         if (wantHeaderRule) {
           await page.addStyleTag({
             content: `
-              .rm-first-page-header, .rm-page-header { position: relative !important; overflow: visible !important; }
-              .rm-first-page-header::after, .rm-page-header::after { content: ""; position: absolute !important; left: 0; right: 0; bottom: 0; border-bottom: 1px solid #000; height: 0; }
-            `
+              .rm-first-page-header, .rm-page-header {
+                position: relative !important;
+                overflow: visible !important;
+              }
+              .rm-first-page-header::after, .rm-page-header::after {
+                content: "";
+                position: absolute !important;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                border-bottom: 1px solid #000;
+                height: 0;
+              }
+            `,
           });
         }
       } catch (_) {}
 
-      // Runtime safety: enforce export-only PaginationPlus vars, hide watermarks, and clear backgrounds
+      // 8) Runtime overrides (same as your existing evaluate block)
       try {
         await page.evaluate(() => {
           try {
@@ -267,8 +389,11 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
             }
           } catch (_) {}
           try {
-            const sel = '.rm-watermark, .nd-watermark, .rm-editor-watermark, .rm-page-watermark, [data-watermark], .watermark, [class*="watermark"], [id*="watermark"], [data-role*="watermark"]';
-            document.querySelectorAll(sel).forEach(el => {
+            const sel =
+              '.rm-watermark, .nd-watermark, .rm-editor-watermark, .rm-page-watermark, ' +
+              '[data-watermark], .watermark, [class*="watermark"], [id*="watermark"], ' +
+              '[data-role*="watermark"]';
+            document.querySelectorAll(sel).forEach((el) => {
               if (el && el.style && el.style.setProperty) {
                 el.style.setProperty('display', 'none', 'important');
                 el.style.setProperty('visibility', 'hidden', 'important');
@@ -279,10 +404,11 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
             const clearBg = (el) => {
               if (!el || !el.style || !el.style.setProperty) return;
               el.style.setProperty('background-image', 'none', 'important');
-              // set a white background to avoid residual tints
               el.style.setProperty('background', '#ffffff', 'important');
             };
-            document.querySelectorAll('.rm-with-pagination, .rm-page, .rm-page-break, .ProseMirror, body').forEach(clearBg);
+            document
+              .querySelectorAll('.rm-with-pagination, .rm-page, .rm-page-break, .ProseMirror, body')
+              .forEach(clearBg);
           } catch (_) {}
           try {
             const stripEditable = (el) => {
@@ -294,42 +420,56 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
               el.style.setProperty('padding', '0', 'important');
               el.style.setProperty('filter', 'none', 'important');
             };
-            document.querySelectorAll('.nd-editable-field, .editable-field, [data-node="editable-field"]').forEach(stripEditable);
+            document
+              .querySelectorAll('.nd-editable-field, .editable-field, [data-node="editable-field"]')
+              .forEach(stripEditable);
           } catch (_) {}
           try {
-            // Remove placeholder text for editable fields if not filled
-            const nodes = document.querySelectorAll('[data-node="editable-field"], .nd-editable-field, .editable-field');
+            const nodes = document.querySelectorAll(
+              '[data-node="editable-field"], .nd-editable-field, .editable-field'
+            );
             nodes.forEach((el) => {
               try {
-                // Extract placeholder from common attributes
-                const ph = el.getAttribute('data-ph')
-                  || el.getAttribute('data-placeholder')
-                  || (el.dataset ? (el.dataset.ph || el.dataset.placeholder) : null)
-                  || el.getAttribute('placeholder');
+                const ph =
+                  el.getAttribute('data-ph') ||
+                  el.getAttribute('data-placeholder') ||
+                  (el.dataset ? el.dataset.ph || el.dataset.placeholder : null) ||
+                  el.getAttribute('placeholder');
                 const text = (el.textContent || '').replace(/\u00A0/g, ' ').trim();
                 const isEmpty = text.length === 0;
-                const isPlaceholder = ph && text && text.toLowerCase() === String(ph).trim().toLowerCase();
-                const markedEmpty = el.getAttribute('data-empty') === 'true' || el.classList.contains('placeholder') || el.classList.contains('is-placeholder');
+                const isPlaceholder =
+                  ph && text && text.toLowerCase() === String(ph).trim().toLowerCase();
+                const markedEmpty =
+                  el.getAttribute('data-empty') === 'true' ||
+                  el.classList.contains('placeholder') ||
+                  el.classList.contains('is-placeholder');
                 if (isEmpty || isPlaceholder || markedEmpty) {
-                  // Clear content but keep node for layout safety; inline spans collapse when empty
                   el.textContent = '';
                 }
               } catch (_) {}
             });
           } catch (_) {}
           try {
-            // Unwrap editable-field elements to plain text to drop any stubborn styling
-            const fields = Array.from(document.querySelectorAll('[data-node="editable-field"], .nd-editable-field, .editable-field'));
+            const fields = Array.from(
+              document.querySelectorAll(
+                '[data-node="editable-field"], .nd-editable-field, .editable-field'
+              )
+            );
             fields.forEach((el) => {
               try {
-                const ph = el.getAttribute('data-ph')
-                  || el.getAttribute('data-placeholder')
-                  || (el.dataset ? (el.dataset.ph || el.dataset.placeholder) : null)
-                  || el.getAttribute('placeholder');
+                const ph =
+                  el.getAttribute('data-ph') ||
+                  el.getAttribute('data-placeholder') ||
+                  (el.dataset ? el.dataset.ph || el.dataset.placeholder : null) ||
+                  el.getAttribute('placeholder');
                 const text = (el.textContent || '').replace(/\u00A0/g, ' ').trim();
                 const isEmpty = text.length === 0;
-                const isPlaceholder = ph && text && text.toLowerCase() === String(ph).trim().toLowerCase();
-                const markedEmpty = el.getAttribute('data-empty') === 'true' || el.classList.contains('placeholder') || el.classList.contains('is-placeholder');
+                const isPlaceholder =
+                  ph && text && text.toLowerCase() === String(ph).trim().toLowerCase();
+                const markedEmpty =
+                  el.getAttribute('data-empty') === 'true' ||
+                  el.classList.contains('placeholder') ||
+                  el.classList.contains('is-placeholder');
                 if (isEmpty || isPlaceholder || markedEmpty) {
                   el.remove();
                 } else {
@@ -340,10 +480,11 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
             });
           } catch (_) {}
           try {
-            // Only add header rule if any .nv-header-line exists in the DOM (signals intent)
-            const wantsRule = !!document.querySelector('.nv-header-line')
-              || (document.body && document.body.getAttribute('data-header-line') === 'true')
-              || (document.documentElement && document.documentElement.getAttribute('data-header-line') === 'true');
+            const wantsRule =
+              !!document.querySelector('.nv-header-line') ||
+              (document.body && document.body.getAttribute('data-header-line') === 'true') ||
+              (document.documentElement &&
+                document.documentElement.getAttribute('data-header-line') === 'true');
             if (wantsRule) {
               const ensureHeaderRule = (hdr) => {
                 if (!hdr) return;
@@ -359,7 +500,9 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
                   hdr.appendChild(line);
                 }
               };
-              document.querySelectorAll('.rm-first-page-header, .rm-page-header').forEach(ensureHeaderRule);
+              document
+                .querySelectorAll('.rm-first-page-header, .rm-page-header')
+                .forEach(ensureHeaderRule);
             }
           } catch (_) {}
         });
@@ -367,26 +510,40 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
         console.warn(debugPrefix, 'runtime export overrides failed:', e?.message || e);
       }
 
-      const format = (pageSetup.paperSize || 'A4');
-      const landscape = String((pageSetup.orientation || 'Portrait')).toLowerCase() === 'landscape';
+      // 9) Generate PDF
+      const format = pageSetup.paperSize || 'A4';
+      const landscape =
+        String(pageSetup.orientation || 'Portrait').toLowerCase() === 'landscape';
       const margins = pageSetup.margins || { top: 1, bottom: 1, left: 1, right: 1 };
 
-      console.debug && console.debug(debugPrefix, 'calling page.pdf with format', format, 'landscape', landscape);
+      console.debug &&
+        console.debug(debugPrefix, 'calling page.pdf with format', format, 'landscape', landscape);
+
       const pdfBuffer = await page.pdf({
         format,
         landscape,
         printBackground: true,
-        // Use inches to align with PageSetupPanel and any injected @page CSS
-        margin: { top: `${margins.top}in`, bottom: `${margins.bottom}in`, left: `${margins.left}in`, right: `${margins.right}in` },
-        preferCSSPageSize: true
+        margin: {
+          top: `${margins.top}in`,
+          bottom: `${margins.bottom}in`,
+          left: `${margins.left}in`,
+          right: `${margins.right}in`,
+        },
+        preferCSSPageSize: true,
       });
 
-      // normalize to Node Buffer in case puppeteer returns a Uint8Array
-      const normalized = Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer || []);
-      console.debug && console.debug(debugPrefix, 'page.pdf finished, normalized buffer length =', normalized.length);
+      const normalized = Buffer.isBuffer(pdfBuffer)
+        ? pdfBuffer
+        : Buffer.from(pdfBuffer || []);
+
+      console.debug &&
+        console.debug(
+          debugPrefix,
+          'page.pdf finished, normalized buffer length =',
+          normalized.length
+        );
 
       if (!normalized || normalized.length === 0) {
-        // persist HTML for debugging
         try {
           const os = await import('os');
           const fs = await import('fs');
@@ -397,7 +554,11 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
           fs.writeFileSync(full, html, 'utf8');
           console.error(debugPrefix, 'PDF buffer empty — saved HTML to', full);
         } catch (saveErr) {
-          console.warn(debugPrefix, 'failed to write debug HTML', saveErr?.message || saveErr);
+          console.warn(
+            debugPrefix,
+            'failed to write debug HTML',
+            saveErr?.message || saveErr
+          );
         }
       }
 
@@ -408,11 +569,13 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
       throw innerErr;
     }
   } catch (e) {
-    // ensure browser closed in outer error path
-    try { await browser.close(); } catch (closeErr) { /* ignore */ }
+    try {
+      await browser.close();
+    } catch (_) {}
     throw e;
   }
 };
+
 
 export const uploadPdfBuffer = async (pdfBuffer, { fileServerUrl = null, docId = '', owner = 'unknown', filename = 'export.pdf' } = {}) => {
   const fileServer = fileServerUrl || process.env.FILE_SERVICE_URL || 'http://localhost:5005';
