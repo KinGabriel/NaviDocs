@@ -3,6 +3,7 @@ FROM node:18-bullseye-slim
 RUN apt-get update && apt-get install -y \
 	ca-certificates \
 	fonts-liberation \
+	fonts-dejavu-core \
 	libatk1.0-0 \
 	libatk-bridge2.0-0 \
 	libcups2 \
