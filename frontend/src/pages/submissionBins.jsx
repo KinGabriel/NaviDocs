@@ -531,11 +531,19 @@ function SubmissionCard({ submission, onView, onForward, canForward, forwarding,
         </div>
 
         {/* Instructions */}
-        {submission.instructions && (
-          <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-            {submission.instructions}
-          </p>
-        )}
+       <div className="mb-4 min-h-[2.5rem]">
+          {submission.instructions ? (
+            <p className="text-sm text-gray-600 line-clamp-2">
+              {submission.instructions}
+            </p>
+          ) : (
+            <p className="text-sm text-gray-400 italic">
+              No instructions provided
+            </p>
+          )}
+        </div>
+
+      
 
         {/* Meta Info */}
         <div className="flex flex-wrap gap-4 mb-4 pb-4 border-b border-gray-100">
