@@ -10,7 +10,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8002;
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.HOST || "0.0.0.0";
 // CORS is handled by the gateway; backend services should not set CORS headers.
 
 const bodyLimit = process.env.TEMPLATE_SERVICE_BODY_LIMIT || '10mb';

@@ -11,7 +11,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8003;
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.HOST || "0.0.0.0";
 
 // CORS is handled by the gateway; backend services assume requests come through the gateway
 // Increase JSON/body size limits to allow large HTML payloads when the frontend sends full document HTML for PDF rendering.

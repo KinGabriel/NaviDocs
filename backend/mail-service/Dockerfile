@@ -1,8 +1,9 @@
 FROM node:18-alpine
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install --production
+RUN npm ci --omit=dev
 COPY . .
-ENV PORT=${PORT:-8005}
-EXPOSE ${PORT}
+ARG PORT=8005
+ENV PORT=$PORT
+EXPOSE $PORT
 CMD ["node", "index.js"]
