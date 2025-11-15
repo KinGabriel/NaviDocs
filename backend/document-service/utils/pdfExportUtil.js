@@ -117,11 +117,18 @@ export const buildDocumentHtml = (doc = {}, bodyHtml = '', logoUrl = null) => {
 export const generatePdfBuffer = async (html, pageSetup = {}) => {
   const debugPrefix = 'generatePdfBuffer:';
   console.debug && console.debug(debugPrefix, 'starting puppeteer launch');
-  const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox'];
+  const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
   // Additional flags often useful on linux/windows/docker hosts
   if (!launchArgs.includes('--disable-gpu')) launchArgs.push('--disable-gpu');
 
-  const browser = await puppeteer.launch({ args: launchArgs });
+  const launchOptions = {
+    args: launchArgs,
+    headless: true,
+  };
+  // Prefer explicit executable path when provided via env (set in Dockerfiles)
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+
+  const browser = await puppeteer.launch(launchOptions);
   try {
     const page = await browser.newPage();
     try {
@@ -156,13 +163,32 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
 
       // set a reasonable viewport
       await page.setViewport({ width: 1024, height: 768 });
+      // increase navigation timeouts for slow resource loads
+      try { page.setDefaultNavigationTimeout(60000); } catch (_) {}
+      try { page.setDefaultTimeout(60000); } catch (_) {}
+
       console.debug && console.debug(debugPrefix, 'setting page content (length)', html ? html.length : 0);
-      // prefer networkidle0 but fall back to load if it times out
+      // Prefer networkidle0, but fall back to load, then domcontentloaded as last resort.
+      let setContentError = null;
       try {
-        await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+        await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
       } catch (setErr) {
+        setContentError = setErr;
         console.warn(debugPrefix, 'setContent networkidle0 timed out, retrying with load', setErr?.message || setErr);
-        await page.setContent(html, { waitUntil: 'load', timeout: 30000 });
+        try {
+          await page.setContent(html, { waitUntil: 'load', timeout: 60000 });
+          setContentError = null;
+        } catch (loadErr) {
+          setContentError = loadErr;
+          console.warn(debugPrefix, 'setContent load timed out, retrying with domcontentloaded', loadErr?.message || loadErr);
+          try {
+            await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            setContentError = null;
+          } catch (domErr) {
+            // Last resort: proceed (log error) — images/fonts may be missing but we still produce a PDF
+            console.error(debugPrefix, 'setContent domcontentloaded timed out; proceeding to PDF generation', domErr?.message || domErr);
+          }
+        }
       }
 
       // Ensure screen styles are applied and assets are ready (fonts/images)
