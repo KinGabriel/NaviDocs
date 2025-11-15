@@ -1,5 +1,5 @@
 import Template from "../models/templateModel.js";
-import { fetchUserInfoById } from '../../document-service/utils/userServiceUtils.js';
+import { fetchUserInfoById } from '../utils/userServiceUtils.js';
 import { getRecentPublished } from '../utils/recentTemplates.js';
 
 /**
