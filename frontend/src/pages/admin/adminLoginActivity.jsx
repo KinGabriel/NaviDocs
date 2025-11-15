@@ -216,16 +216,15 @@ export default function AdminLoginActivity() {
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
-      <div className="flex flex-1">
+      <div className="flex flex-col lg:flex-row flex-1">
         <Sidebar user={user} active="Login Activity" />
 
-        <main className="flex-1 w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
-          <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 md:p-10">
-
+        <div className="flex-1 flex flex-col bg-white shadow px-4 sm:px-6 lg:px-8 py-6 mx-3 sm:mx-4 lg:mx-6 mt-4 lg:mt-8 rounded-xl">
+          <main className="w-full max-w-full">
             <h2 className="text-lg sm:text-2xl lg:text-3xl font-bold text-black tracking-widest uppercase mb-2">
               Login Activity
             </h2>
-            <div className="h-1 bg-yellow-500 mb-5 sm:mb-6 rounded w-20 sm:w-24"></div>
+            <div className="h-1 bg-yellow-400 mb-5 sm:mb-6 rounded w-20 sm:w-24"></div>
 
             {/* Filter Row */}
             <div className="flex flex-col gap-4 mb-6">
@@ -527,8 +526,8 @@ export default function AdminLoginActivity() {
                 </div>
               </>
             )}
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
     </div>
   );
