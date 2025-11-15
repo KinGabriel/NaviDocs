@@ -162,7 +162,6 @@ export const buildDocumentHtml = (doc = {}, bodyHtml = '', logoUrl = null) => {
       </body>
     </html>`;
 };
-
 export const generatePdfBuffer = async (html, pageSetup = {}) => {
   const debugPrefix = 'generatePdfBuffer:';
   console.debug && console.debug(debugPrefix, 'starting puppeteer launch');
@@ -182,6 +181,37 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
 
   const browser = await puppeteer.launch(launchOptions);
 
+  // --- EXTRA DEBUG: identify which Chrome/Chromium is used and initial viewport ---
+  const ua = await (async () => {
+    try {
+      const tmpPage = await browser.newPage();
+      const result = await tmpPage.evaluate(() => ({
+        ua: navigator.userAgent,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }));
+      await tmpPage.close();
+      return result;
+    } catch (e) {
+      return {
+        ua: 'unknown',
+        width: null,
+        height: null,
+        err: String(e?.message || e),
+      };
+    }
+  })();
+
+  console.log(
+    debugPrefix,
+    'launchOptions =',
+    JSON.stringify(launchOptions),
+    'PUPPETEER_EXECUTABLE_PATH =',
+    process.env.PUPPETEER_EXECUTABLE_PATH || '(default)',
+    'UA =',
+    ua
+  );
+
   try {
     const page = await browser.newPage();
 
@@ -195,12 +225,12 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
         console.warn(debugPrefix, 'pre-sanitize html failed:', preErr?.message || preErr);
       }
 
-     // 2) Inject cleanup CSS (same as your version)
-try {
-  const paper = String(pageSetup.paperSize || 'A4');
-  const orient = String(pageSetup.orientation || 'Portrait').toLowerCase();
+      // 2) Inject cleanup CSS
+      try {
+        const paper = String(pageSetup.paperSize || 'A4');
+        const orient = String(pageSetup.orientation || 'Portrait').toLowerCase();
 
-  let cleanupCss = `\n<style>
+        let cleanupCss = `\n<style>
 :root, .rm-with-pagination {
   --pageGap: 0px !important;
   --pageGapBorderSize: 0px !important;
@@ -279,68 +309,81 @@ hr, .horizontal-rule, .tiptap hr {
 }
 </style>`;
 
-  // Append optional export CSS from assets/export.css when present
-  try {
-    const fs = await import('fs');
-    const pathMod = await import('path');
+        // Append optional export.css from assets/export.css when present
+        try {
+          const fs = await import('fs');
+          const pathMod = await import('path');
 
-    let exportCssPath;
-    try {
-      const filePath = pathMod.fileURLToPath(import.meta.url);
-      const dir = pathMod.dirname(filePath);
-      exportCssPath = pathMod.join(dir, '..', 'assets', 'export.css');
-    } catch (_) {
-      exportCssPath = pathMod.join(process.cwd(), 'backend', 'document-service', 'assets', 'export.css');
-    }
+          let exportCssPath;
+          try {
+            const filePath = pathMod.fileURLToPath(import.meta.url);
+            const dir = pathMod.dirname(filePath);
+            exportCssPath = pathMod.join(dir, '..', 'assets', 'export.css');
+          } catch (_) {
+            exportCssPath = pathMod.join(
+              process.cwd(),
+              'backend',
+              'document-service',
+              'assets',
+              'export.css'
+            );
+          }
 
-    if (fs.existsSync && fs.existsSync(exportCssPath)) {
-      try {
-        const extra = fs.readFileSync(exportCssPath, 'utf8');
-        if (extra && extra.length && /<\/style>\s*$/i.test(cleanupCss)) {
-          cleanupCss = cleanupCss.replace(/<\/style>\s*$/i, `\n${extra}\n</style>`);
+          const exists = fs.existsSync && fs.existsSync(exportCssPath);
+          console.log(debugPrefix, 'checking export.css at', exportCssPath, 'exists =', exists);
+
+          if (exists) {
+            try {
+              const extra = fs.readFileSync(exportCssPath, 'utf8');
+              if (extra && extra.length) {
+                cleanupCss = cleanupCss.replace(/<\/style>\s*$/i, `\n${extra}\n</style>`);
+              }
+            } catch (rerr) {
+              console.warn(debugPrefix, 'failed to read export.css', rerr?.message || rerr);
+            }
+          }
+        } catch (e) {
+          console.warn(debugPrefix, 'export.css resolution failed:', e?.message || e);
         }
-      } catch (rerr) {
-        console.warn(debugPrefix, 'failed to read export.css', rerr?.message || rerr);
+
+        if (typeof html === 'string' && html.length > 0) {
+          if (html.includes('<head')) {
+            html = html.replace(/<head([^>]*)>/i, (m) => `${m}${cleanupCss}`);
+          } else if (html.includes('<html')) {
+            html = html.replace(/<html([^>]*)>/i, (m) => `${m}<head>${cleanupCss}</head>`);
+          } else {
+            html = `<!doctype html><html><head>${cleanupCss}</head><body>${html}</body></html>`;
+          }
+        }
+      } catch (injectErr) {
+        console.warn(debugPrefix, 'failed to inject cleanup CSS', injectErr?.message || injectErr);
       }
-    }
-  } catch (e) {
-    // ignore if fs/path not available
-  }
 
-  if (typeof html === 'string' && html.length > 0) {
-    if (html.includes('<head')) {
-      html = html.replace(/<head([^>]*)>/i, (m) => `${m}${cleanupCss}`);
-    } else if (html.includes('<html')) {
-      html = html.replace(/<html([^>]*)>/i, (m) => `${m}<head>${cleanupCss}</head>`);
-    } else {
-      html = `<!doctype html><html><head>${cleanupCss}</head><body>${html}</body></html>`;
-    }
-  }
-} catch (injectErr) {
-  console.warn(debugPrefix, 'failed to inject cleanup CSS', injectErr?.message || injectErr);
-}
-
-      // 3) Viewport + disable nav timeouts
+      // 3) Viewport + timeouts
       await page.setViewport({ width: 1024, height: 768 });
-      try { page.setDefaultNavigationTimeout(0); } catch (_) {}
-      try { page.setDefaultTimeout(0); } catch (_) {}
+      try {
+        page.setDefaultNavigationTimeout(0);
+      } catch (_) {}
+      try {
+        page.setDefaultTimeout(0);
+      } catch (_) {}
 
-      // Inline remote <img> assets to avoid missing logos when container cannot reach external URLs
+      // Inline remote <img> assets
       try {
         html = await inlineRemoteImages(html, { timeout: 10000, maxImages: 10 });
       } catch (inlineErr) {
         console.warn && console.warn(debugPrefix, 'inlineRemoteImages failed', inlineErr?.message || inlineErr);
       }
 
-      console.debug && console.debug(
-        debugPrefix,
-        'setting page content (length)',
-        html ? html.length : 0
-      );
+      console.debug &&
+        console.debug(
+          debugPrefix,
+          'setting page content (length)',
+          html ? html.length : 0
+        );
 
-      // 4) NEW: no networkidle0 — relaxed chain, and never rethrow
+      // 4) Relaxed setContent chain
       try {
-        // First: DOMContentLoaded
         await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 20000 });
       } catch (e1) {
         console.warn(
@@ -349,7 +392,6 @@ hr, .horizontal-rule, .tiptap hr {
           e1?.message || e1
         );
         try {
-          // Second: load
           await page.setContent(html, { waitUntil: 'load', timeout: 20000 });
         } catch (e2) {
           console.warn(
@@ -358,7 +400,6 @@ hr, .horizontal-rule, .tiptap hr {
             e2?.message || e2
           );
           try {
-            // Last resort: no waitUntil, no timeout
             await page.setContent(html, { timeout: 0 });
           } catch (e3) {
             console.error(
@@ -371,13 +412,16 @@ hr, .horizontal-rule, .tiptap hr {
       }
 
       // 5) Assets: fonts + images (best effort)
-      try { await page.emulateMediaType('screen'); } catch (_) {}
+      try {
+        await page.emulateMediaType('screen');
+      } catch (_) {}
 
       try {
         try {
           await Promise.race([
-            page.evaluate(() =>
-              document && document.fonts ? document.fonts.ready : Promise.resolve()
+            page.evaluate(
+              () =>
+                (document && document.fonts ? document.fonts.ready : Promise.resolve())
             ),
             new Promise((_, rej) =>
               setTimeout(() => rej(new Error('fonts wait timeout')), 10000)
@@ -424,7 +468,7 @@ hr, .horizontal-rule, .tiptap hr {
         });
       } catch (_) {}
 
-      // 7) Header rule opt-in (same as your logic)
+      // 7) Header rule opt-in
       try {
         const wantHeaderRule = await page.evaluate(() => {
           try {
@@ -461,7 +505,7 @@ hr, .horizontal-rule, .tiptap hr {
         }
       } catch (_) {}
 
-      // 8) Runtime overrides (same as your existing evaluate block)
+      // 8) Runtime overrides
       try {
         await page.evaluate(() => {
           try {
@@ -555,7 +599,7 @@ hr, .horizontal-rule, .tiptap hr {
                   el.classList.contains('placeholder') ||
                   el.classList.contains('is-placeholder');
                 if (isEmpty || isPlaceholder || markedEmpty) {
-                  el.remove();
+                  el.textContent = '';
                 } else {
                   const txt = document.createTextNode(text);
                   el.replaceWith(txt);
@@ -594,6 +638,26 @@ hr, .horizontal-rule, .tiptap hr {
         console.warn(debugPrefix, 'runtime export overrides failed:', e?.message || e);
       }
 
+      // --- EXTRA DEBUG: metrics before PDF ---
+      try {
+        const url = await page.url();
+        const pageMetrics = await page.evaluate(() => {
+          const pages = document.querySelectorAll('.rm-page, .rm-with-pagination');
+          return {
+            pageCount: pages.length,
+            bodyTextLength:
+              (document.body && document.body.innerText ? document.body.innerText.length : 0),
+            htmlLength: document.documentElement
+              ? document.documentElement.outerHTML.length
+              : null,
+          };
+        });
+        console.log(debugPrefix, 'about to call page.pdf, location =', url);
+        console.log(debugPrefix, 'metrics before pdf =', pageMetrics);
+      } catch (metricsErr) {
+        console.warn(debugPrefix, 'metrics collection failed:', metricsErr?.message || metricsErr);
+      }
+
       // 9) Generate PDF
       const format = pageSetup.paperSize || 'A4';
       const landscape =
@@ -601,7 +665,13 @@ hr, .horizontal-rule, .tiptap hr {
       const margins = pageSetup.margins || { top: 1, bottom: 1, left: 1, right: 1 };
 
       console.debug &&
-        console.debug(debugPrefix, 'calling page.pdf with format', format, 'landscape', landscape);
+        console.debug(
+          debugPrefix,
+          'calling page.pdf with format',
+          format,
+          'landscape',
+          landscape
+        );
 
       const pdfBuffer = await page.pdf({
         format,
