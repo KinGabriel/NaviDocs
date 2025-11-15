@@ -5,6 +5,9 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 // lightweight UA parsing (avoid external dependency during docker production builds)
 
+const COOKIE_SECURE = process.env.COOKIE_SECURE === "true";
+const COOKIE_SAMESITE =
+  (process.env.COOKIE_SAMESITE || "").toLowerCase() || (COOKIE_SECURE ? "none" : "lax");
 
 /**
  * @desc Login user
@@ -144,9 +147,9 @@ export const loginUser = async (req, res) => {
     // Set cookie 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      secure: COOKIE_SECURE,      
+      sameSite: COOKIE_SAMESITE,   
+      maxAge: 30 * 24 * 60 * 60 * 1000,
       path: "/",
     });
 
@@ -173,11 +176,11 @@ export const loginUser = async (req, res) => {
  * @access Public
  */
 export const logoutUser = async (req, res) => {
-  res.clearCookie('token', {
+  res.clearCookie("token", {
     httpOnly: true,
-    secure: false,
-    sameSite: 'Lax',
-    path: '/',
+    secure: COOKIE_SECURE,
+    sameSite: COOKIE_SAMESITE,
+    path: "/",
   });
   try {
     // Best-effort: update most recent login record for this user (use req.user from JWT)
