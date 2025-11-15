@@ -252,44 +252,38 @@ export const getVersionData = async (req, res) => {
 export const patchVersionBookmark = async (req, res) => {
   try {
     const { versionId } = req.params;
-  const { isBookmarked, note } = req.body;
+    const { isBookmarked, note } = req.body;
     if (!versionId) return res.status(400).json({ success: false, message: 'versionId required' });
-  const or = [];
-  if (isObjectIdString(versionId)) or.push({ _id: versionId });
-  const verNo = Number(versionId);
-  if (!Number.isNaN(verNo)) or.push({ version_no: verNo });
-  if (or.length === 0) or.push({ _id: versionId });
+    
+    const or = [];
+    if (isObjectIdString(versionId)) or.push({ _id: versionId });
+    const verNo = Number(versionId);
+    if (!Number.isNaN(verNo)) or.push({ version_no: verNo });
+    if (or.length === 0) or.push({ _id: versionId });
+    
     const v = await VersionData.findOne({ $or: or });
     if (!v) return res.status(404).json({ success: false, message: 'version data not found' });
-      // If a note is provided, create a new version row instead of updating the existing one
-      const normalizeNote = (n) => {
-        if (typeof n === 'string') return n;
-        if (Array.isArray(n) && n.length) {
-          if (typeof n[0] === 'string') return n.join('\n');
-          return n.map(x => (x && x.message) ? String(x.message) : String(x)).join('\n');
-        }
-        if (n !== undefined && n !== null) return String(n);
-        return '';
-      };
 
-      const noteString = normalizeNote(note);
-      if (noteString && String(noteString).trim().length > 0) {
-        // create a new version row capturing this note and bookmark flag
-        try {
-          const snapshotForNew = (v && v.snapshot) ? v.snapshot : (v && v.field_values ? v.field_values : {});
-          const created = await createVersionData(v.document_id || v.documentId || v.document || v.document_id, {}, { note: noteString, isBookmarked: !!isBookmarked, forceNew: true, snapshot: snapshotForNew });
-          if (!created) return res.status(500).json({ success: false, message: 'Failed to create version with note' });
-          return res.json({ success: true, versionData: normalizeVersionData(created) });
-        } catch (e) {
-          console.error('Failed to create version when note provided', e);
-          return res.status(500).json({ success: false, message: 'Failed to create version with note' });
-        }
+    // Normalize note to string 
+    const normalizeNote = (n) => {
+      if (typeof n === 'string') return n;
+      if (Array.isArray(n) && n.length) {
+        if (typeof n[0] === 'string') return n.join('\n');
+        return n.map(x => (x && x.message) ? String(x.message) : String(x)).join('\n');
       }
+      if (n !== undefined && n !== null) return String(n);
+      return '';
+    };
 
-      // No note provided -> update existing version (bookmark toggle)
-      if (typeof isBookmarked === 'boolean') v.isBookmarked = isBookmarked;
-      await v.save();
-      return res.json({ success: true, versionData: normalizeVersionData(v.toObject()) });
+    const noteString = normalizeNote(note);
+    
+    // Update the version (don't create a new one)
+    if (typeof isBookmarked === 'boolean') v.isBookmarked = isBookmarked;
+    if (noteString && String(noteString).trim().length > 0) v.note = noteString;
+    
+    await v.save();
+    
+    return res.json({ success: true, versionData: normalizeVersionData(v.toObject()) });
   } catch (err) {
     console.error('patchVersionBookmark error', err);
     return res.status(500).json({ success: false, message: 'Failed to update bookmark' });
