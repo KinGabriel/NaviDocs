@@ -3,6 +3,55 @@ import axios from 'axios';
 import FormData from 'form-data';
 import { Readable } from 'stream';
 
+// Inline remote images referenced in <img src="..."> as data URIs to avoid
+// relying on external network from headless containers. Limits applied to
+// avoid unbounded memory usage (maxImages, maxBytesPerImage).
+const inlineRemoteImages = async (html, { timeout = 10000, maxImages = 10, maxBytesPerImage = 5 * 1024 * 1024 } = {}) => {
+  if (!html || typeof html !== 'string') return html;
+  // quick check for obvious cases
+  if (!/\<img\s+[^>]*src=(["'])(https?:)?\/\//i.test(html)) return html;
+
+  // collect unique URLs in order
+  const urls = [];
+  const urlSet = new Set();
+  const imgRegex = /<img\s+[^>]*src=(["'])(.*?)\1[^>]*>/gi;
+  let m;
+  while ((m = imgRegex.exec(html)) && urls.length < maxImages) {
+    const src = (m[2] || '').trim();
+    if (!src) continue;
+    if (src.startsWith('data:')) continue;
+    // Only inline remote http(s) urls
+    if (/^https?:\/\//i.test(src) && !urlSet.has(src)) {
+      urlSet.add(src);
+      urls.push(src);
+    }
+  }
+  if (!urls.length) return html;
+
+  for (const src of urls) {
+    try {
+      const resp = await axios.get(src, { responseType: 'arraybuffer', timeout });
+      const bytes = resp.data;
+      const len = bytes ? bytes.length || (bytes.byteLength || 0) : 0;
+      if (len === 0 || len > maxBytesPerImage) {
+        // skip very large or empty images
+        continue;
+      }
+      const contentType = (resp.headers && resp.headers['content-type']) || 'application/octet-stream';
+      const b64 = Buffer.from(bytes).toString('base64');
+      const dataUri = `data:${contentType};base64,${b64}`;
+      // Replace all occurrences of the src value conservatively (escape for regex)
+      const esc = src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`(<img\\s+[^>]*src=(["']))${esc}((["'][^>]*>)?)`, 'gi');
+      html = html.replace(re, (all, p1, p2, p3) => `${p1}${dataUri}${p3 || ''}`);
+    } catch (e) {
+      // ignore network errors and continue — we already have fallbacks in setContent
+      console.warn && console.warn('inlineRemoteImages: failed to inline', src, e?.message || e);
+    }
+  }
+  return html;
+};
+
 // simple helper to escape HTML
 export const escapeHtml = (unsafe) => {
   if (unsafe === undefined || unsafe === null) return '';
@@ -247,6 +296,13 @@ hr, .horizontal-rule, .tiptap hr {
       await page.setViewport({ width: 1024, height: 768 });
       try { page.setDefaultNavigationTimeout(0); } catch (_) {}
       try { page.setDefaultTimeout(0); } catch (_) {}
+
+      // Inline remote <img> assets to avoid missing logos when container cannot reach external URLs
+      try {
+        html = await inlineRemoteImages(html, { timeout: 10000, maxImages: 10 });
+      } catch (inlineErr) {
+        console.warn && console.warn(debugPrefix, 'inlineRemoteImages failed', inlineErr?.message || inlineErr);
+      }
 
       console.debug && console.debug(
         debugPrefix,
