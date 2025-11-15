@@ -195,12 +195,12 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
         console.warn(debugPrefix, 'pre-sanitize html failed:', preErr?.message || preErr);
       }
 
-      // 2) Inject cleanup CSS (same as your version)
-      try {
-        const paper = String(pageSetup.paperSize || 'A4');
-        const orient = String(pageSetup.orientation || 'Portrait').toLowerCase();
+     // 2) Inject cleanup CSS (same as your version)
+try {
+  const paper = String(pageSetup.paperSize || 'A4');
+  const orient = String(pageSetup.orientation || 'Portrait').toLowerCase();
 
-        const cleanupCss = `\n<style>
+  let cleanupCss = `\n<style>
 :root, .rm-with-pagination {
   --pageGap: 0px !important;
   --pageGapBorderSize: 0px !important;
@@ -279,48 +279,46 @@ hr, .horizontal-rule, .tiptap hr {
 }
 </style>`;
 
-        // Append optional export CSS from assets/export.css when present
-        try {
-          const fs = await import('fs');
-          const pathMod = await import('path');
-          // Resolve export.css relative to this module when possible (more robust inside service containers).
-          // Fallback to the monorepo-style path under process.cwd() for backward compatibility.
-          let exportCssPath;
-          try {
-            const filePath = pathMod.fileURLToPath(import.meta.url);
-            const dir = pathMod.dirname(filePath);
-            exportCssPath = pathMod.join(dir, '..', 'assets', 'export.css');
-          } catch (_) {
-            exportCssPath = pathMod.join(process.cwd(), 'backend', 'document-service', 'assets', 'export.css');
-          }
-          if (fs.existsSync && fs.existsSync(exportCssPath)) {
-            try {
-              const extra = fs.readFileSync(exportCssPath, 'utf8');
-              // inject the extra css before the closing </style> in cleanupCss
-              if (extra && extra.length) {
-                // simple insertion: place extra inside the existing <style> block
-                cleanupCss = cleanupCss.replace(/<\/style>\s*$/i, `\n${extra}\n</style>`);
-              }
-            } catch (rerr) {
-              console.warn(debugPrefix, 'failed to read export.css', rerr?.message || rerr);
-            }
-          }
-        } catch (e) {
-          // ignore if fs/path not available
-        }
+  // Append optional export CSS from assets/export.css when present
+  try {
+    const fs = await import('fs');
+    const pathMod = await import('path');
 
-        if (typeof html === 'string' && html.length > 0) {
-          if (html.includes('<head')) {
-            html = html.replace(/<head([^>]*)>/i, (m) => `${m}${cleanupCss}`);
-          } else if (html.includes('<html')) {
-            html = html.replace(/<html([^>]*)>/i, (m) => `${m}<head>${cleanupCss}</head>`);
-          } else {
-            html = `<!doctype html><html><head>${cleanupCss}</head><body>${html}</body></html>`;
-          }
+    let exportCssPath;
+    try {
+      const filePath = pathMod.fileURLToPath(import.meta.url);
+      const dir = pathMod.dirname(filePath);
+      exportCssPath = pathMod.join(dir, '..', 'assets', 'export.css');
+    } catch (_) {
+      exportCssPath = pathMod.join(process.cwd(), 'backend', 'document-service', 'assets', 'export.css');
+    }
+
+    if (fs.existsSync && fs.existsSync(exportCssPath)) {
+      try {
+        const extra = fs.readFileSync(exportCssPath, 'utf8');
+        if (extra && extra.length && /<\/style>\s*$/i.test(cleanupCss)) {
+          cleanupCss = cleanupCss.replace(/<\/style>\s*$/i, `\n${extra}\n</style>`);
         }
-      } catch (injectErr) {
-        console.warn(debugPrefix, 'failed to inject cleanup CSS', injectErr?.message || injectErr);
+      } catch (rerr) {
+        console.warn(debugPrefix, 'failed to read export.css', rerr?.message || rerr);
       }
+    }
+  } catch (e) {
+    // ignore if fs/path not available
+  }
+
+  if (typeof html === 'string' && html.length > 0) {
+    if (html.includes('<head')) {
+      html = html.replace(/<head([^>]*)>/i, (m) => `${m}${cleanupCss}`);
+    } else if (html.includes('<html')) {
+      html = html.replace(/<html([^>]*)>/i, (m) => `${m}<head>${cleanupCss}</head>`);
+    } else {
+      html = `<!doctype html><html><head>${cleanupCss}</head><body>${html}</body></html>`;
+    }
+  }
+} catch (injectErr) {
+  console.warn(debugPrefix, 'failed to inject cleanup CSS', injectErr?.message || injectErr);
+}
 
       // 3) Viewport + disable nav timeouts
       await page.setViewport({ width: 1024, height: 768 });
