@@ -3,8 +3,6 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --production
 COPY . .
-# Allow build/run-time PORT to be provided; default to 5006
-ENV PORT=${PORT:-5006}
-# EXPOSE declares the container port; use the ARG so it reflects the configured PORT
+ENV PORT=${PORT:-8006}
 EXPOSE ${PORT}
 CMD ["node", "index.js"]

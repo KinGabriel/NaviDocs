@@ -3,6 +3,6 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --production
 COPY . .
-ENV PORT=${PORT:-5001}
+ENV PORT=${PORT:-8001}
 EXPOSE ${PORT}
 CMD ["node", "index.js"]

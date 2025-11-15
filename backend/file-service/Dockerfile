@@ -26,7 +26,7 @@ RUN npm ci --production --silent
 COPY . .
 RUN mkdir -p /app/uploads
 VOLUME ["/app/uploads"]
-ENV PORT=${PORT:-5004}
+ENV PORT=${PORT:-8004}
 EXPOSE ${PORT}
 
 CMD ["node", "index.js"]
