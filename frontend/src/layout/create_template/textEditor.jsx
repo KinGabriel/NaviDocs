@@ -84,7 +84,8 @@ const buildHeaderHTML = (config = {}) => {
   const centerText = header.centerText || {};
   const {
     enabled: centerEnabled = true,
-    showHeaderLine = false,
+    showHeaderLine = false,        // legacy boolean
+    headerLineOffsetPx,            // legacy offset (px) if present
     line1 = "",
     line2 = "",
     line3 = "",
@@ -100,6 +101,38 @@ const buildHeaderHTML = (config = {}) => {
     italic,
     color,
   } = centerText;
+
+  // New header line object (preferred)
+  const headerLine = header.headerLine || {};
+  const {
+    enabled: headerLineEnabledRaw,
+    topMarginPx,
+    thicknessPx,
+    color: headerLineColorRaw,
+  } = headerLine;
+
+  // Resolve whether to show the line (new config wins, else legacy flag)
+  const showLine =
+    typeof headerLineEnabledRaw === "boolean"
+      ? headerLineEnabledRaw
+      : !!showHeaderLine;
+
+  // Resolve top margin (new topMarginPx wins, else legacy headerLineOffsetPx, else 4)
+  const lineTopMarginPx =
+    typeof topMarginPx === "number"
+      ? topMarginPx
+      : typeof headerLineOffsetPx === "number"
+        ? headerLineOffsetPx
+        : 4;
+
+  // Resolve thickness (defaults to 1px)
+  const lineThicknessPx =
+    typeof thicknessPx === "number" && thicknessPx > 0
+      ? thicknessPx
+      : 1;
+
+  // Resolve color (defaults to black)
+  const lineColor = headerLineColorRaw || "#000000";
 
   const normalizeLineStyle = (style, fallback) => {
     return {
@@ -161,9 +194,11 @@ const buildHeaderHTML = (config = {}) => {
     `
     : "";
 
-  // full-width line below the entire header row
-  const fullWidthLineHTML = showHeaderLine
-    ? `<div style="margin-top:4px; border-bottom:1px solid #000000; width:100%;"></div>`
+  // full-width line below the entire header row (now driven by header.headerLine)
+  const fullWidthLineHTML = showLine
+    ? `<div style="margin-top:${lineTopMarginPx}px; border-bottom:${lineThicknessPx}px solid ${escapeHtml(
+        lineColor
+      )}; width:100%;"></div>`
     : "";
 
   return `
@@ -200,7 +235,6 @@ const buildHeaderHTML = (config = {}) => {
     </div>
   `;
 };
-
 
 const buildFooterHTML = (config = {}) => {
   const {
@@ -318,7 +352,6 @@ const buildFooterHTML = (config = {}) => {
     </div>
   `;
 };
-
 
 // ---------- Default doc + page setup ----------
 

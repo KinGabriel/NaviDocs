@@ -5,7 +5,7 @@ import { DEFAULT_FONT_CATEGORIES, SYSTEM_FALLBACKS } from "../../utils/textFonts
  * Header & Footer Panel (Tabbed)
  * - Two tabs: Header / Footer
  * - Enable toggles for each band
- * - Header: Logos + center text
+ * - Header: Logos + center text + horizontal line box
  * - Footer: Page number + freeform text, both with alignment & font styling
  *
  * Backward compatibility:
@@ -46,8 +46,12 @@ const DEFAULTS = {
       bold: false,
       italic: false,
       color: "#000000",
-      showHeaderLine: false,
-      headerLineOffsetPx: 4,
+    },
+    headerLine: {
+      enabled: false,
+      topMarginPx: 6,
+      thicknessPx: 1,
+      color: "#000000",
     },
   },
 
@@ -175,6 +179,35 @@ function mergeDefaults(value) {
       v.header?.centerText?.headerLineOffsetPx ?? DEFAULTS.header.centerText.headerLineOffsetPx,
   };
 
+  // Header line (new object, but reads legacy)
+  const headerLineFromConfig = v.header?.headerLine || {};
+  const legacyHeaderLineEnabled =
+    v.showHeaderLine ??
+    v.header?.centerText?.showHeaderLine ??
+    headerLineFromConfig.enabled ??
+    DEFAULTS.header.headerLine.enabled;
+
+  const legacyOffsetPx =
+    v.header?.centerText?.headerLineOffsetPx ??
+    headerLineFromConfig.topMarginPx ??
+    DEFAULTS.header.headerLine.topMarginPx;
+
+  out.header.headerLine = {
+    enabled:
+      typeof headerLineFromConfig.enabled === "boolean"
+        ? headerLineFromConfig.enabled
+        : !!legacyHeaderLineEnabled,
+    topMarginPx:
+      typeof headerLineFromConfig.topMarginPx === "number"
+        ? headerLineFromConfig.topMarginPx
+        : legacyOffsetPx,
+    thicknessPx:
+      typeof headerLineFromConfig.thicknessPx === "number"
+        ? headerLineFromConfig.thicknessPx
+        : DEFAULTS.header.headerLine.thicknessPx,
+    color: headerLineFromConfig.color || DEFAULTS.header.headerLine.color,
+  };
+
   // Document stamp (legacy mirrors)
   out.documentStamp.docCode = v.docCode ?? v.document_code ?? out.documentStamp.docCode ?? "";
   out.documentStamp.revisionNo =
@@ -207,7 +240,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
   const [headerMarginIn, setHeaderMarginIn] = useState(initial.headerMarginIn);
   const [footerMarginIn, setFooterMarginIn] = useState(initial.footerMarginIn);
 
-  // Logos (NO horizontal positioning anymore)
+  // Logos
   const [sluEnabled, setSluEnabled] = useState(initial.header.logos.slu.enabled);
   const [sluSizePx, setSluSizePx] = useState(initial.header.logos.slu.sizePx);
   const [cicmEnabled, setCicmEnabled] = useState(initial.header.logos.cicm.enabled);
@@ -225,7 +258,16 @@ export default function HeaderFooterPanel({ value, onChange }) {
   const [bold, setBold] = useState(initial.header.centerText.bold);
   const [italic, setItalic] = useState(initial.header.centerText.italic);
   const [color, setColor] = useState(initial.header.centerText.color);
-  const [showHeaderLine, setShowHeaderLine] = useState(initial.header.centerText.showHeaderLine);
+
+  // Header horizontal line (new separate box)
+  const [headerLineEnabled, setHeaderLineEnabled] = useState(initial.header.headerLine.enabled);
+  const [headerLineTopMarginPx, setHeaderLineTopMarginPx] = useState(
+    initial.header.headerLine.topMarginPx
+  );
+  const [headerLineThicknessPx, setHeaderLineThicknessPx] = useState(
+    initial.header.headerLine.thicknessPx
+  );
+  const [headerLineColor, setHeaderLineColor] = useState(initial.header.headerLine.color);
 
   // Per-line styles (font family, size in pt, bold, italic, color)
   const baseCt = initial.header.centerText;
@@ -330,7 +372,12 @@ export default function HeaderFooterPanel({ value, onChange }) {
     setBold(next.header.centerText.bold);
     setItalic(next.header.centerText.italic);
     setColor(next.header.centerText.color);
-    setShowHeaderLine(next.header.centerText.showHeaderLine);
+
+    // header line
+    setHeaderLineEnabled(next.header.headerLine.enabled);
+    setHeaderLineTopMarginPx(next.header.headerLine.topMarginPx);
+    setHeaderLineThicknessPx(next.header.headerLine.thicknessPx);
+    setHeaderLineColor(next.header.headerLine.color);
 
     const ct = next.header.centerText;
 
@@ -463,12 +510,29 @@ export default function HeaderFooterPanel({ value, onChange }) {
           bold: !!primary.bold,
           italic: !!primary.italic,
           color: primary.color || color,
-          showHeaderLine: !!showHeaderLine,
+          // legacy flags (mirrored from headerLine)
+          showHeaderLine: !!headerLineEnabled,
+          headerLineOffsetPx: coerceNum(
+            headerLineTopMarginPx,
+            DEFAULTS.header.centerText.headerLineOffsetPx
+          ),
           // Per-line style payload (new)
           line1Style,
           line2Style,
           line3Style,
           line4Style,
+        },
+        headerLine: {
+          enabled: !!headerLineEnabled,
+          topMarginPx: coerceNum(
+            headerLineTopMarginPx,
+            DEFAULTS.header.headerLine.topMarginPx
+          ),
+          thicknessPx: coerceNum(
+            headerLineThicknessPx,
+            DEFAULTS.header.headerLine.thicknessPx
+          ),
+          color: headerLineColor || DEFAULTS.header.headerLine.color,
         },
       },
 
@@ -504,7 +568,7 @@ export default function HeaderFooterPanel({ value, onChange }) {
       // Legacy mirrors
       showSLULogo: !!sluEnabled,
       showCICMLogo: !!cicmEnabled,
-      showHeaderLine: !!showHeaderLine,
+      showHeaderLine: !!headerLineEnabled,
       center: { line1, line2, line3, line4, showLine4: !!showLine4 },
       document_code: docCode,
       revision_no: revisionNo,
@@ -537,7 +601,12 @@ export default function HeaderFooterPanel({ value, onChange }) {
     bold,
     italic,
     color,
-    showHeaderLine,
+    // header line
+    headerLineEnabled,
+    headerLineTopMarginPx,
+    headerLineThicknessPx,
+    headerLineColor,
+    // per-line styles
     line1FontFamily,
     line1FontSizePt,
     line1Bold,
@@ -597,10 +666,11 @@ export default function HeaderFooterPanel({ value, onChange }) {
         ].map((t) => (
           <button
             key={t.id}
-            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 ${tab === t.id
+            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 ${
+              tab === t.id
                 ? "border-blue-600 text-blue-700"
                 : "border-transparent text-slate-600 hover:text-slate-800"
-              }`}
+            }`}
             onClick={() => setTab(t.id)}
           >
             {t.label}
@@ -637,7 +707,6 @@ export default function HeaderFooterPanel({ value, onChange }) {
             line3,
             line4,
             showLine4,
-            showHeaderLine,
             line1FontFamily,
             line1FontSizePt,
             line1Bold,
@@ -667,7 +736,6 @@ export default function HeaderFooterPanel({ value, onChange }) {
             setLine3,
             setLine4,
             setShowLine4,
-            setShowHeaderLine,
             setLine1FontFamily,
             setLine1FontSizePt,
             setLine1Bold,
@@ -689,6 +757,18 @@ export default function HeaderFooterPanel({ value, onChange }) {
             setLine4Italic,
             setLine4Color,
             setActiveHeaderLine,
+          }}
+          headerLine={{
+            enabled: headerLineEnabled,
+            topMarginPx: headerLineTopMarginPx,
+            thicknessPx: headerLineThicknessPx,
+            color: headerLineColor,
+          }}
+          setHeaderLine={{
+            setEnabled: setHeaderLineEnabled,
+            setTopMarginPx: setHeaderLineTopMarginPx,
+            setThicknessPx: setHeaderLineThicknessPx,
+            setColor: setHeaderLineColor,
           }}
           documentStamp={{
             docCode,
@@ -759,7 +839,9 @@ function HeaderTab({
   setLogos,
   center,
   setCenter,
-  documentStamp,
+  headerLine,
+  setHeaderLine,
+  documentStamp, // currently unused, preserved if you want to add UI later
   setDocumentStamp,
 }) {
   return (
@@ -904,12 +986,46 @@ function HeaderTab({
               </>
             )}
           </div>
+        </div>
+      </div>
 
-          <div className="mt-2">
-            <CheckboxField
-              label="Show horizontal line under header"
-              checked={!!center.showHeaderLine}
-              onChange={setCenter.setShowHeaderLine}
+            {/* Horizontal Line */}
+      <div className="rounded-xl border p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="text-sm font-semibold text-slate-700">Horizontal Line</div>
+          <Toggle
+            label="Enabled"
+            checked={!!headerLine.enabled}
+            onChange={setHeaderLine.setEnabled}
+            compact
+            disabled={disabled}
+          />
+        </div>
+
+        <div
+          className={`flex flex-col gap-3 ${
+            !headerLine.enabled ? "opacity-60 pointer-events-none" : ""
+          }`}
+        >
+
+          <NumberField
+            label="Thickness"
+            value={headerLine.thicknessPx ?? 1}
+            min={1}
+            max={8}
+            step={1}
+            onChange={setHeaderLine.setThicknessPx}
+            disabled={disabled}
+          />
+
+          <div className="min-w-0">
+            <Label>Line Color</Label>
+            <input
+              type="color"
+              className="h-9 w-12 cursor-pointer rounded border border-slate-300 disabled:bg-slate-100"
+              value={headerLine.color ?? "#000000"}
+              onChange={(e) => setHeaderLine.setColor(e.target.value)}
+              disabled={disabled}
             />
           </div>
         </div>
@@ -935,8 +1051,9 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
         </div>
 
         <div
-          className={`flex flex-col gap-3 ${!pageNumber.enabled ? "opacity-60 pointer-events-none" : ""
-            }`}
+          className={`flex flex-col gap-3 ${
+            !pageNumber.enabled ? "opacity-60 pointer-events-none" : ""
+          }`}
         >
           {/* Pattern dropdown: Page of Page / Page only */}
           <SelectField
@@ -965,7 +1082,7 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             label="Font Family"
             value={pageNumber.fontFamily}
             onChange={setPageNumber.setFontFamily}
-            options={FONT_OPTIONS.map(f => ({
+            options={FONT_OPTIONS.map((f) => ({
               ...f,
               style: { fontFamily: f.value },
             }))}
@@ -1014,8 +1131,9 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
         </div>
 
         <div
-          className={`flex flex-col gap-3 ${!body.enabled ? "opacity-60 pointer-events-none" : ""
-            }`}
+          className={`flex flex-col gap-3 ${
+            !body.enabled ? "opacity-60 pointer-events-none" : ""
+          }`}
         >
           <Label>Text</Label>
           <textarea
@@ -1042,7 +1160,7 @@ function FooterTab({ disabled, pageNumber, setPageNumber, body, setBody }) {
             label="Font Family"
             value={body.fontFamily}
             onChange={setBody.setFontFamily}
-            options={FONT_OPTIONS.map(f => ({
+            options={FONT_OPTIONS.map((f) => ({
               ...f,
               style: { fontFamily: f.value },
             }))}
@@ -1136,20 +1254,20 @@ function HeaderLineStyleEditor({
         <div className="flex gap-2">
           <button
             type="button"
-            className={`w-9 h-9 rounded-md border flex items-center justify-center text-sm ${bold
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-slate-800 border-slate-300"
-              }`}
+            className={`w-9 h-9 rounded-md border flex items-center justify-center text-sm ${
+              bold ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-800 border-slate-300"
+            }`}
             onClick={() => setBold(!bold)}
           >
             <span className="font-bold">B</span>
           </button>
           <button
             type="button"
-            className={`w-9 h-9 rounded-md border flex items-center justify-center text-sm ${italic
+            className={`w-9 h-9 rounded-md border flex items-center justify-center text-sm ${
+              italic
                 ? "bg-blue-600 text-white border-blue-600"
                 : "bg-white text-slate-800 border-slate-300"
-              }`}
+            }`}
             onClick={() => setItalic(!italic)}
           >
             <span className="italic">I</span>
@@ -1175,10 +1293,11 @@ function HeaderLineStyleEditor({
                 key={val}
                 type="button"
                 onClick={() => handleSelectFont(val)}
-                className={`px-2.5 py-1 rounded-full border text-xs ${fontFamily === val
+                className={`px-2.5 py-1 rounded-full border text-xs ${
+                  fontFamily === val
                     ? "bg-blue-600 text-white border-blue-600"
                     : "bg-white text-slate-700 border-slate-300"
-                  }`}
+                }`}
                 style={{ fontFamily: val }}
               >
                 {findFontLabel(val)}
@@ -1341,8 +1460,9 @@ function SimpleColorField({ label, value, onChange, disabled }) {
 function Toggle({ label, checked, onChange, compact = false, disabled = false }) {
   return (
     <label
-      className={`flex items-center gap-3 ${compact ? "text-xs" : "text-sm"} ${disabled ? "opacity-60 pointer-events-none" : ""
-        }`}
+      className={`flex items-center gap-3 ${
+        compact ? "text-xs" : "text-sm"
+      } ${disabled ? "opacity-60 pointer-events-none" : ""}`}
     >
       <input
         type="checkbox"
@@ -1359,8 +1479,9 @@ function Toggle({ label, checked, onChange, compact = false, disabled = false })
 function CheckboxField({ label, checked, onChange, disabled }) {
   return (
     <label
-      className={`flex items-center gap-2 text-sm ${disabled ? "opacity-60 pointer-events-none" : ""
-        }`}
+      className={`flex items-center gap-2 text-sm ${
+        disabled ? "opacity-60 pointer-events-none" : ""
+      }`}
     >
       <input
         type="checkbox"
@@ -1385,11 +1506,7 @@ function SelectField({ label, value, onChange, options, disabled }) {
         disabled={disabled}
       >
         {options.map((o) => (
-          <option
-            key={o.value}
-            value={o.value}
-            style={o.style}
-          >
+          <option key={o.value} value={o.value} style={o.style}>
             {o.label}
           </option>
         ))}
@@ -1397,8 +1514,6 @@ function SelectField({ label, value, onChange, options, disabled }) {
     </div>
   );
 }
-
-
 
 function Hint({ children }) {
   return <p className="mt-2 text-xs text-slate-500">{children}</p>;
