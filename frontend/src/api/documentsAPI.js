@@ -439,17 +439,36 @@ export const getDeanSecDashboardAPI = async () => {
 		const templates = (gql.recentSubmittedTemplates || []).map(t => ({
 			id: t.id || t._id || null,
 			title: t.title || '',
-			createdBy: t.createdBy || '',
-			status: t.status || ''
+			createdBy: t.createdBy || t.createdByName || '',
+			status: t.status || '',
+			submittedAt: t.submittedAt || t.submitted_at || t.createdAt || null,
+			document_code: t.document_code || t.code || '',
+			revision_no: t.revision_no || t.rev || '',
+			thumbnailUrl: t.thumbnailUrl || t.thumbnail_url || null,
+			pageSetup: t.pageSetup || t.page_setup || null,
+			fields: t.fields || [],
+			pages_json: t.pages_json || t.pagesJson || null,
+			status_meta: t.status_meta || t.statusMeta || null,
+			deadline: t.deadline || null,
+			assigned: t.assigned || [],
+			isArchived: typeof t.isArchived !== 'undefined' ? t.isArchived : (t.is_archived || false),
+			notes: t.notes || [],
+			headerConfig: t.headerConfig || t.header_config || null,
+			school: t.school || null,
+			created_by: t.created_by || null
 		}));
 
 		const publishedTemplates = (gql.publishedRecentTemplates || []).map(t => ({
 			id: t.id || t._id || null,
-			code: t.code || '',
-			rev: t.rev || '',
-			date: t.createdAt || null,
+			code: t.code || t.document_code || '',
+			rev: t.rev || t.revision_no || '',
+			date: t.submittedAt || t.submitted_at || t.createdAt || null,
 			title: t.title || '',
-			createdBy: t.createdBy || ''
+			createdBy: t.createdBy || t.createdByName || '',
+			document_code: t.document_code || t.code || '',
+			revision_no: t.revision_no || t.rev || '',
+			thumbnailUrl: t.thumbnailUrl || t.thumbnail_url || null,
+			school: t.school || null
 		}));
 
 		const latestForwarded = (gql.latestForwarded || []).map(b => ({

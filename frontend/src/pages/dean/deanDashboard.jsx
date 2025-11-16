@@ -47,31 +47,17 @@ export default function DeanDashboard() {
     });
   }
 
-  // placeholder data (used until API returns)
-  const templatesPlaceholder = [
-    { id: "tpl-1", title: "Research Proposal Template", createdBy: "Admin User", status: "Approved" },
-    { id: "tpl-2", title: "Thesis Format Guide", createdBy: "Admin User", status: "Rejected" },
-    { id: "tpl-3", title: "Internship Report Template", createdBy: "Admin User", status: "Returned" },
-    { id: "tpl-4", title: "Course Syllabus Template", createdBy: "Admin User", status: "Approved" },
-    { id: "tpl-5", title: "Capstone Project Template", createdBy: "Admin User", status: "Pending" },
-    { id: "tpl-6", title: "Department Memo Format", createdBy: "Admin User", status: "Endorsed" },
-  ];
-
-  const publishedTemplatesPlaceholder = [
-    { id: "pub-1", code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
-    { id: "pub-2", code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
-    { id: "pub-3", code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
-    { id: "pub-4", code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
-    { id: "pub-5", code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
-  ];
-
-  // live template data from API
-  const [templatesData, setTemplatesData] = useState(templatesPlaceholder);
-  const [publishedTemplatesData, setPublishedTemplatesData] = useState(publishedTemplatesPlaceholder);
+  // default live template data from API (start empty; only use API-provided lists)
+  const [templatesData, setTemplatesData] = useState([]);
+  const [publishedTemplatesData, setPublishedTemplatesData] = useState([]);
 
   const templateColumns = [
     { key: "title", label: "Title" },
-    { key: "createdBy", label: "Created By" },
+    {
+      key: "submittedAt",
+      label: "Submitted At",
+      render: (row) => formatDate(row.submittedAt || row.submitted_at || row.createdAt || row.date || null),
+    },
     {
       key: "status",
       label: "Status",
@@ -102,7 +88,6 @@ export default function DeanDashboard() {
     { key: "rev", label: "Revision No." },
     { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
     { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
-    { key: "createdBy", label: "Created By" },
     {
       key: "action",
       label: "Action",
@@ -136,13 +121,14 @@ export default function DeanDashboard() {
       setLoadingDean(true);
       try {
         const res = await getDeanSecDashboardAPI();
+        console.log(res);
         if (!mounted) return;
         setLatestForwarded(res.latestForwarded || []);
         setForwardedByDepartment(res.forwardedByDepartment || []);
         setTotalForwardedCount(res.totalForwardedCount || 0);
         // set templates data if analytics returned them (keep placeholders otherwise)
-        setTemplatesData(res.templates || templatesPlaceholder);
-        setPublishedTemplatesData(res.publishedTemplates || publishedTemplatesPlaceholder);
+        setTemplatesData(res.templates || []);
+        setPublishedTemplatesData(res.publishedTemplates || []);
         setErrorDean(null);
       } catch (e) {
         console.error("Failed to load dean/sec dashboard", e);
@@ -158,23 +144,16 @@ export default function DeanDashboard() {
     };
   }, []);
 
-  const forwardedSubmissionBinsPlaceholder = [
-    { id: "fsb-1", title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
-    { id: "fsb-2", title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
-    { id: "fsb-3", title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
-    { id: "fsb-4", title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
-    { id: "fsb-5", title: "Syllabus AY 2025", department: "SAMCIS", submission: 3 },
-  ];
-
-  const forwardedSubmissionBinsData =
-    latestForwarded && latestForwarded.length
-      ? latestForwarded.map((b) => ({
+  // Do not show placeholder/fake bins — default to an empty array so the
+  // UI will render the empty-state message when there are no forwarded bins.
+  const forwardedSubmissionBinsData = (latestForwarded && latestForwarded.length)
+    ? latestForwarded.map((b) => ({
         id: b.id,
         title: b.title,
         department: b.department,
         submission: b.submissionsCount,
       }))
-      : forwardedSubmissionBinsPlaceholder;
+    : [];
 
   const forwardedSubmissionBinsColumns = [
     { key: "title", label: "Title" },
@@ -287,7 +266,11 @@ export default function DeanDashboard() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <Table columns={templateColumns} data={templatesData} />
+                  {templatesData && templatesData.length ? (
+                    <Table columns={templateColumns} data={templatesData} />
+                  ) : (
+                    <div className="p-6 text-center text-sm text-gray-500">No recently submitted templates.</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -298,60 +281,36 @@ export default function DeanDashboard() {
               <div className="bg-white shadow-sm rounded-lg border border-gray-100">
                 <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
                   <h3 className="font-semibold text-sm text-gray-800">
-                    SUBMISSION OVERVIEW
+                    SUBMISSION OVERVIEW — Last 30 Days
                   </h3>
                 </div>
 
                 <div className="p-6">
                   {/* chart container */}
-                  <div className="relative h-36 mb-4">
-                    <Doughnut data={chartData} options={chartOptions} />
-                  </div>
+                  {forwardedByDepartment && forwardedByDepartment.length > 0 ? (
+                    <>
+                      <div className="relative h-36 mb-4">
+                        <Doughnut data={chartData} options={chartOptions} />
+                      </div>
 
-                  <div className="space-y-3">
-                    {forwardedByDepartment && forwardedByDepartment.length > 0 ? (
-                      forwardedByDepartment.map((d, i) => (
-                        <div key={d.department || i} className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`w-3 h-3 rounded-full`}
-                              style={{ backgroundColor: defaultColors[i % defaultColors.length] }}
-                            ></div>
-                            <span className="text-gray-600">{d.department}</span>
+                      <div className="space-y-3">
+                        {forwardedByDepartment.map((d, i) => (
+                          <div key={d.department || i} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`w-3 h-3 rounded-full`}
+                                style={{ backgroundColor: defaultColors[i % defaultColors.length] }}
+                              ></div>
+                              <span className="text-gray-600">{d.department}</span>
+                            </div>
+                            <span className="font-medium text-gray-800">{d.count}</span>
                           </div>
-                          <span className="font-medium text-gray-800">{d.count}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                            <span className="text-gray-600">
-                              Department of Computing and Information Studies
-                            </span>
-                          </div>
-                          <span className="font-medium text-gray-800">56</span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                            <span className="text-gray-600">Department of Management</span>
-                          </div>
-                          <span className="font-medium text-gray-800">36</span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                            <span className="text-gray-600">Department of Accountancy</span>
-                          </div>
-                          <span className="font-medium text-gray-800">7</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center h-36 text-sm text-gray-500">No submission overview data available for your school.</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -377,7 +336,11 @@ export default function DeanDashboard() {
             </div>
 
             <div className="overflow-x-auto">
-              <Table columns={forwardedSubmissionBinsColumns} data={forwardedSubmissionBinsData} />
+              {forwardedSubmissionBinsData && forwardedSubmissionBinsData.length ? (
+                <Table columns={forwardedSubmissionBinsColumns} data={forwardedSubmissionBinsData} />
+              ) : (
+                <div className="p-6 text-center text-sm text-gray-500">No recently forwarded submission bins for your school.</div>
+              )}
             </div>
           </div>
 
@@ -400,7 +363,11 @@ export default function DeanDashboard() {
             </div>
 
             <div className="overflow-x-auto">
-              <Table columns={publishedTemplatesColumns} data={publishedTemplatesData} />
+              {publishedTemplatesData && publishedTemplatesData.length ? (
+                <Table columns={publishedTemplatesColumns} data={publishedTemplatesData} />
+              ) : (
+                <div className="p-6 text-center text-sm text-gray-500">No recently published templates available.</div>
+              )}
             </div>
           </div>
         </main>
