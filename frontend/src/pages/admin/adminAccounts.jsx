@@ -217,12 +217,12 @@ export default function AdminAccounts() {
   // loading view
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-200 flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-gray-200 flex flex-col">
         <Header user={user} />
-        <div className="flex flex-1 flex-col md:flex-row w-full px-3 sm:px-6 lg:px-8">
-          <Sidebar user={user} />
-          <div className="flex-1 flex flex-col bg-white shadow pt-4 pb-6 px-4 md:pt-1 md:pb-4 md:px-8 md:mt-8 rounded-xl w-full max-w-[1400px] mx-auto">
-            <div className="flex-1 flex items-center justify-center">
+        <div className="flex flex-col lg:flex-row flex-1">
+          <Sidebar user={user} active="User Accounts" />
+          <div className="flex-1 flex flex-col bg-white lg:shadow pt-1 pb-4 px-4 sm:px-6 lg:px-8 mx-0 lg:mx-6 mt-4 lg:mt-8 rounded-none lg:rounded-xl w-full max-w-full">
+            <div className="flex-1 flex items-center justify-center py-10">
               <Loader message="Loading..." />
             </div>
           </div>
@@ -234,17 +234,17 @@ export default function AdminAccounts() {
   // if no users array at all
   if (!users) {
     return (
-      <div className="min-h-screen bg-gray-200 flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-gray-200 flex flex-col">
         <Header user={user} />
-        <div className="flex flex-1 flex-col md:flex-row w-full px-3 sm:px-6 lg:px-8">
-          <Sidebar user={user} />
-          <div className="flex-1 flex flex-col bg-white shadow pt-4 pb-6 px-4 md:pt-1 md:pb-4 md:px-8 md:mt-8 rounded-xl w-full max-w-[1400px] mx-auto">
-            <div className="flex-1 flex items-center justify-center text-center">
+        <div className="flex flex-col lg:flex-row flex-1">
+          <Sidebar user={user} active="User Accounts" />
+          <div className="flex-1 flex flex-col bg-white lg:shadow pt-1 pb-4 px-4 sm:px-6 lg:px-8 mx-0 lg:mx-6 mt-4 lg:mt-8 rounded-none lg:rounded-xl w-full max-w-full">
+            <div className="flex-1 flex items-center justify-center text-center py-10">
               <div>
-                <h2 className="text-lg md:text-xl font-semibold text-red-600 mb-2">
+                <h2 className="text-lg lg:text-xl font-semibold text-red-600 mb-2">
                   Unable to load dashboard
                 </h2>
-                <p className="text-gray-500 text-sm md:text-base">
+                <p className="text-gray-500 text-sm lg:text-base">
                   Please check your connection or try again later.
                 </p>
               </div>
@@ -257,14 +257,14 @@ export default function AdminAccounts() {
 
   // main view
   return (
-    <div className="min-h-screen bg-gray-200 flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
 
-      <div className="flex flex-1 flex-col md:flex-row w-full px-3 sm:px-6 lg:px-8">
+      <div className="flex flex-col lg:flex-row flex-1">
         <Sidebar user={user} active="User Accounts" />
 
-        <div className="flex-1 flex flex-col bg-white shadow rounded-xl my-4 md:mt-8 w-full max-w-[1400px] mx-auto">
-          <div className="flex-1 w-full max-w-full p-4 md:p-10">
+        <div className="flex-1 flex flex-col bg-white shadow px-4 sm:px-6 lg:px-8 py-6 mx-3 sm:mx-4 lg:mx-6 mt-4 lg:mt-8 rounded-xl">
+          <main className="w-full max-w-full">
             <h2 className="text-2xl md:text-3xl font-bold text-black-800 tracking-widest uppercase mb-2">
               NAVIDOCS USERS
             </h2>
@@ -350,7 +350,7 @@ export default function AdminAccounts() {
                 Next
               </button>
             </div>
-          </div>
+          </main>
         </div>
       </div>
 

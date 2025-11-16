@@ -8,6 +8,11 @@ export const deanSecDashboardResolver = {
       const headers = {};
       if (context.token) headers['Cookie'] = `token=${context.token}`;
 
+      // Prefer the requesting user's school (if available) so downstream services
+      // can scope results. We also use this value defensively when producing
+      // the "recently forwarded" list below.
+      const userSchool = context.user?.school || context.user?.role?.school || null;
+
       if (!DOCUMENT_SERVICE_URL && !TEMPLATE_SERVICE_URL) {
         console.warn('No downstream service configured for deanSecDashboard');
         return { school: null, totalForwardedCount: 0, latestForwarded: [], forwardedByDepartment: [] };
@@ -15,8 +20,9 @@ export const deanSecDashboardResolver = {
 
       try {
         // Use allSettled so we can return partial results if one downstream service fails
-        const docPromise = DOCUMENT_SERVICE_URL ? axios.get(`${DOCUMENT_SERVICE_URL}/api/documents/dashboard-dean-sec`, { headers }) : Promise.resolve(null);
-        const tplPromise = TEMPLATE_SERVICE_URL ? axios.get(`${TEMPLATE_SERVICE_URL}/api/templates/dashboard-dean-sec`, { headers }) : Promise.resolve(null);
+        const schoolQuery = userSchool ? `?school=${encodeURIComponent(userSchool)}` : '';
+        const docPromise = DOCUMENT_SERVICE_URL ? axios.get(`${DOCUMENT_SERVICE_URL}/api/documents/dashboard-dean-sec${schoolQuery}`, { headers }) : Promise.resolve(null);
+        const tplPromise = TEMPLATE_SERVICE_URL ? axios.get(`${TEMPLATE_SERVICE_URL}/api/templates/dashboard-dean-sec${schoolQuery}`, { headers }) : Promise.resolve(null);
 
         const settled = await Promise.allSettled([docPromise, tplPromise]);
 
@@ -50,14 +56,14 @@ export const deanSecDashboardResolver = {
         // - older endpoints or different aggregations might return `bins` or `latest_forwarded`
         const latestFromDoc = (docPayload && Array.isArray(docPayload.latestForwarded)) ? docPayload.latestForwarded :
           (docPayload && Array.isArray(docPayload.bins) ? docPayload.bins : (docPayload && Array.isArray(docPayload.latest_forwarded) ? docPayload.latest_forwarded : []));
+
         const latestFromTpl = (tplPayload && Array.isArray(tplPayload.latestForwarded)) ? tplPayload.latestForwarded :
-          (tplPayload && Array.isArray(tplPayload.recentSubmitted) ? tplPayload.recentSubmitted : []);
+          (tplPayload && Array.isArray(tplPayload.latest_forwarded) ? tplPayload.latest_forwarded : []);
         const mergedLatestRaw = [].concat(latestFromDoc, latestFromTpl);
 
-        const latestForwarded = (mergedLatestRaw || []).map(bRaw => {
-          // normalize single bin object and ensure counts exist even if downstream returned raw submissions array
+        // Normalize merged items into a consistent shape for further processing
+        const mergedNormalized = (mergedLatestRaw || []).map(bRaw => {
           const b = bRaw || {};
-          // compute submissionsCount / submittedCount from raw submissions array if not provided
           let submissionsCount = 0;
           let submittedCount = 0;
           if (typeof b.submissionsCount === 'number') submissionsCount = Number(b.submissionsCount);
@@ -81,11 +87,40 @@ export const deanSecDashboardResolver = {
             submittedCount,
             createdAt: b.createdAt || b.created_at || null
           };
-        }).sort((a, b) => {
+        });
+
+        // Compute current-month submission overview by summing submissionsCount for items whose forwarded/created date is in the current month
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        const submissionOverviewCurrent = mergedNormalized.reduce((sum, item) => {
+          const dateStr = item.forwarded_at || item.createdAt || null;
+          if (!dateStr) return sum;
+          const dt = new Date(dateStr);
+          if (dt.getFullYear() === currentYear && dt.getMonth() === currentMonth) {
+            return sum + (Number(item.submissionsCount || item.submittedCount || 0));
+          }
+          return sum;
+        }, 0);
+
+        // For the UI we want the most-recently forwarded bins. Defensively filter
+        // the merged set by the requesting user's school (if provided) so we
+        // don't surface other schools' bins here.
+        const mergedForLatest = userSchool ? mergedNormalized.filter(item => {
+          if (!item.school) return false;
+          try {
+            return String(item.school).toLowerCase() === String(userSchool).toLowerCase();
+          } catch (e) {
+            return false;
+          }
+        }) : mergedNormalized;
+
+        // Sort normalized items and limit to 5 recent for UI
+        const latestForwarded = mergedForLatest.sort((a, b) => {
           const da = a.forwarded_at ? new Date(a.forwarded_at).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
           const db = b.forwarded_at ? new Date(b.forwarded_at).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
           return db - da;
-        });
+        }).slice(0, 5);
 
         // Merge forwardedByDepartment counts (aggregate by department)
         const byDeptFromDoc = (docPayload && Array.isArray(docPayload.forwardedByDepartment)) ? docPayload.forwardedByDepartment : [];
@@ -110,7 +145,25 @@ export const deanSecDashboardResolver = {
           rev: t.rev || t.revision_no || '',
           status: t.status || '',
           createdBy: t.createdBy || t.createdByName || null,
-          createdAt: t.createdAt || t.created_at || null
+          // expose explicit submittedAt for frontend (fall back to various possible fields)
+          submittedAt: t.submittedAt || t.submitted_at || t.createdAt || t.created_at || null,
+          createdAt: t.createdAt || t.created_at || null,
+          // passthrough additional fields to match canonical template shape
+          document_code: t.document_code || t.code || '',
+          revision_no: t.revision_no || t.rev || '',
+          effectivity: t.effectivity || t.effectivity_date || null,
+          thumbnailUrl: t.thumbnailUrl || t.thumbnail_url || null,
+          pageSetup: t.pageSetup || t.page_setup || null,
+          fields: t.fields || [],
+          pages_json: t.pages_json || t.pagesJson || null,
+          status_meta: t.status_meta || t.statusMeta || null,
+          deadline: t.deadline || null,
+          assigned: t.assigned || [],
+          isArchived: typeof t.isArchived !== 'undefined' ? t.isArchived : (t.is_archived || false),
+          notes: t.notes || [],
+          headerConfig: t.headerConfig || t.header_config || null,
+          school: t.school || null,
+          created_by: t.created_by || t.createdBy || null
         }));
 
         const publishedRecentTemplates = (publishedRecentTemplatesRaw || []).map(t => ({
@@ -120,10 +173,27 @@ export const deanSecDashboardResolver = {
           rev: t.rev || t.revision_no || '',
           status: t.status || '',
           createdBy: t.createdBy || t.createdByName || null,
-          createdAt: t.createdAt || t.created_at || null
+          submittedAt: t.submittedAt || t.submitted_at || t.createdAt || t.created_at || null,
+          createdAt: t.createdAt || t.created_at || null,
+          // passthrough additional fields
+          document_code: t.document_code || t.code || '',
+          revision_no: t.revision_no || t.rev || '',
+          effectivity: t.effectivity || t.effectivity_date || null,
+          thumbnailUrl: t.thumbnailUrl || t.thumbnail_url || null,
+          pageSetup: t.pageSetup || t.page_setup || null,
+          fields: t.fields || [],
+          pages_json: t.pages_json || t.pagesJson || null,
+          status_meta: t.status_meta || t.statusMeta || null,
+          deadline: t.deadline || null,
+          assigned: t.assigned || [],
+          isArchived: typeof t.isArchived !== 'undefined' ? t.isArchived : (t.is_archived || false),
+          notes: t.notes || [],
+          headerConfig: t.headerConfig || t.header_config || null,
+          school: t.school || null,
+          created_by: t.created_by || t.createdBy || null
         }));
 
-        return { school, totalForwardedCount, latestForwarded, forwardedByDepartment, templateSubmittedCount, recentSubmittedTemplates, publishedRecentTemplates };
+        return { school, totalForwardedCount, latestForwarded, forwardedByDepartment, templateSubmittedCount, recentSubmittedTemplates, publishedRecentTemplates, submissionOverviewCurrent };
       } catch (err) {
         console.error('Error fetching deanSecDashboard:', err && err.message ? err.message : err);
         throw new Error('Failed to fetch dean/secretary dashboard');

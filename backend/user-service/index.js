@@ -14,7 +14,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4001;
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.HOST || "0.0.0.0";
 // CORS is handled by the gateway; backend services assume requests come through the gateway
 app.use(express.json());
 app.use(cookieParser());

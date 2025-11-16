@@ -313,8 +313,8 @@ export default function DocumentVersionHistory({
         const prevRaw = rawItems[idx + 1];
         const prevSnapshot = prevRaw ? ((prevRaw.snapshot && typeof prevRaw.snapshot === 'object') ? prevRaw.snapshot : (prevRaw.field_values && typeof prevRaw.field_values === 'object' ? prevRaw.field_values : {})) : {};
 
-        const delta = v.field_values && typeof v.field_values === 'object' ? v.field_values : {};
-        const changeKeys = Object.keys(delta);
+        const allFieldKeys = Object.keys(currentSnapshot);
+        const changeKeys = allFieldKeys;
         const changes = changeKeys.map(key => {
           const newValue = currentSnapshot && Object.prototype.hasOwnProperty.call(currentSnapshot, key) ? currentSnapshot[key] : undefined;
           const oldValue = prevSnapshot && Object.prototype.hasOwnProperty.call(prevSnapshot, key) ? prevSnapshot[key] : undefined;
@@ -330,10 +330,14 @@ export default function DocumentVersionHistory({
           timestamp,
           author,
           versionName,
-          is_current: false,
-          isBookmarked: !!v.isBookmarked,
+          is_current: idx === 0, 
+          isBookmarked:
+            v.isBookmarked === true ||
+            v.is_bookmarked === true ||
+            v.bookmarked === true ||
+            false,
           changes,
-          fields: currentSnapshot || {}
+          fields: currentSnapshot || v.field_values || {}
         };
       });
 
@@ -342,7 +346,9 @@ export default function DocumentVersionHistory({
       const grouped = groupVersionsByDate(mapped);
       setVersions(grouped);
       const latest = grouped[0]?.items?.[0];
-      if (latest) setSelectedVersion(latest.id);
+      if (latest) 
+        setSelectedVersion(latest.id);
+        setVersionContent(latest.fields);
       const expanded = {};
       grouped.forEach(group => { expanded[group.date] = true; });
       setExpandedDates(expanded);
@@ -504,17 +510,22 @@ export default function DocumentVersionHistory({
     if (version.isBookmarked) {
       (async () => {
         try {
-          const resp = await patchVersionBookmarkAPI(version.id, { isBookmarked: false });
+          const resp = await patchVersionBookmarkAPI(
+            version.id,
+            { isBookmarked: false, note: '' }  // clear the note when unbookmarking
+          );
+          
           if (resp?.success) {
-            const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? '';
-            updateLocalBookmark(version.id, false, returnedNote);
+            // empty string to clear the version name
+            updateLocalBookmark(version.id, false, '');
             toast.success('Version unbookmarked');
           } else {
             toast.error(resp?.message || 'Unbookmark failed');
           }
         } catch (e) {
-          console.error('Failed to unbookmark', e);
-          toast.error('Failed to unbookmark version');
+          console.error('Failed to unbookmark:', e);
+          console.error('Error details:', e.response?.data);
+          toast.error(e.response?.data?.message || e.message || 'Failed to unbookmark version');
         } finally {
           setMenuOpen(null);
         }
@@ -528,14 +539,23 @@ export default function DocumentVersionHistory({
     setMenuOpen(null);
   };
 
-  const updateLocalBookmark = (versionId, isBookmarked, note) => {
+    const updateLocalBookmark = (versionId, isBookmarked, note) => {
     setVersions(prev => prev.map(group => {
+
       if (!group.items.some(item => item.id === versionId)) return group;
-      const items = group.items.map(item => item.id === versionId
-        ? { ...item, isBookmarked: !!isBookmarked, versionName: (typeof note !== 'undefined' ? note : item.versionName) }
-        : item
+      
+      // Update the specific version
+      const items = group.items.map(item => 
+        item.id === versionId
+          ? { 
+              ...item, 
+              isBookmarked: !!isBookmarked, 
+              versionName: typeof note !== 'undefined' ? note : item.versionName 
+            }
+          : item
       );
 
+      // bookmarked items first, then by timestamp
       items.sort((a, b) => {
         if ((a.isBookmarked ? 1 : 0) !== (b.isBookmarked ? 1 : 0)) {
           return (b.isBookmarked ? 1 : 0) - (a.isBookmarked ? 1 : 0);
@@ -549,21 +569,34 @@ export default function DocumentVersionHistory({
 
   const confirmBookmark = async () => {
     if (!bookmarkTarget) return;
+    
+    console.log('Bookmarking version:', bookmarkTarget.id, 'with name:', bookmarkName);
+    
     try {
-      const resp = await patchVersionBookmarkAPI(bookmarkTarget.id, { isBookmarked: true, note: bookmarkName });
+      const resp = await patchVersionBookmarkAPI(
+        bookmarkTarget.id,
+        { isBookmarked: true, note: bookmarkName }
+      );
+      
       if (resp?.success) {
-        const returnedNote = resp?.version?.note ?? resp?.data?.version?.note ?? resp?.note ?? bookmarkName;
+        const returnedNote = 
+          resp?.versionData?.note ?? 
+          resp?.data?.versionData?.note ?? 
+          resp?.note ?? 
+          bookmarkName;
+        
         updateLocalBookmark(bookmarkTarget.id, true, returnedNote);
         setShowBookmarkModal(false);
         setBookmarkTarget(null);
         setBookmarkName('');
-        toast.success('Version bookmarked');
+        toast.success('Version bookmarked successfully');
       } else {
         toast.error(resp?.message || 'Bookmark failed');
       }
     } catch (e) {
-      console.error('Bookmark confirm failed', e);
-      toast.error('Failed to bookmark version');
+      console.error('Bookmark confirm failed:', e);
+      console.error('Error response:', e.response?.data);
+      toast.error(e.response?.data?.message || e.message || 'Failed to bookmark version');
     }
   };
 
@@ -602,10 +635,26 @@ export default function DocumentVersionHistory({
     const walk = (node) => {
       if (!node) return;
       if (isEditableFieldNode(node)) {
-        const orig = node.attrs?.key || node.attrs?.name;
-        if (orig && !seen.has(orig)) {
-          seen.add(orig);
-          keys.push(orig);
+        const origKey = node.attrs?.key || node.attrs?.name;
+        let val = versionContent?.[origKey];
+        
+        // If not found, try formatted label lookup
+        if (val === undefined || val === null || val === '') {
+          const formattedKey = formatFieldLabel(origKey);
+          val = versionContent?.[formattedKey];
+        }
+        
+        if (val !== undefined && val !== null && String(val) !== '') {
+          node.content = [{ type: 'text', text: String(val) }];
+        } else {
+          node.content = node.content || [];
+        }
+      }
+
+      if (node.type === 'text' && typeof node.text === 'string') {
+        const newText = replacePlaceholdersInText(node.text, versionContent || {}, docData);
+        if (newText !== node.text) {
+          node.text = String(newText);
         }
       }
       if (Array.isArray(node.content)) node.content.forEach(walk);
@@ -625,8 +674,34 @@ export default function DocumentVersionHistory({
     });
   }, [docData, pageNodes, docPage, currentVersionDetails]);
 
+    //  mapping from field IDs to their labels from the template
+    const fieldIdToLabelMap = useMemo(() => {
+      const map = {};
+      try {
+        const tpl = docData?.from_template;
+        if (!tpl || !Array.isArray(tpl.fields)) return map;
+        
+        const flatten = (arr) => arr.flatMap((s) => (Array.isArray(s?.fields) ? s.fields : [s]));
+        const flat = tpl.fields[0] && Array.isArray(tpl.fields[0]?.fields) ? flatten(tpl.fields) : tpl.fields;
+        
+        flat.forEach((f) => {
+          if (!f) return;
+          const id = f.key || f.id || f.name || f._id;
+          const label = f.label || f.title || f.display || f.name || id;
+          if (id) {
+            map[id] = label;
+          }
+        });
+      } catch (e) {
+        console.error('Error creating field ID to label map:', e);
+      }
+      return map;
+    }, [docData]);
+
   const contentForEditor = useMemo(() => {
-    if (!docData || !versionContent) return null;
+    if (!docData || !versionContent) {
+      return null;
+    }
 
     const base = docData?.pages_json?.[0];
 
@@ -644,11 +719,28 @@ export default function DocumentVersionHistory({
 
     if (base && typeof base === 'object' && base.type === 'doc') {
       const clonedDoc = JSON.parse(JSON.stringify(base));
+        
       const walkDoc = (node) => {
         if (!node) return;
         if (isEditableFieldNode(node)) {
           const origKey = node.attrs?.key || node.attrs?.name;
-          const val = findValueForEditableKey(origKey, versionContent || {}, docData);
+          // Try direct lookup first
+          let val = versionContent?.[origKey];
+          
+          // If not found, try using the field ID to label mapping
+          if (val === undefined || val === null || val === '') {
+            const label = fieldIdToLabelMap[origKey];
+            if (label) {
+              val = versionContent?.[label];
+            }
+          }
+          
+          // If still not found, try formatted label lookup
+          if (val === undefined || val === null || val === '') {
+            const formattedKey = formatFieldLabel(origKey);
+            val = versionContent?.[formattedKey];
+          }
+          
           if (val !== undefined && val !== null && String(val) !== '') {
             node.content = [{ type: 'text', text: String(val) }];
           } else {
@@ -671,11 +763,30 @@ export default function DocumentVersionHistory({
     if (!pageNode) return base || { type: 'doc', content: [] };
 
     const cloned = JSON.parse(JSON.stringify(pageNode));
+      
     const walk = (node) => {
       if (!node) return;
       if (isEditableFieldNode(node)) {
         const origKey = node.attrs?.key || node.attrs?.name;
-        const val = findValueForEditableKey(origKey, versionContent || {}, docData);
+        // Try direct lookup first
+        let val = versionContent?.[origKey];
+        
+        // If not found, use the field ID to label mapping
+        if (val === undefined || val === null || val === '') {
+          const label = fieldIdToLabelMap[origKey];
+          if (label) {
+            val = versionContent?.[label];
+            console.log(`  "${origKey}" -> mapped to label "${label}", found:`, val);
+          }
+        }
+        
+        // If still not found, use formatted label lookup
+        if (val === undefined || val === null || val === '') {
+          const formattedKey = formatFieldLabel(origKey);
+          val = versionContent?.[formattedKey];
+          console.log(`  "${origKey}" -> formatted as "${formattedKey}", found:`, val);
+        }
+        
         if (val !== undefined && val !== null && String(val) !== '') {
           node.content = [{ type: 'text', text: String(val) }];
         } else {
@@ -691,6 +802,7 @@ export default function DocumentVersionHistory({
       }
       if (Array.isArray(node.content)) node.content.forEach(walk);
     };
+      
     walk(cloned);
 
     return { type: 'doc', content: [cloned] };
@@ -846,7 +958,11 @@ export default function DocumentVersionHistory({
                         })
                       ) : (
                         Object.entries(currentVersionDetails.fields).map(([fieldKey, fieldValue]) => {
-                          const fieldLabel = fieldKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                          const fieldLabel = fieldIdToLabelMap[fieldKey] || formatFieldLabel(fieldKey);
+                          const looksLikeId = /^Fld-[a-z0-9]{8,}$/i.test(fieldKey);
+                            if (looksLikeId && !fieldIdToLabelMap[fieldKey]) {
+                              return null;
+                            }
                           const changeEntry = (currentVersionDetails?.changes || []).find(c => normalizeKey(c.key || c.field || '') === normalizeKey(fieldKey));
                           const badgeType = changeEntry?.type;
                           const badgeClass = badgeType === 'added'
@@ -877,42 +993,58 @@ export default function DocumentVersionHistory({
                               </div>
                             </div>
                           );
-                        })
+                        }).filter(Boolean)
                       )}
                     </div>
                   </div>
 
                   {/* Changes */}
-                  {currentVersionDetails.changes.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
-                        Changes Made
-                      </h3>
-                      <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
-                        {currentVersionDetails.changes.map((change, idx) => (
-                          <div key={idx} className="p-5">
-                            <div className="flex items-start justify-between mb-3">
-                              <span className="font-medium text-gray-900">{change.field}</span>
-                              <span
-                                className={`text-xs font-medium px-2 py-1 rounded ${change.type === 'added'
-                                    ? 'bg-green-100 text-green-700'
-                                    : change.type === 'modified'
-                                      ? 'bg-blue-100 text-blue-700'
-                                      : 'bg-red-100 text-red-700'
-                                  }`}
-                              >
-                                {change.type === 'added'
-                                  ? 'Added'
-                                  : change.type === 'modified'
-                                    ? 'Modified'
-                                    : 'Deleted'}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                  {(() => {
+                    const filteredChanges = currentVersionDetails.changes.filter(change => {
+                      const fieldKey = change.key || change.field || '';
+                      const looksLikeId = /^Fld-[a-z0-9]{8,}$/i.test(fieldKey);
+                      
+                      return !looksLikeId || fieldIdToLabelMap[fieldKey];
+                    });
+
+                    return filteredChanges.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
+                          Changes Made
+                        </h3>
+                        <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
+                          {filteredChanges.map((change, idx) => {
+                            //  Use template label if available
+                            const fieldKey = change.key || change.field || '';
+                            const displayLabel = fieldIdToLabelMap[fieldKey] || change.field;
+                            
+                            return (
+                              <div key={idx} className="p-5">
+                                <div className="flex items-start justify-between mb-3">
+                                  <span className="font-medium text-gray-900">{displayLabel}</span>
+                                  <span
+                                    className={`text-xs font-medium px-2 py-1 rounded ${
+                                      change.type === 'added'
+                                        ? 'bg-green-100 text-green-700'
+                                        : change.type === 'modified'
+                                          ? 'bg-blue-100 text-blue-700'
+                                          : 'bg-red-100 text-red-700'
+                                    }`}
+                                  >
+                                    {change.type === 'added'
+                                      ? 'Added'
+                                      : change.type === 'modified'
+                                        ? 'Modified'
+                                        : 'Deleted'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-full">
@@ -937,7 +1069,9 @@ export default function DocumentVersionHistory({
               ) : docError ? (
                 <div className="text-center py-12 text-red-600 font-medium">{docError}</div>
               ) : docData && contentForEditor ? (
+                <>
                 <TextEditor
+                  key={`version-${selectedVersion}-${docPage}`}
                   content={contentForEditor}
                   pageSetup={docData?.pageSetup}
                   mode="document"
@@ -968,6 +1102,7 @@ export default function DocumentVersionHistory({
                   onEditorReady={(editor) => (editorRef.current = editor)}
                   onContentChange={() => { }}
                 />
+                 </>
               ) : (
                 <div className="text-center py-12 text-gray-400 italic">
                   No document preview available.

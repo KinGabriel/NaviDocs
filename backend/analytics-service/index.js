@@ -16,7 +16,7 @@ dotenv.config();
 
 const FRONTEND_URL = process.env.FRONTEND_URL;
 const PORT = process.env.PORT || 4000;
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.HOST || "0.0.0.0";
 async function startServer() {
   const app = express();
   app.use(express.json());

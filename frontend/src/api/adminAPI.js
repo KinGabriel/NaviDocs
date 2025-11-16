@@ -1,5 +1,9 @@
 import axios from "axios";
-const API_URL = import.meta.env.VITE_API_URL;
+const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URLS = rawUrls.split(",");
+
+const API_URL =
+  API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];  
 
 /**
  * Fetches admin dashboard information from the API.
@@ -188,12 +192,38 @@ export const deleteLoginActivityAPI = async (body = {}) => {
  */
 export const updateUserAccountAPI = async (userId, formData) => {
   try {
-    const res = await axios.patch(`${API_URL}/api/admin/edit-user/${userId}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      withCredentials: true,
-    });
+    const res = await axios.patch(
+      `${API_URL}/api/admin/edit-user/${userId}`,
+      formData,
+      {
+
+        withCredentials: true,
+      }
+    );
     return res.data;
   } catch (error) {
-    throw new Error(error.response?.data?.message || 'Failed to update user.');
+    throw new Error(
+      error.response?.data?.message || "Failed to update user."
+    );
+  }
+};
+/**
+ * Reset a user's password and trigger reset email
+ * @param {string} userId
+ */
+export const resetUserPasswordAPI = async (userId) => {
+  try {
+    const res = await axios.patch(
+      `${API_URL}/api/admin/reset-user-password/${userId}`,
+      {},
+      {
+        withCredentials: true 
+      }
+    );
+    return res.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || "Failed to reset user password."
+    );
   }
 };

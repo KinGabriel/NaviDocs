@@ -11,7 +11,7 @@ dotenv.config();
 const app = express();
 // Using a specific environment variable for the port
 const PORT = process.env.NOTIFICATION_PORT || 8008; 
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.HOST || "0.0.0.0";
 
 // Middleware
 app.use(express.json());

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from 'react-hot-toast';
 import { normalizeName, canSaveUser, validateUserRoleFields } from "../../utils/validations";
 import { useParams } from "react-router-dom";
-import { fetchUserAccountByIdAPI, updateUserAccountAPI } from "../../api/adminAPI";
+import {  fetchUserAccountByIdAPI, updateUserAccountAPI, resetUserPasswordAPI, } from "../../api/adminAPI";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import useUser from "../../hooks/useUser";
@@ -10,6 +10,7 @@ import Dropdown2 from "../../components/dropdowns/dropdown2";
 import defaultProfile from "../../assets/images/profile_picture.png";
 import { useNavigate } from "react-router-dom";
 import { ROLE_OPTIONS, SCHOOL_OPTIONS, DEPARTMENT_OPTIONS, YEAR_OPTIONS } from "../../utils/options";
+import { RotateCcwKey } from "lucide-react";
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
@@ -21,6 +22,8 @@ export default function AdminEditUser() {
   const user = useUser();
   const navigate = useNavigate();
   const [errors, setErrors] = useState({ firstname: '', lastname: '', email: '' });
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   // form state
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -41,7 +44,7 @@ export default function AdminEditUser() {
   const [errorUser, setErrorUser] = useState(null);
 
   // Alert state for feedback
-  const [alertMessage, setAlertMessage] = useState("");
+  const [setAlertMessage] = useState("");
 
   // Fetch user details by id from URL
   useEffect(() => {
@@ -126,6 +129,33 @@ export default function AdminEditUser() {
       return next;
     });
   };
+
+
+    const openResetModal = () => {
+  setShowResetModal(true);
+};
+
+const closeResetModal = () => {
+  if (isResetting) return; // avoid closing while request is in-flight
+  setShowResetModal(false);
+};
+
+const handleConfirmResetPassword = async () => {
+  try {
+    setIsResetting(true);
+    await resetUserPasswordAPI(id);
+    toast.success("Password reset email sent to the user.");
+    setShowResetModal(false);
+  } catch (err) {
+    console.error("Error resetting user password:", err);
+    toast.error(
+      err?.message || "Failed to reset user password. Please try again."
+    );
+  } finally {
+    setIsResetting(false);
+  }
+};
+
 
   const handleClear = () => {
     setForm({
@@ -376,6 +406,15 @@ export default function AdminEditUser() {
                 <div className="flex justify-end gap-4">
                   <button
                     type="button"
+                    onClick={openResetModal}
+                    className="px-6 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 flex items-center gap-2"
+                  >
+                    <RotateCcwKey size={24} />
+                    Reset Password
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={handleClear}
                     className="px-6 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800"
                   >
@@ -390,6 +429,37 @@ export default function AdminEditUser() {
                     Save
                   </button>
                 </div>
+                {showResetModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+                      <h2 className="text-lg font-semibold mb-2">Reset Password</h2>
+                      <p className="text-sm text-gray-700">
+                        This will generate a new password for this user and send it to their
+                        email address. This new password will be their login password until they
+                        change it.
+                      </p>
+
+                      <div className="mt-6 flex justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={closeResetModal}
+                          disabled={isResetting}
+                          className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleConfirmResetPassword}
+                          disabled={isResetting}
+                          className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                        >
+                          {isResetting ? "Resetting..." : "Confirm Reset"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </section>
             </div>
           </div>

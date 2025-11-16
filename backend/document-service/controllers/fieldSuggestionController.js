@@ -1,6 +1,6 @@
 import FieldSuggestion from '../models/fieldSuggestionModel.js';
 import deepEqual from '../utils/compareKeys.js';
-import { isDeanOrSecretary } from '../../template-service/utils/roleUtils.js';
+import { isDeanOrSecretary } from '../utils/roleUtils.js';
 
 /**
  * @desc Save a field suggestion (user input) to be reused later.

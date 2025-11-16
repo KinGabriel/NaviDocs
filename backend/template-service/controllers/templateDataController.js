@@ -1,5 +1,5 @@
 import Template from "../models/templateModel.js";
-import { fetchUserInfoById } from '../../document-service/utils/userServiceUtils.js';
+import { fetchUserInfoById } from '../utils/userServiceUtils.js';
 import { getRecentPublished } from '../utils/recentTemplates.js';
 
 /**
@@ -308,7 +308,8 @@ export const dashboardDeptHead = async (req, res) => {
       title: 1,
       status: 1,
       updatedAt: 1,
-      createdAt: 1
+      createdAt: 1,
+      status_meta: 1
     };
 
     const ownerTemplates = await Template.find(ownerFilter, projection).sort({ createdAt: -1, updatedAt: -1 }).limit(limit).lean();
@@ -316,12 +317,29 @@ export const dashboardDeptHead = async (req, res) => {
     // Reuse helper to fetch recent published templates (global)
     const publishedRecent = await getRecentPublished(limit);
 
+    // Map returned lists to include explicit `submittedAt` and avoid exposing
+    // creator display fields. Frontend should use `submittedAt` for the
+    // "Submitted At" column instead of a "Created By" column.
+    const mapSubmitted = (list) => (list || []).map(item => {
+      const submittedAtVal = (item && item.status_meta && item.status_meta.submitted_at) ? item.status_meta.submitted_at : (item.createdAt || item.updatedAt || null);
+      return {
+        id: item._id || item.id || null,
+        title: item.title || '',
+        status: item.status || '',
+        createdAt: item.createdAt || item.updatedAt || null,
+        submittedAt: submittedAtVal,
+        // keep lightweight passthroughs for published list where useful
+        code: item.document_code || item.code || null,
+        rev: item.revision_no || item.rev || null
+      };
+    });
+
     return res.status(200).json({
       success: true,
       message: 'Department head dashboard data retrieved',
       data: {
-        ownerTemplates,
-        publishedRecent
+        ownerTemplates: mapSubmitted(ownerTemplates),
+        publishedRecent: mapSubmitted(publishedRecent)
       }
     });
   } catch (error) {
@@ -391,15 +409,36 @@ export const dashboardDeanSec = async (req, res) => {
       });
     }
 
-    const enrich = (list) => (list || []).map(item => ({
-      id: item._id || item.id || null,
-      title: item.title || '',
-      code: item.document_code || item.code || '',
-      rev: item.revision_no || item.rev || '',
-      status: item.status || '',
-      createdBy: item.created_by ? (userIdMap[String(item.created_by)] || item.created_by) : null,
-      createdAt: (item && item.status_meta && item.status_meta.submitted_at) ? item.status_meta.submitted_at : (item.createdAt || item.updatedAt || null)
-    }));
+    const enrich = (list) => (list || []).map(item => {
+      const submittedAtVal = (item && item.status_meta && item.status_meta.submitted_at) ? item.status_meta.submitted_at : (item.createdAt || item.updatedAt || null);
+      return {
+        id: item._id || item.id || null,
+        title: item.title || '',
+        code: item.document_code || item.code || '',
+        rev: item.revision_no || item.rev || '',
+        status: item.status || '',
+        createdBy: item.created_by ? (userIdMap[String(item.created_by)] || item.created_by) : null,
+        // Keep original createdAt (record creation) and provide explicit submittedAt for UI
+        createdAt: item.createdAt || item.updatedAt || null,
+        submittedAt: submittedAtVal,
+        // Additional fields passed through to match canonical template shape
+        document_code: item.document_code || item.code || '',
+        revision_no: item.revision_no || item.rev || '',
+        effectivity: item.effectivity || item.effectivity_date || null,
+        thumbnailUrl: item.thumbnailUrl || item.thumbnail_url || null,
+        pageSetup: item.pageSetup || item.page_setup || null,
+        fields: item.fields || [],
+        pages_json: item.pages_json || item.pagesJson || null,
+        status_meta: item.status_meta || null,
+        deadline: item.deadline || null,
+        assigned: item.assigned || [],
+        isArchived: typeof item.isArchived !== 'undefined' ? item.isArchived : (item.is_archived || false),
+        notes: item.notes || [],
+        headerConfig: item.headerConfig || item.header_config || null,
+        school: item.school || null,
+        created_by_raw: item.created_by || null
+      };
+    });
 
     const result = {
       submittedCount: submittedCount || 0,

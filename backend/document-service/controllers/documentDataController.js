@@ -656,19 +656,25 @@ export const dashboardDeanSec = async (req, res) => {
     // base filter: only forwarded, not archived, within this school
     const baseFilter = { is_forwarded: true, status: { $ne: 'archived' }, school: userSchool };
 
-    // Run three parallel queries:
-    // 1) total count of forwarded bins for the school
-    // 2) latest 5 forwarded bins (sorted by forwarded_at desc)
-    // 3) aggregation: count forwarded bins grouped by department for graph data
+    // Compute 30-day window (based on forwarded_at) and run queries scoped to it
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const last30Filter = { ...baseFilter, forwarded_at: { $gte: thirtyDaysAgo, $lte: now } };
+
+    // Run three parallel queries scoped to last 30 days:
+    // 1) total count of forwarded bins for the school within last 30 days
+    // 2) latest 5 forwarded bins (sorted by forwarded_at desc) within last 30 days
+    // 3) aggregation: count forwarded bins grouped by department for graph data within last 30 days
     const [totalForwardedCount, latestRaw, forwardedByDepartment] = await Promise.all([
-      SubmissionBin.countDocuments(baseFilter),
-      SubmissionBin.find(baseFilter)
+      SubmissionBin.countDocuments(last30Filter),
+      SubmissionBin.find(last30Filter)
         .sort({ forwarded_at: -1 })
         .limit(5)
         .select('title department school forwarded_at created_by deadline submissions createdAt')
         .lean(),
       SubmissionBin.aggregate([
-        { $match: baseFilter },
+        { $match: last30Filter },
         { $group: { _id: { $ifNull: ['$department', 'Unspecified'] }, count: { $sum: 1 } } },
         { $project: { department: '$_id', count: 1, _id: 0 } },
         { $sort: { count: -1 } }
@@ -682,6 +688,7 @@ export const dashboardDeanSec = async (req, res) => {
       department: b.department || 'Unspecified',
       school: b.school || userSchool,
       forwarded_at: b.forwarded_at || null,
+      forwarded_ts: b.forwarded_at ? (isNaN(Date.parse(String(b.forwarded_at))) ? null : Date.parse(String(b.forwarded_at))) : null,
       created_by: b.created_by || null,
       deadline: b.deadline || null,
       submissionsCount: Array.isArray(b.submissions) ? b.submissions.length : 0,
