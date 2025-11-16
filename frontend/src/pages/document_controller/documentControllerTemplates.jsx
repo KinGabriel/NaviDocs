@@ -25,23 +25,38 @@ export default function DocumentControllerTemplates() {
   const [totalPages, setTotalPages] = useState(1);
   const pagination = usePagination(totalPages, 1);
 
-  // Status options for filtering
+  // Status options for filtering (added Endorsed, Returned, Rejected)
   const statusOptions = [
     'All',
     'Draft',
     'Pending Approval',
+    'Endorsed',
     'Approved',
-    'Published'
+    'Published',
+    'Returned',
+    'Rejected'
   ];
+
+  // Map UI statuses -> API / template.status values
+  const statusMap = {
+    'Draft': ['assigned'],
+    'Pending Approval': ['pending'],
+    'Approved': ['approved'],
+    'Endorsed': ['endorsed'],
+    'Returned': ['returned'],
+    'Rejected': ['rejected'],
+    'Published': ['published'],
+  };
 
   // derive initial selectedStatus from navigation state or ?status=
   const initialStatus =
     (statusOptions.includes(location.state?.status) && location.state.status) ||
-    (statusOptions.includes(searchParams.get('status')) && searchParams.get('status')) || 'All';
+    (statusOptions.includes(searchParams.get('status')) && searchParams.get('status')) ||
+    'All';
 
   //  status filtering state
   const [selectedSchool, setSelectedSchool] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedStatus, setSelectedStatus] = useState(initialStatus);
   const [sortOrder, setSortOrder] = useState('Recent');
 
   useEffect(() => {
@@ -123,6 +138,15 @@ export default function DocumentControllerTemplates() {
         templatesArray = result;
         setTotalPages(1);
       }
+
+      // Client-side status filter (covers new statuses)
+      if (selectedStatus !== 'All') {
+        const allowed = (statusMap[selectedStatus] || []).map(s => s.toLowerCase());
+        templatesArray = templatesArray.filter(t =>
+          allowed.includes(String(t.status || '').toLowerCase())
+        );
+      }
+
       // Sorting
       const lastActivity = (t) => {
         return new Date(
@@ -205,14 +229,11 @@ export default function DocumentControllerTemplates() {
 
             {/* Controls row */}
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
-
-
               {/* Create button */}
               <div className="flex flex-col sm:flex-row gap-3">
-
                 <button
                   onClick={handleCreateTemplate}
-                  className="flex items-center gap-2 bg-[#0035DA] hover:bg-[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
+                  className="flex items-center gap-2 bg-[#0035DA] hover:bg[#043485] text-white font-semibold px-5 py-2 rounded shadow transition-colors"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" >
@@ -232,7 +253,6 @@ export default function DocumentControllerTemplates() {
                   aria-label="Archived documents"
                   title="Archived documents"
                 >
-                  {/* archive icon */}
                   <svg
                     viewBox="0 0 24 24"
                     className="w-5 h-5 text-[#0035DA]"
@@ -287,8 +307,6 @@ export default function DocumentControllerTemplates() {
                   onChange={setSortOrder}
                   width="w-36"
                 />
-
-
               </div>
             </div>
 
