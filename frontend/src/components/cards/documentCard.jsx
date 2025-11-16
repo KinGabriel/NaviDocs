@@ -20,7 +20,7 @@ export default function DocumentCard({
   onRename,
   onDelete,
   onAssign,
-  hideStatusPill = false,   // 🔹 NEW: allow parent to hide status pill
+  hideStatusPill = false,   
 }) {
 
   // Helper to safely read DB-backed fields with common fallbacks

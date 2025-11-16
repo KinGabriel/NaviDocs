@@ -27,6 +27,7 @@ export const deanSecDashboardType = gql`
     status: String
     createdBy: String
     createdAt: String
+    submittedAt: String
   }
 
   type DeanSecDashboard {

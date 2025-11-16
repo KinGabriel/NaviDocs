@@ -11,7 +11,7 @@ import {
   Menu,
   FileText
 } from "lucide-react";
-
+import Loader from "../components/loader";
 import EditableFieldsHeader from "../layout/editable_fields/editableFieldsHeader";
 import useUser from "../hooks/useUser";
 import Panel from "../layout/editable_fields/panel";
@@ -2032,19 +2032,8 @@ export default function EditableFields() {
               {loadingDoc ? (
                 <div className="text-center py-12">
                   <div className="flex flex-col items-center gap-3">
-                    <svg className="animate-spin h-8 w-8 text-gray-500" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                    </svg>
-                    <div className="text-gray-600 font-medium">Loading document preview…</div>
-                    <div className="text-sm text-gray-400">If this takes more than a few seconds, try retrying.</div>
+                    <Loader message='Loading document preview...' />
                     <div>
-                      <button
-                        onClick={() => setReloadCounter((c) => c + 1)}
-                        className="mt-3 px-4 py-2 bg-white border border-gray-300 rounded-md text-sm hover:bg-gray-50"
-                      >
-                        Retry
-                      </button>
                     </div>
                   </div>
                 </div>

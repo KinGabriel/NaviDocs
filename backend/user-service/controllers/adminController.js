@@ -360,14 +360,15 @@ export const resetUserPassword = async (req, res) => {
 
     try {
       await axios.post(
-        `${process.env.EMAIL_SERVICE_URL}/api/email/send-welcome`,
+        `${process.env.EMAIL_SERVICE_URL}/api/email/send-reset-password`,
         {
           email: user.email,
           firstname: user.firstname,
           lastname: user.lastname,
           password: generatedPassword,
           role: user.role,
-        }
+        },
+        { timeout: 10000 }
       );
 
       return res.status(200).json({
@@ -382,15 +383,11 @@ export const resetUserPassword = async (req, res) => {
         },
       });
     } catch (emailError) {
-      console.error(
-        "Password reset but email failed:",
-        emailError.message
-      );
+      console.error("Password reset but email failed:", emailError?.message || emailError);
 
       return res.status(200).json({
         message: "Password reset successfully, but email sending failed",
-        warning:
-          "Please manually provide the new password to the user.",
+        warning: "Please manually provide the new password to the user.",
         user: {
           id: user._id,
           email: user.email,

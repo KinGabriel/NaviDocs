@@ -35,7 +35,7 @@ export default function DepartmentHeadDashboard() {
 
   const templateColumns = [
     { key: "title", label: "Title" },
-    { key: "createdBy", label: "Created By" },
+    // 'Submitted At' column removed per request
     {
       key: "status",
       label: "Status",
@@ -66,7 +66,7 @@ export default function DepartmentHeadDashboard() {
     { key: "rev", label: "Revision No." },
     { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
     { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
-    { key: "createdBy", label: "Created By" },
+    // 'Submitted At' column removed per request
     {
       key: "action",
       label: "Action",

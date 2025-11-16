@@ -4,6 +4,7 @@ import { welcomeEmailTemplate } from '../templates/welcomeTemplate.js';
 import { folderAccessTemplate } from '../templates/folderAccessTemplate.js';
 import { buildAssignmentEmail } from '../templates/buildAssignmentTemplate.js';
 import { buildPasswordResetEmail } from '../templates/passwordResetTemplate.js';
+import { resetPasswordPlainTemplate } from '../templates/resetPasswordPlainTemplate.js';
 
 
 // Create transporter
@@ -236,5 +237,39 @@ export const sendPasswordResetEmail = async (req, res) => {
       message: 'Failed to send password reset email', 
       error: error.message 
     });
+  }
+};
+
+/**
+ * @desc Send admin-triggered password email containing a temporary password
+ * @route POST /api/email/send-reset-password
+ * @access Internal (from other services)
+ */
+export const sendResetPasswordPlainEmail = async (req, res) => {
+  try {
+    const { email: to, firstname = '', lastname = '', password, role } = req.body || {};
+
+    if (!to || !password) {
+      return res.status(400).json({ message: 'Missing required fields: email, password' });
+    }
+
+    const transporter = createTransporter();
+
+    const html = resetPasswordPlainTemplate({ firstname, lastname, email: to, password, role });
+    const subject = 'Your account password has been reset';
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to,
+      subject,
+      html,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Admin password email sent successfully to ${to}`);
+    return res.status(200).json({ message: 'Admin password email sent successfully', recipient: to });
+  } catch (error) {
+    console.error('sendResetPasswordPlainEmail error:', error);
+    return res.status(500).json({ message: 'Failed to send admin password email', error: error.message });
   }
 };

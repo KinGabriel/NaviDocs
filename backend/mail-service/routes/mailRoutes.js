@@ -1,5 +1,5 @@
 import express from 'express';
-import { sendWelcomeEmail,sendNotificationEmail, sendAssignmentEmails, sendPasswordResetEmail } from '../controllers/mailController.js';
+import { sendWelcomeEmail,sendNotificationEmail, sendAssignmentEmails, sendPasswordResetEmail, sendResetPasswordPlainEmail } from '../controllers/mailController.js';
 
 
 const router = express.Router();
@@ -13,5 +13,6 @@ router.get('/health', (req, res) => {
 router.post('/assignments', sendAssignmentEmails);
 router.post('/password-reset', sendPasswordResetEmail);
 router.post('/send-password-reset', sendPasswordResetEmail);
+router.post('/send-reset-password', sendResetPasswordPlainEmail);
 
 export default router;
