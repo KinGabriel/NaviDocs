@@ -29,6 +29,7 @@ export const deptHeadDashboardType = gql`
         title: String
         status: String
         createdByName: String
+        submittedAt: String
         created_at: String
         updated_at: String
         code: String

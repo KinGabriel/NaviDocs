@@ -40,7 +40,7 @@ export const getDeptHeadDashboardAPI = async () => {
 	const templates = (gql.ownerTemplates || []).map(t => ({
 		id: t.id || t._id || null,
 		title: t.title || '',
-		createdBy: t.createdByName || '',
+		submittedAt: t.submittedAt || t.created_at || t.createdAt || null,
 		status: t.status || ''
 	}));
 
@@ -49,8 +49,7 @@ export const getDeptHeadDashboardAPI = async () => {
 		code: t.code || '',
 		rev: t.rev || '',
 		date: t.created_at || t.createdAt || null,
-		title: t.title || '',
-		createdBy: t.createdByName || ''
+		title: t.title || ''
 	}));
 
 	const bins = (gql.bins || []).map(b => ({
@@ -156,7 +155,7 @@ export const getDeptHeadDashboardGraphQL = async () => {
 					id
 					title
 					status
-					createdByName
+					submittedAt
 					created_at
 					updated_at
 					code
@@ -166,7 +165,7 @@ export const getDeptHeadDashboardGraphQL = async () => {
 					id
 					title
 					status
-					createdByName
+					submittedAt
 					created_at
 					updated_at
 					code

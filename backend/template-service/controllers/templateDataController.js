@@ -308,7 +308,8 @@ export const dashboardDeptHead = async (req, res) => {
       title: 1,
       status: 1,
       updatedAt: 1,
-      createdAt: 1
+      createdAt: 1,
+      status_meta: 1
     };
 
     const ownerTemplates = await Template.find(ownerFilter, projection).sort({ createdAt: -1, updatedAt: -1 }).limit(limit).lean();
@@ -316,12 +317,29 @@ export const dashboardDeptHead = async (req, res) => {
     // Reuse helper to fetch recent published templates (global)
     const publishedRecent = await getRecentPublished(limit);
 
+    // Map returned lists to include explicit `submittedAt` and avoid exposing
+    // creator display fields. Frontend should use `submittedAt` for the
+    // "Submitted At" column instead of a "Created By" column.
+    const mapSubmitted = (list) => (list || []).map(item => {
+      const submittedAtVal = (item && item.status_meta && item.status_meta.submitted_at) ? item.status_meta.submitted_at : (item.createdAt || item.updatedAt || null);
+      return {
+        id: item._id || item.id || null,
+        title: item.title || '',
+        status: item.status || '',
+        createdAt: item.createdAt || item.updatedAt || null,
+        submittedAt: submittedAtVal,
+        // keep lightweight passthroughs for published list where useful
+        code: item.document_code || item.code || null,
+        rev: item.revision_no || item.rev || null
+      };
+    });
+
     return res.status(200).json({
       success: true,
       message: 'Department head dashboard data retrieved',
       data: {
-        ownerTemplates,
-        publishedRecent
+        ownerTemplates: mapSubmitted(ownerTemplates),
+        publishedRecent: mapSubmitted(publishedRecent)
       }
     });
   } catch (error) {

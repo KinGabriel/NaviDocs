@@ -53,11 +53,7 @@ export default function DeanDashboard() {
 
   const templateColumns = [
     { key: "title", label: "Title" },
-    {
-      key: "submittedAt",
-      label: "Submitted At",
-      render: (row) => formatDate(row.submittedAt || row.submitted_at || row.createdAt || row.date || null),
-    },
+    // 'Submitted At' column removed per request
     {
       key: "status",
       label: "Status",

@@ -83,7 +83,8 @@ export const deptHeadDashboardResolver = {
           id: t._id || t.id || null,
           title: t.title || null,
           status: t.status || null,
-          createdByName: t.createdByName || (t.created_by_user && t.created_by_user.displayName) || null,
+          // expose explicit submittedAt for frontend (prefer status_meta.submitted_at)
+          submittedAt: t.submittedAt || t.submitted_at || (t.status_meta && t.status_meta.submitted_at) || t.createdAt || t.created_at || null,
           created_at: t.createdAt || t.created_at || null,
           updated_at: t.updatedAt || t.updated_at || null,
           code: t.document_code || t.code || null,
