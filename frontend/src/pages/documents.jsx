@@ -24,33 +24,6 @@ import {
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-/* Button Tag Pills (for GRID view) */
-function StatusFilterPills({ options, value, onChange }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((opt) => {
-        const active = value === opt;
-        return (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => onChange(opt)}
-            className={[
-              "inline-flex items-center h-9 px-3 rounded-full text-sm font-medium border transition-colors",
-              active
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50",
-            ].join(" ")}
-            aria-pressed={active}
-          >
-            {opt}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 /* Inline helper: Toggle pill */
 function ViewToggle({ mode = "grid", onChange }) {
   const isTable = mode === "table";
@@ -264,24 +237,7 @@ export default function GlobalTemplates() {
   const pagination = usePagination(totalPages, 1);
 
   const [selectedSchool, setSelectedSchool] = useState("All");
-  const statusOptions = ["All", "Draft", "Pending Approval", "Approved", "Published"];
-
-  const deriveInitialStatus = () => {
-    const fromState = location.state?.status;
-    const fromQuery = searchParams.get("status");
-    if (statusOptions.includes(fromState)) return fromState;
-    if (statusOptions.includes(fromQuery)) return fromQuery;
-    return "All";
-  };
-
-  const [selectedStatus, setSelectedStatus] = useState(deriveInitialStatus());
   const [sortOrder, setSortOrder] = useState("Recent");
-
-  useEffect(() => {
-    const next = deriveInitialStatus();
-    setSelectedStatus(next);
-    pagination.handlePage(1);
-  }, [location.state, searchParams]);
 
   const [selectOpen, setSelectOpen] = useState(false);
   const [publishedLoading, setPublishedLoading] = useState(false);
@@ -323,15 +279,6 @@ export default function GlobalTemplates() {
         page: pagination.currentPage,
       };
       if (selectedSchool && selectedSchool !== "All") params.school = selectedSchool;
-      if (selectedStatus && selectedStatus !== "All") {
-        const statusMap = {
-          Draft: "draft",
-          "Pending Approval": "pending",
-          Approved: "approved",
-          Published: "published",
-        };
-        params.status = statusMap[selectedStatus] || selectedStatus;
-      }
       if (search && search.trim()) params.search = search.trim();
 
       const result = await listDocumentsAPI(params);
@@ -373,7 +320,7 @@ export default function GlobalTemplates() {
 
   useEffect(() => {
     fetchTemplates();
-  }, [user, selectedSchool, selectedStatus, search, sortOrder, pagination.currentPage]);
+  }, [user, selectedSchool, search, sortOrder, pagination.currentPage]);
 
   const handleCardRename = (updated) => {
     if (!updated) return;
@@ -708,7 +655,7 @@ export default function GlobalTemplates() {
               </div>
 
               <div className="lg:hidden w-full">
-                {/* Row: All + Recent + Archived (beside Recent) */}
+                {/* Row: School + Sort + Archived icon */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="shrink-0">
                     <Dropdown
@@ -734,7 +681,7 @@ export default function GlobalTemplates() {
                     />
                   </div>
 
-                  {/* Archived icon beside Recent */}
+                  {/* Archived icon beside sort */}
                   <button
                     type="button"
                     onClick={() => navigate("/archived-documents")}
@@ -857,41 +804,6 @@ export default function GlobalTemplates() {
                 />
               </div>
             </div>
-
-            {/* Status filter: TABS for table, BUTTON TAGS for grid */}
-            {viewMode === "table" ? (
-              <div className="mb-6 border-b border-gray-200">
-                <div className="flex space-x-8 overflow-x-auto">
-                  {statusOptions.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => {
-                        setSelectedStatus(opt);
-                        pagination.handlePage(1);
-                      }}
-                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                        selectedStatus === opt
-                          ? "border-blue-600 text-blue-600"
-                          : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="mb-6">
-                <StatusFilterPills
-                  options={statusOptions}
-                  value={selectedStatus}
-                  onChange={(opt) => {
-                    setSelectedStatus(opt);
-                    pagination.handlePage(1);
-                  }}
-                />
-              </div>
-            )}
 
             {/* List OR Grid */}
             {viewMode === "table" ? (
