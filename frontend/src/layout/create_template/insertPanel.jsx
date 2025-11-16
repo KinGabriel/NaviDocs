@@ -1,3 +1,4 @@
+// src/layout/create_template/insertPanel.jsx
 import React, { useState } from "react";
 
 export default function InsertPanel({ editor }) {
@@ -41,15 +42,16 @@ export default function InsertPanel({ editor }) {
         const natH = img.naturalHeight || 1;
         const scale = Math.min(1, usableW / natW);
 
+        const targetW = Math.round(natW * scale);
+        const targetH = Math.round(natH * scale);
+
         editor
           .chain()
           .focus()
           .setImage({
             src,
-            width: Math.round(natW * scale),
-            height: Math.round(natH * scale),
-            keepAspect: true,
-            wrapMode: "break",
+            width: targetW,
+            height: targetH,
           })
           .run();
       };
@@ -61,7 +63,56 @@ export default function InsertPanel({ editor }) {
     e.target.value = "";
   };
 
-  /* PURE TIPTAP V2 TABLE COMMANDS */
+  /* IMAGE RESIZE + ALIGNMENT */
+
+  const isImageActive = editor?.isActive("image");
+  const activeImageAttrs = isImageActive
+    ? editor?.getAttributes?.("image") || {}
+    : {};
+  const currentAlign = activeImageAttrs["data-align"] || "inline";
+
+  const resizeImageToFraction = (fraction) => {
+    if (!editor || !isImageActive) return;
+
+    const usableW = getUsablePageContentWidth();
+    const targetW = Math.round(usableW * fraction);
+
+    editor
+      .chain()
+      .focus()
+      .updateAttributes("image", {
+        width: targetW,
+        height: null, // let browser keep aspect ratio
+      })
+      .run();
+  };
+
+  const resetImageSize = () => {
+    if (!editor || !isImageActive) return;
+
+    editor
+      .chain()
+      .focus()
+      .updateAttributes("image", {
+        width: null,
+        height: null,
+      })
+      .run();
+  };
+
+  const alignImage = (align) => {
+    if (!editor || !isImageActive) return;
+
+    editor
+      .chain()
+      .focus()
+      .updateAttributes("image", {
+        "data-align": align, // styled via CSS
+      })
+      .run();
+  };
+
+  /* TABLE INSERTION */
   const insertTable = () => {
     if (!editor) return;
     editor
@@ -95,7 +146,6 @@ export default function InsertPanel({ editor }) {
 
   return (
     <div className="w-full p-4 space-y-8">
-
       {/* IMAGE INSERT */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Insert Image</h2>
@@ -109,6 +159,104 @@ export default function InsertPanel({ editor }) {
             className="hidden"
           />
         </label>
+      </div>
+
+      {/* IMAGE TOOLS (SIZE + ALIGNMENT) */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Image Tools</h2>
+
+        {!isImageActive && (
+          <p className="text-sm text-gray-500">
+            Select an image to show size and alignment options.
+          </p>
+        )}
+
+        {isImageActive && (
+          <div className="space-y-4">
+            {/* Size options */}
+            <div>
+              <div className="text-sm font-medium mb-2">Size</div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => resizeImageToFraction(0.25)}
+                  className="bg-gray-100 px-3 py-2 rounded text-sm hover:bg-gray-200"
+                >
+                  25% width
+                </button>
+                <button
+                  type="button"
+                  onClick={() => resizeImageToFraction(0.5)}
+                  className="bg-gray-100 px-3 py-2 rounded text-sm hover:bg-gray-200"
+                >
+                  50% width
+                </button>
+                <button
+                  type="button"
+                  onClick={() => resizeImageToFraction(0.75)}
+                  className="bg-gray-100 px-3 py-2 rounded text-sm hover:bg-gray-200"
+                >
+                  75% width
+                </button>
+                <button
+                  type="button"
+                  onClick={() => resizeImageToFraction(1)}
+                  className="bg-gray-100 px-3 py-2 rounded text-sm hover:bg-gray-200"
+                >
+                  100% width
+                </button>
+              </div>
+            </div>
+
+            {/* Alignment options */}
+            <div>
+              <div className="text-sm font-medium mb-2">Alignment</div>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => alignImage("left")}
+                  className={`px-3 py-2 rounded text-sm border ${
+                    currentAlign === "left"
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200"
+                  }`}
+                >
+                  Left
+                </button>
+                <button
+                  type="button"
+                  onClick={() => alignImage("center")}
+                  className={`px-3 py-2 rounded text-sm border ${
+                    currentAlign === "center"
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200"
+                  }`}
+                >
+                  Center
+                </button>
+                <button
+                  type="button"
+                  onClick={() => alignImage("right")}
+                  className={`px-3 py-2 rounded text-sm border ${
+                    currentAlign === "right"
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200"
+                  }`}
+                >
+                  Right
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={resetImageSize}
+              className="w-full bg-white border border-gray-300 px-3 py-2 rounded text-sm hover:bg-gray-50"
+            >
+              Reset size
+            </button>
+          </div>
+        )}
       </div>
 
       {/* TABLE INSERTION */}
@@ -147,7 +295,7 @@ export default function InsertPanel({ editor }) {
         </button>
       </div>
 
-      {/* TABLE TOOLS (ONLY IF CURSOR IS INSIDE A TABLE) */}
+      {/* TABLE TOOLS */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Table Tools</h2>
 
@@ -159,7 +307,6 @@ export default function InsertPanel({ editor }) {
 
         {isInTable && (
           <div className="space-y-6">
-
             {/* ROW CONTROLS */}
             <div>
               <h3 className="text-sm font-semibold mb-2 text-gray-700">
@@ -271,7 +418,6 @@ export default function InsertPanel({ editor }) {
                 Delete Table
               </button>
             </div>
-
           </div>
         )}
       </div>

@@ -10,6 +10,7 @@ import Subscript from "@tiptap/extension-subscript";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import { Extension } from "@tiptap/core";
+import Image from "@tiptap/extension-image"; // ⬅️ Image with resize
 
 // PRO EXTENSIONS
 import {
@@ -452,6 +453,14 @@ export default function TextEditor({
       Subscript,
       TextAlign.configure({
         types: ["heading", "paragraph"],
+      }),
+      Image.configure({
+        // base64 so your FileReader + setImage works
+        allowBase64: true,
+        resize: {
+          enabled: true,
+          alwaysPreserveAspectRatio: true,
+        },
       }),
       EditableField,
     ],
