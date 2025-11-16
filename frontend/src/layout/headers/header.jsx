@@ -1,6 +1,7 @@
 // This is the header component for the application, which includes a logo, title, notifications, and user profile information.
 import { useNavigate, useLocation } from 'react-router-dom';
 import React, { useState, useRef, useEffect } from "react";
+import axios from 'axios';
 import NotificationDropdown from "../../components/dropdowns/notificationDropdown";
 import '../../assets/css/global.css'
 import naviLogo from '../../assets/images/navilogo.png';
@@ -10,22 +11,22 @@ import defaultProfile from '../../assets/images/profile_picture.png';
 import { useDataPolling } from '../../hooks/useDataPolling.jsx';
 
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const fetchNotificationsAPI = async () => {
   try {
-    const res = await fetch('/api/notifications', { credentials: 'include' });
-    if (res.ok) {
-      const data = await res.json();
-      return data.map(n => ({
-        id: n._id,
-        message: n.message,
-        link: n.link,
-        isRead: !!n.isRead,
-        createdAt: n.createdAt,
-      }));
-    }
-    return [];
+    const base = API_URL ? String(API_URL).replace(/\/$/, '') : '';
+    const url = `${base}/api/notifications`;
+    const res = await axios.get(url, { withCredentials: true });
+    const data = res.data;
+    if (!Array.isArray(data)) return [];
+    return data.map((n = {}) => ({
+      id: n._id || n.id || null,
+      message: n.message || n.msg || '',
+      link: n.link || n.url || null,
+      isRead: !!(n.isRead || n.is_read || n.read),
+      createdAt: n.createdAt || n.created_at || n.created || null,
+    }));
   } catch (err) {
     console.error('Failed to fetch notifications:', err);
     return [];
@@ -70,14 +71,12 @@ export default function Header({ user }) {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const markAsRead = async (id) => {
+    if (!id) return;
     try {
-      await fetch(`/api/notifications/${id}/read`, {
-        method: 'PATCH',
-        credentials: 'include',
-      });
-      setNotifications(prev =>
-        prev.map(n => (n.id === id ? { ...n, isRead: true } : n))
-      );
+      const base = API_URL ? String(API_URL).replace(/\/$/, '') : '';
+      const url = `${base}/api/notifications/${id}/read`;
+      await axios.patch(url, null, { withCredentials: true });
+      setNotifications(prev => prev.map(n => (n.id === id ? { ...n, isRead: true } : n)));
     } catch (err) {
       console.error('Failed to mark notification as read', err);
     }
