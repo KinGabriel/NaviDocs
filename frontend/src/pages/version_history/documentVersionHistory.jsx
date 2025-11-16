@@ -1063,8 +1063,8 @@ export default function DocumentVersionHistory({
           <div className="flex-1 flex flex-col border-r border-gray-200 overflow-hidden">
             <div className="flex-1 overflow-y-auto p-6 bg-gray-100 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
               {loadingDoc ? (
-                <div className="text-center py-12 text-gray-400 italic">
-                  Loading document preview…
+                <div className="text-center py-12 text-gray-400">
+                  <Loader message='Loading document preview...' />
                 </div>
               ) : docError ? (
                 <div className="text-center py-12 text-red-600 font-medium">{docError}</div>
