@@ -156,3 +156,6 @@ dist
 *.sw?
 # folder
 tmp
+
+#Auth Token for TipTap
+*.npmrc

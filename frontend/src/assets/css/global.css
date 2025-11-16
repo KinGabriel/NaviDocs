@@ -10,29 +10,7 @@
 body { font-family: 'Poppins', sans-serif; }
 
 /* -------------------------------------------------------------------------- */
-/*  PAGINATION-FRIENDLY EDITOR DEFAULTS                                       */
-/* -------------------------------------------------------------------------- */
-
-.rm-with-pagination,
-.ProseMirror {
-  break-inside: auto !important;
-  page-break-inside: auto !important;
-  overflow: visible !important;
-  contain: none !important; 
-}
-
-.rm-page, .rm-page-content, .rm-page-body {
-  break-inside: auto !important;
-  page-break-inside: auto !important;
-  overflow: visible !important;
-  contain: none !important;
-}
-
-/* Generic content hygiene */
-.ProseMirror img { max-width: 100%; height: auto; }
-
-/* -------------------------------------------------------------------------- */
-/*  TIPTAP v2 TABLES — PURE IMPLEMENTATION                                    */
+/*  TABLES                                                                   */
 /* -------------------------------------------------------------------------- */
 
 .tiptap table {
@@ -96,18 +74,6 @@ body { font-family: 'Poppins', sans-serif; }
   cursor: col-resize;
 }
 
-/* -------------------------------------------------------------------------- */
-/*  PAGE BANDS (headers/footers rendered by PaginationPlus)                   */
-/* -------------------------------------------------------------------------- */
-.rm-first-page-header,
-.rm-page-header,
-.rm-first-page-footer,
-.rm-page-footer {
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
-  overflow: visible !important;
-  contain: none !important;
-}
 
 /* -------------------------------------------------------------------------- */
 /*  THEME TOKENS                                                              */
@@ -318,24 +284,6 @@ body { font-family: 'Poppins', sans-serif; }
   font-size: 10px; color: #818cf8; opacity: 0.7; white-space: nowrap;
 }
 
-/* Editor canvas container */
-.nd-editor-canvas {
-  overflow-y: auto;
-  height: 100%;
-  background: #ffffff;
-  padding: 32px;
-}
 
-/* -------------------------------------------------------------------------- */
-/*  PRINT                                                                     */
-/* -------------------------------------------------------------------------- */
-@media print {
-  .nd-editor-canvas { overflow: visible !important; }
 
-  .rm-first-page-header,
-  .rm-page-header,
-  .rm-first-page-footer,
-  .rm-page-footer {
-    page-break-inside: avoid !important;
-  }
-}
+

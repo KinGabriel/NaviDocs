@@ -1,3 +1,4 @@
+// src/pages/document_controller/DocumentControllerCreateTemplate.jsx
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -26,6 +27,8 @@ const DEFAULT_PAGE_SETUP = {
   paperSize: "A4",
   orientation: "Portrait",
   margins: { top: 1, bottom: 1, left: 1, right: 1 },
+  headerHeight: 1.0,
+  footerHeight: 0.6,
 };
 
 function useHeaderHeight() {
@@ -46,7 +49,7 @@ function useHeaderHeight() {
   return h;
 }
 
-// Deep merge utility 
+// Deep merge utility
 function deepMerge(base, over) {
   if (!over || typeof over !== "object") return base;
   const out = Array.isArray(base) ? [...base] : { ...base };
@@ -61,7 +64,7 @@ function deepMerge(base, over) {
   return out;
 }
 
-// Sensible defaults for header/footer 
+// Sensible defaults for header/footer
 const DEFAULT_HEADER_CONFIG = {
   headerEnabled: true,
   footerEnabled: true,
@@ -116,7 +119,7 @@ const DEFAULT_HEADER_CONFIG = {
   },
 };
 
-// Ensure any loaded config has the full structure 
+// Ensure any loaded config has the full structure
 function withHeaderDefaults(cfg) {
   const merged = deepMerge(DEFAULT_HEADER_CONFIG, cfg || {});
   if (!merged.footer) merged.footer = DEFAULT_HEADER_CONFIG.footer;
@@ -207,8 +210,10 @@ export default function DocumentControllerCreateTemplate() {
       setApprovers(normalized.approvers);
       setTemplateContent(normalized.templateContent || DEFAULT_CONTENT);
 
+      let nextPageSetup = DEFAULT_PAGE_SETUP;
+
       if (normalized.pageSetup) {
-        setPageSetup({
+        nextPageSetup = {
           paperSize: normalized.pageSetup.paperSize || DEFAULT_PAGE_SETUP.paperSize,
           orientation: normalized.pageSetup.orientation || DEFAULT_PAGE_SETUP.orientation,
           margins: {
@@ -217,7 +222,12 @@ export default function DocumentControllerCreateTemplate() {
             left: normalized.pageSetup.margins?.left ?? DEFAULT_PAGE_SETUP.margins.left,
             right: normalized.pageSetup.margins?.right ?? DEFAULT_PAGE_SETUP.margins.right,
           },
-        });
+          headerHeight: normalized.pageSetup.headerHeight ?? DEFAULT_PAGE_SETUP.headerHeight,
+          footerHeight: normalized.pageSetup.footerHeight ?? DEFAULT_PAGE_SETUP.footerHeight,
+        };
+        setPageSetup(nextPageSetup);
+      } else {
+        setPageSetup(DEFAULT_PAGE_SETUP);
       }
 
       if (normalized.fontSettings) setFontSettings(normalized.fontSettings);
@@ -234,7 +244,7 @@ export default function DocumentControllerCreateTemplate() {
       if (normalized.effectivity !== undefined) setEffectivity(normalized.effectivity ?? "");
 
       setLastSavedTitle(normalized.templateTitle || "");
-      setLastSavedPageSetup(normalized.pageSetup || DEFAULT_PAGE_SETUP);
+      setLastSavedPageSetup(nextPageSetup);
       setLastSavedHeaderConfig(loadedHeader);
       setLastSavedDocumentCode((normalized.document_code ?? "").toString());
       setLastSavedRevisionNo(Number(normalized.revision_no ?? 0));
@@ -489,13 +499,7 @@ export default function DocumentControllerCreateTemplate() {
         return (
           <PageSetupPanel
             pageSetup={pageSetup}
-            onApply={(newSetup) =>
-              setPageSetup({
-                paperSize: newSetup.paperSize,
-                orientation: newSetup.orientation,
-                margins: { ...newSetup.margins },
-              })
-            }
+            onApply={(newSetup) => setPageSetup(newSetup)}
           />
         );
       case "headerfooter": {
@@ -559,7 +563,6 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
-  /* ui */
   const editorMaxHeight = `calc(100vh - ${headerH + 24}px)`;
 
   return (
@@ -618,21 +621,11 @@ export default function DocumentControllerCreateTemplate() {
                 <TextEditor
                   content={templateContent}
                   pageSetup={pageSetup}
+                  headerConfig={headerConfig}
                   onEditorReady={handleEditorReady}
                   onContentChange={setTemplateContent}
-                  headerConfig={{
-                    ...(headerConfig || {}),
-                    documentStamp: {
-                      docCode: documentCode ?? "",
-                      revisionNo: revisionNo ?? 0,
-                      effectivity: effectivity ?? "",
-                    },
-                  }}
-                  templateStatus={status}
-                  documentCode={documentCode}
-                  revisionNo={revisionNo}
-                  effectivity={effectivity}
                   readOnly={isReadOnly}
+                  mode={isReadOnly ? "document" : "template"}
                 />
               </main>
             </div>
