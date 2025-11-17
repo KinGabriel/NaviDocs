@@ -232,7 +232,17 @@ export default function DocumentControllerCreateTemplate() {
       }
 
       if (normalized.fontSettings) setFontSettings(normalized.fontSettings);
-      if (Array.isArray(normalized.editableFields)) setEditableFields(normalized.editableFields);
+
+      // PATCH: hydrate editable fields from any available normalized key
+      if (Array.isArray(normalized.editableFields)) {
+        setEditableFields(normalized.editableFields);
+      } else if (Array.isArray(normalized.fields)) {
+        setEditableFields(normalized.fields);
+      } else if (Array.isArray(normalized.template?.fields)) {
+        setEditableFields(normalized.template.fields);
+      } else {
+        setEditableFields([]);
+      }
 
       const loadedHeader =
         normalized.headerConfig && Object.keys(normalized.headerConfig).length
@@ -305,12 +315,16 @@ export default function DocumentControllerCreateTemplate() {
         }
       }
 
+      const normalizedFields = Array.isArray(editableFields) ? editableFields : [];
+
       const payload = {
         title: (templateTitle || "").trim() || "Untitled Template",
         pages_json,
         body: editor ? editor.getHTML() : typeof templateContent === "string" ? templateContent : "",
         pageSetup,
-        fields: editableFields,
+        // PATCH: persist editable fields + tags under both keys for compatibility
+        fields: normalizedFields,
+        editableFields: normalizedFields,
         headerConfig,
         document_code: normDocumentCode,
         revision_no: normRevisionNo,
@@ -658,7 +672,6 @@ export default function DocumentControllerCreateTemplate() {
                 </main>
               </div>
             </div>
-
 
             {/* Editor for mobile / tablet (always visible) */}
             <div className="lg:hidden">
