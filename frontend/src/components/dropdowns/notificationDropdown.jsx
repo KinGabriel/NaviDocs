@@ -1,3 +1,6 @@
+// @fileoverview NotificationDropdown component for displaying user notifications
+// @module components/dropdowns/NotificationDropdown
+
 import React from 'react';
 
 const NotificationDropdown = ({ notifications = [], onClose, onSelect }) => {
