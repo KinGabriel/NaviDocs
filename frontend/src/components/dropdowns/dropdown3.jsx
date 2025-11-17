@@ -1,3 +1,6 @@
+// @fileoverview Dropdown3 component for selecting visibility options
+// @module components/dropdowns/Dropdown3
+
 import { Listbox } from '@headlessui/react';
 
 export default function Dropdown3({ label = "Visibility", value, onChange, options = [

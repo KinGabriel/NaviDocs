@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Header component for viewing submitted files/documents in the workflow.
+ * Provides navigation, export options (download/storage), and user profile display.
+ * @module components/headers/headerSubmittedFilesView
+ */
+
 // header for viewing the submitted files (submissions)
 import { useNavigate } from "react-router-dom";
 import naviLogo from "../../assets/images/navilogo.png";
@@ -7,6 +13,47 @@ import defaultProfile from '../../assets/images/profile_picture.png';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+/**
+ * Header component for viewing submitted files with export functionality
+ * @component
+ * @param {Object} props - Component props
+ * @param {string} [props.title="Submitted Document"] - Document title to display
+ * @param {Function} props.onExportDownload - Callback to export document as PDF and download directly
+ * @param {Function} props.onExportToStorage - Callback to export document to storage folder before downloading
+ * @param {Object} props.user - Current user object
+ * @param {Object} [props.user.role] - User's role information
+ * @param {string} [props.user.role.name] - User's role name (Secretary, Dean, Department Head, Faculty)
+ * @param {string} [props.user.profile_picture] - URL path to user's profile picture
+ * 
+ * @returns {React.ReactElement} Header component with submitted file viewing controls
+ * 
+ * @description
+ * Header component for submitted document viewing that includes:
+ * - Application logo with role-based navigation to /document-workflow
+ * - Back button to return to document workflow page (role-based routing)
+ * - Document title display (non-editable)
+ * - Export dropdown with two options:
+ *   1. Export & Download: Direct PDF generation and browser download
+ *   2. Export to Storage & Download: Save to folder first, then download
+ * - User profile picture display
+ * - Click-outside detection to close export dropdown
+ * 
+ * Navigation Routes by Role:
+ * - Secretary/Dean/Department Head: /document-workflow
+ * - Faculty: /faculty/document-workflow
+ * 
+ * Export Options:
+ * - **Export & Download**: Generates PDF and triggers immediate browser download
+ * - **Export to Storage & Download**: Opens folder selection modal, saves to chosen location, then downloads
+ * 
+ * @example
+ * <HeaderSubmittedFilesView
+ *   title="Research Proposal Submission"
+ *   onExportDownload={handleDirectDownload}
+ *   onExportToStorage={handleStorageExport}
+ *   user={{ role: { name: "Faculty" }, profile_picture: "/uploads/faculty.jpg" }}
+ * />
+ */
 export default function HeaderSubmittedFilesView({
   title = "Submitted Document", 
   onExportDownload,

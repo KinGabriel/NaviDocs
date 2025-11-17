@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Header component for document viewing interface.
+ * Provides navigation, document actions (download, edit, unpublish), and user profile display.
+ * @module components/headers/headerDocumentView
+ */
+
 // header for viewing the documents
 import { useNavigate } from "react-router-dom";
 import naviLogo from "../../assets/images/navilogo.png";
@@ -6,6 +12,44 @@ import { Download, Pencil, X } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+/**
+ * Header component for viewing published documents with action controls
+ * @component
+ * @param {Object} props - Component props
+ * @param {string} props.title - Document title to display
+ * @param {Function} props.onDownloadPDF - Callback function to download document as PDF
+ * @param {Function} props.onEdit - Callback function to edit the document
+ * @param {Function} props.onUnpublish - Callback function to unpublish the document
+ * @param {Object} props.user - Current user object
+ * @param {Object} [props.user.role] - User's role information
+ * @param {string} [props.user.role.name] - User's role name (Secretary, Dean, Department Head)
+ * @param {string} [props.user.profile_picture] - URL path to user's profile picture
+ * 
+ * @returns {React.ReactElement} Header component with document viewing controls
+ * 
+ * @description
+ * Header component for published document viewing that includes:
+ * - Application logo with role-based navigation
+ * - Back button to return to templates list
+ * - Read-only document title display
+ * - Download PDF action button
+ * - Edit document action button
+ * - Unpublish document action button
+ * - User profile picture display
+ * 
+ * Navigation behavior:
+ * - Logo click navigates to /documents route (role-based)
+ * - Back button navigates to respective template management pages based on user role
+ * 
+ * @example
+ * <HeaderDocumentView
+ *   title="Policy Document v2"
+ *   onDownloadPDF={handleDownload}
+ *   onEdit={handleEdit}
+ *   onUnpublish={handleUnpublish}
+ *   user={{ role: { name: "Dean" }, profile_picture: "/uploads/profile.jpg" }}
+ * />
+ */
 export default function HeaderDocumentView({
   title,
   onDownloadPDF,

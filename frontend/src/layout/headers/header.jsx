@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Header component for the application navigation and user interface.
+ * Provides navigation controls, notification system, and user profile display.
+ * @module components/headers/header
+ */
+
 // This is the header component for the application, which includes a logo, title, notifications, and user profile information.
 import { useNavigate, useLocation } from 'react-router-dom';
 import React, { useState, useRef, useEffect } from "react";
@@ -10,9 +16,20 @@ import { logoutAPI } from '../../api/authAPI.js';
 import defaultProfile from '../../assets/images/profile_picture.png';
 import { useDataPolling } from '../../hooks/useDataPolling.jsx';
 
-
 const API_URL = import.meta.env.VITE_API_URL;
 
+/**
+ * Fetches notifications from the API
+ * @async
+ * @function fetchNotificationsAPI
+ * @returns {Promise<Array<Object>>} Array of notification objects with standardized properties
+ * @property {string|null} id - Notification identifier
+ * @property {string} message - Notification message content
+ * @property {string|null} link - Optional navigation link
+ * @property {boolean} isRead - Read status of the notification
+ * @property {string|null} createdAt - Timestamp of notification creation
+ * @throws {Error} Logs error to console if fetch fails
+ */
 const fetchNotificationsAPI = async () => {
   try {
     const base = API_URL ? String(API_URL).replace(/\/$/, '') : '';
@@ -33,6 +50,32 @@ const fetchNotificationsAPI = async () => {
   }
 };
 
+/**
+ * Header component that displays application branding, notifications, and user information
+ * @component
+ * @param {Object} props - Component props
+ * @param {Object} props.user - Current user object
+ * @param {string} [props.user.firstname] - User's first name
+ * @param {string} [props.user.lastname] - User's last name
+ * @param {string} [props.user.profile_picture] - URL path to user's profile picture
+ * @returns {React.ReactElement} Header component with navigation and user controls
+ * 
+ * @description
+ * Main header component that includes:
+ * - Application logo and branding
+ * - Hamburger menu toggle for mobile sidebar (hidden on /select-template route)
+ * - Notification bell with unread count badge
+ * - User profile section with logout functionality
+ * 
+ * Features:
+ * - Auto-refreshes notifications every 15 seconds
+ * - Refetches notifications on tab focus/visibility change
+ * - Responsive design with mobile hamburger menu
+ * - Click-outside detection for notification dropdown
+ * 
+ * @example
+ * <Header user={{ firstname: "John", lastname: "Doe", profile_picture: "/uploads/profile.jpg" }} />
+ */
 export default function Header({ user }) {
   const navigate = useNavigate();
   const location = useLocation(); // <-- get current route
@@ -70,6 +113,14 @@ export default function Header({ user }) {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
+/**
+   * Marks a notification as read in the backend and updates local state
+   * @async
+   * @function markAsRead
+   * @param {string} id - Notification ID to mark as read
+   * @returns {Promise<void>}
+   * @throws {Error} Logs error to console if API call fails
+   */
   const markAsRead = async (id) => {
     if (!id) return;
     try {
@@ -82,6 +133,14 @@ export default function Header({ user }) {
     }
   };
 
+/**
+   * Handles notification selection by marking it as read and navigating to its link
+   * @function handleNotificationSelect
+   * @param {Object} n - Notification object
+   * @param {string} n.id - Notification ID
+   * @param {string} [n.link] - Optional navigation link
+   * @returns {void}
+   */
   const handleNotificationSelect = (n) => {
     if (!n) return;
     markAsRead(n.id);

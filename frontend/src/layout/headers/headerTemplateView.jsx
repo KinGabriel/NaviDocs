@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Header component for template approval workflow management.
+ * Provides approval actions (approve/reject/return), publishing controls, and additional template management features.
+ * @module components/headers/headerTemplateView
+ */
+
 // header for viewing templates
 import { useState } from "react";
 import { approveTemplateAPI, rejectTemplateAPI, returnTemplateAPI, publishTemplateAPI, unpublishTemplateAPI } from "../../api/documentContollerAPI";
@@ -11,6 +17,73 @@ import AddInstructionsModal from "../../components/modals/addInstructionsModal";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+/**
+ * Header component for template viewing with approval workflow controls
+ * @component
+ * @param {Object} props - Component props
+ * @param {Object} props.template - Template object being viewed
+ * @param {string} props.template._id - Template unique identifier
+ * @param {string} [props.template.code] - Template code/reference number
+ * @param {string} props.template.title - Template title
+ * @param {string} props.template.status - Template status (pending|endorsed|approved|published)
+ * @param {Object} [props.template.status_meta] - Template status metadata
+ * @param {Object} [props.template.status_meta.approvals] - Approval records by role
+ * @param {string} [props.template.deadline] - Template deadline
+ * @param {string} [props.template.instructions] - Template instructions
+ * @param {Object} props.user - Current user object
+ * @param {Object} [props.user.role] - User's role information
+ * @param {string} [props.user.role.name] - User's role name (Unit Document Controller, Lead Document Controller, Document Control Officer)
+ * @param {string} [props.user.profile_picture] - URL path to user's profile picture
+ * @param {Function} props.onAddInstructions - Callback when adding instructions to template
+ * @param {Function} props.handleApprove - Callback when approving template
+ * @param {Function} props.handleReject - Callback when rejecting template
+ * @param {Function} props.handleReturn - Callback when returning template for revisions
+ * @param {Function} props.handlePublish - Callback when publishing template
+ * @param {Function} props.handleUnpublish - Callback when unpublishing template
+ * 
+ * @returns {React.ReactElement} Header component with template approval workflow controls
+ * 
+ * @description
+ * Advanced header component for template approval workflow that includes:
+ * - Application logo and back navigation to /templates
+ * - Template code and title display
+ * - Role-based action buttons:
+ *   - **Manage Template**: Opens approval modal (approve/endorse/reject/return)
+ *   - **Publish**: Publishes approved templates (DCO only)
+ *   - **Unpublish**: Reverts published templates to approved state (DCO only)
+ * - Actions dropdown for additional operations:
+ *   - Add Instructions: Provide guidance for template usage
+ * - User profile picture display
+ * 
+ * Approval Workflow Logic:
+ * - **Unit Document Controller (UDC)**: First approver for Department Head submissions (endorses)
+ * - **Lead Document Controller (LDC)**: Approves after UDC endorsement (if required) or directly
+ * - **Document Control Officer (DCO)**: Final approver, can publish after LDC approval
+ * 
+ * Action Button Visibility:
+ * - "Manage Template" appears when template is in 'pending' or 'endorsed' status
+ * - "Publish" appears for DCO when template status is 'approved'
+ * - "Unpublish" appears for DCO when template status is 'published'
+ * - Actions dropdown visible only for document controller roles
+ * 
+ * Modals:
+ * - ApprovalModal: Approve/Reject/Return template with notes
+ * - PublishModal: Publish template with optional metadata
+ * - AddInstructionsModal: Add usage instructions to template
+ * - Unpublish confirmation dialog
+ * 
+ * @example
+ * <HeaderTemplateView
+ *   template={templateData}
+ *   user={currentUser}
+ *   onAddInstructions={handleInstructions}
+ *   handleApprove={handleApproval}
+ *   handleReject={handleRejection}
+ *   handleReturn={handleReturn}
+ *   handlePublish={handlePublishing}
+ *   handleUnpublish={handleUnpublishing}
+ * />
+ */
 export default function HeaderTemplateView({ 
   template, 
   user, 

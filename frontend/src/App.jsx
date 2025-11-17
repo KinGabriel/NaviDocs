@@ -1,3 +1,13 @@
+/**
+ * @fileoverview Main application component managing routing, authentication, and role-based access control.
+ * Handles session verification, route protection, and conditional redirects based on user roles.
+ * 
+ * @module App
+ * @requires react-router-dom
+ * @requires react
+ * @requires react-hot-toast
+ */
+
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import './assets/css/global.css'
 import Login from './pages/login';
@@ -39,6 +49,22 @@ import Loader from './components/loader';
 import { useEffect, useState } from 'react';
 import { verifySession } from "./api/authAPI";
 
+/**
+ * Route component that redirects authenticated users to their role-specific dashboard,
+ * or displays the login page for unauthenticated users.
+ * 
+ * Role-to-Dashboard mappings:
+ * - Admin → /admin/dashboard
+ * - Lead/Document Control Officer/Unit Document Controller → /document-controller/dashboard
+ * - Secretary → /secretary/dashboard
+ * - Dean → /dean/dashboard
+ * - Department Head → /dept-head/dashboard
+ * - Faculty → /faculty/dashboard
+ * 
+ * @component
+ * @returns {JSX.Element} Navigate component to role-specific dashboard or Login page
+ * 
+ */
 /** Redirect logged-in users by role; otherwise show Login */
 function LoginRoute() {
   const user = useUser();
@@ -56,6 +82,20 @@ function LoginRoute() {
   return <Login />;
 }
 
+/**
+ * Router component that renders the appropriate templates view based on user role.
+ * 
+ * Role behaviors:
+ * - Document Controllers (Lead/Officer/Unit) → Document controller templates handler view
+ * - Secretary/Dean/Department Head/Faculty → Main templates page
+ * - No role or unauthorized → Unauthorized page
+ * 
+ * @component
+ * @returns {JSX.Element} Role-specific templates component or UnauthorizedPage
+ * 
+ * @example
+ * <Route path="/templates" element={<RoleTemplatesRouter />} />
+ */
 // Render the appropriate Templates list based on the current user's role
 function RoleTemplatesRouter() {
   const user = useUser();
@@ -84,6 +124,37 @@ function RoleTemplatesRouter() {
   return <UnauthorizedPage />;
 }
 
+/**
+ * Root application component managing global routing, session verification, and authentication state.
+ * 
+ * Features:
+ * - Session verification on mount for protected routes
+ * - Loading state during session check
+ * - Role-based access control via ProtectedRoute wrapper
+ * - Toast notifications via react-hot-toast
+ * - Automatic redirect to login for invalid sessions
+ * - Public routes bypass authentication
+ * 
+ * Route Structure:
+ * - Public: /, /login, /forgot-password
+ * - Admin: /admin/* (dashboard, accounts, create-user, login-activity, edit-user)
+ * - Document Controller: /document-controller/* (dashboard, create-template, handle-templates)
+ * - Secretary: /secretary/* (dashboard, settings)
+ * - Dean: /dean/* (dashboard)
+ * - Department Head: /dept-head/* (dashboard, statistics)
+ * - Faculty: /faculty/* (dashboard, document-workflow)
+ * - Shared: /account/settings, /documents, /templates, /storage, /submissions
+ * - Error: /unauthorized, /server-error, * (404)
+ * 
+ * @component
+ * @returns {JSX.Element} Application router with all configured routes
+ * 
+ * @example
+ * // In main.jsx or index.jsx
+ * <BrowserRouter>
+ *   <App />
+ * </BrowserRouter>
+ */
 function App() {
   const [checkingSession, setCheckingSession] = useState(true);
   const publicRoutes = ["/", "/login", "/forgot-password"];

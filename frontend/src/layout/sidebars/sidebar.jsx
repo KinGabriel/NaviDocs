@@ -1,9 +1,42 @@
+/**
+ * @fileoverview Sidebar navigation component with responsive behavior and role-based menu rendering.
+ * Supports both mobile (off-canvas) and desktop (collapsible rail) layouts with persistent state.
+ * 
+ * @module components/Sidebar
+ * @requires react
+ * @requires react-router-dom
+ */
+
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from 'react-router-dom';
 import defaultProfile from '../../assets/images/profile_picture.png';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+/**
+ * Main sidebar navigation component with responsive design and role-based menu system.
+ * 
+ * Features:
+ * - Responsive layout (mobile off-canvas overlay vs. desktop collapsible rail)
+ * - Persistent collapsed state using localStorage
+ * - Role-based menu configuration
+ * - Active route highlighting
+ * - Profile picture display with fallback
+ * - Keyboard navigation (ESC to close on mobile)
+ * - Custom event-driven toggle via 'sidebar:toggle' event
+ * 
+ * @component
+ * @param {Object} props - Component props
+ * @param {Object} props.user - Current user object
+ * @param {string} props.user.firstname - User's first name
+ * @param {string} props.user.lastname - User's last name
+ * @param {string} [props.user.profile_picture] - URL path to user's profile picture
+ * @param {Object|string} props.user.role - User's role object or role name string
+ * @param {string} [props.user.role.name] - Name of the user's role (if role is an object)
+ * 
+ * @returns {JSX.Element} Rendered sidebar component
+ * 
+ */
 export default function Sidebar({ user }) {
   // breakpoint helper (lg = 1024)
   const isLg = () => window.innerWidth <= 1024;
@@ -237,6 +270,22 @@ function SidebarItem({ icon, label, active, onClick, collapsed }) {
   );
 }
 
+/**
+ * Menu configuration object mapping user roles to their respective menu items.
+ * Each role has an array of menu items with labels, icons, and routes.
+ * 
+ * @constant {Object.<string, Array<{label: string, icon: JSX.Element, route: string}>>}
+ * 
+ * @property {Array} Admin - Menu items for Admin role
+ * @property {Array} Faculty - Menu items for Faculty role
+ * @property {Array} "Document Controller" - Menu items for Document Controller role
+ * @property {Array} "Lead Document Controller" - Menu items for Lead Document Controller role
+ * @property {Array} "Document Control Officer" - Menu items for Document Control Officer role
+ * @property {Array} "Unit Document Controller" - Menu items for Unit Document Controller role
+ * @property {Array} Secretary - Menu items for Secretary role
+ * @property {Array} Dean - Menu items for Dean role
+ * @property {Array} "Department Head" - Menu items for Department Head role
+ */
 /* ===== MENU_CONFIG ===== */
 const MENU_CONFIG = {
   /* Admin Module */

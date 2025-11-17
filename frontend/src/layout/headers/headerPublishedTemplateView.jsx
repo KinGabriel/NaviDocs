@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Header component for published template viewing interface.
+ * Provides navigation, export options (download/storage), and user profile display.
+ * @module components/headers/headerPublishedTemplateView
+ */
+
 // header for viewing the published templates
 import { useNavigate } from "react-router-dom";
 import naviLogo from "../../assets/images/navilogo.png";
@@ -7,6 +13,47 @@ import defaultProfile from '../../assets/images/profile_picture.png';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+/**
+ * Header component for viewing published templates with export functionality
+ * @component
+ * @param {Object} props - Component props
+ * @param {string} props.title - Template title to display (read-only)
+ * @param {Function} props.onExportDownload - Callback to export template as PDF and download directly
+ * @param {Function} props.onExportToStorage - Callback to export template to storage folder before downloading
+ * @param {Function} props.onEdit - Callback function to edit the template
+ * @param {Function} props.onUnpublish - Callback function to unpublish the template
+ * @param {Object} props.user - Current user object
+ * @param {Object} [props.user.role] - User's role information
+ * @param {string} [props.user.role.name] - User's role name (Secretary, Dean, Lead Document Controller, Document Control Officer, Department Head)
+ * @param {string} [props.user.profile_picture] - URL path to user's profile picture
+ * 
+ * @returns {React.ReactElement} Header component with published template viewing controls
+ * 
+ * @description
+ * Header component for published template viewing that includes:
+ * - Application logo with role-based navigation to /documents
+ * - Back button to return to template selection (/select-template)
+ * - Read-only template title display
+ * - Export dropdown with two options:
+ *   1. Export & Download: Direct PDF generation and browser download
+ *   2. Export to Storage & Download: Save to folder first, then download
+ * - User profile picture display
+ * - Click-outside detection to close export dropdown
+ * 
+ * Export Options:
+ * - **Export & Download**: Generates PDF and triggers immediate browser download
+ * - **Export to Storage & Download**: Opens folder selection modal, saves to chosen location, then downloads
+ * 
+ * @example
+ * <HeaderPublishedTemplateView
+ *   title="Standard Operating Procedure v3"
+ *   onExportDownload={handleDirectDownload}
+ *   onExportToStorage={handleStorageExport}
+ *   onEdit={handleEdit}
+ *   onUnpublish={handleUnpublish}
+ *   user={{ role: { name: "Dean" }, profile_picture: "/uploads/dean.jpg" }}
+ * />
+ */
 export default function HeaderPublishedTemplateView({
   title,
   onExportDownload,
