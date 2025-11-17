@@ -666,10 +666,9 @@ export default function DocumentControllerCreateTemplate() {
               </div>
 
               {/* Editor on the right */}
-              <div className="flex-1 min-w-0 lg:ml-12">
-                <main
-                  className="flex-1 overflow-auto rounded-xl border bg-white shadow-sm"
-                  style={{ maxHeight: editorMaxHeight }}
+              <div className="flex-1 mx-auto w-full max-w-7xl px-4 py-6 md:pl-6">
+                <main className="rounded-xl border bg-white shadow-sm"
+                  style={{ minHeight: editorMaxHeight }}
                 >
                   <TextEditor
                     content={templateContent}
@@ -687,26 +686,28 @@ export default function DocumentControllerCreateTemplate() {
             {/* Editor for mobile / tablet (always visible) */}
             <div className="lg:hidden">
               <main
-                className="flex-1 overflow-auto rounded-xl border bg-white shadow-sm"
+                className="frounded-xl border bg-white shadow-sm"
                 style={{ maxHeight: editorMaxHeight }}
               >
-                <TextEditor
-                  content={templateContent}
-                  pageSetup={pageSetup}
-                  headerConfig={headerConfig}
-                  onEditorReady={handleEditorReady}
-                  onContentChange={setTemplateContent}
-                  readOnly={isReadOnly}
-                  mode={isReadOnly ? "document" : "template"}
-                />
+                <div className="max-h-[calc(100vh-200px)] overflow-auto md:max-h-none md:overflow-visible">
+                  <TextEditor
+                    content={templateContent}
+                    pageSetup={pageSetup}
+                    headerConfig={headerConfig}
+                    onEditorReady={handleEditorReady}
+                    onContentChange={setTemplateContent}
+                    readOnly={isReadOnly}
+                    mode={isReadOnly ? "document" : "template"}
+                  />
+                </div>
               </main>
             </div>
-
             {/* Mobile / tablet sidebar drawer */}
             {sidebarOpen && (
               <div className="fixed inset-0 z-[60] flex lg:hidden">
+
                 {/* Drawer panel */}
-                <div className="relative h-full w-72 max-w-[80%] bg-white shadow-2xl">
+                <div className="relative h-full w-[360px] max-w-[85%] bg-white shadow-2xl">
                   <div className="flex items-center justify-between px-3 py-2 border-b">
                     <span className="text-xs font-semibold text-gray-700">
                       Tools
