@@ -57,7 +57,12 @@ function deepMerge(base, over) {
     const bv = base?.[k];
     const ov = over[k];
     out[k] =
-      bv && typeof bv === "object" && !Array.isArray(bv) && ov && typeof ov === "object" && !Array.isArray(ov)
+      bv &&
+      typeof bv === "object" &&
+      !Array.isArray(bv) &&
+      ov &&
+      typeof ov === "object" &&
+      !Array.isArray(ov)
         ? deepMerge(bv, ov)
         : ov;
   }
@@ -119,7 +124,6 @@ const DEFAULT_HEADER_CONFIG = {
   },
 };
 
-// Ensure any loaded config has the full structure
 function withHeaderDefaults(cfg) {
   const merged = deepMerge(DEFAULT_HEADER_CONFIG, cfg || {});
   if (!merged.footer) merged.footer = DEFAULT_HEADER_CONFIG.footer;
@@ -137,7 +141,6 @@ export default function DocumentControllerCreateTemplate() {
   const editorRef = useRef(null);
   const [editorInstance, setEditorInstance] = useState(null);
   const headerH = useHeaderHeight();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Template state
   const [templateId, setTemplateId] = useState(null);
@@ -158,7 +161,7 @@ export default function DocumentControllerCreateTemplate() {
   // HeaderFooter config
   const [headerConfig, setHeaderConfig] = useState(DEFAULT_HEADER_CONFIG);
 
-  // Document stamp (top-level)
+  // Document stamp
   const [documentCode, setDocumentCode] = useState("");
   const [revisionNo, setRevisionNo] = useState(0);
   const [effectivity, setEffectivity] = useState("");
@@ -172,7 +175,7 @@ export default function DocumentControllerCreateTemplate() {
   const [lastSavedDocumentCode, setLastSavedDocumentCode] = useState("");
   const [lastSavedRevisionNo, setLastSavedRevisionNo] = useState(0);
   const [lastSavedEffectivity, setLastSavedEffectivity] = useState(null);
-  const [lastSavedFields, setLastSavedFields] = useState([]); // 🔵 track last-saved editable fields
+  const [lastSavedFields, setLastSavedFields] = useState([]);
   const [dirty, setDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -186,15 +189,15 @@ export default function DocumentControllerCreateTemplate() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // Check if the current user is the creator and template is published
-  const isCreator = template?.created_by && user?.id && String(template.created_by) === String(user.id);
+  const isCreator =
+    template?.created_by && user?.id && String(template.created_by) === String(user.id);
   const isPublished = status === "published";
   const userRole = user?.role?.name || user?.role || "";
   const normalizedRole = String(userRole).toLowerCase().replace(/[_\s]+/g, " ").trim();
   const isDocumentControlOfficer =
-    normalizedRole === "document control officer" || normalizedRole === "document_controller_officer";
+    normalizedRole === "document control officer" ||
+    normalizedRole === "document_controller_officer";
 
-  // Creators cannot edit published templates unless they are Document Control Officers
   const isReadOnly = isPublished && isCreator && !isDocumentControlOfficer;
 
   /* load template */
@@ -234,7 +237,6 @@ export default function DocumentControllerCreateTemplate() {
 
       if (normalized.fontSettings) setFontSettings(normalized.fontSettings);
 
-      // 🔵 hydrate editable fields from any available normalized key
       let hydratedFields = [];
       if (Array.isArray(normalized.editableFields)) {
         hydratedFields = normalized.editableFields;
@@ -242,8 +244,6 @@ export default function DocumentControllerCreateTemplate() {
         hydratedFields = normalized.fields;
       } else if (Array.isArray(normalized.template?.fields)) {
         hydratedFields = normalized.template.fields;
-      } else {
-        hydratedFields = [];
       }
       setEditableFields(hydratedFields);
       setLastSavedFields(hydratedFields);
@@ -252,11 +252,15 @@ export default function DocumentControllerCreateTemplate() {
         normalized.headerConfig && Object.keys(normalized.headerConfig).length
           ? normalized.headerConfig
           : DEFAULT_HEADER_CONFIG;
+
       setHeaderConfig(loadedHeader);
 
-      if (normalized.document_code !== undefined) setDocumentCode(normalized.document_code ?? "");
-      if (normalized.revision_no !== undefined) setRevisionNo(normalized.revision_no ?? 0);
-      if (normalized.effectivity !== undefined) setEffectivity(normalized.effectivity ?? "");
+      if (normalized.document_code !== undefined)
+        setDocumentCode(normalized.document_code ?? "");
+      if (normalized.revision_no !== undefined)
+        setRevisionNo(normalized.revision_no ?? 0);
+      if (normalized.effectivity !== undefined)
+        setEffectivity(normalized.effectivity ?? "");
 
       setLastSavedTitle(normalized.templateTitle || "");
       setLastSavedPageSetup(nextPageSetup);
@@ -264,7 +268,6 @@ export default function DocumentControllerCreateTemplate() {
       setLastSavedDocumentCode((normalized.document_code ?? "").toString());
       setLastSavedRevisionNo(Number(normalized.revision_no ?? 0));
       setLastSavedEffectivity(normalized.effectivity ?? null);
-      // note: lastSavedContent is still initialized on first save
     } catch (e) {
       console.error(e);
       toast.error("Failed to load template.");
@@ -327,7 +330,6 @@ export default function DocumentControllerCreateTemplate() {
         pages_json,
         body: editor ? editor.getHTML() : typeof templateContent === "string" ? templateContent : "",
         pageSetup,
-        // 🔵 persist editable fields + tags under both keys for compatibility
         fields: normalizedFields,
         editableFields: normalizedFields,
         headerConfig,
@@ -355,7 +357,7 @@ export default function DocumentControllerCreateTemplate() {
       setLastSavedDocumentCode(normDocumentCode.toString());
       setLastSavedRevisionNo(Number(normRevisionNo));
       setLastSavedEffectivity(normEffectivity ?? null);
-      setLastSavedFields(normalizedFields); // 🔵 mark fields as saved
+      setLastSavedFields(normalizedFields);
       setLastSavedAt(new Date());
       setDirty(false);
     } catch (e) {
@@ -368,7 +370,6 @@ export default function DocumentControllerCreateTemplate() {
 
   // Autosave
   useEffect(() => {
-    // Skip autosave if template is read-only
     if (isReadOnly) return;
 
     if (!templateId && !templateTitle && !templateContent) return;
@@ -381,7 +382,7 @@ export default function DocumentControllerCreateTemplate() {
       String(documentCode ?? "") !== String(lastSavedDocumentCode ?? "") ||
       Number(revisionNo ?? 0) !== Number(lastSavedRevisionNo ?? 0) ||
       (effectivity ?? null) !== (lastSavedEffectivity ?? null) ||
-      JSON.stringify(editableFields) !== JSON.stringify(lastSavedFields); // 🔵 fields change detection
+      JSON.stringify(editableFields) !== JSON.stringify(lastSavedFields);
 
     setDirty(isDirty);
     if (!isDirty) return;
@@ -399,7 +400,7 @@ export default function DocumentControllerCreateTemplate() {
     documentCode,
     revisionNo,
     effectivity,
-    editableFields,       // 🔵 watch fields
+    editableFields,
     lastSavedContent,
     lastSavedTitle,
     lastSavedPageSetup,
@@ -407,13 +408,12 @@ export default function DocumentControllerCreateTemplate() {
     lastSavedDocumentCode,
     lastSavedRevisionNo,
     lastSavedEffectivity,
-    lastSavedFields,      // 🔵 watch last-saved snapshot
+    lastSavedFields,
   ]);
 
   // Save on unmount/navigation if dirty
   useEffect(() => {
     const beforeUnload = (e) => {
-      // Don't save if read-only
       if (dirty && !isReadOnly) {
         handleSave();
         e.preventDefault();
@@ -474,7 +474,8 @@ export default function DocumentControllerCreateTemplate() {
       await loadTemplate(templateId);
     } catch (e) {
       console.error("Failed to submit for approval:", e);
-      const errorMsg = e.response?.data?.message || e.message || "Failed to submit for approval.";
+      const errorMsg =
+        e.response?.data?.message || e.message || "Failed to submit for approval.";
       if (e.response?.status === 400 && errorMsg.includes("already submitted")) {
         toast.success("This template has already been submitted for approval.");
         await loadTemplate(templateId);
@@ -496,7 +497,15 @@ export default function DocumentControllerCreateTemplate() {
   const [selectedPanel, setSelectedPanel] = useState("font");
 
   const renderPanel = () => {
-    // If read-only, show a message instead of editable panels
+    // keep guard so panels don't break when editor not ready
+    if (!editorInstance) {
+      return (
+        <div className="p-4 text-sm text-gray-500">
+          Editor is loading…
+        </div>
+      );
+    }
+
     if (isReadOnly) {
       return (
         <div className="flex h-full items-center justify-center p-6">
@@ -555,9 +564,15 @@ export default function DocumentControllerCreateTemplate() {
             value={headerValue}
             onChange={(val) => {
               const topDocCode =
-                val?.document_code ?? val?.docCode ?? val?.documentStamp?.docCode ?? "";
+                val?.document_code ??
+                val?.docCode ??
+                val?.documentStamp?.docCode ??
+                "";
               const topRevisionNo =
-                val?.revision_no ?? val?.revisionNo ?? val?.documentStamp?.revisionNo ?? 0;
+                val?.revision_no ??
+                val?.revisionNo ??
+                val?.documentStamp?.revisionNo ??
+                0;
               const topEffectivity =
                 val?.effectivity ?? val?.documentStamp?.effectivity ?? "";
 
@@ -627,67 +642,22 @@ export default function DocumentControllerCreateTemplate() {
             onShowVersionHistory={() => setShowVersionHistory(true)}
           />
 
-          {/* MAIN LAYOUT UNDER HEADER */}
-          <div className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 lg:py-6">
-            {/* Mobile / tablet toolbar */}
-            <div className="flex items-center justify-between mb-3 lg:hidden">
-              <h2 className="text-sm font-medium text-gray-700 truncate">
-                Template editor
-              </h2>
-              <button
-                type="button"
-                onClick={() => setSidebarOpen((prev) => !prev)}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm active:scale-[0.98]"
-              >
-                <span>{sidebarOpen ? "Hide tools" : "Show tools"}</span>
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h11A1.5 1.5 0 0 1 17 4.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5v-11Zm2 1a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5H7v-10H5Zm4 0v10h6.5a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5H9Z" />
-                </svg>
-              </button>
-            </div>
+          {/* MAIN LAYOUT UNDER HEADER — old design reapplied */}
+          <div className="flex flex-1">
+            {/* Sidebar */}
+            <TemplateSidebar
+              selectedPanel={selectedPanel}
+              onSelectPanel={setSelectedPanel}
+              topOffsetPx={headerH + 12}
+              bottomOffsetPx={16}
+            >
+              {renderPanel()}
+            </TemplateSidebar>
 
-            {/* Desktop / large screens layout */}
-            <div className="hidden lg:flex lg:flex-row lg:gap-10">
-              {/* Sidebar on the left (desktop) */}
-              <div className="flex-shrink-0 -ml-2 xl:-ml-4">
-                <TemplateSidebar
-                  selectedPanel={selectedPanel}
-                  onSelectPanel={setSelectedPanel}
-                  topOffsetPx={headerH + 12}
-                  bottomOffsetPx={16}
-                >
-                  {renderPanel()}
-                </TemplateSidebar>
-              </div>
-
-              {/* Editor on the right */}
-              <div className="flex-1 min-w-0 lg:ml-12">
-                <main
-                  className="flex-1 overflow-auto rounded-xl border bg-white shadow-sm"
-                  style={{ maxHeight: editorMaxHeight }}
-                >
-                  <TextEditor
-                    content={templateContent}
-                    pageSetup={pageSetup}
-                    headerConfig={headerConfig}
-                    onEditorReady={handleEditorReady}
-                    onContentChange={setTemplateContent}
-                    readOnly={isReadOnly}
-                    mode={isReadOnly ? "document" : "template"}
-                  />
-                </main>
-              </div>
-            </div>
-
-            {/* Editor for mobile / tablet (always visible) */}
-            <div className="lg:hidden">
+            {/* Editor area */}
+            <div className="flex-1 mx-auto w-full max-w-7xl px-4 py-6 md:pl-6">
               <main
-                className="flex-1 overflow-auto rounded-xl border bg-white shadow-sm"
+                className="flex-1 overflow-auto"
                 style={{ maxHeight: editorMaxHeight }}
               >
                 <TextEditor
@@ -701,62 +671,6 @@ export default function DocumentControllerCreateTemplate() {
                 />
               </main>
             </div>
-
-            {/* Mobile / tablet sidebar drawer */}
-            {sidebarOpen && (
-              <div className="fixed inset-0 z-[60] flex lg:hidden">
-                {/* Drawer panel */}
-                <div className="relative h-full w-72 max-w-[80%] bg-white shadow-2xl">
-                  <div className="flex items-center justify-between px-3 py-2 border-b">
-                    <span className="text-xs font-semibold text-gray-700">
-                      Tools
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setSidebarOpen(false)}
-                      className="p-1 rounded-full hover:bg-gray-100"
-                      aria-label="Close tools"
-                    >
-                      <svg
-                        className="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 5l10 10M15 5 5 15"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-
-                  <div className="h-[calc(100%-40px)] overflow-y-auto">
-                    <TemplateSidebar
-                      inDrawer={true}
-                      selectedPanel={selectedPanel}
-                      onSelectPanel={(panel) => {
-                        setSelectedPanel(panel);
-                      }}
-                      topOffsetPx={0}
-                      bottomOffsetPx={16}
-                    >
-                      {renderPanel()}
-                    </TemplateSidebar>
-                  </div>
-                </div>
-
-                {/* Backdrop */}
-                <button
-                  type="button"
-                  className="flex-1 bg-black/30"
-                  onClick={() => setSidebarOpen(false)}
-                  aria-label="Close tools backdrop"
-                />
-              </div>
-            )}
           </div>
         </div>
       )}
