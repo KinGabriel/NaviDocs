@@ -5,7 +5,7 @@ import useUser from "../../hooks/useUser";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import Greeting from "../../components/greeting";
-import StatCard from "../../components/cards/statcard";
+import StatCard from "../../components/cards/statCard";
 import Table from "../../components/table";
 import Loader from "../../components/loader";
 

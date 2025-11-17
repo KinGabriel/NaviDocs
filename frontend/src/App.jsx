@@ -13,7 +13,6 @@ import AdminEditUser from "./pages/admin/adminEditUser";
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
-import DocumentControllerWorkflowView from './pages/document_controller/documentControllerWorkflowView';
 import NotFoundPage from './pages/error_pages/notFoundPage';
 import ServerErrorPage from './pages/error_pages/serverErrorPage';
 import UnauthorizedPage from './pages/error_pages/unauthorizedPage';
@@ -21,11 +20,9 @@ import useUser from './hooks/useUser';
 import SecretaryDashboard from './pages/secretary/secretaryDashboard';
 import TemplatesView from './pages/templatesView';
 import DeanDashboard from './pages/dean/deanDashboard';
-import DeanDocumentWorkflowView from './pages/dean/deanDocumentWorkflowView';
 import DocControllerTemplates from "./pages/document_controller/documentControllerHandleTemplates.jsx";
 import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
 import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics';
-import DepartmentHeadDocumentWorkflowView from './pages/dept_head/departmentHeadDocumentWorkflowView';
 import FacultyDashboard from './pages/faculty/facultyDashboard';
 import FacultySubmissions from './pages/faculty/facultySubmissions';
 import FacultySubmissionView from './pages/faculty/facultySubmissionView';
@@ -224,15 +221,6 @@ function App() {
           }
         />
 
-        <Route
-          path="/document-controller/document-workflow/:id"
-          element={
-            <ProtectedRoute allowedRoles={["Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
-              <DocumentControllerWorkflowView />
-            </ProtectedRoute>
-          }
-        />
-
         {/* Secretary Module */}
         <Route
           path="/secretary/dashboard"
@@ -262,23 +250,8 @@ function App() {
           }
         />
         <Route path="/dean/templates" element={<Navigate to="/templates" replace />} />
-        <Route
-          path="/dean/document-workflow/:id"
-          element={
-            <ProtectedRoute allowedRoles={["Dean"]}>
-              <DeanDocumentWorkflowView />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dean/documents/:id"
-          element={
-            <ProtectedRoute allowedRoles={["Dean"]}>
-              <DeanDocumentWorkflowView />
-            </ProtectedRoute>
-          }
-        />
 
+    
         {/* Submission bins */}
         <Route
           path="/submission-bins"
@@ -318,23 +291,6 @@ function App() {
         />
 
         <Route path="/dept-head/templates" element={<Navigate to="/templates" replace />} />
-
-        <Route
-          path="/dept-head/document-workflow/:id"
-          element={
-            <ProtectedRoute allowedRoles={["Department Head"]}>
-              <DepartmentHeadDocumentWorkflowView />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/department-head/documents/:id"
-          element={
-            <ProtectedRoute allowedRoles={["Department Head"]}>
-              <DepartmentHeadDocumentWorkflowView />
-            </ProtectedRoute>
-          }
-        />
 
         {/* Faculty Module */}
         <Route
