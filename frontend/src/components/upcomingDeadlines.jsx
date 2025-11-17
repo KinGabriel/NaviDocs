@@ -83,10 +83,11 @@ export default function UpcomingDeadlines({
               <button
                 key={deadline.id}
                 onClick={() =>
-                  navigate(`/submission-bin/${deadline.id}`, { state: { deadline } })
+                  navigate(`/submission-details/${deadline.id}`, { state: { deadline } })
                 }
                 className="w-full text-left border border-gray-100 rounded-lg p-3 hover:shadow-sm transition-shadow"
               >
+
                 <div className="flex items-start justify-between mb-2">
                   <h4 className="font-medium text-xs md:text-sm text-gray-800 flex-1">
                     {deadline.title}
