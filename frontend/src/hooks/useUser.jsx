@@ -30,11 +30,19 @@ export default function useUser() {
 
     // Listen for cross-tab updates (logout/login in another tab)
     function handleStorage(e) {
-      if (e.key === 'user') {
+      // Handle both cross-tab storage events and custom storage events
+      if (!e.key || e.key === 'user') {
         syncFromStorage();
       }
     }
+    
+    // Listen for auth changes (login/logout/profile update)
+    function handleAuthChange() {
+      syncFromStorage();
+    }
+    
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('auth:change', handleAuthChange);
 
     // Stale check & silent refresh
     const lastRefreshed = Number(localStorage.getItem('user_last_refreshed')) || 0;
@@ -62,6 +70,7 @@ export default function useUser() {
 
     return () => {
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('auth:change', handleAuthChange);
     };
   }, [user]);
 

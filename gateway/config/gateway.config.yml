@@ -142,10 +142,15 @@ pipelines:
               origin: ['${FRONTEND_URL}', 'http://localhost:5173', 'http://127.0.0.1:5173']
               methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
               credentials: true
+              exposedHeaders:
+                - Content-Type
+                - Content-Length
+                - Cross-Origin-Resource-Policy
       - proxy:
           - action:
               serviceEndpoint: file-service
               changeOrigin: true
+              preserveHeaderKeyCase: true
 
   analytics-graphql-pipeline:
     apiEndpoints:
