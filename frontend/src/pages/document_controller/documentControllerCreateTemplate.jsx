@@ -172,6 +172,7 @@ export default function DocumentControllerCreateTemplate() {
   const [lastSavedDocumentCode, setLastSavedDocumentCode] = useState("");
   const [lastSavedRevisionNo, setLastSavedRevisionNo] = useState(0);
   const [lastSavedEffectivity, setLastSavedEffectivity] = useState(null);
+  const [lastSavedFields, setLastSavedFields] = useState([]); // 🔵 track last-saved editable fields
   const [dirty, setDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -233,16 +234,19 @@ export default function DocumentControllerCreateTemplate() {
 
       if (normalized.fontSettings) setFontSettings(normalized.fontSettings);
 
-      // PATCH: hydrate editable fields from any available normalized key
+      // 🔵 hydrate editable fields from any available normalized key
+      let hydratedFields = [];
       if (Array.isArray(normalized.editableFields)) {
-        setEditableFields(normalized.editableFields);
+        hydratedFields = normalized.editableFields;
       } else if (Array.isArray(normalized.fields)) {
-        setEditableFields(normalized.fields);
+        hydratedFields = normalized.fields;
       } else if (Array.isArray(normalized.template?.fields)) {
-        setEditableFields(normalized.template.fields);
+        hydratedFields = normalized.template.fields;
       } else {
-        setEditableFields([]);
+        hydratedFields = [];
       }
+      setEditableFields(hydratedFields);
+      setLastSavedFields(hydratedFields);
 
       const loadedHeader =
         normalized.headerConfig && Object.keys(normalized.headerConfig).length
@@ -260,6 +264,7 @@ export default function DocumentControllerCreateTemplate() {
       setLastSavedDocumentCode((normalized.document_code ?? "").toString());
       setLastSavedRevisionNo(Number(normalized.revision_no ?? 0));
       setLastSavedEffectivity(normalized.effectivity ?? null);
+      // note: lastSavedContent is still initialized on first save
     } catch (e) {
       console.error(e);
       toast.error("Failed to load template.");
@@ -322,7 +327,7 @@ export default function DocumentControllerCreateTemplate() {
         pages_json,
         body: editor ? editor.getHTML() : typeof templateContent === "string" ? templateContent : "",
         pageSetup,
-        // PATCH: persist editable fields + tags under both keys for compatibility
+        // 🔵 persist editable fields + tags under both keys for compatibility
         fields: normalizedFields,
         editableFields: normalizedFields,
         headerConfig,
@@ -350,6 +355,7 @@ export default function DocumentControllerCreateTemplate() {
       setLastSavedDocumentCode(normDocumentCode.toString());
       setLastSavedRevisionNo(Number(normRevisionNo));
       setLastSavedEffectivity(normEffectivity ?? null);
+      setLastSavedFields(normalizedFields); // 🔵 mark fields as saved
       setLastSavedAt(new Date());
       setDirty(false);
     } catch (e) {
@@ -374,7 +380,8 @@ export default function DocumentControllerCreateTemplate() {
       JSON.stringify(headerConfig) !== JSON.stringify(lastSavedHeaderConfig) ||
       String(documentCode ?? "") !== String(lastSavedDocumentCode ?? "") ||
       Number(revisionNo ?? 0) !== Number(lastSavedRevisionNo ?? 0) ||
-      (effectivity ?? null) !== (lastSavedEffectivity ?? null);
+      (effectivity ?? null) !== (lastSavedEffectivity ?? null) ||
+      JSON.stringify(editableFields) !== JSON.stringify(lastSavedFields); // 🔵 fields change detection
 
     setDirty(isDirty);
     if (!isDirty) return;
@@ -392,11 +399,15 @@ export default function DocumentControllerCreateTemplate() {
     documentCode,
     revisionNo,
     effectivity,
+    editableFields,       // 🔵 watch fields
+    lastSavedContent,
+    lastSavedTitle,
     lastSavedPageSetup,
     lastSavedHeaderConfig,
     lastSavedDocumentCode,
     lastSavedRevisionNo,
     lastSavedEffectivity,
+    lastSavedFields,      // 🔵 watch last-saved snapshot
   ]);
 
   // Save on unmount/navigation if dirty

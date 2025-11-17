@@ -19,7 +19,7 @@ import toast from "react-hot-toast";
  * - Full sync with the text editor for insert/remove actions
  */
 
-export default function FieldsPanel({ editor, fields = [], onChange = () => { } }) {
+export default function FieldsPanel({ editor, fields = [], onChange = () => {} }) {
   const user = useUser();
   const [activeTab, setActiveTab] = useState("fields"); // "fields" | "tags"
   const [accordions, setAccordions] = useState(() => [
@@ -37,6 +37,9 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => { } 
   const [loadingSavedGroups, setLoadingSavedGroups] = useState(false);
   const [selectedSavedGroup, setSelectedSavedGroup] = useState(null);
   const [groupBrowserOpen, setGroupBrowserOpen] = useState(false);
+
+  // 🔵 Autosave status: "idle" | "saving" | "saved"
+  const [savingStatus, setSavingStatus] = useState("idle");
 
   // hydrate from persisted fields prop with loop-guard
   const lastHydratedRef = React.useRef("");
@@ -56,20 +59,19 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => { } 
         fields[0] && fields[0].fields
           ? fields // already grouped: [{ id, name, fields, style? }]
           : [
-            {
-              id: `acc-${Date.now()}`,
-              name: "Section 1",
-              fields,
-            },
-          ];
+              {
+                id: `acc-${Date.now()}`,
+                name: "Section 1",
+                fields,
+              },
+            ];
 
       const incomingStr = stableStringify(incoming);
       if (incomingStr === lastHydratedRef.current) return; // no change
 
       setAccordions(incoming);
       lastHydratedRef.current = incomingStr;
-    } catch {
-    }
+    } catch {}
   }, [fields]);
 
   // Load tags registry and recent tags from backend
@@ -101,7 +103,7 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => { } 
     })();
   }, []);
 
-  // Derived values 
+  // Derived values
   const allFields = useMemo(
     () => accordions.flatMap((a) => a.fields || []),
     [accordions]
@@ -153,6 +155,31 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => { } 
     }));
   }, [accordions, tagsRegistry]);
 
+  // 🔥 Autosave: whenever accordions or tagsRegistry change, push serialized to parent
+  useEffect(() => {
+    if (!onChange) return;
+
+    // start saving state
+    setSavingStatus("saving");
+
+    const timeout = setTimeout(() => {
+      const serialized = serialize();
+      onChange(serialized);
+
+      setSavingStatus("saved");
+
+      // Auto-fade "Editable Fields Updated ✓" after 4 seconds
+      const fadeTimeout = setTimeout(() => {
+        setSavingStatus("idle");
+      }, 4000);
+
+      // optional cleanup of fade timeout if you want to be extra safe
+      return () => clearTimeout(fadeTimeout);
+    }, 500); // debounce 500ms
+
+    return () => clearTimeout(timeout);
+  }, [accordions, tagsRegistry, onChange, serialize]);
+
   // derive recent tags based on current template usage, merged with backend recents
   useEffect(() => {
     try {
@@ -169,17 +196,17 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => { } 
       const byId = new Map(tagsRegistry.map((t) => [t.id, t]));
       const mergedIds = [];
       for (const id of localRecents) if (byId.has(id)) mergedIds.push(id);
-      for (const t of recentTags) if (!mergedIds.includes(t.id)) mergedIds.push(t.id);
+      for (const t of recentTags)
+        if (!mergedIds.includes(t.id)) mergedIds.push(t.id);
       const merged = mergedIds
         .map((id) => byId.get(id))
         .filter(Boolean)
         .slice(0, 12);
       if (merged.length) setRecentTags(merged);
-    } catch {
-    }
+    } catch {}
   }, [accordions, tagsRegistry]);
 
-  // Field sync with editor 
+  // Field sync with editor
   const handleInsertField = (field) => {
     if (!editor || !field) return;
 
@@ -280,7 +307,7 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => { } 
     );
   };
 
-  // Persistence 
+  // Persistence (no longer used by button, but kept for compatibility if needed elsewhere)
   const persistAll = () => {
     const colorById = new Map(
       (tagsRegistry || []).map((t) => [t.id, t.color || "#7e57c2"])
@@ -350,8 +377,7 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => { } 
           return;
         }
       }
-    } catch {
-    }
+    } catch {}
 
     const mappedFields = (group.fields || []).map((f) => ({
       id: f.key || f.id || f._id || `fld-${Date.now().toString(36)}`,
@@ -437,8 +463,7 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => { } 
       if (overwriteMessage) {
         toast(overwriteMessage, { icon: "ℹ️" });
       }
-    } catch {
-    }
+    } catch {}
 
     const fieldsToSave = (acc.fields || []).map((f) => ({
       id: f.id || f.key || f._id,
@@ -488,8 +513,7 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => { } 
       setIsSavingGroup(false);
       try {
         await loadSavedGroups();
-      } catch {
-      }
+      } catch {}
     }
   };
 
@@ -515,29 +539,45 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => { } 
     loadSavedGroups();
   }, [user?._id, user?.id]);
 
-  // Render 
+  // Render
   return (
     <div className="space-y-3">
       <div className="flex items-center border-b border-slate-200">
         <button
           onClick={() => setActiveTab("fields")}
-          className={`flex-1 px-3 py-2 text-sm font-medium ${activeTab === "fields"
-            ? "border-b-2 border-indigo-600 text-indigo-700"
-            : "text-slate-500 hover:text-slate-700"
-            }`}
+          className={`flex-1 px-3 py-2 text-sm font-medium ${
+            activeTab === "fields"
+              ? "border-b-2 border-indigo-600 text-indigo-700"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
         >
           Editable Fields
         </button>
         <button
           onClick={() => setActiveTab("tags")}
-          className={`flex-1 px-3 py-2 text-sm font-medium ${activeTab === "tags"
-            ? "border-b-2 border-indigo-600 text-indigo-700"
-            : "text-slate-500 hover:text-slate-700"
-            }`}
+          className={`flex-1 px-3 py-2 text-sm font-medium ${
+            activeTab === "tags"
+              ? "border-b-2 border-indigo-600 text-indigo-700"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
         >
           Tags
         </button>
       </div>
+
+      {/* Top-right status indicator for Editable Fields tab */}
+      {activeTab === "fields" && (
+        <div className="flex justify-end px-3 pt-1">
+          {savingStatus === "saving" && (
+            <div className="text-xs text-slate-500">Saving...</div>
+          )}
+          {savingStatus === "saved" && (
+            <div className="text-xs text-green-600 font-medium">
+              Editable Fields Updated 
+            </div>
+          )}
+        </div>
+      )}
 
       {activeTab === "fields" && (
         <div className="p-2 space-y-3">
@@ -613,10 +653,7 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => { } 
                 </div>
                 <div className="space-y-1 text-[13px]">
                   {(selectedSavedGroup.fields || []).map((f, idx) => (
-                    <div
-                      key={f.key || f.id || idx}
-                      className="text-slate-700"
-                    >
+                    <div key={f.key || f.id || idx} className="text-slate-700">
                       • {f.label || f.key}{" "}
                       <span className="text-xs text-slate-400">
                         ({f.type || "text"})
@@ -628,14 +665,7 @@ export default function FieldsPanel({ editor, fields = [], onChange = () => { } 
             )}
           </div>
 
-          <div className="flex justify-end">
-            <button
-              onClick={() => onChange(serialize())}
-              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700"
-            >
-              Save All Changes
-            </button>
-          </div>
+          {/* Save All Changes button removed — autosave handles persistence */}
         </div>
       )}
 
