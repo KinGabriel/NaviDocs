@@ -10,7 +10,7 @@ import Subscript from "@tiptap/extension-subscript";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import { Extension } from "@tiptap/core";
-import Image from "@tiptap/extension-image"; // ⬅️ Image with resize
+import Image from "@tiptap/extension-image";
 
 // PRO EXTENSIONS
 import {
@@ -85,8 +85,8 @@ const buildHeaderHTML = (config = {}) => {
   const centerText = header.centerText || {};
   const {
     enabled: centerEnabled = true,
-    showHeaderLine = false,        // legacy boolean
-    headerLineOffsetPx,            // legacy offset (px) if present
+    showHeaderLine = false,
+    headerLineOffsetPx,
     line1 = "",
     line2 = "",
     line3 = "",
@@ -103,7 +103,6 @@ const buildHeaderHTML = (config = {}) => {
     color,
   } = centerText;
 
-  // New header line object (preferred)
   const headerLine = header.headerLine || {};
   const {
     enabled: headerLineEnabledRaw,
@@ -112,13 +111,11 @@ const buildHeaderHTML = (config = {}) => {
     color: headerLineColorRaw,
   } = headerLine;
 
-  // Resolve whether to show the line (new config wins, else legacy flag)
   const showLine =
     typeof headerLineEnabledRaw === "boolean"
       ? headerLineEnabledRaw
       : !!showHeaderLine;
 
-  // Resolve top margin (new topMarginPx wins, else legacy headerLineOffsetPx, else 4)
   const lineTopMarginPx =
     typeof topMarginPx === "number"
       ? topMarginPx
@@ -126,13 +123,11 @@ const buildHeaderHTML = (config = {}) => {
         ? headerLineOffsetPx
         : 4;
 
-  // Resolve thickness (defaults to 1px)
   const lineThicknessPx =
     typeof thicknessPx === "number" && thicknessPx > 0
       ? thicknessPx
       : 1;
 
-  // Resolve color (defaults to black)
   const lineColor = headerLineColorRaw || "#000000";
 
   const normalizeLineStyle = (style, fallback) => {
@@ -195,7 +190,6 @@ const buildHeaderHTML = (config = {}) => {
     `
     : "";
 
-  // full-width line below the entire header row (now driven by header.headerLine)
   const fullWidthLineHTML = showLine
     ? `<div style="margin-top:${lineTopMarginPx}px; border-bottom:${lineThicknessPx}px solid ${escapeHtml(
         lineColor
@@ -269,7 +263,6 @@ const buildFooterHTML = (config = {}) => {
   const bodyFontSize = body.fontSize || 12;
   const bodyColor = body.color || "#000000";
 
-  // 1) No body text → simple centered page number (full width)
   if (!bodyEnabled) {
     if (!pnEnabled) return "";
 
@@ -300,7 +293,6 @@ const buildFooterHTML = (config = {}) => {
     `;
   }
 
-  // 2) Body enabled → two-column layout (body + page number)
   const bodyHTML = `
     <div
       style="
@@ -429,7 +421,7 @@ export default function TextEditor({
 
   const initialPageFormat = useMemo(
     () => buildPageFormatFromSetup(pageSetup),
-    [] // only at mount; later changes handled in effect
+    []
   );
 
   const editor = useEditor({
@@ -440,8 +432,8 @@ export default function TextEditor({
         headerHeight: inchToPixels(headerConfig.headerHeightIn || 0.75),
         footerHeight: inchToPixels(headerConfig.footerHeightIn || 0.75),
         pageGap: 40,
-        header: "",               // will be overridden by setHeader effect
-        footer: "{page}",         // will be overridden by setFooter effect
+        header: "",
+        footer: "{page}",
       }),
       TableKit,
       TextStyle,
@@ -455,7 +447,6 @@ export default function TextEditor({
         types: ["heading", "paragraph"],
       }),
       Image.configure({
-        // base64 so your FileReader + setImage works
         allowBase64: true,
         resize: {
           enabled: true,
@@ -493,19 +484,16 @@ export default function TextEditor({
     },
   });
 
-  // readOnly → editor.setEditable
   useEffect(() => {
     if (!editor) return;
     editor.setEditable(!readOnly);
   }, [editor, readOnly]);
 
-  // mode → lock policy
   useEffect(() => {
     if (!setPolicyRef.current) return;
     setPolicyRef.current(mode === "document" ? "document" : "template");
   }, [mode]);
 
-  // external content → setContent (defensive against view not ready)
   useEffect(() => {
     if (!editor) return;
 
@@ -558,7 +546,6 @@ export default function TextEditor({
     };
   }, [editor, content, mode]);
 
-  // pageSetup → setPageFormat (defensive)
   useEffect(() => {
     if (!editor) return;
 
@@ -588,7 +575,6 @@ export default function TextEditor({
     };
   }, [editor, pageSetup]);
 
-  // headerConfig → setHeader / setFooter / setHeaderHeight / setFooterHeight
   useEffect(() => {
     if (!editor) return;
 
@@ -609,7 +595,6 @@ export default function TextEditor({
         const headerHTML = buildHeaderHTML(cfg);
         const footerHTML = buildFooterHTML(cfg);
 
-        // Tiptap Pages header/footer commands (per docs)
         editor.commands.setHeader(headerHTML || "");
         editor.commands.setFooter(footerHTML || "");
 
@@ -631,7 +616,6 @@ export default function TextEditor({
     };
   }, [editor, headerConfig]);
 
-  // cleanup
   useEffect(
     () => () => {
       editor?.destroy();
