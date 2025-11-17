@@ -795,10 +795,25 @@ export default function Storage() {
             onClose={() => setShowRenameModal(false)}
             currentTitle={itemToRename?.name}
             onSubmit={async (newTitle) => {
-              await renameFolderAPI(itemToRename._id, newTitle);
-              setShowRenameModal(false);
-              setItemToRename(null);
-              await loadContent();
+              try {
+                await renameFolderAPI(itemToRename._id, newTitle);
+                setShowRenameModal(false);
+                setItemToRename(null);
+                await loadContent();
+                toast.success("Folder renamed successfully");
+              } catch (err) {
+                console.error("Rename folder error:", err);
+                const errorMsg = err.message || err?.response?.data?.message || "";
+                const statusCode = err?.response?.status || err?.status;
+                
+                if (statusCode === 403 || errorMsg.toLowerCase().includes("forbidden") || errorMsg.toLowerCase().includes("permission")) {
+                  toast.error("You are not authorized to rename this folder. Only the owner or editors can rename it.");
+                } else if (statusCode === 409 || errorMsg.toLowerCase().includes("already exists")) {
+                  toast.error("A folder with this name already exists.");
+                } else {
+                  toast.error(errorMsg || "Failed to rename folder");
+                }
+              }
             }}
           />
         )}
@@ -808,10 +823,25 @@ export default function Storage() {
             onClose={() => setShowRenameModal(false)}
             currentTitle={itemToRename?.name || itemToRename?.originalName}
             onSubmit={async (newTitle) => {
-              await renameFileAPI(itemToRename._id, newTitle, selectedFolder?._id);
-              setShowRenameModal(false);
-              setItemToRename(null);
-              await loadContent();
+              try {
+                await renameFileAPI(itemToRename._id, newTitle, selectedFolder?._id);
+                setShowRenameModal(false);
+                setItemToRename(null);
+                await loadContent();
+                toast.success("File renamed successfully");
+              } catch (err) {
+                console.error("Rename file error:", err);
+                const errorMsg = err.message || err?.response?.data?.message || "";
+                const statusCode = err?.response?.status || err?.status;
+                
+                if (statusCode === 403 || errorMsg.toLowerCase().includes("forbidden") || errorMsg.toLowerCase().includes("permission")) {
+                  toast.error("You are not authorized to rename this file. Only the owner or editors can rename it.");
+                } else if (statusCode === 409 || errorMsg.toLowerCase().includes("already exists")) {
+                  toast.error("A file with this name already exists.");
+                } else {
+                  toast.error(errorMsg || "Failed to rename file");
+                }
+              }
             }}
           />
         )}
@@ -828,16 +858,31 @@ export default function Storage() {
                 : itemToRemove?.name || itemToRemove?.originalName || "File"
             }
             onConfirm={async () => {
-              if (removeType === "folder") {
-                await deleteFolderByIDAPI(itemToRemove._id);
-              } else {
-                if (selectedFolder?._id)
-                  await deleteFileFromFolderAPI(selectedFolder._id, itemToRemove._id);
-                else await deleteFileAPI(itemToRemove._id);
+              try {
+                if (removeType === "folder") {
+                  await deleteFolderByIDAPI(itemToRemove._id);
+                  toast.success("Folder deleted successfully");
+                } else {
+                  if (selectedFolder?._id)
+                    await deleteFileFromFolderAPI(selectedFolder._id, itemToRemove._id);
+                  else await deleteFileAPI(itemToRemove._id);
+                  toast.success("File deleted successfully");
+                }
+                setShowRemoveModal(false);
+                setItemToRemove(null);
+                await loadContent();
+              } catch (err) {
+                console.error("Delete error:", err);
+                // Check for 403 Forbidden status or permission-related messages
+                const errorMsg = err.message || err?.response?.data?.message || "";
+                const statusCode = err?.response?.status || err?.status;
+                
+                if (statusCode === 403 || errorMsg.toLowerCase().includes("forbidden") || errorMsg.toLowerCase().includes("permission")) {
+                  toast.error(`You are not authorized to delete this ${removeType}. Only the owner or editors can delete it.`);
+                } else {
+                  toast.error(errorMsg || `Failed to delete ${removeType}`);
+                }
               }
-              setShowRemoveModal(false);
-              setItemToRemove(null);
-              await loadContent();
             }}
           />
         )}

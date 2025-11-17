@@ -611,8 +611,19 @@ export default function FolderComponent({
             await renameFolderAPI(folder._id, newTitle);
             setIsRenameOpen(false);
             if (onDelete) onDelete(folder);
+            toast.success("Folder renamed successfully");
           } catch (err) {
-            toast.error(err?.message || "Failed to rename folder");
+            console.error("Rename folder error:", err);
+            const errorMsg = err.message || err?.response?.data?.message || "";
+            const statusCode = err?.response?.status || err?.status;
+            
+            if (statusCode === 403 || errorMsg.toLowerCase().includes("forbidden") || errorMsg.toLowerCase().includes("permission")) {
+              toast.error("You are not authorized to rename this folder. Only the owner or editors can rename it.");
+            } else if (statusCode === 409 || errorMsg.toLowerCase().includes("already exists")) {
+              toast.error("A folder with this name already exists.");
+            } else {
+              toast.error(errorMsg || "Failed to rename folder");
+            }
           }
         }}
       />
@@ -628,8 +639,18 @@ export default function FolderComponent({
             await deleteFolderByIDAPI(folder._id);
             setIsRemoveOpen(false);
             if (onDelete) onDelete();
+            toast.success("Folder deleted successfully");
           } catch (err) {
-            toast.error(err.message || "Failed to remove folder");
+            console.error("Delete folder error:", err);
+            // Check for 403 Forbidden status or permission-related messages
+            const errorMsg = err.message || err?.response?.data?.message || "";
+            const statusCode = err?.response?.status || err?.status;
+            
+            if (statusCode === 403 || errorMsg.toLowerCase().includes("forbidden") || errorMsg.toLowerCase().includes("permission")) {
+              toast.error("You are not authorized to delete this folder. Only the owner or editors can delete it.");
+            } else {
+              toast.error(errorMsg || "Failed to remove folder");
+            }
           }
         }}
       />

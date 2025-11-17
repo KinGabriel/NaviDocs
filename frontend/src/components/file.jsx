@@ -743,11 +743,19 @@ export default function FileComponent({
             }
 
             setIsRemoveOpen(false);
+            toast.success("File deleted successfully");
             if (onDelete) onDelete(file._id);
           } catch (err) {
             console.error("Remove error:", err);
-            setRemoveError("Failed to remove the file. Please try again.");
-            toast.error("Failed to remove the file. Please try again.");
+            if (err.response?.status === 403) {
+              const errorMsg = "You are not authorized to delete this file. Only the owner can delete it.";
+              setRemoveError(errorMsg);
+              toast.error(errorMsg);
+            } else {
+              const errorMsg = err.response?.data?.message || "Failed to remove the file. Please try again.";
+              setRemoveError(errorMsg);
+              toast.error(errorMsg);
+            }
           } finally {
             setRemoving(false);
           }
