@@ -62,7 +62,7 @@ export default function TemplatesPage() {
 
   // Map UI statuses -> API / template.status values
   const statusMap = {
-    Draft: ['assigned'],
+    Draft: ['draft'],
     'Pending Approval': ['pending'],
     Approved: ['approved'],
     Endorsed: ['endorsed'],
