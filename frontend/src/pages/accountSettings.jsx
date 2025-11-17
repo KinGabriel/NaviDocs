@@ -8,13 +8,29 @@ import Loader from "../components/loader";
 import PasswordInput from "../components/passwordinput.jsx";
 import defaultProfile from '../assets/images/profile_picture.png';
 import { updateAccountSettingsAPI, updateUserPasswordAPI } from "../api/userAPI";
-
+import { verifySession } from "../api/authAPI";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function AdminAccountSettings() {
   const user = useUser();
   const isLoading = !user;
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      if (user && !user._id && !user.id && !sessionChecked) {
+        setSessionChecked(true);
+        try {
+          await verifySession();
+          window.location.reload();
+        } catch (err) {
+          toast.error("Please log out and log in again to continue.");
+        }
+      }
+    };
+    checkSession();
+  }, [user, sessionChecked]);
 
   // Profile / personal info state
   const [firstName, setFirstName] = useState("");
@@ -38,6 +54,11 @@ export default function AdminAccountSettings() {
 
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
+
+  // Helper to get user ID
+  const getUserId = () => {
+    return user?._id || user?.id || null;
+  };
 
   // Hydrate from current user
   useEffect(() => {
@@ -93,7 +114,18 @@ export default function AdminAccountSettings() {
   // Handlers
   const handleSaveInfo = async (e) => {
     e.preventDefault();
-    if (!canSaveInfo) return;
+    
+    const userId = getUserId();
+    
+    if (!userId) {
+      toast.error("Session expired. Please log out and log in again.");
+      return;
+    }
+    
+    if (!canSaveInfo) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
 
     setSavingInfo(true);
     setInfoMessage(null);
@@ -105,13 +137,13 @@ export default function AdminAccountSettings() {
         payload.append("firstname", normalizeName(firstName));
         payload.append("lastname", normalizeName(lastName));
         payload.append("profile_picture", photoFile);
-        response = await updateAccountSettingsAPI(user._id, payload);
+        response = await updateAccountSettingsAPI(userId, payload);
       } else {
         payload = {
           firstname: normalizeName(firstName),
           lastname: normalizeName(lastName),
         };
-        response = await updateAccountSettingsAPI(user._id, payload);
+        response = await updateAccountSettingsAPI(userId, payload);
       }
 
       const updatedUser = {
@@ -120,7 +152,11 @@ export default function AdminAccountSettings() {
         lastname: normalizeName(lastName),
         profile_picture: response.data.profile_picture || user.profile_picture,
       };
+      
+      // Update localStorage
       localStorage.setItem("user", JSON.stringify(updatedUser));
+      
+      // Trigger re-render across all components using useUser hook
       window.dispatchEvent(new Event("auth:change"));
 
       toast.success("Profile updated successfully.");
@@ -129,7 +165,8 @@ export default function AdminAccountSettings() {
       setPhotoFile(null);
       setFirstName(updatedUser.firstname);
       setLastName(updatedUser.lastname);
-      // Only update photoPreview if a new image is returned, otherwise keep the current preview
+      
+      // Update photoPreview with server URL immediately
       if (response.data.profile_picture) {
         let pic = response.data.profile_picture;
         if (typeof pic === "string" && !pic.startsWith("http")) {
@@ -140,9 +177,9 @@ export default function AdminAccountSettings() {
     } catch (err) {
       if (mountedRef.current) {
         setInfoSuccess(false);
-        setInfoMessage(
-          err?.response?.data?.message || err?.message || "Failed to update profile."
-        );
+        const errorMsg = err?.response?.data?.message || err?.message || "Failed to update profile.";
+        setInfoMessage(errorMsg);
+        toast.error(errorMsg);
       }
     } finally {
       setSavingInfo(false);
@@ -153,11 +190,17 @@ export default function AdminAccountSettings() {
     e.preventDefault();
     if (!canChangePw) return;
 
+    const userId = getUserId();
+    if (!userId) {
+      toast.error("User ID is missing. Please log out and log in again.");
+      return;
+    }
+
     setChangingPw(true);
     setPwMessage("");
 
     try {
-      await updateUserPasswordAPI(user._id, currentPassword, newPassword);
+      await updateUserPasswordAPI(userId, currentPassword, newPassword);
 
       setPwSuccess(true);
       setPwMessage("");

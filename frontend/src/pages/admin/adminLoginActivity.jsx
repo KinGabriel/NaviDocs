@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { toast } from "react-hot-toast";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
 import Loader from "../../components/loader";
@@ -109,7 +110,7 @@ export default function AdminLoginActivity() {
   const handleExport = async () => {
     try {
       if (!exportMonth) {
-        alert('Choose a month to export (YYYY-MM)');
+        toast.error('Choose a month to export (YYYY-MM)');
         return;
       }
       const resp = await exportLoginActivityCSV({ month: exportMonth });
@@ -122,16 +123,17 @@ export default function AdminLoginActivity() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+      toast.success('Login activity exported successfully');
     } catch (e) {
       console.error(e);
-      alert('Export failed');
+      toast.error(e?.response?.data?.message || e?.message || 'Export failed');
     }
   };
 
   const handleDeleteSelected = async () => {
     try {
       if (!selectedIds || selectedIds.length === 0) {
-        alert('No rows selected');
+        toast.error('No rows selected');
         return;
       }
       if (!confirm(`Delete ${selectedIds.length} selected logs? This cannot be undone.`)) return;
@@ -139,30 +141,34 @@ export default function AdminLoginActivity() {
       if (res?.success) {
         setLogs((prev) => prev.filter(l => !selectedIds.includes(l.id && String(l.id)) && !selectedIds.includes(String(l._id))));
         setSelectedIds([]);
-        alert(`Deleted ${res.deletedCount || 0} logs`);
+        toast.success(`Deleted ${res.deletedCount || 0} logs successfully`);
       } else {
-        alert('Delete failed');
+        toast.error('Delete failed');
       }
     } catch (e) {
       console.error(e);
-      alert('Delete failed');
+      toast.error(e?.response?.data?.message || e?.message || 'Delete failed');
     }
   };
 
   const handleDeleteByMonth = async () => {
     try {
-      if (!exportMonth) { alert('Choose month to delete (YYYY-MM)'); return; }
+      if (!exportMonth) { 
+        toast.error('Choose month to delete (YYYY-MM)'); 
+        return; 
+      }
       if (!confirm(`Delete all logs for ${exportMonth}? This cannot be undone.`)) return;
       const res = await deleteLoginActivityAPI({ month: exportMonth });
       if (res?.success) {
+        toast.success(`Deleted logs for ${exportMonth} successfully`);
         setCurrentPage(1);
         setTimeout(() => window.location.reload(), 200);
       } else {
-        alert('Delete failed');
+        toast.error('Delete failed');
       }
     } catch (e) {
       console.error(e);
-      alert('Delete failed');
+      toast.error(e?.response?.data?.message || e?.message || 'Delete failed');
     }
   };
 

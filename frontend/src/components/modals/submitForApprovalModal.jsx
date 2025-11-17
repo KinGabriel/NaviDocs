@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from "react";
 import {
-  X, CheckCircle2, Clock, Send,
-  MessageCircle, AlertCircle
+  X,
+  CheckCircle2,
+  Clock,
+  Send,
+  MessageCircle,
+  AlertCircle,
 } from "lucide-react";
-import { submitTemplateAPI, addTemplateNoteAPI } from '../../api/documentContollerAPI';
+import {
+  submitTemplateAPI,
+  addTemplateNoteAPI,
+  fetchPublishedTemplatesAPI,
+} from "../../api/documentContollerAPI";
 
-export default function SubmitApprovalModal({
+export default function SubmitForApprovalModal({
   isOpen,
   onClose,
   status, // "draft"/"assigned"/"submitted"/"publish"
@@ -19,20 +27,115 @@ export default function SubmitApprovalModal({
   approvals = null,
   approvalMeta = null,
   template = null,
+  // optional initial document codes list (will be overridden/augmented by fetched codes)
+  revisionTargets: revisionTargetsProp = [],
 }) {
   const [instructions, setInstructions] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [error, setError] = useState(false);
 
+  // revision-specific state
+  const [revisionDocCode, setRevisionDocCode] = useState("");
+  const [revisionError, setRevisionError] = useState(false);
 
+  // fetched document codes (from published templates)
+  const [revisionTargets, setRevisionTargets] = useState(
+    Array.isArray(revisionTargetsProp) ? revisionTargetsProp : []
+  );
+  const [revisionLoading, setRevisionLoading] = useState(false);
+  const [revisionFetchError, setRevisionFetchError] = useState("");
+
+  // treat returned status as revision mode
+  const isRevision = status === "returned";
+
+  // reset form when opened / status changes
   useEffect(() => {
-    if (isOpen && (status === "draft" || status === "assigned" || status === "returned")) {
+    if (
+      isOpen &&
+      (status === "draft" || status === "assigned" || status === "returned")
+    ) {
       setInstructions("");
       setError(false);
+      setRevisionDocCode("");
+      setRevisionError(false);
+      setSubmitSuccess(false);
+
+      // reset fetch error
+      setRevisionFetchError("");
     }
     setIsSubmitting(false);
   }, [isOpen, status]);
+
+  // fetch published templates' document codes when in revision mode
+  useEffect(() => {
+    if (!isOpen || status !== "returned") return;
+
+    let ignore = false;
+
+    const fetchCodes = async () => {
+      setRevisionLoading(true);
+      setRevisionFetchError("");
+
+      try {
+        const params = {
+          limit: 500,
+          page: 1,
+        };
+
+        const result = await fetchPublishedTemplatesAPI(params);
+
+        let arr = [];
+        if (result?.success && result.data?.templates) {
+          arr = result.data.templates;
+        } else if (Array.isArray(result?.templates)) {
+          arr = result.templates;
+        } else if (Array.isArray(result)) {
+          arr = result;
+        }
+
+        const codesFromAPI = [
+          ...new Set(
+            arr
+              .map((t) => t.document_code)
+              .filter(Boolean)
+              .map((c) => String(c).toUpperCase())
+          ),
+        ];
+
+        const initialFromProp = Array.isArray(revisionTargetsProp)
+          ? revisionTargetsProp.map((c) => String(c).toUpperCase())
+          : [];
+
+        const merged = [
+          ...new Set([...initialFromProp, ...codesFromAPI].filter(Boolean)),
+        ];
+
+        if (!ignore) {
+          setRevisionTargets(merged);
+        }
+      } catch (err) {
+        if (!ignore) {
+          setRevisionTargets(
+            Array.isArray(revisionTargetsProp) ? revisionTargetsProp : []
+          );
+          setRevisionFetchError(
+            err?.response?.data?.message ||
+              err?.message ||
+              "Failed to load document codes for revision."
+          );
+        }
+      } finally {
+        if (!ignore) setRevisionLoading(false);
+      }
+    };
+
+    fetchCodes();
+
+    return () => {
+      ignore = true;
+    };
+  }, [isOpen, status, revisionTargetsProp]);
 
   if (!isOpen) return null;
 
@@ -59,33 +162,46 @@ export default function SubmitApprovalModal({
   const handleInstructionsChange = (e) => {
     setInstructions(e.target.value);
     if (error && e.target.value.trim()) {
-      setError(false); // Clear error when user starts typing valid content
+      setError(false);
+    }
+  };
+
+  const handleRevisionDocCodeChange = (e) => {
+    setRevisionDocCode(e.target.value);
+    if (revisionError && e.target.value) {
+      setRevisionError(false);
     }
   };
 
   const handleSubmit = async () => {
-    // Validate only if status is "returned"
-    if (status === 'returned' && !instructions.trim()) {
-      setError(true);
-      return;
+    // validation in revision mode
+    if (status === "returned") {
+      // Only validate revisionDocCode - instructions are optional
+      if (!revisionDocCode) {
+        setRevisionError(true);
+        return;
     }
+  }
+
     setIsSubmitting(true);
     setSubmitSuccess(false);
-    setError(false); // Instructions are optional
+    setError(false);
+    setRevisionError(false);
 
     try {
       if (!templateId) {
-        console.error('No template ID provided');
+        console.error("No template ID provided");
         return;
       }
 
+      // DRAFT
       if (status === "draft") {
         const submitRes = await submitTemplateAPI(templateId);
 
-        // add note if instructions are provided
         if (instructions.trim()) {
           try {
-            await addTemplateNoteAPI(templateId, instructions.trim());
+            const noteText = instructions.trim();
+            await addTemplateNoteAPI(templateId, noteText);
           } catch (noteErr) {
             console.error("Add note (instructions) failed:", noteErr);
           }
@@ -107,13 +223,18 @@ export default function SubmitApprovalModal({
         }, 1500);
       }
 
+      // ASSIGNED or RETURNED
       if (status === "assigned" || status === "returned") {
         const submitRes = await submitTemplateAPI(templateId);
 
-        // add note if instructions are provided
         if (instructions.trim()) {
           try {
-            await addTemplateNoteAPI(templateId, instructions.trim());
+            const noteText =
+              status === "returned" && revisionDocCode
+                ? `[REVISION OF: ${revisionDocCode}] ${instructions.trim()}`
+                : instructions.trim();
+
+            await addTemplateNoteAPI(templateId, noteText);
           } catch (noteErr) {
             console.error("Add note (instructions) failed:", noteErr);
           }
@@ -139,7 +260,7 @@ export default function SubmitApprovalModal({
       alert(
         error?.response?.data?.message ||
         error?.message ||
-        'Failed to submit template. Please try again.'
+          "Failed to submit template. Please try again."
       );
     } finally {
       setIsSubmitting(false);
@@ -164,13 +285,13 @@ export default function SubmitApprovalModal({
 
   // Get approval status for display
   const getApprovalStatus = (approverId) => {
-    const progress = approvalProgress.find(p => p.approverId === approverId);
-    return progress ? progress.status : 'pending';
+    const progress = approvalProgress.find((p) => p.approverId === approverId);
+    return progress ? progress.status : "pending";
   };
 
   // Get approval date for display
   const getApprovalDate = (approverId) => {
-    const progress = approvalProgress.find(p => p.approverId === approverId);
+    const progress = approvalProgress.find((p) => p.approverId === approverId);
     return progress && progress.approvedAt
       ? new Date(progress.approvedAt).toLocaleDateString()
       : null;
@@ -179,105 +300,127 @@ export default function SubmitApprovalModal({
   // Build approvers for progress display
   const approvers = approversProp || [];
 
-  const allApproved = approvers.every(approver =>
-    getApprovalStatus(approver.id) === 'approved'
+  const allApproved = approvers.every(
+    (approver) => getApprovalStatus(approver.id) === "approved"
   );
 
   const statusConfig = {
     draft: {
-      title: hasExistingApprovals() ? "Approval Progress" : "Submit for Approval",
-      description: hasExistingApprovals() ? "Track the current status of your submission" : "Add instructions and submit your template for review",
-      icon: hasExistingApprovals() ? <Clock className="h-6 w-6 text-yellow-600" /> : <Send className="h-6 w-6 text-blue-600" />,
-      color: hasExistingApprovals() ? "yellow" : "blue"
+      title: hasExistingApprovals()
+        ? "Approval Progress"
+        : "Submit for Approval",
+      description: hasExistingApprovals()
+        ? "Track the current status of your submission"
+        : "Add instructions and submit your template for review",
+      icon: hasExistingApprovals() ? (
+        <Clock className="h-6 w-6 text-yellow-600" />
+      ) : (
+        <Send className="h-6 w-6 text-blue-600" />
+      ),
+      color: hasExistingApprovals() ? "yellow" : "blue",
     },
     pending: {
       title: "Approval Progress",
       description: "Track the current status of your submission",
       icon: <Clock className="h-6 w-6 text-yellow-600" />,
-      color: "yellow"
+      color: "yellow",
     },
     assigned: {
-      title: hasExistingApprovals() ? "Approval Progress" : "Submit for Approval",
-      description: hasExistingApprovals() ? "Track the current status of your submission" : "Add instructions and submit your template for review",
-      icon: hasExistingApprovals() ? <Clock className="h-6 w-6 text-yellow-600" /> : <Send className="h-6 w-6 text-blue-600" />,
-      color: hasExistingApprovals() ? "yellow" : "blue"
+      title: hasExistingApprovals()
+        ? "Approval Progress"
+        : "Submit for Approval",
+      description: hasExistingApprovals()
+        ? "Track the current status of your submission"
+        : "Add instructions and submit your template for review",
+      icon: hasExistingApprovals() ? (
+        <Clock className="h-6 w-6 text-yellow-600" />
+      ) : (
+        <Send className="h-6 w-6 text-blue-600" />
+      ),
+      color: hasExistingApprovals() ? "yellow" : "blue",
     },
     returned: {
       title: "Resubmit for Review",
-      description: "Add instructions and resubmit to the approver who returned it",
+      description:
+        "Add instructions and resubmit to the approver who returned it",
       icon: <Send className="h-6 w-6 text-blue-600" />,
-      color: "orange"
+      color: "orange",
     },
     submitted: {
       title: "Approval Progress",
       description: "Track the current status of your submission",
       icon: <Clock className="h-6 w-6 text-yellow-600" />,
-      color: "yellow"
+      color: "yellow",
     },
     publish: {
       title: "Ready to Publish",
       description: "All approvals complete - ready for publication",
       icon: <CheckCircle2 className="h-6 w-6 text-green-600" />,
-      color: "green"
-    }
+      color: "green",
+    },
   };
 
   const currentStatus = statusConfig[status] || statusConfig.draft;
 
   const getApprovalStatusFromData = (approver) => {
     const approverId = approver._id || approver.id;
-    const roleName = (approver?.role?.name || approver?.role || '').toLowerCase();
-    const key = roleName === 'lead document controller'
-      ? 'lead_document_controller'
-      : roleName === 'document control officer'
-        ? 'document_controller_officer'
-        : roleName === 'unit document controller'
-          ? 'unit_document_controller'
-          : roleName;
+    const roleName = (approver?.role?.name || approver?.role || "").toLowerCase();
+    const key =
+      roleName === "lead document controller"
+        ? "lead_document_controller"
+        : roleName === "document control officer"
+        ? "document_controller_officer"
+        : roleName === "unit document controller"
+        ? "unit_document_controller"
+        : roleName;
 
     // Check template's status_meta first
     if (template?.status_meta?.approvals) {
       const statusApprovals = template.status_meta.approvals;
 
       // Check by role
-      if (statusApprovals[key]?.isApproved === true) return 'approved';
-      if (statusApprovals[key]?.isRejected === true) return 'rejected';
+      if (statusApprovals[key]?.isApproved === true) return "approved";
+      if (statusApprovals[key]?.isRejected === true) return "rejected";
 
       // Check by approver ID
-      if (statusApprovals[approverId]?.isApproved === true) return 'approved';
-      if (statusApprovals[approverId]?.isRejected === true) return 'rejected';
+      if (statusApprovals[approverId]?.isApproved === true) return "approved";
+      if (statusApprovals[approverId]?.isRejected === true) return "rejected";
     }
 
     // Check approvals prop
     if (approvals) {
-      if (approvals[key]?.approved_at || approvals[key]?.isApproved) return 'approved';
-      if (approvals[approverId]?.approved_at || approvals[approverId]?.isApproved) return 'approved';
+      if (approvals[key]?.approved_at || approvals[key]?.isApproved)
+        return "approved";
+      if (approvals[approverId]?.approved_at || approvals[approverId]?.isApproved)
+        return "approved";
     }
 
     // Check approvalMeta
     if (approvalMeta) {
       if (
-        (roleName === 'document control officer' && approvalMeta.officerApproved) ||
-        (roleName === 'lead document controller' && approvalMeta.leadApproved) ||
-        (roleName === 'unit document controller' && approvalMeta.unitApproved)
+        (roleName === "document control officer" &&
+          approvalMeta.officerApproved) ||
+        (roleName === "lead document controller" && approvalMeta.leadApproved) ||
+        (roleName === "unit document controller" && approvalMeta.unitApproved)
       ) {
-        return 'approved';
+        return "approved";
       }
     }
 
-    return 'pending';
+    return "pending";
   };
 
   const getApprovalTimestamp = (approver) => {
     const approverId = approver._id || approver.id;
-    const roleName = (approver?.role?.name || approver?.role || '').toLowerCase();
-    const key = roleName === 'lead document controller'
-      ? 'lead_document_controller'
-      : (roleName === 'document control officer')
-        ? 'document_controller_officer'
-        : roleName === 'unit document controller'
-          ? 'unit_document_controller'
-          : roleName;
+    const roleName = (approver?.role?.name || approver?.role || "").toLowerCase();
+    const key =
+      roleName === "lead document controller"
+        ? "lead_document_controller"
+        : roleName === "document control officer"
+        ? "document_controller_officer"
+        : roleName === "unit document controller"
+        ? "unit_document_controller"
+        : roleName;
 
     // Check template status_meta first
     if (template?.status_meta?.approvals) {
@@ -314,6 +457,24 @@ export default function SubmitApprovalModal({
               <p className="text-sm text-slate-600">
                 {currentStatus.description}
               </p>
+
+              {/* Submission type pill */}
+              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Submission Type
+                </span>
+                <span
+                  className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                    isRevision
+                      ? "bg-purple-100 text-purple-800"
+                      : "bg-blue-100 text-blue-800"
+                  }`}
+                >
+                  {isRevision
+                    ? "Revision"
+                    : "Creation"}
+                </span>
+              </div>
             </div>
             <button
               onClick={onClose}
@@ -326,7 +487,10 @@ export default function SubmitApprovalModal({
 
         <div className="p-6 space-y-6 max-h-96 overflow-y-auto">
           {/* Show approval progress when status is pending or when draft/assigned/returned has existing approvals */}
-          {(status === "pending" || (status === "draft" && hasExistingApprovals()) || (status === "assigned" && hasExistingApprovals()) || (status === "returned" && hasExistingApprovals())) && (
+          {(status === "pending" ||
+            (status === "draft" && hasExistingApprovals()) ||
+            (status === "assigned" && hasExistingApprovals()) ||
+            (status === "returned" && hasExistingApprovals())) && (
             <div className="space-y-4">
               <h3 className="text-base font-medium text-slate-900 mb-4 flex items-center gap-2">
                 <Clock className="h-5 w-5 text-slate-500" />
@@ -336,17 +500,23 @@ export default function SubmitApprovalModal({
                 {approversProp.map((approver) => {
                   const approvalStatus = getApprovalStatusFromData(approver);
                   const approvedAt = getApprovalTimestamp(approver);
-                  const timeStr = approvedAt ? approvedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+                  const timeStr = approvedAt
+                    ? approvedAt.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : null;
 
                   return (
                     <div
                       key={approver._id}
-                      className={`flex items-center gap-4 p-4 rounded-lg border ${approvalStatus === 'approved'
-                        ? 'bg-green-50 border-green-200'
-                        : 'bg-yellow-50 border-yellow-200'
-                        }`}
+                      className={`flex items-center gap-4 p-4 rounded-lg border ${
+                        approvalStatus === "approved"
+                          ? "bg-green-50 border-green-200"
+                          : "bg-yellow-50 border-yellow-200"
+                      }`}
                     >
-                      {approvalStatus === 'approved' ? (
+                      {approvalStatus === "approved" ? (
                         <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
                       ) : (
                         <Clock className="h-5 w-5 text-yellow-600 flex-shrink-0" />
@@ -355,39 +525,63 @@ export default function SubmitApprovalModal({
                         <div className="font-medium text-slate-900">
                           {approver.firstname && approver.lastname
                             ? `${approver.firstname} ${approver.lastname}`
-                            : approver.name || approver.email || "Unknown Approver"}
+                            : approver.name ||
+                              approver.email ||
+                              "Unknown Approver"}
                         </div>
                         <div className="text-sm text-slate-500">
                           {approver.role?.name || approver.role || "Approver"}
                         </div>
                       </div>
-                      <div className={`px-3 py-1 text-xs font-medium rounded-full ${approvalStatus === 'approved'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                        {approvalStatus === 'approved'
-                          ? `${(approver.role?.name || approver.role || '').toString() === 'Unit Document Controller' ? 'Endorsed' : 'Approved'}${timeStr ? ` ${timeStr}` : ''}`
-                          : `${(approver.role?.name || approver.role || '').toString() === 'Unit Document Controller' ? 'Pending Endorsement' : 'Pending Approval'}`
-                        }
+                      <div
+                        className={`px-3 py-1 text-xs font-medium rounded-full ${
+                          approvalStatus === "approved"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {approvalStatus === "approved"
+                          ? `${
+                              (approver.role?.name || approver.role || "").toString() ===
+                              "Unit Document Controller"
+                                ? "Endorsed"
+                                : "Approved"
+                            }${timeStr ? ` ${timeStr}` : ""}`
+                          : `${
+                              (approver.role?.name || approver.role || "").toString() ===
+                              "Unit Document Controller"
+                                ? "Pending Endorsement"
+                                : "Pending Approval"
+                            }`}
                       </div>
                     </div>
                   );
                 })}
               </div>
-
               {/* Progress summary */}
               <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600">Progress:</span>
                   <span className="font-medium text-slate-900">
-                    {approversProp.filter(a => getApprovalStatusFromData(a) === 'approved').length} of {approversProp.length} approved
+                    {
+                      approversProp.filter(
+                        (a) => getApprovalStatusFromData(a) === "approved"
+                      ).length
+                    }{" "}
+                    of {approversProp.length} approved
                   </span>
                 </div>
                 <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
                   <div
                     className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
                     style={{
-                      width: `${(approversProp.filter(a => getApprovalStatusFromData(a) === 'approved').length / approversProp.length) * 100}%`
+                      width: `${
+                        (approversProp.filter(
+                          (a) => getApprovalStatusFromData(a) === "approved"
+                        ).length /
+                          approversProp.length) *
+                        100
+                      }%`,
                     }}
                   ></div>
                 </div>
@@ -395,7 +589,6 @@ export default function SubmitApprovalModal({
             </div>
           )}
 
-          {/* Draft state - Only instructions when no existing approvals */}
           {status === "draft" && !hasExistingApprovals() && (
             <>
               <div className="space-y-3">
@@ -403,7 +596,10 @@ export default function SubmitApprovalModal({
                   <div className="flex items-center gap-2">
                     <MessageCircle className="h-5 w-5 text-slate-500" />
                     <h3 className="text-base font-medium text-slate-900">
-                      Instructions for Approvers {status === 'returned' && <span className="text-red-500">*</span>}
+                      Instructions for Approvers{" "}
+                      {status === "returned" && (
+                        <span className="text-red-500">*</span>
+                      )}
                     </h3>
                   </div>
                 </div>
@@ -416,16 +612,20 @@ export default function SubmitApprovalModal({
                         handleInstructionsChange(e);
                       }
                     }}
-                    className={`w-full border rounded-lg p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all duration-200 pr-14 ${error
-                      ? "border-red-300 bg-red-50 focus:ring-red-500"
-                      : "border-slate-200"
-                      }`}
+                    className={`w-full border rounded-lg p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all duration-200 pr-14 ${
+                      error
+                        ? "border-red-300 bg-red-50 focus:ring-red-500"
+                        : "border-slate-200"
+                    }`}
                     rows={4}
                     placeholder="Add notes or specific instructions for the approvers..."
                   />
                   <span
-                    className={`absolute bottom-2 right-3 text-xs ${instructions.length > 300 ? "text-red-500" : "text-slate-400"
-                      }`}
+                    className={`absolute bottom-2 right-3 text-xs ${
+                      instructions.length > 300
+                        ? "text-red-500"
+                        : "text-slate-400"
+                    }`}
                   >
                     {instructions.length} / 300
                   </span>
@@ -434,24 +634,31 @@ export default function SubmitApprovalModal({
             </>
           )}
 
-          {/* Instructions when assigned or returned
-              - Assigned: only when no existing approvals (initial submission flow)
-              - Returned: always show so user can resubmit with instructions even if prior approvals exist */}
-          {(((status === "assigned") && !hasExistingApprovals()) || status === "returned") && (
+          {(((status === "assigned") && !hasExistingApprovals()) ||
+            status === "returned") && (
             <div className="space-y-6">
               <div>
                 {notes && notes.length > 0 && (
                   <div className="mt-4">
                     <h3 className="text-base font-medium text-slate-900 mb-3 flex items-center gap-2">
                       <MessageCircle className="h-5 w-5 text-slate-500" />
-                      {status === 'returned' ? 'Instructions from Reviewer' : 'Instructions from Assignor'}
+                      {status === "returned"
+                        ? "Instructions from Reviewer"
+                        : "Instructions from Assignor"}
                     </h3>
                     <ul className="space-y-2">
                       {notes.map((note, i) => (
-                        <li key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-slate-700">
-                          {note.message || note.note || (typeof note === 'string' ? note : '')}
+                        <li
+                          key={i}
+                          className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-slate-700"
+                        >
+                          {note.message ||
+                            note.note ||
+                            (typeof note === "string" ? note : "")}
                           {note.added_by_name && (
-                            <span className="ml-2 text-xs text-slate-500 italic">- {note.added_by_name}</span>
+                            <span className="ml-2 text-xs text-slate-500 italic">
+                              - {note.added_by_name}
+                            </span>
                           )}
                         </li>
                       ))}
@@ -460,38 +667,123 @@ export default function SubmitApprovalModal({
                 )}
               </div>
 
-              {/* Approvers list removed per request to keep only instructions */}
+              {/* Revision details when returned */}
+              {status === "returned" && (
+                <div className="space-y-3">
+                  <h3 className="text-base font-medium text-slate-900 flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-amber-500" />
+                    Revision Details
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    This submission is for a revision. Please indicate which
+                    document code will be revised.
+                  </p>
 
-              {/* Add instructions field*/}
+                  {revisionTargets && revisionTargets.length > 0 ? (
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-slate-800">
+                        Document code to be revised{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={revisionDocCode}
+                        onChange={handleRevisionDocCodeChange}
+                        disabled={revisionLoading}
+                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 bg-white ${
+                          revisionError
+                            ? "border-red-400 focus:ring-red-500"
+                            : "border-slate-200 focus:ring-blue-500"
+                        } ${revisionLoading ? "bg-slate-100 cursor-wait" : ""}`}
+                      >
+                        <option value="">
+                          {revisionLoading
+                            ? "Loading document codes..."
+                            : "Select document code"}
+                        </option>
+                        {revisionTargets.map((code) => (
+                          <option key={code} value={code}>
+                            {code}
+                          </option>
+                        ))}
+                      </select>
+                      {revisionFetchError && (
+                        <p className="mt-1 text-xs text-amber-700 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {revisionFetchError}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-slate-800">
+                        Document code to be revised{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={revisionDocCode}
+                        onChange={handleRevisionDocCodeChange}
+                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                          revisionError
+                            ? "border-red-400 bg-red-50 focus:ring-red-500"
+                            : "border-slate-200 focus:ring-blue-500"
+                        }`}
+                        placeholder="Enter the document code you are revising (e.g., FM-CICM-001)..."
+                      />
+                      {revisionFetchError && (
+                        <p className="mt-1 text-xs text-amber-700 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {revisionFetchError} You can still type the code
+                          manually.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {revisionError && (
+                    <div className="flex items-center gap-2 text-sm text-red-600">
+                      <AlertCircle className="h-4 w-4" />
+                      Please specify which document code this revision is for.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Instructions field */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <MessageCircle className="h-5 w-5 text-slate-500" />
                   <h3 className="text-base font-medium text-slate-900">
-                    {status === 'returned' ? 'Add Resubmission Instructions' : 'Add Instructions'}
-                    <span className="text-red-500">*</span>
+                    {status === "returned"
+                      ? "Add Resubmission Notes"
+                      : "Add Instructions"}
+                    {status !== "returned" && <span className="text-red-500">*</span>}
+                    {status === "returned" && <span className="text-slate-400 text-sm ml-1">(optional)</span>}
                   </h3>
                 </div>
                 <textarea
                   value={instructions}
                   onChange={handleInstructionsChange}
-                  className={`w-full border rounded-lg p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow ${error ? 'border-red-300 bg-red-50' : 'border-slate-200'
-                    }`}
+                  className={`w-full border rounded-lg p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow ${
+                    error ? "border-red-300 bg-red-50" : "border-slate-200"
+                  }`}
                   rows={3}
-                  placeholder={status === 'returned'
-                    ? 'Briefly describe what you changed and any context for the reviewer...'
-                    : 'Add notes or specific instructions for the approvers...'}
+                  placeholder={
+                    status === "returned"
+                      ? "Add notes on what you changed or any context for the reviewer..."
+                      : "Add notes or specific instructions for the approvers..."
+                  }
                 />
-                {error && (
+                {error && status !== "returned" && (
                   <div className="flex items-center gap-2 text-sm text-red-600">
                     <AlertCircle className="h-4 w-4" />
-                    {status === 'returned' ? 'Resubmission instructions are required.' : 'Instructions are required before submitting.'}
+                    Instructions are required before submitting.
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* Submitted state */}
           {status === "submitted" && (
             <div className="space-y-4">
               <h3 className="text-base font-medium text-slate-900 mb-4 flex items-center gap-2">
@@ -506,67 +798,88 @@ export default function SubmitApprovalModal({
                   return (
                     <div
                       key={approver.id}
-                      className={`flex items-center gap-4 p-4 rounded-lg border ${approvalStatus === 'approved'
-                        ? 'bg-green-50 border-green-200'
-                        : approvalStatus === 'rejected'
-                          ? 'bg-red-50 border-red-200'
-                          : 'bg-yellow-50 border-yellow-200'
-                        }`}
+                      className={`flex items-center gap-4 p-4 rounded-lg border ${
+                        approvalStatus === "approved"
+                          ? "bg-green-50 border-green-200"
+                          : approvalStatus === "rejected"
+                          ? "bg-red-50 border-red-200"
+                          : "bg-yellow-50 border-yellow-200"
+                      }`}
                     >
-                      {approvalStatus === 'approved' ? (
+                      {approvalStatus === "approved" ? (
                         <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                      ) : approvalStatus === 'rejected' ? (
+                      ) : approvalStatus === "rejected" ? (
                         <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
                       ) : (
                         <Clock className="h-5 w-5 text-yellow-600 flex-shrink-0" />
                       )}
                       <div className="flex-1">
-                        <div className="font-medium text-slate-900">{approver.name}</div>
-                        <div className={`text-sm ${approvalStatus === 'approved'
-                          ? 'text-green-700'
-                          : approvalStatus === 'rejected'
-                            ? 'text-red-700'
-                            : 'text-yellow-700'
-                          }`}>
-                          {approvalStatus === 'approved'
-                            ? `Approved${approvalDate ? ` on ${approvalDate}` : ''}`
-                            : approvalStatus === 'rejected'
-                              ? `Rejected${approvalDate ? ` on ${approvalDate}` : ''}`
-                              : 'Awaiting review'
-                          }
+                        <div className="font-medium text-slate-900">
+                          {approver.name}
+                        </div>
+                        <div
+                          className={`text-sm ${
+                            approvalStatus === "approved"
+                              ? "text-green-700"
+                              : approvalStatus === "rejected"
+                              ? "text-red-700"
+                              : "text-yellow-700"
+                          }`}
+                        >
+                          {approvalStatus === "approved"
+                            ? `Approved${
+                                approvalDate ? ` on ${approvalDate}` : ""
+                              }`
+                            : approvalStatus === "rejected"
+                            ? `Rejected${
+                                approvalDate ? ` on ${approvalDate}` : ""
+                              }`
+                            : "Awaiting review"}
                         </div>
                       </div>
-                      <div className={`px-3 py-1 text-xs font-medium rounded-full ${approvalStatus === 'approved'
-                        ? 'bg-green-100 text-green-800'
-                        : approvalStatus === 'rejected'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                        {approvalStatus === 'approved'
-                          ? 'Approved'
-                          : approvalStatus === 'rejected'
-                            ? 'Rejected'
-                            : 'Pending'
-                        }
+                      <div
+                        className={`px-3 py-1 text-xs font-medium rounded-full ${
+                          approvalStatus === "approved"
+                            ? "bg-green-100 text-green-800"
+                            : approvalStatus === "rejected"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {approvalStatus === "approved"
+                          ? "Approved"
+                          : approvalStatus === "rejected"
+                          ? "Rejected"
+                          : "Pending"}
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Progress summary */}
               <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600">Progress:</span>
                   <span className="font-medium text-slate-900">
-                    {approvalProgress.filter(p => p.status === 'approved').length} of {approvers.length} approved
+                    {
+                      approvalProgress.filter(
+                        (p) => p.status === "approved"
+                      ).length
+                    }{" "}
+                    of {approvers.length} approved
                   </span>
                 </div>
                 <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
                   <div
                     className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
                     style={{
-                      width: `${(approvalProgress.filter(p => p.status === 'approved').length / approvers.length) * 100}%`
+                      width: `${
+                        (approvalProgress.filter(
+                          (p) => p.status === "approved"
+                        ).length /
+                          approvers.length) *
+                        100
+                      }%`,
                     }}
                   ></div>
                 </div>
@@ -574,7 +887,6 @@ export default function SubmitApprovalModal({
             </div>
           )}
 
-          {/* Publish state */}
           {status === "publish" && (
             <div className="text-center space-y-6">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full">
@@ -585,29 +897,37 @@ export default function SubmitApprovalModal({
                   All Approvals Complete!
                 </h3>
                 <p className="text-slate-600 leading-relaxed text-sm">
-                  All required approvers have reviewed and approved your template. <br></br>
+                  All required approvers have reviewed and approved your
+                  template. <br />
                   You can now publish it to make it available for use.
                 </p>
               </div>
 
-              {/* Final approval summary */}
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-green-900 mb-2">Approved by:</h4>
+                <h4 className="text-sm font-medium text-green-900 mb-2">
+                  Approved by:
+                </h4>
                 <div className="space-y-1">
                   {approvers.map((approver) => {
                     const approvalStatus = getApprovalStatusFromData(approver);
                     const approvedAt = getApprovalTimestamp(approver);
-                    const timeStr = approvedAt ? approvedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+                    const timeStr = approvedAt
+                      ? approvedAt.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : null;
 
                     return (
                       <div
                         key={approver.id || approver._id}
-                        className={`flex items-center gap-4 p-4 rounded-lg border ${approvalStatus === 'approved'
-                          ? 'bg-green-50 border-green-200'
-                          : 'bg-yellow-50 border-yellow-200'
-                          }`}
+                        className={`flex items-center gap-4 p-4 rounded-lg border ${
+                          approvalStatus === "approved"
+                            ? "bg-green-50 border-green-200"
+                            : "bg-yellow-50 border-yellow-200"
+                        }`}
                       >
-                        {approvalStatus === 'approved' ? (
+                        {approvalStatus === "approved" ? (
                           <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
                         ) : (
                           <Clock className="h-5 w-5 text-yellow-600 flex-shrink-0" />
@@ -616,19 +936,24 @@ export default function SubmitApprovalModal({
                           <div className="font-medium text-slate-900">
                             {approver.firstname && approver.lastname
                               ? `${approver.firstname} ${approver.lastname}`
-                              : approver.name || approver.email || "Unknown Approver"}
+                              : approver.name ||
+                                approver.email ||
+                                "Unknown Approver"}
                           </div>
                           <div className="text-sm text-slate-500">
                             {approver.role?.name || approver.role || "Approver"}
                           </div>
                         </div>
-                        <div className={`px-3 py-1 text-xs font-medium rounded-full ${approvalStatus === 'approved'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                          {approvalStatus === 'approved'
-                            ? `Approved${timeStr ? ` ${timeStr}` : ''}`
-                            : 'Pending Approval'}
+                        <div
+                          className={`px-3 py-1 text-xs font-medium rounded-full ${
+                            approvalStatus === "approved"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {approvalStatus === "approved"
+                            ? `Approved${timeStr ? ` ${timeStr}` : ""}`
+                            : "Pending Approval"}
                         </div>
                       </div>
                     );
@@ -641,12 +966,14 @@ export default function SubmitApprovalModal({
 
         <div className="flex items-center justify-between gap-4 bg-slate-50 border-t border-slate-200 px-6 py-4">
           <div className="text-xs text-slate-500">
-            {status === "submitted" && (
-              `${approvalProgress.filter(p => p.status === 'approved').length}/${approvers.length} approvals complete`
-            )}
-            {(status === "pending" || hasExistingApprovals()) && (
-              `${approversProp.filter(a => getApprovalStatusFromData(a) === 'approved').length}/${approversProp.length} approvals complete`
-            )}
+            {status === "submitted" &&
+              `${approvalProgress.filter((p) => p.status === "approved").length}/${
+                approvers.length
+              } approvals complete`}
+            {(status === "pending" || hasExistingApprovals()) &&
+              `${approversProp.filter(
+                (a) => getApprovalStatusFromData(a) === "approved"
+              ).length}/${approversProp.length} approvals complete`}
           </div>
 
           <div className="flex items-center gap-3">
@@ -658,10 +985,9 @@ export default function SubmitApprovalModal({
               {status === "publish" ? "Close" : "Cancel"}
             </button>
 
-            {/* Show Submit button
-                - Draft/Assigned: only when no approvals yet
-                - Returned: always allow resubmission (even if prior approvals exist) */}
-            {(status === "returned" || ((status === "draft" || status === "assigned") && !hasExistingApprovals())) && (
+            {(status === "returned" ||
+              ((status === "draft" || status === "assigned") &&
+                !hasExistingApprovals())) && (
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || submitSuccess}

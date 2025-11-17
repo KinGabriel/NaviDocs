@@ -644,6 +644,7 @@ export default function Header2({
           onSubmitSuccess={handleSubmitSuccess}
           approvals={approvals}
           approvalMeta={approvalMeta}
+          revisionTargets={[template?.document_code]}
         />
       )}
 
