@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../layout/headers/header";
 import Sidebar from "../../layout/sidebars/sidebar";
@@ -6,9 +6,8 @@ import useUser from "../../hooks/useUser";
 import Table from "../../components/table";
 import { StatusBadge } from "../../utils/formatters";
 import Greeting from "../../components/greeting";
-import UpcomingDeadlines from "../../components/upcomingDeadlines";
-import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
 import { Doughnut } from "react-chartjs-2";
+import { getDeanSecDashboardAPI } from "../../api/documentsAPI";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -29,14 +28,13 @@ ChartJS.register(
   Legend,
   ArcElement
 );
-import Loader from "../../components/loader";
 
 export default function SecretaryDashboard() {
   const user = useUser();
   const navigate = useNavigate();
+
   const SUBMISSION_BINS_ROUTE = "/submission-bins";
-  const [loading] = useState(false);
-  const [error] = useState(null);
+  const DOC_CONTROLLER_TEMPLATES_ROUTE = "/templates?status=Published";
 
   function formatDate(dateValue) {
     if (!dateValue) return "-";
@@ -49,57 +47,13 @@ export default function SecretaryDashboard() {
     });
   }
 
-  // placeholder data
-  const templates = [
-    {
-      id: 1,
-      title: "Research Proposal Template",
-      createdBy: "Admin User",
-      status: "Approved",
-    },
-    {
-      id: 2,
-      title: "Thesis Format Guide",
-      createdBy: "Admin User",
-      status: "Rejected",
-    },
-    {
-      id: 3,
-      title: "Internship Report Template",
-      createdBy: "Admin User",
-      status: "Returned",
-    },
-    {
-      id: 4,
-      title: "Course Syllabus Template",
-      createdBy: "Admin User",
-      status: "Approved",
-    },
-    {
-      id: 5,
-      title: "Capstone Project Template",
-      createdBy: "Admin User",
-      status: "Pending",
-    },
-    {
-      id: 6,
-      title: "Department Memo Format",
-      createdBy: "Admin User",
-      status: "Endorsed",
-    },
-  ];
-
-  const publishedTemplates = [
-    { id: 1, code: "DOC-001", rev: "00", date: "2025-01-21", title: "BSCS Capstone Guidelines", createdBy: "Daniel Cruz" },
-    { id: 2, code: "DOC-002", rev: "01", date: "2025-02-14", title: "Student Handbook 2025", createdBy: "Sarah Dela Cruz" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-    { id: 3, code: "DOC-003", rev: "00", date: "2025-03-09", title: "Faculty Manual", createdBy: "Mae Santos" },
-  ];
+  // default live template data from API (start empty; only use API-provided lists)
+  const [templatesData, setTemplatesData] = useState([]);
+  const [publishedTemplatesData, setPublishedTemplatesData] = useState([]);
 
   const templateColumns = [
     { key: "title", label: "Title" },
-    { key: "createdBy", label: "Created By" },
+    // 'Submitted At' column removed per request
     {
       key: "status",
       label: "Status",
@@ -113,8 +67,8 @@ export default function SecretaryDashboard() {
           onClick={(e) => {
             e.stopPropagation();
             const id = row._id ?? row.id ?? row.templateId;
-            navigate(`/templates/published/${id}`, {
-              state: { doc: row, origin: "secretary:recently-submitted" },
+            navigate(`/dean/document-workflow/${id}`, {
+              state: { doc: row, origin: "dean:recently-submitted" },
             });
           }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
@@ -130,7 +84,6 @@ export default function SecretaryDashboard() {
     { key: "rev", label: "Revision No." },
     { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
     { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
-    { key: "createdBy", label: "Created By" },
     {
       key: "action",
       label: "Action",
@@ -140,7 +93,7 @@ export default function SecretaryDashboard() {
             e.stopPropagation();
             const id = row._id ?? row.id ?? row.templateId;
             navigate(`/templates/published/${id}`, {
-              state: { doc: row, origin: "secretary:recently-published" },
+              state: { doc: row, origin: "dean:recently-published" },
             });
           }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
@@ -151,89 +104,94 @@ export default function SecretaryDashboard() {
     },
   ];
 
-  const upcomingDeadlines = [
-    {
-      id: 1,
-      title: "Template Review for AY 2025",
-      date: "2025-08-15",
-      priority: "Overdue",
-      department: "Quality Assurance",
-    },
-    {
-      id: 2,
-      title: "Annual Document Audit",
-      date: "2025-08-28",
-      priority: "Due Today",
-      department: "Administration",
-    },
-    {
-      id: 3,
-      title: "Syllabus Submission Check",
-      date: "2025-09-10",
-      priority: "Upcoming",
-      department: "Academics",
-    },
-  ];
+  // Dean/Sec live data
+  const [latestForwarded, setLatestForwarded] = useState([]);
+  const [forwardedByDepartment, setForwardedByDepartment] = useState([]);
+  const [totalForwardedCount, setTotalForwardedCount] = useState(0);
+  const [loadingDean, setLoadingDean] = useState(true);
+  const [errorDean, setErrorDean] = useState(null);
 
-  const submissionBin = [
-    {
-      id: 1,
-      name: "Syllabus AY 2025",
-      totalDocs: 50,
-      department: 35,
-      date: 10,
-    },
-    {
-      id: 2,
-      name: "Syllabus AY 2025",
-      totalDocs: 50,
-      department: 35,
-      date: 10,
-    },
-    {
-      id: 3,
-      name: "Syllabus AY 2025",
-      totalDocs: 50,
-      department: 35,
-      date: 10,
-    },
-    {
-      id: 4,
-      name: "Syllabus AY 2025",
-      totalDocs: 50,
-      department: 35,
-      date: 10,
-    },
-    {
-      id: 5,
-      name: "Syllabus AY 2025",
-      totalDocs: 50,
-      department: 35,
-      date: 10,
-    },
-  ];
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoadingDean(true);
+      try {
+        const res = await getDeanSecDashboardAPI();
+        console.log(res);
+        if (!mounted) return;
+        setForwardedByDepartment(res.forwardedByDepartment || []);
+        setTotalForwardedCount(res.totalForwardedCount || 0);
+        // set templates data if analytics returned them (keep placeholders otherwise)
+        setTemplatesData((res.templates || []).slice(0, 5));
+        setPublishedTemplatesData((res.publishedTemplates || []).slice(0, 5));
+        setLatestForwarded((res.latestForwarded || []).slice(0, 5));
+        setErrorDean(null);
+      } catch (e) {
+        console.error("Failed to load dean/sec dashboard", e);
+        if (!mounted) return;
+        setErrorDean(e.message || "Failed to load dean dashboard");
+      } finally {
+        if (mounted) setLoadingDean(false);
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-  const submissionBinColumns = [
-    { key: "name", label: "Submission Bin Name" },
-    { key: "totalDocs", label: "Total Docs" },
+  // Do not show placeholder/fake bins — default to an empty array so the
+  // UI will render the empty-state message when there are no forwarded bins.
+  const forwardedSubmissionBinsData = (latestForwarded && latestForwarded.length)
+    ? latestForwarded.map((b) => ({
+      id: b.id,
+      title: b.title,
+      department: b.department,
+      submission: b.submissionsCount,
+    }))
+    : [];
+
+  const forwardedSubmissionBinsColumns = [
+    { key: "title", label: "Title" },
     { key: "department", label: "Department" },
-    { key: "date", label: "Date" },
+    { key: "submission", label: "No. of Submissions" },
+    {
+      key: "action",
+      label: "Action",
+      render: (row) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const id = row._id ?? row.id ?? row.templateId;
+            // forwarded submission bins should open the submission bin review page
+            navigate(`${SUBMISSION_BINS_ROUTE}/${id}`, {
+              state: { doc: row, origin: "dean:recently-forwarded" },
+            });
+          }}
+          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+        >
+          Review
+        </button>
+      ),
+    },
   ];
 
+  const defaultColors = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4"];
   const chartData = {
-    labels: [
-      "Computing and Information Studies",
-      "Management",
-      "Accountancy",
-    ],
+    labels:
+      forwardedByDepartment && forwardedByDepartment.length
+        ? forwardedByDepartment.map((d) => d.department)
+        : ["Computing and Information Studies", "Management", "Accountancy"],
     datasets: [
       {
-        data: [56, 36, 5],
-        backgroundColor: [
-          "#3B82F6",
-          "#10B981",
-          "#F59E0B",
-        ],
+        data:
+          forwardedByDepartment && forwardedByDepartment.length
+            ? forwardedByDepartment.map((d) => d.count)
+            : [56, 36, 5],
+        backgroundColor:
+          forwardedByDepartment && forwardedByDepartment.length
+            ? forwardedByDepartment.map((_, i) => defaultColors[i % defaultColors.length])
+            : ["#3B82F6", "#10B981", "#F59E0B"],
         borderWidth: 0,
         cutout: "60%",
       },
@@ -258,6 +216,7 @@ export default function SecretaryDashboard() {
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       <Header user={user} />
+
       <div className="flex flex-col lg:flex-row flex-1">
         <Sidebar user={user} active="Dashboard" />
 
@@ -274,171 +233,28 @@ export default function SecretaryDashboard() {
           w-full max-w-full
         "
         >
+          <Greeting name={user?.firstname || "Department Head"} />
 
-          <Greeting name={user?.firstname || "Secretary"} />
-          {loading ? (
-            <div className="flex-1 flex justify-center items-center min-h-[60vh]">
-              <Loader message="Loading dashboard data..." />
-            </div>
-          ) : error ? (
-            <div className="flex-1 flex justify-center items-center min-h-[60vh] text-red-500">
-              <div className="text-center">
-                <p className="text-lg font-semibold mb-2">Error loading dashboard</p>
-                <p className="text-sm">{error}</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Stat cards */}
-              <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4">
-                {/* Upcoming Deadlines */}
-                <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-                  <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
-                    <CalendarClock className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
-                    <div className="text-3xl font-bold text-gray-900">1</div>
-                  </div>
-                </div>
+          {/* Stat cards */}
+          <div className="flex flex-wrap gap-4 items-stretch mb-3 mt-4"></div>
 
-                {/* Due Today */}
-                <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                    <CalendarCheck className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
-                    <div className="text-3xl font-bold text-gray-900">1</div>
-                  </div>
-                </div>
-
-                {/* Overdue Deadlines */}
-                <div className="bg-[#FBFBFB] p-4 rounded-lg shadow-sm flex items-center gap-3 min-w-[12rem] flex-1 sm:flex-none">
-                  <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
-                    <CalendarX className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
-                    <div className="text-3xl font-bold text-gray-900">1</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Main Content Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
-                {/* Left side: tables */}
-                <div className="lg:col-span-3 space-y-6">
-                  {/* Templates Table */}
-                  <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
-                    <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
-                      <div>
-                        <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                          RECENTLY SUBMITTED TEMPLATES
-                        </h2>
-                        <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
-                      </div>
-
-                      <button
-                        onClick={() => navigate(SUBMISSION_BINS_ROUTE)}
-                        className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
-                      >
-                        View All
-                      </button>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <Table columns={templateColumns} data={templates} />
-                    </div>
-                  </div>
-
-                  <div className="lg:col-span-4 bg-[#FBFBFB] shadow p-4 rounded w-full">
-                    <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
-                      <div>
-                        <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                          RECENTLY SUBMITTED BIN
-                        </h2>
-                        <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
-                      </div>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <Table
-                        columns={submissionBinColumns}
-                        data={submissionBin}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right side: deadlines + chart */}
-                <div className="lg:col-span-1 space-y-6">
-                  <UpcomingDeadlines
-                    deadlines={upcomingDeadlines}
-                    formatDate={formatDate}
-                  />
-
-                  {/* Deadlines Summary Doughnut Chart */}
-                  <div className="bg-white shadow-sm rounded-lg border border-gray-100">
-                    <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
-                      <h3 className="font-semibold text-sm text-gray-800">
-                        SUBMISSION OVERVIEW
-                      </h3>
-                    </div>
-
-                    <div className="p-6">
-                      {/* chart container */}
-                      <div className="relative h-40 mb-4">
-                        <Doughnut data={chartData} options={chartOptions} />
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                            <span className="text-gray-600">Department of Computing and Information Studies</span>
-                          </div>
-                          <span className="font-medium text-gray-800">56</span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                            <span className="text-gray-600">
-                              Department of Management
-                            </span>
-                          </div>
-                          <span className="font-medium text-gray-800">36</span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                            <span className="text-gray-600">
-                              Department of Accountancy
-                            </span>
-                          </div>
-                          <span className="font-medium text-gray-800">7</span>
-                        </div>
-
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recently Published Table */}
-              <div className="bg-[#FBFBFB] shadow p-4 rounded w-full mt-6">
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
+            {/* Left side: tables */}
+            <div className="lg:col-span-3 space-y-6">
+              {/* Templates Table */}
+              <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
                 <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
                   <div>
                     <h2 className="font-bold text-sm text-gray-800 tracking-wide">
-                      RECENTLY PUBLISHED TEMPLATES
+                      RECENTLY SUBMITTED TEMPLATES
                     </h2>
-                    <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+                    <div className="w-16 h-1 bg-yellow-400 mt-1 rounded" />
                   </div>
 
+                  {/* Goes to DOC_CONTROLLER_TEMPLATES_ROUTE */}
                   <button
-                    onClick={() => navigate("/templates", { state: { status: "Published" } })}
+                    onClick={() => navigate("/templates")}
                     className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
                   >
                     View All
@@ -446,11 +262,110 @@ export default function SecretaryDashboard() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <Table columns={publishedTemplatesColumns} data={publishedTemplates} />
+                  {templatesData && templatesData.length ? (
+                    <Table columns={templateColumns} data={templatesData} />
+                  ) : (
+                    <div className="p-6 text-center text-sm text-gray-500">No recently submitted templates.</div>
+                  )}
                 </div>
               </div>
-            </>
-          )}
+            </div>
+
+            {/* Right side: deadlines + chart */}
+            <div className="lg:col-span-1 space-y-6">
+              {/* Deadlines Summary Doughnut Chart */}
+              <div className="bg-white shadow-sm rounded-lg border border-gray-100">
+                <div className="bg-[#FBFBFB] px-6 py-4 border-b border-gray-100">
+                  <h3 className="font-semibold text-sm text-gray-800">
+                    SUBMISSION OVERVIEW — Last 30 Days
+                  </h3>
+                </div>
+
+                <div className="p-6">
+                  {/* chart container */}
+                  {forwardedByDepartment && forwardedByDepartment.length > 0 ? (
+                    <>
+                      <div className="relative h-55 mb-4">
+                        <Doughnut data={chartData} options={chartOptions} />
+                      </div>
+
+                      <div className="space-y-3">
+                        {forwardedByDepartment.map((d, i) => (
+                          <div key={d.department || i} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`w-3 h-3 rounded-full`}
+                                style={{ backgroundColor: defaultColors[i % defaultColors.length] }}
+                              ></div>
+                              <span className="text-gray-600">{d.department}</span>
+                            </div>
+                            <span className="font-medium text-gray-800">{d.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center h-36 text-sm text-gray-500">No submission overview data available for your school.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Recently Forwarded Submission Bins */}
+          <div className="bg-[#FBFBFB] shadow p-4 rounded w-full mt-6">
+            <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+              <div>
+                <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                  RECENTLY FORWARDED SUBMISSION BINS
+                </h2>
+                <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+              </div>
+
+              {/* Goes to SUBMISSION_BINS_ROUTE */}
+              <button
+                onClick={() => navigate(SUBMISSION_BINS_ROUTE)}
+                className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+              >
+                View All
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              {forwardedSubmissionBinsData && forwardedSubmissionBinsData.length ? (
+                <Table columns={forwardedSubmissionBinsColumns} data={forwardedSubmissionBinsData} />
+              ) : (
+                <div className="p-6 text-center text-sm text-gray-500">No recently forwarded submission bins for your school.</div>
+              )}
+            </div>
+          </div>
+
+          {/* Recently Published Table */}
+          <div className="bg-[#FBFBFB] shadow p-4 rounded w-full mt-6">
+            <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
+              <div>
+                <h2 className="font-bold text-sm text-gray-800 tracking-wide">
+                  RECENTLY PUBLISHED TEMPLATES
+                </h2>
+                <div className="w-16 h-1 bg-yellow-400 mt-1 mb-6 rounded" />
+              </div>
+
+              <button
+                onClick={() => navigate(DOC_CONTROLLER_TEMPLATES_ROUTE)}
+                className="lg:mr-4 lg:mb-2 bg-[#003DA5] text-white text-sm px-4 py-1 rounded-md hover:bg-[#002B7F] w-full sm:w-auto"
+              >
+                View All
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              {publishedTemplatesData && publishedTemplatesData.length ? (
+                <Table columns={publishedTemplatesColumns} data={publishedTemplatesData} />
+              ) : (
+                <div className="p-6 text-center text-sm text-gray-500">No recently published templates available.</div>
+              )}
+            </div>
+          </div>
         </main>
       </div>
     </div>

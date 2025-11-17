@@ -119,12 +119,12 @@ export default function DeanDashboard() {
         const res = await getDeanSecDashboardAPI();
         console.log(res);
         if (!mounted) return;
-        setLatestForwarded(res.latestForwarded || []);
         setForwardedByDepartment(res.forwardedByDepartment || []);
         setTotalForwardedCount(res.totalForwardedCount || 0);
         // set templates data if analytics returned them (keep placeholders otherwise)
-        setTemplatesData(res.templates || []);
-        setPublishedTemplatesData(res.publishedTemplates || []);
+        setTemplatesData((res.templates || []).slice(0, 5));
+        setPublishedTemplatesData((res.publishedTemplates || []).slice(0, 5));
+        setLatestForwarded((res.latestForwarded || []).slice(0, 5));
         setErrorDean(null);
       } catch (e) {
         console.error("Failed to load dean/sec dashboard", e);
@@ -144,11 +144,11 @@ export default function DeanDashboard() {
   // UI will render the empty-state message when there are no forwarded bins.
   const forwardedSubmissionBinsData = (latestForwarded && latestForwarded.length)
     ? latestForwarded.map((b) => ({
-        id: b.id,
-        title: b.title,
-        department: b.department,
-        submission: b.submissionsCount,
-      }))
+      id: b.id,
+      title: b.title,
+      department: b.department,
+      submission: b.submissionsCount,
+    }))
     : [];
 
   const forwardedSubmissionBinsColumns = [
@@ -236,7 +236,7 @@ export default function DeanDashboard() {
           <Greeting name={user?.firstname || "Department Head"} />
 
           {/* Stat cards */}
-          <div className="flex flex-wrap gap-4 items-stretch mb-8 mt-4"></div>
+          <div className="flex flex-wrap gap-4 items-stretch mb-3 mt-4"></div>
 
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
@@ -285,7 +285,7 @@ export default function DeanDashboard() {
                   {/* chart container */}
                   {forwardedByDepartment && forwardedByDepartment.length > 0 ? (
                     <>
-                      <div className="relative h-36 mb-4">
+                      <div className="relative h-55 mb-4">
                         <Doughnut data={chartData} options={chartOptions} />
                       </div>
 

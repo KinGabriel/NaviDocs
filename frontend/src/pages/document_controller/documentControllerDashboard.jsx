@@ -240,7 +240,7 @@ export default function DocumentControllerDashboard() {
                     </div>
 
                     <div className="overflow-x-auto">
-                      <Table columns={templateColumns} data={templates} />
+                      <Table columns={templateColumns} data={templates.slice(0, 5)} />
                     </div>
                   </div>
                 </div>
@@ -265,7 +265,7 @@ export default function DocumentControllerDashboard() {
                   <div className="overflow-x-auto">
                     <Table
                       columns={publishedTemplatesColumns}
-                      data={publishedTemplates}
+                      data={publishedTemplates.slice(0, 5)}
                     />
                   </div>
                 </div>

@@ -3,7 +3,7 @@ import { CalendarDays, Clock } from "lucide-react";
 import StatusBadge from "./statusBadge";
 
 
-export default function UpcomingDeadlines({
+export default function UpcomingDeadlines2({
   deadlines = [],
   title = "DEADLINES",
   icon = "📌",
@@ -37,8 +37,7 @@ export default function UpcomingDeadlines({
 
   return (
     <div className={`space-y-6 w-full md:w-[32rem] lg:w-full ${className}`}>
-      <div className="bg-white shadow-sm rounded-lg border border-gray-100 h-[22rem] flex flex-col">
-
+      <div className="bg-white shadow-sm rounded-lg border border-gray-100 h-[37.5rem] flex flex-col">
         {/* Header */}
         <div className="bg-[#FBFBFB] px-4 md:px-6 py-3 md:py-4 border-b border-gray-100 flex items-center gap-2 justify-between">
           <div className="flex items-center gap-2">

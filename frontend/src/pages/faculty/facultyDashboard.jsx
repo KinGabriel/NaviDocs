@@ -6,7 +6,7 @@ import Table2 from "../../components/table2";
 import { StatusBadge } from "../../utils/formatters";
 import { CalendarClock, CalendarCheck, CalendarX } from "lucide-react";
 import Greeting from "../../components/greeting";
-import UpcomingDeadlines from "../../components/upcomingDeadlines";
+import UpcomingDeadlines2 from "../../components/upcomingDeadlines2";
 import Loader from "../../components/loader";
 import { getFacultyDashboardAPI } from "../../api/documentsAPI";
 import { useNavigate } from "react-router-dom";
@@ -37,7 +37,7 @@ export default function FacultyDashboard() {
   const [error, setError] = useState(null);
   const [recentSubmissions, setRecentSubmissions] = useState([]);
   const [assignedBins, setAssignedBins] = useState([]);
-  const [upcomingDeadlines, setUpcomingDeadlines] = useState([]);
+  const [upcomingDeadlines2, setUpcomingDeadlines2] = useState([]);
   const navigate = useNavigate();
 
   // Fetch faculty dashboard data from analytics GraphQL via API wrapper
@@ -54,7 +54,7 @@ export default function FacultyDashboard() {
         const dueToday = Array.isArray(res.dueToday) ? res.dueToday : [];
         const upcoming = Array.isArray(res.upcoming) ? res.upcoming : [];
         const overdue = Array.isArray(res.overdue) ? res.overdue : [];
-        setUpcomingDeadlines([...dueToday, ...upcoming, ...overdue]);
+        setUpcomingDeadlines2([...dueToday, ...upcoming, ...overdue]);
         setError(null);
       } catch (err) {
         console.error('Failed to load faculty dashboard', err);
@@ -162,7 +162,7 @@ export default function FacultyDashboard() {
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-600 mb-1">Upcoming Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">{upcomingDeadlines.filter(d => d.priority === 'Upcoming').length}</div>
+                <div className="text-3xl font-bold text-gray-900">{upcomingDeadlines2.filter(d => d.priority === 'Upcoming').length}</div>
               </div>
             </div>
 
@@ -173,7 +173,7 @@ export default function FacultyDashboard() {
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-600 mb-1">Due Today</div>
-                <div className="text-3xl font-bold text-gray-900">{upcomingDeadlines.filter(d => d.priority === 'Due Today').length}</div>
+                <div className="text-3xl font-bold text-gray-900">{upcomingDeadlines2.filter(d => d.priority === 'Due Today').length}</div>
               </div>
             </div>
 
@@ -184,7 +184,7 @@ export default function FacultyDashboard() {
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-600 mb-1">Overdue Deadlines</div>
-                <div className="text-3xl font-bold text-gray-900">{upcomingDeadlines.filter(d => d.priority === 'Overdue').length}</div>
+                <div className="text-3xl font-bold text-gray-900">{upcomingDeadlines2.filter(d => d.priority === 'Overdue').length}</div>
               </div>
             </div>
           </div>
@@ -209,7 +209,10 @@ export default function FacultyDashboard() {
 
                 <div className="overflow-x-auto">
                   <div className="min-w-[600px]">
-                    <Table2 columns={submittedTemplatesColumns} data={submittedTemplates} />
+                    <Table2
+                      columns={submittedTemplatesColumns}
+                      data={submittedTemplates.slice(0,8)}
+                    />
                   </div>
                 </div>
               </div>
@@ -217,7 +220,7 @@ export default function FacultyDashboard() {
 
             {/* RIGHT SIDE */}
             <div className="md:col-span-2 w-full flex flex-col">
-              <UpcomingDeadlines deadlines={upcomingDeadlines} formatDate={formatDate} />
+              <UpcomingDeadlines2 deadlines={upcomingDeadlines2} formatDate={formatDate} navigate={navigate} />
             </div>
           </div>
         </main>

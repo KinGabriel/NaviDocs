@@ -35,7 +35,6 @@ export default function DepartmentHeadDashboard() {
 
   const templateColumns = [
     { key: "title", label: "Title" },
-    // 'Submitted At' column removed per request
     {
       key: "status",
       label: "Status",
@@ -66,7 +65,6 @@ export default function DepartmentHeadDashboard() {
     { key: "rev", label: "Revision No." },
     { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
     { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
-    // 'Submitted At' column removed per request
     {
       key: "action",
       label: "Action",
@@ -111,9 +109,9 @@ export default function DepartmentHeadDashboard() {
       try {
         const res = await getDeptHeadDashboardAPI();
         if (!mounted) return;
-        setTemplates(res.templates || []);
-        setPublishedTemplates(res.publishedTemplates || []);
-        setSubmissionOverviewData(res.bins || []);
+        setTemplates((res.templates || []).slice(0, 5));
+        setPublishedTemplates((res.publishedTemplates || []).slice(0, 5));
+        setSubmissionOverviewData((res.bins || []).slice(0, 5));
         setUpcomingDeadlinesData(res.upcoming || []);
         setDueTodayData(res.dueToday || []);
         setOverdueData(res.overdue || []);
@@ -188,7 +186,8 @@ export default function DepartmentHeadDashboard() {
 
               {/* Tables and Upcoming Deadlines */}
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 w-full">
-                <div className="lg:col-span-3 space-y-6">
+                <div className="lg:col-span-2 space-y-6">
+
                   <div className="bg-[#FBFBFB] shadow p-4 rounded w-full">
                     <div className="px-3 py-1 bg-gray-50 flex flex-col lg:flex-row lg:justify-between lg:items-center rounded-lg gap-4">
                       <div>
@@ -214,7 +213,7 @@ export default function DepartmentHeadDashboard() {
                   </div>
                 </div>
 
-                <div className="lg:col-span-1 space-y-6">
+                <div className="lg:col-span-2 space-y-6">
                   {/* combine all categories into a single list the component can filter by priority */}
                   {(() => {
                     const allDeadlines = [
@@ -235,6 +234,7 @@ export default function DepartmentHeadDashboard() {
                       <UpcomingDeadlines
                         deadlines={normalized}
                         formatDate={formatDate}
+                        navigate={navigate}
                       />
                     );
                   })()}
