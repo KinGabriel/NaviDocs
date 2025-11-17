@@ -660,15 +660,17 @@ export default function DocumentControllerCreateTemplate() {
                 className="flex-1 overflow-auto"
                 style={{ maxHeight: editorMaxHeight }}
               >
-                <TextEditor
-                  content={templateContent}
-                  pageSetup={pageSetup}
-                  headerConfig={headerConfig}
-                  onEditorReady={handleEditorReady}
-                  onContentChange={setTemplateContent}
-                  readOnly={isReadOnly}
-                  mode={isReadOnly ? "document" : "template"}
-                />
+                <div className="max-h-[calc(100vh-200px)] overflow-auto md:max-h-none md:overflow-visible">
+                  <TextEditor
+                    content={templateContent}
+                    pageSetup={pageSetup}
+                    headerConfig={headerConfig}
+                    onEditorReady={handleEditorReady}
+                    onContentChange={setTemplateContent}
+                    readOnly={isReadOnly}
+                    mode={isReadOnly ? "document" : "template"}
+                  />
+                </div>
               </main>
             </div>
           </div>

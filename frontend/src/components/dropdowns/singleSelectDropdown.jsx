@@ -1,3 +1,5 @@
+// @fileoverview SingleSelectDropdown component for selecting a single option from a dropdown list
+// @module components/dropdowns/SingleSelectDropdown
 import React, { useState } from "react";
 
 export default function SingleSelectDropdown({

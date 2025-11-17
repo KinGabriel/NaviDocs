@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Header component for template creation and document control workflow.
+ * Manages template lifecycle, approvals, version history, and user assignments.
+ * @module components/headers/header2
+ */
+
 // header for creating templates in document controller
 import { useNavigate } from 'react-router-dom';
 import naviLogo from '../../assets/images/navilogo.png';
@@ -8,9 +14,82 @@ import React, { useState, useEffect } from "react";
 import { assignControllersToTemplateAPI, fetchApproversAPI } from '../../api/documentContollerAPI';
 import defaultProfile from '../../assets/images/profile_picture.png';
 
-
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+/**
+ * Header component for template editing with workflow management
+ * @component
+ * @param {Object} props - Component props
+ * @param {string} props.title - Template title
+ * @param {Function} props.setTitle - Function to update template title
+ * @param {Object} props.user - Current user object
+ * @param {Object} [props.user.role] - User's role information
+ * @param {string} [props.user.role.name] - User's role name
+ * @param {string} [props.user.firstname] - User's first name
+ * @param {string} [props.user.lastname] - User's last name
+ * @param {string} [props.user.profile_picture] - URL path to user's profile picture
+ * @param {Function} props.onSubmitForApproval - Callback when submitting template for approval
+ * @param {Function} props.onApprove - Callback when approving a template
+ * @param {Function} props.onPublish - Callback when publishing a template
+ * @param {boolean} props.saving - Flag indicating if template is currently being saved
+ * @param {Date} [props.lastSavedAt] - Timestamp of last save
+ * @param {boolean} props.dirty - Flag indicating unsaved changes
+ * @param {string} [props.templateStatus='draft'] - Current template status (draft|assigned|pending|approved|published|returned|rejected|endorsed|disapproved)
+ * @param {Object} [props.approvals=null] - Approval status by role
+ * @param {Object} [props.approvalMeta=null] - Additional approval metadata
+ * @param {Array<Object>} [props.approvers=[]] - List of assigned approvers
+ * @param {boolean} [props.loadingApprovers=false] - Flag indicating if approvers are loading
+ * @param {Array<Object>} [props.reviewNotes=[]] - Review notes from approvers
+ * @param {Array<string>} [props.assignedIds=[]] - IDs of users assigned to template
+ * @param {Function} props.onAssign - Callback when assigning users to template
+ * @param {string} props.templateId - Unique identifier for the template
+ * @param {Function} [props.onStatusUpdate] - Callback when template status changes
+ * @param {Function} [props.onApprovalsUpdate] - Callback when approvals are updated
+ * @param {Object} [props.template=null] - Full template object
+ * 
+ * @returns {React.ReactElement} Header component with template controls and workflow actions
+ * 
+ * @description
+ * Advanced header component for template editing that includes:
+ * - Editable template title (draft mode only)
+ * - Auto-save status indicator
+ * - Version history viewer
+ * - Role-based workflow actions (submit, approve, publish, etc.)
+ * - Approval progress tracking with approver list
+ * - Review notes display
+ * - User assignment modal
+ * - Navigation controls
+ * 
+ * Workflow States:
+ * - draft: Initial state, editable by creator
+ * - assigned: Template assigned to document controllers
+ * - pending: Awaiting approver decisions
+ * - approved: Fully approved, ready to publish
+ * - published: Live and available for use
+ * - returned: Sent back for revisions
+ * - rejected: Rejected during approval
+ * - endorsed: Endorsed by Unit Document Controller
+ * - disapproved: Disapproved during workflow
+ * 
+ * Role Hierarchy:
+ * - Dean/Secretary → LDC → DCO
+ * - Department Head/Faculty → UDC → LDC → DCO
+ * 
+ * @example
+ * <Header2
+ *   title="Template Title"
+ *   setTitle={setTitle}
+ *   user={currentUser}
+ *   onSubmitForApproval={handleSubmit}
+ *   onApprove={handleApprove}
+ *   onPublish={handlePublish}
+ *   saving={false}
+ *   lastSavedAt={new Date()}
+ *   dirty={false}
+ *   templateStatus="draft"
+ *   templateId="template-123"
+ * />
+ */
 export default function Header2({
   title,
   setTitle,
@@ -95,6 +174,21 @@ export default function Header2({
     );
   }, [template?.assigned, template?.assignees]);
 
+/**
+   * Determines status-based button configuration and actions
+   * @function statusConfig
+   * @inner
+   * @returns {Object} Configuration object for status button
+   * @property {string} label - Button label text
+   * @property {boolean} disabled - Whether button is disabled
+   * @property {Function} [onClick] - Click handler function
+   * @property {string} className - Tailwind CSS classes for styling
+   * @property {React.ReactElement|null} icon - SVG icon element
+   * 
+   * @description
+   * Returns dynamic button configuration based on template status and user permissions.
+   * Handles different states: draft, pending, approved, published, returned, rejected, etc.
+   */
   const statusConfig = () => {
     const fullyApproved =
       (approvalMeta && approvalMeta.isFullyApproved) ||
@@ -276,6 +370,17 @@ export default function Header2({
 
   const action = statusConfig();
 
+/**
+   * Handles successful template submission
+   * @function handleSubmitSuccess
+   * @inner
+   * @param {string} newStatus - Updated template status
+   * @param {Object} updatedApprovals - Updated approvals object
+   * @param {Array<Object>} updatedApprovers - Updated approvers list
+   * @returns {void}
+   * @description
+   * Called after successful template submission. Updates parent state and closes modal.
+   */
   const handleSubmitSuccess = (newStatus, updatedApprovals, updatedApprovers) => {
     if (onStatusUpdate) onStatusUpdate(newStatus);
     if (onApprovalsUpdate) onApprovalsUpdate(updatedApprovals, updatedApprovers);
