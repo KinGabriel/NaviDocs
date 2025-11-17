@@ -5,7 +5,7 @@ import Sidebar from '../layout/sidebars/sidebar';
 import useUser from '../hooks/useUser';
 import SearchBar from '../components/searchbar';
 import Dropdown from '../components/dropdowns/dropdown';
-import TemplateCard from '../components/cards/templatecard';
+import TemplateCard from '../components/cards/templateCard';
 import CreateTemplateModal from '../components/modals/createTemplateModal';
 import usePagination from '../hooks/usePagination';
 

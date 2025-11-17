@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import useUser from "../../hooks/useUser";
-import AccordionList from "../../components/editable_fields/AccordionList";
+import AccordionList from "../../components/editable_fields/accordionList";
 import TagsManager from "../../components/editable_fields/tagsManager";
 import { listTagsAPI } from "../../api/tagsAPI";
 import {
