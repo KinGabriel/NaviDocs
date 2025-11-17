@@ -629,7 +629,7 @@ export default function DocumentControllerCreateTemplate() {
             {/* Desktop / large screens layout */}
             <div className="hidden lg:flex lg:flex-row lg:gap-10">
               {/* Sidebar on the left (desktop) */}
-              <div className="w-80 flex-shrink-0 -ml-4 xl:-ml-6">
+              <div className="flex-shrink-0 -ml-2 xl:-ml-4">
                 <TemplateSidebar
                   selectedPanel={selectedPanel}
                   onSelectPanel={setSelectedPanel}
@@ -641,7 +641,7 @@ export default function DocumentControllerCreateTemplate() {
               </div>
 
               {/* Editor on the right */}
-              <div className="flex-1 min-w-0 lg:ml-20">
+              <div className="flex-1 min-w-0 lg:ml-12">
                 <main
                   className="flex-1 overflow-auto rounded-xl border bg-white shadow-sm"
                   style={{ maxHeight: editorMaxHeight }}
@@ -658,6 +658,7 @@ export default function DocumentControllerCreateTemplate() {
                 </main>
               </div>
             </div>
+
 
             {/* Editor for mobile / tablet (always visible) */}
             <div className="lg:hidden">
@@ -710,11 +711,10 @@ export default function DocumentControllerCreateTemplate() {
 
                   <div className="h-[calc(100%-40px)] overflow-y-auto">
                     <TemplateSidebar
+                      inDrawer={true}
                       selectedPanel={selectedPanel}
                       onSelectPanel={(panel) => {
                         setSelectedPanel(panel);
-                        // optionally auto-close when a panel is chosen
-                        // setSidebarOpen(false);
                       }}
                       topOffsetPx={0}
                       bottomOffsetPx={16}

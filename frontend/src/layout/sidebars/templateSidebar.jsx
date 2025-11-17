@@ -4,21 +4,29 @@ export default function TemplateSidebar({
   selectedPanel,
   onSelectPanel,
   panels = [
-    { id: "font",         label: "Text",                glyph: "T"  },
-    { id: "headerfooter", label: "Header & Footers",    glyph: "▭"  },
-    { id: "insert",       label: "Insert",              glyph: "+"  },
-    { id: "pagesetup",    label: "Page setup",          glyph: "▦"  },
-    { id: "fields",       label: "Set Editable Fields", glyph: "✎"  },
+    { id: "font", label: "Text", glyph: "T" },
+    { id: "headerfooter", label: "Header & Footers", glyph: "▭" },
+    { id: "insert", label: "Insert", glyph: "+" },
+    { id: "pagesetup", label: "Page setup", glyph: "▦" },
+    { id: "fields", label: "Set Editable Fields", glyph: "✎" },
   ],
   topOffsetPx = 70,
   bottomOffsetPx = 16,
   children,
+  inDrawer = false, 
 }) {
   const maxHeight = `calc(100vh - ${topOffsetPx + bottomOffsetPx}px)`;
-
-  return (
+  const stickyStyle = inDrawer
+    ? {}
+    : { position: "sticky", top: topOffsetPx, maxHeight };
+  
+  const panelBodyClass = inDrawer
+    ? "p-4 bg-white"
+    : "h-full overflow-auto p-4 bg-white";
+  
+    return (
     <div className="relative z-20 flex flex-col md:flex-row shrink-0 w-full md:w-auto">
-            {/* TOOL RAIL */}
+      {/* TOOL RAIL */}
       <nav
         className="
           flex flex-row md:flex-col
@@ -27,11 +35,7 @@ export default function TemplateSidebar({
           border border-slate-200 bg-white py-2 shadow-sm
           mb-3 md:mb-0
         "
-        style={{
-          position: "sticky",
-          top: topOffsetPx,
-          maxHeight,
-        }}
+        style={stickyStyle}
         aria-label="Editor tools"
       >
 
@@ -44,10 +48,9 @@ export default function TemplateSidebar({
                   type="button"
                   onClick={() => onSelectPanel(item.id)}
                   className={`flex w-full flex-col items-center justify-center gap-1 rounded-xl py-3 transition
-                    ${
-                      active
-                        ? "bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200"
-                        : "text-slate-600 hover:bg-slate-50"
+                    ${active
+                      ? "bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200"
+                      : "text-slate-600 hover:bg-slate-50"
                     }`}
                   aria-current={active ? "page" : undefined}
                 >
@@ -67,19 +70,16 @@ export default function TemplateSidebar({
       {/* RIGHT CONTENT SIDEBAR */}
       <aside
         className="
-          ml-0 md:ml-3
+          ml-0 md:ml-4
           w-full
           max-w-full
           rounded-3xl border border-slate-200 bg-white shadow-sm
           overflow-hidden
-          md:flex-[0_0_360px] md:max-w-[380px]
+          md:flex-[0_0_440px] md:max-w-[460px]
         "
-        style={{
-          position: "sticky",
-          top: topOffsetPx,
-          maxHeight,
-        }}
+        style={stickyStyle}
       >
+
         <div className="h-full overflow-auto p-4 bg-white">
           {children}
         </div>
