@@ -137,6 +137,7 @@ export default function DocumentControllerCreateTemplate() {
   const editorRef = useRef(null);
   const [editorInstance, setEditorInstance] = useState(null);
   const headerH = useHeaderHeight();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Template state
   const [templateId, setTemplateId] = useState(null);
@@ -602,20 +603,66 @@ export default function DocumentControllerCreateTemplate() {
           />
 
           {/* MAIN LAYOUT UNDER HEADER */}
-          <div className="flex flex-1">
-            {/* Sidebar */}
-            <TemplateSidebar
-              selectedPanel={selectedPanel}
-              onSelectPanel={setSelectedPanel}
-              topOffsetPx={headerH + 12}
-              bottomOffsetPx={16}
-            >
-              {renderPanel()}
-            </TemplateSidebar>
+          <div className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 lg:py-6">
+            {/* Mobile / tablet toolbar */}
+            <div className="flex items-center justify-between mb-3 lg:hidden">
+              <h2 className="text-sm font-medium text-gray-700 truncate">
+                Template editor
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSidebarOpen((prev) => !prev)}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm active:scale-[0.98]"
+              >
+                <span>{sidebarOpen ? "Hide tools" : "Show tools"}</span>
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h11A1.5 1.5 0 0 1 17 4.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5v-11Zm2 1a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5H7v-10H5Zm4 0v10h6.5a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5H9Z" />
+                </svg>
+              </button>
+            </div>
 
-            <div className="flex-1 mx-auto w-full max-w-7xl px-4 py-6 md:pl-6">
+            {/* Desktop / large screens layout */}
+            <div className="hidden lg:flex lg:flex-row lg:gap-10">
+              {/* Sidebar on the left (desktop) */}
+              <div className="w-80 flex-shrink-0 -ml-4 xl:-ml-6">
+                <TemplateSidebar
+                  selectedPanel={selectedPanel}
+                  onSelectPanel={setSelectedPanel}
+                  topOffsetPx={headerH + 12}
+                  bottomOffsetPx={16}
+                >
+                  {renderPanel()}
+                </TemplateSidebar>
+              </div>
+
+              {/* Editor on the right */}
+              <div className="flex-1 min-w-0 lg:ml-20">
+                <main
+                  className="flex-1 overflow-auto rounded-xl border bg-white shadow-sm"
+                  style={{ maxHeight: editorMaxHeight }}
+                >
+                  <TextEditor
+                    content={templateContent}
+                    pageSetup={pageSetup}
+                    headerConfig={headerConfig}
+                    onEditorReady={handleEditorReady}
+                    onContentChange={setTemplateContent}
+                    readOnly={isReadOnly}
+                    mode={isReadOnly ? "document" : "template"}
+                  />
+                </main>
+              </div>
+            </div>
+
+            {/* Editor for mobile / tablet (always visible) */}
+            <div className="lg:hidden">
               <main
-                className="flex-1 overflow-auto"
+                className="flex-1 overflow-auto rounded-xl border bg-white shadow-sm"
                 style={{ maxHeight: editorMaxHeight }}
               >
                 <TextEditor
@@ -629,6 +676,63 @@ export default function DocumentControllerCreateTemplate() {
                 />
               </main>
             </div>
+
+            {/* Mobile / tablet sidebar drawer */}
+            {sidebarOpen && (
+              <div className="fixed inset-0 z-[60] flex lg:hidden">
+                {/* Drawer panel */}
+                <div className="relative h-full w-72 max-w-[80%] bg-white shadow-2xl">
+                  <div className="flex items-center justify-between px-3 py-2 border-b">
+                    <span className="text-xs font-semibold text-gray-700">
+                      Tools
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSidebarOpen(false)}
+                      className="p-1 rounded-full hover:bg-gray-100"
+                      aria-label="Close tools"
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 5l10 10M15 5 5 15"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="h-[calc(100%-40px)] overflow-y-auto">
+                    <TemplateSidebar
+                      selectedPanel={selectedPanel}
+                      onSelectPanel={(panel) => {
+                        setSelectedPanel(panel);
+                        // optionally auto-close when a panel is chosen
+                        // setSidebarOpen(false);
+                      }}
+                      topOffsetPx={0}
+                      bottomOffsetPx={16}
+                    >
+                      {renderPanel()}
+                    </TemplateSidebar>
+                  </div>
+                </div>
+
+                {/* Backdrop */}
+                <button
+                  type="button"
+                  className="flex-1 bg-black/30"
+                  onClick={() => setSidebarOpen(false)}
+                  aria-label="Close tools backdrop"
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

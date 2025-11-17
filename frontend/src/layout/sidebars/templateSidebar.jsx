@@ -1,15 +1,14 @@
-// src/layout/sidebars/templateSidebar.jsx
 import React from "react";
 
 export default function TemplateSidebar({
   selectedPanel,
   onSelectPanel,
   panels = [
-    { id: "font",         label: "Text",                 glyph: "T"  },
-    { id: "headerfooter", label: "Header & Footers",     glyph: "▭"  },
-    { id: "insert",       label: "Insert",               glyph: "+"  },
-    { id: "pagesetup",    label: "Page setup",           glyph: "▦"  },
-    { id: "fields",       label: "Set Editable Fields",  glyph: "✎"  },
+    { id: "font",         label: "Text",                glyph: "T"  },
+    { id: "headerfooter", label: "Header & Footers",    glyph: "▭"  },
+    { id: "insert",       label: "Insert",              glyph: "+"  },
+    { id: "pagesetup",    label: "Page setup",          glyph: "▦"  },
+    { id: "fields",       label: "Set Editable Fields", glyph: "✎"  },
   ],
   topOffsetPx = 70,
   bottomOffsetPx = 16,
@@ -18,13 +17,15 @@ export default function TemplateSidebar({
   const maxHeight = `calc(100vh - ${topOffsetPx + bottomOffsetPx}px)`;
 
   return (
-    // ⬅ z-20 so this whole sidebar stack is above the document when they overlap
-    <div className="relative z-20 flex shrink-0">
-      {/* LEFT TOOL RAIL */}
+    <div className="relative z-20 flex flex-col md:flex-row shrink-0 w-full md:w-auto">
+            {/* TOOL RAIL */}
       <nav
         className="
-          hidden md:flex flex-col
-          w-24 rounded-r-2xl border border-slate-200 bg-white py-2 shadow-sm
+          flex flex-row md:flex-col
+          w-full md:w-24
+          rounded-2xl md:rounded-r-2xl
+          border border-slate-200 bg-white py-2 shadow-sm
+          mb-3 md:mb-0
         "
         style={{
           position: "sticky",
@@ -33,7 +34,8 @@ export default function TemplateSidebar({
         }}
         aria-label="Editor tools"
       >
-        <ul className="flex h-full flex-col items-stretch gap-2 px-1">
+
+        <ul className="flex h-full w-full flex-row md:flex-col items-stretch gap-2 px-1">
           {panels.map((item) => {
             const active = selectedPanel === item.id;
             return (
@@ -62,14 +64,15 @@ export default function TemplateSidebar({
         </ul>
       </nav>
 
-      {/* RIGHT CONTENT SIDEBAR – keep same size as you liked */}
+      {/* RIGHT CONTENT SIDEBAR */}
       <aside
         className="
-          ml-3
-          flex-[0_0_360px]
-          max-w-[380px]
+          ml-0 md:ml-3
+          w-full
+          max-w-full
           rounded-3xl border border-slate-200 bg-white shadow-sm
           overflow-hidden
+          md:flex-[0_0_360px] md:max-w-[380px]
         "
         style={{
           position: "sticky",
