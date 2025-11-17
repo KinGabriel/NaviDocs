@@ -1,3 +1,15 @@
+/**
+ * @fileoverview Submission bins management page for tracking and managing document submissions.
+ * Provides overview statistics, filtering, sorting, and role-based actions (assign, forward, view).
+ * Supports different views for Department Heads, Deans, and Secretaries.
+ * 
+ * @module pages/SubmissionBins
+ * @requires react
+ * @requires react-router-dom
+ * @requires lucide-react
+ * @requires react-hot-toast
+ */
+
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../layout/headers/header";
@@ -16,6 +28,38 @@ import toast from "react-hot-toast";
 const STATUS_OPTIONS = ["All Status", "Active", "Completed", "Pending", "Returned", "Overdue"];
 const SORT_OPTIONS = ["Recent", "Oldest", "Due Soon", "A–Z"];
 
+/**
+ * Main submission bins page component for managing document submissions.
+ * 
+ * Features:
+ * - Real-time statistics dashboard (active, completed, pending, returned, overdue)
+ * - Search and filter functionality
+ * - Multiple sort options (recent, oldest, due soon, alphabetical)
+ * - Role-based access control:
+ *   - Department Heads: Can assign submissions and forward completed bins to Dean/Secretary
+ *   - Deans/Secretaries: View-only access to forwarded submissions
+ * - Pagination with ellipsis for large datasets
+ * - Task assignment modal for creating new submissions
+ * - Forward functionality for completed submissions
+ * - Submission progress tracking with document counts
+ * - Returned submission alerts and counters
+ * 
+ * Status Logic:
+ * - Active: Submissions in progress without returned items
+ * - Completed: All items submitted and approved
+ * - Pending: Some (but not all) submissions are returned
+ * - Returned: All submissions are returned (awaiting resubmission)
+ * - Overdue: Past deadline and not completed
+ * 
+ * @component
+ * @returns {JSX.Element} Complete submission bins management interface
+ * 
+ * @example
+ * // Route configuration
+ * <Route path="/submission-bins" element={<SubmissionBins />} />
+ * <Route path="/submissions" element={<SubmissionBins />} />
+ * <Route path="/document-workflow" element={<SubmissionBins />} />
+ */
 export default function SubmissionBins() {
   const user = useUser();
   const navigate = useNavigate();
@@ -98,6 +142,31 @@ export default function SubmissionBins() {
     return rows;
   }, [query, statusFilter, sortBy, bins]);
 
+/**
+   * Computed statistics for submission bins.
+   * 
+   * Statistics include:
+   * - active: Bins in progress without returned submissions
+   * - completed: Bins with all submissions approved
+   * - pending: Bins with some (but not all) returned submissions
+   * - returned: Bins where ALL submissions are returned
+   * - overdue: Bins past deadline and not completed
+   * - totalAssigned: Total number of individual submissions across all bins
+   * 
+   * Return Logic:
+   * - Uses submission notes to determine if currently returned (after last resubmission)
+   * - Pending = has returned items but not all
+   * - Returned = all items are currently returned
+   * 
+   * @type {{
+   *   active: number,
+   *   completed: number,
+   *   overdue: number,
+   *   totalAssigned: number,
+   *   returned: number,
+   *   pending: number
+   * }}
+   */
   // Stats calculation
   const stats = useMemo(() => {
     const now = new Date();
@@ -453,13 +522,60 @@ function StatCard({ icon: Icon, label, value, color }) {
   );
 }
 
+/**
+ * Submission bin card component displaying bin details, progress, and actions.
+ * 
+ * Features:
+ * - Status badge with dynamic colors
+ * - Returned submission alerts with count
+ * - Deadline display with urgency indicators
+ * - Progress bar showing submission completion
+ * - Document count summary
+ * - Forward button (for Department Heads on completed bins)
+ * - View details button (restricted for Dean/Secretary on non-forwarded bins)
+ * 
+ * @component
+ * @param {Object} props
+ * @param {Object} props.submission - Submission bin object
+ * @param {string} props.submission._id - Submission bin ID
+ * @param {string} props.submission.title - Submission title
+ * @param {string} [props.submission.instructions] - Submission instructions
+ * @param {string} props.submission.deadline - Deadline ISO date string
+ * @param {string} props.submission.status - Submission status
+ * @param {boolean} [props.submission.is_forwarded] - Whether bin is forwarded to Dean/Secretary
+ * @param {Array<Object>} props.submission.submissions - Array of individual submissions
+ * @param {Function} props.onView - Callback when view button is clicked
+ * @param {Function} [props.onForward] - Callback when forward button is clicked
+ * @param {boolean} [props.canForward=false] - Whether forward button should be shown
+ * @param {boolean} [props.forwarding=false] - Whether forward operation is in progress
+ * @param {boolean} [props.canView=true] - Whether view button should be enabled
+ * @returns {JSX.Element}
+ * 
+ * @example
+ * <SubmissionCard
+ *   submission={binData}
+ *   onView={() => navigate(`/submissions/${binData._id}`)}
+ *   canForward={isDeptHead && binData.status === 'completed'}
+ *   onForward={() => handleForward(binData._id)}
+ *   forwarding={false}
+ *   canView={true}
+ * />
+ */
 function SubmissionCard({ submission, onView, onForward, canForward, forwarding, canView = true }) {
   const daysUntilDue = Math.ceil((new Date(submission.deadline) - new Date()) / (1000 * 60 * 60 * 24));
   const items = Array.isArray(submission.submissions) ? submission.submissions : (submission.submission || []);
 
   const displayStatus = getSubmissionBinStatus(submission);
 
-  // Helper: is currently returned
+ /**
+   * Checks if a submission is currently in returned state (after most recent resubmission).
+   * Examines submission notes to determine current status.
+   * 
+   * @param {Object} sub - Individual submission object
+   * @param {string} [sub.status] - Submission status
+   * @param {Array<Object>} [sub.notes] - Array of submission notes/actions
+   * @returns {boolean} True if submission is currently returned
+   */
   const isCurrentlyReturned = (sub) => {
     if (!sub) return false;
     if (String(sub.status || '').toLowerCase() === 'returned') return true;

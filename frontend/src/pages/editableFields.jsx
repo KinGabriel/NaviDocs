@@ -1,3 +1,16 @@
+/**
+ * @fileoverview Advanced document editing interface with live field editing, autofill, and PDF export.
+ * Provides a split-view layout with a form panel for field inputs and a live document preview with
+ * TipTap editor integration. Supports responsive design, autosave, duplicate field management, and
+ * table manipulation.
+ * 
+ * @module pages/EditableFields
+ * @requires react
+ * @requires react-dom
+ * @requires lucide-react
+ * @requires react-router-dom
+ */
+
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -16,23 +29,48 @@ import EditableFieldsHeader from "../layout/editable_fields/editableFieldsHeader
 import useUser from "../hooks/useUser";
 import Panel from "../layout/editable_fields/panel";
 import TextEditor from "../layout/create_template/textEditor";
-
 import fetchAndNormalizeDocument from "../utils/documentLoader";
 import {
   updateDocumentFieldValuesAPI,
   getFieldSuggestionsAPI,
   saveFieldSuggestionAPI,
 } from "../api/documentsAPI";
-
 import AutofillModal from "../components/modals/autofillModal";
 import DownloadingModal from "../components/modals/downloadingModal";
 import exportDocumentPdf from "../utils/exportPdf";
-
 import { useParams, useLocation } from "react-router-dom";
 
+/**
+ * Main editable fields page component providing a comprehensive document editing interface.
+ * 
+ * Features:
+ * - Split-view layout: Form panel (left) and document preview (right)
+ * - Live field editing with real-time preview updates
+ * - Autosave functionality with debouncing (700ms)
+ * - Autofill from saved suggestions (user/school scope)
+ * - Duplicate field management with cycle navigation
+ * - Responsive design with mobile drawer
+ * - Desktop sidebar collapse (56px mini / 360px full)
+ * - PDF export with optional cloud storage
+ * - Table insertion and manipulation tools
+ * - Field highlighting and scroll-to-field navigation
+ * - Progress pagination for large field sets
+ * - Integration with TipTap editor for rich text editing
+ * 
+ * @component
+ * @returns {JSX.Element} Complete editable fields interface
+ * 
+ */
 export default function EditableFields() {
   const user = useUser();
 
+/**
+   * Checks if a user has permission to use school-wide scope for field suggestions.
+   * Only Document Controller roles have this permission.
+   * 
+   * @param {Object|string} u - User object or role string
+   * @returns {boolean} True if user can access school scope
+   */
   const allowSchoolScope = (u) => {
     if (!u) return false;
     if (u === "Document Controller") return true;
@@ -104,6 +142,24 @@ export default function EditableFields() {
   const [showSidebar, setShowSidebar] = useState(false); // mobile drawer
   const [collapsed, setCollapsed] = useState(false); // desktop collapse (56px mini vs 360px full)
 
+/**
+   * Exports the current document as PDF, optionally storing in cloud storage.
+   * Captures rendered HTML from the editor for accurate PDF generation.
+   * 
+   * @async
+   * @param {Object} [options={}] - Export options
+   * @param {boolean} [options.store=true] - Whether to store PDF in cloud storage
+   * @param {string} [options.folderId] - Target folder ID for storage
+   * @throws {Error} If document ID is not available or export fails
+   * 
+   * @example
+   * // Export and download locally only
+   * await handleExportPDF({ store: false });
+   * 
+   * @example
+   * // Export and store in specific folder
+   * await handleExportPDF({ store: true, folderId: 'folder-123' });
+   */
   // ---------------------------
   // EXPORT PDF
   // ---------------------------
@@ -171,6 +227,16 @@ export default function EditableFields() {
     }
   };
 
+  /**
+   * Scrolls to and highlights a specific field in the editor by field name.
+   * Supports label-based field names with automatic key mapping.
+   * 
+   * @param {Object} editor - TipTap editor instance
+   * @param {string} fieldName - Field name or label to scroll to
+   * 
+   * @example
+   * scrollToAndHighlightField(editorRef.current, 'Employee Name');
+   */
   // ---------------------------
   // SCROLL/HIGHLIGHT HELPERS
   // ---------------------------
@@ -230,6 +296,12 @@ export default function EditableFields() {
     }
   };
 
+/**
+   * Scrolls to a specific position in the editor and applies highlight animation.
+   * 
+   * @param {Object} editor - TipTap editor instance
+   * @param {number} pos - Document position to scroll to
+   */
   const scrollToEditorPos = (editor, pos) => {
     try {
       if (!editor || !editor.view) return;
@@ -260,6 +332,20 @@ export default function EditableFields() {
     }
   };
 
+/**
+   * Cycles through duplicate occurrences of a field, scrolling to the next/previous instance.
+   * 
+   * @param {string} fieldName - Field name to cycle
+   * @param {('next'|'prev')} [direction='next'] - Cycle direction
+   * 
+   * @example
+   * // Navigate to next occurrence
+   * cycleDuplicate('Date', 'next');
+   * 
+   * @example
+   * // Navigate to previous occurrence
+   * cycleDuplicate('Date', 'prev');
+   */
   // cycle duplicates of the same field
   const cycleDuplicate = (fieldName, direction = "next") => {
     const positions = duplicatePositionsRef.current[fieldName] || [];
@@ -280,6 +366,13 @@ export default function EditableFields() {
     });
   };
 
+
+/**
+   * Recomputes positions and counts for all duplicate fields in the document.
+   * Updates duplicatePositionsRef, duplicateCounts, and duplicateIndices.
+   * 
+   * @param {Object} editor - TipTap editor instance
+   */
   // recompute duplicate positions/counts
   const computeDuplicatePositions = (editor) => {
     try {
@@ -327,6 +420,30 @@ export default function EditableFields() {
   // allow manual reloads if load fails
   const [reloadCounter, setReloadCounter] = useState(0);
 
+/**
+   * Panels configuration derived from template fields with rich metadata.
+   * Supports grouped sections with scope information and local-only fields.
+   * 
+   * @type {Array<{
+   *   number: number,
+   *   title: string,
+   *   subtitle?: string,
+   *   color: string,
+   *   fields: Array<{
+   *     type: string,
+   *     name: string,
+   *     _originalKey: string,
+   *     label: string,
+   *     placeholder: string,
+   *     instructions: string,
+   *     dateFormat: string|null,
+   *     required: boolean,
+   *     options: Array|null,
+   *     tags: Array<string>,
+   *     tagColors: Object
+   *   }>
+   * }>|null}
+   */
   // panels from template (prefer rich labels/instructions; supports grouped sections)
   const panelsFromTemplate = useMemo(() => {
     if (!docData || !docData.from_template) return null;
@@ -819,7 +936,15 @@ export default function EditableFields() {
   // ---------------------------
   // AUTOFILL HELPERS
   // ---------------------------
-
+/**
+   * Fetches a preview value for a field from saved suggestions.
+   * 
+   * @async
+   * @param {string} key - Field key or label
+   * @param {('user'|'school')} scope - Suggestion scope
+   * @param {string} mode - Matching mode ('label-tags' or 'key-only')
+   * @returns {Promise<any|undefined>} Preview value or undefined if not found
+   */
   const fetchPreview = async (key, scope, mode) => {
     try {
       const meta = fieldMetaByName[key] || {};
@@ -838,6 +963,17 @@ export default function EditableFields() {
     }
   };
 
+/**
+   * Autofills all empty fields from saved suggestions based on scope and matching mode.
+   * 
+   * @async
+   * @param {Array} fieldsToUse - Array of panel configurations with fields
+   * @param {('user'|'school')} [scope='user'] - Suggestion scope
+   * @param {string} mode - Matching mode
+   * 
+   * @example
+   * await autofillFromSuggestions(panelsToUse, 'user', 'label-tags');
+   */
   const autofillFromSuggestions = async (fieldsToUse, scope = "user", mode) => {
     if (!fieldsToUse || !Array.isArray(fieldsToUse)) return;
     try {
@@ -909,6 +1045,13 @@ export default function EditableFields() {
     }
   };
 
+ /**
+   * Applies selected autofill items to form data and persists to server.
+   * Also saves new suggestions for future use.
+   * 
+   * @async
+   * @param {Array<{key: string, value: any, scope: string}>} items - Autofill items to apply
+   */
   const handleApplyAutofill = async (items) => {
     if (!Array.isArray(items) || items.length === 0) {
       setAutofillOpen(false);
@@ -970,7 +1113,17 @@ export default function EditableFields() {
   // ---------------------------
   // EDITOR CONTENT (PREVIEW)
   // ---------------------------
-
+ /**
+   * Replaces mustache-style placeholders in HTML with form values.
+   * 
+   * @param {string} html - HTML string with placeholders
+   * @param {Object} [values={}] - Field values to substitute
+   * @returns {string} HTML with placeholders replaced
+   * 
+   * @example
+   * applyPlaceholdersToHtml('<p>{{name}}</p>', { name: 'John' })
+   * // Returns: '<p>John</p>'
+   */
   const applyPlaceholdersToHtml = (html, values = {}) => {
     if (!html || typeof html !== "string") return html;
     return html.replace(
@@ -982,6 +1135,12 @@ export default function EditableFields() {
     );
   };
 
+/**
+   * Editor content with form data applied to editableField nodes.
+   * Converts document JSON to TipTap-compatible format with current field values.
+   * 
+   * @type {Object|string|null}
+   */
   const contentForEditor = useMemo(() => {
     if (!docData) return null;
 
@@ -1286,7 +1445,15 @@ export default function EditableFields() {
   // ---------------------------
   // SMALL COMPONENTS
   // ---------------------------
-
+ /**
+   * Progress navigation component showing current panel sections.
+   * Displays section numbers and titles with navigation indicators.
+   * 
+   * @component
+   * @param {Object} props
+   * @param {Array} props.panelsConfig - Full panels configuration
+   * @returns {JSX.Element}
+   */
   const ProgressNavigation = ({ panelsConfig }) => {
     const slice = panelsConfig.slice(
       currentPage * sectionsPerPage,
@@ -1349,6 +1516,15 @@ export default function EditableFields() {
     );
   };
 
+/**
+   * Table management tools for inserting and manipulating tables in the editor.
+   * Provides table insertion dialog and row/column manipulation buttons.
+   * 
+   * @component
+   * @param {Object} props
+   * @param {Object} props.editor - TipTap editor instance
+   * @returns {JSX.Element}
+   */
   const TableManager = ({ editor }) => {
     const [showTableDialog, setShowTableDialog] =
       useState(false);
