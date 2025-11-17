@@ -663,7 +663,7 @@ export default function SubmissionDetails() {
                       <AlertCircle size={18} className="text-yellow-700 mt-0.5" />
                       <div>
                         <p className="text-sm font-medium text-yellow-800">
-                          No templates configured for this submission bin.
+                          No templates assigned for this submission bin.
                         </p>
                         <p className="text-xs text-yellow-700 mt-1">
                           Add at least one template so faculty can submit documents using this bin.
