@@ -7,10 +7,10 @@ import CreateUser from './pages/admin/adminCreateUser';
 import AdminLoginActivity from './pages/admin/adminLoginActivity';
 import AccountSettings from "./pages/accountSettings";
 import Documents from "./pages/documents";
+import Templates from "./pages/templates";
 import PublishedTemplateView from "./pages/publishedTemplateView";
 import AdminEditUser from "./pages/admin/adminEditUser";
 import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
-import DocumentControllerTemplates from './pages/document_controller/documentControllerTemplates';
 import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
 import ProtectedRoute from './guards/protectedroute';
 import DocumentControllerWorkflowView from './pages/document_controller/documentControllerWorkflowView';
@@ -64,7 +64,8 @@ function RoleTemplatesRouter() {
   const user = useUser();
   const role = user?.role?.name;
   if (!role) return <UnauthorizedPage />;
-  // Approver roles (3 roles) use the review/handle templates view
+
+  // Approver roles use the review/handle templates view
   if (
     role === "Lead Document Controller" ||
     role === "Document Control Officer" ||
@@ -72,15 +73,17 @@ function RoleTemplatesRouter() {
   ) {
     return <DocControllerTemplates />;
   }
-  // Everyone else (excluding Admin) sees the main templates list
+
+  // Everyone else (excluding Admin) sees the main Templates page
   if (
     role === "Secretary" ||
     role === "Dean" ||
     role === "Department Head" ||
     role === "Faculty"
   ) {
-    return <DocumentControllerTemplates />;
+    return <Templates />;
   }
+
   return <UnauthorizedPage />;
 }
 
@@ -111,26 +114,21 @@ function App() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [navigate]); // publicRoutes is static
 
-  // While verifying the session for protected routes, show a loader
   if (checkingSession) {
-    return (
-      <>
-        <Loader />
-      </>
-    );
+    return <Loader />;
   }
 
   return (
     <>
       <Toaster />
       <Routes>
+        {/* Auth / public */}
         <Route path="/" element={<LoginRoute />} />
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="/document-controller" element={<Navigate to="/document-controller/dashboard" replace />} />
-        {/* Public: forgot password */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Admin Module */}
@@ -175,8 +173,7 @@ function App() {
           }
         />
 
-
-        {/* Document Controller Module (shared dashboard/workflow for approvers) */}
+        {/* Document Controller Module */}
         <Route
           path="/document-controller/dashboard"
           element={
@@ -185,11 +182,20 @@ function App() {
             </ProtectedRoute>
           }
         />
+
         {/* Unified Templates Route for all roles */}
         <Route
           path="/templates"
           element={
-            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+            <ProtectedRoute allowedRoles={[
+              "Secretary",
+              "Dean",
+              "Department Head",
+              "Faculty",
+              "Lead Document Controller",
+              "Document Control Officer",
+              "Unit Document Controller"
+            ]}>
               <RoleTemplatesRouter />
             </ProtectedRoute>
           }
@@ -220,7 +226,11 @@ function App() {
 
         <Route
           path="/document-controller/document-workflow/:id"
-          element={<DocumentControllerWorkflowView />}
+          element={
+            <ProtectedRoute allowedRoles={["Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+              <DocumentControllerWorkflowView />
+            </ProtectedRoute>
+          }
         />
 
         {/* Secretary Module */}
@@ -232,7 +242,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {/* Legacy secretary templates route (optional redirect) */}
         <Route path="/secretary/templates" element={<Navigate to="/templates" replace />} />
         <Route
           path="/secretary/settings"
@@ -252,28 +261,25 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* Legacy dean templates route redirect to unified */}
         <Route path="/dean/templates" element={<Navigate to="/templates" replace />} />
         <Route
           path="/dean/document-workflow/:id"
-          element={<DeanDocumentWorkflowView />}
+          element={
+            <ProtectedRoute allowedRoles={["Dean"]}>
+              <DeanDocumentWorkflowView />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/dean/documents/:id"
-          element={<DeanDocumentWorkflowView />}
+          element={
+            <ProtectedRoute allowedRoles={["Dean"]}>
+              <DeanDocumentWorkflowView />
+            </ProtectedRoute>
+          }
         />
 
-        <Route
-          path="/"
-          element={<DeanDashboard />}
-        />
-
-        <Route
-          path="/submission-bins"
-          element={<SubmissionBins />}
-        />
-
+        {/* Submission bins */}
         <Route
           path="/submission-bins"
           element={
@@ -311,15 +317,23 @@ function App() {
           }
         />
 
-        {/* Legacy dept-head templates route redirect to unified */}
         <Route path="/dept-head/templates" element={<Navigate to="/templates" replace />} />
+
         <Route
           path="/dept-head/document-workflow/:id"
-          element={<DepartmentHeadDocumentWorkflowView />}
+          element={
+            <ProtectedRoute allowedRoles={["Department Head"]}>
+              <DepartmentHeadDocumentWorkflowView />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/department-head/documents/:id"
-          element={<DepartmentHeadDocumentWorkflowView />}
+          element={
+            <ProtectedRoute allowedRoles={["Department Head"]}>
+              <DepartmentHeadDocumentWorkflowView />
+            </ProtectedRoute>
+          }
         />
 
         {/* Faculty Module */}
@@ -350,11 +364,9 @@ function App() {
           }
         />
 
-        {/* Legacy faculty templates route redirect to unified */}
         <Route path="/faculty/templates" element={<Navigate to="/templates" replace />} />
 
-        {/* Global */}
-
+        {/* Global shared routes */}
         <Route
           path="/account/settings"
           element={
@@ -412,7 +424,7 @@ function App() {
         <Route
           path="/storage/folders/:id"
           element={
-            <ProtectedRoute allowedRoles={["Document Controller", "Secretary", "Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
               <Storage />
             </ProtectedRoute>
           }
@@ -445,7 +457,8 @@ function App() {
           }
         />
 
-        <Route path="/select-template"
+        <Route
+          path="/select-template"
           element={
             <ProtectedRoute allowedRoles={["Dean", "Department Head", "Faculty", "Secretary", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
               <SelectTemplate />
@@ -468,8 +481,7 @@ function App() {
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
       </Routes>
     </>
-
-  )
+  );
 }
 
 export default App;
