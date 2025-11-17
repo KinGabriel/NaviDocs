@@ -1,3 +1,8 @@
+/**
+ * @fileoverview DocumentDetailsCard component for displaying and editing document metadata
+ * @module components/cards/DocumentDetailsCard
+ */
+
 import { useState, useEffect } from 'react';
 import { Calendar, FileText, Shield, X, Check, Edit2 } from 'lucide-react';
 import { insertDocumentCodeAPI } from '../../api/documentContollerAPI';
@@ -5,13 +10,36 @@ import { formatDate, toISODate } from '../../utils/formatters';
 import { DOCUMENT_PREFIX_OPTIONS, DOCUMENT_IDENTIFIER_OPTIONS, SCHOOL_TO_IDENTIFIER_MAP } from '../../utils/options';
 
 /**
- * DocumentDetailsCard 
+ * DocumentDetailsCard Component
  * 
- * @param {Object} props
- * @param {Object} props.template - Template object with document details
- * @param {Function} props.onUpdateDocumentDetails - Callback for updating doc code & effectivity
+ * Displays and allows inline editing of document details including document code,
+ * revision number, effectivity date, and ISO code. Provides validation and conflict
+ * detection for document codes.
+ * 
+ * @component
+ * @param {Object} props - Component props
+ * @param {Object} props.template - Template/document object containing details
+ * @param {string} [props.template._id] - Document ID
+ * @param {string} [props.template.document_code] - Full document code (e.g., "FM-VAA-001")
+ * @param {number|string} [props.template.revision_number] - Document revision number
+ * @param {number|string} [props.template.revision_no] - Alternative field for revision number
+ * @param {string|Date|Object} [props.template.effectivity] - Document effectivity date
+ * @param {string|Date|Object} [props.template.effectivity_date] - Alternative field for effectivity
+ * @param {string} [props.template.iso_code] - ISO standard code
+ * @param {string} [props.template.school] - Associated school name
+ * @param {Function} props.onUpdateDocumentDetails - Callback for updating document code and effectivity
  * @param {Function} props.onUpdateISOCode - Callback for updating ISO code
- * @param {boolean} props.canEdit - Whether the user can edit 
+ * @param {boolean} [props.canEdit=false] - Whether the user has permission to edit details
+ * 
+ * @returns {JSX.Element} Rendered DocumentDetailsCard component
+ * 
+ * @example
+ * <DocumentDetailsCard
+ *   template={documentTemplate}
+ *   onUpdateDocumentDetails={handleUpdateDetails}
+ *   onUpdateISOCode={handleUpdateISO}
+ *   canEdit={userRole === 'dean'}
+ * />
  */
 export default function DocumentDetailsCard({ template, onUpdateDocumentDetails, onUpdateISOCode, canEdit = false }) {
   // State for inline editing

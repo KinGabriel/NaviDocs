@@ -1,3 +1,8 @@
+/**
+ * @fileoverview PublishedCard component for displaying published document templates with approval actions
+ * @module components/cards/PublishedCard
+ */
+
 import { useState, useEffect } from 'react';
 import UnpublishModal from '../modals/unpublishModal';
 
@@ -6,6 +11,54 @@ const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
+/**
+ * PublishedCard Component
+ * 
+ * Displays a card for published document templates with approval workflow actions.
+ * Supports approval, publishing, unpublishing, renaming, and duplication operations.
+ * Implements role-based permission checks for various actions.
+ * 
+ * @component
+ * @param {Object} props - Component props
+ * @param {Object} props.template - Template object to display
+ * @param {string} props.template._id - Template ID
+ * @param {string} [props.template.title] - Template title
+ * @param {string} [props.template.document_code] - Document code (e.g., "FM-VAA-001")
+ * @param {string} [props.template.thumbnailUrl] - Template thumbnail URL
+ * @param {string|Object} props.template.status - Template status (draft, pending, approved, published)
+ * @param {Object} [props.template.approvalMeta] - Approval metadata object
+ * @param {boolean} [props.template.approvalMeta.isFullyApproved] - Whether fully approved by all roles
+ * @param {boolean} [props.template.approvalMeta.secretaryApproved] - Secretary approval status
+ * @param {boolean} [props.template.approvalMeta.deanApproved] - Dean approval status
+ * @param {boolean} [props.template.approvalMeta.canPublish] - Whether template can be published
+ * @param {string|Object} [props.template.created_by] - Template creator ID or object
+ * @param {Array} [props.template.assigned] - Array of assigned user IDs or objects
+ * @param {string} [props.template.createdAt] - Template creation date
+ * @param {string} [props.template.document_size] - Document size (e.g., "A4")
+ * @param {Function} props.onSelect - Callback when template card is clicked
+ * @param {Object} props.user - Current user object
+ * @param {string} props.user._id - User ID
+ * @param {string|Object} props.user.role - User role string or object
+ * @param {Function} [props.onApprove] - Callback for approval action
+ * @param {Function} [props.onPublish] - Callback for publish action
+ * @param {Function} [props.onUnpublish] - Callback for unpublish action
+ * @param {Function} [props.onRenameRequest] - Callback when rename is requested
+ * @param {Function} [props.onDuplicateRequest] - Callback when duplicate is requested
+ * @param {Function} [props.onUnpublishRequest] - Callback when unpublish is requested
+ * 
+ * @returns {JSX.Element} Rendered PublishedCard component
+ * 
+ * @example
+ * <PublishedCard
+ *   template={publishedTemplate}
+ *   user={currentUser}
+ *   onSelect={handleTemplateSelect}
+ *   onApprove={handleApprove}
+ *   onPublish={handlePublish}
+ *   onUnpublish={handleUnpublish}
+ *   onRenameRequest={handleRename}
+ * />
+ */
 export default function PublishedCard({
   template,
   onSelect,
@@ -26,7 +79,12 @@ export default function PublishedCard({
   const ignoreClickNow = () => (Date.now() - modalCloseTs) < 300;
   const isAnyModalOpen = false;
 
-  // the real permission check; removed the buggy top-level placeholders 
+ /**
+   * Determines if the current user can unpublish the template.
+   * Checks for Document Controller role, template ownership, or assignment.
+   * @function
+   * @returns {boolean} True if user has permission to unpublish
+   */
   const canUnpublish = () => {
     if (!user || !template) return false;
 
@@ -47,6 +105,13 @@ export default function PublishedCard({
     });
   };
 
+/**
+   * Determines the current status of the template.
+   * Handles both string and object status formats and checks approval state.
+   * @function
+   * @param {Object} template - Template object
+   * @returns {string} Normalized status string (draft|pending|approved|published|returned|rejected|endorsed|disapproved)
+   */
   const getTemplateStatus = (template) => {
     if (typeof template.status === 'string') {
       if (template.status === 'pending' && template.approvalMeta?.isFullyApproved) return 'approved';
@@ -76,6 +141,16 @@ export default function PublishedCard({
     }
   };
 
+/**
+   * Extracts and maps school name from document code identifier
+   * @function
+   * @param {string} documentCode - Full document code (e.g., "FM-VAA-001")
+   * @returns {string} School name or code
+   * 
+   * @example
+   * extractSchoolFromCode("FM-VAA-001") // returns "University Wide"
+   * extractSchoolFromCode("FM-SMI-002") // returns "SAMCIS"
+   */
   const extractSchoolFromCode = (documentCode) => {
     if (!documentCode) return 'Unknown';
     const parts = documentCode.split('-');

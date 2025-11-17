@@ -1,3 +1,8 @@
+/**
+ * @fileoverview DocumentCard component for displaying document preview cards with actions
+ * @module components/cards/DocumentCard
+ */
+
 import { useState, useEffect } from 'react';
 import RenameModal from '../modals/renameModal';
 import ShareDocumentModal from '../modals/shareDocumentModal';
@@ -7,12 +12,57 @@ import { toast } from 'react-hot-toast';
 import { assignControllersToTemplateAPI } from "../../api/documentContollerAPI";
 import { renameDocumentAPI, deleteDocumentAPI, duplicateDocumentAPI, shareDocumentAPI } from "../../api/documentsAPI";
 
+/**
+ * API base URL configuration
+ * @constant {string[]}
+ */
 const rawUrls = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URLS = rawUrls.split(",");
 
+/**
+ * Selected API URL based on current hostname
+ * @constant {string}
+ */
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
+/**
+ * DocumentCard Component
+ * 
+ * Displays a card with document preview, metadata, and action menu.
+ * Supports rename, duplicate, delete, and share operations.
+ * 
+ * @component
+ * @param {Object} props - Component props
+ * @param {Object} props.document - Document object to display
+ * @param {string} props.document._id - Document ID
+ * @param {string} [props.document.title] - Document title
+ * @param {string} [props.document.thumbnailUrl] - Document thumbnail URL
+ * @param {string} [props.document.status] - Document status (draft, pending, approved, etc.)
+ * @param {Array} [props.document.notes] - Array of notes attached to document
+ * @param {string} [props.document.school] - Associated school name
+ * @param {string} [props.document.createdAt] - Document creation date
+ * @param {Array} [props.document.assigned] - Array of assigned users
+ * @param {Function} props.onSelect - Callback when document card is clicked
+ * @param {Object} props.user - Current user object
+ * @param {string} [props.user.firstname] - User first name
+ * @param {string} [props.user.lastname] - User last name
+ * @param {Function} [props.onRename] - Callback after document is renamed
+ * @param {Function} [props.onDelete] - Callback after document is deleted
+ * @param {Function} [props.onAssign] - Callback after document assignments are updated
+ * @param {boolean} [props.hideStatusPill=false] - Whether to hide the status pill badge
+ * 
+ * @returns {JSX.Element} Rendered DocumentCard component
+ * 
+ * @example
+ * <DocumentCard
+ *   document={documentObj}
+ *   user={currentUser}
+ *   onSelect={handleDocumentSelect}
+ *   onRename={handleRename}
+ *   onDelete={handleDelete}
+ * />
+ */
 export default function DocumentCard({
   document,
   onSelect,
@@ -23,9 +73,21 @@ export default function DocumentCard({
   hideStatusPill = false,   
 }) {
 
+/**
+  * Safely extracts document title with fallbacks
+  * @function
+  * @param {Object} doc - Document object
+  * @returns {string} Document title or 'Untitled Document'
+  */ 
   // Helper to safely read DB-backed fields with common fallbacks
   const getTitle = (doc) => doc?.title || doc?.from_template?.title || 'Untitled Document';
 
+/**
+   * Formats date string to human-readable format
+   * @function
+   * @param {string} dateString - ISO date string
+   * @returns {string} Formatted date or error message
+   */
   const formatDate = (dateString) => {
     if (!dateString) return 'No date';
     try {
@@ -40,6 +102,11 @@ export default function DocumentCard({
     }
   };
 
+/**
+   * Gets creator/owner name from user object
+   * @function
+   * @returns {string} Full name or fallback identifier
+   */
   {/* Get creator/Owner name */ }
   const getCreatorName = () => {
     if (!user) return "Unknown";
@@ -50,6 +117,12 @@ export default function DocumentCard({
     return user.name || user.username || "Unknown";
   };
 
+/**
+   * Determines document status from various status formats
+   * @function
+   * @param {Object} doc - Document object
+   * @returns {string} Normalized status string
+   */
   const getStatus = (doc) => {
     if (!doc) return 'draft';
     if (typeof doc.status === 'string') return doc.status;
@@ -59,6 +132,12 @@ export default function DocumentCard({
     return 'draft';
   };
 
+/**
+   * Returns Tailwind CSS classes for status badge
+   * @function
+   * @param {string} status - Document status
+   * @returns {string} CSS class names
+   */
   const getStatusBadgeColor = (status) => {
     switch (status) {
       case 'draft': return 'bg-gray-100 text-gray-800';
@@ -78,15 +157,31 @@ export default function DocumentCard({
   const school = document?.school || document?.from_template?.school || '';
   const title = getTitle(document);
 
-  // menu & modals state
+/**
+   * Whether the action menu is currently visible
+   * @type {[boolean, Function]}
+   */
   const [showMenu, setShowMenu] = useState(false);
 
-  // Rename
+/**
+   * Whether rename modal is open
+   * @type {[boolean, Function]}
+   */
   const [renameOpen, setRenameOpen] = useState(false);
+
+/**
+   * Whether rename operation is in progress
+   * @type {[boolean, Function]}
+   */
   const [renaming, setRenaming] = useState(false);
 
   // Assign
   const [assignOpen, setAssignOpen] = useState(false);
+
+/**
+   * Array of selected user IDs for assignment
+   * @type {[string[], Function]}
+   */
   const [selectedIds, setSelectedIds] = useState(() => {
     try {
       const extractId = (a) => {
@@ -103,6 +198,11 @@ export default function DocumentCard({
       return [];
     }
   });
+
+/**
+   * Synchronizes selectedIds with document assignments
+   * @effect
+   */
   useEffect(() => {
     const extractId = (a) => {
       if (!a) return null;
@@ -125,7 +225,12 @@ export default function DocumentCard({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  // menu actions
+/**
+   * Handles menu action selection
+   * @function
+   * @param {string} action - Action type ('rename'|'assign'|'duplicate'|'delete')
+   * @param {Event} e - Click event
+   */
   const handleMenuAction = (action, e) => {
     e.stopPropagation();
     setShowMenu(false);
@@ -148,7 +253,13 @@ export default function DocumentCard({
     }
   };
 
-  // API handlers
+/**
+   * Handles document rename operation
+   * @async
+   * @function
+   * @param {string} newTitle - New document title
+   * @throws {Error} When rename API call fails
+   */
   const handleRename = async (newTitle) => {
     try {
       setRenaming(true);
@@ -172,6 +283,13 @@ export default function DocumentCard({
     }
   };
 
+/**
+   * Handles document assignment operation
+   * @async
+   * @function
+   * @param {Array|Object} payload - Assignment payload (array of user IDs or object with assignees)
+   * @throws {Error} When assignment API call fails
+   */
   const handleAssign = async (payload) => {
     try {
       const members = Array.isArray(payload)
@@ -195,6 +313,13 @@ export default function DocumentCard({
     }
   };
 
+/**
+   * Handles document sharing operation
+   * @async
+   * @function
+   * @param {Array|Object} payload - Share payload (array of user IDs or object with members)
+   * @throws {Error} When share API call fails
+   */
   const handleShare = async (payload) => {
     try {
       const members = Array.isArray(payload)
@@ -218,6 +343,14 @@ export default function DocumentCard({
     }
   };
 
+/**
+   * Handles document duplication operation
+   * @async
+   * @function
+   * @param {Object} newDoc - New document configuration
+   * @param {string} [newDoc.title] - Title for duplicated document
+   * @throws {Error} When duplication API call fails
+   */
   const handleDuplicate = async (newDoc) => {
     try {
       setDuplicating(true);
@@ -242,6 +375,12 @@ export default function DocumentCard({
     }
   };
 
+/**
+   * Confirms and executes document deletion
+   * @async
+   * @function
+   * @throws {Error} When delete API call fails
+   */
   const confirmDelete = async () => {
     try {
       setDeleting(true);
@@ -261,6 +400,12 @@ export default function DocumentCard({
     } finally { setDeleting(false); }
   };
 
+/**
+   * Returns Tailwind CSS classes for status display
+   * @function
+   * @param {string} status - Document status
+   * @returns {string} CSS class names for status styling
+   */
   function getStatusStyle(status) {
     const normalized = String(status).toLowerCase().replace(/\s+/g, "_");
     const styles = {

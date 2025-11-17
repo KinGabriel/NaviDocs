@@ -1,3 +1,8 @@
+/**
+ * @fileoverview TemplateCard component for displaying document templates with management actions
+ * @module components/cards/TemplateCard
+ */
+
 import { useState, useEffect } from 'react';
 import DuplicateModal from "../modals/duplicateModal";
 import RenameModal from '../modals/renameModal';
@@ -10,6 +15,54 @@ const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find(url => url.includes(window.location.hostname)) || API_URLS[0];
 
+/**
+ * TemplateCard Component
+ * 
+ * Displays a card for document templates with preview, metadata, and action menu.
+ * Supports rename, duplicate, delete, assignment, and publish operations.
+ * Implements modal state management with click-through prevention.
+ * 
+ * @component
+ * @param {Object} props - Component props
+ * @param {Object} props.template - Template object to display
+ * @param {string} props.template._id - Template ID
+ * @param {string} [props.template.title] - Template title
+ * @param {string} [props.template.document_code] - Document code (e.g., "FM-VAA-001")
+ * @param {string} [props.template.thumbnailUrl] - Template thumbnail URL
+ * @param {string|Object} props.template.status - Template status (draft, pending, approved, published)
+ * @param {Object} [props.template.approvalMeta] - Approval metadata object
+ * @param {boolean} [props.template.approvalMeta.isFullyApproved] - Whether fully approved
+ * @param {boolean} [props.template.approvalMeta.canPublish] - Whether can be published
+ * @param {Array} [props.template.assigned] - Array of assigned user IDs
+ * @param {Array} [props.template.assignees] - Alternative field for assigned users
+ * @param {string} [props.template.createdAt] - Template creation date
+ * @param {string} [props.template.created_at] - Alternative field for creation date
+ * @param {string} [props.template.document_size] - Document size (e.g., "A4")
+ * @param {Function} props.onSelect - Callback when template card or duplicate is selected
+ * @param {Object} props.user - Current user object
+ * @param {string} [props.user._id] - User ID
+ * @param {string} [props.user.firstname] - User first name
+ * @param {string} [props.user.lastname] - User last name
+ * @param {string} [props.user.name] - User full name
+ * @param {string} [props.user.username] - Username
+ * @param {string|Object} [props.user.role] - User role string or object
+ * @param {Function} [props.onPublish] - Callback for publish action
+ * @param {Function} [props.onRename] - Callback after template is renamed
+ * @param {Function} [props.onDelete] - Callback after template is deleted
+ * @param {Function} [props.onAssign] - Callback after template assignments are updated
+ * 
+ * @returns {JSX.Element} Rendered TemplateCard component
+ * 
+ * @example
+ * <TemplateCard
+ *   template={templateObj}
+ *   user={currentUser}
+ *   onSelect={handleTemplateSelect}
+ *   onRename={handleRename}
+ *   onDelete={handleDelete}
+ *   onPublish={handlePublish}
+ * />
+ */
 export default function TemplateCard({ template, onSelect, user, onPublish, onRename, onDelete, onAssign }) {
 
   const [showMenu, setShowMenu] = useState(false);
