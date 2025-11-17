@@ -432,6 +432,7 @@ export default function TextEditor({
         headerHeight: inchToPixels(headerConfig.headerHeightIn || 0.75),
         footerHeight: inchToPixels(headerConfig.footerHeightIn || 0.75),
         pageGap: 40,
+        pageBreakBackground: 'var(--color-gray-50)',
         header: "",
         footer: "{page}",
       }),
