@@ -24,15 +24,17 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
  * @param {Function} props.onUnpublish - Callback function to unpublish the template
  * @param {Object} props.user - Current user object
  * @param {Object} [props.user.role] - User's role information
- * @param {string} [props.user.role.name] - User's role name (Secretary, Dean, Lead Document Controller, Document Control Officer, Department Head)
+ * @param {string} [props.user.role.name] - User's role name (Secretary, Dean, Lead Document Controller, Document Control Officer, Unit Document Controller, Department Head)
  * @param {string} [props.user.profile_picture] - URL path to user's profile picture
  * 
  * @returns {React.ReactElement} Header component with published template viewing controls
  * 
  * @description
  * Header component for published template viewing that includes:
- * - Application logo with role-based navigation to /documents
- * - Back button to return to template selection (/select-template)
+ * - Application logo with role-based navigation:
+ *   - Document Controllers (Lead/Officer/Unit) → /document-controller/dashboard
+ *   - Other roles (Secretary/Dean/Dept Head/Faculty) → /documents
+ * - Back button with role-based navigation to appropriate dashboard
  * - Read-only template title display
  * - Export dropdown with two options:
  *   1. Export & Download: Direct PDF generation and browser download
@@ -75,6 +77,20 @@ export default function HeaderPublishedTemplateView({
     return () => document.removeEventListener("click", onDocClick);
   }, []);
 
+  // Helper function to get the appropriate navigation path based on user role
+  const getDashboardPath = () => {
+    const role = user?.role?.name;
+    if (role === "Lead Document Controller" || 
+        role === "Document Control Officer" || 
+        role === "Unit Document Controller") {
+      return "/document-controller/dashboard";
+    }
+    if (role === "Secretary" || role === "Dean" || role === "Department Head" || role === "Faculty") {
+      return "/documents";
+    }
+    return "/";
+  };
+
   return (
      <div className="sticky top-0 z-50 bg-[#f3f3f3] shadow-sm">
       <div className="h-4 bg-[#063c8d] w-full" />
@@ -86,19 +102,12 @@ export default function HeaderPublishedTemplateView({
             alt="Logo"
             title="Navidocs home"
             className="w-15 h-10 cursor-pointer"
-            onClick={() => {
-              const role = user?.role?.name;
-              if (role === "Secretary") navigate("/documents");
-                else if (role === "Dean") navigate("/documents");
-                else if (role === "Lead Document Controller") navigate("/documents");
-                else if (role === "Document Control Officer") navigate("/documents");
-                else if (role === "Department Head") navigate("/documents");
-            }}
+            onClick={() => navigate(getDashboardPath())}
           />
 
           {/* Back button */}
           <button
-            onClick={() => navigate("/select-template")}
+            onClick={() => navigate(getDashboardPath())}
             className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
             aria-label="Back"
             title="Back"

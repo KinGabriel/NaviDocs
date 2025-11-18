@@ -1,3 +1,24 @@
+/**
+ * @fileoverview Submitted Files View Component
+ * 
+ * This component displays a submitted document with role-based actions and review capabilities.
+ * It handles document preview, submission status tracking, reviewer comments, and view history.
+ * 
+ * Features:
+ * - Document preview with zoom controls and pagination
+ * - Role-based action permissions (Faculty, Department Head, Dean, Secretary)
+ * - Submission status tracking and history
+ * - Comment/feedback system
+ * - View tracking and history
+ * - Multi-file submission support
+ * - PDF export functionality
+ * 
+ * @module SubmittedFilesView
+ * @requires react
+ * @requires react-router-dom
+ * @requires lucide-react
+ */
+
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import HeaderSubmittedFilesView from "../layout/headers/headerSubmittedFilesView";
@@ -35,6 +56,25 @@ const API_URLS = rawUrls.split(",");
 const API_URL =
   API_URLS.find((url) => url.includes(window.location.hostname)) || API_URLS[0];
 
+/**
+ * Exports a template as a PDF by creating a temporary document, exporting it, and cleaning up
+ * 
+ * @async
+ * @function exportTemplateViaDocument
+ * @param {Object} params - Export parameters
+ * @param {Object} params.templateDoc - The template document to export
+ * @param {string} params.templateDoc._id - Template document ID
+ * @param {string} params.templateDoc.title - Template document title
+ * @param {Array} params.templateDoc.pages_json - Template pages data
+ * @param {Object} params.templateDoc.pageSetup - Page setup configuration
+ * @param {Object} [params.templateDoc.field_values={}] - Field values for the template
+ * @param {boolean} [params.store=false] - Whether to store the PDF in cloud storage
+ * @param {string} [params.folderId] - Folder ID for cloud storage (required if store=true)
+ * @param {string} params.filename - Output filename for the PDF
+ * @param {string} [params.html] - Pre-rendered HTML content (optional)
+ * @returns {Promise<void>}
+ * @throws {Error} When document creation or export fails
+ */
 // Helper: create a temporary document from the template, export via the document exporter, then cleanup
 async function exportTemplateViaDocument({ templateDoc, store = false, folderId, filename, html }) {
   const payload = {
@@ -115,6 +155,25 @@ const FALLBACK_DOC = {
   document_size: "8.5 x 13",
 };
 
+/**
+ * Normalizes a raw document object from the API into a consistent shape
+ * Handles various API response formats and extracts relevant document data
+ * 
+ * @function normalizeRawDocument
+ * @param {Object|null} doc - Raw document object from API
+ * @returns {Object|null} Normalized document object or null if input is invalid
+ * @property {Object} document - Original document object
+ * @property {string} _id - Document ID
+ * @property {string} title - Document title
+ * @property {string|null} createdAt - Creation timestamp
+ * @property {Object|null} from_template - Template reference
+ * @property {Array} pages_json - Document pages data
+ * @property {Object|null} pageSetup - Page setup configuration
+ * @property {Object|null} headerConfig - Header configuration
+ * @property {Object|null} logoConfig - Logo configuration (alias for headerConfig)
+ * @property {Object} field_values - Field values map
+ * @property {string|null} body - Document body/content
+ */
 // Local helper: normalize a raw document object (from content API) into the
 // shape used by components (matches fetchAndNormalizeDocument output partially)
 // Deduplicate and normalize view events into viewedBy (latest per user)
@@ -149,6 +208,27 @@ function normalizeRawDocument(doc) {
   };
 }
 
+/**
+ * SubmittedFilesView - Main component for viewing and reviewing submitted documents
+ * 
+ * This component provides a comprehensive interface for viewing submitted documents with
+ * role-based permissions for different actions. It supports:
+ * - Document preview with zoom and pagination controls
+ * - Multi-file submissions with file switching
+ * - Comment and feedback system
+ * - Return for revision workflow
+ * - View tracking and history
+ * - PDF export functionality
+ * 
+ * Role-based permissions:
+ * - Faculty: View status, comments, and who viewed their submission
+ * - Department Head: Can comment, return for revision (before forwarding), view non-faculty viewers
+ * - Dean/Secretary: Can comment, return for revision, view non-faculty viewers
+ * 
+ * @component
+ * @returns {React.ReactElement} The rendered component
+ * 
+ */
 export default function SubmittedFilesView() {
   const user = useUser();
   const params = useParams();
@@ -2391,6 +2471,18 @@ export default function SubmittedFilesView() {
   );
 }
 
+/**
+ * DetailRow - Displays a label-value pair in submission details
+ * 
+ * @component
+ * @param {Object} props - Component props
+ * @param {string} props.label - Label text
+ * @param {string|number} props.value - Value to display
+ * @returns {React.ReactElement}
+ * 
+ * @example
+ * <DetailRow label="Status" value="Submitted" />
+ */
 function DetailRow({ label, value }) {
   return (
     <div className="flex items-start justify-between py-2 border-b last:border-b-0">

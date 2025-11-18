@@ -61,7 +61,8 @@ export default function DocumentControllerDashboard() {
           onClick={(e) => {
             e.stopPropagation();
             const id = row._id ?? row.id;
-            navigate(`/templates/published/${id}`, { state: { doc: row, origin: "dashboard:recently-submitted" } });
+            // Document Controllers navigate to /templates/:id for all templates
+            navigate(`/templates/${id}`, { state: { doc: row, origin: "dashboard:recently-submitted" } });
           }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
@@ -85,7 +86,8 @@ export default function DocumentControllerDashboard() {
           onClick={(e) => {
             e.stopPropagation();
             const id = row._id ?? row.id;
-            navigate(`/templates/published/${id}`, { state: { doc: row, origin: "dashboard:recently-published" } });
+            // Document Controllers navigate to /templates/:id for all templates including published ones
+            navigate(`/templates/${id}`, { state: { doc: row, origin: "dashboard:recently-published" } });
           }}
           className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
         >
