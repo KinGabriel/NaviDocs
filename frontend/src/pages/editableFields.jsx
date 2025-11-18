@@ -227,6 +227,31 @@ export default function EditableFields() {
     }
   };
 
+  // ---------------------------
+  // EXPORT DOCX (TipTap client-side)
+  // ---------------------------
+  const handleExportDocx = async () => {
+    const editor = editorRef.current;
+    if (!editor) {
+      console.warn("No editor instance available for DOCX export");
+      return;
+    }
+
+    try {
+      if (typeof editor.commands.exportDocx !== "function") {
+        console.warn("exportDocx command is not registered on this editor");
+        return;
+      }
+
+      // This calls ExportDocx.configure(...) from textEditor.jsx
+      await editor.commands.exportDocx();
+    } catch (err) {
+      console.error("DOCX export failed:", err);
+      // optional: surface error in a toast or modal if you want
+    }
+  };
+
+
   /**
    * Scrolls to and highlights a specific field in the editor by field name.
    * Supports label-based field names with automatic key mapping.
@@ -1844,6 +1869,7 @@ export default function EditableFields() {
           dirty={dirty}
           documentId={id}
           onExportPDF={handleExportPDF}
+          onExportDocx={handleExportDocx}
           documentData={docData}
           onDocumentUpdate={(updates) =>
             setDocData((d) =>

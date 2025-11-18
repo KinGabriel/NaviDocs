@@ -132,6 +132,9 @@ function withHeaderDefaults(cfg) {
   return merged;
 }
 
+
+
+
 /* component */
 export default function DocumentControllerCreateTemplate() {
   const navigate = useNavigate();
@@ -199,6 +202,17 @@ export default function DocumentControllerCreateTemplate() {
     normalizedRole === "document_controller_officer";
 
   const isReadOnly = isPublished && isCreator && !isDocumentControlOfficer;
+
+  const handleExportDocx = () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    if (editor.commands.exportDocx) {
+      editor.commands.exportDocx();
+    } else {
+      console.warn("exportDocx command is not registered on editor");
+    }
+  };
 
   /* load template */
   const loadTemplate = async (id) => {

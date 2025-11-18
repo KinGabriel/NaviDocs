@@ -11,6 +11,8 @@ import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import { Extension } from "@tiptap/core";
 import Image from "@tiptap/extension-image";
+import { ExportDocx } from "@tiptap-pro/extension-export-docx";
+
 
 // PRO EXTENSIONS
 import {
@@ -455,6 +457,23 @@ export default function TextEditor({
         },
       }),
       EditableField,
+
+    // NEW: DOCX Export
+    ExportDocx.configure({
+          exportType: "blob", 
+          onCompleteExport: (result) => {
+            const blob = new Blob([result], {
+              type:
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "document.docx"; 
+            a.click();
+            URL.revokeObjectURL(url);
+          },
+        }),
     ],
 
     content: normalizeInitialContent(content),

@@ -20,6 +20,7 @@ export default function EditableFieldsHeader({
   onSave,
   onArchive,
   onExportPDF,
+  onExportDocx,           // ⬅️ NEW: handler from parent for DOCX export
   saving = false, 
   lastSavedAt, 
   dirty = false,
@@ -102,6 +103,20 @@ export default function EditableFieldsHeader({
       );
     }
   }
+
+  const handleExportDocxClick = async () => {
+    if (!onExportDocx) return;
+    try {
+      // Client-side DOCX export is usually instant and self-handled 
+      await onExportDocx();
+    } catch (err) {
+      console.error("DOCX export failed:", err);
+      toast.error(
+        err?.message ||
+        "We couldn’t generate the DOCX file right now. Please try again."
+      );
+    }
+  };
 
   const handleDuplicate = async ({ title: newTitle }) => {
     if (!documentId) {
@@ -328,6 +343,23 @@ export default function EditableFieldsHeader({
                   )} */}
 
                   <div className="px-2 py-2">
+                    {/*  Export as DOCX */}
+                    <button
+                      className="w-full text-left mb-2 px-4 py-3 hover:bg-green-50 flex items-center gap-3 rounded-md"
+                      onClick={async () => {
+                        setIsQuickOpen(false);
+                        await handleExportDocxClick();
+                      }}
+                    >
+                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <FileDown className="w-4 h-4 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 text-sm">Export as DOCX</div>
+                        <div className="text-xs text-gray-500">Download an editable Word document</div>
+                      </div>
+                    </button>
+
                     <button
                       className="w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center gap-3 rounded-md" 
                       onClick={async () => {
@@ -365,24 +397,24 @@ export default function EditableFieldsHeader({
             )}
           </div>
 
-           {/* Profile picture */}
-            <div className="w-10 h-10 rounded-full flex items-center justify-center shadow overflow-hidden bg-white border border-gray-200">
-              <img
-                src={
-                  user?.profile_picture
-                    ? `${API_URL}${user.profile_picture}`
-                    : defaultProfile
-                }
-                alt="Profile"
-                className={`object-cover ${
-                  user?.profile_picture ? "w-full h-full" : "w-8 h-8 object-contain opacity-90"
-                }`}
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = defaultProfile;
-                }}
-              />
-            </div>
+          {/* Profile picture */}
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shadow overflow-hidden bg-white border border-gray-200">
+            <img
+              src={
+                user?.profile_picture
+                  ? `${API_URL}${user.profile_picture}`
+                  : defaultProfile
+              }
+              alt="Profile"
+              className={`object-cover ${
+                user?.profile_picture ? "w-full h-full" : "w-8 h-8 object-contain opacity-90"
+              }`}
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = defaultProfile;
+              }}
+            />
+          </div>
         </div>
       </div>
 
