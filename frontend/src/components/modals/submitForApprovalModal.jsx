@@ -1,3 +1,32 @@
+/**
+ * @fileoverview Submit for Approval Modal Component
+ * 
+ * This component provides a comprehensive modal interface for submitting templates for approval,
+ * tracking approval progress, and publishing approved templates. It handles multiple workflow states
+ * including draft submission, revision resubmission, and final publication.
+ * 
+ * Features:
+ * - Submit drafts for initial approval
+ * - Resubmit returned templates with revision tracking
+ * - Display real-time approval progress
+ * - Track individual approver status
+ * - Add instructions and notes for reviewers
+ * - Automatic document code fetching for revisions
+ * - Publish fully approved templates
+ * - Visual progress indicators and status badges
+ * 
+ * Workflow States:
+ * - draft: Initial submission state
+ * - assigned: Template has been assigned to creator
+ * - returned: Template was returned for revision
+ * - pending/submitted: Awaiting approver review
+ * - publish: All approvals complete, ready to publish
+ * 
+ * @module SubmitForApprovalModal
+ * @requires react
+ * @requires lucide-react
+ */
+
 import React, { useState, useEffect } from "react";
 import {
   X,
@@ -13,6 +42,79 @@ import {
   fetchPublishedTemplatesAPI,
 } from "../../api/documentContollerAPI";
 
+/**
+ * SubmitForApprovalModal - Modal component for template submission and approval tracking
+ * 
+ * This component provides a multi-state interface that adapts based on the template's
+ * current approval status. It handles:
+ * - Initial submission from draft state
+ * - Resubmission after being returned for revision
+ * - Tracking approval progress through multiple reviewers
+ * - Final publication when all approvals are complete
+ * 
+ * The component automatically fetches available document codes when in revision mode
+ * to help users specify which document is being revised.
+ * 
+ * @component
+ * @param {Object} props - Component props
+ * @param {boolean} props.isOpen - Whether modal is visible
+ * @param {Function} props.onClose - Callback when modal closes
+ * @param {string} props.status - Current template status ("draft"|"assigned"|"submitted"|"returned"|"pending"|"publish")
+ * @param {Array<Object>} [props.approvalProgress=[]] - Array of approval progress objects
+ * @param {string} props.approvalProgress[].approverId - ID of approver
+ * @param {string} props.approvalProgress[].status - Approval status ("pending"|"approved"|"rejected")
+ * @param {string} [props.approvalProgress[].approvedAt] - ISO timestamp of approval
+ * @param {Function} props.onSubmit - Callback when template is submitted
+ * @param {Function} props.onPublish - Callback when template is published
+ * @param {Array<Object>} [props.approvers=[]] - Array of approver objects
+ * @param {string} props.approvers[]._id - Approver ID
+ * @param {string} props.approvers[].firstname - Approver first name
+ * @param {string} props.approvers[].lastname - Approver last name
+ * @param {string} props.approvers[].email - Approver email
+ * @param {Object|string} props.approvers[].role - Approver role object or string
+ * @param {Array<Object|string>} [props.notes=[]] - Array of note objects or strings
+ * @param {string} props.notes[].message - Note message text
+ * @param {string} [props.notes[].added_by_name] - Name of note author
+ * @param {string} props.templateId - ID of template being submitted
+ * @param {Function} [props.onSubmitSuccess] - Callback on successful submission
+ * @param {Object|null} [props.approvals=null] - Approval data object with role-based keys
+ * @param {Object} [props.approvals.document_controller_officer] - Officer approval data
+ * @param {Object} [props.approvals.lead_document_controller] - Lead approval data
+ * @param {Object} [props.approvals.unit_document_controller] - Unit approval data
+ * @param {Object|null} [props.approvalMeta=null] - Alternative approval metadata format
+ * @param {boolean} [props.approvalMeta.officerApproved] - Officer approval flag
+ * @param {boolean} [props.approvalMeta.leadApproved] - Lead approval flag
+ * @param {boolean} [props.approvalMeta.unitApproved] - Unit approval flag
+ * @param {Object|null} [props.template=null] - Full template object with status_meta
+ * @param {Object} [props.template.status_meta] - Status metadata
+ * @param {Object} [props.template.status_meta.approvals] - Approval details by role/ID
+ * @param {Array<string>} [props.revisionTargets=[]] - Initial list of document codes for revision
+ * @returns {React.ReactElement|null} Modal component or null if not open
+ * 
+ * @example
+ * <SubmitForApprovalModal
+ *   isOpen={showModal}
+ *   onClose={() => setShowModal(false)}
+ *   status="draft"
+ *   templateId={templateId}
+ *   approvers={approversList}
+ *   onSubmit={handleSubmit}
+ *   onSubmitSuccess={(newStatus) => console.log('New status:', newStatus)}
+ * />
+ * 
+ * @example
+ * // For revision workflow
+ * <SubmitForApprovalModal
+ *   isOpen={showModal}
+ *   onClose={() => setShowModal(false)}
+ *   status="returned"
+ *   templateId={templateId}
+ *   approvers={approversList}
+ *   notes={reviewerNotes}
+ *   revisionTargets={['FM-CICM-001', 'FM-CICM-002']}
+ *   onSubmit={handleResubmit}
+ * />
+ */
 export default function SubmitForApprovalModal({
   isOpen,
   onClose,
@@ -67,6 +169,11 @@ export default function SubmitForApprovalModal({
     setIsSubmitting(false);
   }, [isOpen, status]);
 
+  /**
+   * Effect: Fetches published templates' document codes for revision selection
+   * Only runs when modal is open and status is "returned"
+   * Merges fetched codes with initial prop values
+   */
   // fetch published templates' document codes when in revision mode
   useEffect(() => {
     if (!isOpen || status !== "returned") return;
