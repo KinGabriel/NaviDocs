@@ -289,7 +289,7 @@ export default function SecretaryDashboard() {
                   {/* chart container */}
                   {forwardedByDepartment && forwardedByDepartment.length > 0 ? (
                     <>
-                      <div className="relative h-55 mb-4">
+                      <div className="relative h-50 mb-4">
                         <Doughnut data={chartData} options={chartOptions} />
                       </div>
 
