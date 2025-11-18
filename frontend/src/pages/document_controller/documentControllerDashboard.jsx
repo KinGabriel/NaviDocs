@@ -56,18 +56,28 @@ export default function DocumentControllerDashboard() {
     {
       key: "action",
       label: "Action",
-      render: (row) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            const id = row._id ?? row.id;
-            navigate(`/templates/published/${id}`, { state: { doc: row, origin: "dashboard:recently-submitted" } });
-          }}
-          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
-        >
-          Review
-        </button>
-      ),
+      render: (row) => {
+        const id = row._id ?? row.id;
+        const status = (row.status || '').toLowerCase();
+        const isPublished = status === 'published';
+        
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              // Navigate to published view for published templates, otherwise to template workflow
+              if (isPublished) {
+                navigate(`/templates/published/${id}`, { state: { doc: row, origin: "dashboard:recently-submitted" } });
+              } else {
+                navigate(`/templates/${id}`, { state: { doc: row, origin: "dashboard:recently-submitted" } });
+              }
+            }}
+            className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-200"
+          >
+            Review
+          </button>
+        );
+      },
     },
   ];
 
