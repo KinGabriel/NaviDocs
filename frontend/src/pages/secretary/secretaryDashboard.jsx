@@ -67,7 +67,7 @@ export default function SecretaryDashboard() {
           onClick={(e) => {
             e.stopPropagation();
             const id = row._id ?? row.id ?? row.templateId;
-            navigate(`/dean/document-workflow/${id}`, {
+            navigate(`/templates/${id}`, {
               state: { doc: row, origin: "dean:recently-submitted" },
             });
           }}
@@ -163,8 +163,7 @@ export default function SecretaryDashboard() {
           onClick={(e) => {
             e.stopPropagation();
             const id = row._id ?? row.id ?? row.templateId;
-            // forwarded submission bins should open the submission bin review page
-            navigate(`${SUBMISSION_BINS_ROUTE}/${id}`, {
+            navigate(`/templates/published/${id}`, {
               state: { doc: row, origin: "dean:recently-forwarded" },
             });
           }}
