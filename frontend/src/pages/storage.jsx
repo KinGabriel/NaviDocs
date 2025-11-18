@@ -1,3 +1,31 @@
+/**
+ * @fileoverview Document Storage Management Page
+ * 
+ * This component provides a comprehensive file and folder management system for the application.
+ * Users can organize documents in folders, share files with specific users or groups, and manage
+ * access permissions. The interface supports both table and grid view modes for optimal viewing.
+ * 
+ * Features:
+ * - Create and manage folder hierarchies
+ * - Upload and organize files
+ * - Share folders and files with users, schools, or departments
+ * - Move, rename, and delete files/folders
+ * - Search and filter by ownership
+ * - Preview files (PDF, DOCX) in modal
+ * - Pagination for large datasets
+ * - Breadcrumb navigation for folder hierarchy
+ * - Role-based access control
+ * 
+ * View Modes:
+ * - Table View: List-style layout with detailed information
+ * - Grid View: Card-style layout with thumbnails
+ * 
+ * @module Storage
+ * @requires react
+ * @requires react-dom
+ * @requires react-router-dom
+ * @requires react-hot-toast
+ */
 // src/pages/storage.jsx
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -113,7 +141,28 @@ function KebabMenuPortal({ anchorEl, open, onClose, children, width = 224 }) {
   return createPortal(menu, document.body);
 }
 
-
+/**
+ * Storage - Main document storage management page component
+ * 
+ * This component provides a full-featured file management system with:
+ * - Hierarchical folder navigation
+ * - File upload and organization
+ * - Sharing and permissions management
+ * - Search and filtering
+ * - Multiple view modes (table/grid)
+ * - File preview capabilities
+ * 
+ * The component manages complex state for folders, files, modals, and user interactions.
+ * It handles loading data, user actions, and API calls for all storage operations.
+ * 
+ * @component
+ * @returns {React.ReactElement} The rendered storage page
+ * 
+ * @example
+ * // Route definition
+ * <Route path="/storage" element={<Storage />} />
+ * <Route path="/storage/folders/:id" element={<Storage />} />
+ */
 /* ================================ Page ================================ */
 export default function Storage() {
   const { id } = useParams();

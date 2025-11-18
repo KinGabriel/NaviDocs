@@ -1,3 +1,31 @@
+/**
+ * @fileoverview Task Assignment Modal Component
+ * 
+ * This component provides a multi-step wizard interface for creating and assigning tasks
+ * to faculty members. It guides users through defining assignment details, selecting
+ * templates, assigning people, and reviewing before submission.
+ * 
+ * Features:
+ * - 4-step wizard workflow with progress tracking
+ * - Assignment details configuration (title, instructions, deadline)
+ * - Template selection with search and filtering
+ * - Template preview with zoom controls
+ * - Faculty member selection and management
+ * - Comprehensive review before submission
+ * - Form validation at each step
+ * - Responsive design for mobile and desktop
+ * 
+ * Workflow Steps:
+ * 1. Assignment Details - Set title, instructions, and deadline
+ * 2. Select Template - Browse and choose from published templates
+ * 3. Assign People - Select faculty members to assign
+ * 4. Review & Submit - Review all details before creating
+ * 
+ * @module TaskAssignmentModal
+ * @requires react
+ * @requires lucide-react
+ */
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users,
@@ -66,6 +94,41 @@ const ProgressSteps = ({ currentStep }) => {
   );
 };
 
+/**
+ * DocumentPreview - Full-screen modal for previewing templates
+ * 
+ * Provides a comprehensive preview of a template with zoom controls, pagination
+ * for multi-page templates, and the ability to select the template directly
+ * from the preview.
+ * 
+ * Features:
+ * - Zoom in/out/fit/reset controls
+ * - Multi-page navigation
+ * - Template metadata display (code, revision, orientation)
+ * - Direct template selection
+ * - Responsive design
+ * 
+ * @component
+ * @param {Object} props - Component props
+ * @param {Object} props.template - Template object to preview
+ * @param {Array<Object>} props.template.pages_json - Template page content
+ * @param {Object} props.template.pageSetup - Page setup configuration
+ * @param {string} [props.template.pageSetup.orientation] - Page orientation
+ * @param {string} props.template.title - Template title
+ * @param {string} [props.template.document_code] - Document code
+ * @param {number} [props.template.revision_no] - Revision number
+ * @param {Object} [props.template.headerConfig] - Header configuration
+ * @param {Function} props.onClose - Callback when preview closes
+ * @param {Function} props.onSelect - Callback when template is selected
+ * @returns {React.ReactElement} Preview modal component
+ * 
+ * @example
+ * <DocumentPreview
+ *   template={templateData}
+ *   onClose={() => setShowPreview(false)}
+ *   onSelect={(template) => setSelectedTemplate(template)}
+ * />
+ */
 // Document Preview Component
 const DocumentPreview = ({ template, onClose, onSelect }) => {
   const [loading, setLoading] = useState(true);
@@ -341,6 +404,37 @@ const DocumentPreview = ({ template, onClose, onSelect }) => {
   );
 };
 
+/**
+ * TaskAssignmentModal - Main component for creating task assignments
+ * 
+ * This component provides a comprehensive 4-step for creating and assigning
+ * tasks to faculty members. It handles:
+ * - Assignment details configuration
+ * - Template selection with preview
+ * - Faculty member assignment
+ * - Review and submission
+ * 
+ * It validates input at each step and prevents progression until all
+ * required fields are complete. It fetches templates and faculty members from
+ * the API and creates submission bins when complete.
+ * 
+ * @component
+ * @param {Object} props - Component props
+ * @param {boolean} props.isOpen - Whether modal is visible
+ * @param {Function} props.onClose - Callback when modal closes
+ * @param {Function} props.onAssign - Callback when assignment is created successfully
+ * @returns {React.ReactElement|null} Modal component or null if not open
+ * 
+ * @example
+ * <TaskAssignmentModal
+ *   isOpen={showModal}
+ *   onClose={() => setShowModal(false)}
+ *   onAssign={(assignment) => {
+ *     console.log('Created assignment:', assignment);
+ *     setShowModal(false);
+ *   }}
+ * />
+ */
 export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [title, setTitle] = useState('');

@@ -1,3 +1,24 @@
+/**
+ * @fileoverview Faculty Submission View Component
+ * 
+ * This component provides the faculty interface for viewing and managing document submissions.
+ * Faculty members can view submission requirements, upload documents, track submission status,
+ * and respond to reviewer feedback.
+ * 
+ * Features:
+ * - View submission requirements and deadlines
+ * - Preview required templates
+ * - Upload multiple documents for submission
+ * - View submission history and status
+ * - Respond to reviewer comments and feedback
+ * - Resubmit documents after they've been returned
+ * - Handle archived submissions
+ * 
+ * @module FacultySubmissionView
+ * @requires react
+ * @requires react-router-dom
+ * @requires react-hot-toast
+ */
 import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -27,6 +48,30 @@ import Loader from "../../components/loader";
 import { getSubmissionBinStatus } from "../../utils/submissionStatus";
 import { getUsersInfoByIdsAPI } from "../../api/userAPI";
 
+/**
+ * FacultySubmissionView - Main component for faculty document submission interface
+ * 
+ * This component allows faculty members to:
+ * - View submission assignments and requirements
+ * - Check deadlines and submission status
+ * - Upload and submit documents using required templates
+ * - View reviewer feedback and comments
+ * - Resubmit documents when returned for revision
+ * - Preview template requirements before submission
+ * 
+ * The component handles various submission states:
+ * - Pending: No documents submitted yet
+ * - Submitted: Documents have been submitted and are under review
+ * - Returned: Documents were returned for revision
+ * - Archived: Submission bin has been closed
+ * 
+ * @component
+ * @returns {React.ReactElement} The rendered component
+ * 
+ * @example
+ * // Navigation to submission
+ * navigate(`/faculty/submission/${submissionBinId}`);
+ */
 export default function FacultySubmissionView() {
   const user = useUser();
   const navigate = useNavigate();
@@ -181,7 +226,22 @@ export default function FacultySubmissionView() {
     return !allowed.includes(templateId);
   }, [bin, assignedItem]);
 
-
+ /**
+   * Computes complete submission data from bin and assigned item
+   * Merges various data sources and normalizes submission status
+   * 
+   * @type {Object|null}
+   * @property {string} id - Submission ID
+   * @property {string} title - Submission title
+   * @property {string} instructions - Submission instructions
+   * @property {string} assignedBy - Who assigned the submission
+   * @property {string} assignedAt - When submission was assigned
+   * @property {string|null} deadline - Submission deadline
+   * @property {string} status - Current status (pending/submitted/returned)
+   * @property {string|null} submittedAt - When documents were submitted
+   * @property {Array<Object>} submittedFiles - Array of submitted document objects
+   * @property {string} submissionMessage - Message/comment from submission
+   */
   const submission = useMemo(() => {
     if (!bin || !assignedItem) return null;
     const status = getSubmissionBinStatus(assignedItem, bin.deadline);
