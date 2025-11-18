@@ -431,7 +431,7 @@ export default function TextEditor({
         pageFormat: initialPageFormat,
         headerHeight: inchToPixels(headerConfig.headerHeightIn || 0.75),
         footerHeight: inchToPixels(headerConfig.footerHeightIn || 0.75),
-        pageGap: 40,
+        pageGap: 2,
         pageBreakBackground: 'var(--color-gray-50)',
         header: "",
         footer: "{page}",

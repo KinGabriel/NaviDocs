@@ -1355,140 +1355,277 @@ export const evaluateBinCompletion = async (req, res) => {
  * Body (optional): { store: boolean, folderId?: string|null, filename?: string, pageSetup?: object, html?: string }
  */
 export const exportDocumentPdf = async (req, res) => {
-	try {
-		const { id } = req.params;
-		if (!id) return res.status(400).json({ message: 'id required' });
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'id required' });
 
-	const { store = true, folderId = undefined, filename: requestedFilename } = req.body || {};
+    const {
+      store = true,
+      folderId = undefined,
+      filename: requestedFilename,
+    } = req.body || {};
 
-		const doc = await Document.findById(id).lean();
-		if (!doc) return res.status(404).json({ message: 'document not found' });
+    const doc = await Document.findById(id).lean();
+    if (!doc) return res.status(404).json({ message: 'document not found' });
 
-		// Allow frontend to supply the exact HTML to render (preferred when frontend already builds final HTML)
-		// Body may include: { html: '<!doctype html>...</html>', store: boolean }
-		const providedHtml = req.body && typeof req.body.html === 'string' ? String(req.body.html) : null;
-		const maxHtmlSize = parseInt(process.env.PDF_HTML_MAX_SIZE || '2000000'); // default 2MB
-		let htmlFull = null;
-		if (providedHtml) {
-			if (providedHtml.length === 0) return res.status(400).json({ message: 'Provided html is empty' });
-			if (providedHtml.length > maxHtmlSize) return res.status(413).json({ message: 'Provided html exceeds allowed size' });
-			htmlFull = providedHtml;
-			console.debug && console.debug('exportDocumentPdf: using provided html from request, length =', htmlFull.length);
-		} else {
-			// Build HTML from pages_json and field_values
-			const pages = doc.from_template?.pages_json || doc.pages_json || [];
-			const htmlBody = pagesJsonToHtml(pages, doc.field_values || {});
-			const logoUrl = process.env.FILE_SERVICE_URL ? `${process.env.FILE_SERVICE_URL}/assets/logo.png` : null;
-			htmlFull = `<!doctype html>
-			<html>
-				<head>
-					<meta charset="utf-8" />
-					<meta name="viewport" content="width=device-width, initial-scale=1" />
-					<style>
-						body { font-family: Arial, Helvetica, sans-serif; color: #111; padding: 20px; }
-						.header { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
-						.header img { height:40px; }
-						.editable-field { background: #fff8e6; padding: 2px 4px; border-radius: 2px; }
-						.page-break { page-break-after: always; }
-						p { margin: 8px 0; }
-					</style>
-				</head>
-				<body>
-					<main>
-						${htmlBody}
-					</main>
-				</body>
-			</html>`;
-			console.debug && console.debug('exportDocumentPdf: built html from pages_json, length =', htmlFull.length);
-			
-		}
+    // Prefer frontend-provided full HTML (Tiptap Pages canvas snapshot)
+    const providedHtml =
+      req.body && typeof req.body.html === 'string'
+        ? String(req.body.html)
+        : null;
 
-		// render HTML and generate PDF using shared util
-		try {
-			const pageSetupToUse = req.body && req.body.pageSetup ? req.body.pageSetup : (doc.from_template?.pageSetup || doc.pageSetup || {});
-			console.debug && console.debug('exportDocumentPdf: using pageSetup', pageSetupToUse);
-			try {
-								const cleanupCss = `
-										<style>
-											/* hide pagination separators/backgrounds used only for editor preview */
-											.page-break, .rm-page-break, .page-break-background, .rm-page-break .page-break, .rm-page-break > .page-break { background: transparent !important; box-shadow: none !important; }
-											/* hide any page-break background elements completely (editor preview bands) */
-											.page-break-background, .page-break-background * { display: none !important; }
-											[class*="page-break-background"], [class*="page-footer-background"], [class*="page-break-bg"] { display: none !important; }
-											/* hide header separator line inserted by the editor UI */
-											.nv-header-line { display: none !important; }
-											/* make header/footer bands transparent (but keep their content visible) */
-											.rm-page-footer, .rm-page-header, .nv-header-left, .nv-header-right { background: transparent !important; box-shadow: none !important; }
-											/* remove stray borders */
-											.rm-page-break, .page-break { border: none !important; }
-										</style>`;
-				if (/<head[^>]*>/i.test(htmlFull)) {
-					htmlFull = htmlFull.replace(/<head([^>]*)>/i, `<head$1>\n${cleanupCss}`);
-				} else {
-					htmlFull = cleanupCss + htmlFull;
-				}
-			} catch (injectErr) {
-				console.warn('exportDocumentPdf: failed to inject cleanup CSS', injectErr?.message || injectErr);
-			}
+    const maxHtmlSize = parseInt(
+      process.env.PDF_HTML_MAX_SIZE || '2000000',
+      10,
+    ); // 2MB default
 
-			// generate PDF from final HTML 
-			const pdfBuffer = await generatePdfBuffer(htmlFull, pageSetupToUse || {});
-			try {
-				console.debug && console.debug('exportDocumentPdf: generated pdfBuffer length =', pdfBuffer ? pdfBuffer.length : 0);
-			} catch (logErr) {
-				// non-fatal
-				console.warn('exportDocumentPdf: failed to log pdfBuffer length', logErr);
-			}
+    let htmlFull = null;
 
-			if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer) || pdfBuffer.length === 0) {
-				console.error('exportDocumentPdf: pdfBuffer is empty or invalid');
-				return res.status(500).json({ success: false, message: 'PDF generation produced empty output', dataLength: 0 });
-			}
+    if (providedHtml) {
+      if (!providedHtml.length) {
+        return res
+          .status(400)
+          .json({ message: 'Provided html is empty' });
+      }
 
-						// Determine a safe filename
-						const rawTitle = (doc.title || 'document').toString();
-						const safeBase = rawTitle.replace(/[^a-z0-9\-_. ]/gi, '_').trim() || 'document';
-						const fileName = (requestedFilename && typeof requestedFilename === 'string') ? requestedFilename : `${safeBase}.pdf`;
+      if (providedHtml.length > maxHtmlSize) {
+        return res.status(413).json({
+          message: 'Provided html exceeds allowed size',
+        });
+      }
 
-						// If store=true, upload to storage service, else return inline
-									if (store) {
-							try {
-								const ownerId = req.user?.id || req.user?._id || 'unknown';
-								const fileServiceUrl = process.env.FILE_SERVICE_URL || null;
-											const authHeaders = { ...buildUserServiceHeaders(req) };
-											if (req.headers?.authorization) authHeaders['Authorization'] = req.headers.authorization;
-											if (process.env.FILE_SERVICE_INTERNAL_TOKEN) authHeaders['x-internal-token'] = process.env.FILE_SERVICE_INTERNAL_TOKEN;
-											if (req.headers && req.headers['x-user-school']) authHeaders['X-User-School'] = req.headers['x-user-school'];
-											const uploadRes = await uploadPdfToStorage(
-												pdfBuffer,
-												{
-													fileServerUrl: fileServiceUrl,
-													owner: ownerId,
-													folderId: (folderId === null ? null : folderId),
-													filename: fileName,
-													authHeaders,
-												}
-											);
-								// Return a normalized response compatible with frontend (filePath preferred)
-								return res.json({ success: true, message: 'Document exported and stored', filePath: uploadRes.filePath || null, target: uploadRes.target, details: uploadRes.raw });
-							} catch (uploadErr) {
-								console.error('exportDocumentPdf: storage upload failed, falling back to inline', uploadErr?.message || uploadErr);
-								// Fallback to inline to avoid total failure
-								const base64 = pdfBuffer.toString('base64');
-								return res.json({ success: true, message: 'Document exported (inline, storage upload failed)', data: base64, contentType: 'application/pdf', dataLength: pdfBuffer.length, error: uploadErr?.message || String(uploadErr) });
-							}
-						}
+      htmlFull = providedHtml;
+    } else {
+      // Legacy: build simple HTML from pages_json + field_values
+      const pages =
+        doc.from_template?.pages_json || doc.pages_json || [];
+      const htmlBody = pagesJsonToHtml(
+        pages,
+        doc.field_values || {},
+      );
 
-						// store=false: Return inline base64 PDF and length metadata.
-						const base64 = pdfBuffer.toString('base64');
-						console.debug && console.debug('exportDocumentPdf: returning inline base64 PDF, length =', pdfBuffer.length);
-						return res.json({ success: true, message: 'Document exported (inline)', data: base64, contentType: 'application/pdf', dataLength: pdfBuffer.length });
-		} catch (e) {
-			console.error('exportDocumentPdf error (generate/upload)', e?.message || e);
-			return res.status(500).json({ message: 'Failed to render or upload PDF', error: e?.message || String(e) });
-		}
-	} catch (err) {
-		console.error('exportDocumentPdf error', err);
-		return res.status(500).json({ message: 'Failed to export document', error: err.message });
-	}
+      const logoUrl = process.env.FILE_SERVICE_URL
+        ? `${process.env.FILE_SERVICE_URL.replace(/\/$/, '')}/uploads/assets/logo.png`
+        : null;
+
+      htmlFull = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font-family: Arial, Helvetica, sans-serif; color: #111; padding: 20px; }
+      .header { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+      .header img { height:40px; }
+      .editable-field { background: #fff8e6; padding: 2px 4px; border-radius: 2px; }
+      .page-break { page-break-after: always; }
+      p { margin: 8px 0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      ${htmlBody}
+    </main>
+  </body>
+</html>`;
+      console.debug &&
+        console.debug(
+          'exportDocumentPdf: built html from pages_json, length =',
+          htmlFull.length,
+        );
+    }
+console.log('exportDocumentPdf: final html length =', htmlFull.length);
+    try {
+      // Use pageSetup from body if given, else from doc
+      const pageSetupToUse =
+        (req.body && req.body.pageSetup) ||
+        doc.from_template?.pageSetup ||
+        doc.pageSetup ||
+        {};
+
+      console.debug &&
+        console.debug(
+          'exportDocumentPdf: using pageSetup',
+          pageSetupToUse,
+        );
+
+      // Very small cleanup CSS here; heavy layout rules live in generatePdfBuffer
+      try {
+        const cleanupCss = `
+<style>
+  /* Hide editor-only background bands; do NOT touch layout here */
+  .page-break-background,
+  .page-break-background *,
+  [class*="page-break-background"],
+  [class*="page-footer-background"],
+  [class*="page-break-bg"] {
+    display: none !important;
+  }
+  /* Hide header separator line used only in editor UI */
+  .nv-header-line {
+    display: none !important;
+  }
+</style>`;
+
+        if (/<head[^>]*>/i.test(htmlFull)) {
+          htmlFull = htmlFull.replace(
+            /<head([^>]*)>/i,
+            `<head$1>\n${cleanupCss}`,
+          );
+        } else {
+          htmlFull = cleanupCss + htmlFull;
+        }
+      } catch (injectErr) {
+        console.warn(
+          'exportDocumentPdf: failed to inject cleanup CSS',
+          injectErr?.message || injectErr,
+        );
+      }
+
+      console.log(
+        'exportDocumentPdf: final HTML length =',
+        htmlFull 
+      );
+
+      // Generate PDF buffer
+      const pdfBuffer = await generatePdfBuffer(
+        htmlFull,
+        pageSetupToUse || {},
+      );
+
+      try {
+        console.debug &&
+          console.debug(
+            'exportDocumentPdf: generated pdfBuffer length =',
+            pdfBuffer ? pdfBuffer.length : 0,
+          );
+      } catch (logErr) {
+        console.warn(
+          'exportDocumentPdf: failed to log pdfBuffer length',
+          logErr,
+        );
+      }
+
+      if (
+        !pdfBuffer ||
+        !Buffer.isBuffer(pdfBuffer) ||
+        pdfBuffer.length === 0
+      ) {
+        console.error(
+          'exportDocumentPdf: pdfBuffer is empty or invalid',
+        );
+        return res.status(500).json({
+          success: false,
+          message: 'PDF generation produced empty output',
+          dataLength: 0,
+        });
+      }
+
+      // Safe filename
+      const rawTitle = (doc.title || 'document').toString();
+      const safeBase =
+        rawTitle.replace(/[^a-z0-9\-_. ]/gi, '_').trim() ||
+        'document';
+      const fileName =
+        requestedFilename && typeof requestedFilename === 'string'
+          ? requestedFilename
+          : `${safeBase}.pdf`;
+
+      // store=true → upload to storage
+      if (store) {
+        try {
+          const ownerId =
+            req.user?.id || req.user?._id || 'unknown';
+          const fileServiceUrl =
+            process.env.FILE_SERVICE_URL || null;
+
+          const authHeaders = {
+            ...buildUserServiceHeaders(req),
+          };
+
+          if (req.headers?.authorization) {
+            authHeaders['Authorization'] =
+              req.headers.authorization;
+          }
+
+          if (process.env.FILE_SERVICE_INTERNAL_TOKEN) {
+            authHeaders['x-internal-token'] =
+              process.env.FILE_SERVICE_INTERNAL_TOKEN;
+          }
+
+          if (req.headers && req.headers['x-user-school']) {
+            authHeaders['X-User-School'] =
+              req.headers['x-user-school'];
+          }
+
+          const uploadRes = await uploadPdfToStorage(
+            pdfBuffer,
+            {
+              fileServerUrl: fileServiceUrl,
+              owner: ownerId,
+              folderId: folderId === null ? null : folderId,
+              filename: fileName,
+              authHeaders,
+            },
+          );
+
+          return res.json({
+            success: true,
+            message: 'Document exported and stored',
+            filePath: uploadRes.filePath || null,
+            target: uploadRes.target,
+            details: uploadRes.raw,
+          });
+        } catch (uploadErr) {
+          console.error(
+            'exportDocumentPdf: storage upload failed, falling back to inline',
+            uploadErr?.message || uploadErr,
+          );
+
+          const base64 = pdfBuffer.toString('base64');
+
+          return res.json({
+            success: true,
+            message:
+              'Document exported (inline, storage upload failed)',
+            data: base64,
+            contentType: 'application/pdf',
+            dataLength: pdfBuffer.length,
+            error: uploadErr?.message || String(uploadErr),
+          });
+        }
+      }
+
+      // store=false → return inline base64
+      const base64 = pdfBuffer.toString('base64');
+      console.debug &&
+        console.debug(
+          'exportDocumentPdf: returning inline base64 PDF, length =',
+          pdfBuffer.length,
+        );
+
+      return res.json({
+        success: true,
+        message: 'Document exported (inline)',
+        data: base64,
+        contentType: 'application/pdf',
+        dataLength: pdfBuffer.length,
+      });
+    } catch (e) {
+      console.error(
+        'exportDocumentPdf error (generate/upload)',
+        e?.message || e,
+      );
+      return res.status(500).json({
+        message: 'Failed to render or upload PDF',
+        error: e?.message || String(e),
+      });
+    }
+  } catch (err) {
+    console.error('exportDocumentPdf error', err);
+    return res.status(500).json({
+      message: 'Failed to export document',
+      error: err.message,
+    });
+  }
 };
