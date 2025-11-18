@@ -262,11 +262,15 @@ export default function DeanDashboard() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  {templatesData && templatesData.length ? (
-                    <Table columns={templateColumns} data={templatesData} />
-                  ) : (
-                    <div className="p-6 text-center text-sm text-gray-500">No recently submitted templates.</div>
-                  )}
+                  <div className="h-64 overflow-hidden">
+                    <Table
+                      columns={templateColumns}
+                      data={templatesData}
+                      fillHeight
+                      emptyMessage="No recently submitted templates."
+                    />
+                  </div>
+
                 </div>
               </div>
             </div>
@@ -332,11 +336,14 @@ export default function DeanDashboard() {
             </div>
 
             <div className="overflow-x-auto">
-              {forwardedSubmissionBinsData && forwardedSubmissionBinsData.length ? (
-                <Table columns={forwardedSubmissionBinsColumns} data={forwardedSubmissionBinsData} />
-              ) : (
-                <div className="p-6 text-center text-sm text-gray-500">No recently forwarded submission bins for your school.</div>
-              )}
+              <div className="h-64 overflow-hidden">
+                <Table
+                  columns={forwardedSubmissionBinsColumns}
+                  data={forwardedSubmissionBinsData}
+                  fillHeight
+                  emptyMessage="No recently forwarded submission bins for your school."
+                />
+              </div>
             </div>
           </div>
 
@@ -359,11 +366,14 @@ export default function DeanDashboard() {
             </div>
 
             <div className="overflow-x-auto">
-              {publishedTemplatesData && publishedTemplatesData.length ? (
-                <Table columns={publishedTemplatesColumns} data={publishedTemplatesData} />
-              ) : (
-                <div className="p-6 text-center text-sm text-gray-500">No recently published templates available.</div>
-              )}
+              <div className="h-64 overflow-hidden">
+                <Table
+                  columns={publishedTemplatesColumns}
+                  data={publishedTemplatesData}
+                  fillHeight
+                  emptyMessage="No recently published templates available."
+                />
+              </div>
             </div>
           </div>
         </main>
