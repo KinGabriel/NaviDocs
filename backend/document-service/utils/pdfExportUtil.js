@@ -3,6 +3,9 @@ import puppeteer from 'puppeteer';
 import axios from 'axios';
 import FormData from 'form-data';
 import { Readable } from 'stream';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 export const escapeHtml = (unsafe) => {
   if (unsafe === undefined || unsafe === null) return '';
@@ -218,6 +221,133 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
     } else {
       html = `<!doctype html><html><head>${cleanupCss}</head><body>${html}</body></html>`;
     }
+    // Ensure images referenced from the files-service (uploads/assets) are absolute URLs
+    try {
+      const fileService = (process.env.FILE_SERVICE_URL || process.env.FILE_SERVICE_HOST || 'http://localhost:5004').replace(/\/$/, '');
+
+      // Attempt to inline local logos from backend/document-service/assets/images first
+      try {
+        const TARGET_LOGOS = ['cicm-logo.png', 'slu-logo.png'];
+        for (const name of TARGET_LOGOS) {
+          try {
+            const __filename = fileURLToPath(import.meta.url);
+            const __dirname = path.dirname(__filename);
+            const localPath = path.resolve(__dirname, '..', 'assets', 'images', name);
+            const buf = await fs.readFile(localPath);
+            const ext = String(name).split('.').pop().toLowerCase();
+            const mime = ext === 'svg' ? 'image/svg+xml' : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';
+            const dataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`;
+            // replace occurrences of any assets/images path ending with the name, and bare name
+            html = html.replace(new RegExp(`[^"']*assets/images/${name}`, 'g'), dataUrl);
+            html = html.replace(new RegExp(`/assets/images/${name}`, 'g'), dataUrl);
+            html = html.replace(new RegExp(`assets/images/${name}`, 'g'), dataUrl);
+            html = html.replace(new RegExp(name, 'gi'), dataUrl);
+          } catch (_) {
+            // missing locally, ignore
+          }
+        }
+      } catch (e) {
+        // ignore local inline failures
+      }
+
+      // Replace src attributes that point to uploads/assets or uploads with absolute file service URL
+      html = html.replace(/src=("|')([^"']+)("|')/gi, (m, q1, src, q3) => {
+        const low = src.trim();
+        if (/^(https?:)?\/\//i.test(low) || /^data:/i.test(low)) return `src=${q1}${src}${q3}`;
+        if (/\buploads\b|\bassets\b/i.test(low)) {
+          const path = low.startsWith('/') ? low : `/${low}`;
+          return `src=${q1}${fileService}${path}${q3}`;
+        }
+        return `src=${q1}${src}${q3}`;
+      });
+
+      // Replace CSS url(...) usages
+      html = html.replace(/url\(("|')?([^\)"']+)("|')?\)/gi, (m, q1, url) => {
+        const low = url.trim();
+        if (/^(https?:)?\/\//i.test(low) || /^data:/i.test(low)) return `url(${q1 || ''}${url}${q1 || ''})`;
+        if (/\buploads\b|\bassets\b/i.test(low)) {
+          const path = low.startsWith('/') ? low : `/${low}`;
+          return `url(${q1 || ''}${fileService}${path}${q1 || ''})`;
+        }
+        return `url(${q1 || ''}${url}${q1 || ''})`;
+      });
+
+      // Fetch matching file-service images and inline them as data URLs so Puppeteer does not need external auth
+      try {
+        const imgUrls = new Set();
+
+        // Prepare headers and fetch helper so we can inline specific logos early
+        const headers = {};
+        if (process.env.FILE_SERVICE_AUTH_HEADER && process.env.FILE_SERVICE_AUTH_TOKEN) {
+          headers[process.env.FILE_SERVICE_AUTH_HEADER] = process.env.FILE_SERVICE_AUTH_TOKEN;
+        }
+
+        const fetchImage = async (url) => {
+          try {
+            const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 20000, headers });
+            const ct = resp.headers && resp.headers['content-type'] ? resp.headers['content-type'] : 'application/octet-stream';
+            const base64 = Buffer.from(resp.data, 'binary').toString('base64');
+            return `data:${ct};base64,${base64}`;
+          } catch (err) {
+            console.warn(debugPrefix, 'fetchImage failed for', url, err?.message || err);
+            return null;
+          }
+        };
+
+        // (target logos have been inlined from local assets earlier)
+
+        // collect img srcs (absolute or file-service-relative)
+        html.replace(/<img[^>]+src=("|')([^"']+)("|')[^>]*>/gi, (_, _q, src) => {
+          const raw = String(src || '').trim();
+          if (!raw) return _;
+
+          if (/^(https?:)?\/\//i.test(raw)) {
+            // absolute URL
+            if (raw.startsWith(fileService)) imgUrls.add(raw);
+          } else if (/\buploads\b|\bassets\b/i.test(raw) || raw.startsWith('/')) {
+            // relative file-service path -> make absolute
+            const path = raw.startsWith('/') ? raw : `/${raw}`;
+            imgUrls.add(`${fileService}${path}`);
+          }
+
+          return _;
+        });
+
+        // collect CSS url(...) occurrences (absolute or file-service-relative)
+        html.replace(/url\(("|')?([^\)"']+)("|')?\)/gi, (_, _q1, url) => {
+          const raw = String(url || '').trim();
+          if (!raw) return _;
+
+          if (/^(https?:)?\/\//i.test(raw)) {
+            if (raw.startsWith(fileService)) imgUrls.add(raw);
+          } else if (/\buploads\b|\bassets\b/i.test(raw) || raw.startsWith('/')) {
+            const path = raw.startsWith('/') ? raw : `/${raw}`;
+            imgUrls.add(`${fileService}${path}`);
+          }
+
+          return _;
+        });
+
+        if (imgUrls.size) {
+          // perform sequential fetches (small number of images expected)
+          for (const url of Array.from(imgUrls)) {
+            const dataUrl = await fetchImage(url);
+            if (dataUrl) {
+              // replace exact occurrences of the url in HTML (both src and url(...))
+              const esc = url.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+              const re1 = new RegExp(`(src=("|'))${esc}(("|'))`, 'g');
+              html = html.replace(re1, `$1${dataUrl}$3`);
+              const re2 = new RegExp(`(url\(("|')?)${esc}(("|')?\))`, 'g');
+              html = html.replace(re2, `$1${dataUrl}$3`);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(debugPrefix, 'inline-file-service-assets failed:', e?.message || e);
+      }
+    } catch (e) {
+      console.warn(debugPrefix, 'make-image-urls-absolute failed:', e?.message || e);
+    }
 
     await page.setViewport({ width: 1024, height: 768 });
 
@@ -266,8 +396,35 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
     }
 
     // 4) Strip placeholder chrome from editable fields (unchanged)
+    // Prepare a deterministic pageSetup object for the page script so we compute
+    // page boundaries the same way the editor does (inches -> px using 96dpi)
+    const PAGE_DIMENSIONS = {
+      A4: { width: 8.27, height: 11.69 },
+      Letter: { width: 8.5, height: 11 },
+      Legal: { width: 8.5, height: 14 },
+    };
+
+    const pgName = String(pageSetup.paperSize || format || 'A4');
+    const pageDims = PAGE_DIMENSIONS[pgName] || PAGE_DIMENSIONS.A4;
+    const evalPageSetup = {
+      paperHeightIn: pageDims.height,
+      paperWidthIn: pageDims.width,
+      margins: {
+        top: Number(dbMargins.top ?? pageSetup.margins?.top ?? defaultMargins.top) || 0,
+        bottom: Number(dbMargins.bottom ?? pageSetup.margins?.bottom ?? defaultMargins.bottom) || 0,
+        left: Number(dbMargins.left ?? pageSetup.margins?.left ?? defaultMargins.left) || 0,
+        right: Number(dbMargins.right ?? pageSetup.margins?.right ?? defaultMargins.right) || 0,
+      },
+      dpi: 96,
+      // fraction of page height to bias page-index computation so "early start" occurs
+      earlyStartPct: pageSetup.earlyStartPct ?? 0.08,
+      // how far above bottom to place page numbers (inches)
+      pageNumberBottomIn: pageSetup.pageNumberBottomIn ?? 0.25,
+      isEditorHtml: !!isEditorHtml,
+    };
+
     try {
-      await page.evaluate(() => {
+      await page.evaluate((ps) => {
         const fields = document.querySelectorAll(
           '[data-node="editable-field"], .nd-editable-field, .editable-field'
         );
@@ -336,6 +493,155 @@ export const generatePdfBuffer = async (html, pageSetup = {}) => {
         'page-break spacer adjustment failed:',
         e?.message || e
       );
+    }
+
+    // Adjust page-number element positions and handle trail-break header movement
+    try {
+      await page.evaluate(() => {
+        try {
+          const pageSelectors = ['.tiptap-page', '.rm-page', '.rm-page-inner', '.page'];
+          const pages = Array.from(document.querySelectorAll(pageSelectors.join(',')));
+
+          // compute useful geometry using the passed page setup
+          const dpi = ps && ps.dpi ? ps.dpi : 96;
+          const paperHeightPx = Math.max(1, (ps.paperHeightIn - (ps.margins?.top || 0) - (ps.margins?.bottom || 0)) * dpi);
+          const marginsTopPx = (ps.margins?.top || 0) * dpi;
+          const bodyRect = document.body.getBoundingClientRect();
+
+          const pageNumRegex = /\b\d+\s+of\s+\d+\b|\{page\}/i;
+          const headerSelector = '.tiptap-page-header, .rm-page-header, header, .page-header, .tiptap-page-header-left, .tiptap-page-header-center';
+
+          // ensure each page container is positioned for absolute children
+          pages.forEach((p) => {
+            try {
+              const computed = window.getComputedStyle(p);
+              if (computed.position === 'static') p.style.position = 'relative';
+            } catch (_) {}
+          });
+
+          // store page metadata on the document and each page element (like tiptap does)
+          try {
+            try {
+              document.documentElement.dataset.pageHeightPx = String(Math.round(paperHeightPx));
+              document.documentElement.dataset.pageMargins = JSON.stringify(ps.margins || {});
+            } catch (_) {}
+
+            pages.forEach((p, i) => {
+              try {
+                const pageTop = Math.round(marginsTopPx + i * paperHeightPx);
+                p.dataset.pageIndex = String(i);
+                p.dataset.pageTop = String(pageTop);
+                p.dataset.pageHeight = String(Math.round(paperHeightPx));
+                p.dataset.pageNumber = String(i + 1);
+              } catch (_) {}
+            });
+          } catch (_) {}
+
+          // Move header elements forward when a trail-break marker exists inside a page
+          pages.forEach((p, idx) => {
+            try {
+              const trail = p.querySelector('.trail-break, [data-trail-break]');
+              if (!trail) return;
+              // compute the page index of the trail element using absolute position
+              const trailRect = trail.getBoundingClientRect();
+              const trailY = trailRect.top - bodyRect.top; // px from body top
+              // allow a small early-start bias so page counting behaves like the editor
+              const earlyPct = (ps && typeof ps.earlyStartPct === 'number') ? ps.earlyStartPct : 0.08;
+              const earlyOffsetPx = Math.max(0, Math.round(paperHeightPx * earlyPct));
+              const currentPageIndex = Math.floor((trailY - marginsTopPx + earlyOffsetPx) / paperHeightPx);
+              const targetPageIndex = currentPageIndex + 1;
+              const next = pages[targetPageIndex] || pages[idx + 1];
+              if (!next) return;
+
+              const header = p.querySelector(headerSelector);
+              if (!header) return;
+
+              // move header (not clone) into next page so it appears after the break
+              try { next.insertBefore(header, next.firstChild || null); } catch (_) {}
+
+              try {
+                if (window.getComputedStyle(header).position === 'static') header.style.position = 'absolute';
+                header.style.top = '0.25in';
+                header.style.left = '0';
+                header.style.right = '0';
+                header.style.boxSizing = 'border-box';
+                header.style.zIndex = '1000';
+              } catch (_) {}
+
+              // ensure next page has padding so content doesn't overlap moved header
+              try {
+                const rect = header.getBoundingClientRect();
+                const height = rect && rect.height ? rect.height : 48;
+                const existing = parseFloat(window.getComputedStyle(next).paddingTop) || 0;
+                const needed = height + 16; // slightly larger gap to avoid overlap
+                if (existing < needed) next.style.paddingTop = `${needed}px`;
+              } catch (_) {}
+            } catch (_) {}
+          });
+
+          // Position and normalize page numbers
+          pages.forEach((p) => {
+            try {
+              // prefer explicit page-number elements in footers
+              const footerEl = p.querySelector('.rm-page-footer, .rm-first-page-footer, .rm-page-footer-right, .rm-page-footer-left, footer');
+              let nums = [];
+              if (footerEl) nums = Array.from(footerEl.querySelectorAll('.rm-page-number, .page-number, .tiptap-page-number'));
+
+              if (!nums.length) {
+                // fallback: find any element inside page that matches page-num pattern
+                const walker = document.createTreeWalker(p, NodeFilter.SHOW_ELEMENT, null, false);
+                let node;
+                while ((node = walker.nextNode())) {
+                  try {
+                    const txt = (node.textContent || '').trim();
+                    if (!txt) continue;
+                    if (pageNumRegex.test(txt)) { nums = [node]; break; }
+                  } catch (_) {}
+                }
+              }
+
+              nums.forEach((node) => {
+                try {
+                  // normalize "1 of 2" -> "Page 1 of 2"
+                  try {
+                    const t = (node.textContent || '').trim();
+                    const m = t.match(/^(\d+\s+of\s+\d+)$/i);
+                    if (m && !/^page\s+/i.test(t)) node.textContent = `Page ${m[1]}`;
+                  } catch (_) {}
+
+                  if (window.getComputedStyle(node).position === 'static') node.style.position = 'absolute';
+                  // pin page numbers to configured distance above page bottom (default 0.25in)
+                  try { node.style.bottom = (ps && typeof ps.pageNumberBottomIn === 'number' ? ps.pageNumberBottomIn : 0.25) + 'in'; } catch(_) { node.style.bottom = '0.25in'; }
+                  node.style.margin = '0';
+                  node.style.left = '';
+                  node.style.right = '';
+                  node.style.transform = '';
+                  node.style.background = 'rgba(0,0,0,0.5)';
+                  node.style.border = '1px solid rgba(255,255,255,0.8)';
+                  node.style.borderRadius = '2px';
+                  node.style.zIndex = '10';
+                  node.style.padding = '2px 8px';
+                  node.style.color = '#fff';
+                  node.style.fontSize = node.style.fontSize || '11px';
+                  node.style.lineHeight = '1';
+
+                  // alignment: detect from parent or default right
+                  const parent = node.parentElement || p;
+                  const alignStyle = parent && parent.style && parent.style.textAlign ? parent.style.textAlign : '';
+                  const align = (alignStyle || 'right').toLowerCase();
+                  if (align.includes('left')) node.style.left = '16px';
+                  else if (align.includes('center')) { node.style.left = '50%'; node.style.transform = 'translateX(-50%)'; }
+                  else node.style.right = '16px';
+                } catch (_) {}
+              });
+            } catch (_) {}
+          });
+        } catch (e) {
+          // swallow page-side errors
+        }
+      }, evalPageSetup);
+    } catch (e) {
+      console.warn(debugPrefix, 'page-number/header placement failed:', e?.message || e);
     }
 
     /* ------------------------------------------------------------------ */
@@ -535,7 +841,7 @@ export const uploadPdfToStorage = async (
       const last = files[files.length - 1];
       if (last && (last.path || last.filePath)) {
         filePath = last.path || last.filePath;
-      }A
+      }
     }
   }
 
