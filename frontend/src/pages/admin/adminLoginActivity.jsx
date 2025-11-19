@@ -1,0 +1,540 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { toast } from "react-hot-toast";
+import Header from "../../layout/headers/header";
+import Sidebar from "../../layout/sidebars/sidebar";
+import Loader from "../../components/loader";
+import SearchBar from "../../components/searchbar";
+import Dropdown from "../../components/dropdowns/dropdown";
+import useUser from "../../hooks/useUser";
+import { fetchLoginActivityAPI, exportLoginActivityCSV, deleteLoginActivityAPI } from "../../api/adminAPI";
+
+export default function AdminLoginActivity() {
+  const user = useUser();
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [search, setSearch] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [browserFilter, setBrowserFilter] = useState("");
+  const [exportMonth, setExportMonth] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const itemsPerPage = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  const statusOptions = ["All Status", "Active", "Logged Out"];
+  const [statusFilter, setStatusFilter] = useState("All Status");
+
+  const roleOptions = [
+    "All Roles",
+    "Admin",
+    "Dean",
+    "Department Head",
+    "Document Controller Officer",
+    "Faculty",
+    "Lead Document Controller",
+    "Secretary",
+    "Unit Document Controller",
+  ];
+  const [roleFilter, setRoleFilter] = useState("All Roles");
+
+  const apiParams = useMemo(() => {
+    const params = { page: currentPage, limit: itemsPerPage };
+    if (search && search.trim()) params.search = search.trim();
+    if (selectedDate) params.date = selectedDate;
+    if (browserFilter && browserFilter.trim()) params.browserName = browserFilter.trim();
+    if (statusFilter === "Active") params.status = "active";
+    else if (statusFilter === "Logged Out") params.status = "inactive";
+    if (roleFilter && roleFilter !== "All Roles") params.role = roleFilter;
+    return params;
+  }, [search, selectedDate, statusFilter, roleFilter, currentPage, browserFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await fetchLoginActivityAPI(apiParams);
+        const items = Array.isArray(res?.data) ? res.data : [];
+        if (!cancelled) {
+          const mapped = items.map((it, idx) => ({
+            _id: it._id,
+            id: String(it._id || `${it.email}-${it.login_time || idx}`),
+            email: it.email,
+            role: it.role,
+            ip: it.ip,
+            browserName: it.browserName,
+            login_time: it.login_time,
+            logout_time: it.logout_time,
+          }));
+          setLogs(mapped);
+          setTotalPages(Number(res?.pages || 1));
+          setTotalItems(Number(res?.total || mapped.length));
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e?.message || "Failed to fetch login activity");
+          setLogs([]);
+          setTotalPages(1);
+          setTotalItems(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [apiParams]);
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const s = new Set(prev || []);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return Array.from(s);
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!currentLogs || currentLogs.length === 0) return;
+    if (selectedIds.length === currentLogs.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(currentLogs.map((l) => l.id || l._id));
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      if (!exportMonth) {
+        toast.error('Choose a month to export (YYYY-MM)');
+        return;
+      }
+      const resp = await exportLoginActivityCSV({ month: exportMonth });
+      const blob = resp.data;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `login-activity-${exportMonth}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Login activity exported successfully');
+    } catch (e) {
+      console.error(e);
+      toast.error(e?.response?.data?.message || e?.message || 'Export failed');
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    try {
+      if (!selectedIds || selectedIds.length === 0) {
+        toast.error('No rows selected');
+        return;
+      }
+      if (!confirm(`Delete ${selectedIds.length} selected logs? This cannot be undone.`)) return;
+      const res = await deleteLoginActivityAPI({ ids: selectedIds });
+      if (res?.success) {
+        setLogs((prev) => prev.filter(l => !selectedIds.includes(l.id && String(l.id)) && !selectedIds.includes(String(l._id))));
+        setSelectedIds([]);
+        toast.success(`Deleted ${res.deletedCount || 0} logs successfully`);
+      } else {
+        toast.error('Delete failed');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error(e?.response?.data?.message || e?.message || 'Delete failed');
+    }
+  };
+
+  const handleDeleteByMonth = async () => {
+    try {
+      if (!exportMonth) { 
+        toast.error('Choose month to delete (YYYY-MM)'); 
+        return; 
+      }
+      if (!confirm(`Delete all logs for ${exportMonth}? This cannot be undone.`)) return;
+      const res = await deleteLoginActivityAPI({ month: exportMonth });
+      if (res?.success) {
+        toast.success(`Deleted logs for ${exportMonth} successfully`);
+        setCurrentPage(1);
+        setTimeout(() => window.location.reload(), 200);
+      } else {
+        toast.error('Delete failed');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error(e?.response?.data?.message || e?.message || 'Delete failed');
+    }
+  };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedDate, statusFilter, roleFilter, browserFilter]);
+
+  const currentLogs = logs;
+
+  const formatTimestamp = (ts) => {
+    if (!ts) return null;
+    try {
+      const d = new Date(ts);
+      if (Number.isNaN(d.getTime())) return null;
+      return d.toLocaleString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return null;
+    }
+  };
+
+  const handlePrev = () => currentPage > 1 && setCurrentPage(currentPage - 1);
+  const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
+
+  const getPageNumbers = () => {
+    const total = totalPages;
+    const current = currentPage;
+    const maxDisplayed = 5;
+    let pages = [];
+
+    if (total <= maxDisplayed) {
+      for (let i = 1; i <= total; i++) pages.push(i);
+    } else {
+      if (current <= 3) {
+        pages = [1, 2, 3, "...", total];
+      } else if (current >= total - 2) {
+        pages = [1, "...", total - 2, total - 1, total];
+      } else {
+        pages = [1, "...", current - 1, current, current + 1, "...", total];
+      }
+    }
+    return pages;
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-200 flex flex-col">
+      <Header user={user} />
+      <div className="flex flex-col lg:flex-row flex-1">
+        <Sidebar user={user} active="Login Activity" />
+
+        <div className="flex-1 flex flex-col bg-white shadow px-4 sm:px-6 lg:px-8 py-6 mx-3 sm:mx-4 lg:mx-6 mt-4 lg:mt-8 rounded-xl">
+          <main className="w-full max-w-full">
+            <h2 className="text-lg sm:text-2xl lg:text-3xl font-bold text-black tracking-widest uppercase mb-2">
+              Login Activity
+            </h2>
+            <div className="h-1 bg-yellow-400 mb-5 sm:mb-6 rounded w-20 sm:w-24"></div>
+
+            {/* Filter Row */}
+            <div className="flex flex-col gap-4 mb-6">
+              {/* First Row: Filters */}
+              <div className="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap items-stretch sm:items-center gap-3">
+                {/* Status */}
+                <div className="w-full sm:w-auto sm:flex-shrink-0">
+                  <Dropdown
+                    value={statusFilter}
+                    onChange={(value) => {
+                      setStatusFilter(value);
+                      setCurrentPage(1);
+                    }}
+                    options={statusOptions}
+                    width="w-full sm:w-44"
+                  />
+                </div>
+
+                {/* Role */}
+                <div className="w-full sm:w-auto sm:flex-shrink-0">
+                  <Dropdown
+                    value={roleFilter}
+                    onChange={(value) => {
+                      setRoleFilter(value);
+                      setCurrentPage(1);
+                    }}
+                    options={roleOptions}
+                    width="w-full sm:w-56"
+                  />
+                </div>
+
+                {/* Date */}
+                <div className="w-full sm:w-auto sm:flex-shrink-0">
+                  <input
+                    type="date"
+                    className="h-10 w-full sm:w-40 border border-gray-300 rounded-lg px-3 text-sm
+                               focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={selectedDate}
+                    onChange={(e) => {
+                      setSelectedDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+
+                {/* Browser filter */}
+                <div className="w-full sm:w-auto sm:flex-shrink-0">
+                  <input
+                    type="text"
+                    placeholder="Search Browser..."
+                    className="h-10 w-full sm:w-40 border border-gray-300 rounded-lg px-3 text-sm
+                               focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={browserFilter}
+                    onChange={(e) => {
+                      setBrowserFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+
+                {/* Search - pushes to end on desktop */}
+                <div className="w-full sm:w-auto lg:ml-auto">
+                  <SearchBar
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Second Row: Export/Delete Actions */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2 border-t border-gray-200">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-600 px-1">
+                    Export/Delete Month
+                  </label>
+                  <input
+                    type="month"
+                    className="h-10 w-full sm:w-40 border border-gray-300 rounded-lg px-3 text-sm
+                               focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={exportMonth}
+                    onChange={(e) => setExportMonth(e.target.value)}
+                    placeholder="YYYY-MM"
+                  />
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <button 
+                    onClick={handleExport} 
+                    className="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg
+                               transition-colors duration-200 shadow-sm hover:shadow whitespace-nowrap"
+                  >
+                    Export CSV
+                  </button>
+                  <button 
+                    onClick={handleDeleteByMonth} 
+                    className="h-10 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg
+                               transition-colors duration-200 shadow-sm hover:shadow whitespace-nowrap"
+                  >
+                    Delete By Month
+                  </button>
+                  <button 
+                    onClick={handleDeleteSelected} 
+                    className="h-10 px-4 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg
+                               transition-colors duration-200 shadow-sm hover:shadow whitespace-nowrap
+                               disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={selectedIds.length === 0}
+                  >
+                    Delete Selected ({selectedIds.length})
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="min-h-[200px] flex items-center justify-center">
+                <Loader message="Fetching Activity Logs..." />
+              </div>
+            ) : error ? (
+              <div className="text-sm text-red-600">{error}</div>
+            ) : (
+              <>
+                {/* Mobile: Card list */}
+                <div className="grid grid-cols-1 gap-3 md:hidden">
+                  {currentLogs.length > 0 ? (
+                    currentLogs.map((log) => {
+                      const isActive = !log.logout_time;
+                      return (
+                        <div
+                          key={log.id}
+                          className="rounded-lg border border-gray-200 p-4 bg-white"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <input type="checkbox" checked={selectedIds.includes(log.id || log._id)} onChange={() => toggleSelect(log.id || log._id)} />
+                                <p className="text-sm font-semibold text-gray-900 break-all">
+                                  {log.email}
+                                </p>
+                              </div>
+                              <p className="text-xs text-gray-600 mt-0.5">
+                                {log.role || "—"} • {log.browserName || "—"}
+                              </p>
+                            </div>
+                            <span
+                              className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${!log.logout_time
+                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                : "bg-gray-50 text-gray-700 border border-gray-200"
+                                }`}
+                            >
+                              {!log.logout_time ? "Active" : "Logged Out"}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 space-y-1.5 text-xs">
+                            <div className="flex justify-between gap-3">
+                              <span className="text-gray-500">Login</span>
+                              <span className="text-gray-900">
+                                {formatTimestamp(log.login_time) || "—"}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                              <span className="text-gray-500">Logout</span>
+                              <span className="text-gray-900">
+                                {log.logout_time
+                                  ? formatTimestamp(log.logout_time)
+                                  : "—"}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                              <span className="text-gray-500">IP</span>
+                              <span className="text-gray-900 break-all text-right">
+                                {log.ip || "—"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-6 text-gray-500 text-sm">
+                      No results found
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop: Table */}
+                <div className="hidden md:block overflow-x-auto border border-gray-200 rounded-lg">
+                  <table className="w-full min-w-[760px]">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          <input type="checkbox" onChange={toggleSelectAll} checked={selectedIds.length > 0 && currentLogs.length > 0 && selectedIds.length === currentLogs.length} />
+                        </th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Email Address
+                        </th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Role
+                        </th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          IP Address
+                        </th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Browser
+                        </th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Login Time
+                        </th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Logout Time
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {currentLogs.length > 0 ? (
+                        currentLogs.map((log) => (
+                          <tr key={log.id} className="hover:bg-blue-50 transition-colors text-sm">
+                            <td className="px-3 py-4 text-gray-700">
+                              <input type="checkbox" checked={selectedIds.includes(log.id || log._id)} onChange={() => toggleSelect(log.id || log._id)} />
+                            </td>
+                            <td className="px-5 py-4 text-gray-900 font-medium break-all">
+                              {log.email}
+                            </td>
+                            <td className="px-5 py-4 text-gray-700 whitespace-nowrap">
+                              {log.role}
+                            </td>
+                            <td className="px-5 py-4 text-gray-700 break-all">
+                              {log.ip}
+                            </td>
+                            <td className="px-5 py-4 text-gray-700 whitespace-nowrap">
+                              {log.browserName || '—'}
+                            </td>
+                            <td className="px-5 py-4 text-gray-700 whitespace-nowrap">
+                              {formatTimestamp(log.login_time) || "—"}
+                            </td>
+                            <td className="px-5 py-4 text-gray-700 whitespace-nowrap">
+                              {log.logout_time ? (
+                                formatTimestamp(log.logout_time)
+                              ) : (
+                                <span className="text-blue-700 font-medium">Active</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="7" className="text-center py-6 text-gray-500 text-sm">
+                            No results found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Results Indicator */}
+                <div className="text-center text-gray-600 text-xs sm:text-sm mt-4">
+                  Showing {(currentPage - 1) * itemsPerPage + 1}–
+                  {(currentPage - 1) * itemsPerPage + currentLogs.length} of {totalItems} logs
+                </div>
+
+                {/* Pagination */}
+                <div className="flex flex-wrap justify-center items-center mt-5 gap-2 text-xs sm:text-sm">
+                  <button
+                    onClick={handlePrev}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+
+                  {getPageNumbers().map((num, idx) =>
+                    num === "..." ? (
+                      <span key={idx} className="px-2 text-gray-400 select-none">…</span>
+                    ) : (
+                      <button
+                        key={num}
+                        onClick={() => setCurrentPage(num)}
+                        className={`px-3 py-1.5 rounded border ${currentPage === num
+                          ? "bg-blue-600 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-100"
+                          }`}
+                      >
+                        {num}
+                      </button>
+                    )
+                  )}
+
+                  <button
+                    onClick={handleNext}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 rounded border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            )}
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+}

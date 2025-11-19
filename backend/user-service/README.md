@@ -1,5 +1,5 @@
 
-## User-service Setup
+# User-service Setup
 
 1. Navigate to the user-service directory:
    ```sh
@@ -10,4 +10,14 @@
    ```sh
    npm install
    ```
+
+# Run the module
+    ```sh
+   node index.js 
+   ```
+# Or in Development Mode 
+   ```sh
+   npm run dev
+   ```
+
 

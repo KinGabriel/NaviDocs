@@ -1,11 +1,514 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Header from './components/header';
-function App() {
-  return(
-    <>
-  <Header />
-    </>
-  )
+/**
+ * @fileoverview Main application component managing routing, authentication, and role-based access control.
+ * Handles session verification, route protection, and conditional redirects based on user roles.
+ * 
+ * @module App
+ * @requires react-router-dom
+ * @requires react
+ * @requires react-hot-toast
+ */
+
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import './assets/css/global.css'
+import Login from './pages/login';
+import AdminDashboard from './pages/admin/adminDashboard';
+import AdminAccounts from './pages/admin/adminAccounts';
+import CreateUser from './pages/admin/adminCreateUser';
+import AdminLoginActivity from './pages/admin/adminLoginActivity';
+import AccountSettings from "./pages/accountSettings";
+import Documents from "./pages/documents";
+import Templates from "./pages/templates";
+import PublishedTemplateView from "./pages/publishedTemplateView";
+import AdminEditUser from "./pages/admin/adminEditUser";
+import DocumentControllerDashboard from './pages/document_controller/documentControllerDashboard';
+import DocumentControllerCreateTemplate from './pages/document_controller/documentControllerCreateTemplate';
+import ProtectedRoute from './guards/protectedroute';
+import NotFoundPage from './pages/error_pages/notFoundPage';
+import ServerErrorPage from './pages/error_pages/serverErrorPage';
+import UnauthorizedPage from './pages/error_pages/unauthorizedPage';
+import useUser from './hooks/useUser';
+import SecretaryDashboard from './pages/secretary/secretaryDashboard';
+import TemplatesView from './pages/templatesView';
+import DeanDashboard from './pages/dean/deanDashboard';
+import DocControllerTemplates from "./pages/document_controller/documentControllerHandleTemplates.jsx";
+import DepartmentHeadDashboard from './pages/dept_head/departmentHeadDashboard';
+import DepartmentHeadStatistics from './pages/dept_head/departmentHeadStatistics';
+import FacultyDashboard from './pages/faculty/facultyDashboard';
+import FacultySubmissions from './pages/faculty/facultySubmissions';
+import FacultySubmissionView from './pages/faculty/facultySubmissionView';
+import EditableFields from './pages/editableFields';
+import Storage from './pages/storage';
+import SelectTemplate from './pages/selectTemplate';
+import { Toaster } from 'react-hot-toast';
+import ArchivedDocuments from "./pages/archivedDocuments";
+import SubmissionBin from './pages/submissionbinDetails';
+import SubmittedFilesView from './pages/submittedFilesView';
+import SubmissionBins from './pages/submissionBins';
+import ForgotPassword from './pages/forgotPassword';
+import Loader from './components/loader';
+import { useEffect, useState } from 'react';
+import { verifySession } from "./api/authAPI";
+
+/**
+ * Route component that redirects authenticated users to their role-specific dashboard,
+ * or displays the login page for unauthenticated users.
+ * 
+ * Role-to-Dashboard mappings:
+ * - Admin → /admin/dashboard
+ * - Lead/Document Control Officer/Unit Document Controller → /document-controller/dashboard
+ * - Secretary → /secretary/dashboard
+ * - Dean → /dean/dashboard
+ * - Department Head → /dept-head/dashboard
+ * - Faculty → /faculty/dashboard
+ * 
+ * @component
+ * @returns {JSX.Element} Navigate component to role-specific dashboard or Login page
+ * 
+ */
+/** Redirect logged-in users by role; otherwise show Login */
+function LoginRoute() {
+  const user = useUser();
+  if (user) {
+    const role = user.role?.name;
+    if (role === "Admin") return <Navigate to="/admin/dashboard" replace />;
+    if (role === "Lead Document Controller") return <Navigate to="/document-controller/dashboard" replace />;
+    if (role === "Document Control Officer") return <Navigate to="/document-controller/dashboard" replace />;
+    if (role === "Unit Document Controller") return <Navigate to="/document-controller/dashboard" replace />;
+    if (role === "Secretary") return <Navigate to="/secretary/dashboard" replace />;
+    if (role === "Dean") return <Navigate to="/dean/dashboard" replace />;
+    if (role === "Department Head") return <Navigate to="/dept-head/dashboard" replace />;
+    if (role === "Faculty") return <Navigate to="/faculty/dashboard" replace />;
+  }
+  return <Login />;
 }
 
-export default App
+/**
+ * Router component that renders the appropriate templates view based on user role.
+ * 
+ * Role behaviors:
+ * - Document Controllers (Lead/Officer/Unit) → Document controller templates handler view
+ * - Secretary/Dean/Department Head/Faculty → Main templates page
+ * - No role or unauthorized → Unauthorized page
+ * 
+ * @component
+ * @returns {JSX.Element} Role-specific templates component or UnauthorizedPage
+ * 
+ * @example
+ * <Route path="/templates" element={<RoleTemplatesRouter />} />
+ */
+// Render the appropriate Templates list based on the current user's role
+function RoleTemplatesRouter() {
+  const user = useUser();
+  const role = user?.role?.name;
+  if (!role) return <UnauthorizedPage />;
+
+  // Approver roles use the review/handle templates view
+  if (
+    role === "Lead Document Controller" ||
+    role === "Document Control Officer" ||
+    role === "Unit Document Controller"
+  ) {
+    return <DocControllerTemplates />;
+  }
+
+  // Everyone else (excluding Admin) sees the main Templates page
+  if (
+    role === "Secretary" ||
+    role === "Dean" ||
+    role === "Department Head" ||
+    role === "Faculty"
+  ) {
+    return <Templates />;
+  }
+
+  return <UnauthorizedPage />;
+}
+
+/**
+ * Root application component managing global routing, session verification, and authentication state.
+ * 
+ * Features:
+ * - Session verification on mount for protected routes
+ * - Loading state during session check
+ * - Role-based access control via ProtectedRoute wrapper
+ * - Toast notifications via react-hot-toast
+ * - Automatic redirect to login for invalid sessions
+ * - Public routes bypass authentication
+ * 
+ * Route Structure:
+ * - Public: /, /login, /forgot-password
+ * - Admin: /admin/* (dashboard, accounts, create-user, login-activity, edit-user)
+ * - Document Controller: /document-controller/* (dashboard, create-template, handle-templates)
+ * - Secretary: /secretary/* (dashboard, settings)
+ * - Dean: /dean/* (dashboard)
+ * - Department Head: /dept-head/* (dashboard, statistics)
+ * - Faculty: /faculty/* (dashboard, document-workflow)
+ * - Shared: /account/settings, /documents, /templates, /storage, /submissions
+ * - Error: /unauthorized, /server-error, * (404)
+ * 
+ * @component
+ * @returns {JSX.Element} Application router with all configured routes
+ * 
+ * @example
+ * // In main.jsx or index.jsx
+ * <BrowserRouter>
+ *   <App />
+ * </BrowserRouter>
+ */
+function App() {
+  const [checkingSession, setCheckingSession] = useState(true);
+  const publicRoutes = ["/", "/login", "/forgot-password"];
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const currentPath = window.location.pathname;
+    if (publicRoutes.includes(currentPath)) {
+      setCheckingSession(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const valid = await verifySession();
+        if (!valid) {
+          navigate('/login', { replace: true });
+          return;
+        }
+      } catch (e) {
+        navigate('/login', { replace: true });
+        return;
+      } finally {
+        if (!cancelled) setCheckingSession(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [navigate]); // publicRoutes is static
+
+  if (checkingSession) {
+    return <Loader />;
+  }
+
+  return (
+    <>
+      <Toaster />
+      <Routes>
+        {/* Auth / public */}
+        <Route path="/" element={<LoginRoute />} />
+        <Route path="/login" element={<LoginRoute />} />
+        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="/document-controller" element={<Navigate to="/document-controller/dashboard" replace />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+
+        {/* Admin Module */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/accounts"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <AdminAccounts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/create-user"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <CreateUser />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/login-activity"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <AdminLoginActivity />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/edit-user/:id"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <AdminEditUser />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Document Controller Module */}
+        <Route
+          path="/document-controller/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+              <DocumentControllerDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Unified Templates Route for all roles */}
+        <Route
+          path="/templates"
+          element={
+            <ProtectedRoute allowedRoles={[
+              "Secretary",
+              "Dean",
+              "Department Head",
+              "Faculty",
+              "Lead Document Controller",
+              "Document Control Officer",
+              "Unit Document Controller"
+            ]}>
+              <RoleTemplatesRouter />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/document-controller/create-template"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head"]}>
+              <DocumentControllerCreateTemplate />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/document-controller/handle-templates"
+          element={
+            <ProtectedRoute allowedRoles={[
+              "Dean",
+              "Lead Document Controller",
+              "Document Control Officer",
+              "Unit Document Controller"
+            ]}>
+              <DocControllerTemplates />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Secretary Module */}
+        <Route
+          path="/secretary/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary"]}>
+              <SecretaryDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/secretary/templates" element={<Navigate to="/templates" replace />} />
+        <Route
+          path="/secretary/settings"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary"]}>
+              <AccountSettings />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Dean Module */}
+        <Route
+          path="/dean/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Dean"]}>
+              <DeanDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/dean/templates" element={<Navigate to="/templates" replace />} />
+
+    
+        {/* Submission bins */}
+        <Route
+          path="/submission-bins"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head"]}>
+              <SubmissionBins />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/submissions"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head"]}>
+              <SubmissionBins />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Department Head Module */}
+        <Route
+          path="/dept-head/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Department Head"]}>
+              <DepartmentHeadDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dept-head/statistics"
+          element={
+            <ProtectedRoute allowedRoles={["Department Head"]}>
+              <DepartmentHeadStatistics />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="/dept-head/templates" element={<Navigate to="/templates" replace />} />
+
+        {/* Faculty Module */}
+        <Route
+          path="/faculty/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Faculty"]}>
+              <FacultyDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/faculty/document-workflow"
+          element={
+            <ProtectedRoute allowedRoles={["Faculty"]}>
+              <FacultySubmissions />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/faculty/document-workflow/:id"
+          element={
+            <ProtectedRoute allowedRoles={["Faculty"]}>
+              <FacultySubmissionView />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="/faculty/templates" element={<Navigate to="/templates" replace />} />
+
+        {/* Global shared routes */}
+        <Route
+          path="/account/settings"
+          element={
+            <ProtectedRoute allowedRoles={["Admin", "Secretary", "Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+              <AccountSettings />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/documents/editable-fields/:id"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+              <EditableFields />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/submission-details/:id"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+              <SubmissionBin />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/submissions/:binId/:id"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+              <SubmittedFilesView />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/document-workflow"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head"]}>
+              <SubmissionBins />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/storage"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+              <Storage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/storage/folders/:id"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head", "Faculty", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+              <Storage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/documents"
+          element={
+            <ProtectedRoute allowedRoles={["Dean", "Department Head", "Faculty", "Secretary"]}>
+              <Documents />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/templates/published/:id"
+          element={
+            <ProtectedRoute allowedRoles={["Dean", "Department Head", "Faculty", "Secretary", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+              <PublishedTemplateView />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/templates/:id"
+          element={
+            <ProtectedRoute allowedRoles={["Secretary", "Dean", "Department Head", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+              <TemplatesView />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/select-template"
+          element={
+            <ProtectedRoute allowedRoles={["Dean", "Department Head", "Faculty", "Secretary", "Lead Document Controller", "Document Control Officer", "Unit Document Controller"]}>
+              <SelectTemplate />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/archived-documents"
+          element={
+            <ProtectedRoute allowedRoles={["Dean", "Department Head", "Secretary", "Faculty"]}>
+              <ArchivedDocuments />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Error Pages */}
+        <Route path="*" element={<NotFoundPage />} />
+        <Route path="/server-error" element={<ServerErrorPage />} />
+        <Route path="/unauthorized" element={<UnauthorizedPage />} />
+      </Routes>
+    </>
+  );
+}
+
+export default App;

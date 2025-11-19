@@ -1,0 +1,320 @@
+import React, { useState } from "react";
+import SectionHeader from "../../layout/editable_fields/sectionHeader";
+import { saveFieldSuggestionAPI } from "../../api/documentsAPI";
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+export default function Panel({
+  number,
+  title,
+  color,
+  fields,
+  formData,
+  onChange,
+  onFocusField,
+  user,
+  duplicateCounts = {},
+  duplicateIndices = {},
+  onCycleDuplicate
+}) {
+  const [savingState, setSavingState] = useState({});
+  const [saveMessage, setSaveMessage] = useState({});
+  const [selectedScopes, setSelectedScopes] = useState({});
+
+  // Helpers to style tag chips using stored hex colors
+  const hexToRgb = (hex) => {
+    if (!hex || typeof hex !== 'string') return null;
+    let h = hex.replace('#', '');
+    if (h.length === 3) {
+      h = h.split('').map((c) => c + c).join('');
+    }
+    if (h.length !== 6) return null;
+    const num = parseInt(h, 16);
+    // eslint-disable-next-line no-bitwise
+    const r = (num >> 16) & 255;
+    // eslint-disable-next-line no-bitwise
+    const g = (num >> 8) & 255;
+    // eslint-disable-next-line no-bitwise
+    const b = num & 255;
+    return { r, g, b };
+  };
+
+  // Simple date helpers to format/parse common date formats without extra deps
+  const pad = (n) => (String(n).length === 1 ? `0${n}` : String(n));
+  const formatDate = (d, pattern) => {
+    if (!d) return '';
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    if (!pattern || pattern === 'YYYY-MM-DD') return `${yyyy}-${mm}-${dd}`;
+    if (pattern === 'DD/MM/YYYY') return `${dd}/${mm}/${yyyy}`;
+    if (pattern === 'MM/DD/YYYY') return `${mm}/${dd}/${yyyy}`;
+    // fallback to ISO date
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const parseFromStored = (val, pattern) => {
+    if (!val) return null;
+    // try ISO first
+    const iso = new Date(val);
+    if (!isNaN(iso.getTime())) return iso;
+    // try common patterns
+    const parts = String(val).split(/[-\/]/);
+    if (parts.length === 3) {
+      if (pattern === 'DD/MM/YYYY') {
+        const [d, m, y] = parts.map((p) => parseInt(p, 10));
+        return new Date(y, (m || 1) - 1, d || 1);
+      }
+      if (pattern === 'MM/DD/YYYY') {
+        const [m, d, y] = parts.map((p) => parseInt(p, 10));
+        return new Date(y, (m || 1) - 1, d || 1);
+      }
+      // assume YYYY-MM-DD
+      const [y, m, d] = parts.map((p) => parseInt(p, 10));
+      if (y && m && d) return new Date(y, (m || 1) - 1, d || 1);
+    }
+    return null;
+  };
+
+  const rgba = (hex, a) => {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return null;
+    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`;
+  };
+
+  const allowSchoolScope = (user) => {
+    if (!user) return false;
+    const norm = (v) => (v ? String(v).trim().toLowerCase() : '');
+    const isDean = (v) => {
+      const s = norm(v);
+      return s === 'dean' || s.includes('dean');
+    };
+    const isSecretary = (v) => {
+      const s = norm(v);
+      return s === 'secretary' || s.includes('secretary');
+    };
+    // role can be a string
+    if (isDean(user.role) || isSecretary(user.role)) return true;
+    // role can be an object with name/slug
+    if (user.role && (isDean(user.role.name) || isSecretary(user.role.name) || isDean(user.role.slug) || isSecretary(user.role.slug))) return true;
+    // or roles array of strings/objects
+    if (Array.isArray(user.roles)) {
+      for (const r of user.roles) {
+        if (isDean(r) || isSecretary(r)) return true;
+        if (r && (isDean(r.name) || isSecretary(r.name) || isDean(r.slug) || isSecretary(r.slug))) return true;
+      }
+    }
+    return false;
+  };
+
+  const handleScopeChange = (fieldName, value) => {
+    setSelectedScopes((s) => ({ ...s, [fieldName]: value }));
+  };
+
+  const handleSaveSuggestion = async (fieldName) => {
+    const value = formData?.[fieldName];
+    if (value === undefined || value === null || String(value).trim() === "") {
+      setSaveMessage((m) => ({ ...m, [fieldName]: { type: 'error', text: 'Cannot save empty value' } }));
+      setTimeout(() => setSaveMessage((m) => ({ ...m, [fieldName]: undefined })), 2500);
+      return;
+    }
+
+    const scope = allowSchoolScope(user) ? (selectedScopes[fieldName] || 'user') : 'user';
+    // Find metadata from the provided fields list
+    const metaField = Array.isArray(fields) ? fields.find(f => f && f.name === fieldName) : null;
+    const label = metaField?.label || null;
+    const tags = Array.isArray(metaField?.tags) ? metaField.tags : [];
+
+    try {
+      setSavingState((s) => ({ ...s, [fieldName]: true }));
+      await saveFieldSuggestionAPI({ key: fieldName, label, tags, value, scope });
+      setSaveMessage((m) => ({ ...m, [fieldName]: { type: 'success', text: `Saved (${scope})` } }));
+      setTimeout(() => setSaveMessage((m) => ({ ...m, [fieldName]: undefined })), 2500);
+    } catch (err) {
+      setSaveMessage((m) => ({ ...m, [fieldName]: { type: 'error', text: err?.message || 'Save failed' } }));
+      setTimeout(() => setSaveMessage((m) => ({ ...m, [fieldName]: undefined })), 3500);
+    } finally {
+      setSavingState((s) => ({ ...s, [fieldName]: false }));
+    }
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-sm">
+      <SectionHeader
+        number={number}
+        title={title}
+        color={color}
+      />
+
+      <div className="space-y-4 mt-4">
+        {fields.map((field, idx) => {
+          const fieldValue = formData?.[field.name] || "";
+          const dupCount = duplicateCounts[field.name] || 0;
+          const dupIndex = duplicateIndices[field.name] || 0;
+
+          return (
+            <div key={idx}>
+              <label className="block text-sm font-medium mb-1 flex items-center justify-between">
+                <span>{field.label}</span>
+
+                {dupCount > 1 && (
+                  <div className="inline-flex items-center text-xs text-gray-600 space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => onCycleDuplicate && onCycleDuplicate(field.name, 'prev')}
+                      className="inline-flex items-center justify-center w-7 h-7 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                      title={`Previous occurrence (${dupIndex === 0 ? dupCount : dupIndex} of ${dupCount})`} 
+                      aria-label={`Previous occurrence of ${field.name}`}>
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    <span className="text-xs font-medium text-gray-700">{dupIndex + 1} / {dupCount}</span>
+
+                    <button
+                      type="button"
+                      onClick={() => onCycleDuplicate && onCycleDuplicate(field.name, 'next')}
+                      className="inline-flex items-center justify-center w-7 h-7 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                      title={`Next occurrence (${dupIndex + 2 > dupCount ? 1 : dupIndex + 2} of ${dupCount})`}
+                      aria-label={`Next occurrence of ${field.name}`}>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </label>
+
+              {/* Tags under label, before the field */}
+              <div className="mt-1 mb-2">
+                <div className="flex items-center flex-wrap gap-1">
+                  {Array.isArray(field.tags) && field.tags.length > 0 ? (
+                    field.tags.map((t, i) => {
+                      const color = field?.tagColors?.[t] || null;
+                      const style = color
+                        ? {
+                            backgroundColor: rgba(color, 0.12) || undefined,
+                            color: color,
+                            borderColor: rgba(color, 0.35) || color,
+                          }
+                        : undefined;
+                      return (
+                        <span
+                          key={`${field.name}-tag-${i}`}
+                          className="px-1.5 py-0.5 rounded text-xs border"
+                          style={style}
+                          title={t}
+                        >
+                          {t}
+                        </span>
+                      );
+                    })
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-400 text-xs border border-gray-100">No tags</span>
+                  )}
+                </div>
+              </div>
+            {/* Instructions  */}
+              {field.instructions && (
+                <div className="text-xs text-gray-500 mt-1">
+                  {field.instructions}
+                </div>
+              )}
+              {field.type === 'input' ? (
+                <input 
+                  type="text"
+                  value={fieldValue}
+                  onChange={(e) => onChange(field.name, e.target.value)}
+                  onFocus={() => {
+                    if (onFocusField) onFocusField(field.name);
+                  }}
+                  onClick={() => {
+                    if (onFocusField) onFocusField(field.name);
+                  }}
+                  className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  placeholder={field.placeholder}
+                />
+              ) : field.type === 'textarea' ? (
+                <textarea
+                  value={fieldValue}
+                  onChange={(e) => onChange(field.name, e.target.value)}
+                  onFocus={() => {
+                    if (onFocusField) onFocusField(field.name);
+                  }}
+                  onClick={() => {
+                    if (onFocusField) onFocusField(field.name);
+                  }}
+                  className="w-full p-2 border border-gray-300 rounded h-24 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  placeholder={field.placeholder}
+                />
+              ) : field.type === 'date' ? (
+                (() => {
+                  // determine native input value (YYYY-MM-DD) from stored value
+                  const stored = fieldValue;
+                  const pattern = field.dateFormat || 'YYYY-MM-DD';
+                  const parsed = parseFromStored(stored, pattern);
+                  const inputValue = parsed ? formatDate(parsed, 'YYYY-MM-DD') : '';
+
+                  return (
+                    <input
+                      type="date"
+                      value={inputValue}
+                      onChange={(e) => {
+                        const v = e.target.value; // YYYY-MM-DD
+                        if (!v) {
+                          onChange(field.name, '');
+                          return;
+                        }
+                        const d = parseFromStored(v, 'YYYY-MM-DD');
+                        // format to requested pattern for storage
+                        const out = formatDate(d, field.dateFormat || 'YYYY-MM-DD');
+                        onChange(field.name, out);
+                      }}
+                      onFocus={() => onFocusField && onFocusField(field.name)}
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      placeholder={field.placeholder}
+                    />
+                  );
+                })()
+              ) : null}
+
+           
+
+              {/* Controls under each field */}
+              <div className="flex items-center flex-wrap gap-2 mt-2">
+                <button
+                  onClick={() => handleSaveSuggestion(field.name)}
+                  disabled={!!savingState[field.name]}
+                  className={`inline-flex items-center px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                    savingState[field.name]
+                      ? 'bg-gray-100 text-gray-500 border border-gray-200 cursor-wait'
+                      : 'bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100'
+                  }`}
+                >
+                  {savingState[field.name] ? 'Saving…' : 'Save field'}
+                </button>
+
+                {allowSchoolScope(user) ? (
+                  <select
+                    value={selectedScopes[field.name] || 'user'}
+                    onChange={(e) => handleScopeChange(field.name, e.target.value)}
+                    className="text-sm border rounded px-2 py-1"
+                  >
+                    <option value="user">Save to me</option>
+                    <option value="school">Save to school</option>
+                  </select>
+                ) : (
+                  <span className="text-xs text-gray-400">(saves to you)</span>
+                )}
+
+                <div className="text-sm">
+                  {saveMessage[field.name] ? (
+                    <span className={saveMessage[field.name].type === 'success' ? 'text-green-600' : 'text-red-600'}>
+                      {saveMessage[field.name].text}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

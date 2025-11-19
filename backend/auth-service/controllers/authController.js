@@ -1,0 +1,563 @@
+import User from "../models/authModel.js";
+import Log from "../models/logsModel.js";
+import PasswordResetToken from "../models/passwordResetToken.js";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+// lightweight UA parsing (avoid external dependency during docker production builds)
+
+const COOKIE_SECURE = process.env.COOKIE_SECURE === "true";
+const COOKIE_SAMESITE =
+  (process.env.COOKIE_SAMESITE || "").toLowerCase() || (COOKIE_SECURE ? "none" : "lax");
+
+/**
+ * @desc Login user
+ * @route POST /api/auth/login
+ * @access Public
+ */
+export const loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "User not found. Log in with a registered account." });
+    }
+
+    if (user.is_deleted) {
+      return res.status(400).json({ message: "User not found. Log in with a registered account." });
+    }
+
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Incorrect password. Try again." });
+    }
+
+    // Capture IP (consider reverse proxy)
+    const ip =
+      req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+      req.connection?.remoteAddress ||
+      req.socket?.remoteAddress ||
+      req.ip ||
+      "";
+
+    // Capture user-agent and parse structured fields, generate a sessionId
+    const userAgent = String(req.headers['user-agent'] || "").trim();
+    // legacy short 'browser' field removed; we rely on structured parsed fields (browserName/browserVersion)
+
+    // Parse UA into structured pieces (best-effort, simple fallback without external deps)
+    let browserName = null, browserVersion = null, osName = null, osVersion = null, deviceType = null;
+    try {
+      const ua = userAgent || '';
+      const uaLower = ua.toLowerCase();
+
+      // Browser detection (common browsers)
+      if (uaLower.includes('firefox')) {
+        browserName = 'Firefox';
+        const m = ua.match(/Firefox\/([0-9\.]+)/);
+        browserVersion = m?.[1] || null;
+      } else if (uaLower.includes('edg/')) {
+        browserName = 'Edge';
+        const m = ua.match(/Edg\/([0-9\.]+)/);
+        browserVersion = m?.[1] || null;
+      } else if (uaLower.includes('chrome') && !uaLower.includes('edg') && !uaLower.includes('opr')) {
+        browserName = 'Chrome';
+        const m = ua.match(/Chrome\/([0-9\.]+)/) || ua.match(/CriOS\/([0-9\.]+)/);
+        browserVersion = m?.[1] || null;
+      } else if (uaLower.includes('safari') && !uaLower.includes('chrome')) {
+        browserName = 'Safari';
+        const m = ua.match(/Version\/([0-9\.]+)/);
+        browserVersion = m?.[1] || null;
+      } else if (uaLower.includes('opr') || uaLower.includes('opera')) {
+        browserName = 'Opera';
+        const m = ua.match(/OPR\/([0-9\.]+)/) || ua.match(/Opera\/([0-9\.]+)/);
+        browserVersion = m?.[1] || null;
+      }
+
+      // OS detection
+      if (uaLower.includes('windows nt')) {
+        osName = 'Windows';
+        const m = ua.match(/Windows NT ([0-9\.]+)/);
+        osVersion = m?.[1] || null;
+      } else if (uaLower.includes('android')) {
+        osName = 'Android';
+        const m = ua.match(/Android ([0-9\.]+)/);
+        osVersion = m?.[1] || null;
+      } else if (uaLower.includes('iphone') || uaLower.includes('ipad') || uaLower.includes('ipod')) {
+        osName = 'iOS';
+        const m = ua.match(/OS ([0-9_]+)/);
+        osVersion = m ? m[1].replace(/_/g, '.') : null;
+      } else if (uaLower.includes('mac os x') || uaLower.includes('macintosh')) {
+        osName = 'macOS';
+        const m = ua.match(/Mac OS X ([0-9_\.]+)/);
+        osVersion = m ? m[1].replace(/_/g, '.') : null;
+      } else if (uaLower.includes('linux')) {
+        osName = 'Linux';
+      }
+
+      // device type
+      if (uaLower.includes('mobile') || uaLower.includes('android') || uaLower.includes('iphone')) {
+        deviceType = 'mobile';
+      } else if (uaLower.includes('tablet') || uaLower.includes('ipad')) {
+        deviceType = 'tablet';
+      } else {
+        deviceType = 'desktop';
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+
+    // Create login activity log (logout_time left null until logout)
+    try {
+      await Log.create({
+        userId: user._id,
+        email: user.email,
+        role: user.role?.name || user.role || "",
+        ip,
+        userAgent,
+        browserName,
+        browserVersion,
+        osName,
+        osVersion,
+        deviceType,
+        login_time: new Date(),
+        logout_time: null,
+      });
+    } catch (logErr) {
+      console.error("Login activity log error:", logErr?.message || logErr);
+    }
+
+    // Generate JWT 
+    const token = jwt.sign(
+      {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        school: user.school || user.role?.school || "",
+        department: user.department || user.role?.department || "",
+        firstname: user.firstname || user.firstName || user.first_name || "",
+        lastname: user.lastname || user.lastName || user.last_name || "",
+        profile_picture: user.profile_picture || user.profilePicture || user.profile_picture || "",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }  /// 30-days JWT
+    );
+
+    // Set cookie 
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: COOKIE_SECURE,      
+      sameSite: COOKIE_SAMESITE,   
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
+
+    res.json({
+      message: "Successful login!",
+      user: {
+        _id: user._id,
+        email: user.email,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        profile_picture: user.profile_picture,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * @desc Logout user
+ * @route POST /api/auth/logout
+ * @access Public
+ */
+export const logoutUser = async (req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: COOKIE_SECURE,
+    sameSite: COOKIE_SAMESITE,
+    path: "/",
+  });
+  try {
+    // Best-effort: update most recent login record for this user (use req.user from JWT)
+    const userId = req.user?.id || req.user?._id; // may be undefined if logout without auth
+    if (userId) {
+      const latest = await Log.findOne({ userId, logout_time: null }).sort({ login_time: -1 });
+      if (latest) {
+        latest.logout_time = new Date();
+        await latest.save();
+      }
+    }
+  } catch (logErr) {
+    console.error("Logout activity update error:", logErr?.message || logErr);
+  }
+  res.json({ message: "Logged out successfully" });
+};
+
+/**
+ * @desc Fetch login activity logs with filters and pagination
+ * @route GET /api/auth/logs
+ * @access Private (Admin)
+ */
+export const getLoginLogs = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      role,
+      status, 
+      date,   
+      search,
+    } = req.query;
+
+    const q = {};
+    if (role && role !== 'All' && role !== 'all') {
+      q.role = role;
+    }
+    // allow filtering by browser name (structured) or userAgent substring
+    const { browserName } = req.query;
+    if (browserName) {
+      q.$or = [
+        { browserName: { $regex: new RegExp(browserName, 'i') } },
+        { userAgent: { $regex: new RegExp(browserName, 'i') } }
+      ];
+    }
+    if (status === 'active') {
+      q.logout_time = null;
+    } else if (status === 'inactive') {
+      q.logout_time = { $ne: null };
+    }
+    if (search) {
+      q.email = { $regex: new RegExp(search, 'i') };
+    }
+    if (date) {
+      const start = new Date(date);
+      if (!isNaN(start.getTime())) {
+        const end = new Date(start);
+        end.setDate(start.getDate() + 1);
+        q.login_time = { $gte: start, $lt: end };
+      }
+    }
+
+    const pageNum = Math.max(1, parseInt(page));
+    const perPage = Math.max(1, Math.min(100, parseInt(limit)));
+  // Project only the fields the frontend needs to display
+  const projection = 'userId email role ip userAgent browserName browserVersion osName osVersion deviceType login_time logout_time';
+    const [items, total] = await Promise.all([
+      Log.find(q).select(projection).sort({ login_time: -1 }).skip((pageNum - 1) * perPage).limit(perPage).lean(),
+      Log.countDocuments(q),
+    ]);
+
+    return res.json({
+      success: true,
+      data: items,
+      page: pageNum,
+      limit: perPage,
+      total,
+      pages: Math.ceil(total / perPage) || 1,
+    });
+  } catch (err) {
+    console.error('Get logs error:', err?.message || err);
+    return res.status(500).json({ success: false, message: 'Failed to fetch login logs' });
+  }
+};
+
+/**
+ * Helper: generate a 6-digit numeric OTP as a string
+ */
+function generateOtp() {
+  return ("" + Math.floor(100000 + Math.random() * 900000));
+}
+
+/**
+ * Helper: best-effort call to Mail Service to send password reset OTP
+ */
+async function sendPasswordResetEmail({ to, firstname, lastname, otp }) {
+  // Try multiple bases to improve reliability across environments (dev, docker-compose, prod)
+  const candidates = [
+    process.env.EMAIL_SERVICE_URL,
+    process.env.MAIL_SERVICE_URL,
+    'http://mail-service:8005',
+    'http://127.0.0.1:8005',
+    'http://localhost:8005',
+  ].filter(Boolean);
+
+  const payload = { to, firstname, lastname, otp };
+  let lastError = null;
+
+  const paths = ['/api/email/password-reset', '/api/email/send-password-reset', '/api/email/send-welcome'];
+  for (const base of candidates) {
+    for (const p of paths) {
+      const url = `${String(base).replace(/\/$/, '')}${p}`;
+      try {
+        // If falling back to send-welcome, map fields to expected ones
+        const body = p.endsWith('send-welcome')
+          ? { email: to, firstname, lastname, password: otp }
+          : payload;
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          throw new Error(data?.message || `Mail service error (${resp.status})`);
+        }
+        return data;
+      } catch (err) {
+        lastError = err;
+        console.error(`Mail send via ${url} failed:`, err?.message || err);
+        // try next path or base
+      }
+    }
+  }
+
+  console.warn('All mail service endpoints failed for password reset');
+  return { error: true, message: lastError?.message || 'All mail endpoints failed' };
+}
+
+/**
+ * @desc Request a password reset OTP (email-based)
+ * @route POST /api/auth/forgot-password/request
+ * @access Public
+ */
+export const requestPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const normalized = String(email || "").trim().toLowerCase();
+    if (!normalized || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized)) {
+      // Do not reveal enumeration details
+      return res.status(200).json({ success: true, message: "An OTP code has been sent to your email." });
+    }
+
+    const user = await User.findOne({ email: normalized });
+    // Always respond with 200 to avoid user enumeration
+    if (!user || user.is_deleted) {
+      return res.status(200).json({ success: true, message: "An OTP code has been sent to your email." });
+    }
+
+    // Rate limit: if a recent token exists within 45s, block
+    const COOLDOWN_SECONDS = parseInt(process.env.RESET_OTP_COOLDOWN || "45", 10);
+    const existing = await PasswordResetToken.findOne({ email: normalized, used: false })
+      .sort({ createdAt: -1 });
+    if (existing && existing.lastSentAt) {
+      const diff = (Date.now() - new Date(existing.lastSentAt).getTime()) / 1000;
+      if (diff < COOLDOWN_SECONDS) {
+        const retryAfter = Math.ceil(COOLDOWN_SECONDS - diff);
+        return res.status(429).json({ success: false, message: `Please wait ${retryAfter}s before requesting a new OTP.`, retryAfter });
+      }
+    }
+
+    const otp = generateOtp();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const ttlMinutes = parseInt(process.env.RESET_OTP_TTL_MIN || "10", 10);
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+
+    // Invalidate previous tokens for this user (best-effort)
+    await PasswordResetToken.updateMany({ email: normalized, used: false }, { $set: { used: true } });
+
+    await PasswordResetToken.create({
+      email: normalized,
+      userId: user._id,
+      otpHash,
+      attempts: 0,
+      maxAttempts: 5,
+      expiresAt,
+      used: false,
+      lastSentAt: new Date(),
+    });
+
+    // Send email via Mail Service
+    await sendPasswordResetEmail({
+      to: normalized,
+      firstname: user.firstname || "",
+      lastname: user.lastname || "",
+      otp,
+    });
+
+    return res.status(200).json({ success: true, message: "An OTP code has been sent to your email." });
+  } catch (err) {
+    console.error("requestPasswordReset error:", err);
+    // Still 200 to avoid enumeration
+    return res.status(200).json({ success: true, message: "An OTP code has been sent to your email." });
+  }
+};
+
+/**
+ * @desc Reset password using email + OTP
+ * @route POST /api/auth/forgot-password/reset
+ * @access Public
+ */
+export const resetPasswordWithOtp = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body || {};
+    const normalized = String(email || "").trim().toLowerCase();
+    const code = String(otp || "").trim();
+    if (!normalized || !code || !newPassword || newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: "Invalid request." });
+    }
+
+    const user = await User.findOne({ email: normalized });
+    if (!user || user.is_deleted) {
+      // mask enumeration
+      return res.status(400).json({ success: false, message: "Invalid OTP or expired." });
+    }
+
+    // Find latest active token
+    const token = await PasswordResetToken.findOne({ email: normalized, used: false })
+      .sort({ createdAt: -1 });
+    if (!token) {
+      return res.status(400).json({ success: false, message: "Invalid OTP or expired." });
+    }
+    if (new Date(token.expiresAt).getTime() < Date.now()) {
+      return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
+    }
+    if (token.attempts >= (token.maxAttempts || 5)) {
+      return res.status(429).json({ success: false, message: "Too many attempts. Please request a new OTP." });
+    }
+
+    const match = await bcrypt.compare(code, token.otpHash);
+    if (!match) {
+      token.attempts = (token.attempts || 0) + 1;
+      await token.save();
+      return res.status(400).json({ success: false, message: "Invalid OTP." });
+    }
+
+    // Mark token used and update password
+    token.used = true;
+    await token.save();
+
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(newPassword, salt);
+    user.password = hashed;
+    await user.save();
+
+    // Best-effort: invalidate other tokens
+    await PasswordResetToken.updateMany({ email: normalized, used: false }, { $set: { used: true } });
+
+    return res.status(200).json({ success: true, message: "Password updated successfully." });
+  } catch (err) {
+    console.error("resetPasswordWithOtp error:", err);
+    return res.status(500).json({ success: false, message: "Failed to reset password." });
+  }
+};
+
+/**
+ * @desc Export login logs as CSV for a given month (admin)
+ * @route GET /api/auth/logs/export?month=YYYY-MM
+ * @access Private (Admin)
+ */
+export const exportLoginLogs = async (req, res) => {
+  try {
+    const userRole = req.user?.role?.name || req.user?.role;
+    if (userRole !== 'Admin') return res.status(403).json({ success: false, message: 'Admin only' });
+
+    const { month } = req.query; // format YYYY-MM
+    let start; let end;
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const [y, m] = month.split('-').map(Number);
+      start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
+      end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
+    } else {
+      const now = new Date();
+      start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0));
+      end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0));
+    }
+
+    // Build query based on optional filters (reuse some query logic)
+    const q = {};
+    if (req.query.role && req.query.role !== 'All' && req.query.role !== 'all') q.role = req.query.role;
+    if (req.query.status === 'active') q.logout_time = null;
+    else if (req.query.status === 'inactive') q.logout_time = { $ne: null };
+    if (req.query.search) q.email = { $regex: new RegExp(req.query.search, 'i') };
+    if (req.query.browserName) {
+      q.$or = [{ browserName: { $regex: new RegExp(req.query.browserName, 'i') } }, { userAgent: { $regex: new RegExp(req.query.browserName, 'i') } }];
+    }
+    if (start && end) q.login_time = { $gte: start, $lt: end };
+
+    // Set response headers for CSV download
+    const monthLabel = month || `${start.getUTCFullYear()}-${String(start.getUTCMonth() + 1).padStart(2, '0')}`;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="login-activity-${monthLabel}.csv"`);
+
+    // Stream results using a cursor to avoid memory spikes
+    const cursor = Log.find(q).sort({ login_time: -1 }).cursor();
+    // Write CSV header
+    const header = [
+      'id','userId','email','role','ip','browserName','browserVersion','osName','osVersion','deviceType','login_time','logout_time'
+    ].join(',') + '\r\n';
+    res.write(header);
+
+    for await (const doc of cursor) {
+      const row = [
+        doc._id,
+        doc.userId || '',
+        doc.email || '',
+        doc.role || '',
+        doc.ip || '',
+  doc.browserName || '',
+        doc.browserVersion || '',
+        doc.osName || '',
+        doc.osVersion || '',
+        doc.deviceType || '',
+        doc.login_time ? new Date(doc.login_time).toISOString() : '',
+        doc.logout_time ? new Date(doc.logout_time).toISOString() : '',
+        doc.userAgent ? ('"' + String(doc.userAgent).replace(/"/g, '""') + '"') : ''
+      ]
+      // Escape commas/newlines by wrapping fields in quotes when necessary
+      .map(v => {
+        if (v === null || v === undefined) return '';
+        const s = String(v);
+        if (s.includes(',') || s.includes('\n') || s.includes('\r') || s.includes('"')) {
+          return '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+      }).join(',') + '\r\n';
+      if (!res.write(row)) {
+        // backpressure: wait for drain
+        await new Promise((resolve) => res.once('drain', resolve));
+      }
+    }
+
+    // End response
+    return res.end();
+  } catch (err) {
+    console.error('Export logs error:', err?.message || err);
+    return res.status(500).json({ success: false, message: 'Failed to export logs' });
+  }
+};
+
+/**
+ * @desc Delete login logs in batch by IDs or by month
+ * @route POST /api/auth/logs/delete
+ * @access Private (Admin)
+ */
+export const deleteLoginLogs = async (req, res) => {
+  try {
+    const userRole = req.user?.role?.name || req.user?.role;
+    if (userRole !== 'Admin') return res.status(403).json({ success: false, message: 'Admin only' });
+
+    const { ids, month } = req.body || {};
+    let result = null;
+    if (Array.isArray(ids) && ids.length > 0) {
+      // delete by ids
+      result = await Log.deleteMany({ _id: { $in: ids } });
+    } else if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const [y, m] = month.split('-').map(Number);
+      const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
+      const end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
+      result = await Log.deleteMany({ login_time: { $gte: start, $lt: end } });
+    } else {
+      return res.status(400).json({ success: false, message: 'Provide ids array or month in YYYY-MM' });
+    }
+
+    return res.json({ success: true, deletedCount: result?.deletedCount || 0 });
+  } catch (err) {
+    console.error('Delete logs error:', err?.message || err);
+    return res.status(500).json({ success: false, message: 'Failed to delete logs' });
+  }
+};

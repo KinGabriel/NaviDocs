@@ -154,3 +154,8 @@ dist
 *.njsproj
 *.sln
 *.sw?
+# folder
+tmp
+
+#Auth Token for TipTap
+*.npmrc
