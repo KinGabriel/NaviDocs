@@ -35,6 +35,6 @@ Developed by the **Kalapache Team**.
 - Cahanap, Jerilyn Louise
 - Caparas, Joaquin Gabriel
 - Escaño, Nichole Jhoy
-- Mandac, Minette Victoria
 - Malaluan, Arvin
+- Mandac, Minette Victoria
 - San Miguel, Chloe' Lee
