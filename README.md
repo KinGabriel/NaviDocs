@@ -34,7 +34,7 @@ Developed by the **Kalapache Team**.
 - Aquino, Jan Dolby
 - Cahanap, Jerilyn Louise
 - Caparas, Joaquin Gabriel
-- Escano, Nichole Jhoy
+- Escaño, Nichole Jhoy
 - Mandac, Minette Victoria
 - Malaluan, Arvin
 - San Miguel, Chloe' Lee
