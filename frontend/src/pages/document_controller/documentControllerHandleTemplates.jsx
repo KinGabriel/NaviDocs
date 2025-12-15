@@ -115,8 +115,26 @@ function mapStatusForRole(row, {
     return "Pending";
   }
 
-  // Lead / Unit Document Controller view
-  if (isLeadDocController || isUnitDocController) {
+  // Unit Document Controller view
+  if (isUnitDocController) {
+    // Always show Returned as Returned
+    if (status === "returned") return "Returned";
+
+    // UDC: once status is endorsed (UDC has endorsed), show as Endorsed
+    if (status === "endorsed") return "Endorsed";
+
+    // Pending state (before UDC endorses)
+    if (status === "pending" || status === "pending approval") return "Pending";
+
+    // Fallbacks
+    if (status === "approved") return "Approved";
+    if (status === "rejected" || status === "disapproved") return "Rejected";
+    if (status === "published") return "Published";
+    return "-";
+  }
+
+  // Lead Document Controller view
+  if (isLeadDocController) {
     const ldcApproved = hasLdcApproved(row);
 
     // Always show Returned as Returned
