@@ -466,22 +466,50 @@ export default function TextEditor({
 
   useEffect(() => {
     if (!editor) return;
-    let cancel = false;
+    let cancelled = false;
+
     const applyContent = () => {
-      if (cancel || editor.isDestroyed) return;
-      if (!content) {
-        editor.commands.setContent(DEFAULT_DOC);
+      if (cancelled || !editor || editor.isDestroyed) return;
+
+      const view = editor.view;
+      if (!view || !view.dom) {
+        setTimeout(applyContent, 50);
         return;
       }
-      editor.commands.setContent(
-        typeof content === "string" ? content : content
-      );
+
+      const setWithPolicy = (value) => {
+        try {
+          setPolicyRef.current?.("off");
+          editor.commands.setContent(value, false);
+        } catch (err) {
+          console.warn("[TextEditor] Safe setContent error (ignored):", err);
+        } finally {
+          setPolicyRef.current?.(mode === "document" ? "document" : "template");
+        }
+      };
+
+      if (!content) {
+        setWithPolicy(DEFAULT_DOC);
+        return;
+      }
+
+      if (typeof content === "string") {
+        if (content !== editor.getHTML()) setWithPolicy(content);
+        return;
+      }
+
+      if (content?.type) {
+        setWithPolicy(content);
+        return;
+      }
     };
+
     applyContent();
+
     return () => {
-      cancel = true;
+      cancelled = true;
     };
-  }, [editor, content]);
+  }, [editor, content, mode]);
 
   useEffect(() => {
     if (!editor) return;
