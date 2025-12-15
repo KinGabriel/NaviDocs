@@ -993,14 +993,16 @@ export const returnTemplate = async (req, res) => {
  */
 export const publishTemplate = async (req, res) => {
   try {
-    // Only Document Control Officer can publish (normalize then map)
-    if (toApprovalKey(req.user?.role?.name || req.user?.role || '') !== 'document_controller_officer') {
-      return res.status(403).json({ success:false, message:'Only the Document Control Officer can publish templates.' });
-    }
-
     const template = await Template.findById(req.params.id);
     console.log("Publishing template:", template?._id);
     if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+
+    // Only template owner/creator can publish
+    const userId = String(req.user?.id || req.user?._id || '');
+    const createdBy = String(template.created_by || '');
+    if (userId !== createdBy) {
+      return res.status(403).json({ success:false, message:'Only the template creator can publish templates.' });
+    }
     // Allow publishing if status is approved or pending but both approvals exist
     if (template.status !== 'approved') {
       const approvals = template.status_meta?.approvals || {};
@@ -1082,12 +1084,15 @@ export const publishTemplate = async (req, res) => {
  */
 export const unpublishTemplate = async (req, res) => {
     try {
-    // Only Document Control Officer can unpublish (normalize then map)
-    if (toApprovalKey(req.user?.role?.name || req.user?.role || '') !== 'document_controller_officer') {
-      return res.status(403).json({ success:false, message:'Only the Document Control Officer can unpublish templates.' });
-    }
     const template = await Template.findById(req.params.id);
     if (!template) return res.status(404).json({ success:false, message:'Template not found' });
+
+    // Only template owner/creator can unpublish
+    const userId = String(req.user?.id || req.user?._id || '');
+    const createdBy = String(template.created_by || '');
+    if (userId !== createdBy) {
+      return res.status(403).json({ success:false, message:'Only the template creator can unpublish templates.' });
+    }
     if (template.status !== 'published') {
       return res.status(400).json({ success:false, message:'Only published templates can be unpublished' });
     }
@@ -1126,15 +1131,15 @@ export const unpublishTemplate = async (req, res) => {
 /**
  * @desc Insert a document code
  * @route PATCH /api/templates/:id/insert-document-code
- * @access Private (Document Control Officer)
+ * @access Private (Unit Document Controller)
  */
 export const insertDocumentCode = async (req, res) => {
   try {
     const { document_code, effectivity, revision_no } = req.body;
 
-  // Only Document Control Officer is allowed to perform this action
-    if (toApprovalKey(req.user?.role?.name || req.user?.role || '') !== 'document_controller_officer') {
-      return res.status(403).json({ success: false, message: 'Only Document Control Officer is authorized to insert document code' });
+  // Only Unit Document Controller is allowed to perform this action
+    if (toApprovalKey(req.user?.role?.name || req.user?.role || '') !== 'unit_document_controller') {
+      return res.status(403).json({ success: false, message: 'Only Unit Document Controller is authorized to insert document code' });
     }
 
     if (!document_code || String(document_code).trim() === '') {
