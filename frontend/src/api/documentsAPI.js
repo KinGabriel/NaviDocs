@@ -46,9 +46,9 @@ export const getDeptHeadDashboardAPI = async () => {
 
 	const publishedTemplates = (gql.publishedRecent || []).map(t => ({
 		id: t.id || t._id || null,
-		code: t.code || '',
-		rev: t.rev || '',
-		date: t.created_at || t.createdAt || null,
+		code: t.code || t.document_code || '',
+		rev: t.rev || t.revision_no || '',
+		effectivity: t.effectivity || t.effectivity_date || null,
 		title: t.title || ''
 	}));
 
@@ -170,6 +170,7 @@ export const getDeptHeadDashboardGraphQL = async () => {
 					updated_at
 					code
 					rev
+					effectivity
 				}
 			}
 		}
@@ -413,6 +414,7 @@ export const getDeanSecDashboardAPI = async () => {
 					status
 					createdBy
 					createdAt
+					effectivity
 				}
 			}
 		}
@@ -461,7 +463,7 @@ export const getDeanSecDashboardAPI = async () => {
 			id: t.id || t._id || null,
 			code: t.code || t.document_code || '',
 			rev: t.rev || t.revision_no || '',
-			date: t.submittedAt || t.submitted_at || t.createdAt || null,
+			effectivity: t.effectivity || t.effectivity_date || null,
 			title: t.title || '',
 			createdBy: t.createdBy || t.createdByName || '',
 			document_code: t.document_code || t.code || '',

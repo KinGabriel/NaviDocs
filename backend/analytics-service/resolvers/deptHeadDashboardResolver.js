@@ -88,7 +88,8 @@ export const deptHeadDashboardResolver = {
           created_at: t.createdAt || t.created_at || null,
           updated_at: t.updatedAt || t.updated_at || null,
           code: t.document_code || t.code || null,
-          rev: t.revision_no || t.rev || null
+          rev: t.revision_no || t.rev || null,
+          effectivity: t.effectivity || t.effectivity_date || null
         });
 
         const ownerTemplates = tplPayload && Array.isArray(tplPayload.ownerTemplates) ? tplPayload.ownerTemplates.map(mapTemplate) : [];

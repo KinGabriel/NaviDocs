@@ -28,6 +28,7 @@ export const deanSecDashboardType = gql`
     createdBy: String
     createdAt: String
     submittedAt: String
+    effectivity: String
   }
 
   type DeanSecDashboard {

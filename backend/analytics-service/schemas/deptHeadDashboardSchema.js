@@ -34,6 +34,7 @@ export const deptHeadDashboardType = gql`
         updated_at: String
         code: String
         rev: String
+        effectivity: String
     }
 
     type DeptHeadDashboard {

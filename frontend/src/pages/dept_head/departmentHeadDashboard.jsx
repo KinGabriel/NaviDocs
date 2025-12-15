@@ -63,7 +63,7 @@ export default function DepartmentHeadDashboard() {
   const publishedTemplatesColumns = [
     { key: "code", label: "Document Code" },
     { key: "rev", label: "Revision No." },
-    { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
+    { key: "effectivity", label: "Effectivity", render: (row) => formatDate(row.effectivity) },
     { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
     {
       key: "action",

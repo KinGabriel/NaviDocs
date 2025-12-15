@@ -330,7 +330,8 @@ export const dashboardDeptHead = async (req, res) => {
         submittedAt: submittedAtVal,
         // keep lightweight passthroughs for published list where useful
         code: item.document_code || item.code || null,
-        rev: item.revision_no || item.rev || null
+        rev: item.revision_no || item.rev || null,
+        effectivity: item.effectivity || item.effectivity_date || null
       };
     });
 

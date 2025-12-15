@@ -75,7 +75,7 @@ export default function DocumentControllerDashboard() {
   const publishedTemplatesColumns = [
     { key: "code", label: "Document Code" },
     { key: "rev", label: "Revision No." },
-    { key: "date", label: "Effectivity", render: (row) => formatDate(row.date) },
+    { key: "effectivity", label: "Effectivity", render: (row) => formatDate(row.effectivity) },
     { key: "title", label: "Title", render: (row) => <span className="truncate block max-w-xs">{row.title}</span> },
     { key: "createdBy", label: "Created By" },
     {
@@ -147,7 +147,7 @@ export default function DocumentControllerDashboard() {
           id: t.id || t._id || idx,
           code: t.document_code || t.documentCode || "",
           rev: t.revision_no ?? t.rev ?? "",
-          date: t.effectivity || t.createdAt || t.published_at || null,
+          effectivity: t.effectivity || t.createdAt || t.published_at || null,
           title: t.title,
           createdBy: t.createdByName || t.created_by_user?.displayName || t.created_by || "",
           _raw: t
