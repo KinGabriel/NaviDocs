@@ -650,7 +650,7 @@ export default function GlobalTemplates() {
                   }}
                   className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 font-semibold px-4 py-2 rounded shadow transition-colors border"
                 >
-                  Manage saved values
+                  Manage Form Responses
                 </button>
               </div>
 
