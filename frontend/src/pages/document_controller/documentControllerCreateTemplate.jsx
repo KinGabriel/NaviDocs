@@ -6,6 +6,7 @@ import {
   updateTemplateAPI,
   approveTemplateAPI,
   publishTemplateAPI,
+  unpublishTemplateAPI,
   createTemplateAPI,
   submitTemplateAPI,
 } from "../../api/documentContollerAPI";
@@ -464,6 +465,19 @@ export default function DocumentControllerCreateTemplate() {
     }
   };
 
+  const handleUnpublish = async () => {
+    if (!templateId) return;
+    try {
+      await unpublishTemplateAPI(templateId);
+      toast.success("Template unpublished successfully.");
+      setStatus("approved");
+      await loadTemplate(templateId);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to unpublish template.");
+    }
+  };
+
   const handleSubmitForApproval = async (approverIds) => {
     if (!templateId) {
       toast.error("Please save the template before submitting for approval.");
@@ -639,6 +653,7 @@ export default function DocumentControllerCreateTemplate() {
             onSubmitForApproval={handleSubmitForApproval}
             onApprove={handleApprove}
             onPublish={handlePublish}
+            onUnpublish={handleUnpublish}
             saving={saving}
             lastSavedAt={lastSavedAt}
             dirty={dirty}

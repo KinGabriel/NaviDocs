@@ -31,6 +31,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
  * @param {Function} props.onSubmitForApproval - Callback when submitting template for approval
  * @param {Function} props.onApprove - Callback when approving a template
  * @param {Function} props.onPublish - Callback when publishing a template
+ * @param {Function} [props.onUnpublish] - Callback when unpublishing a template
  * @param {boolean} props.saving - Flag indicating if template is currently being saved
  * @param {Date} [props.lastSavedAt] - Timestamp of last save
  * @param {boolean} props.dirty - Flag indicating unsaved changes
@@ -97,6 +98,7 @@ export default function Header2({
   onSubmitForApproval,
   onApprove,
   onPublish,
+  onUnpublish,
   saving,
   lastSavedAt,
   dirty,
@@ -273,12 +275,11 @@ export default function Header2({
       }
 
       case 'approved': {
-        const canPublish = approvalMeta ? approvalMeta.canPublish : true;
         return {
           label: publishing ? 'Publishing...' : 'Publish',
-          disabled: saving || !canPublish || publishing,
+          disabled: saving || publishing,
           onClick:
-            canPublish && !saving && !publishing
+            !saving && !publishing
               ? async () => {
                 setPublishing(true);
                 try { await onPublish(); }
@@ -286,7 +287,7 @@ export default function Header2({
               }
               : undefined,
           className:
-            canPublish && !saving && !publishing
+            !saving && !publishing
               ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
               : 'bg-gray-400 text-white cursor-not-allowed',
           icon: publishing ? (
@@ -326,12 +327,27 @@ export default function Header2({
 
       case 'published':
         return {
-          label: 'Published',
-          disabled: true,
-          onClick: undefined,
-          className: 'bg-blue-600 text-white cursor-default',
-          icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="m3 15 2 2 4-4" /></svg>
+          label: publishing ? 'Unpublishing...' : 'Unpublish',
+          disabled: saving || publishing || !onUnpublish,
+          onClick:
+            onUnpublish && !saving && !publishing
+              ? async () => {
+                setPublishing(true);
+                try { await onUnpublish(); }
+                finally { setPublishing(false); }
+              }
+              : undefined,
+          className:
+            onUnpublish && !saving && !publishing
+              ? 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer'
+              : 'bg-gray-400 text-white cursor-not-allowed',
+          icon: publishing ? (
+            <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" strokeWidth="4" className="opacity-25" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M4 12a8 8 0 018-8" className="opacity-75" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
           ),
         };
 
