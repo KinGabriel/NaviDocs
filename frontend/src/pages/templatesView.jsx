@@ -492,23 +492,32 @@ export default function TemplatesView() {
   const handleUpdateDocumentDetails = async ({ document_code, effectivity_date }) => {
     if (!template?._id) return;
 
-    try {
-      // TODO: Add API call
-      // await updateDocumentDetailsAPI(template._id, { document_code, effectivity_date });
+    // Only allow updates when template is approved or published
+    const statusKey = String(template?.status || '').toLowerCase();
+    if (statusKey !== 'approved' && statusKey !== 'published') {
+      setError('Document code can only be updated when the template is approved or published.');
+      throw new Error('Invalid template status for document code update');
+    }
 
-      // For demo, update local state
+    try {
+      // Optimistic update: immediately update local state
       setTemplate(prev => ({
         ...prev,
         document_code,
         effectivity_date
       }));
 
-      // Refresh from server when API is ready
-      // await refreshTemplate(template._id);
+      // TODO: Add API call when backend is ready
+      // await updateDocumentDetailsAPI(template._id, { document_code, effectivity_date });
+      
+      // Refresh from server to get authoritative state
+      await refreshTemplate(template._id);
       setError(null);
     } catch (err) {
       console.error("Failed to update document details:", err);
       setError("Failed to update document details");
+      // Refresh to sync with server state
+      await refreshTemplate(template._id);
       throw err;
     }
   };
@@ -519,19 +528,29 @@ export default function TemplatesView() {
   const handleUpdateISOCode = async ({ iso_code }) => {
     if (!template?._id) return;
 
+    // Only allow updates when template is approved or published
+    const statusKey = String(template?.status || '').toLowerCase();
+    if (statusKey !== 'approved' && statusKey !== 'published') {
+      setError('ISO code can only be updated when the template is approved or published.');
+      throw new Error('Invalid template status for ISO code update');
+    }
+
     try {
-      // For demo, update local state
+      // Optimistic update: immediately update local state
       setTemplate(prev => ({
         ...prev,
         iso_code
       }));
 
-      // Refresh from server when API is ready
-      // await refreshTemplate(template._id);
+
+      // Refresh from server to get authoritative state
+      await refreshTemplate(template._id);
       setError(null);
     } catch (err) {
       console.error("Failed to update ISO code:", err);
       setError("Failed to update ISO code");
+      // Refresh to sync with server state
+      await refreshTemplate(template._id);
       throw err;
     }
   };
@@ -981,7 +1000,7 @@ export default function TemplatesView() {
                           <>Document controllers are still working on the template.</>
                         )}
                         {t.status === 'approved' && (
-                          <>Template has been fully approved and is ready for publishing by the document control officer.</>
+                          <>Template has been fully approved and is ready for publishing by the owner. Also, Unit Document Controller are now allowed to configure the document code</>
                         )}
                         {t.status === 'published' && (
                           <>Template is published and available for use.</>
@@ -1028,13 +1047,16 @@ export default function TemplatesView() {
                   </div>
                 </div>
 
-                {/* DocumentDetailsCard - show only when status is approved or published; hide edit pencil for now */}
+                {/* DocumentDetailsCard - show only when status is approved or published; UDC can edit */}
                 {template && (template.status === 'approved' || template.status === 'published') && (
                   <DocumentDetailsCard
                     template={template}
                     onUpdateDocumentDetails={handleUpdateDocumentDetails}
                     onUpdateISOCode={handleUpdateISOCode}
-                    canEdit={false}
+                    canEdit={(() => {
+                      const roleKeys = normalizeRoleKeys(user?.role?.name || user?.role);
+                      return roleKeys.includes("unit_document_controller");
+                    })()}
                   />
                 )}
 

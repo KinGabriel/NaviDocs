@@ -299,7 +299,7 @@ export default function HeaderTemplateView({
             })()}
 
             {/* Publish button (DCO only, status approved) */}
-            {roleValue === "Document Control Officer" && t?.status === "approved" && (
+            {/* {roleValue === "Document Control Officer" && t?.status === "approved" && (
               <button
                 onClick={() => setPublishModalOpen(true)}
                 className="inline-flex drop-shadow-md items-center gap-2 px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
@@ -307,10 +307,10 @@ export default function HeaderTemplateView({
                 <FileText className="h-4 w-4" />
                 <span className="text-sm font-semibold">Publish</span>
               </button>
-            )}
+            )} */}
 
             {/* Unpublish button (DCO only, status published) */}
-            {roleValue === "Document Control Officer" && t?.status === "published" && (
+            {/* {roleValue === "Document Control Officer" && t?.status === "published" && (
               <button
                 onClick={() => setUnpublishConfirmOpen(true)}
                 className="inline-flex drop-shadow-md items-center gap-2 px-4 py-2 rounded bg-amber-600 text-white hover:bg-amber-700 transition"
@@ -318,7 +318,8 @@ export default function HeaderTemplateView({
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22C6.477 22 2 17.522 2 12S6.477 2 12 2s10 4.478 10 10-4.477 10-10 10Zm4.243-13.657a1 1 0 0 0-1.486-1.337l-4.51 5.012-1.979-1.98a1 1 0 1 0-1.414 1.415l2.75 2.75a1 1 0 0 0 1.46-.036l5.179-5.824Z"/></svg>
                 <span className="text-sm font-semibold">Unpublish</span>
               </button>
-            )}
+            )} */
+            }
 
             {/* Actions Dropdown (approvers) */}
             {(["Unit Document Controller","Lead Document Controller","Document Control Officer"].includes(roleValue)) && (

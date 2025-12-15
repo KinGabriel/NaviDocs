@@ -223,8 +223,8 @@ export default function DeanTemplates() {
       "disapproved",
       "published",
     ]);
-  } else if (isLeadDocController || isUnitDocController) {
-    // LDC / Unit: pending, endorsed, returned
+  } else if (isLeadDocController) {
+    // LDC: pending, endorsed, returned
     tabs = ["All", "Pending", "Endorsed", "Returned"];
     tabToStatus = {
       Pending: "Pending Approval",  // underlying is "pending"/"pending approval"/"endorsed in queue"
@@ -236,6 +236,24 @@ export default function DeanTemplates() {
       "pending approval",
       "endorsed",
       "returned",
+    ]);
+  } else if (isUnitDocController) {
+    // UDC: pending, endorsed, returned, approved, published
+    tabs = ["All", "Pending", "Endorsed", "Returned", "Approved", "Published"];
+    tabToStatus = {
+      Pending: "Pending Approval",  // underlying is "pending"/"pending approval"/"endorsed in queue"
+      Endorsed: "Endorsed",
+      Returned: "Returned",
+      Approved: "Approved",
+      Published: "Published",
+    };
+    allowedStatusSet = new Set([
+      "pending",
+      "pending approval",
+      "endorsed",
+      "returned",
+      "approved",
+      "published",
     ]);
   } else {
     // Other roles: general view
