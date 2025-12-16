@@ -516,13 +516,13 @@ export default function Header2({
                   </div>
 
                   {templateStatus === 'draft' && <p className="text-[11px]">Draft mode. Make edits then submit for approval. Only you can see this draft.</p>}
-                  {templateStatus === 'pending' && <p className="text-[11px]">Awaiting approval from listed approvers. You will be notified when a decision is made.</p>}
-                  {templateStatus === 'approved' && <p className="text-[11px]">Fully approved. You can now publish this template.</p>}
+                  {templateStatus === 'pending' && <p className="text-[11px]"><strong className="text-orange-600">🔒 Editor Locked:</strong> Template is awaiting approval. Editing will be available when returned.</p>}
+                  {templateStatus === 'approved' && <p className="text-[11px]"><strong className="text-orange-600">🔒 Editor Locked:</strong> Template is fully approved and locked. Editing will be available when returned.</p>}
                   {templateStatus === 'published' && <p className="text-[11px]">Published. This version is live for use.</p>}
                   {templateStatus === 'returned' && <p className="text-[11px]">This template was <strong>returned</strong> for revisions. Please review feedback and resubmit.</p>}
                   {templateStatus === 'rejected' && <p className="text-[11px]">This template was <strong>rejected</strong> during the approval process.</p>}
                   {templateStatus === 'assigned' && <p className="text-[11px]">Template assigned. Ready for drafting.</p>}
-                  {templateStatus === 'endorsed' && <p className="text-[11px]">This template has been endorsed and is awaiting further approval.</p>}
+                  {templateStatus === 'endorsed' && <p className="text-[11px]"><strong className="text-orange-600">🔒 Editor Locked:</strong> Template has been endorsed and is awaiting further approval. Editing will be available when returned.</p>}
                   {templateStatus === 'disapproved' && <p className="text-[11px]">This template was <strong>disapproved</strong> during the approval process.</p>}
 
                   {/* APPROVERS */}

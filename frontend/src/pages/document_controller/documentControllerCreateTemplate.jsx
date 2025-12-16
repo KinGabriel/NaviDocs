@@ -202,7 +202,13 @@ export default function DocumentControllerCreateTemplate() {
     normalizedRole === "document control officer" ||
     normalizedRole === "document_controller_officer";
 
-  const isReadOnly = isPublished && isCreator && !isDocumentControlOfficer;
+  // Lock editor during endorsement and approval process
+  const isInApprovalProcess = ['pending', 'endorsed', 'approved'].includes(status);
+  
+  // Template is read-only if:
+  // 1. It's published (for all users except Document Control Officers), OR
+  // 2. It's in the approval process (pending/endorsed/approved)
+  const isReadOnly = (isPublished && !isDocumentControlOfficer) || isInApprovalProcess;
 
   const handleExportDocx = () => {
     const editor = editorRef.current;
@@ -320,6 +326,16 @@ export default function DocumentControllerCreateTemplate() {
 
   /* save */
   const handleSave = async () => {
+    // Prevent saving if template is locked
+    if (isReadOnly) {
+      if (isInApprovalProcess) {
+        toast.error("Cannot save: Template is locked during the endorsement/approval process.");
+      } else {
+        toast.error("Cannot save: Template is locked.");
+      }
+      return;
+    }
+    
     try {
       setSaving(true);
       const editor = editorRef.current;
@@ -377,7 +393,8 @@ export default function DocumentControllerCreateTemplate() {
       setDirty(false);
     } catch (e) {
       console.error(e);
-      toast.error("Failed to save template.");
+      const errorMsg = e.response?.data?.message || "Failed to save template.";
+      toast.error(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -535,12 +552,24 @@ export default function DocumentControllerCreateTemplate() {
     }
 
     if (isReadOnly) {
+      // Determine the reason for read-only mode
+      let title = "Template is Locked";
+      let message = "This template cannot be edited at this time.";
+      
+      if (isInApprovalProcess) {
+        title = "Template is In Approval Process";
+        message = "This template is currently being endorsed or approved and cannot be edited.";
+      } else if (isPublished) {
+        title = "Template is Published";
+        message = "This template cannot be edited after being published. Unpublish the template to make changes.";
+      }
+      
       return (
         <div className="flex h-full items-center justify-center p-6">
           <div className="text-center text-gray-700">
-            <p className="mb-2 text-lg font-semibold">Template is Published</p>
+            <p className="mb-2 text-lg font-semibold">{title}</p>
             <p className="text-sm text-gray-600">
-              This template cannot be edited after being published by the Document Control Officer.
+              {message}
             </p>
           </div>
         </div>
@@ -689,7 +718,32 @@ export default function DocumentControllerCreateTemplate() {
                 className="flex-1 overflow-auto"
                 style={{ maxHeight: editorMaxHeight }}
               >
-                <div className="max-h-[calc(100vh-200px)] overflow-auto md:max-h-none md:overflow-visible">
+                {/* Lock indicator banner */}
+                {isReadOnly && (
+                  <div className="mb-4 bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-start gap-3">
+                    <svg className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-orange-800 mb-1">Template Locked for Editing</h4>
+                      <p className="text-xs text-orange-700">
+                        {isInApprovalProcess ? (
+                          <>This template is currently in the endorsement/approval process and cannot be edited. The template will become editable again when it is returned for revisions.</>
+                        ) : (
+                          <>This template has been published and cannot be edited. </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="max-h-[calc(100vh-200px)] overflow-auto md:max-h-none md:overflow-visible relative">
+                  {/* Lock overlay on editor */}
+                  {isReadOnly && (
+                    <div className="absolute inset-0 z-10 pointer-events-none">
+                    </div>
+                  )}
+                  
                   <TextEditor
                     content={templateContent}
                     pageSetup={pageSetup}

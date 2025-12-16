@@ -121,23 +121,32 @@ export const updateTemplate = async (req, res) => {
       });
     }
 
-    // Prevent creators from editing published templates
-    if (template.status === 'published') {
-      const requesterId = req.user?.id ? String(req.user.id) : null;
-      const isCreator = template.created_by && String(template.created_by) === requesterId;
-      const userRole = req.user?.role?.name || req.user?.role || '';
-      const normalizedRole = String(userRole).toLowerCase().replace(/[_\s]+/g, ' ').trim();
-      
-      // Only Document Control Officer can edit published templates
-      const isDocumentControlOfficer = normalizedRole === 'document control officer' || 
-                                       normalizedRole === 'document_controller_officer';
-      
-      if (isCreator && !isDocumentControlOfficer) {
-        return res.status(403).json({ 
-          success: false,
-          message: 'Cannot edit template after it has been published by the Document Control Officer' 
-        });
-      }
+    // Prevent editing during endorsement/approval process and published state
+    const requesterId = req.user?.id ? String(req.user.id) : null;
+    const isCreator = template.created_by && String(template.created_by) === requesterId;
+    const userRole = req.user?.role?.name || req.user?.role || '';
+    const normalizedRole = String(userRole).toLowerCase().replace(/[_\s]+/g, ' ').trim();
+    
+    // Only Document Control Officer can edit published templates
+    const isDocumentControlOfficer = normalizedRole === 'document control officer' || 
+                                     normalizedRole === 'document_controller_officer';
+    
+    // Lock template during approval process (pending, endorsed, approved)
+    const isInApprovalProcess = ['pending', 'endorsed', 'approved'].includes(template.status);
+    
+    if (template.status === 'published' && isCreator && !isDocumentControlOfficer) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Cannot edit template after it has been published by the Document Control Officer' 
+      });
+    }
+    
+    // Prevent editing during endorsement and approval process
+    if (isInApprovalProcess) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Cannot edit template while it is being endorsed or approved. Wait for it to be returned or approved.' 
+      });
     }
 
     // Basic permission check using created_by field
