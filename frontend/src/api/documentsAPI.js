@@ -523,8 +523,32 @@ export const getDocumentByIdAPI = async (documentId) => {
 		const res = await axios.get(`${API_URL}/api/documents/${documentId}`, {
 			withCredentials: true,
 		});
+		
+		// Auto-cache for offline access
+		if (typeof window !== 'undefined' && res.data) {
+			try {
+				const { saveDocumentOffline } = await import('../utils/offlineStorage.js');
+				await saveDocumentOffline(res.data);
+			} catch (cacheErr) {
+				console.warn('[documentsAPI] Failed to cache document:', cacheErr);
+			}
+		}
+		
 		return res.data;
 	} catch (error) {
+		// If network fails, try to get from cache
+		if (typeof window !== 'undefined' && !navigator.onLine) {
+			try {
+				const { getDocumentOffline } = await import('../utils/offlineStorage.js');
+				const cached = await getDocumentOffline(documentId);
+				if (cached) {
+					console.log('[documentsAPI] Serving cached document (offline)');
+					return { ...cached, _fromCache: true, _offline: true };
+				}
+			} catch (cacheErr) {
+				console.warn('[documentsAPI] Cache lookup failed:', cacheErr);
+			}
+		}
 		throw new Error(error.response?.data?.message || "Failed to fetch document");
 	}
 };
@@ -565,6 +589,16 @@ export const deleteDocumentAPI = async (documentId) => {
  * @returns {Promise<Object>} - API response data
  */
 export const updateDocumentFieldValuesAPI = async (documentId, fieldValues, title, saveSuggestions = []) => {
+	// Always save locally first for instant feedback
+	if (typeof window !== 'undefined') {
+		try {
+			const { saveFieldValuesOffline } = await import('../utils/offlineStorage.js');
+			await saveFieldValuesOffline(documentId, fieldValues);
+		} catch (cacheErr) {
+			console.warn('[documentsAPI] Failed to cache field values:', cacheErr);
+		}
+	}
+	
 	try {
 		const body = { field_values: fieldValues };
 		if (title !== undefined && title !== null) body.title = title;
@@ -573,6 +607,16 @@ export const updateDocumentFieldValuesAPI = async (documentId, fieldValues, titl
 			withCredentials: true,
 		});
 		const data = res.data;
+		
+		// Mark as synced
+		if (typeof window !== 'undefined') {
+			try {
+				const { markFieldValuesSynced } = await import('../utils/offlineStorage.js');
+				await markFieldValuesSynced(documentId);
+			} catch (err) {
+				console.warn('[documentsAPI] Failed to mark synced:', err);
+			}
+		}
 
 		// If caller passed saveSuggestions, persist them now as best-effort.
 		if (Array.isArray(saveSuggestions) && saveSuggestions.length) {
@@ -585,6 +629,26 @@ export const updateDocumentFieldValuesAPI = async (documentId, fieldValues, titl
 
 		return data;
 	} catch (error) {
+		// If offline or network error, queue for sync
+		if (typeof window !== 'undefined' && (!navigator.onLine || error.code === 'ERR_NETWORK')) {
+			try {
+				const { queueApiRequest } = await import('../utils/offlineSync.js');
+				const body = { field_values: fieldValues };
+				if (title !== undefined && title !== null) body.title = title;
+				
+				await queueApiRequest(
+					'PATCH', 
+					`${API_URL}/api/documents/${documentId}/field-values`,
+					body,
+					{ type: 'field-values', documentId }
+				);
+				
+				console.log('[documentsAPI] Update queued for sync (offline)');
+				return { success: true, queued: true, offline: true };
+			} catch (queueErr) {
+				console.warn('[documentsAPI] Failed to queue request:', queueErr);
+			}
+		}
 		throw new Error(error.response?.data?.message || "Failed to update document field values");
 	}
 };

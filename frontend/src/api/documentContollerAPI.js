@@ -159,41 +159,162 @@ export const fetchPublishedTemplatesAPI = async ({ school, search, limit = 50, p
 /**
  * Create a new template.
  * Expects backend to auto-generate document_code and default page structure if not provided.
+ * Supports offline mode - queues creation when offline.
  * @param {Object} templateData - Minimal template payload (title, created_by, school_identifier, etc.).
  * @returns {Promise<{success:boolean,message:string,template:Object}>}
  */
 export const createTemplateAPI = async (templateData) => {
-  const res = await axios.post(`${API_URL}/api/templates/create-template`, templateData, {
-    withCredentials: true,
-  });
-  return res.data;
+  try {
+    const res = await axios.post(`${API_URL}/api/templates/create-template`, templateData, {
+      withCredentials: true,
+    });
+    
+    // Cache created template for offline access
+    if (typeof window !== 'undefined' && res.data?.template) {
+      try {
+        const { saveTemplateOffline } = await import('../utils/offlineStorage.js');
+        await saveTemplateOffline(res.data.template);
+      } catch (cacheErr) {
+        console.warn('[templateAPI] Failed to cache template:', cacheErr);
+      }
+    }
+    
+    return res.data;
+  } catch (error) {
+    // If offline or network error, queue for sync
+    if (typeof window !== 'undefined' && (!navigator.onLine || error.code === 'ERR_NETWORK')) {
+      try {
+        const { queueApiRequest } = await import('../utils/offlineSync.js');
+        
+        await queueApiRequest(
+          'POST',
+          `${API_URL}/api/templates/create-template`,
+          templateData,
+          { type: 'create-template' }
+        );
+        
+        console.log('[templateAPI] Template creation queued for sync');
+        throw new Error('Offline: Template creation queued. Please reconnect to complete.');
+      } catch (queueErr) {
+        console.warn('[templateAPI] Failed to queue request:', queueErr);
+      }
+    }
+    throw error;
+  }
 };
 
 /**
  * Fetch a single template by id including approvalMeta summary.
+ * Supports offline mode - returns cached template when offline.
  * @param {string} templateId - Template Mongo ObjectId.
  * @returns {Promise<{success:boolean,message:string,template:Object}>}
  */
 export const getTemplateByIdAPI = async (templateId) => {
-  const res = await axios.get(`${API_URL}/api/templates/${templateId}`, {
-    withCredentials: true,
-  });
-  return res.data;
+  try {
+    const res = await axios.get(`${API_URL}/api/templates/${templateId}`, {
+      withCredentials: true,
+    });
+    
+    // Auto-cache for offline access
+    if (typeof window !== 'undefined' && res.data?.template) {
+      try {
+        const { saveTemplateOffline } = await import('../utils/offlineStorage.js');
+        await saveTemplateOffline(res.data.template);
+      } catch (cacheErr) {
+        console.warn('[templateAPI] Failed to cache template:', cacheErr);
+      }
+    }
+    
+    return res.data;
+  } catch (error) {
+    // If network fails, try to get from cache
+    if (typeof window !== 'undefined' && (!navigator.onLine || error.code === 'ERR_NETWORK')) {
+      try {
+        const { getTemplateOffline } = await import('../utils/offlineStorage.js');
+        const cached = await getTemplateOffline(templateId);
+        if (cached) {
+          console.log('[templateAPI] Serving cached template (offline)');
+          return { 
+            success: true, 
+            template: { ...cached, _fromCache: true, _offline: true },
+            message: 'Loaded from cache (offline)'
+          };
+        }
+      } catch (cacheErr) {
+        console.warn('[templateAPI] Cache lookup failed:', cacheErr);
+      }
+    }
+    throw error;
+  }
 };
 
 
 /**
  * Update a template by ID.
  * Performs a PUT request sending only the fields to change (backend validates & persists).
+ * Supports offline mode - saves locally and queues for sync when offline.
  * @param {string} templateId - MongoDB ObjectId of the template to update.
  * @param {Object} updateData - Partial template payload (title, body, pages_json, status, etc.).
  * @returns {Promise<{success:boolean,message:string,template?:Object}>}
  */
 export const updateTemplateAPI = async (templateId, updateData) => {
-  const res = await axios.put(`${API_URL}/api/templates/${templateId}`, updateData, {
-    withCredentials: true,
-  });
-  return res.data;
+  // Save to cache first for instant feedback
+  if (typeof window !== 'undefined') {
+    try {
+      const { saveTemplateOffline } = await import('../utils/offlineStorage.js');
+      // Merge update with cached template if exists
+      const { getTemplateOffline } = await import('../utils/offlineStorage.js');
+      const cached = await getTemplateOffline(templateId);
+      if (cached) {
+        await saveTemplateOffline({ ...cached, ...updateData, _id: templateId });
+      }
+    } catch (cacheErr) {
+      console.warn('[templateAPI] Failed to cache update:', cacheErr);
+    }
+  }
+  
+  try {
+    const res = await axios.put(`${API_URL}/api/templates/${templateId}`, updateData, {
+      withCredentials: true,
+    });
+    
+    // Update cache with server response
+    if (typeof window !== 'undefined' && res.data?.template) {
+      try {
+        const { saveTemplateOffline } = await import('../utils/offlineStorage.js');
+        await saveTemplateOffline(res.data.template);
+      } catch (cacheErr) {
+        console.warn('[templateAPI] Failed to update cache:', cacheErr);
+      }
+    }
+    
+    return res.data;
+  } catch (error) {
+    // If offline or network error, queue for sync
+    if (typeof window !== 'undefined' && (!navigator.onLine || error.code === 'ERR_NETWORK')) {
+      try {
+        const { queueApiRequest } = await import('../utils/offlineSync.js');
+        
+        await queueApiRequest(
+          'PUT',
+          `${API_URL}/api/templates/${templateId}`,
+          updateData,
+          { type: 'update-template', templateId }
+        );
+        
+        console.log('[templateAPI] Template update queued for sync');
+        return { 
+          success: true, 
+          queued: true, 
+          offline: true,
+          message: 'Changes saved locally. Will sync when online.'
+        };
+      } catch (queueErr) {
+        console.warn('[templateAPI] Failed to queue request:', queueErr);
+      }
+    }
+    throw error;
+  }
 };
 
 /**

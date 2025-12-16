@@ -48,6 +48,12 @@ export default function useUser() {
     const lastRefreshed = Number(localStorage.getItem('user_last_refreshed')) || 0;
     const now = Date.now();
     if (user && now - lastRefreshed > STALE_MS && !refreshingRef.current) {
+      // Skip refresh if offline - keep user logged in
+      if (!navigator.onLine) {
+        console.log('[useUser] Offline: Skipping session refresh');
+        return;
+      }
+      
       refreshingRef.current = true;
       verifySession()
         .then((valid) => {
@@ -55,13 +61,21 @@ export default function useUser() {
             localStorage.setItem('user_last_refreshed', String(Date.now()));
             syncFromStorage();
           } else {
-            localStorage.removeItem('user');
-            setUser(null);
+            // Only logout if we got a clear rejection (not network error)
+            if (navigator.onLine) {
+              localStorage.removeItem('user');
+              setUser(null);
+            }
           }
         })
         .catch(() => {
-          localStorage.removeItem('user');
-          setUser(null);
+          // Don't logout on network error
+          if (navigator.onLine) {
+            localStorage.removeItem('user');
+            setUser(null);
+          } else {
+            console.log('[useUser] Offline: Keeping user logged in despite error');
+          }
         })
         .finally(() => {
           refreshingRef.current = false;

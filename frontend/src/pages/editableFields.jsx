@@ -31,6 +31,7 @@ import {
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import Loader from "../components/loader";
 import EditableFieldsHeader from "../layout/editable_fields/editableFieldsHeader";
+import OfflineIndicator from "../components/offlineIndicator";
 import useUser from "../hooks/useUser";
 import TextEditor from "../layout/create_template/textEditor";
 import fetchAndNormalizeDocument from "../utils/documentLoader";
@@ -660,6 +661,25 @@ export default function EditableFields() {
   }, [id, reloadCounter]);
 
   // ---------------------------
+  // AUTO-REFRESH ON SYNC
+  // ---------------------------
+  useEffect(() => {
+    if (!id) return;
+
+    const handleSynced = (event) => {
+      const syncedDocs = event.detail?.syncedDocuments || [];
+      if (syncedDocs.includes(id)) {
+        console.log('[EditableFields] Document synced, reloading...', id);
+        // Increment reload counter to trigger document reload
+        setReloadCounter(prev => prev + 1);
+      }
+    };
+
+    window.addEventListener('offline:synced', handleSynced);
+    return () => window.removeEventListener('offline:synced', handleSynced);
+  }, [id]);
+
+  // ---------------------------
   // AUTOFILL HELPERS
   // ---------------------------
   const fetchPreview = async (key, scope, mode) => {
@@ -1021,6 +1041,9 @@ export default function EditableFields() {
 
   return (
     <div className="min-h-screen bg-blue-50">
+      {/* Offline Indicator */}
+      <OfflineIndicator className="fixed top-30 right-4 z-50" />
+      
       {/* Header */}
       <EditableFieldsHeader
         title={docData?.title || docData?.document?.title || "Untitled Document"}

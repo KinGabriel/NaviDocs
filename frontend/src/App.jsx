@@ -166,15 +166,41 @@ function App() {
       setCheckingSession(false);
       return;
     }
+    
+    // If offline and user exists in localStorage, allow access
+    if (!navigator.onLine) {
+      const cachedUser = localStorage.getItem('user');
+      if (cachedUser) {
+        console.log('[App] Offline: Allowing access with cached user');
+        setCheckingSession(false);
+        return;
+      }
+    }
+    
     let cancelled = false;
     (async () => {
       try {
         const valid = await verifySession();
         if (!valid) {
-          navigate('/login', { replace: true });
+          // Only redirect if online (could be real auth failure)
+          if (navigator.onLine) {
+            navigate('/login', { replace: true });
+          } else {
+            // Offline and no valid session - still redirect but could be cached issue
+            navigate('/login', { replace: true });
+          }
           return;
         }
       } catch (e) {
+        // Don't redirect on network errors when offline
+        if (!navigator.onLine) {
+          console.log('[App] Offline: Network error, checking cached user');
+          const cachedUser = localStorage.getItem('user');
+          if (cachedUser) {
+            setCheckingSession(false);
+            return;
+          }
+        }
         navigate('/login', { replace: true });
         return;
       } finally {

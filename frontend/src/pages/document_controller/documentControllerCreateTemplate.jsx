@@ -12,6 +12,7 @@ import {
 } from "../../api/documentContollerAPI";
 import fetchAndNormalizeTemplate from "../../utils/templateLoader";
 import useUser from "../../hooks/useUser";
+import OfflineIndicator from "../../components/offlineIndicator";
 import Header2 from "../../layout/headers/header2";
 import VersionHistory from "../version_history/templateVersionHistory";
 import FontPanel from "../../layout/create_template/fontPanel";
@@ -303,6 +304,23 @@ export default function DocumentControllerCreateTemplate() {
     setTemplateId(id);
     loadTemplate(id);
   }, [templateIdFromQuery]);
+
+  /* auto-refresh on sync */
+  useEffect(() => {
+    const id = templateIdFromQuery || templateId;
+    if (!id) return;
+
+    const handleSynced = (event) => {
+      const syncedTemplates = event.detail?.syncedTemplates || [];
+      if (syncedTemplates.includes(id)) {
+        console.log('[DocumentControllerCreateTemplate] Template synced, reloading...', id);
+        loadTemplate(id);
+      }
+    };
+
+    window.addEventListener('offline:synced', handleSynced);
+    return () => window.removeEventListener('offline:synced', handleSynced);
+  }, [templateIdFromQuery, templateId]);
 
   /* editor */
   const handleEditorReady = (editor) => {
@@ -675,6 +693,9 @@ export default function DocumentControllerCreateTemplate() {
         />
       ) : (
         <div className="flex min-h-screen flex-col bg-slate-50">
+          {/* Offline Indicator */}
+          <OfflineIndicator className="fixed top-30 right-4 z-50" />
+          
           <Header2
             title={templateTitle}
             setTitle={setTemplateTitle}

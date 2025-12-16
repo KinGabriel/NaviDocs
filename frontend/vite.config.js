@@ -11,7 +11,7 @@ export default defineConfig({
     VitePWA({
       injectRegister: 'auto',
       registerType: 'autoUpdate',
-      includeAssets: ['vite.svg', 'assets/images/navilogo.png'],
+      includeAssets: ['vite.svg'],
       manifest: {
         name: 'NaviDocs',
         short_name: 'NaviDocs',
@@ -30,17 +30,91 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit
+        
+        // Enable offline Google Analytics (optional)
+        offlineGoogleAnalytics: false,
+        
+        // Clean up outdated caches
+        cleanupOutdatedCaches: true,
+        
+        // Navigation fallback
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/],
+        
         runtimeCaching: [
+          // API GET requests - NetworkFirst with longer timeout
           {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api'),
+            urlPattern: ({ url, request }) => url.pathname.startsWith('/api') && request.method === 'GET',
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 100, maxAgeSeconds: 3600 },
+              cacheName: 'api-get-cache',
+              networkTimeoutSeconds: 8,
+              expiration: { 
+                maxEntries: 200, 
+                maxAgeSeconds: 3600 // 1 hour
+              },
+              cacheableResponse: { statuses: [0, 200] },
+              plugins: [
+                {
+                  // Add timestamp to cached responses
+                  cacheWillUpdate: async ({ response }) => {
+                    const clonedResponse = response.clone();
+                    const data = await clonedResponse.json();
+                    return new Response(JSON.stringify({
+                      ...data,
+                      _cached: Date.now()
+                    }), {
+                      status: response.status,
+                      headers: response.headers
+                    });
+                  }
+                }
+              ]
+            }
+          },
+          
+          // API GraphQL requests - NetworkFirst
+          {
+            urlPattern: ({ url }) => url.pathname === '/api/graphql',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-graphql-cache',
+              networkTimeoutSeconds: 8,
+              expiration: { maxEntries: 100, maxAgeSeconds: 1800 },
               cacheableResponse: { statuses: [0, 200] }
             }
           },
+          
+          // API POST/PATCH/PUT requests - NetworkOnly (don't cache mutations)
+          {
+            urlPattern: ({ url, request }) => url.pathname.startsWith('/api') && ['POST', 'PATCH', 'PUT', 'DELETE'].includes(request.method),
+            handler: 'NetworkOnly',
+            options: {
+              plugins: [
+                {
+                  // Queue failed requests for background sync
+                  fetchDidFail: async ({ request }) => {
+                    // Background sync will handle this
+                    console.log('[SW] Request failed, will retry:', request.url);
+                  }
+                }
+              ]
+            }
+          },
+          
+          // Documents and templates - Cache with network fallback
+          {
+            urlPattern: ({ url }) => url.pathname.match(/\/api\/(documents|templates)\/[^/]+$/),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'documents-cache',
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 100, maxAgeSeconds: 86400 }, // 24 hours
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
+          
+          // Static assets
           {
             urlPattern: ({ request }) => ['document', 'script', 'style', 'font'].includes(request.destination),
             handler: 'StaleWhileRevalidate',
@@ -49,6 +123,8 @@ export default defineConfig({
               expiration: { maxEntries: 200, maxAgeSeconds: 604800 }
             }
           },
+          
+          // Images
           {
             urlPattern: ({ request }) => request.destination === 'image',
             handler: 'CacheFirst',
