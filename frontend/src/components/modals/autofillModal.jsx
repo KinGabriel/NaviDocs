@@ -195,7 +195,7 @@ export default function AutofillModal({
 
       <div className="relative w-full max-w-5xl mx-4 bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in duration-200">
         {/* Header */}
-        <div className="relative px-8 py-6 border-b border-gray-200 bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+        <div className="relative px-8 py-6 border-b border-gray-200 bg-gradient-to-br from-blue-50 via-white to-blue-50">
           <button
             onClick={onClose}
             aria-label="Close"

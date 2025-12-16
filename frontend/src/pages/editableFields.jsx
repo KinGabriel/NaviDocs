@@ -10,7 +10,6 @@
  * @requires lucide-react
  * @requires react-router-dom
  */
-
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -18,15 +17,14 @@ import {
   ChevronLeft,
   RotateCcw,
   X,
-  Grid3x3,
   Plus,
-  Trash2,
-  FileText,
   Eye,
   EyeOff,
-  Calendar,
-  Type,
-  AlignLeft
+  Layers,
+  FileType,
+  ZoomIn,
+  ZoomOut,
+  Maximize2
 } from "lucide-react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import Loader from "../components/loader";
@@ -81,6 +79,7 @@ export default function EditableFields() {
   const [showPreview, setShowPreview] = useState(false);
   const [formData, setFormData] = useState({});
   const [currentSection, setCurrentSection] = useState(0);
+  const [zoom, setZoom] = useState(100);
   
   // doc data and loading
   const [loadingDoc, setLoadingDoc] = useState(false);
@@ -108,13 +107,10 @@ export default function EditableFields() {
 
   const isApplyingRef = useRef(false);
   const updateTimerRef = useRef(null);
-
   // autosave/tracking refs
   const initialLoadRef = useRef(true); // suppress autosave on first load
   const lastSavedRef = useRef({});
   const autosaveTimerRef = useRef(null); // debounce handle for autosave
-
-  // reload counter
   const [reloadCounter, setReloadCounter] = useState(0);
 
   const allowSchoolScope = (u) => {
@@ -157,12 +153,12 @@ export default function EditableFields() {
   // ---------------------------
   // EXPORT PDF
   // ---------------------------
+  
   const handleExportPDF = async (options = { store: true, folderId: undefined }) => {
     try {
       const idToUse = docData?._id || docData?.document?._id || id;
       if (!idToUse) throw new Error("No document id available for export");
 
-      // try to capture rendered HTML from editor
       let providedHtml = null;
       try {
         const paginated = document.querySelector(".rm-with-pagination");
@@ -244,6 +240,10 @@ export default function EditableFields() {
     setFormData(prev => ({ ...prev, [fieldName]: value }));
   };
 
+  const handleZoomIn = () => setZoom(prev => Math.min(200, prev + 10));
+  const handleZoomOut = () => setZoom(prev => Math.max(50, prev - 10));
+  const handleZoomReset = () => setZoom(100);
+
 /**
    * Scrolls to and highlights a specific field in the editor by field name.
    * Supports label-based field names with automatic key mapping.
@@ -267,7 +267,6 @@ export default function EditableFields() {
       state.doc.descendants((node, pos) => {
         if (node.type && node.type.name === "editableField") {
           const key = node.attrs?.key;
-          // support label-based fieldName by mapping back to original key if available
           let matches = false;
           try {
             const k2l = lastSavedRef.current.__keyToLabel || {};
@@ -312,48 +311,6 @@ export default function EditableFields() {
     }
   };
 
-/**
-   * Cycles through duplicate occurrences of a field, scrolling to the next/previous instance.
-   * 
-   * @param {string} fieldName - Field name to cycle
-   * @param {('next'|'prev')} [direction='next'] - Cycle direction
-   * 
-   * @example
-   * // Navigate to next occurrence
-   * cycleDuplicate('Date', 'next');
-   * 
-   * @example
-   * // Navigate to previous occurrence
-   * cycleDuplicate('Date', 'prev');
-   */
-  // cycle duplicates of the same field
-  const cycleDuplicate = (fieldName, direction = "next") => {
-    const positions = duplicatePositionsRef.current[fieldName] || [];
-    if (!positions.length || !editorRef.current) return;
-    setDuplicateIndices((prev) => {
-      const cur = prev?.[fieldName] ?? 0;
-      const len = positions.length;
-      const next =
-        direction === "next"
-          ? (cur + 1) % len
-          : (cur - 1 + len) % len;
-
-      const updated = { ...(prev || {}) };
-      updated[fieldName] = next;
-
-      scrollToEditorPos(editorRef.current, positions[next]);
-      return updated;
-    });
-  };
-
-
-/**
-   * Recomputes positions and counts for all duplicate fields in the document.
-   * Updates duplicatePositionsRef, duplicateCounts, and duplicateIndices.
-   * 
-   * @param {Object} editor - TipTap editor instance
-   */
-  // recompute duplicate positions/counts
   const computeDuplicatePositions = (editor) => {
     try {
       if (!editor || !editor.state) return;
@@ -533,9 +490,6 @@ export default function EditableFields() {
     } catch {}
     return meta;
   }, [docData]);
-
-  const panelsToUse = panelsFromTemplate || [];
-  const sections = panelsToUse;
 
   // ---------------------------
   // DOCUMENT LOAD
@@ -815,9 +769,6 @@ export default function EditableFields() {
     }
   };
 
-  // ---------------------------
-  // EDITOR CONTENT
-  // ---------------------------
   const contentForEditor = useMemo(() => {
     if (!docData) return null;
 
@@ -866,9 +817,6 @@ export default function EditableFields() {
     };
   }, [docData, formData]);
 
-  // ---------------------------
-  // AUTOSAVE
-  // ---------------------------
   useEffect(() => {
     if (!docData) return;
 
@@ -1016,8 +964,61 @@ export default function EditableFields() {
     }
   }, [docData]);
 
+  const sections = panelsFromTemplate || [];
   const currentSectionData = sections[currentSection] || { title: "", fields: [] };
   const totalSections = sections.length;
+
+  const totalQuestions = sections.reduce((acc, s) => acc + (s.fields?.length || 0), 0);
+
+  if (loadingDoc) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-white">
+        <Loader message="Loading document..." />
+      </div>
+    );
+  }
+
+  if (docError) {
+    return (
+      <div className="min-h-screen bg-white">
+      <EditableFieldsHeader
+        title="Error"
+        user={user}
+        setTitle={() => {}}
+        saving={false}
+        lastSavedAt={null}
+        dirty={false}
+        documentId={id}
+        onExportPDF={handleExportPDF}
+        onExportDocx={handleExportDocx}
+        documentData={docData}
+        onDocumentUpdate={() => {}}
+        mobileSidebarOpen={false}
+        setMobileSidebarOpen={() => {}}
+      />
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="bg-red-50 border border-red-100 rounded-lg p-6">
+            <div className="text-red-700 font-semibold mb-2">Failed to load document</div>
+            <div className="text-sm text-red-600 mb-4">{docError}</div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setReloadCounter((c) => c + 1)}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+              >
+                Retry
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+              >
+                Hard Refresh
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-blue-50">
@@ -1038,92 +1039,59 @@ export default function EditableFields() {
         setMobileSidebarOpen={() => {}}
       />
 
-      {loadingDoc ? (
-        <div className="flex items-center justify-center h-[calc(100vh-200px)]">
-          <Loader message="Loading document..." />
-        </div>
-      ) : docError ? (
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="bg-red-50 border border-red-100 rounded-lg p-6">
-            <div className="text-red-700 font-semibold mb-2">Failed to load document</div>
-            <div className="text-sm text-red-600 mb-4">{docError}</div>
-            <div className="flex gap-3">
+      <div className="max-w-[800px] mx-auto px-4 py-8">
+        {showPreview ? (
+          /* Preview Mode */
+          <>
+            {/* Preview Controls */}
+            <div className="bg-white rounded-t-lg border border-gray-300 px-6 py-3 flex items-center justify-between">
               <button
-                onClick={() => setReloadCounter((c) => c + 1)}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                onClick={() => setShowPreview(false)}
+                className="inline-flex items-center gap-2 px-4 py-2 text-blue-700 hover:bg-blue-50 rounded-lg font-medium transition-colors"
               >
-                Retry
+                <ChevronLeft className="w-4 h-4" />
+                Back to Form
               </button>
-              <button
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-[#003DA5] text-white rounded-md text-sm hover:bg-[#052c6d]"
-              >
-                Hard Refresh
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Main Content */}
-          <div className="max-w-4xl mx-auto px-4 py-8">
-            {/* Action Bar */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShowPreview(!showPreview)}
-                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                      showPreview
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {showPreview ? (
-                      <>
-                        <EyeOff className="w-4 h-4" />
-                        Hide Preview
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="w-4 h-4" />
-                        View Preview
-                      </>
-                    )}
-                  </button>
 
-                  <button
-                    onClick={() => setAutofillOpen(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg font-medium hover:bg-green-100 transition-colors border border-green-200"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Autofill
-                  </button>
-                </div>
-
+              {/* Zoom Controls */}
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setShowClearModal(true)}
-                  disabled={Object.keys(formData).length === 0}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                    Object.keys(formData).length > 0
-                      ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                  }`}
+                  onClick={handleZoomOut}
+                  disabled={zoom <= 50}
+                  className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Zoom out"
                 >
-                  <RotateCcw className="w-4 h-4" />
-                  Clear All
+                  <ZoomOut size={20} className="text-gray-700" />
+                </button>
+                <button
+                  onClick={handleZoomReset}
+                  className="px-3 py-1 hover:bg-gray-100 rounded-lg text-sm font-medium text-gray-700 min-w-[60px] transition-colors"
+                  title="Reset zoom"
+                >
+                  {zoom}%
+                </button>
+                <button
+                  onClick={handleZoomIn}
+                  disabled={zoom >= 200}
+                  className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Zoom in"
+                >
+                  <ZoomIn size={20} className="text-gray-700" />
+                </button>
+                <div className="w-px h-6 bg-gray-300 mx-2"></div>
+                <button
+                  onClick={() => setZoom(100)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Fit to width"
+                >
+                  <Maximize2 size={20} className="text-gray-700" />
                 </button>
               </div>
             </div>
 
             {/* Preview Mode */}
-            {showPreview ? (
-              <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-                <div className="bg-[#003DA5] text-white p-6">
-                  <h2 className="text-2xl font-semibold mb-2">Document Preview</h2>
-                  <p className="text-blue-100">See how your document looks with the filled data</p>
-                </div>
-                <div className="p-8">
+            <div className="bg-white rounded-b-lg border-x border-b border-gray-300 p-8 overflow-auto">
+              <div style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
                   <TextEditor
                     content={contentForEditor}
                     pageSetup={docData?.pageSetup}
@@ -1201,54 +1169,95 @@ export default function EditableFields() {
                   />
                 </div>
               </div>
-            ) : (
-              <>
-                {/* Form Header */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-3">
-                  <div className="h-3 bg-[#003DA5]" />
-                  <div className="p-6">
-                    <div className="flex items-start justify-between gap-4 mb-2">
-                      <div className="flex-1">
-                        <h2 className="text-3xl font-semibold text-gray-900 mb-2">
-                          {currentSectionData.title}
-                        </h2>
-                        {currentSectionData.subtitle && (
-                          <p className="text-base text-gray-600 leading-relaxed">
-                            {currentSectionData.subtitle}
-                          </p>
-                        )}
+          </>
+        ) : (
+          /* Form Mode */
+          <>
+              {/* Form Header */}
+              <div className="bg-white rounded-lg border-t-8 border-[#0035DA] mb-3 overflow-hidden">
+                <div className="p-6 md:p-8">
+                  <h1 className="text-3xl md:text-4xl font-normal text-gray-900 mb-2">
+                    {docData?.title || "Untitled Form"}
+                  </h1>
+                  {docData?.description && (
+                    <p className="text-sm text-gray-700 mb-4">{docData.description}</p>
+                  )}
+                  
+                  {/* Form Info */}
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <FileType className="w-4 h-4 text-[#0035DA]" />
+                        <span>{totalQuestions} {totalQuestions === 1 ? 'question' : 'questions'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-[#0035DA]"/>
+                        <span>{totalSections} {totalSections === 1 ? 'section' : 'sections'}</span>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Section Progress */}
-                    {totalSections > 1 && (
-                      <div className="bg-[#003DA5] rounded-xl p-5 border border-blue-100">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-[#003DA5] text-white flex items-center justify-center text-sm font-semibold">
-                              {currentSection + 1}
-                            </div>
-                            <span className="text-sm font-medium text-gray-700">
-                              Section {currentSection + 1} of {totalSections}
-                            </span>
-                          </div>
-                          <span className="text-sm font-semibold text-[#003DA5]">
-                            {Math.round(((currentSection + 1) / totalSections) * 100)}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-white rounded-full h-2.5 overflow-hidden shadow-inner">
-                          <div
-                            className="bg-gradient-to-r from-[#003DA5] to-blue-500 h-2.5 rounded-full transition-all duration-500 ease-out"
-                            style={{ width: `${((currentSection + 1) / totalSections) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                  {/* Action Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-4 mt-6 pt-4 border-t border-gray-200">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setShowPreview(!showPreview)}
+                        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all ${
+                          showPreview
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {showPreview ? (
+                          <>
+                            <EyeOff className="w-4 h-4" />
+                            Hide Preview
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-4 h-4" />
+                            View Preview
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => setAutofillOpen(true)}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg font-medium hover:bg-green-100 transition-colors border border-green-200"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Autofill
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => setShowClearModal(true)}
+                      disabled={Object.keys(formData).length === 0}
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                        Object.keys(formData).length > 0
+                          ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                          : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                      }`}
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Clear All
+                    </button>
+                  </div>
                   </div>
                 </div>
 
+            {/* Section Title (if multiple sections) */}
+            {totalSections > 1 && (
+              <div className="bg-white rounded-lg p-6 mb-3">
+                <h2 className="text-xl font-normal text-gray-900">{currentSectionData.title}</h2>
+                {currentSectionData.subtitle && (
+                  <p className="text-sm text-gray-600 mt-1">{currentSectionData.subtitle}</p>
+                )}
+              </div>
+            )}
+
                 {/* Form Fields */}
-                <div className="space-y-3 mb-6">
+                <div className="space-y-3">
                   {currentSectionData.fields && currentSectionData.fields.map((field, idx) => {
                     const value = formData[field.name] || "";
                     const isDuplicate = duplicateCounts[field.name] > 1;
@@ -1257,71 +1266,20 @@ export default function EditableFields() {
                     return (
                       <div 
                         key={idx}
-                        className="bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 overflow-hidden group"
-                      >
-                        <div className="p-6">
-                          {/* Field Label & Icons */}
-                          <div className="flex items-start gap-3 mb-4">
-                            <div className="flex-shrink-0 mt-1">
-                              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center border border-blue-100 group-hover:border-blue-300 transition-colors">
-                                {field.type === 'input' ? (
-                                  <Type className="w-5 h-5 text-[#003DA5]" />
-                                ) : field.type === 'textarea' ? (
-                                  <AlignLeft className="w-5 h-5 text-[#003DA5]" />
-                                ) : field.type === 'date' ? (
-                                  <Calendar className="w-5 h-5 text-[#003DA5]" />
-                                ) : (
-                                  <Type className="w-5 h-5 text-[#003DA5]" />
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <label className="text-base font-medium text-gray-900">
-                                  {field.label || field.name}
-                                </label>
-                                {field.required && (
-                                  <span className="text-red-500 text-base font-medium">*</span>
-                                )}
-                                {isDuplicate && (
-                                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-md border border-amber-200">
-                                    {currentDupIndex + 1}/{duplicateCounts[field.name]}
-                                  </span>
-                                )}
-                              </div>
-                              
-                              {field.instructions && (
-                                <p className="text-sm text-gray-600 leading-relaxed">
-                                  {field.instructions}
-                                </p>
-                              )}
-
-                              {/* Tags */}
-                              {field.tags && field.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mt-3">
-                                  {field.tags.map((tag, tagIdx) => {
-                                    const tagColor = field.tagColors?.[tag];
-                                    const colorClasses = tagColor
-                                      ? `bg-${tagColor}-50 text-${tagColor}-700 border-${tagColor}-200`
-                                      : 'bg-blue-50 text-blue-700 border-blue-200';
-                                    
-                                    return (
-                                      <span
-                                        key={tagIdx}
-                                        className={`px-2.5 py-1 text-xs font-medium rounded-full border ${colorClasses}`}
-                                      >
-                                        {tag}
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Duplicate Navigation */}
+                        className="bg-white rounded-lg border border-gray-300 hover:border-gray-400 transition-all p-6 focus-within:border-blue-600 focus-within:shadow-md"
+                  >
+                    {/* Form FieldLabel */}
+                    <div className="mb-4">
+                      <div className="flex items-start gap-2 mb-2">
+                        <label className="text-base text-gray-900 flex-1">
+                          {field.label || field.name}
+                          {field.required && (
+                            <span className="text-red-500 ml-1">*</span>
+                          )}
+                        </label>
+                        
                             {isDuplicate && (
-                              <div className="flex items-center gap-1 ml-auto">
+                              <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => {
                                     const newIdx = Math.max(0, currentDupIndex - 1);
@@ -1332,15 +1290,17 @@ export default function EditableFields() {
                                     scrollToAndHighlightField(editorRef.current, field.name);
                                   }}
                                   disabled={currentDupIndex === 0}
-                                  className={`p-1.5 rounded-lg transition-colors ${
+                                  className={`p-1 rounded transition-colors ${
                                     currentDupIndex === 0
                                       ? 'text-gray-300 cursor-not-allowed'
                                       : 'text-gray-600 hover:bg-gray-100'
                                   }`}
-                                  title="Previous occurrence"
                                 >
                                   <ChevronLeft className="w-4 h-4" />
                                 </button>
+                                <span className="text-xs text-gray-500 px-2">
+                                  {currentDupIndex + 1}/{duplicateCounts[field.name]}
+                                </span>
                                 <button
                                   onClick={() => {
                                     const newIdx = Math.min(
@@ -1354,134 +1314,121 @@ export default function EditableFields() {
                                     scrollToAndHighlightField(editorRef.current, field.name);
                                   }}
                                   disabled={currentDupIndex >= duplicateCounts[field.name] - 1}
-                                  className={`p-1.5 rounded-lg transition-colors ${
+                                  className={`p-1 rounded transition-colors ${
                                     currentDupIndex >= duplicateCounts[field.name] - 1
                                       ? 'text-gray-300 cursor-not-allowed'
                                       : 'text-gray-600 hover:bg-gray-100'
                                   }`}
-                                  title="Next occurrence"
                                 >
                                   <ChevronRight className="w-4 h-4" />
                                 </button>
                               </div>
+                          )}
+                        </div>
+                        
+                        {field.instructions && (
+                          <p className="text-sm text-gray-600">{field.instructions}</p>
                             )}
                           </div>
 
                           {/* Field Input */}
-                          <div className="mt-4">
+                          <div>
                             {field.type === 'input' ? (
-                              <div className="relative">
                                 <input
                                   type="text"
                                   value={value}
                                   onChange={(e) => handleInputChange(field.name, e.target.value)}
-                                  placeholder={field.placeholder || 'Enter your answer'}
-                                  className="w-full px-0 py-3 border-0 border-b-2 border-gray-300 focus:border-[#003DA5] outline-none transition-colors text-gray-900 placeholder-gray-400 bg-transparent text-base"
+                                  placeholder={field.placeholder || 'Your answer'}
+                                  className="w-full px-0 py-2 border-0 border-b border-gray-300 focus:border-blue-600 outline-none transition-colors text-gray-900 placeholder-gray-400 bg-transparent"
                                 />
-                              </div>
                             ) : field.type === 'textarea' ? (
                               <textarea
                                 value={value}
                                 onChange={(e) => handleInputChange(field.name, e.target.value)}
-                                placeholder={field.placeholder || 'Enter your answer'}
+                                placeholder={field.placeholder || 'Your answer'}
                                 rows={4}
-                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-[#003DA5] focus:ring-2 focus:ring-blue-100 outline-none transition-all resize-y min-h-[100px] text-gray-900 placeholder-gray-400 text-base"
+                                className="w-full px-0 py-2 border-0 border-b border-gray-300 focus:border-blue-600 outline-none transition-colors resize-y text-gray-900 placeholder-gray-400 bg-transparent"
                               />
                             ) : field.type === 'date' ? (
-                              <div className="relative">
                                 <input
                                   type="date"
                                   value={value}
                                   onChange={(e) => handleInputChange(field.name, e.target.value)}
-                                  className="w-full px-0 py-3 border-0 border-b-2 border-gray-300 focus:border-[#003DA5] outline-none transition-colors text-gray-900 bg-transparent text-base"
+                                  className="w-full px-0 py-2 border-0 border-b border-gray-300 focus:border-blue-600 outline-none transition-colors text-gray-900 bg-transparent"
                                 />
-                              </div>
                             ) : null}
-                          </div>
-                        </div>
 
                         {/* Character Count for Textarea */}
                         {field.type === 'textarea' && value && (
-                          <div className="px-6 pb-3">
-                            <div className="text-xs text-gray-500 text-right">
+                          <div className="text-xs text-gray-500 text-right mt-1">
                               {value.length} characters
-                            </div>
                           </div>
                         )}
+                      </div>
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Navigation */}
+                {/* Navigation Footer */}
                 {totalSections > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky bottom-4">
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="bg-white rounded-lg border border-gray-300 p-4 mt-6 flex items-center justify-between">
                       <button
                         onClick={() => setCurrentSection(prev => Math.max(0, prev - 1))}
                         disabled={currentSection === 0}
-                        className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded font-medium transition-colors ${
                           currentSection === 0
-                            ? 'bg-gray-50 text-gray-400 cursor-not-allowed border border-gray-200'
-                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 hover:border-gray-400 shadow-sm hover:shadow'
+                            ? 'text-gray-300 cursor-not-allowed'
+                            : 'text-blue-600 hover:bg-blue-50'
                         }`}
                       >
                         <ChevronLeft className="w-4 h-4" />
-                        <span className="hidden sm:inline">Previous</span>
+                        Back
                       </button>
 
-                      {/* Section Indicators */}
-                      <div className="flex items-center gap-2">
-                        {sections.map((section, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => setCurrentSection(idx)}
-                            className={`transition-all rounded-full ${
-                              idx === currentSection
-                                ? 'bg-[#003DA5] w-10 h-2.5 shadow-md'
-                                : 'bg-gray-300 hover:bg-gray-400 w-2.5 h-2.5'
-                            }`}
-                            title={section.title}
-                            aria-label={`Go to ${section.title}`}
-                          />
-                        ))}
-                      </div>
+                    <span className="text-sm text-gray-600">
+                      Page {currentSection + 1} of {totalSections}
+                    </span>
 
                       <button
                         onClick={() => setCurrentSection(prev => Math.min(totalSections - 1, prev + 1))}
                         disabled={currentSection === totalSections - 1}
-                        className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded font-medium transition-colors ${
                           currentSection === totalSections - 1
-                            ? 'bg-gray-50 text-gray-400 cursor-not-allowed border border-gray-200'
-                            : 'bg-gradient-to-r from-[#003DA5] to-blue-600 text-white hover:from-[#002c7a] hover:to-blue-700 shadow-md hover:shadow-lg'
+                            ? 'text-gray-300 cursor-not-allowed'
+                            : 'text-white bg-blue-600 hover:bg-blue-700'
                         }`}
                       >
-                        <span className="hidden sm:inline">Next</span>
+                        Next
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
+                )}
 
-                    {/* Page Info */}
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <div className="text-center text-sm text-gray-600">
-                        <span className="font-medium text-gray-900">
-                          {currentSectionData.fields?.length || 0}
-                        </span>
-                        {' '}questions in this section
-                      </div>
+                {/* Progress Bar */}
+                {totalSections > 1 && (
+                  <div className="mt-4 bg-white rounded-lg border border-gray-300 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-600">Progress</span>
+                      <span className="text-sm font-medium text-blue-600">
+                        {Math.round(((currentSection + 1) / totalSections) * 100)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${((currentSection + 1) / totalSections) * 100}%` }}
+                      />
                     </div>
                   </div>
                 )}
-              </>
-            )}
-          </div>
         </>
       )}
 
       {/* Clear Modal */}
       {showClearModal && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 backdrop-blur-[2px] flex items-center justify-center z-50 p-4"
           onClick={() => setShowClearModal(false)}
         >
           <div
@@ -1547,5 +1494,6 @@ export default function EditableFields() {
         }}
       />
     </div>
+  </div>
   );
 }
