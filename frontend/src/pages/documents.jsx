@@ -393,8 +393,21 @@ export default function GlobalTemplates() {
         const newItem = resp.document || resp.data;
         if (newItem) {
           setTemplates((prev) => [newItem, ...prev]);
+          setDuplicateOpen(false);
+    
+          const newId = newItem._id || newItem.id;
+          if (newId) {
+            navigate(`/documents/editable-fields/${newId}`, {
+              state: {
+                doc: newItem,
+                sidebarActive: "Documents",
+                backTo: "/documents",
+              },
+            });
+          }
+        } else {
+          setDuplicateOpen(false);
         }
-        setDuplicateOpen(false);
       } else {
         toast.error(resp?.message || "Failed to duplicate document");
       }
@@ -836,7 +849,18 @@ export default function GlobalTemplates() {
                           onSelect={() => handleView(template)}
                           onRename={(updated) => handleCardRename(updated)}
                           onDelete={(deleted) => handleCardDelete(deleted)}
-                          // 🔹 Hide status pill for Faculty module
+                          onDuplicate={(newDoc) => {
+                            const newId = newDoc?._id || newDoc?.id;
+                            if (newId) {
+                              navigate(`/documents/editable-fields/${newId}`, {
+                                state: {
+                                  doc: newDoc,
+                                  sidebarActive: "Documents",
+                                  backTo: "/documents",
+                                },
+                              });
+                            }
+                          }}
                           hideStatusPill
                         />
                       </div>

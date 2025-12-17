@@ -70,6 +70,7 @@ export default function DocumentCard({
   onRename,
   onDelete,
   onAssign,
+  onDuplicate,
   hideStatusPill = false,   
 }) {
 
@@ -359,21 +360,25 @@ export default function DocumentCard({
       if (resp && resp.success) {
         toast.success('Document duplicated');
         setDuplicateOpen(false);
-        if (typeof onSelect === 'function') {
-          onSelect(resp.document || resp.data || document);
-        } else if (typeof window !== 'undefined') {
-          window.location.reload();
+          const newDocument = resp.document || resp.data;  
+          
+          if (newDocument && typeof onDuplicate === 'function') {
+            onDuplicate(newDocument);
+          } else if (newDocument && typeof onSelect === 'function') {
+            onSelect(newDocument);
+          } else if (typeof window !== 'undefined') {
+            window.location.reload();
+          }
+        } else {
+          toast.error(resp?.message || 'Failed to duplicate document');
         }
-      } else {
-        toast.error(resp?.message || 'Failed to duplicate document');
+      } catch (err) {
+        console.error('Duplicate document error:', err);
+        toast.error(err?.response?.data?.message || err?.message || 'Error duplicating document');
+      } finally {
+        setDuplicating(false);
       }
-    } catch (err) {
-      console.error('Duplicate document error:', err);
-      toast.error(err?.response?.data?.message || err?.message || 'Error duplicating document');
-    } finally {
-      setDuplicating(false);
-    }
-  };
+    };
 
 /**
    * Confirms and executes document deletion
