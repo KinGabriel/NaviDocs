@@ -105,6 +105,13 @@ export default function EditableFields() {
   const duplicatePositionsRef = useRef({});
   const [duplicateCounts, setDuplicateCounts] = useState({});
   const [duplicateIndices, setDuplicateIndices] = useState({});
+  const [tableFieldsMap, setTableFieldsMap] = useState({});
+  // Track table structure for precise row operations
+  const tablesInfoRef = useRef([]);
+  // Track max used index per base label for each table
+  const labelCountersRef = useRef({});
+  // Track keys of rows added at runtime per tableIdx
+  const addedRowsRef = useRef({});
 
   const isApplyingRef = useRef(false);
   const updateTimerRef = useRef(null);
@@ -244,6 +251,428 @@ export default function EditableFields() {
   const handleZoomIn = () => setZoom(prev => Math.min(200, prev + 10));
   const handleZoomOut = () => setZoom(prev => Math.max(50, prev - 10));
   const handleZoomReset = () => setZoom(100);
+
+  // ========================================
+  // TABLE ROW DETECTION & ADDITION
+  // ========================================
+  
+  const checkCanAddRow = (editor) => {
+    if (!editor) {
+      console.log("[checkCanAddRow] No editor available");
+      return;
+    }
+    
+    console.log("[checkCanAddRow] Starting detection...");
+    const doc = editor.state.doc;
+    
+    // Check if document has content
+    if (doc.content.size === 0) {
+      console.log("[checkCanAddRow] Document is empty, skipping detection");
+      return;
+    }
+    
+    // Debug: Log all node types
+    const allNodeTypes = new Set();
+    const allNodes = [];
+    doc.descendants((node) => {
+      allNodeTypes.add(node.type.name);
+      allNodes.push({ type: node.type.name, attrs: node.attrs });
+    });
+    console.log("[checkCanAddRow] All node types in document:", Array.from(allNodeTypes));
+    console.log("[checkCanAddRow] All nodes:", allNodes);
+    
+    const tables = [];
+    
+    // Try multiple possible table node names
+    const tableNodeNames = ["table", "Table", "TableRow", "tableRow"];
+    
+    doc.descendants((node, pos) => {
+      if (tableNodeNames.includes(node.type.name) || node.type.name.toLowerCase().includes("table")) {
+        console.log(`[checkCanAddRow] Found potential table node: ${node.type.name}`);
+        if (node.type.name === "table" || node.type.name === "Table") {
+          tables.push({ node, pos });
+        }
+      }
+    });
+    
+    console.log(`[checkCanAddRow] Found ${tables.length} tables`);
+    console.log("[checkCanAddRow] Table nodes:", tables);
+    
+    if (tables.length === 0) {
+      console.log("[checkCanAddRow] No tables found");
+      setTableFieldsMap({});
+      return;
+    }
+    
+    const k2l = lastSavedRef.current?.__keyToLabel || {};
+    const fieldsMap = {};
+    const tablesInfo = [];
+    
+    tables.forEach((tableInfo, tableIdx) => {
+      console.log(`[checkCanAddRow] Scanning table ${tableIdx}...`);
+      const editableFieldsInTable = [];
+
+      // Build rows/cells info for this table
+      const tablePosAbs = tableInfo.pos;
+      const rows = [];
+      tableInfo.node.descendants((rowNode, rowRelPos) => {
+        if (rowNode.type && rowNode.type.name && rowNode.type.name.toLowerCase().includes("row")) {
+          const rowPosAbs = tablePosAbs + 1 + rowRelPos;
+          const cells = [];
+          rowNode.descendants((cellNode, cellRelPos) => {
+            if (cellNode.type && cellNode.type.name && cellNode.type.name.toLowerCase().includes("cell")) {
+              const cellPosAbs = rowPosAbs + 1 + cellRelPos;
+              let fieldKeyInCell = null;
+              let fieldLabelInCell = null;
+              let fieldTypeInCell = null;
+              let fieldPlaceholderInCell = null;
+              // find first editableField within the cell
+              cellNode.descendants((nodeInside) => {
+                if (nodeInside.type && nodeInside.type.name === "editableField") {
+                  const fk = nodeInside.attrs?.key;
+                  if (fk && !fieldKeyInCell) {
+                    fieldKeyInCell = fk;
+                    fieldLabelInCell = k2l[fk] || fk;
+                    fieldTypeInCell = nodeInside.attrs?.type || "text";
+                    fieldPlaceholderInCell = nodeInside.attrs?.placeholder || fieldLabelInCell || "";
+                  }
+                }
+              });
+              if (fieldKeyInCell) {
+                editableFieldsInTable.push(fieldKeyInCell);
+                fieldsMap[fieldKeyInCell] = {
+                  tableIdx,
+                  fieldName: fieldLabelInCell,
+                  fieldKey: fieldKeyInCell,
+                };
+              }
+              cells.push({
+                pos: cellPosAbs,
+                fieldKey: fieldKeyInCell,
+                fieldLabel: fieldLabelInCell,
+                fieldType: fieldTypeInCell,
+                fieldPlaceholder: fieldPlaceholderInCell,
+              });
+            }
+          });
+          rows.push({ pos: rowPosAbs, cells });
+        }
+      });
+
+      tablesInfo.push({ pos: tablePosAbs, rows });
+      console.log(`[checkCanAddRow] Table ${tableIdx} has ${editableFieldsInTable.length} editable fields`);
+    });
+    
+    console.log("[checkCanAddRow] Final fieldsMap:", fieldsMap);
+    // Merge detection results with any existing mappings (e.g., newly added fields)
+    setTableFieldsMap((prev) => {
+      const merged = { ...fieldsMap };
+      Object.keys(prev || {}).forEach((k) => {
+        if (!merged[k]) merged[k] = prev[k];
+      });
+      return merged;
+    });
+    tablesInfoRef.current = tablesInfo;
+    // Build counters per table based on detected labels
+    try {
+      const counters = {};
+      tablesInfo.forEach((t, tIdx) => {
+        const c = (counters[tIdx] = {});
+        (t.rows || []).forEach((r) => {
+          (r.cells || []).forEach((cell) => {
+            const lbl = cell.fieldLabel;
+            if (!lbl) return;
+            const m = lbl.match(/^(.*?)(?:\s*-\s*\((\d+)\))$/);
+            if (m) {
+              const base = m[1].trim();
+              const n = parseInt(m[2], 10);
+              if (!isNaN(n)) {
+                c[base] = Math.max(c[base] || 0, n);
+              }
+            }
+          });
+        });
+      });
+      labelCountersRef.current = counters;
+    } catch (_) {}
+  };
+  
+  const addTableRow = (targetTableIdx) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    console.log(`[addTableRow] Adding row to table ${targetTableIdx}`);
+    // Determine last row cells for this table
+    const tInfo = tablesInfoRef.current?.[targetTableIdx];
+    if (!tInfo || !Array.isArray(tInfo.rows) || tInfo.rows.length === 0) {
+      console.log("[addTableRow] No table info available or rows missing");
+      return;
+    }
+    const lastRow = tInfo.rows[tInfo.rows.length - 1];
+    const lastCells = Array.isArray(lastRow.cells) ? lastRow.cells : [];
+    const columns = lastCells.length;
+    console.log(`[addTableRow] Last row has ${columns} columns`);
+    if (columns === 0) {
+      console.log("[addTableRow] Last row has no cells");
+      return;
+    }
+    
+    const k2l = lastSavedRef.current?.__keyToLabel || {};
+    const l2k = {};
+    Object.keys(k2l).forEach((k) => {
+      l2k[k2l[k]] = k;
+    });
+    
+    const newFieldsForForm = [];
+    // Build key->panel label map from the current section to prefer human labels
+    const keyToPanelLabel = {};
+    try {
+      const secFields = (sections[currentSection]?.fields) || [];
+      secFields.forEach((f) => {
+        if (f && f._originalKey) {
+          keyToPanelLabel[f._originalKey] = f.label || f.name;
+        }
+      });
+    } catch (_) {}
+
+    // Build new labels/keys based on last row's cell labels with bracketed suffix ` - (n)`
+    lastCells.forEach((cell, idx) => {
+      const baseSource = keyToPanelLabel[cell.fieldKey] || cell.fieldLabel || cell.fieldPlaceholder || `Field ${idx + 1}`;
+      const baseMatch = baseSource.match(/^(.*?)(?:\s*-\s*\((\d+)\))$/);
+      const baseLabel = baseMatch ? baseMatch[1].trim() : baseSource.trim();
+      // Determine next index using counters + live scans
+      const countersForTable = (labelCountersRef.current?.[targetTableIdx]) || {};
+      let maxIndex = countersForTable[baseLabel] || 0;
+      const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const patt = new RegExp(`^${esc(baseLabel)}\\s*-\\s*\\((\\d+)\\)$`);
+      // Scan formData keys
+      Object.keys(formData || {}).forEach((k) => {
+        const m = k.match(patt);
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (!isNaN(n) && n > maxIndex) maxIndex = n;
+        }
+      });
+      // Scan current section field names (runtime panels)
+      try {
+        const secFields = (sections[currentSection]?.fields) || [];
+        secFields.forEach((f) => {
+          const nm = f?.name || f?.label;
+          if (!nm) return;
+          const m = String(nm).match(patt);
+          if (m) {
+            const n = parseInt(m[1], 10);
+            if (!isNaN(n) && n > maxIndex) maxIndex = n;
+          }
+        });
+      } catch (_) {}
+      // Scan labels of previously added rows in this table
+      try {
+        const addedRows = addedRowsRef.current?.[targetTableIdx] || [];
+        const k2l = lastSavedRef.current?.__keyToLabel || {};
+        addedRows.flat().forEach((key) => {
+          const lbl = k2l[key];
+          if (!lbl) return;
+          const m = lbl.match(patt);
+          if (m) {
+            const n = parseInt(m[1], 10);
+            if (!isNaN(n) && n > maxIndex) maxIndex = n;
+          }
+        });
+      } catch (_) {}
+      const newIndex = maxIndex + 1; // start at 1 when none exist
+      const newLabel = `${baseLabel} - (${newIndex})`;
+
+      console.log(`[addTableRow] Creating: ${baseSource} -> ${newLabel}`);
+      const newKey = `fld-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      k2l[newKey] = newLabel;
+      l2k[newLabel] = newKey;
+      const fieldType = cell.fieldType || "text";
+      const placeholder = newLabel;
+      newFieldsForForm.push({
+        _originalKey: newKey,
+        name: newLabel,
+        label: newLabel,
+        type: fieldType === "text" ? "input" : fieldType,
+        placeholder,
+        instructions: "",
+      });
+      setFormData((prev) => ({ ...(prev || {}), [newLabel]: "" }));
+      // Update counters
+      countersForTable[baseLabel] = newIndex;
+      if (!labelCountersRef.current) labelCountersRef.current = {};
+      labelCountersRef.current[targetTableIdx] = countersForTable;
+    });
+    
+    lastSavedRef.current.__keyToLabel = k2l;
+    
+    // Update runtime panels so the new fields render in the current section
+    setPanelsRuntime((prevPanels) => {
+      const basePanels = Array.isArray(prevPanels) ? [...prevPanels] : [...(panelsFromTemplate || [])];
+      const currentPanelIndex = currentSection;
+      if (basePanels[currentPanelIndex]) {
+        basePanels[currentPanelIndex] = {
+          ...basePanels[currentPanelIndex],
+          fields: [...(basePanels[currentPanelIndex].fields || []), ...newFieldsForForm]
+        };
+      }
+      return basePanels;
+    });
+
+    // Also update tableFieldsMap so the new fields are treated as belonging to this table
+    setTableFieldsMap((prev) => {
+      const next = { ...(prev || {}) };
+      newFieldsForForm.forEach((f) => {
+        next[f._originalKey] = {
+          tableIdx: targetTableIdx,
+          fieldName: f.label,
+          fieldKey: f._originalKey,
+        };
+      });
+      return next;
+    });
+
+    // Track the added row keys for safe removal later
+    try {
+      const keysForRow = newFieldsForForm.map((f) => f._originalKey).filter(Boolean);
+      if (!Array.isArray(addedRowsRef.current[targetTableIdx])) addedRowsRef.current[targetTableIdx] = [];
+      addedRowsRef.current[targetTableIdx].push(keysForRow);
+    } catch (_) {}
+
+    // Reflect in TipTap: add a new row after last row and populate cells
+    try {
+      // Move selection to the last cell to ensure addRowAfter targets the final row
+      const lastCellPos = lastCells[lastCells.length - 1]?.pos || lastRow.pos;
+      if (typeof editor.commands.setTextSelection === "function") {
+        editor.commands.setTextSelection(lastCellPos);
+      }
+      if (typeof editor.commands.addRowAfter === "function") {
+        editor.commands.addRowAfter();
+      }
+      // Recompute tables info to get the newly added row
+      setTimeout(() => {
+        checkCanAddRow(editor);
+        const tInfo2 = tablesInfoRef.current?.[targetTableIdx];
+        const newLastRow = tInfo2 && tInfo2.rows && tInfo2.rows[tInfo2.rows.length - 1];
+        const newCells = (newLastRow && Array.isArray(newLastRow.cells)) ? newLastRow.cells : [];
+        // Insert editable fields into each new cell
+        newFieldsForForm.forEach((nf, idx) => {
+          const cellPos = newCells[idx]?.pos;
+          if (!cellPos) return;
+          try {
+            if (typeof editor.commands.setTextSelection === "function") {
+              editor.commands.setTextSelection(cellPos);
+            }
+            if (typeof editor.commands.insertEditableField === "function") {
+              editor.commands.insertEditableField({
+                key: nf._originalKey,
+                type: nf.type === "input" ? "text" : nf.type,
+                placeholder: nf.placeholder || nf.label,
+                tags: [],
+              });
+            }
+          } catch (e) {
+            console.debug("[addTableRow] Failed to insert field into cell", e);
+          }
+        });
+      }, 50);
+    } catch (e) {
+      console.debug("[addTableRow] TipTap row insertion failed", e);
+    }
+    
+    console.log(`[addTableRow] Added ${newFieldsForForm.length} new fields`);
+    
+    setTimeout(() => {
+      checkCanAddRow(editor);
+    }, 100);
+  };
+
+  const removeLastTableRow = (targetTableIdx) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    console.log(`[removeLastTableRow] Removing last row from table ${targetTableIdx}`);
+    const tInfo = tablesInfoRef.current?.[targetTableIdx];
+    const addedRows = addedRowsRef.current?.[targetTableIdx] || [];
+    if (!tInfo || !Array.isArray(tInfo.rows) || tInfo.rows.length === 0) {
+      console.log("[removeLastTableRow] No table info or rows present");
+      return;
+    }
+    if (!Array.isArray(addedRows) || addedRows.length === 0) {
+      console.log("[removeLastTableRow] No added rows to remove – original rows are protected");
+      return;
+    }
+    const lastRow = tInfo.rows[tInfo.rows.length - 1];
+    const cells = Array.isArray(lastRow.cells) ? lastRow.cells : [];
+    const keysToRemove = addedRows.pop();
+
+    // Update runtime panels: remove fields matching cell keys
+    setPanelsRuntime((prevPanels) => {
+      const basePanels = Array.isArray(prevPanels) ? [...prevPanels] : [...(panelsFromTemplate || [])];
+      const currentPanelIndex = currentSection;
+      if (basePanels[currentPanelIndex]) {
+        const origFields = basePanels[currentPanelIndex].fields || [];
+        basePanels[currentPanelIndex] = {
+          ...basePanels[currentPanelIndex],
+          fields: origFields.filter((f) => !keysToRemove.includes(f._originalKey)),
+        };
+      }
+      return basePanels;
+    });
+
+    // Update form data: drop values for those labels
+    const k2l = lastSavedRef.current?.__keyToLabel || {};
+    setFormData((prev) => {
+      const next = { ...(prev || {}) };
+      keysToRemove.forEach((k) => {
+        const label = k2l[k] || k;
+        if (Object.prototype.hasOwnProperty.call(next, label)) delete next[label];
+      });
+      return next;
+    });
+
+    // Update key→label map
+    const nextK2L = { ...(k2l || {}) };
+    keysToRemove.forEach((k) => { delete nextK2L[k]; });
+    lastSavedRef.current.__keyToLabel = nextK2L;
+
+    // Update tableFieldsMap
+    setTableFieldsMap((prev) => {
+      const next = { ...(prev || {}) };
+      keysToRemove.forEach((k) => { delete next[k]; });
+      return next;
+    });
+
+    // TipTap: delete the row
+    try {
+      const selectPos = cells[cells.length - 1]?.pos || lastRow.pos;
+      if (typeof editor.commands.setTextSelection === "function") {
+        editor.commands.setTextSelection(selectPos);
+      }
+      if (typeof editor.commands.deleteRow === "function") {
+        editor.commands.deleteRow();
+      }
+      setTimeout(() => checkCanAddRow(editor), 50);
+    } catch (e) {
+      console.debug("[removeLastTableRow] TipTap row deletion failed", e);
+    }
+    // Adjust counters for removed labels
+    try {
+      const countersForTable = (labelCountersRef.current?.[targetTableIdx]) || {};
+      keysToRemove.forEach((k) => {
+        const lbl = nextK2L[k];
+        if (!lbl) return;
+        const m = lbl.match(/^(.*?)(?:\s*-\s*\((\d+)\))$/);
+        if (m) {
+          const base = m[1].trim();
+          const n = parseInt(m[2], 10);
+          if (!isNaN(n) && countersForTable[base] === n) {
+            countersForTable[base] = Math.max(0, n - 1);
+          }
+        }
+      });
+      labelCountersRef.current[targetTableIdx] = countersForTable;
+    } catch (_) {}
+  };
 
 /**
    * Scrolls to and highlights a specific field in the editor by field name.
@@ -460,6 +889,20 @@ export default function EditableFields() {
       },
     ];
   }, [docData]);
+
+  // Keep a mutable runtime copy of panels so we can append new fields (e.g., Add Row)
+  const [panelsRuntime, setPanelsRuntime] = useState(null);
+  useEffect(() => {
+    // Initialize or refresh runtime panels when template panels change
+    if (panelsFromTemplate && !panelsRuntime) {
+      setPanelsRuntime(panelsFromTemplate);
+    }
+    // If panelsFromTemplate changes later, refresh runtime while preserving user-added fields when possible
+    // For simplicity, if runtime is null or emptied, rehydrate from template
+    if (panelsFromTemplate && Array.isArray(panelsFromTemplate) && Array.isArray(panelsRuntime) === false) {
+      setPanelsRuntime(panelsFromTemplate);
+    }
+  }, [panelsFromTemplate]);
 
   const fieldMetaByName = useMemo(() => {
     const meta = {};
@@ -971,6 +1414,10 @@ export default function EditableFields() {
         try {
           isApplyingRef.current = true;
           applyFormDataToEditor(editorRef.current);
+          // Detect tables after data is applied
+          setTimeout(() => {
+            checkCanAddRow(editorRef.current);
+          }, 200);
         } catch (err) {
           console.debug("editableFields: error applying formData", err);
         } finally {
@@ -984,7 +1431,8 @@ export default function EditableFields() {
     }
   }, [docData]);
 
-  const sections = panelsFromTemplate || [];
+  // Prefer runtime panels if available; fall back to template panels
+  const sections = panelsRuntime || panelsFromTemplate || [];
   const currentSectionData = sections[currentSection] || { title: "", fields: [] };
   const totalSections = sections.length;
 
@@ -1061,6 +1509,87 @@ export default function EditableFields() {
         mobileSidebarOpen={false}
         setMobileSidebarOpen={() => {}}
       />
+
+      {/* Hidden Preview Editor - Always render for table detection and preloading */}
+      <div className="hidden">
+        <TextEditor
+          content={contentForEditor}
+          pageSetup={docData?.pageSetup}
+          mode="document"
+          headerConfig={{
+            ...(docData?.headerConfig ||
+              docData?.from_template?.headerConfig ||
+              docData?.logoConfig ||
+              docData?.from_template?.logoConfig ||
+              {}),
+            documentStamp: {
+              docCode:
+                docData?.document_code ||
+                docData?.document?.document_code ||
+                docData?.from_template?.document_code ||
+                "",
+              revisionNo:
+                docData?.revision_no ??
+                docData?.document?.revision_no ??
+                docData?.from_template?.revision_no ??
+                "",
+              effectivity:
+                docData?.effectivity ||
+                docData?.document?.effectivity ||
+                docData?.from_template?.effectivity ||
+                "",
+            },
+          }}
+          onEditorReady={(editor) => {
+            editorRef.current = editor;
+            try {
+              isApplyingRef.current = true;
+              applyFormDataToEditor(editor);
+              computeDuplicatePositions(editor);
+              checkCanAddRow(editor);
+            } catch (err) {
+              console.debug('editableFields: error applying initial formData to editor', err);
+            } finally {
+              setTimeout(() => { isApplyingRef.current = false; }, 50);
+            }
+            editor.on('update', () => {
+              if (isApplyingRef.current) return;
+              if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
+              updateTimerRef.current = setTimeout(() => {
+                try {
+                  const newValues = {};
+                  editor.state.doc.descendants((node) => {
+                    if (node.type && node.type.name === 'editableField') {
+                      const origKey = node.attrs?.key;
+                      if (!origKey) return;
+                      const k2l = lastSavedRef.current.__keyToLabel || {};
+                      const label = k2l[origKey] || origKey;
+                      newValues[label] = node.textContent || '';
+                    }
+                  });
+                  setFormData((prev) => {
+                    let changed = false;
+                    const merged = { ...prev };
+                    Object.keys(newValues).forEach((k) => {
+                      if (merged[k] !== newValues[k]) {
+                        merged[k] = newValues[k];
+                        changed = true;
+                      }
+                    });
+                    return changed ? merged : prev;
+                  });
+
+                  computeDuplicatePositions(editor);
+                  checkCanAddRow(editor);
+                } catch (err) {
+                  console.debug("error reading editableField from editor", err);
+                }
+              }, 150);
+            });
+          }}
+          onContentChange={() => {}}
+        />
+      </div>
 
       <div className="max-w-[800px] mx-auto px-4 py-8">
         {showPreview ? (
@@ -1149,6 +1678,7 @@ export default function EditableFields() {
                         isApplyingRef.current = true;
                         applyFormDataToEditor(editor);
                         computeDuplicatePositions(editor);
+                        checkCanAddRow(editor);
                       } catch (err) {
                         console.debug('editableFields: error applying initial formData to editor', err);
                       } finally {
@@ -1279,23 +1809,31 @@ export default function EditableFields() {
               </div>
             )}
 
-                {/* Form Fields */}
+                {/* Form Fields - Show FIRST (regular non-table fields) */}
                 <div className="space-y-3">
-                  {currentSectionData.fields && currentSectionData.fields.map((field, idx) => {
-                    const value = formData[field.name] || "";
+                  {currentSectionData.fields && currentSectionData.fields.filter(field => {
+                    const fieldKey = field._originalKey;
+                    return !fieldKey || !tableFieldsMap[fieldKey];
+                  }).map((field, idx) => {
+                    let displayName = field.name;
+                    if (typeof displayName === 'string' && displayName.startsWith('fld-')) {
+                      const fallback = field.label && !field.label.startsWith('fld-') ? field.label : (field.placeholder || field.name);
+                      displayName = fallback;
+                    }
+                    const value = formData[displayName] || "";
                     const isDuplicate = duplicateCounts[field.name] > 1;
                     const currentDupIndex = duplicateIndices[field.name] || 0;
                     
                     return (
                       <div 
                         key={idx}
-                        className="bg-white rounded-lg border border-gray-300 hover:border-gray-400 transition-all p-6 focus-within:border-blue-600 focus-within:shadow-md"
+                        className="bg-white rounded-lg border border-gray-300 hover:border-gray-400 transition-all p-6 focus-within:border-blue-600 focus-within:shadow-md group relative"
                   >
-                    {/* Form FieldLabel */}
+                    {/* Form FieldLabel with Tooltip */}
                     <div className="mb-4">
                       <div className="flex items-start gap-2 mb-2">
                         <label className="text-base text-gray-900 flex-1">
-                          {field.label || field.name}
+                          {displayName}
                           {field.required && (
                             <span className="text-red-500 ml-1">*</span>
                           )}
@@ -1360,14 +1898,14 @@ export default function EditableFields() {
                                 <input
                                   type="text"
                                   value={value}
-                                  onChange={(e) => handleInputChange(field.name, e.target.value)}
+                                  onChange={(e) => handleInputChange(displayName, e.target.value)}
                                   placeholder={field.placeholder || 'Your answer'}
                                   className="w-full px-0 py-2 border-0 border-b border-gray-300 focus:border-blue-600 outline-none transition-colors text-gray-900 placeholder-gray-400 bg-transparent"
                                 />
                             ) : field.type === 'textarea' ? (
                               <textarea
                                 value={value}
-                                onChange={(e) => handleInputChange(field.name, e.target.value)}
+                                onChange={(e) => handleInputChange(displayName, e.target.value)}
                                 placeholder={field.placeholder || 'Your answer'}
                                 rows={4}
                                 className="w-full px-0 py-2 border-0 border-b border-gray-300 focus:border-blue-600 outline-none transition-colors resize-y text-gray-900 placeholder-gray-400 bg-transparent"
@@ -1376,7 +1914,7 @@ export default function EditableFields() {
                                 <input
                                   type="date"
                                   value={value}
-                                  onChange={(e) => handleInputChange(field.name, e.target.value)}
+                                  onChange={(e) => handleInputChange(displayName, e.target.value)}
                                   className="w-full px-0 py-2 border-0 border-b border-gray-300 focus:border-blue-600 outline-none transition-colors text-gray-900 bg-transparent"
                                 />
                             ) : null}
@@ -1392,6 +1930,127 @@ export default function EditableFields() {
                     );
                   })}
                 </div>
+
+            {/* Table Fields - Show AFTER regular fields with actual inputs inside table boxes */}
+            {Object.keys(tableFieldsMap).length > 0 && (
+              <div className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4"> Tables in Document</h3>
+                {Object.values(tableFieldsMap).reduce((unique, item) => {
+                  if (!unique.some(u => u.tableIdx === item.tableIdx)) {
+                    unique.push(item);
+                  }
+                  return unique;
+                }, []).map((item) => {
+                  const tableFieldKeys = Object.values(tableFieldsMap)
+                    .filter(f => f.tableIdx === item.tableIdx)
+                    .map(f => f.fieldKey);
+                  
+                  const tableFieldObjects = currentSectionData.fields
+                    ?.filter(field => field._originalKey && tableFieldKeys.includes(field._originalKey)) || [];
+                  
+                  return (
+                    <div key={item.tableIdx} className="border-2 border-blue-300 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 p-5 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-bold text-blue-900">Table {item.tableIdx + 1}</h4>
+                        <span className="text-xs bg-blue-600 text-white px-3 py-1 rounded-full font-semibold">
+                          {tableFieldObjects.length} fields
+                        </span>
+                      </div>
+                      
+                      <div className="bg-white rounded-lg border-2 border-blue-200 p-4 mb-3">
+                        <div className="flex items-start gap-2 mb-4">
+                          <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p className="text-sm text-gray-700 leading-relaxed">
+                            <strong>Fields in this table:</strong> Fill out these fields, then click "Add Row" to create more rows.
+                          </p>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          {tableFieldObjects.map((field, idx) => {
+                            let displayName = field.name;
+                            if (typeof displayName === 'string' && displayName.startsWith('fld-')) {
+                              const fallback = field.label && !field.label.startsWith('fld-') ? field.label : (field.placeholder || field.name);
+                              displayName = fallback;
+                            }
+                            const value = formData[displayName] || "";
+                            return (
+                              <div key={idx} className="bg-gray-50 border border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-all">
+                                <label className="text-sm font-semibold text-gray-800 mb-2 block">
+                                  {displayName}
+                                  {field.required && <span className="text-red-500 ml-1">*</span>}
+                                </label>
+                                
+                                {field.instructions && (
+                                  <p className="text-xs text-blue-700 mb-2 bg-blue-50 p-2 rounded border border-blue-200">{field.instructions}</p>
+                                )}
+                                
+                                {field.placeholder && !field.instructions && (
+                                  <p className="text-xs text-gray-500 mb-2 italic">Example: {field.placeholder}</p>
+                                )}
+                                
+                                <div>
+                                  {field.type === 'input' || field.type === 'text' ? (
+                                    <input
+                                      type="text"
+                                      value={value}
+                                      onChange={(e) => handleInputChange(displayName, e.target.value)}
+                                      placeholder={field.placeholder || 'Your answer'}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors text-gray-900 placeholder-gray-400 bg-white"
+                                    />
+                                  ) : field.type === 'textarea' ? (
+                                    <textarea
+                                      value={value}
+                                      onChange={(e) => handleInputChange(displayName, e.target.value)}
+                                      placeholder={field.placeholder || 'Your answer'}
+                                      rows={3}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors resize-y text-gray-900 placeholder-gray-400 bg-white"
+                                    />
+                                  ) : field.type === 'date' ? (
+                                    <input
+                                      type="date"
+                                      value={value}
+                                      onChange={(e) => handleInputChange(displayName, e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors text-gray-900 bg-white"
+                                    />
+                                  ) : null}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => addTableRow(item.tableIdx)}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md"
+                        >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                          Add New Row
+                        </button>
+                        <button
+                          onClick={() => removeLastTableRow(item.tableIdx)}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-7 0V6a2 2 0 012-2h3a2 2 0 012 2v1m-7 0h8" />
+                          </svg>
+                          Remove Last Row
+                        </button>
+                      </div>
+                      
+                      <p className="text-xs text-gray-600 mt-2 text-center italic">
+                        New row mirrors last row’s columns with incremented labels.
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
                 {/* Navigation Footer */}
                 {totalSections > 0 && (
