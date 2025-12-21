@@ -5,6 +5,8 @@ import { createVersionData,deleteAllVersionPerDocument } from './documentVersion
 import VersionData from '../models/documentVersionModel.js';
 import { fetchUserInfoById } from '../utils/userServiceUtils.js';
 import { generateDocumentThumbnailInternal } from '../utils/thumbnailUtils.js';
+import { incKey, incLabel, buildFieldIndex, collectEditableFieldsFromLastRow, mergeNewFieldDefsIntoFields } from '../utils/fieldUtils.js';
+import { cloneNode, findTables, addRowToTable } from '../utils/docStructureUtils.js';
 
 /**
  * @desc Create a new document based on a template's essential content.
@@ -565,5 +567,161 @@ export const unarchiveDocumentById = async (req, res) => {
   } catch (err) {
     console.error('unarchiveDocumentById error', err);
     return res.status(500).json({ message: 'Failed to unarchive document', error: err.message });
+  }
+};
+
+
+
+
+/**
+ * Patch/update document from_template:
+ * - Updates nested `from_template.pages_json` with ProseMirror JSON
+ * - Optionally updates nested `from_template.fields` with template field metadata
+ * Persists structural changes (e.g., table row add/remove) against the template snapshot.
+ * @route PATCH /api/documents/:id/from-template
+ */
+export const updateDocumentFromTemplate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'id required' });
+
+    const { from_template: fromTemplatePatch, operation } = req.body || {};
+    if (!fromTemplatePatch || typeof fromTemplatePatch !== 'object') {
+      return res.status(400).json({ message: 'from_template object required' });
+    }
+
+    let { pages_json: pagesJsonPatch, fields: fieldsPatch } = fromTemplatePatch;
+    if (!Array.isArray(pagesJsonPatch)) {
+      return res.status(400).json({ message: 'from_template.pages_json array required' });
+    }
+
+    // Handle table operations
+    if (operation && typeof operation === 'object') {
+      const { type, tableIndex, pageIndex = 0, newFieldKeys } = operation;
+      
+      if (type === 'addTableRow') {
+        // Get the page doc
+        const pageDoc = pagesJsonPatch[pageIndex];
+        if (!pageDoc || pageDoc.type !== 'doc') {
+          return res.status(400).json({ message: `invalid page at index ${pageIndex}` });
+        }
+
+        // Find tables
+        const tables = findTables(pageDoc);
+        if (tableIndex < 0 || tableIndex >= tables.length) {
+          return res.status(400).json({ message: `table index ${tableIndex} out of range` });
+        }
+
+        const { node: tableNode, path } = tables[tableIndex];
+
+        // Build lookup from existing fields (supports grouped structure)
+        const baseInput = Array.isArray(fieldsPatch) ? fieldsPatch : doc.from_template?.fields;
+        const { index: fieldIndex, baseFields } = buildFieldIndex(baseInput);
+
+        // Increments provided by utils
+
+        // Collect editable fields from last row
+        const { collected, targetGroupId } = collectEditableFieldsFromLastRow(tableNode, fieldIndex);
+
+        const genKeys = [];
+        const genLabels = [];
+        const newFieldDefs = [];
+
+        collected.forEach(({ key, label }) => {
+          const newKey = incKey(key);
+          const newLabel = incLabel(label);
+          if (newKey) genKeys.push(newKey);
+          if (newLabel) genLabels.push(newLabel);
+
+          const baseRec = key ? fieldIndex.get(String(key)) : null;
+          const baseDef = baseRec?.def || {};
+          newFieldDefs.push({
+            id: newKey,
+            label: newLabel,
+            name: newLabel,
+            placeholder: baseDef.placeholder || newLabel,
+            type: baseDef.type || 'input',
+            instructions: baseDef.instructions || '',
+            dateFormat: baseDef.dateFormat || null,
+            required: baseDef.required || false,
+            options: baseDef.options || null,
+            tags: Array.isArray(baseDef.tags) ? baseDef.tags : [],
+            is_added: true,
+          });
+        });
+
+        const keysToUse = Array.isArray(newFieldKeys) && newFieldKeys.length ? newFieldKeys : genKeys;
+        const labelsToUse = genLabels;
+
+        // Add row with updated keys/placeholders
+        const updatedTable = addRowToTable(tableNode, keysToUse, labelsToUse);
+
+        // Replace the table in the document
+        let current = pageDoc;
+        for (let i = 0; i < path.length - 1; i++) {
+          current = current.content[path[i]];
+        }
+        current.content[path[path.length - 1]] = updatedTable;
+
+        // Merge new field defs into fieldsPatch respecting group structure
+        fieldsPatch = mergeNewFieldDefsIntoFields(fieldsPatch, baseFields, newFieldDefs, targetGroupId);
+      }
+    }
+
+    // Basic validation: ensure each entry resembles a ProseMirror doc or node
+    const isValidNode = (node) => node && typeof node === 'object' && typeof node.type === 'string';
+    for (const entry of pagesJsonPatch) {
+      if (!isValidNode(entry)) {
+        return res.status(400).json({ message: 'invalid ProseMirror JSON: each entry must be an object with a type' });
+      }
+    }
+
+    const doc = await Document.findById(id);
+    if (!doc) return res.status(404).json({ message: 'document not found' });
+
+    // Ensure from_template exists
+    if (!doc.from_template || typeof doc.from_template !== 'object') {
+      doc.from_template = {};
+    }
+
+    // Update nested pages_json and mirror to top-level for preview compatibility
+    doc.from_template.pages_json = pagesJsonPatch;
+    doc.pages_json = pagesJsonPatch;
+
+    // Update fields if provided (replace strategy; client sends full updated list)
+    if (Array.isArray(fieldsPatch)) {
+      doc.from_template.fields = fieldsPatch;
+    }
+
+    await doc.save();
+
+    // Regenerate thumbnail best-effort after structure updates
+    try {
+      generateDocumentThumbnailInternal(doc).catch(e => console.error('[Doc Thumbnail] from_template generation failed', e?.message || e));
+    } catch {}
+
+    // Snapshot in version history (best-effort)
+    try {
+      const versionNote = operation ? `table operation: ${operation.type}` : 'structure updated (from_template)';
+      const upsertVersion = async () => {
+        try {
+          await createVersionData(String(doc._id), doc.field_values || {}, {
+            userId: req.user?.id || null,
+            note: versionNote,
+            last_activity_at: req.body?.last_activity_at || new Date(),
+          });
+        } catch (e) {
+          console.error('updateDocumentFromTemplate createVersionData failed', e);
+        }
+      };
+      upsertVersion();
+    } catch (e) {
+      console.error('updateDocumentFromTemplate version upsert error', e);
+    }
+
+    return res.json({ success: true, message: 'from_template updated', document: doc });
+  } catch (err) {
+    console.error('updateDocumentFromTemplate error', err);
+    return res.status(500).json({ message: 'Failed to update from_template', error: err.message });
   }
 };

@@ -654,6 +654,26 @@ export const updateDocumentFieldValuesAPI = async (documentId, fieldValues, titl
 };
 
 /**
+ * Update a document's `from_template` object (pages_json and fields).
+ * @param {string} documentId
+ * @param {Object} fromTemplate - object containing pages_json (array) and optional fields (array)
+ * @param {string} [note] - optional note for version snapshot
+ * @returns {Promise<Object>}
+ */
+export const updateDocumentFromTemplateAPI = async (documentId, fromTemplate, note) => {
+	try {
+		const payload = { from_template: fromTemplate };
+		if (typeof note === 'string' && note.trim() !== '') payload.note = note.trim();
+		const res = await axios.patch(`${API_URL}/api/documents/${documentId}/from-template`, payload, {
+			withCredentials: true,
+		});
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to update document from_template');
+	}
+};
+
+/**
  * Persist a single field suggestion.
  * suggestion: { key, value, scope }
  */

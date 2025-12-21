@@ -6,6 +6,7 @@ import {
   getDocumentById,
   listDocuments,  
   updateDocumentFieldValues,
+  updateDocumentFromTemplate,
   deleteDocumentById,
   renameDocument,
   duplicateDocumentById,
@@ -56,6 +57,7 @@ router.post('/:id/duplicate', authenticateJWT, requireDocumentAccess('view'), du
 router.post('/:id/duplicate-version', authenticateJWT, requireDocumentAccess('view'), duplicateDocumentFromVersion);
 router.get('/:id', authenticateJWT, requireDocumentAccess('view'), getDocumentById);
 router.patch('/:id/field-values', authenticateJWT, requireDocumentAccess('edit'), updateDocumentFieldValues);
+router.patch('/:id/from-template', authenticateJWT, requireDocumentAccess('edit'), updateDocumentFromTemplate);
 router.post('/:id/share', authenticateJWT, requireDocumentAccess('edit'), shareDocument);
 router.post('/:id/export-pdf', authenticateJWT, requireDocumentAccess('view'), exportDocumentPdf);
 

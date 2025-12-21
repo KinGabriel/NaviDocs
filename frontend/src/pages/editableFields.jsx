@@ -12,6 +12,7 @@
  */
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import axios from "axios";
 import {
   ChevronRight,
   ChevronLeft,
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import Loader from "../components/loader";
+import AddRowOverlay from "../components/loader/AddRowOverlay";
 import EditableFieldsHeader from "../layout/editable_fields/editableFieldsHeader";
 import OfflineIndicator from "../components/offlineIndicator";
 import useUser from "../hooks/useUser";
@@ -37,6 +39,7 @@ import {
   updateDocumentFieldValuesAPI,
   getFieldSuggestionsAPI,
   saveFieldSuggestionAPI,
+  updateDocumentFromTemplateAPI,
 } from "../api/documentsAPI";
 import AutofillModal from "../components/modals/autofillModal";
 import DownloadingModal from "../components/modals/downloadingModal";
@@ -106,12 +109,15 @@ export default function EditableFields() {
   const [duplicateCounts, setDuplicateCounts] = useState({});
   const [duplicateIndices, setDuplicateIndices] = useState({});
   const [tableFieldsMap, setTableFieldsMap] = useState({});
+  const [tableDiscoveredFields, setTableDiscoveredFields] = useState({});
   // Track table structure for precise row operations
   const tablesInfoRef = useRef([]);
   // Track max used index per base label for each table
   const labelCountersRef = useRef({});
   // Track keys of rows added at runtime per tableIdx
   const addedRowsRef = useRef({});
+  // Map field ID to label for quick lookup (field.id → field.label)
+  const fieldIdToLabelRef = useRef({});
 
   const isApplyingRef = useRef(false);
   const updateTimerRef = useRef(null);
@@ -120,6 +126,8 @@ export default function EditableFields() {
   const lastSavedRef = useRef({});
   const autosaveTimerRef = useRef(null); // debounce handle for autosave
   const [reloadCounter, setReloadCounter] = useState(0);
+  // Show a full-screen overlay while adding a table row
+  const [addingRow, setAddingRow] = useState(false);
 
   const allowSchoolScope = (u) => {
     if (!u) return false;
@@ -255,6 +263,36 @@ export default function EditableFields() {
   // ========================================
   // TABLE ROW DETECTION & ADDITION
   // ========================================
+
+  // Persist current editor structure into from_template.pages_json and update from_template.fields
+  const persistFromTemplateAfterChange = (note, mutateFieldsFn) => {
+    try {
+      const editor = editorRef.current;
+      const idToUse = docData?._id || docData?.document?._id || id;
+      if (!editor || !idToUse) return;
+      const docJson = editor.state?.doc?.toJSON?.();
+      if (!docJson) return;
+
+      // Build updated fields starting from docData.from_template.fields
+      const currentFields = Array.isArray(docData?.from_template?.fields) ? JSON.parse(JSON.stringify(docData.from_template.fields)) : [];
+      let updatedFields = currentFields;
+      if (typeof mutateFieldsFn === 'function') {
+        updatedFields = mutateFieldsFn(currentFields) || currentFields;
+      }
+
+      const fromTemplatePayload = {
+        pages_json: [docJson],
+        fields: updatedFields,
+      };
+
+      // Fire-and-forget; UI stays responsive
+      updateDocumentFromTemplateAPI(idToUse, fromTemplatePayload, note).catch((e) => {
+        console.debug('[from-template] persist failed', e?.message || e);
+      });
+    } catch (e) {
+      console.debug('[from-template] persist error', e?.message || e);
+    }
+  };
   
   const checkCanAddRow = (editor) => {
     if (!editor) {
@@ -307,6 +345,7 @@ export default function EditableFields() {
     const k2l = lastSavedRef.current?.__keyToLabel || {};
     const fieldsMap = {};
     const tablesInfo = [];
+    const discovered = {};
     
     tables.forEach((tableInfo, tableIdx) => {
       console.log(`[checkCanAddRow] Scanning table ${tableIdx}...`);
@@ -326,6 +365,8 @@ export default function EditableFields() {
               let fieldLabelInCell = null;
               let fieldTypeInCell = null;
               let fieldPlaceholderInCell = null;
+              let fieldGroupIdInCell = null;
+              let fieldDateFormatInCell = null;
               // find first editableField within the cell
               cellNode.descendants((nodeInside) => {
                 if (nodeInside.type && nodeInside.type.name === "editableField") {
@@ -335,6 +376,8 @@ export default function EditableFields() {
                     fieldLabelInCell = k2l[fk] || fk;
                     fieldTypeInCell = nodeInside.attrs?.type || "text";
                     fieldPlaceholderInCell = nodeInside.attrs?.placeholder || fieldLabelInCell || "";
+                    fieldGroupIdInCell = nodeInside.attrs?.groupId || null;
+                    fieldDateFormatInCell = nodeInside.attrs?.dateFormat || null;
                   }
                 }
               });
@@ -345,6 +388,15 @@ export default function EditableFields() {
                   fieldName: fieldLabelInCell,
                   fieldKey: fieldKeyInCell,
                 };
+                if (!discovered[fieldKeyInCell]) {
+                  discovered[fieldKeyInCell] = {
+                    label: fieldLabelInCell || fieldPlaceholderInCell || fieldKeyInCell,
+                    placeholder: fieldPlaceholderInCell || fieldLabelInCell || fieldKeyInCell,
+                    type: fieldTypeInCell || 'text',
+                    dateFormat: fieldDateFormatInCell || null,
+                    groupId: fieldGroupIdInCell || null,
+                  };
+                }
               }
               cells.push({
                 pos: cellPosAbs,
@@ -352,6 +404,8 @@ export default function EditableFields() {
                 fieldLabel: fieldLabelInCell,
                 fieldType: fieldTypeInCell,
                 fieldPlaceholder: fieldPlaceholderInCell,
+                fieldGroupId: fieldGroupIdInCell,
+                fieldDateFormat: fieldDateFormatInCell,
               });
             }
           });
@@ -372,22 +426,38 @@ export default function EditableFields() {
       });
       return merged;
     });
+    setTableDiscoveredFields(discovered);
+    // Initialize formData for newly discovered fields that lack values
+    try {
+      setFormData((prev) => {
+        const next = { ...(prev || {}) };
+        const k2l = lastSavedRef.current?.__keyToLabel || {};
+        Object.keys(discovered).forEach((k) => {
+          const lbl = k2l[k] || discovered[k].label || k;
+          if (next[lbl] === undefined) next[lbl] = '';
+        });
+        return next;
+      });
+    } catch (_) {}
     tablesInfoRef.current = tablesInfo;
-    // Build counters per table based on detected labels
+    // Build counters per table based on detected labels, keyed by field ID
     try {
       const counters = {};
       tablesInfo.forEach((t, tIdx) => {
         const c = (counters[tIdx] = {});
         (t.rows || []).forEach((r) => {
           (r.cells || []).forEach((cell) => {
+            const fieldId = cell.fieldKey; // This IS the field ID from template
             const lbl = cell.fieldLabel;
-            if (!lbl) return;
-            const m = lbl.match(/^(.*?)(?:\s*-\s*\((\d+)\))$/);
+            if (!fieldId || !lbl) return;
+            
+            // Extract numeric suffix from label
+            const m = lbl.match(/^(.*?)(?:\s*-\s*\((\d+)\)|[\s\-\(]*(\d+)\)?)$/);
             if (m) {
-              const base = m[1].trim();
-              const n = parseInt(m[2], 10);
+              const n = parseInt(m[2] || m[3], 10);
               if (!isNaN(n)) {
-                c[base] = Math.max(c[base] || 0, n);
+                // Track max counter by field ID
+                c[fieldId] = Math.max(c[fieldId] || 0, n);
               }
             }
           });
@@ -397,194 +467,419 @@ export default function EditableFields() {
     } catch (_) {}
   };
   
-  const addTableRow = (targetTableIdx) => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    
+  const addTableRow = async (targetTableIdx) => {
     console.log(`[addTableRow] Adding row to table ${targetTableIdx}`);
-    // Determine last row cells for this table
-    const tInfo = tablesInfoRef.current?.[targetTableIdx];
+    setAddingRow(true);
+    const editor = editorRef.current;
+
+    // Refresh detection right away to reduce stale table info
+    try {
+      if (editor) checkCanAddRow(editor);
+    } catch (e) {
+      console.debug('[addTableRow] preflight table detection failed', e);
+    }
+    
+    // Get table info to determine field count
+    let tInfo = tablesInfoRef.current?.[targetTableIdx];
+    if (!tInfo) {
+      // One more attempt after detection
+      try {
+        if (editor) checkCanAddRow(editor);
+      } catch (_) {}
+      tInfo = tablesInfoRef.current?.[targetTableIdx];
+    }
     if (!tInfo || !Array.isArray(tInfo.rows) || tInfo.rows.length === 0) {
       console.log("[addTableRow] No table info available or rows missing");
+      // Immediate backend fallback when client-side table detection fails
+      try {
+        let pagesJsonToSend = docData?.from_template?.pages_json || docData?.pages_json;
+        if (!Array.isArray(pagesJsonToSend)) pagesJsonToSend = pagesJsonToSend ? [pagesJsonToSend] : [];
+        const fieldsToSend = docData?.from_template?.fields || docData?.metadata?.template_fields || [];
+        const response = await axios.patch(
+          `${window.location.origin.replace(':3000', ':8000')}/api/documents/${id}/from-template`,
+          {
+            from_template: {
+              pages_json: pagesJsonToSend,
+              fields: fieldsToSend,
+            },
+            operation: {
+              type: 'addTableRow',
+              tableIndex: targetTableIdx,
+              pageIndex: 0,
+              newFieldKeys: [], // backend will generate if empty
+            },
+          },
+          { withCredentials: true }
+        );
+        if (response?.data?.success) {
+          console.log('[addTableRow] Backend fallback (no table info) succeeded');
+          setReloadCounter((prev) => prev + 1);
+          setAddingRow(false);
+        }
+      } catch (fallbackErr) {
+        console.error('[addTableRow] Backend fallback failed when no table info', fallbackErr?.message || fallbackErr);
+        setAddingRow(false);
+      }
+      // End add row flow for no-table-info case
       return;
     }
+    const beforeCount = tInfo.rows.length;
     const lastRow = tInfo.rows[tInfo.rows.length - 1];
     const lastCells = Array.isArray(lastRow.cells) ? lastRow.cells : [];
     const columns = lastCells.length;
     console.log(`[addTableRow] Last row has ${columns} columns`);
     if (columns === 0) {
       console.log("[addTableRow] Last row has no cells");
+      setAddingRow(false);
       return;
     }
     
-    const k2l = lastSavedRef.current?.__keyToLabel || {};
-    const l2k = {};
-    Object.keys(k2l).forEach((k) => {
-      l2k[k2l[k]] = k;
-    });
+    // Use field IDs from the last row (they are template field IDs)
+    const fieldIds = lastCells.map(cell => cell.fieldKey).filter(Boolean);
     
-    const newFieldsForForm = [];
-    // Build key->panel label map from the current section to prefer human labels
-    const keyToPanelLabel = {};
+    // Try client-side row insertion first (TipTap), then persist to backend
     try {
-      const secFields = (sections[currentSection]?.fields) || [];
-      secFields.forEach((f) => {
-        if (f && f._originalKey) {
-          keyToPanelLabel[f._originalKey] = f.label || f.name;
-        }
-      });
-    } catch (_) {}
-
-    // Build new labels/keys based on last row's cell labels with bracketed suffix ` - (n)`
-    lastCells.forEach((cell, idx) => {
-      const baseSource = keyToPanelLabel[cell.fieldKey] || cell.fieldLabel || cell.fieldPlaceholder || `Field ${idx + 1}`;
-      const baseMatch = baseSource.match(/^(.*?)(?:\s*-\s*\((\d+)\))$/);
-      const baseLabel = baseMatch ? baseMatch[1].trim() : baseSource.trim();
-      // Determine next index using counters + live scans
-      const countersForTable = (labelCountersRef.current?.[targetTableIdx]) || {};
-      let maxIndex = countersForTable[baseLabel] || 0;
-      const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const patt = new RegExp(`^${esc(baseLabel)}\\s*-\\s*\\((\\d+)\\)$`);
-      // Scan formData keys
-      Object.keys(formData || {}).forEach((k) => {
-        const m = k.match(patt);
-        if (m) {
-          const n = parseInt(m[1], 10);
-          if (!isNaN(n) && n > maxIndex) maxIndex = n;
-        }
-      });
-      // Scan current section field names (runtime panels)
-      try {
-        const secFields = (sections[currentSection]?.fields) || [];
-        secFields.forEach((f) => {
-          const nm = f?.name || f?.label;
-          if (!nm) return;
-          const m = String(nm).match(patt);
-          if (m) {
-            const n = parseInt(m[1], 10);
-            if (!isNaN(n) && n > maxIndex) maxIndex = n;
-          }
-        });
-      } catch (_) {}
-      // Scan labels of previously added rows in this table
-      try {
-        const addedRows = addedRowsRef.current?.[targetTableIdx] || [];
-        const k2l = lastSavedRef.current?.__keyToLabel || {};
-        addedRows.flat().forEach((key) => {
-          const lbl = k2l[key];
-          if (!lbl) return;
-          const m = lbl.match(patt);
-          if (m) {
-            const n = parseInt(m[1], 10);
-            if (!isNaN(n) && n > maxIndex) maxIndex = n;
-          }
-        });
-      } catch (_) {}
-      const newIndex = maxIndex + 1; // start at 1 when none exist
-      const newLabel = `${baseLabel} - (${newIndex})`;
-
-      console.log(`[addTableRow] Creating: ${baseSource} -> ${newLabel}`);
-      const newKey = `fld-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      k2l[newKey] = newLabel;
-      l2k[newLabel] = newKey;
-      const fieldType = cell.fieldType || "text";
-      const placeholder = newLabel;
-      newFieldsForForm.push({
-        _originalKey: newKey,
-        name: newLabel,
-        label: newLabel,
-        type: fieldType === "text" ? "input" : fieldType,
-        placeholder,
-        instructions: "",
-      });
-      setFormData((prev) => ({ ...(prev || {}), [newLabel]: "" }));
-      // Update counters
-      countersForTable[baseLabel] = newIndex;
-      if (!labelCountersRef.current) labelCountersRef.current = {};
-      labelCountersRef.current[targetTableIdx] = countersForTable;
-    });
-    
-    lastSavedRef.current.__keyToLabel = k2l;
-    
-    // Update runtime panels so the new fields render in the current section
-    setPanelsRuntime((prevPanels) => {
-      const basePanels = Array.isArray(prevPanels) ? [...prevPanels] : [...(panelsFromTemplate || [])];
-      const currentPanelIndex = currentSection;
-      if (basePanels[currentPanelIndex]) {
-        basePanels[currentPanelIndex] = {
-          ...basePanels[currentPanelIndex],
-          fields: [...(basePanels[currentPanelIndex].fields || []), ...newFieldsForForm]
-        };
-      }
-      return basePanels;
-    });
-
-    // Also update tableFieldsMap so the new fields are treated as belonging to this table
-    setTableFieldsMap((prev) => {
-      const next = { ...(prev || {}) };
-      newFieldsForForm.forEach((f) => {
-        next[f._originalKey] = {
-          tableIdx: targetTableIdx,
-          fieldName: f.label,
-          fieldKey: f._originalKey,
-        };
-      });
-      return next;
-    });
-
-    // Track the added row keys for safe removal later
-    try {
-      const keysForRow = newFieldsForForm.map((f) => f._originalKey).filter(Boolean);
-      if (!Array.isArray(addedRowsRef.current[targetTableIdx])) addedRowsRef.current[targetTableIdx] = [];
-      addedRowsRef.current[targetTableIdx].push(keysForRow);
-    } catch (_) {}
-
-    // Reflect in TipTap: add a new row after last row and populate cells
-    try {
-      // Move selection to the last cell to ensure addRowAfter targets the final row
-      const lastCellPos = lastCells[lastCells.length - 1]?.pos || lastRow.pos;
-      if (typeof editor.commands.setTextSelection === "function") {
-        editor.commands.setTextSelection(lastCellPos);
-      }
-      if (typeof editor.commands.addRowAfter === "function") {
+      const editor = editorRef.current;
+      if (editor && typeof editor.commands.addRowAfter === 'function' && typeof editor.commands.setTextSelection === 'function') {
+        console.log('[addTableRow] Inserting row via TipTap commands');
+        const selectPos = lastCells[lastCells.length - 1]?.pos || lastRow.pos;
+        editor.commands.setTextSelection(selectPos);
         editor.commands.addRowAfter();
-      }
-      // Recompute tables info to get the newly added row
-      setTimeout(() => {
-        checkCanAddRow(editor);
-        const tInfo2 = tablesInfoRef.current?.[targetTableIdx];
-        const newLastRow = tInfo2 && tInfo2.rows && tInfo2.rows[tInfo2.rows.length - 1];
-        const newCells = (newLastRow && Array.isArray(newLastRow.cells)) ? newLastRow.cells : [];
-        // Insert editable fields into each new cell
-        newFieldsForForm.forEach((nf, idx) => {
-          const cellPos = newCells[idx]?.pos;
-          if (!cellPos) return;
-          try {
-            if (typeof editor.commands.setTextSelection === "function") {
-              editor.commands.setTextSelection(cellPos);
+
+        // Refresh table info synchronously
+        try {
+          checkCanAddRow(editor);
+        } catch (e) {
+          console.debug('[addTableRow] checkCanAddRow after add failed', e);
+        }
+
+        // Clone previous row's content into the new row immediately
+        try {
+          const latestInfo = tablesInfoRef.current?.[targetTableIdx];
+          if (!latestInfo || !Array.isArray(latestInfo.rows) || latestInfo.rows.length < 2) {
+            console.log('[addTableRow] Not enough rows to clone content');
+          } else {
+            const prevRow = latestInfo.rows[latestInfo.rows.length - 2];
+            const newRow = latestInfo.rows[latestInfo.rows.length - 1];
+            const prevCells = Array.isArray(prevRow.cells) ? prevRow.cells : [];
+            const newCells = Array.isArray(newRow.cells) ? newRow.cells : [];
+            const cloneCount = Math.min(prevCells.length, newCells.length);
+
+            // Helper to deep clone JSON and update editableField keys
+            const updateEditableKeys = (jsonNode, key) => {
+              const walk = (node) => {
+                if (!node || typeof node !== 'object') return;
+                if (node.type === 'editableField' && node.attrs) {
+                  node.attrs.key = key; // Use the field ID directly
+                }
+                if (Array.isArray(node.content)) node.content.forEach(walk);
+              };
+              walk(jsonNode);
+              return jsonNode;
+            };
+
+            for (let i = 0; i < cloneCount; i++) {
+              try {
+                const prevPos = prevCells[i]?.pos;
+                const newPos = newCells[i]?.pos;
+                if (!prevPos || !newPos) continue;
+
+                // Get previous cell node JSON
+                const prevCellNode = editor.state.doc.nodeAt(prevPos);
+                if (!prevCellNode) continue;
+                const prevCellJson = prevCellNode.toJSON();
+
+                // We generally want to clone only the cell's content, not the cell node wrapper
+                const contentToInsert = Array.isArray(prevCellJson?.content)
+                  ? prevCellJson.content.map((c) => JSON.parse(JSON.stringify(c)))
+                  : [];
+
+                // Update editableField key to use the field ID
+                const fieldId = prevCells[i]?.fieldKey;
+                if (fieldId) {
+                  contentToInsert.forEach((n) => updateEditableKeys(n, fieldId));
+                }
+
+                // Select inside the new cell and insert cloned content
+                editor.commands.setTextSelection(newPos + 1);
+                editor.commands.insertContent(contentToInsert);
+              } catch (cellErr) {
+                console.debug('[addTableRow] Failed to clone content for cell', i, cellErr);
+              }
             }
-            if (typeof editor.commands.insertEditableField === "function") {
-              editor.commands.insertEditableField({
-                key: nf._originalKey,
-                type: nf.type === "input" ? "text" : nf.type,
-                placeholder: nf.placeholder || nf.label,
-                tags: [],
+
+            // Move cursor into first new cell for immediate typing
+            if (newCells[0]?.pos) {
+              editor.commands.setTextSelection(newCells[0].pos + 1);
+            }
+
+            // Re-run detection to update maps after cloning
+            try {
+              checkCanAddRow(editor);
+            } catch (_) {}
+
+            // Append new fields to runtime panels so they show in the form immediately
+            try {
+              const groupId = prevCells[0]?.fieldGroupId || newCells[0]?.fieldGroupId || null;
+              const countersForTable = (labelCountersRef.current?.[targetTableIdx]) || {};
+              const newFieldDefs = [];
+              
+              for (let i = 0; i < cloneCount; i++) {
+                // Use the field ID from the previous cell (it's the template field ID)
+                const fieldId = prevCells[i]?.fieldKey;
+                if (!fieldId) continue;
+                
+                // Look up the base label from the template using field ID
+                const templateLabel = fieldIdToLabelRef.current?.[fieldId] || prevCells[i]?.fieldLabel || fieldId;
+                const baseLabel = String(templateLabel).trim();
+                
+                // Get current counter for this field ID and increment
+                const currentMax = countersForTable[fieldId] || 0;
+                const nextIndex = currentMax + 1;
+                countersForTable[fieldId] = nextIndex;
+                
+                // Generate incremented label preserving style
+                const prevLabel = prevCells[i]?.fieldLabel || baseLabel;
+                const prevLabelStr = String(prevLabel).trim();
+                const labelMatch = prevLabelStr.match(/^(.*?)(?:\s*-\s*\((\d+)\)|[\s\-\(]*(\d+)\)?)$/);
+                
+                let label;
+                if (labelMatch) {
+                  const base = labelMatch[1].trim();
+                  const hadParenStyle = /\(/.test(prevLabelStr);
+                  const hadDashParenStyle = /-\s*\(/.test(prevLabelStr);
+                  const hadSpaceNumberStyle = /\s\d+$/.test(prevLabelStr) && !hadParenStyle;
+                  
+                  if (hadDashParenStyle) {
+                    label = `${base} - (${nextIndex})`;
+                  } else if (hadParenStyle) {
+                    label = `${base} (${nextIndex})`;
+                  } else if (hadSpaceNumberStyle) {
+                    label = `${base} ${nextIndex}`;
+                  } else {
+                    label = `${base} (${nextIndex})`;
+                  }
+                } else {
+                  // No number in label yet, default style based on base label
+                  label = `${baseLabel} (${nextIndex})`;
+                }
+                
+                const typeRaw = prevCells[i]?.fieldType || 'text';
+                const type = (typeRaw === 'text' ? 'input' : typeRaw);
+                const placeholder = prevCells[i]?.fieldPlaceholder || baseLabel;
+                const def = {
+                  type,
+                  name: label,
+                  _originalKey: fieldId, // Use field ID directly
+                  label,
+                  placeholder,
+                  instructions: '',
+                  dateFormat: prevCells[i]?.fieldDateFormat || null,
+                  required: false,
+                  options: null,
+                  tags: [],
+                };
+                newFieldDefs.push(def);
+                // Update key→label mapping for the field ID with its new label
+                const k2l = lastSavedRef.current.__keyToLabel || {};
+                k2l[fieldId] = label;
+                lastSavedRef.current.__keyToLabel = k2l;
+              }
+              labelCountersRef.current[targetTableIdx] = countersForTable;
+
+              setPanelsRuntime((prevPanels) => {
+                const basePanels = Array.isArray(prevPanels) ? [...prevPanels] : [...(panelsFromTemplate || [])];
+                // Try to locate panel by section id (groupId)
+                let targetPanelIdx = basePanels.findIndex((p) => p && p.id && groupId && String(p.id) === String(groupId));
+                if (targetPanelIdx < 0) {
+                  // Fallback: use current section
+                  targetPanelIdx = currentSection;
+                }
+                if (basePanels[targetPanelIdx]) {
+                  const origFields = Array.isArray(basePanels[targetPanelIdx].fields) ? basePanels[targetPanelIdx].fields : [];
+                  basePanels[targetPanelIdx] = {
+                    ...basePanels[targetPanelIdx],
+                    fields: [...origFields, ...newFieldDefs],
+                  };
+                }
+                return basePanels;
               });
+
+              // Initialize formData entries for the new labels
+              setFormData((prev) => {
+                const next = { ...(prev || {}) };
+                newFieldDefs.forEach((f) => {
+                  if (next[f.label] === undefined) next[f.label] = '';
+                });
+                return next;
+              });
+            } catch (panelErr) {
+              console.debug('[addTableRow] Failed to append new fields to panels', panelErr);
             }
-          } catch (e) {
-            console.debug("[addTableRow] Failed to insert field into cell", e);
+
+            // Track added row keys for potential removal
+            addedRowsRef.current[targetTableIdx] = [
+              ...((addedRowsRef.current[targetTableIdx]) || []),
+              newFieldKeys,
+            ];
+
+            // Verify row count increased; if not, fallback to backend operation
+            const afterInfo = tablesInfoRef.current?.[targetTableIdx];
+            const afterCount = Array.isArray(afterInfo?.rows) ? afterInfo.rows.length : beforeCount;
+            if (afterCount <= beforeCount) {
+              console.log('[addTableRow] Row did not register client-side; falling back to backend operation');
+              // Ensure pages_json is an array
+              let pagesJsonToSend = docData?.from_template?.pages_json || docData?.pages_json;
+              if (!Array.isArray(pagesJsonToSend)) {
+                pagesJsonToSend = pagesJsonToSend ? [pagesJsonToSend] : [];
+              }
+              const fieldsToSend = docData?.from_template?.fields || docData?.metadata?.template_fields || [];
+              try {
+                const response = await axios.patch(
+                  `${window.location.origin.replace(':3000', ':8000')}/api/documents/${id}/from-template`,
+                  {
+                    from_template: {
+                      pages_json: pagesJsonToSend,
+                      fields: fieldsToSend,
+                    },
+                    operation: {
+                      type: 'addTableRow',
+                      tableIndex: targetTableIdx,
+                      pageIndex: 0,
+                      newFieldKeys: newFieldKeys,
+                    },
+                  },
+                  { withCredentials: true }
+                );
+                if (response?.data?.success) {
+                  console.log('[addTableRow] Backend fallback succeeded');
+                  setReloadCounter((prev) => prev + 1);
+                  setAddingRow(false);
+                } else {
+                  console.error('[addTableRow] Backend fallback failed:', response?.data);
+                  setAddingRow(false);
+                }
+              } catch (fallbackErr) {
+                console.error('[addTableRow] Backend fallback error:', fallbackErr?.message || fallbackErr);
+                setAddingRow(false);
+              }
+            }
           }
-        });
-      }, 50);
+        } catch (cloneErr) {
+          console.debug('[addTableRow] Row content clone step failed', cloneErr);
+        }
+
+        // Persist the updated structure to backend (fire-and-forget)
+        persistFromTemplateAfterChange('addTableRow');
+        setAddingRow(false);
+        return;
+      }
     } catch (e) {
-      console.debug("[addTableRow] TipTap row insertion failed", e);
+      console.debug('[addTableRow] TipTap insertion failed or unavailable, will fallback to backend op', e);
     }
     
-    console.log(`[addTableRow] Added ${newFieldsForForm.length} new fields`);
-    
-    setTimeout(() => {
-      checkCanAddRow(editor);
-    }, 100);
+    // Call backend to add the row to pages_json
+    try {
+      console.log('[addTableRow] Calling backend to insert row...');
+      // Ensure pages_json is an array
+      let pagesJsonToSend = docData?.from_template?.pages_json || docData?.pages_json;
+      if (!Array.isArray(pagesJsonToSend)) {
+        pagesJsonToSend = pagesJsonToSend ? [pagesJsonToSend] : [];
+      }
+      
+      const fieldsToSend = docData?.from_template?.fields || docData?.metadata?.template_fields || [];
+      
+      const response = await axios.patch(
+        `${window.location.origin.replace(':3000', ':8000')}/api/documents/${id}/from-template`,
+        {
+          from_template: {
+            pages_json: pagesJsonToSend,
+            fields: fieldsToSend
+          },
+          operation: {
+            type: 'addTableRow',
+            tableIndex: targetTableIdx,
+            pageIndex: 0,
+            fieldIds: fieldIds // Use field IDs from template
+          }
+        },
+        { withCredentials: true }
+      );
+      
+      if (response?.data?.success) {
+        console.log('[addTableRow] Backend row insertion successful, response:', response?.data);
+        
+        // If backend returned updated document, use it directly to update docData
+        if (response?.data?.document) {
+          console.log('[addTableRow] Applying updated document directly from response');
+          const updatedDoc = response.data.document;
+          
+          // Normalize the returned document
+          const normalized = {
+            ...docData,
+            _id: updatedDoc._id || docData?._id,
+            from_template: updatedDoc.from_template || docData?.from_template,
+            pages_json: Array.isArray(updatedDoc.pages_json) 
+              ? updatedDoc.pages_json 
+              : Array.isArray(updatedDoc.from_template?.pages_json)
+              ? updatedDoc.from_template.pages_json
+              : docData?.pages_json || [],
+            title: updatedDoc.title || docData?.title,
+            document: updatedDoc
+          };
+          
+          console.log('[addTableRow] Setting docData with updated content');
+          setDocData(normalized);
+          
+          // Initialize form data for any new fields found in the updated pages_json
+          try {
+            const base = normalized.pages_json?.[0];
+            if (base && typeof base !== "string") {
+              const additions = {};
+              const walk = (node) => {
+                if (!node) return;
+                if (node.type === "editableField") {
+                  const orig = node.attrs?.key || node.attrs?.name;
+                  if (orig && (formData[orig] === undefined || formData[orig] === null)) {
+                    additions[orig] = "";
+                  }
+                }
+                if (Array.isArray(node.content)) node.content.forEach(walk);
+              };
+              if (Array.isArray(base.content)) base.content.forEach(walk);
+              
+              if (Object.keys(additions).length > 0) {
+                console.log('[addTableRow] Initializing formData for new fields:', Object.keys(additions));
+                setFormData((prev) => ({
+                  ...(prev || {}),
+                  ...additions,
+                }));
+              }
+            }
+          } catch (e) {
+            console.debug('[addTableRow] Error initializing new field values', e);
+          }
+          
+          // Also trigger a hard reload to ensure complete sync
+          setTimeout(() => {
+            console.log('[addTableRow] Triggering full document reload');
+            setReloadCounter(prev => prev + 1);
+          }, 500);
+          setAddingRow(false);
+        } else {
+          console.log('[addTableRow] No document in response, triggering reload');
+          // Reload the document from backend so editor reads the actual structure
+          setReloadCounter(prev => prev + 1);
+          setAddingRow(false);
+        }
+      } else {
+        console.error('[addTableRow] Backend returned error:', response?.data);
+        setAddingRow(false);
+      }
+    } catch (err) {
+      console.error('[addTableRow] Backend call failed:', err?.message || err);
+      setAddingRow(false);
+    }
   };
 
   const removeLastTableRow = (targetTableIdx) => {
@@ -672,6 +967,30 @@ export default function EditableFields() {
       });
       labelCountersRef.current[targetTableIdx] = countersForTable;
     } catch (_) {}
+    // Persist structure and update from_template.fields by removing the keys
+    setTimeout(() => {
+      const mutateFields = (currentFields) => {
+        if (!Array.isArray(currentFields)) return currentFields;
+        const hasSections = Array.isArray(currentFields) && currentFields[0] && Array.isArray(currentFields[0].fields);
+        if (hasSections) {
+          const tInfo = tablesInfoRef.current?.[targetTableIdx];
+          const lastRow = tInfo?.rows?.[tInfo.rows.length - 1];
+          const lastCells = Array.isArray(lastRow?.cells) ? lastRow.cells : [];
+          const groupId = lastCells[0]?.fieldGroupId || null;
+          const sections = currentFields.map((section) => {
+            if (section && section.id && groupId && String(section.id) === String(groupId)) {
+              const existing = Array.isArray(section.fields) ? section.fields : [];
+              return { ...section, fields: existing.filter((f) => !keysToRemove.includes(f.id || f.key || f.name)) };
+            }
+            return section;
+          });
+          return sections;
+        }
+        // Flat list fallback
+        return currentFields.filter((f) => !keysToRemove.includes(f.id || f.key || f.name));
+      };
+      persistFromTemplateAfterChange('table rows updated: remove', mutateFields);
+    }, 100);
   };
 
 /**
@@ -786,21 +1105,8 @@ export default function EditableFields() {
     const list = Array.isArray(tpl.fields) ? tpl.fields : [];
     if (list.length === 0) return null;
 
-    const keysInDoc = new Set();
-    try {
-      const base = docData.pages_json?.[0];
-      const walk = (node) => {
-        if (!node) return;
-        if (node.type === 'editableField') {
-          const k = node.attrs?.key || node.attrs?.name;
-          if (k) keysInDoc.add(k);
-        }
-        if (Array.isArray(node.content)) node.content.forEach(walk);
-      };
-      if (base && typeof base !== 'string' && Array.isArray(base.content)) {
-        base.content.forEach(walk);
-      }
-    } catch (_) { }
+    // Previously we filtered template fields by keys present in pages_json.
+    // To ensure newly added rows always render after reload, include all fields.
 
     if (list[0] && Array.isArray(list[0].fields)) {
       let number = 1;
@@ -810,10 +1116,6 @@ export default function EditableFields() {
         if (!section) continue;
         const sectionFields = Array.isArray(section.fields) ? section.fields : [];
         const mapped = sectionFields
-          .filter((f) => {
-            const key = f.key || f.id || f.name || f._id;
-            return keysInDoc.size === 0 || (key && keysInDoc.has(key));
-          })
           .map((f) => {
             const key = f.key || f.id || f.name || f._id;
             const label = f.label || f.title || f.display || f.name || key;
@@ -838,6 +1140,7 @@ export default function EditableFields() {
         } else {
           panels.push({
             number: number++,
+            id: section.id || section._id || undefined,
             title: section.name || 'Section',
             subtitle: section.scope ? `Scope: ${section.scope}` : undefined,
             color: 'bg-blue-500',
@@ -848,6 +1151,7 @@ export default function EditableFields() {
       if (localFieldsBucket.length > 0) {
         panels.push({
           number: number++,
+          id: 'local-only',
           title: 'Other fields',
           color: 'bg-blue-500',
           fields: localFieldsBucket,
@@ -857,10 +1161,6 @@ export default function EditableFields() {
     }
 
     const fields = list
-      .filter((f) => {
-        const key = f.key || f.id || f.name || f._id;
-        return keysInDoc.size === 0 || (key && keysInDoc.has(key));
-      })
       .map((f) => {
         const key = f.key || f.id || f.name || f._id;
         const label = f.label || f.title || f.display || f.name || key;
@@ -882,6 +1182,7 @@ export default function EditableFields() {
     return [
       {
         number: 1,
+        id: tpl.id || tpl._id || undefined,
         title: tpl.title || 'Template Fields',
         subtitle: tpl.description || '',
         color: 'bg-blue-500',
@@ -1020,10 +1321,13 @@ export default function EditableFields() {
               const remapped = {};
               const tplFields = normalized.from_template?.fields || [];
               const keyToLabel = {};
+              const idToLabel = {}; // Map field ID to its label
               tplFields.forEach(f => {
                 const k = f.key || f.id || f.name || f._id;
                 const lbl = f.label || f.title || f.display || f.name || k;
+                const fid = f.id; // The field ID as used in pages_json
                 if (k) keyToLabel[String(k)] = String(lbl);
+                if (fid) idToLabel[String(fid)] = String(lbl);
               });
               Object.keys(merged).forEach(k => {
                 const lbl = keyToLabel[k];
@@ -1036,6 +1340,7 @@ export default function EditableFields() {
               });
               setFormData(remapped);
               lastSavedRef.current.__keyToLabel = keyToLabel;
+              fieldIdToLabelRef.current = idToLabel; // Store ID→label mapping for row addition
             } catch (e) {
               setFormData(merged);
             }
@@ -1075,6 +1380,20 @@ export default function EditableFields() {
     window.addEventListener('offline:synced', handleSynced);
     return () => window.removeEventListener('offline:synced', handleSynced);
   }, [id]);
+
+  // ---------------------------
+  // AUTO-PREVIEW ON RELOAD
+  // ---------------------------
+  // When a reload is triggered anywhere (setReloadCounter++), immediately:
+  // - switch to Preview mode, so the editor view is the first thing user sees
+  // - show the full-screen loader right away while fetching/re-initializing
+  useEffect(() => {
+    if (reloadCounter > 0) {
+      console.log('[EditableFields] Reload triggered – switching to preview and showing loader');
+      setShowPreview(true);
+      setLoadingDoc(true);
+    }
+  }, [reloadCounter]);
 
   // ---------------------------
   // AUTOFILL HELPERS
@@ -1932,21 +2251,98 @@ export default function EditableFields() {
                 </div>
 
             {/* Table Fields - Show AFTER regular fields with actual inputs inside table boxes */}
-            {Object.keys(tableFieldsMap).length > 0 && (
-              <div className="space-y-4 mt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4"> Tables in Document</h3>
-                {Object.values(tableFieldsMap).reduce((unique, item) => {
+            {(() => {
+              // Build set of editable field keys 
+              const fieldsInPagesJson = new Set();
+              try {
+                const baseDoc = docData?.pages_json?.[0];
+                const walk = (node) => {
+                  if (!node) return;
+                  if (node.type === 'editableField' && node.attrs?.key) {
+                    fieldsInPagesJson.add(String(node.attrs.key));
+                  }
+                  if (Array.isArray(node.content)) {
+                    node.content.forEach(walk);
+                  }
+                };
+                if (baseDoc && typeof baseDoc === 'object') {
+                  walk(baseDoc);
+                }
+              } catch (e) {
+                console.debug('Error scanning pages_json for fields', e);
+              }
+
+              // Only show tables if they have fields that exist in pages_json
+              const tablesToShow = Object.values(tableFieldsMap)
+                .reduce((unique, item) => {
                   if (!unique.some(u => u.tableIdx === item.tableIdx)) {
                     unique.push(item);
                   }
                   return unique;
-                }, []).map((item) => {
+                }, [])
+                .filter((item) => {
                   const tableFieldKeys = Object.values(tableFieldsMap)
                     .filter(f => f.tableIdx === item.tableIdx)
                     .map(f => f.fieldKey);
+                  // Only include if at least one field exists in pages_json AND in current section
+                  const fieldsInSection = currentSectionData.fields?.filter(field => 
+                    field._originalKey && 
+                    tableFieldKeys.includes(field._originalKey) &&
+                    fieldsInPagesJson.has(String(field._originalKey))
+                  ) || [];
+                  return fieldsInSection.length > 0;
+                });
+
+              if (tablesToShow.length === 0) {
+                return null;
+              }
+
+              return (
+              <div className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4"> Tables in Document</h3>
+                {tablesToShow.map((item) => {
+                  const tableFieldKeys = Object.values(tableFieldsMap)
+                    .filter(f => f.tableIdx === item.tableIdx)
+                    .map(f => f.fieldKey);
+                      // Existing fields from template/runtime in this section
+                      const tableFieldObjectsBase = currentSectionData.fields
+                        ?.filter(field => field._originalKey && tableFieldKeys.includes(field._originalKey) && fieldsInPagesJson.has(String(field._originalKey))) || [];
+
+                      // Add synthetic fields for keys present in pages_json but absent from template/runtime fields
+                      const existingKeysSet = new Set(tableFieldObjectsBase.map(f => f._originalKey));
+                      const k2l = lastSavedRef.current?.__keyToLabel || {};
+                      const syntheticFields = tableFieldKeys
+                        .filter((key) => !existingKeysSet.has(key) && fieldsInPagesJson.has(String(key)))
+                        .map((key) => {
+                          const info = tableDiscoveredFields[key] || {};
+                          const rawLabel = k2l[key] || info.label || info.placeholder || key;
+                          const label = (typeof rawLabel === 'string' && rawLabel.startsWith('fld-'))
+                            ? (info.placeholder || rawLabel)
+                            : rawLabel;
+                          return {
+                            type: (info.type === 'text' ? 'input' : info.type) || 'input',
+                            name: label,
+                            _originalKey: key,
+                            label,
+                            placeholder: info.placeholder || label,
+                            instructions: '',
+                            dateFormat: info.dateFormat || null,
+                            required: false,
+                            options: null,
+                            tags: [],
+                          };
+                        });
+
+                      const tableFieldObjects = [...tableFieldObjectsBase, ...syntheticFields];
                   
-                  const tableFieldObjects = currentSectionData.fields
-                    ?.filter(field => field._originalKey && tableFieldKeys.includes(field._originalKey)) || [];
+                  // Only render this table if it actually exists in the document structure and has fields
+                  const tableExists = Array.isArray(tablesInfoRef.current?.[item.tableIdx]?.rows) && 
+                                      tablesInfoRef.current[item.tableIdx].rows.length > 0;
+                  const hasEditableFields = tableFieldObjects.length > 0;
+                  
+                  if (!tableExists || !hasEditableFields) {
+                    return null;
+                  }
                   
                   return (
                     <div key={item.tableIdx} className="border-2 border-blue-300 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 p-5 shadow-sm">
@@ -1957,16 +2353,98 @@ export default function EditableFields() {
                         </span>
                       </div>
                       
+                      {/* Display fillable fields grouped by table row */}
                       <div className="bg-white rounded-lg border-2 border-blue-200 p-4 mb-3">
                         <div className="flex items-start gap-2 mb-4">
                           <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           <p className="text-sm text-gray-700 leading-relaxed">
-                            <strong>Fields in this table:</strong> Fill out these fields, then click "Add Row" to create more rows.
+                            <strong>Fill fields by row:</strong> Complete fields in each row, then click "Add Row" to create more rows.
                           </p>
                         </div>
-                        
+
+                        {/* Show editable fields grouped by their row in the table */}
+                        <div className="space-y-4">
+                          {Array.isArray(tablesInfoRef.current?.[item.tableIdx]?.rows) && tablesInfoRef.current[item.tableIdx].rows.map((row, rowIdx) => {
+                            const cellsInRow = Array.isArray(row.cells) ? row.cells : [];
+                            const fieldsInRow = cellsInRow
+                              .map(cell => {
+                                const fieldObj = tableFieldObjects.find(f => f._originalKey === cell.fieldKey);
+                                return { cell, fieldObj };
+                              })
+                              .filter(item => {
+                                // Check if field exists in pages_json by either fieldObj key or cell key
+                                if (!item.fieldObj) return false;
+                                const fieldKey = item.fieldObj._originalKey || item.cell.fieldKey;
+                                return fieldsInPagesJson.has(String(fieldKey));
+                              });
+                            
+                            if (fieldsInRow.length === 0) return null;
+
+                            return (
+                              <div key={rowIdx} className="bg-gray-50 border border-blue-300 rounded-lg p-4">
+                                <div className="mb-3 pb-3 border-b border-blue-200">
+                                  <span className="text-sm font-bold text-blue-900">Row {rowIdx + 1}</span>
+                                  <span className="text-xs text-gray-600 ml-2">({fieldsInRow.length} field{fieldsInRow.length > 1 ? 's' : ''})</span>
+                                </div>
+                                <div className="space-y-3">
+                                  {fieldsInRow.map(({ cell, fieldObj }, fieldIdx) => {
+                                    let displayName = fieldObj.name;
+                                    if (typeof displayName === 'string' && displayName.startsWith('fld-')) {
+                                      const fallback = fieldObj.label && !fieldObj.label.startsWith('fld-') ? fieldObj.label : (fieldObj.placeholder || fieldObj.name);
+                                      displayName = fallback;
+                                    }
+                                    const value = formData[displayName] || "";
+                                    return (
+                                      <div key={fieldIdx} className="bg-white border border-gray-300 rounded p-3">
+                                        <label className="text-sm font-semibold text-gray-800 mb-2 block">
+                                          {displayName}
+                                          {fieldObj.required && <span className="text-red-500 ml-1">*</span>}
+                                        </label>
+                                        
+                                        {fieldObj.instructions && (
+                                          <p className="text-xs text-blue-700 mb-2 bg-blue-50 p-2 rounded border border-blue-200">{fieldObj.instructions}</p>
+                                        )}
+                                        
+                                        <div>
+                                          {(fieldObj.type === 'input' || fieldObj.type === 'text') ? (
+                                            <input
+                                              type="text"
+                                              value={value}
+                                              onChange={(e) => handleInputChange(displayName, e.target.value)}
+                                              placeholder={fieldObj.placeholder || 'Your answer'}
+                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors text-gray-900 placeholder-gray-400 bg-white"
+                                            />
+                                          ) : fieldObj.type === 'textarea' ? (
+                                            <textarea
+                                              value={value}
+                                              onChange={(e) => handleInputChange(displayName, e.target.value)}
+                                              placeholder={fieldObj.placeholder || 'Your answer'}
+                                              rows={3}
+                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors resize-y text-gray-900 placeholder-gray-400 bg-white"
+                                            />
+                                          ) : fieldObj.type === 'date' ? (
+                                            <input
+                                              type="date"
+                                              value={value}
+                                              onChange={(e) => handleInputChange(displayName, e.target.value)}
+                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors text-gray-900 bg-white"
+                                            />
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Hidden: original flat field list - keeping for reference but not displayed */}
+                      <div className="hidden">
                         <div className="space-y-4">
                           {tableFieldObjects.map((field, idx) => {
                             let displayName = field.name;
@@ -2050,7 +2528,8 @@ export default function EditableFields() {
                   );
                 })}
               </div>
-            )}
+            );
+            })()}
 
                 {/* Navigation Footer */}
                 {totalSections > 0 && (
@@ -2175,6 +2654,9 @@ export default function EditableFields() {
           setDlErr("");
         }}
       />
+
+      {/* Add Row Loading Overlay */}
+      <AddRowOverlay show={addingRow} message="Adding row…" />
     </div>
   </div>
   );
