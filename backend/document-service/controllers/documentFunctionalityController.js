@@ -6,7 +6,7 @@ import VersionData from '../models/documentVersionModel.js';
 import { fetchUserInfoById } from '../utils/userServiceUtils.js';
 import { generateDocumentThumbnailInternal } from '../utils/thumbnailUtils.js';
 import { incKey, incLabel, buildFieldIndex, collectEditableFieldsFromLastRow, mergeNewFieldDefsIntoFields } from '../utils/fieldUtils.js';
-import { cloneNode, findTables, addRowToTable } from '../utils/docStructureUtils.js';
+import { cloneNode, findTables, addRowToTable as addRowToTableUtil } from '../utils/docStructureUtils.js';
 
 /**
  * @desc Create a new document based on a template's essential content.
@@ -574,154 +574,230 @@ export const unarchiveDocumentById = async (req, res) => {
 
 
 /**
- * Patch/update document from_template:
- * - Updates nested `from_template.pages_json` with ProseMirror JSON
- * - Optionally updates nested `from_template.fields` with template field metadata
- * Persists structural changes (e.g., table row add/remove) against the template snapshot.
- * @route PATCH /api/documents/:id/from-template
+ * Add a new row to a table
+ * @route POST /api/documents/:id/table-row
  */
-export const updateDocumentFromTemplate = async (req, res) => {
+export const addRowToTable = async (req, res) => {
   try {
     const { id } = req.params;
     if (!id) return res.status(400).json({ message: 'id required' });
 
-    const { from_template: fromTemplatePatch, operation } = req.body || {};
-    if (!fromTemplatePatch || typeof fromTemplatePatch !== 'object') {
-      return res.status(400).json({ message: 'from_template object required' });
-    }
-
-    let { pages_json: pagesJsonPatch, fields: fieldsPatch } = fromTemplatePatch;
-    if (!Array.isArray(pagesJsonPatch)) {
-      return res.status(400).json({ message: 'from_template.pages_json array required' });
-    }
-
-    // Handle table operations
-    if (operation && typeof operation === 'object') {
-      const { type, tableIndex, pageIndex = 0, newFieldKeys } = operation;
-      
-      if (type === 'addTableRow') {
-        // Get the page doc
-        const pageDoc = pagesJsonPatch[pageIndex];
-        if (!pageDoc || pageDoc.type !== 'doc') {
-          return res.status(400).json({ message: `invalid page at index ${pageIndex}` });
-        }
-
-        // Find tables
-        const tables = findTables(pageDoc);
-        if (tableIndex < 0 || tableIndex >= tables.length) {
-          return res.status(400).json({ message: `table index ${tableIndex} out of range` });
-        }
-
-        const { node: tableNode, path } = tables[tableIndex];
-
-        // Build lookup from existing fields (supports grouped structure)
-        const baseInput = Array.isArray(fieldsPatch) ? fieldsPatch : doc.from_template?.fields;
-        const { index: fieldIndex, baseFields } = buildFieldIndex(baseInput);
-
-        // Increments provided by utils
-
-        // Collect editable fields from last row
-        const { collected, targetGroupId } = collectEditableFieldsFromLastRow(tableNode, fieldIndex);
-
-        const genKeys = [];
-        const genLabels = [];
-        const newFieldDefs = [];
-
-        collected.forEach(({ key, label }) => {
-          const newKey = incKey(key);
-          const newLabel = incLabel(label);
-          if (newKey) genKeys.push(newKey);
-          if (newLabel) genLabels.push(newLabel);
-
-          const baseRec = key ? fieldIndex.get(String(key)) : null;
-          const baseDef = baseRec?.def || {};
-          newFieldDefs.push({
-            id: newKey,
-            label: newLabel,
-            name: newLabel,
-            placeholder: baseDef.placeholder || newLabel,
-            type: baseDef.type || 'input',
-            instructions: baseDef.instructions || '',
-            dateFormat: baseDef.dateFormat || null,
-            required: baseDef.required || false,
-            options: baseDef.options || null,
-            tags: Array.isArray(baseDef.tags) ? baseDef.tags : [],
-            is_added: true,
-          });
-        });
-
-        const keysToUse = Array.isArray(newFieldKeys) && newFieldKeys.length ? newFieldKeys : genKeys;
-        const labelsToUse = genLabels;
-
-        // Add row with updated keys/placeholders
-        const updatedTable = addRowToTable(tableNode, keysToUse, labelsToUse);
-
-        // Replace the table in the document
-        let current = pageDoc;
-        for (let i = 0; i < path.length - 1; i++) {
-          current = current.content[path[i]];
-        }
-        current.content[path[path.length - 1]] = updatedTable;
-
-        // Merge new field defs into fieldsPatch respecting group structure
-        fieldsPatch = mergeNewFieldDefsIntoFields(fieldsPatch, baseFields, newFieldDefs, targetGroupId);
-      }
-    }
-
-    // Basic validation: ensure each entry resembles a ProseMirror doc or node
-    const isValidNode = (node) => node && typeof node === 'object' && typeof node.type === 'string';
-    for (const entry of pagesJsonPatch) {
-      if (!isValidNode(entry)) {
-        return res.status(400).json({ message: 'invalid ProseMirror JSON: each entry must be an object with a type' });
-      }
+    const { tableIndex, pageIndex = 0 } = req.body;
+    if (tableIndex === undefined || tableIndex === null) {
+      return res.status(400).json({ message: 'tableIndex required' });
     }
 
     const doc = await Document.findById(id);
     if (!doc) return res.status(404).json({ message: 'document not found' });
 
-    // Ensure from_template exists
-    if (!doc.from_template || typeof doc.from_template !== 'object') {
-      doc.from_template = {};
+    const pageDoc = Array.isArray(doc.from_template?.pages_json)
+      ? JSON.parse(JSON.stringify(doc.from_template.pages_json[pageIndex]))
+      : null;
+    if (!pageDoc || pageDoc.type !== 'doc') {
+      return res.status(400).json({ message: `invalid page at index ${pageIndex}` });
     }
 
-    // Update nested pages_json and mirror to top-level for preview compatibility
-    doc.from_template.pages_json = pagesJsonPatch;
-    doc.pages_json = pagesJsonPatch;
-
-    // Update fields if provided (replace strategy; client sends full updated list)
-    if (Array.isArray(fieldsPatch)) {
-      doc.from_template.fields = fieldsPatch;
+    // Find tables
+    const tables = findTables(pageDoc);
+    if (tableIndex < 0 || tableIndex >= tables.length) {
+      return res.status(400).json({ message: `table index ${tableIndex} out of range` });
     }
+
+    const { node: tableNode, path } = tables[tableIndex];
+
+    // Build lookup from existing fields (supports grouped structure)
+    const baseInput = Array.isArray(doc.from_template?.fields) ? doc.from_template.fields : [];
+    const { index: fieldIndex, baseFields } = buildFieldIndex(baseInput);
+
+    // Collect editable fields from last row
+    const { collected, targetGroupId } = collectEditableFieldsFromLastRow(tableNode, fieldIndex);
+
+    const genKeys = [];
+    const genLabels = [];
+    const newFieldDefs = [];
+
+    collected.forEach(({ key, label }) => {
+      const newKey = incKey(key);
+      const newLabel = incLabel(label);
+      if (newKey) genKeys.push(newKey);
+      if (newLabel) genLabels.push(newLabel);
+
+      const baseRec = key ? fieldIndex.get(String(key)) : null;
+      const baseDef = baseRec?.def || {};
+      newFieldDefs.push({
+        id: newKey,
+        label: newLabel,
+        name: newLabel,
+        placeholder: baseDef.placeholder || newLabel,
+        type: baseDef.type || 'input',
+        instructions: baseDef.instructions || '',
+        dateFormat: baseDef.dateFormat || null,
+        required: baseDef.required || false,
+        options: baseDef.options || null,
+        tags: Array.isArray(baseDef.tags) ? baseDef.tags : [],
+        is_added: true,
+      });
+    });
+
+    // Add row with updated keys/placeholders
+    const { addRowToTable: addRowToTableUtil } = await import('../utils/docStructureUtils.js');
+    const updatedTable = addRowToTableUtil(tableNode, genKeys, genLabels);
+
+    // Replace the table in the document
+    let current = pageDoc;
+    for (let i = 0; i < path.length - 1; i++) {
+      current = current.content[path[i]];
+    }
+    current.content[path[path.length - 1]] = updatedTable;
+
+    // Apply updated page back to full pages_json
+    const pagesBase = Array.isArray(doc.from_template?.pages_json) ? JSON.parse(JSON.stringify(doc.from_template.pages_json)) : [];
+    pagesBase[pageIndex] = pageDoc;
+
+    doc.from_template.pages_json = pagesBase;
+    doc.pages_json = pagesBase;
+
+    // Merge new field defs into fields respecting group structure
+    const updatedFields = mergeNewFieldDefsIntoFields(doc.from_template.fields, baseFields, newFieldDefs, targetGroupId);
+    doc.from_template.fields = updatedFields;
 
     await doc.save();
 
-    // Regenerate thumbnail best-effort after structure updates
+    console.log('[addRowToTable] Added row to pages_json');
+
+    // Regenerate thumbnail
     try {
-      generateDocumentThumbnailInternal(doc).catch(e => console.error('[Doc Thumbnail] from_template generation failed', e?.message || e));
+      generateDocumentThumbnailInternal(doc).catch(e => console.error('[Doc Thumbnail] add row generation failed', e?.message || e));
     } catch {}
 
-    // Snapshot in version history (best-effort)
+    // Version snapshot
     try {
-      const versionNote = operation ? `table operation: ${operation.type}` : 'structure updated (from_template)';
       const upsertVersion = async () => {
         try {
           await createVersionData(String(doc._id), doc.field_values || {}, {
             userId: req.user?.id || null,
-            note: versionNote,
-            last_activity_at: req.body?.last_activity_at || new Date(),
+            note: 'added table row',
+            last_activity_at: new Date(),
           });
         } catch (e) {
-          console.error('updateDocumentFromTemplate createVersionData failed', e);
+          console.error('addRowToTable createVersionData failed', e);
         }
       };
       upsertVersion();
     } catch (e) {
-      console.error('updateDocumentFromTemplate version upsert error', e);
+      console.error('addRowToTable version upsert error', e);
     }
 
-    return res.json({ success: true, message: 'from_template updated', document: doc });
+    return res.json({ success: true, message: 'Row added successfully', document: doc });
   } catch (err) {
-    console.error('updateDocumentFromTemplate error', err);
-    return res.status(500).json({ message: 'Failed to update from_template', error: err.message });
+    console.error('addRowToTable error', err);
+    return res.status(500).json({ message: 'Failed to add row', error: err.message });
+  }
+};
+
+/**
+ * Remove the last added row from a table
+ * @route DELETE /api/documents/:id/table-row
+ */
+export const removeRowFromTable = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'id required' });
+
+    const { tableIndex, pageIndex = 0 } = req.body;
+    if (tableIndex === undefined || tableIndex === null) {
+      return res.status(400).json({ message: 'tableIndex required' });
+    }
+
+    const doc = await Document.findById(id);
+    if (!doc) return res.status(404).json({ message: 'document not found' });
+
+    const { findLastEditableRowIndexWithKeys, removeRowByIndex } = await import('../utils/docStructureUtils.js');
+
+    const pageDoc = Array.isArray(doc.from_template?.pages_json)
+      ? JSON.parse(JSON.stringify(doc.from_template.pages_json[pageIndex]))
+      : null;
+    if (!pageDoc || pageDoc.type !== 'doc') {
+      return res.status(400).json({ message: `invalid page at index ${pageIndex}` });
+    }
+
+    const tables = findTables(pageDoc);
+    if (tableIndex < 0 || tableIndex >= tables.length) {
+      return res.status(400).json({ message: `table index ${tableIndex} out of range` });
+    }
+    const { node: tableNode, path } = tables[tableIndex];
+
+    const { index: lastIdx, keys } = findLastEditableRowIndexWithKeys(tableNode);
+    if (lastIdx < 0 || !Array.isArray(keys) || keys.length === 0) {
+      return res.status(404).json({ message: 'no removable row found with editable fields' });
+    }
+
+    // Check if ALL editableFields in the row have is_added: true
+    const lastRow = tableNode.content[lastIdx];
+    const allAddedInRow = (row) => {
+      const editableFields = [];
+      const walkNode = (node) => {
+        if (!node || typeof node !== 'object') return;
+        if (node.type === 'editableField') {
+          editableFields.push(node);
+        }
+        if (Array.isArray(node.content)) {
+          node.content.forEach(walkNode);
+        }
+      };
+      walkNode(row);
+      return editableFields.length > 0 && editableFields.every((f) => f.attrs?.is_added === true);
+    };
+
+    if (!allAddedInRow(lastRow)) {
+      return res.status(400).json({ message: 'only rows with all editableFields marked is_added: true can be removed' });
+    }
+
+    // Remove the row in pages_json
+    const updatedTable = removeRowByIndex(tableNode, lastIdx);
+    let current = pageDoc;
+    for (let i = 0; i < path.length - 1; i++) {
+      current = current.content[path[i]];
+    }
+    current.content[path[path.length - 1]] = updatedTable;
+
+    // Apply updated page back to full pages_json
+    const pagesBase = Array.isArray(doc.from_template?.pages_json) ? JSON.parse(JSON.stringify(doc.from_template.pages_json)) : [];
+    pagesBase[pageIndex] = pageDoc;
+
+    doc.from_template.pages_json = pagesBase;
+    doc.pages_json = pagesBase;
+
+    await doc.save();
+
+    console.log('[removeLastAddedRow] Removed row from pages_json');
+
+    // Regenerate thumbnail
+    try {
+      generateDocumentThumbnailInternal(doc).catch(e => console.error('[Doc Thumbnail] remove row generation failed', e?.message || e));
+    } catch {}
+
+    // Version snapshot
+    try {
+      const upsertVersion = async () => {
+        try {
+          await createVersionData(String(doc._id), doc.field_values || {}, {
+            userId: req.user?.id || null,
+            note: 'removed table row',
+            last_activity_at: new Date(),
+          });
+        } catch (e) {
+          console.error('removeRowFromTable createVersionData failed', e);
+        }
+      };
+      upsertVersion();
+    } catch (e) {
+      console.error('removeRowFromTable version upsert error', e);
+    }
+
+    return res.json({ success: true, message: 'Row removed successfully', document: doc });
+  } catch (err) {
+    console.error('removeRowFromTable error', err);
+    return res.status(500).json({ message: 'Failed to remove row', error: err.message });
   }
 };

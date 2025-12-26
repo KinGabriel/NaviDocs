@@ -106,3 +106,35 @@ export const addRowToTable = (tableNode, newFieldKeys = [], newFieldLabels = [])
   clonedTable.content.splice(lastRowIndex + 1, 0, newRow);
   return clonedTable;
 };
+
+// Find the last tableRow with editable fields and return its index + keys
+export const findLastEditableRowIndexWithKeys = (tableNode) => {
+  if (!Array.isArray(tableNode?.content)) return { index: -1, keys: [] };
+  for (let i = tableNode.content.length - 1; i >= 0; i--) {
+    const row = tableNode.content[i];
+    if (!row || row.type !== 'tableRow') continue;
+    const keys = [];
+    const walkNode = (node) => {
+      if (!node || typeof node !== 'object') return;
+      if (node.type === 'editableField' && node.attrs?.key) {
+        keys.push(String(node.attrs.key));
+      }
+      if (Array.isArray(node.content)) node.content.forEach(walkNode);
+    };
+    walkNode(row);
+    if (keys.length > 0) {
+      return { index: i, keys };
+    }
+  }
+  return { index: -1, keys: [] };
+};
+
+// Remove a row at a given index from a table
+export const removeRowByIndex = (tableNode, rowIndex) => {
+  if (!Array.isArray(tableNode?.content) || rowIndex < 0 || rowIndex >= tableNode.content.length) {
+    return tableNode;
+  }
+  const clonedTable = cloneNode(tableNode);
+  clonedTable.content.splice(rowIndex, 1);
+  return clonedTable;
+};

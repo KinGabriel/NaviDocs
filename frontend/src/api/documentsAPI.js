@@ -654,22 +654,41 @@ export const updateDocumentFieldValuesAPI = async (documentId, fieldValues, titl
 };
 
 /**
- * Update a document's `from_template` object (pages_json and fields).
+ * Add a new row to a table in a document
  * @param {string} documentId
- * @param {Object} fromTemplate - object containing pages_json (array) and optional fields (array)
- * @param {string} [note] - optional note for version snapshot
+ * @param {number} tableIndex - index of the table in the document
+ * @param {number} [pageIndex=0] - index of the page containing the table
  * @returns {Promise<Object>}
  */
-export const updateDocumentFromTemplateAPI = async (documentId, fromTemplate, note) => {
+export const addTableRowAPI = async (documentId, tableIndex, pageIndex = 0) => {
 	try {
-		const payload = { from_template: fromTemplate };
-		if (typeof note === 'string' && note.trim() !== '') payload.note = note.trim();
-		const res = await axios.patch(`${API_URL}/api/documents/${documentId}/from-template`, payload, {
+		const payload = { tableIndex, pageIndex };
+		const res = await axios.post(`${API_URL}/api/documents/${documentId}/table-row`, payload, {
 			withCredentials: true,
 		});
 		return res.data;
 	} catch (error) {
-		throw new Error(error.response?.data?.message || 'Failed to update document from_template');
+		throw new Error(error.response?.data?.message || 'Failed to add table row');
+	}
+};
+
+/**
+ * Remove the last added row from a table in a document
+ * @param {string} documentId
+ * @param {number} tableIndex - index of the table in the document
+ * @param {number} [pageIndex=0] - index of the page containing the table
+ * @returns {Promise<Object>}
+ */
+export const removeTableRowAPI = async (documentId, tableIndex, pageIndex = 0) => {
+	try {
+		const payload = { tableIndex, pageIndex };
+		const res = await axios.delete(`${API_URL}/api/documents/${documentId}/table-row`, {
+			data: payload,
+			withCredentials: true,
+		});
+		return res.data;
+	} catch (error) {
+		throw new Error(error.response?.data?.message || 'Failed to remove table row');
 	}
 };
 

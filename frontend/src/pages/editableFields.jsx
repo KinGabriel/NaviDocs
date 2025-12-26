@@ -39,7 +39,8 @@ import {
   updateDocumentFieldValuesAPI,
   getFieldSuggestionsAPI,
   saveFieldSuggestionAPI,
-  updateDocumentFromTemplateAPI,
+  addTableRowAPI,
+  removeTableRowAPI,
 } from "../api/documentsAPI";
 import AutofillModal from "../components/modals/autofillModal";
 import DownloadingModal from "../components/modals/downloadingModal";
@@ -263,36 +264,6 @@ export default function EditableFields() {
   // ========================================
   // TABLE ROW DETECTION & ADDITION
   // ========================================
-
-  // Persist current editor structure into from_template.pages_json and update from_template.fields
-  const persistFromTemplateAfterChange = (note, mutateFieldsFn) => {
-    try {
-      const editor = editorRef.current;
-      const idToUse = docData?._id || docData?.document?._id || id;
-      if (!editor || !idToUse) return;
-      const docJson = editor.state?.doc?.toJSON?.();
-      if (!docJson) return;
-
-      // Build updated fields starting from docData.from_template.fields
-      const currentFields = Array.isArray(docData?.from_template?.fields) ? JSON.parse(JSON.stringify(docData.from_template.fields)) : [];
-      let updatedFields = currentFields;
-      if (typeof mutateFieldsFn === 'function') {
-        updatedFields = mutateFieldsFn(currentFields) || currentFields;
-      }
-
-      const fromTemplatePayload = {
-        pages_json: [docJson],
-        fields: updatedFields,
-      };
-
-      // Fire-and-forget; UI stays responsive
-      updateDocumentFromTemplateAPI(idToUse, fromTemplatePayload, note).catch((e) => {
-        console.debug('[from-template] persist failed', e?.message || e);
-      });
-    } catch (e) {
-      console.debug('[from-template] persist error', e?.message || e);
-    }
-  };
   
   const checkCanAddRow = (editor) => {
     if (!editor) {
@@ -492,26 +463,8 @@ export default function EditableFields() {
       console.log("[addTableRow] No table info available or rows missing");
       // Immediate backend fallback when client-side table detection fails
       try {
-        let pagesJsonToSend = docData?.from_template?.pages_json || docData?.pages_json;
-        if (!Array.isArray(pagesJsonToSend)) pagesJsonToSend = pagesJsonToSend ? [pagesJsonToSend] : [];
-        const fieldsToSend = docData?.from_template?.fields || docData?.metadata?.template_fields || [];
-        const response = await axios.patch(
-          `${window.location.origin.replace(':3000', ':8000')}/api/documents/${id}/from-template`,
-          {
-            from_template: {
-              pages_json: pagesJsonToSend,
-              fields: fieldsToSend,
-            },
-            operation: {
-              type: 'addTableRow',
-              tableIndex: targetTableIdx,
-              pageIndex: 0,
-              newFieldKeys: [], // backend will generate if empty
-            },
-          },
-          { withCredentials: true }
-        );
-        if (response?.data?.success) {
+        const response = await addTableRowAPI(id, targetTableIdx, 0);
+        if (response?.success) {
           console.log('[addTableRow] Backend fallback (no table info) succeeded');
           setReloadCounter((prev) => prev + 1);
           setAddingRow(false);
@@ -728,35 +681,14 @@ export default function EditableFields() {
             const afterCount = Array.isArray(afterInfo?.rows) ? afterInfo.rows.length : beforeCount;
             if (afterCount <= beforeCount) {
               console.log('[addTableRow] Row did not register client-side; falling back to backend operation');
-              // Ensure pages_json is an array
-              let pagesJsonToSend = docData?.from_template?.pages_json || docData?.pages_json;
-              if (!Array.isArray(pagesJsonToSend)) {
-                pagesJsonToSend = pagesJsonToSend ? [pagesJsonToSend] : [];
-              }
-              const fieldsToSend = docData?.from_template?.fields || docData?.metadata?.template_fields || [];
               try {
-                const response = await axios.patch(
-                  `${window.location.origin.replace(':3000', ':8000')}/api/documents/${id}/from-template`,
-                  {
-                    from_template: {
-                      pages_json: pagesJsonToSend,
-                      fields: fieldsToSend,
-                    },
-                    operation: {
-                      type: 'addTableRow',
-                      tableIndex: targetTableIdx,
-                      pageIndex: 0,
-                      newFieldKeys: newFieldKeys,
-                    },
-                  },
-                  { withCredentials: true }
-                );
-                if (response?.data?.success) {
+                const response = await addTableRowAPI(id, targetTableIdx, 0);
+                if (response?.success) {
                   console.log('[addTableRow] Backend fallback succeeded');
                   setReloadCounter((prev) => prev + 1);
                   setAddingRow(false);
                 } else {
-                  console.error('[addTableRow] Backend fallback failed:', response?.data);
+                  console.error('[addTableRow] Backend fallback failed:', response);
                   setAddingRow(false);
                 }
               } catch (fallbackErr) {
@@ -769,8 +701,6 @@ export default function EditableFields() {
           console.debug('[addTableRow] Row content clone step failed', cloneErr);
         }
 
-        // Persist the updated structure to backend (fire-and-forget)
-        persistFromTemplateAfterChange('addTableRow');
         setAddingRow(false);
         return;
       }
@@ -781,38 +711,16 @@ export default function EditableFields() {
     // Call backend to add the row to pages_json
     try {
       console.log('[addTableRow] Calling backend to insert row...');
-      // Ensure pages_json is an array
-      let pagesJsonToSend = docData?.from_template?.pages_json || docData?.pages_json;
-      if (!Array.isArray(pagesJsonToSend)) {
-        pagesJsonToSend = pagesJsonToSend ? [pagesJsonToSend] : [];
-      }
       
-      const fieldsToSend = docData?.from_template?.fields || docData?.metadata?.template_fields || [];
+      const response = await addTableRowAPI(id, targetTableIdx, 0);
       
-      const response = await axios.patch(
-        `${window.location.origin.replace(':3000', ':8000')}/api/documents/${id}/from-template`,
-        {
-          from_template: {
-            pages_json: pagesJsonToSend,
-            fields: fieldsToSend
-          },
-          operation: {
-            type: 'addTableRow',
-            tableIndex: targetTableIdx,
-            pageIndex: 0,
-            fieldIds: fieldIds // Use field IDs from template
-          }
-        },
-        { withCredentials: true }
-      );
-      
-      if (response?.data?.success) {
-        console.log('[addTableRow] Backend row insertion successful, response:', response?.data);
+      if (response?.success) {
+        console.log('[addTableRow] Backend row insertion successful, response:', response);
         
         // If backend returned updated document, use it directly to update docData
-        if (response?.data?.document) {
+        if (response?.document) {
           console.log('[addTableRow] Applying updated document directly from response');
-          const updatedDoc = response.data.document;
+          const updatedDoc = response.document;
           
           // Normalize the returned document
           const normalized = {
@@ -873,7 +781,7 @@ export default function EditableFields() {
           setAddingRow(false);
         }
       } else {
-        console.error('[addTableRow] Backend returned error:', response?.data);
+        console.error('[addTableRow] Backend returned error:', response);
         setAddingRow(false);
       }
     } catch (err) {
@@ -887,14 +795,48 @@ export default function EditableFields() {
     if (!editor) return;
     console.log(`[removeLastTableRow] Removing last row from table ${targetTableIdx}`);
     const tInfo = tablesInfoRef.current?.[targetTableIdx];
-    const addedRows = addedRowsRef.current?.[targetTableIdx] || [];
+    let addedRows = addedRowsRef.current?.[targetTableIdx] || [];
     if (!tInfo || !Array.isArray(tInfo.rows) || tInfo.rows.length === 0) {
       console.log("[removeLastTableRow] No table info or rows present");
       return;
     }
+    // Fallback: if no runtime tracker, scan for the last row whose field keys map to is_added:true in from_template.fields
     if (!Array.isArray(addedRows) || addedRows.length === 0) {
-      console.log("[removeLastTableRow] No added rows to remove – original rows are protected");
-      return;
+      const fieldsList = Array.isArray(docData?.from_template?.fields) ? docData.from_template.fields : [];
+      const buildFieldIndex = (list) => {
+        const map = new Map();
+        (list || []).forEach((entry) => {
+          if (Array.isArray(entry?.fields)) {
+            entry.fields.forEach((f) => {
+              const id = f?.id || f?.key;
+              if (id) map.set(String(id), f);
+            });
+          } else {
+            const id = entry?.id || entry?.key;
+            if (id) map.set(String(id), entry);
+          }
+        });
+        return map;
+      };
+      const fieldIndex = buildFieldIndex(fieldsList);
+      let candidateKeys = null;
+      for (let r = tInfo.rows.length - 1; r >= 0; r--) {
+        const row = tInfo.rows[r];
+        const keys = (row?.cells || []).map((c) => c.fieldKey).filter(Boolean);
+        if (!keys.length) continue;
+        const allAdded = keys.every((k) => fieldIndex.get(String(k))?.is_added === true);
+        if (allAdded) {
+          candidateKeys = keys;
+          break;
+        }
+      }
+      if (Array.isArray(candidateKeys) && candidateKeys.length) {
+        addedRowsRef.current[targetTableIdx] = [...(addedRowsRef.current[targetTableIdx] || []), candidateKeys];
+        addedRows = addedRowsRef.current[targetTableIdx];
+      } else {
+        console.log("[removeLastTableRow] No added rows to remove – original rows are protected");
+        return;
+      }
     }
     const lastRow = tInfo.rows[tInfo.rows.length - 1];
     const cells = Array.isArray(lastRow.cells) ? lastRow.cells : [];
@@ -937,14 +879,28 @@ export default function EditableFields() {
       return next;
     });
 
-    // TipTap: delete the row
+    // TipTap: delete the specific row matching keysToRemove (mirror insertPanel chain usage)
     try {
-      const selectPos = cells[cells.length - 1]?.pos || lastRow.pos;
-      if (typeof editor.commands.setTextSelection === "function") {
-        editor.commands.setTextSelection(selectPos);
+      let targetSelectPos = null;
+      for (let r = tInfo.rows.length - 1; r >= 0; r--) {
+        const rCells = Array.isArray(tInfo.rows[r].cells) ? tInfo.rows[r].cells : [];
+        const rKeys = rCells.map((c) => c.fieldKey).filter(Boolean);
+        if (rKeys.length && rKeys.every((k) => keysToRemove.includes(k)) && keysToRemove.every((k) => rKeys.includes(k))) {
+          targetSelectPos = rCells[rCells.length - 1]?.pos || tInfo.rows[r].pos;
+          break;
+        }
       }
-      if (typeof editor.commands.deleteRow === "function") {
-        editor.commands.deleteRow();
+      const selectPos = targetSelectPos || cells[cells.length - 1]?.pos || lastRow.pos;
+      if (editor?.chain) {
+        editor.chain().focus().setTextSelection(selectPos).deleteRow().run();
+      } else {
+        // Fallback to commands API if chain is unavailable
+        if (typeof editor.commands.setTextSelection === "function") {
+          editor.commands.setTextSelection(selectPos);
+        }
+        if (typeof editor.commands.deleteRow === "function") {
+          editor.commands.deleteRow();
+        }
       }
       setTimeout(() => checkCanAddRow(editor), 50);
     } catch (e) {
@@ -967,30 +923,45 @@ export default function EditableFields() {
       });
       labelCountersRef.current[targetTableIdx] = countersForTable;
     } catch (_) {}
-    // Persist structure and update from_template.fields by removing the keys
-    setTimeout(() => {
-      const mutateFields = (currentFields) => {
-        if (!Array.isArray(currentFields)) return currentFields;
-        const hasSections = Array.isArray(currentFields) && currentFields[0] && Array.isArray(currentFields[0].fields);
-        if (hasSections) {
-          const tInfo = tablesInfoRef.current?.[targetTableIdx];
-          const lastRow = tInfo?.rows?.[tInfo.rows.length - 1];
-          const lastCells = Array.isArray(lastRow?.cells) ? lastRow.cells : [];
-          const groupId = lastCells[0]?.fieldGroupId || null;
-          const sections = currentFields.map((section) => {
-            if (section && section.id && groupId && String(section.id) === String(groupId)) {
-              const existing = Array.isArray(section.fields) ? section.fields : [];
-              return { ...section, fields: existing.filter((f) => !keysToRemove.includes(f.id || f.key || f.name)) };
-            }
-            return section;
-          });
-          return sections;
+    
+
+    // Backend enforcement: ensure removal only when fields are marked is_added
+    try {
+      const editorNow = editorRef.current;
+      const idToUse = docData?._id || docData?.document?._id || id;
+      const docJson = editorNow?.state?.doc?.toJSON?.();
+      const currentFields = Array.isArray(docData?.from_template?.fields) ? JSON.parse(JSON.stringify(docData.from_template.fields)) : [];
+      removeTableRowAPI(idToUse, targetTableIdx, 0).then((response) => {
+        if (response?.success && response?.document) {
+          const updatedDoc = response.document;
+          console.log('[removeLastTableRow] Backend removed fields, updated doc:', updatedDoc);
+          const normalized = {
+            ...docData,
+            _id: updatedDoc._id || docData?._id,
+            from_template: {
+              ...updatedDoc.from_template,
+              fields: Array.isArray(updatedDoc.from_template?.fields) ? updatedDoc.from_template.fields : [],
+              pages_json: Array.isArray(updatedDoc.from_template?.pages_json) ? updatedDoc.from_template.pages_json : [],
+            },
+            pages_json: Array.isArray(updatedDoc.pages_json)
+              ? updatedDoc.pages_json
+              : Array.isArray(updatedDoc.from_template?.pages_json)
+              ? updatedDoc.from_template.pages_json
+              : docData?.pages_json || [],
+            title: updatedDoc.title || docData?.title,
+            document: updatedDoc,
+          };
+          console.log('[removeLastTableRow] Updated docData with removed fields:', normalized.from_template.fields);
+          setDocData(normalized);
+          // Force a hard reload to sync all UI panels and tables
+          setTimeout(() => window.location.reload(), 500);
         }
-        // Flat list fallback
-        return currentFields.filter((f) => !keysToRemove.includes(f.id || f.key || f.name));
-      };
-      persistFromTemplateAfterChange('table rows updated: remove', mutateFields);
-    }, 100);
+      }).catch((e) => {
+        console.error('[removeLastTableRow] backend enforcement failed', e?.message || e);
+      });
+    } catch (e) {
+      console.error('[removeLastTableRow] backend enforcement error', e?.message || e);
+    }
   };
 
 /**
