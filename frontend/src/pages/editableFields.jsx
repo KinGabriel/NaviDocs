@@ -30,6 +30,7 @@ import {
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import Loader from "../components/loader";
 import AddRowOverlay from "../components/loader/AddRowOverlay";
+import RemoveRowOverlay from "../components/loader/RemoveRowOverlay";
 import EditableFieldsHeader from "../layout/editable_fields/editableFieldsHeader";
 import OfflineIndicator from "../components/offlineIndicator";
 import useUser from "../hooks/useUser";
@@ -81,7 +82,7 @@ export default function EditableFields() {
     routeParams.docId ||
     routeParams._id;
 
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
   const [formData, setFormData] = useState({});
   const [currentSection, setCurrentSection] = useState(0);
   const [zoom, setZoom] = useState(100);
@@ -129,6 +130,9 @@ export default function EditableFields() {
   const [reloadCounter, setReloadCounter] = useState(0);
   // Show a full-screen overlay while adding a table row
   const [addingRow, setAddingRow] = useState(false);
+  const [removingRow, setRemovingRow] = useState(false);
+  const [tableErrorMessage, setTableErrorMessage] = useState("");
+  const [preloadingOverlay, setPreloadingOverlay] = useState(true);
 
   const allowSchoolScope = (u) => {
     if (!u) return false;
@@ -440,6 +444,7 @@ export default function EditableFields() {
   
   const addTableRow = async (targetTableIdx) => {
     console.log(`[addTableRow] Adding row to table ${targetTableIdx}`);
+    setTableErrorMessage("");
     setAddingRow(true);
     const editor = editorRef.current;
 
@@ -466,7 +471,7 @@ export default function EditableFields() {
         const response = await addTableRowAPI(id, targetTableIdx, 0);
         if (response?.success) {
           console.log('[addTableRow] Backend fallback (no table info) succeeded');
-          setReloadCounter((prev) => prev + 1);
+          setTableErrorMessage("");
           setAddingRow(false);
         }
       } catch (fallbackErr) {
@@ -685,7 +690,7 @@ export default function EditableFields() {
                 const response = await addTableRowAPI(id, targetTableIdx, 0);
                 if (response?.success) {
                   console.log('[addTableRow] Backend fallback succeeded');
-                  setReloadCounter((prev) => prev + 1);
+                  setTableErrorMessage("");
                   setAddingRow(false);
                 } else {
                   console.error('[addTableRow] Backend fallback failed:', response);
@@ -701,6 +706,7 @@ export default function EditableFields() {
           console.debug('[addTableRow] Row content clone step failed', cloneErr);
         }
 
+        setTableErrorMessage("");
         setAddingRow(false);
         return;
       }
@@ -738,6 +744,8 @@ export default function EditableFields() {
           
           console.log('[addTableRow] Setting docData with updated content');
           setDocData(normalized);
+          setReloadCounter(prev => prev + 1);
+          setIsMobileDrawerOpen(false);
           
           // Initialize form data for any new fields found in the updated pages_json
           try {
@@ -768,16 +776,10 @@ export default function EditableFields() {
             console.debug('[addTableRow] Error initializing new field values', e);
           }
           
-          // Also trigger a hard reload to ensure complete sync
-          setTimeout(() => {
-            console.log('[addTableRow] Triggering full document reload');
-            setReloadCounter(prev => prev + 1);
-          }, 500);
+          setTableErrorMessage("");
           setAddingRow(false);
         } else {
-          console.log('[addTableRow] No document in response, triggering reload');
-          // Reload the document from backend so editor reads the actual structure
-          setReloadCounter(prev => prev + 1);
+          console.log('[addTableRow] No document in response');
           setAddingRow(false);
         }
       } else {
@@ -794,10 +796,13 @@ export default function EditableFields() {
     const editor = editorRef.current;
     if (!editor) return;
     console.log(`[removeLastTableRow] Removing last row from table ${targetTableIdx}`);
+    setTableErrorMessage("");
+    setRemovingRow(true);
     const tInfo = tablesInfoRef.current?.[targetTableIdx];
     let addedRows = addedRowsRef.current?.[targetTableIdx] || [];
     if (!tInfo || !Array.isArray(tInfo.rows) || tInfo.rows.length === 0) {
       console.log("[removeLastTableRow] No table info or rows present");
+      setRemovingRow(false);
       return;
     }
     // Fallback: if no runtime tracker, scan for the last row whose field keys map to is_added:true in from_template.fields
@@ -835,6 +840,8 @@ export default function EditableFields() {
         addedRows = addedRowsRef.current[targetTableIdx];
       } else {
         console.log("[removeLastTableRow] No added rows to remove – original rows are protected");
+        setTableErrorMessage("Cannot remove this row. Only rows you've added can be removed. Original template rows are protected.");
+        setRemovingRow(false);
         return;
       }
     }
@@ -953,14 +960,18 @@ export default function EditableFields() {
           };
           console.log('[removeLastTableRow] Updated docData with removed fields:', normalized.from_template.fields);
           setDocData(normalized);
-          // Force a hard reload to sync all UI panels and tables
-          setTimeout(() => window.location.reload(), 500);
+          setReloadCounter(prev => prev + 1);
+          setIsMobileDrawerOpen(false);
+          setTableErrorMessage("");
+          setRemovingRow(false);
         }
       }).catch((e) => {
         console.error('[removeLastTableRow] backend enforcement failed', e?.message || e);
+        setRemovingRow(false);
       });
     } catch (e) {
       console.error('[removeLastTableRow] backend enforcement error', e?.message || e);
+      setRemovingRow(false);
     }
   };
 
@@ -1365,6 +1376,21 @@ export default function EditableFields() {
       setLoadingDoc(true);
     }
   }, [reloadCounter]);
+
+  // ---------------------------
+  // AUTO-SWITCH TO FORM ON INITIAL LOAD
+  // ---------------------------
+  // After initial document load completes, automatically switch back to form view
+  useEffect(() => {
+    if (!loadingDoc && docData && reloadCounter === 0 && preloadingOverlay) {
+      const timer = setTimeout(() => {
+        console.log('[EditableFields] Initial load complete – hiding overlay and switching to form view');
+        setPreloadingOverlay(false);
+        setShowPreview(false);
+      }, 300); // Brief delay to ensure preview is fully rendered
+      return () => clearTimeout(timer);
+    }
+  }, [loadingDoc, docData, reloadCounter, preloadingOverlay]);
 
   // ---------------------------
   // AUTOFILL HELPERS
@@ -2471,6 +2497,26 @@ export default function EditableFields() {
                         </div>
                       </div>
                       
+                      {/* Table error message */}
+                      {tableErrorMessage && (
+                        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-3 rounded">
+                          <div className="flex items-start">
+                            <svg className="w-5 h-5 text-red-500 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-red-800">{tableErrorMessage}</p>
+                              <button
+                                onClick={() => setTableErrorMessage("")}
+                                className="text-xs text-red-600 hover:text-red-800 underline mt-1"
+                              >
+                                Dismiss
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="grid grid-cols-2 gap-3">
                         <button
                           onClick={() => addTableRow(item.tableIdx)}
@@ -2628,6 +2674,17 @@ export default function EditableFields() {
 
       {/* Add Row Loading Overlay */}
       <AddRowOverlay show={addingRow} message="Adding row…" />
+      <RemoveRowOverlay show={removingRow} message="Removing row…" />
+      
+      {/* Preloading Overlay - shown during initial preview preload */}
+      {preloadingOverlay && (
+        <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p className="text-gray-600 font-medium">Loading document...</p>
+          </div>
+        </div>
+      )}
     </div>
   </div>
   );
