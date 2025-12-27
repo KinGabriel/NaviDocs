@@ -52,6 +52,9 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   const [isSaving, setIsSaving] = useState(false);
   const [conflictError, setConflictError] = useState(null);
   const [docPrefix, setDocPrefix] = useState(DOCUMENT_PREFIX_OPTIONS?.[0] || 'FM');
+  // Optional extra 3-letter segment between prefix and identifier (A–Z only)
+  const [useExtraSegment, setUseExtraSegment] = useState(false);
+  const [extraSegment, setExtraSegment] = useState('');
 
   // State for ISO Code modal
   const [isISOModalOpen, setIsISOModalOpen] = useState(false);
@@ -70,14 +73,27 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
     setEffectivityDate(toISODate(template?.effectivity ?? template?.effectivity_date));
     // Parse document_code into <PREFIX>-<IDENTIFIER>-<SERIAL>
     const existing = template?.document_code || '';
-    const match = typeof existing === 'string' ? existing.match(/^([A-Z]{2,})-([A-Z]{2,})-?(\d*)$/i) : null;
-    if (match) {
-      const parsedPrefix = (match[1] || 'FM').toUpperCase();
+    // Support formats: PREFIX-IDENT-SERIAL or PREFIX-EXTRA-IDENT-SERIAL
+    const matchWithExtra = typeof existing === 'string' ? existing.match(/^([A-Z]{2,})-([A-Z]{3})-([A-Z]{2,})-?(\d*)$/i) : null;
+    const matchNoExtra = typeof existing === 'string' ? existing.match(/^([A-Z]{2,})-([A-Z]{2,})-?(\d*)$/i) : null;
+    if (matchWithExtra) {
+      const parsedPrefix = (matchWithExtra[1] || 'FM').toUpperCase();
       setDocPrefix(DOCUMENT_PREFIX_OPTIONS.includes(parsedPrefix) ? parsedPrefix : (DOCUMENT_PREFIX_OPTIONS?.[0] || 'FM'));
-      setDocumentIdentifier((match[2] || 'VAA').toUpperCase());
-      setDocumentSerial(match[3] || '');
+      setUseExtraSegment(true);
+      setExtraSegment((matchWithExtra[2] || '').toUpperCase());
+      setDocumentIdentifier((matchWithExtra[3] || 'VAA').toUpperCase());
+      setDocumentSerial(matchWithExtra[4] || '');
+    } else if (matchNoExtra) {
+      const parsedPrefix = (matchNoExtra[1] || 'FM').toUpperCase();
+      setDocPrefix(DOCUMENT_PREFIX_OPTIONS.includes(parsedPrefix) ? parsedPrefix : (DOCUMENT_PREFIX_OPTIONS?.[0] || 'FM'));
+      setUseExtraSegment(false);
+      setExtraSegment('');
+      setDocumentIdentifier((matchNoExtra[2] || 'VAA').toUpperCase());
+      setDocumentSerial(matchNoExtra[3] || '');
     } else {
       setDocPrefix(DOCUMENT_PREFIX_OPTIONS?.[0] || 'FM');
+      setUseExtraSegment(false);
+      setExtraSegment('');
       setDocumentSerial('');
     }
     setIsEditing(true);
@@ -113,6 +129,9 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   const identifierValid = identifierOptions.includes(String(documentIdentifier || '').trim().toUpperCase());
   const serialValid = /^\d{1,3}$/.test(String(documentSerial || '').trim());
   const revisionValid = /^\d{1,2}$/.test(String(revisionNumber || '').trim());
+  const extraValid = /^[A-Za-z]{3}$/.test(String(extraSegment || '').trim());
+  const extraHasInput = String(extraSegment || '').trim().length > 0;
+  const extraError = useExtraSegment && extraHasInput && !extraValid;
   // Effectivity must be present and not earlier than today (local)
   const todayStr = (() => {
     const now = new Date();
@@ -123,7 +142,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   const hasEffectivity = Boolean(effectivityDate && String(effectivityDate).trim().length > 0);
   const notPast = hasEffectivity ? String(effectivityDate) >= todayStr : false;
   const effectivityValid = hasEffectivity && notPast;
-  const canSubmit = prefixValid && identifierValid && serialValid && revisionValid && effectivityValid;
+  const canSubmit = prefixValid && identifierValid && serialValid && revisionValid && effectivityValid && (!useExtraSegment || extraValid);
 
   const handleSave = async () => {
     if (!canSubmit) {
@@ -140,7 +159,8 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
         const prefix = (docPrefix || 'FM').toUpperCase();
         const id = (documentIdentifier || 'VAA').toUpperCase();
         const serial = serialValid ? String(documentSerial).trim().padStart(3, '0') : '';
-        finalDocumentCode = `${prefix}-${id}${serial ? `-${serial}` : ''}`;
+        const extra = useExtraSegment && extraValid ? String(extraSegment).trim().toUpperCase() : null;
+        finalDocumentCode = `${prefix}${extra ? `-${extra}` : ''}-${id}${serial ? `-${serial}` : ''}`;
       }
 
       // Call API to insert document code (Dean-only)
@@ -212,6 +232,8 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
     setEffectivityDate(toISODate(template?.effectivity ?? template?.effectivity_date));
     // reset document code parts
     setDocPrefix(DOCUMENT_PREFIX_OPTIONS?.[0] || 'FM');
+    setUseExtraSegment(false);
+    setExtraSegment('');
     setDocumentIdentifier('VAA');
     setDocumentSerial('');
     setIsEditing(false);
@@ -238,7 +260,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
   return (
     <>
       {/* Document Details Card */}
-      <div className="bg-white border rounded-md shadow-sm mb-4">
+      <div className="bg-white border rounded-md shadow-sm mb-4 overflow-hidden w-full">
         <div className="p-5">
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans">
@@ -257,7 +279,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
           <div className="w-16 h-0.5 bg-yellow-400 mb-4 rounded" />
 
           {/* Document Code Section */}
-          <div className="mb-4 overflow-visible">
+          <div className="mb-4">
             <div className="flex items-start gap-2">
               <FileText className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
@@ -267,17 +289,28 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                 <div className="text-base text-gray-900">
                   {isEditing ? (
                     <>
-                      <div className="flex gap-2 relative z-50 overflow-visible">
+                      <div className="flex gap-2">
                         {/* Changeable prefix as select so all options show even when a value is present */}
                         <select
                           value={docPrefix}
                           onChange={(e) => { setDocPrefix(e.target.value); setConflictError(null); }}
-                          className={`px-3 py-2 border border-gray-300 text-sm rounded-l-md focus:outline-none focus:ring-2 bg-white ${!prefixValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                          className={`w-20 px-3 py-2 border border-gray-300 text-sm rounded-l-md focus:outline-none focus:ring-2 bg-white ${!prefixValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
                         >
                           {DOCUMENT_PREFIX_OPTIONS.map(opt => (
                             <option key={opt} value={opt}>{opt}</option>
                           ))}
                         </select>
+
+                          {/* Inline extra 3-letter segment input (shown only when enabled) */}
+                          {useExtraSegment && (
+                            <input
+                              type="text"
+                              value={extraSegment}
+                              onChange={(e) => setExtraSegment(e.target.value.replace(/[^A-Za-z]/g, '').toUpperCase().slice(0,3))}
+                              placeholder="ABC"
+                              className={`w-20 px-3 py-2 border text-sm rounded-none bg-white focus:outline-none focus:ring-2 ${extraError ? 'border-red-400 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}`}
+                            />
+                          )}
 
                         {/* Identifier dropdown */}
                         <select
@@ -286,7 +319,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                             setDocumentIdentifier(e.target.value);
                             setConflictError(null);
                           }}
-                          className={`px-3 py-2 border border-gray-300 text-sm rounded-none focus:outline-none focus:ring-2 bg-white ${!identifierValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                          className={`w-24 px-3 py-2 border border-gray-300 text-sm rounded-none focus:outline-none focus:ring-2 bg-white ${!identifierValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
                         >
                           {identifierOptions.map(code => (
                             <option key={code} value={code}>{code}</option>
@@ -300,7 +333,7 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                             setDocumentSerial(e.target.value);
                             setConflictError(null);
                           }}
-                          className={`w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 rounded-r-md bg-white ${!serialValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                          className={`w-24 px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 rounded-r-md bg-white ${!serialValid ? 'border-red-400 focus:ring-red-500' : 'focus:ring-blue-500'}`}
                         >
                           <option value="" disabled>--</option>
                           {Array.from({ length: 999 }, (_, i) => i + 1).map((n) => {
@@ -313,6 +346,18 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                           })}
                         </select>
                       </div>
+                      {/* Toggle + format hint below */}
+                      <div className="mt-2 flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={useExtraSegment}
+                          onChange={(e) => setUseExtraSegment(e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-sm text-gray-700">Add extra 3-letter segment (A–Z only)</span>
+                        <span className="text-xs text-gray-500 whitespace-nowrap">Format: FM-XXX-XXX-000</span>
+                      </div>
+
                       {/* Inline validation messages */}
                       {!prefixValid && (
                         <p className="mt-1 text-xs text-red-600">Prefix is required and must match allowed options.</p>
@@ -322,6 +367,9 @@ export default function DocumentDetailsCard({ template, onUpdateDocumentDetails,
                       )}
                       {!serialValid && (
                         <p className="mt-1 text-xs text-red-600">Serial is required and must be 1-3 digits (will be padded to 3).</p>
+                      )}
+                      {extraError && (
+                        <p className="mt-1 text-xs text-red-600">Extra segment must be exactly 3 alphabetic characters (A–Z).</p>
                       )}
                     </>
                   ) : (

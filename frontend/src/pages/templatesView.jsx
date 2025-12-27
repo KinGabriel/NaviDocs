@@ -507,8 +507,7 @@ export default function TemplatesView() {
         effectivity_date
       }));
 
-      // TODO: Add API call when backend is ready
-      // await updateDocumentDetailsAPI(template._id, { document_code, effectivity_date });
+
       
       // Refresh from server to get authoritative state
       await refreshTemplate(template._id);
@@ -983,8 +982,8 @@ export default function TemplatesView() {
 
             {/* Template details and metadata */}
             <aside className={`${isLandscape
-                ? 'w-80 flex-shrink-0'
-                : 'w-full lg:w-4/12'
+                ? 'w-96 flex-shrink-0'
+                : 'w-full lg:w-5/12'
               } self-start sticky top-20`}>
               <div className="space-y-4">
                 {/* Template Status Panel */}
