@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { ChevronDown, ChevronRight, Trash2, ChevronLeft, Plus, Eye, Settings, Layers, Grid, List } from "lucide-react";
+import { ChevronDown, ChevronRight, Trash2, ChevronLeft, Plus, RectangleEllipsis, Settings, Layers, Lightbulb } from "lucide-react";
 import TagPicker from "./tagPicker";
 import { makeId } from "../../utils/ids";
 import PermanentlyDeleteDocumentModal from "../modals/permanentlyDeleteDocumentModal";
@@ -57,7 +57,6 @@ export default function AccordionList({
   
   // Field pagination per accordion
   const [fieldPage, setFieldPage] = useState({});
-  const [viewMode, setViewMode] = useState({});
   
   // Field creation wizard state
   const [showFieldWizard, setShowFieldWizard] = useState(null);
@@ -355,20 +354,13 @@ export default function AccordionList({
     }));
   };
 
-  const toggleViewMode = (accId) => {
-    setViewMode((prev) => ({
-      ...prev,
-      [accId]: prev[accId] === 'grid' ? 'list' : 'grid'
-    }));
-  };
-
   return (
     <div className="space-y-5">
       {/* Header with stats */}
       <div className="bg-white rounded-lg border-t-8 border-indigo-600 p-6 shadow-sm">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-normal text-gray-900 mb-1">Field Configuration</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-1">Field Configuration</h2>
             <p className="text-sm text-gray-600">Create and organize your document fields</p>
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-600">
@@ -384,7 +376,7 @@ export default function AccordionList({
         </div>
 
       {/* New group input */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -399,18 +391,18 @@ export default function AccordionList({
           />
             <button
               onClick={addAccordion}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors flex items-center gap-2"
+              className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors flex items-center gap-1.5 whitespace-nowrap"
             >
-              <Plus className="w-4 h-4" />
-              Add Section
+              <Plus className="w-3.5 h-3.5" />
+              Add
             </button>
+          </div>
             <button
               onClick={() => onBrowse && onBrowse()}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              className="rounded-md border border-gray-300 px-3 py-2.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors w-full sm:w-auto"
             >
               Browse Sections
             </button>
-        </div>
         {groupNameError && (
           <p className="text-xs text-red-600 px-1">{groupNameError}</p>
         )}
@@ -432,7 +424,6 @@ export default function AccordionList({
           const currentPage = fieldPage[acc.id] || 0;
           const totalPages = getTotalPages(acc.fields || []);
           const paginatedFields = getFieldsForPage(acc.fields || [], acc.id);
-          const currentViewMode = viewMode[acc.id] || 'list';
 
         return (
           <div key={acc.id} className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -456,18 +447,18 @@ export default function AccordionList({
                   )}
 
                 {renaming[acc.id] && (
-                  <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1.5 flex-1" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="text"
-                      className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                      className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
                       value={renameDraft[acc.id] ?? acc.name}
                       onChange={(e) =>
                       setRenameDraft((prev) => ({ ...prev, [acc.id]: e.target.value }))
                       }
-                       autoFocus
+                      autoFocus
                     />
                     <button
-                      className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+                      className="rounded-md bg-indigo-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 whitespace-nowrap"
                       onClick={() => {
                         const newName = (renameDraft[acc.id] ?? acc.name).trim();
                         if (!newName) return;
@@ -487,7 +478,7 @@ export default function AccordionList({
                       Save
                     </button>
                     <button
-                      className="rounded-md border border-gray-300 px-3 py-1.5 text-xs hover:bg-gray-50"
+                      className="rounded-md border border-gray-300 px-2 py-1.5 text-xs hover:bg-gray-50 whitespace-nowrap"
                       onClick={() => setRenaming((prev) => ({ ...prev, [acc.id]: false }))}
                     >
                       Cancel
@@ -536,15 +527,6 @@ export default function AccordionList({
                       Add Field
                     </button>
                     <div className="flex items-center gap-2">
-                      {acc.fields?.length > 0 && (
-                        <button
-                          onClick={() => toggleViewMode(acc.id)}
-                          className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-                          title={`Switch to ${currentViewMode === 'grid' ? 'list' : 'grid'} view`}
-                        >
-                          {currentViewMode === 'grid' ? <List size={18} className="text-gray-600" /> : <Grid size={18} className="text-gray-600" />}
-                        </button>
-                      )}
                       <button
                         onClick={() => isSignedIn && onSaveGroup && onSaveGroup(acc)}
                     disabled={!isSignedIn}
@@ -645,11 +627,11 @@ export default function AccordionList({
                 {/* Fields List */}
                 {acc.fields.length === 0 ? (
                   <div className="text-center py-8 bg-white rounded-lg border-2 border-dashed border-gray-300">
-                      <Eye className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <RectangleEllipsis className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                       <p className="text-sm text-gray-500 mb-2">No fields yet</p>
                       <button
                         onClick={() => startFieldWizard(acc.id)}
-                        className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                        className="text-sm text-indigo-600 hover:text-indigo-700 font-medium underline"
                       >
                         Add your first field
                       </button>
@@ -668,51 +650,58 @@ export default function AccordionList({
                         </div>
                       )}
 
-                      {/* Fields Grid/List */}
-                      <div className={currentViewMode === 'grid' ? 'grid grid-cols-1 gap-2' : 'space-y-2'}>
+                      {/* Fields List */}
+                      <div className="space-y-2">
                         {paginatedFields.map((f, fIdx) => {
                           const actualIndex = currentPage * FIELDS_PER_PAGE + fIdx;
                           return (
                             <div
                               key={f.id}
-                              className="rounded-lg border border-gray-200 bg-white p-3 hover:border-gray-300 transition-colors"
+                              className="rounded-lg border border-gray-200 bg-white p-4 hover:border-gray-300 transition-colors"
                             >
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-xs font-medium text-gray-500">#{actualIndex + 1}</span>
-                                    <h5 className="font-medium text-gray-900 text-sm">{f.name}</h5>
-                                    <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
+                              {/* Header Row */}
+                              <div className="flex items-start justify-between gap-3 mb-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                    <span className="text-xs font-medium text-gray-500 shrink-0">#{actualIndex + 1}</span>
+                                    <h5 className="font-medium text-gray-900 text-sm break-words">{f.name}</h5>
+                                    <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full shrink-0">
                                       {f.type}
                                     </span>
                                   </div>
-                                  <p className="text-xs text-gray-500">
+                                  <p className="text-xs text-gray-500 mb-1">
                                     <span className="italic" style={previewStyle}>{f.placeholder}</span>
                                   </p>
                                   {f.type === "date" && f.dateFormat && (
-                                    <p className="text-xs text-gray-500 mt-1">Format: {f.dateFormat}</p>
-                                  )}
-                                  {f.instructions && (
-                                    <p className="text-xs text-gray-600 mt-1 bg-blue-50 p-2 rounded border border-blue-200">
-                                      💡 {f.instructions}
-                                    </p>
+                                    <p className="text-xs text-gray-500">Format: {f.dateFormat}</p>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-2">
+                                
+                                {/* Action Buttons */}
+                                <div className="flex items-start gap-2 shrink-0">
                                   <button
                                     onClick={() => insertFieldToEditor(acc, f)}
-                                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-700 transition-colors"
+                                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-700 transition-colors whitespace-nowrap"
                                   >
                                     Insert
                                   </button>
                                   <button
                                     onClick={() => askDeleteField(acc.id, f)}
-                                    className="px-3 py-1.5 bg-red-50 text-red-600 rounded-md text-xs font-medium hover:bg-red-100 transition-colors"
+                                    className="px-3 py-1.5 bg-red-50 text-red-600 rounded-md text-xs font-medium hover:bg-red-100 transition-colors whitespace-nowrap"
                                   >
                                     Delete
                                   </button>
                                 </div>
                               </div>
+
+                              {/* Instructions (if any) */}
+                              {f.instructions && (
+                                <p className="text-xs text-gray-600 mb-3 bg-blue-50 p-2 rounded border border-blue-200">
+                                  <Lightbulb size={48} color="#ecc227" strokeWidth={4} className="w-3 h-3 inline mr-1" /> {f.instructions}
+                                </p>
+                              )}
+
+                              {/* Tags */}
                               <TagPicker
                                 availableTags={tagsRegistry}
                                 selectedTags={f.tags}
@@ -807,7 +796,7 @@ export default function AccordionList({
                       className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
                       autoFocus
                     />
-                    <p className="text-xs text-gray-500 mt-1">This is the label users will see</p>
+                    <p className="text-xs italic text-gray-500 mt-1">This is the label users will see</p>
                   </div>
 
                   <div>
