@@ -700,6 +700,21 @@ export const submitTemplate = async (req, res) => {
     template.status_meta = template.status_meta || {};
     template.status_meta.approvals = template.status_meta.approvals || { unit_document_controller: {}, lead_document_controller: {}, document_controller_officer: {} };
 
+    // Capture and preserve revision information from frontend
+    const { is_revision, doc_code } = req.body;
+    if (is_revision !== undefined || doc_code !== undefined) {
+      // Initialize revision object if it doesn't exist
+      template.status_meta.revision = template.status_meta.revision || {};
+      
+      // Only update fields that are provided; preserve existing values
+      if (is_revision !== undefined) {
+        template.status_meta.revision.is_revision = is_revision === true || is_revision === 'true';
+      }
+      if (doc_code !== undefined && doc_code !== null) {
+        template.status_meta.revision.doc_code = doc_code;
+      }
+    }
+
   // Capture existing approvals and whether this is a resubmission
   const submitterRole = normalizeRoleDisplay(String(req.user?.role?.name || ''));
   const approvals = template.status_meta.approvals;

@@ -478,11 +478,13 @@ export const returnTemplateAPI = async (templateId, reason) => {
  * @param {string} document_controller_officer_id - Document Control Officer user id to assign as approver.
  * @returns {Promise<{success:boolean,message:string,template:Object}>}
  */
-export const submitTemplateAPI = async (templateId, lead_document_controller_id, document_controller_officer_id, unit_document_controller_id) => {
+export const submitTemplateAPI = async (templateId, lead_document_controller_id, document_controller_officer_id, unit_document_controller_id, is_revision, doc_code) => {
   const payload = {};
   if (lead_document_controller_id) payload.lead_document_controller_id = lead_document_controller_id;
   if (document_controller_officer_id) payload.document_controller_officer_id = document_controller_officer_id;
   if (unit_document_controller_id) payload.unit_document_controller_id = unit_document_controller_id;
+  if (is_revision !== undefined) payload.is_revision = is_revision;
+  if (doc_code) payload.doc_code = doc_code;
   const res = await axios.patch(
     `${API_URL}/api/templates/${templateId}/submit`,
     payload,

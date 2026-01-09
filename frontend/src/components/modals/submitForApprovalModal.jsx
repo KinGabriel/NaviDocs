@@ -163,15 +163,24 @@ export default function SubmitForApprovalModal({
     ) {
       setInstructions("");
       setError(false);
-      setRevisionDocCode("");
-      setRevisionError(false);
       setSubmitSuccess(false);
       
       // Auto-set submission type based on status
       if (status === "returned") {
         setSubmissionType("revision");
+        // Use existing revision doc_code if available
+        const existingDocCode = template?.status_meta?.revision?.doc_code;
+        if (existingDocCode) {
+          setRevisionDocCode(existingDocCode);
+          setRevisionError(false);
+        } else {
+          setRevisionDocCode("");
+          setRevisionError(false);
+        }
       } else {
         setSubmissionType("creation");
+        setRevisionDocCode("");
+        setRevisionError(false);
       }
 
       // reset fetch error
@@ -270,8 +279,9 @@ export default function SubmitForApprovalModal({
   const handleSubmit = async () => {
     // validation in revision mode
     if (submissionType === "revision" || status === "returned") {
-      // Only validate revisionDocCode - instructions are optional
-      if (!revisionDocCode) {
+      // For returned status with existing doc_code, skip validation
+      const existingDocCode = status === "returned" && template?.status_meta?.revision?.doc_code;
+      if (!existingDocCode && !revisionDocCode) {
         setRevisionError(true);
         return;
       }
@@ -290,7 +300,15 @@ export default function SubmitForApprovalModal({
 
       // DRAFT
       if (status === "draft") {
-        const submitRes = await submitTemplateAPI(templateId);
+        const isRevision = submissionType === "revision";
+        const submitRes = await submitTemplateAPI(
+          templateId,
+          undefined,
+          undefined,
+          undefined,
+          isRevision,
+          revisionDocCode
+        );
 
         if (instructions.trim()) {
           try {
@@ -328,7 +346,15 @@ export default function SubmitForApprovalModal({
 
       // ASSIGNED or RETURNED
       if (status === "assigned" || status === "returned") {
-        const submitRes = await submitTemplateAPI(templateId);
+        const isRevision = submissionType === "revision" || status === "returned";
+        const submitRes = await submitTemplateAPI(
+          templateId,
+          undefined,
+          undefined,
+          undefined,
+          isRevision,
+          revisionDocCode
+        );
 
         if (instructions.trim()) {
           try {
@@ -657,8 +683,8 @@ export default function SubmitForApprovalModal({
             </div>
           )}
 
-          {/* Document Code Selection - Show only when revision type is selected for draft/assigned (not for returned status) */}
-          {submissionType === "revision" && (status === "draft" || status === "assigned") && (
+          {/* Document Code Selection - Show when revision type is selected OR when status is returned (without existing doc_code) */}
+          {(submissionType === "revision" && (status === "draft" || status === "assigned")) || (status === "returned" && !template?.status_meta?.revision?.doc_code) ? (
             <div className="space-y-3 pb-4 border-b border-slate-200">
               <h3 className="text-base font-medium text-slate-900 flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-purple-500" />
@@ -735,7 +761,7 @@ export default function SubmitForApprovalModal({
                 </div>
               )}
             </div>
-          )}
+          ) : null}
           {/* Show approval progress when status is pending or when draft/assigned/returned has existing approvals */}
           {(status === "pending" ||
             (status === "draft" && hasExistingApprovals()) ||

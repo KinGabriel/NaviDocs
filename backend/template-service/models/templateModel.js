@@ -57,6 +57,12 @@ const templateSchema = new mongoose.Schema({
     submitted_at: { type: Date, default: null },
     unsubmitted_at: { type: Date, default: null },
 
+    // Revision tracking
+    revision: {
+      is_revision: { type: Boolean, default: false },
+      doc_code: { type: String, default: null }
+    },
+
     approvals: {
       // Optional first stage approver (only required when submitted by Faculty)
       unit_document_controller: {
