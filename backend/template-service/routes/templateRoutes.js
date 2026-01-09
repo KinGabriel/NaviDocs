@@ -12,7 +12,9 @@ import {
                 renameTemplate,
                 archiveTemplate,
                 unarchiveTemplate,
-                getArchivedTemplates
+                getArchivedTemplates,
+                getDocumentCodes,
+                getDocumentCodeDetails
 } from "../controllers/templateFunctionalitiesController.js";
 
 
@@ -57,6 +59,8 @@ router.post("/assign", authenticateJWT, assignUsersToCreateTemplate);
 router.get("/dashboard-info", authenticateJWT, dashboardInfoDocConroller);
 router.get("/stats", authenticateJWT, getTemplateStats);
 router.get("/published", authenticateJWT, getPublishedTemplates);
+router.get("/document-codes", authenticateJWT, getDocumentCodes);
+router.get("/document-codes/details", authenticateJWT, getDocumentCodeDetails);
 router.get("/user/:userId", authenticateJWT, getTemplatesByUser);
 router.get("/archived", authenticateJWT, getArchivedTemplates);
 router.get('/dashboard-dept-head', authenticateJWT, dashboardDeptHead);

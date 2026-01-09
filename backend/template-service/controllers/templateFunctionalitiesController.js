@@ -1155,3 +1155,150 @@ export const getArchivedTemplates = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get all unique document codes from templates
+ * Useful for revision workflows where users select which document they're revising
+ * 
+ * @route GET /api/templates/document-codes
+ * @access Private (requires authentication)
+ * @param {Object} req - Express request object
+ * @param {Object} req.query - Query parameters
+ * @param {string} [req.query.status] - Filter by template status (e.g., 'published', 'approved')
+ * @param {string} [req.query.school] - Filter by school
+ * @param {Object} res - Express response object
+ * @returns {Object} { success: true, data: { documentCodes: string[], count: number } }
+ */
+export const getDocumentCodes = async (req, res) => {
+  try {
+    const { status, school } = req.query;
+    
+    // Build query filter
+    const query = {};
+    
+    // Filter by status if provided (default to published for revision workflows)
+    if (status) {
+      query.status = status;
+    } else {
+      query.status = 'published'; // Default to published templates only
+    }
+    
+    // Filter by school if provided
+    if (school && school !== 'All') {
+      query.school = school;
+    }
+    
+    // Filter out templates without document codes
+    query.document_code = { $exists: true, $ne: null, $ne: '' };
+    
+    // Fetch distinct document codes
+    const documentCodes = await Template.distinct('document_code', query);
+    
+    // Filter and sort
+    const validCodes = documentCodes
+      .filter(code => code && String(code).trim())
+      .map(code => String(code).toUpperCase().trim())
+      .sort();
+    
+    // Remove duplicates (case-insensitive)
+    const uniqueCodes = [...new Set(validCodes)];
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        documentCodes: uniqueCodes,
+        count: uniqueCodes.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching document codes:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch document codes'
+    });
+  }
+};
+
+/**
+ * Get document code details including template info
+ * Returns templates grouped by document code with their metadata
+ * 
+ * @route GET /api/templates/document-codes/details
+ * @access Private (requires authentication)
+ * @param {Object} req - Express request object
+ * @param {Object} req.query - Query parameters
+ * @param {string} [req.query.status] - Filter by template status
+ * @param {string} [req.query.school] - Filter by school
+ * @param {Object} res - Express response object
+ * @returns {Object} { success: true, data: { codeDetails: Array } }
+ */
+export const getDocumentCodeDetails = async (req, res) => {
+  try {
+    const { status, school } = req.query;
+    
+    // Build query filter
+    const query = {
+      document_code: { $exists: true, $ne: null, $ne: '' }
+    };
+    
+    if (status) {
+      query.status = status;
+    } else {
+      query.status = 'published';
+    }
+    
+    if (school && school !== 'All') {
+      query.school = school;
+    }
+    
+    // Fetch templates with document codes
+    const templates = await Template.find(query)
+      .select('document_code title revision_no effectivity status created_at')
+      .sort({ document_code: 1, revision_no: -1 })
+      .lean();
+    
+    // Group by document code
+    const grouped = {};
+    templates.forEach(template => {
+      const code = String(template.document_code).toUpperCase().trim();
+      if (!grouped[code]) {
+        grouped[code] = {
+          documentCode: code,
+          templates: [],
+          latestRevision: 0
+        };
+      }
+      grouped[code].templates.push({
+        id: template._id,
+        title: template.title,
+        revisionNo: template.revision_no || 0,
+        effectivity: template.effectivity,
+        status: template.status,
+        createdAt: template.created_at
+      });
+      
+      const revNo = template.revision_no || 0;
+      if (revNo > grouped[code].latestRevision) {
+        grouped[code].latestRevision = revNo;
+      }
+    });
+    
+    const codeDetails = Object.values(grouped).sort((a, b) => 
+      a.documentCode.localeCompare(b.documentCode)
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        codeDetails,
+        count: codeDetails.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching document code details:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch document code details'
+    });
+  }
+};

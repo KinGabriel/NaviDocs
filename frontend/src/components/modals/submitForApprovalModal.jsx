@@ -40,6 +40,7 @@ import {
   submitTemplateAPI,
   addTemplateNoteAPI,
   fetchPublishedTemplatesAPI,
+  fetchDocumentCodesAPI,
 } from "../../api/documentContollerAPI";
 
 /**
@@ -137,6 +138,9 @@ export default function SubmitForApprovalModal({
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [error, setError] = useState(false);
 
+  // Submission type: 'creation' or 'revision'
+  const [submissionType, setSubmissionType] = useState("creation");
+  
   // revision-specific state
   const [revisionDocCode, setRevisionDocCode] = useState("");
   const [revisionError, setRevisionError] = useState(false);
@@ -148,8 +152,8 @@ export default function SubmitForApprovalModal({
   const [revisionLoading, setRevisionLoading] = useState(false);
   const [revisionFetchError, setRevisionFetchError] = useState("");
 
-  // treat returned status as revision mode
-  const isRevision = status === "returned";
+  // treat returned status as revision mode by default
+  const isRevision = status === "returned" || submissionType === "revision";
 
   // reset form when opened / status changes
   useEffect(() => {
@@ -162,6 +166,13 @@ export default function SubmitForApprovalModal({
       setRevisionDocCode("");
       setRevisionError(false);
       setSubmitSuccess(false);
+      
+      // Auto-set submission type based on status
+      if (status === "returned") {
+        setSubmissionType("revision");
+      } else {
+        setSubmissionType("creation");
+      }
 
       // reset fetch error
       setRevisionFetchError("");
@@ -170,13 +181,12 @@ export default function SubmitForApprovalModal({
   }, [isOpen, status]);
 
   /**
-   * Effect: Fetches published templates' document codes for revision selection
-   * Only runs when modal is open and status is "returned"
-   * Merges fetched codes with initial prop values
+   * Effect: Fetches document codes for revision selection
+   * Runs when modal is open and submissionType is 'revision' or status is 'returned'
+   * Uses the new fetchDocumentCodesAPI for better performance
    */
-  // fetch published templates' document codes when in revision mode
   useEffect(() => {
-    if (!isOpen || status !== "returned") return;
+    if (!isOpen || (status !== "returned" && submissionType !== "revision")) return;
 
     let ignore = false;
 
@@ -185,30 +195,9 @@ export default function SubmitForApprovalModal({
       setRevisionFetchError("");
 
       try {
-        const params = {
-          limit: 500,
-          page: 1,
-        };
+        const result = await fetchDocumentCodesAPI({ status: 'published' });
 
-        const result = await fetchPublishedTemplatesAPI(params);
-
-        let arr = [];
-        if (result?.success && result.data?.templates) {
-          arr = result.data.templates;
-        } else if (Array.isArray(result?.templates)) {
-          arr = result.templates;
-        } else if (Array.isArray(result)) {
-          arr = result;
-        }
-
-        const codesFromAPI = [
-          ...new Set(
-            arr
-              .map((t) => t.document_code)
-              .filter(Boolean)
-              .map((c) => String(c).toUpperCase())
-          ),
-        ];
+        const codesFromAPI = result?.data?.documentCodes || [];
 
         const initialFromProp = Array.isArray(revisionTargetsProp)
           ? revisionTargetsProp.map((c) => String(c).toUpperCase())
@@ -227,9 +216,7 @@ export default function SubmitForApprovalModal({
             Array.isArray(revisionTargetsProp) ? revisionTargetsProp : []
           );
           setRevisionFetchError(
-            err?.response?.data?.message ||
-              err?.message ||
-              "Failed to load document codes for revision."
+            err?.message || "Failed to load document codes for revision."
           );
         }
       } finally {
@@ -242,7 +229,7 @@ export default function SubmitForApprovalModal({
     return () => {
       ignore = true;
     };
-  }, [isOpen, status, revisionTargetsProp]);
+  }, [isOpen, submissionType, status, revisionTargetsProp]);
 
   if (!isOpen) return null;
 
@@ -282,13 +269,13 @@ export default function SubmitForApprovalModal({
 
   const handleSubmit = async () => {
     // validation in revision mode
-    if (status === "returned") {
+    if (submissionType === "revision" || status === "returned") {
       // Only validate revisionDocCode - instructions are optional
       if (!revisionDocCode) {
         setRevisionError(true);
         return;
+      }
     }
-  }
 
     setIsSubmitting(true);
     setSubmitSuccess(false);
@@ -307,10 +294,19 @@ export default function SubmitForApprovalModal({
 
         if (instructions.trim()) {
           try {
-            const noteText = instructions.trim();
+            const noteText = submissionType === "revision" && revisionDocCode
+              ? `[REVISION OF: ${revisionDocCode}] ${instructions.trim()}`
+              : instructions.trim();
             await addTemplateNoteAPI(templateId, noteText);
           } catch (noteErr) {
             console.error("Add note (instructions) failed:", noteErr);
+          }
+        } else if (submissionType === "revision" && revisionDocCode) {
+          // Add revision note even if instructions are empty
+          try {
+            await addTemplateNoteAPI(templateId, `[REVISION OF: ${revisionDocCode}]`);
+          } catch (noteErr) {
+            console.error("Add note (revision) failed:", noteErr);
           }
         }
 
@@ -577,9 +573,7 @@ export default function SubmitForApprovalModal({
                       : "bg-blue-100 text-blue-800"
                   }`}
                 >
-                  {isRevision
-                    ? "Revision"
-                    : "Creation"}
+                  {isRevision ? "Revision" : "Creation"}
                 </span>
               </div>
             </div>
@@ -593,6 +587,155 @@ export default function SubmitForApprovalModal({
         </div>
 
         <div className="p-6 space-y-6 max-h-96 overflow-y-auto">
+          {/* Submission Type Selection - Only for draft/assigned without existing approvals (returned status always shows revision, no selection) */}
+          {(status === "draft" || status === "assigned") && !hasExistingApprovals() && (
+            <div className="space-y-3 pb-4 border-b border-slate-200">
+              <h3 className="text-base font-medium text-slate-900">
+                Submission Type
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubmissionType("creation");
+                    setRevisionDocCode("");
+                    setRevisionError(false);
+                  }}
+                  className={`px-4 py-3 rounded-lg border-2 transition-all text-left ${
+                    submissionType === "creation"
+                      ? "border-blue-500 bg-blue-50 text-blue-900"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      submissionType === "creation"
+                        ? "border-blue-500"
+                        : "border-slate-300"
+                    }`}>
+                      {submissionType === "creation" && (
+                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                      )}
+                    </div>
+                    <span className="font-semibold text-sm">Creation</span>
+                  </div>
+                  <p className="text-xs text-slate-600 ml-6">
+                    New template or document
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubmissionType("revision");
+                    setRevisionDocCode("");
+                    setRevisionError(false);
+                  }}
+                  className={`px-4 py-3 rounded-lg border-2 transition-all text-left ${
+                    submissionType === "revision"
+                      ? "border-purple-500 bg-purple-50 text-purple-900"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      submissionType === "revision"
+                        ? "border-purple-500"
+                        : "border-slate-300"
+                    }`}>
+                      {submissionType === "revision" && (
+                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                      )}
+                    </div>
+                    <span className="font-semibold text-sm">Revision</span>
+                  </div>
+                  <p className="text-xs text-slate-600 ml-6">
+                    Update to existing document
+                  </p>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Document Code Selection - Show only when revision type is selected for draft/assigned (not for returned status) */}
+          {submissionType === "revision" && (status === "draft" || status === "assigned") && (
+            <div className="space-y-3 pb-4 border-b border-slate-200">
+              <h3 className="text-base font-medium text-slate-900 flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-purple-500" />
+                Previous Document Code
+              </h3>
+              <p className="text-xs text-slate-500">
+                Select the document code that this revision is based on.
+              </p>
+
+              {revisionTargets && revisionTargets.length > 0 ? (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-slate-800">
+                    Document code to be revised{" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={revisionDocCode}
+                    onChange={handleRevisionDocCodeChange}
+                    disabled={revisionLoading}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 bg-white ${
+                      revisionError
+                        ? "border-red-400 focus:ring-red-500"
+                        : "border-slate-200 focus:ring-blue-500"
+                    } ${revisionLoading ? "bg-slate-100 cursor-wait" : ""}`}
+                  >
+                    <option value="">
+                      {revisionLoading
+                        ? "Loading document codes..."
+                        : "Select document code"}
+                    </option>
+                    {revisionTargets.map((code) => (
+                      <option key={code} value={code}>
+                        {code}
+                      </option>
+                    ))}
+                  </select>
+                  {revisionFetchError && (
+                    <p className="mt-1 text-xs text-amber-700 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {revisionFetchError}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-slate-800">
+                    Document code to be revised{" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={revisionDocCode}
+                    onChange={handleRevisionDocCodeChange}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                      revisionError
+                        ? "border-red-400 bg-red-50 focus:ring-red-500"
+                        : "border-slate-200 focus:ring-blue-500"
+                    }`}
+                    placeholder="Enter the document code you are revising (e.g., FM-CICM-001)..."
+                  />
+                  {revisionFetchError && (
+                    <p className="mt-1 text-xs text-amber-700 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {revisionFetchError} You can still type the code manually.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {revisionError && (
+                <div className="flex items-center gap-2 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  Please specify which document code this revision is for.
+                </div>
+              )}
+            </div>
+          )}
           {/* Show approval progress when status is pending or when draft/assigned/returned has existing approvals */}
           {(status === "pending" ||
             (status === "draft" && hasExistingApprovals()) ||
@@ -773,88 +916,6 @@ export default function SubmitForApprovalModal({
                   </div>
                 )}
               </div>
-
-              {/* Revision details when returned */}
-              {status === "returned" && (
-                <div className="space-y-3">
-                  <h3 className="text-base font-medium text-slate-900 flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-amber-500" />
-                    Revision Details
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    This submission is for a revision. Please indicate which
-                    document code will be revised.
-                  </p>
-
-                  {revisionTargets && revisionTargets.length > 0 ? (
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-slate-800">
-                        Document code to be revised{" "}
-                        <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={revisionDocCode}
-                        onChange={handleRevisionDocCodeChange}
-                        disabled={revisionLoading}
-                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 bg-white ${
-                          revisionError
-                            ? "border-red-400 focus:ring-red-500"
-                            : "border-slate-200 focus:ring-blue-500"
-                        } ${revisionLoading ? "bg-slate-100 cursor-wait" : ""}`}
-                      >
-                        <option value="">
-                          {revisionLoading
-                            ? "Loading document codes..."
-                            : "Select document code"}
-                        </option>
-                        {revisionTargets.map((code) => (
-                          <option key={code} value={code}>
-                            {code}
-                          </option>
-                        ))}
-                      </select>
-                      {revisionFetchError && (
-                        <p className="mt-1 text-xs text-amber-700 flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" />
-                          {revisionFetchError}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-slate-800">
-                        Document code to be revised{" "}
-                        <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={revisionDocCode}
-                        onChange={handleRevisionDocCodeChange}
-                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
-                          revisionError
-                            ? "border-red-400 bg-red-50 focus:ring-red-500"
-                            : "border-slate-200 focus:ring-blue-500"
-                        }`}
-                        placeholder="Enter the document code you are revising (e.g., FM-CICM-001)..."
-                      />
-                      {revisionFetchError && (
-                        <p className="mt-1 text-xs text-amber-700 flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" />
-                          {revisionFetchError} You can still type the code
-                          manually.
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {revisionError && (
-                    <div className="flex items-center gap-2 text-sm text-red-600">
-                      <AlertCircle className="h-4 w-4" />
-                      Please specify which document code this revision is for.
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Instructions field */}
               <div className="space-y-3">

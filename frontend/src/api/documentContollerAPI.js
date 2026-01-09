@@ -157,6 +157,45 @@ export const fetchPublishedTemplatesAPI = async ({ school, search, limit = 50, p
 };
 
 /**
+ * Fetch unique document codes from templates
+ * Used for revision workflows where users select which document they're revising
+ * @param {Object} params - { status, school }
+ * @returns {Promise<{success:boolean,data:{documentCodes:Array,count:number}}>} API response with document codes
+ */
+export const fetchDocumentCodesAPI = async ({ status = 'published', school } = {}) => {
+  try {
+    const params = { status };
+    if (school && school !== 'All') params.school = school;
+    const res = await axios.get(`${API_URL}/api/templates/document-codes`, {
+      params,
+      withCredentials: true,
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to fetch document codes');
+  }
+};
+
+/**
+ * Fetch document code details with template metadata
+ * @param {Object} params - { status, school }
+ * @returns {Promise<{success:boolean,data:{codeDetails:Array,count:number}}>} API response with code details
+ */
+export const fetchDocumentCodeDetailsAPI = async ({ status = 'published', school } = {}) => {
+  try {
+    const params = { status };
+    if (school && school !== 'All') params.school = school;
+    const res = await axios.get(`${API_URL}/api/templates/document-codes/details`, {
+      params,
+      withCredentials: true,
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to fetch document code details');
+  }
+};
+
+/**
  * Create a new template.
  * Expects backend to auto-generate document_code and default page structure if not provided.
  * Supports offline mode - queues creation when offline.
