@@ -511,6 +511,13 @@ export const getTemplates = async (req, res) => {
                 { status: 'returned' },
                
               ]
+            },  {
+              // Show approved templates (UDC can configure document codes)
+              status: 'approved'
+            },
+            {
+              // Show published templates
+              status: 'published'
             }
           ]
         };
