@@ -1046,6 +1046,30 @@ export default function TemplatesView() {
                   </div>
                 </div>
 
+                {/* Submission Type Panel - show when not approved/published */}
+                {template  && (
+                  <div className="bg-white border rounded-md shadow-sm">
+                    <div className="p-5">
+                      <div className="mb-4">
+                        <h3 className="text-base font-semibold tracking-widest text-gray-900 uppercase font-sans mb-1">
+                          Submission Type
+                        </h3>
+                        <div className="w-16 h-0.5 bg-yellow-400 mb-3 rounded" />
+                        <div className="text-base text-gray-900 font-sans">
+                          {template.status_meta?.revision?.is_revision ? (
+                            <>
+                              <div>This is a revision of template code: <br></br> <span className="font-medium"> 
+                                {template.status_meta?.revision?.doc_code || 'N/A'}</span></div>
+                            </>
+                          ) : (
+                            <>This is a new template creation.</>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* DocumentDetailsCard - show only when status is approved or published; UDC can edit */}
                 {template && (template.status === 'approved' || template.status === 'published') && (
                   <DocumentDetailsCard

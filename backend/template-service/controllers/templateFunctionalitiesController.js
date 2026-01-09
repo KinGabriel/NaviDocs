@@ -1196,12 +1196,12 @@ export const getDocumentCodes = async (req, res) => {
     
     // Filter and sort
     const validCodes = documentCodes
-      .filter(code => code && String(code).trim())
+      .filter(code => code && String(code).trim() && code !== null && code !== undefined)
       .map(code => String(code).toUpperCase().trim())
       .sort();
     
     // Remove duplicates (case-insensitive)
-    const uniqueCodes = [...new Set(validCodes)];
+    const uniqueCodes = [...new Set(validCodes)].filter(code => code && code !== 'NULL');
     
     res.status(200).json({
       success: true,
