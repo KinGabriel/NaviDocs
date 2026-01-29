@@ -1054,10 +1054,34 @@ export default function TaskAssignmentModal({ isOpen, onClose, onAssign }) {
           {currentStep === 3 && (
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <Users size={16} />
-                  Assign To <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Users size={16} />
+                    Assign To <span className="text-red-500">*</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      checked={allUsers.length > 0 && assignedUsers.length === allUsers.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          const allIds = allUsers
+                            .map((u) => u._id || u.id)
+                            .filter(Boolean);
+                          setAssignedUsers(allIds);
+                          if (errors.assignedUsers) {
+                            setErrors((prev) => ({ ...prev, assignedUsers: '' }));
+                          }
+                        } else {
+                          setAssignedUsers([]);
+                        }
+                      }}
+                      aria-label="Select all faculty"
+                    />
+                    Select all
+                  </label>
+                </div>
 
                 {errors.assignedUsers && (
                   <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
